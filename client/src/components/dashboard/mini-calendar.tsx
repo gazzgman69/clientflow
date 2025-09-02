@@ -66,8 +66,8 @@ export default function MiniCalendar() {
         {/* Calendar Grid */}
         <div className="grid grid-cols-7 gap-1 text-center text-xs">
           {/* Day headers */}
-          {daysOfWeek.map((day) => (
-            <div key={day} className="p-2 text-muted-foreground font-medium">
+          {daysOfWeek.map((day, index) => (
+            <div key={`day-header-${index}`} className="p-2 text-muted-foreground font-medium">
               {day}
             </div>
           ))}

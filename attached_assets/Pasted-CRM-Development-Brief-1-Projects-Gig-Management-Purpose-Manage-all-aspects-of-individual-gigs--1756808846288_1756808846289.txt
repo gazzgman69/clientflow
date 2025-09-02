@@ -1,0 +1,185 @@
+CRM Development Brief
+
+1. Projects (Gig Management)
+
+Purpose: Manage all aspects of individual gigs/projects.
+
+Key Features
+
+1. Core Fields:
+    * Date, time, and location.
+    * Stored locations for frequently used venues (create a Venues data type).
+    * Assigned musicians/members (linked to Members data type).
+    * Line-up booked by the client.
+    * Event type (e.g., wedding, corporate, Private).
+2. Communication & Documentation:
+    * Centralized email trails linked to the project.
+    * Linked invoices, contracts, and questionnaires (linked to Financial Management and Custom Forms data types).
+    * File uploads for sharing documents (e.g., setlists, itineraries).
+    * Calendar Scheduler for booking in calls/zoom meetings
+3. Project Management:
+    * Dynamic Notes: Log important updates or conversations for each project.
+    * Custom Fields: Allow adding dynamic fields to adapt to unique project needs.
+    * Task Management: Include to-do lists, subtasks, and dependencies.
+        * Example: "Send contract" cannot be marked complete until "Confirm lineup" is done. Include alerts for dependencies.
+4. Flexibility:
+    * Ensure scalability for additional fields or features as business needs grow.
+
+2. Members (Musician Management)
+
+Purpose: Manage musician profiles and assignments.
+
+Key Features
+
+1. Core Fields:
+    * Name, instrument, address, availability, email, phone number, and payment details.
+    * Gig history, client feedback, and a "preferred status" marker.
+2. Assignment Workflow:
+    * Organize musicians by instrument or availability for efficient booking.
+    * Assign multiple musicians to gigs in bulk (filtered by criteria such as instrument or availability).
+    * Priority assignment with drag-and-drop reordering for communication workflows.
+3. Communication & Calendar:
+    * Automated communication workflows with "Available" and "Unavailable" buttons.
+    * Communication templates (predefined email/SMS/WhatsApp messages).
+    * Calendar sync with personal calendars (Google/Apple).
+4. Portal Features:
+    * Dashboard showing assigned gigs in a calendar or timeline view.
+    * Unavailable Dates: Allow musicians to block out dates for conflicts or vacations.
+    * Running tally of gig fees for financial transparency.
+
+3. Contacts (Client Management)
+
+Purpose: Store and manage client data.
+
+Key Features
+
+1. Core Fields:
+    * Name, email, phone, address, company name, and birthday.
+    * Automated booking status based on contract signing (e.g., Inquiry, Pending, Booked).
+2. Client Management:
+    * Tags: Add color-coded tags for categorization (e.g., VIP, Repeat Client).
+    * Bulk tagging and editing.
+3. Insights:
+    * Lifetime Value Tracker: Automatically calculate revenue generated per client.
+    * Follow-Up Reminders: Automated reminders for inactive or high-value clients.
+4. Communication Preferences:
+    * Track client preferences (e.g., email, phone, WhatsApp).
+
+4. Communication
+
+Purpose: Centralize and automate email/SMS/WhatsApp communications.
+
+Key Features
+
+1. Email Management:
+    * Use user email addresses for incoming/outgoing communication.
+    * Option to use SendGrid for advanced functionality.
+2. Automation:
+    * 3 autoresponders for follow-up emails (stop sequence upon client response).
+    * Automated reminders for invoices, contracts, and feedback requests.
+3. Advanced Features:
+    * Threaded conversations in a chat-like interface.
+    * Email batching for bulk communication with musicians or clients.
+    * Custom notifications for milestones (e.g., "1 day before gig").
+    * Analytics: Track open rates, response times, and click-through rates.
+4. WhatsApp & SMS:
+    * Integrate WhatsApp with two-way communication capabilities.
+    * Include SMS as a fallback option.
+
+5. Financial Management
+
+Purpose: Handle invoicing, payments, and profitability tracking.
+
+Key Features
+
+1. Invoice Features:
+    * Store services with pricing, tax/VAT options, and descriptions.
+    * Auto-fill client details and calculate totals dynamically.
+    * Online payment options with toggle for enabling/disabling.
+2. Advanced Features:
+    * Recurring invoices for repeat clients.
+    * Payment status dashboard (paid, overdue, pending).
+    * Partial payment functionality (e.g., deposits).
+    * Connect to Quickbooks for Invoicing 
+3. Analytics:
+    * Profitability analysis: Calculate net revenue per project after expenses (e.g., musician fees).
+    * Automate reminders for overdue invoices.
+
+6. Custom Forms and Fields
+
+Purpose: Provide flexibility in data collection and management.
+
+Key Features
+
+1. Form Builder:
+    * Unlimited custom fields with support for dynamic input types (text, number, date, file, etc.).
+    * Link form submissions to specific projects.
+    * Save frequently used form templates.
+2. Permissions & Views:
+    * Global form view for admins.
+    * Field-level permissions to control visibility based on roles.
+3. Database Structure:
+    * Use an Option Set for field types (e.g., Text, Number, Date).
+    * Use two data types: Custom Field and Custom Field Value.
+
+7. Reporting and Analytics
+
+Purpose: Provide actionable insights.
+
+Key Features
+
+1. Financial Analytics:
+    * Revenue, musician performance, and net profitability.
+2. Operational Insights:
+    * Track upcoming gigs and projects needing musician assignments.
+3. Custom Reports:
+    * Let users define specific criteria for tailored reports.
+    * Feedback insights to identify client preferences or issues.
+4. Forecasting:
+    * Predict revenue and musician availability trends.
+
+8. Automation
+
+Purpose: Streamline repetitive processes.
+
+Key Features
+
+1. Workflow Templates:
+    * Predefined workflows (e.g., "Wedding Project Workflow").
+    * Default musician assignment pending human confirmation.
+2. Milestone Alerts:
+    * Trigger notifications or actions based on project milestones.
+3. Time-Based Automations:
+    * Automate monthly revenue summaries or availability checks.
+
+9. Portals & Dashboards
+
+Purpose: Create role-specific views for admins, musicians, and clients.
+
+Admin Dashboard:
+
+* Unified inbox for client/musician communications.
+* Calendar view for a 7-day overview.
+* Pending and overdue items (contracts, invoices).
+* Configurable widgets for quick access to key metrics.
+* Access to Dashboard, Contacts, Leads, Projects, Calendar, Musicians, Tasks, To-Do, Documents, 
+Musician Portal:
+* View gig details (location, timings, fee, dress code).
+* Submit invoices (auto-generated where possible).
+* Block out unavailable dates.
+* Track gig history and feedback.
+Client Portal:
+* View/download/pay invoices.
+* View/sign/download contracts.
+* Upload/download files (e.g., certificates, photos).
+* Receive push notifications for updates.
+
+Additional Features
+1. AI Integration:
+    * Auto-generate email replies or quotes using contextual information.
+    * Summarize email threads or predict musician performance.
+2. Mobile Optimization:
+    * Unified app for admin, client, and musician access with login-based views.
+3. Offline Access:
+    * Partial offline access for key project or musician data, with syncing upon reconnecting.
+

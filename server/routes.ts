@@ -1159,6 +1159,164 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Enhanced Dashboard APIs
+  app.get("/api/dashboard/client-activity", async (req, res) => {
+    try {
+      // Mock client activity data - in real implementation, would aggregate from multiple sources
+      const activities = [
+        {
+          id: "1",
+          type: "contract_viewed",
+          clientName: "Sarah Johnson",
+          projectName: "Wedding Reception",
+          documentTitle: "Performance Contract #WR-2024-001",
+          timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000),
+          description: "Opened and viewed contract",
+          clientId: "client-1",
+          projectId: "project-1"
+        },
+        {
+          id: "2",
+          type: "quote_opened",
+          clientName: "Mike Thompson",
+          projectName: "Corporate Event",
+          documentTitle: "Event Quote #CE-2024-015",
+          timestamp: new Date(Date.now() - 4 * 60 * 60 * 1000),
+          description: "Opened quote document",
+          clientId: "client-2",
+          projectId: "project-2"
+        }
+      ];
+      res.json(activities);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch client activity" });
+    }
+  });
+
+  app.get("/api/dashboard/pending-items", async (req, res) => {
+    try {
+      // Get pending quotes, contracts, invoices from database
+      const quotes = await storage.getQuotes();
+      const contracts = await storage.getContracts();
+      const invoices = await storage.getInvoices();
+      
+      const pendingQuotes = quotes.filter(q => q.status === 'sent').map(q => ({
+        id: q.id,
+        type: 'quote',
+        title: q.title,
+        clientName: q.clientId, // In real implementation, would join with client data
+        projectName: q.leadId || 'General Project',
+        sentDate: q.createdAt,
+        amount: parseFloat(q.subtotal),
+        status: q.status,
+        clientId: q.clientId,
+        projectId: q.leadId,
+        urgency: 'medium'
+      }));
+
+      const pendingContracts = contracts.filter(c => c.status === 'sent').map(c => ({
+        id: c.id,
+        type: 'contract',
+        title: c.title,
+        clientName: c.clientId,
+        projectName: c.leadId || 'General Project',
+        sentDate: c.createdAt,
+        status: c.status,
+        clientId: c.clientId,
+        projectId: c.leadId,
+        urgency: 'high'
+      }));
+
+      const pendingInvoices = invoices.filter(i => i.status === 'sent' || i.status === 'overdue').map(i => ({
+        id: i.id,
+        type: 'invoice',
+        title: i.title,
+        clientName: i.clientId,
+        projectName: i.projectId || 'General Project',
+        sentDate: i.createdAt,
+        amount: parseFloat(i.total),
+        status: i.status,
+        clientId: i.clientId,
+        projectId: i.projectId,
+        urgency: i.status === 'overdue' ? 'critical' : 'medium'
+      }));
+
+      const allPending = [...pendingQuotes, ...pendingContracts, ...pendingInvoices];
+      res.json(allPending);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch pending items" });
+    }
+  });
+
+  app.get("/api/dashboard/business-priorities", async (req, res) => {
+    try {
+      // Get leads that need attention
+      const leads = await storage.getLeads();
+      const newLeads = leads.filter(l => l.status === 'new').map(l => ({
+        id: l.id,
+        type: 'new_lead',
+        title: `${l.firstName} ${l.lastName} - General Inquiry`,
+        description: l.notes || 'New lead requires follow-up',
+        clientName: `${l.firstName} ${l.lastName}`,
+        createdDate: l.createdAt,
+        urgency: 'high',
+        clientId: l.id
+      }));
+
+      // Get overdue tasks
+      const tasks = await storage.getTasks();
+      const overdueTasks = tasks.filter(t => 
+        t.dueDate && new Date(t.dueDate) < new Date() && t.status !== 'completed'
+      ).map(t => ({
+        id: t.id,
+        type: 'todo',
+        title: t.title,
+        description: t.description || 'Task is overdue',
+        dueDate: t.dueDate,
+        createdDate: t.createdAt,
+        urgency: 'critical',
+        clientId: t.clientId,
+        projectId: t.projectId
+      }));
+
+      const allPriorities = [...newLeads, ...overdueTasks];
+      res.json(allPriorities);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch business priorities" });
+    }
+  });
+
+  app.get("/api/dashboard/recent-emails", async (req, res) => {
+    try {
+      const emails = await storage.getEmails();
+      const recentEmails = emails
+        .filter(e => e.createdAt !== null)
+        .sort((a, b) => new Date(b.createdAt!).getTime() - new Date(a.createdAt!).getTime())
+        .slice(0, 20)
+        .map(e => ({
+          id: e.id,
+          subject: e.subject,
+          fromEmail: e.fromEmail,
+          fromName: e.fromEmail.split('@')[0], // Simple name extraction
+          toEmail: e.toEmail,
+          body: e.body,
+          receivedAt: e.createdAt!,
+          isRead: e.status === 'delivered',
+          hasAttachments: false,
+          projectName: e.projectId || 'General',
+          clientName: e.clientId || 'Unknown',
+          projectId: e.projectId,
+          clientId: e.clientId,
+          priority: 'medium',
+          labels: []
+        }));
+
+      res.json(recentEmails);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch recent emails" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

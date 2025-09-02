@@ -226,6 +226,287 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Individual document operations
+
+  // Quote operations
+  app.get("/api/quotes/:id", async (req, res) => {
+    try {
+      const quote = await storage.getQuote(req.params.id);
+      if (!quote) {
+        return res.status(404).json({ message: "Quote not found" });
+      }
+      res.json(quote);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch quote" });
+    }
+  });
+
+  app.patch("/api/quotes/:id", async (req, res) => {
+    try {
+      const quoteData = insertQuoteSchema.partial().parse(req.body);
+      const quote = await storage.updateQuote(req.params.id, quoteData);
+      if (!quote) {
+        return res.status(404).json({ message: "Quote not found" });
+      }
+      res.json(quote);
+    } catch (error) {
+      res.status(400).json({ message: "Failed to update quote" });
+    }
+  });
+
+  app.delete("/api/quotes/:id", async (req, res) => {
+    try {
+      const deleted = await storage.deleteQuote(req.params.id);
+      if (!deleted) {
+        return res.status(404).json({ message: "Quote not found" });
+      }
+      res.json({ message: "Quote deleted successfully" });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to delete quote" });
+    }
+  });
+
+  // Contract operations
+  app.get("/api/contracts/:id", async (req, res) => {
+    try {
+      const contract = await storage.getContract(req.params.id);
+      if (!contract) {
+        return res.status(404).json({ message: "Contract not found" });
+      }
+      res.json(contract);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch contract" });
+    }
+  });
+
+  app.patch("/api/contracts/:id", async (req, res) => {
+    try {
+      const contractData = insertContractSchema.partial().parse(req.body);
+      const contract = await storage.updateContract(req.params.id, contractData);
+      if (!contract) {
+        return res.status(404).json({ message: "Contract not found" });
+      }
+      res.json(contract);
+    } catch (error) {
+      res.status(400).json({ message: "Failed to update contract" });
+    }
+  });
+
+  app.delete("/api/contracts/:id", async (req, res) => {
+    try {
+      const deleted = await storage.deleteContract(req.params.id);
+      if (!deleted) {
+        return res.status(404).json({ message: "Contract not found" });
+      }
+      res.json({ message: "Contract deleted successfully" });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to delete contract" });
+    }
+  });
+
+  // Invoice operations  
+  app.get("/api/invoices/:id", async (req, res) => {
+    try {
+      const invoice = await storage.getInvoice(req.params.id);
+      if (!invoice) {
+        return res.status(404).json({ message: "Invoice not found" });
+      }
+      res.json(invoice);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch invoice" });
+    }
+  });
+
+  app.patch("/api/invoices/:id", async (req, res) => {
+    try {
+      const invoiceData = insertInvoiceSchema.partial().parse(req.body);
+      const invoice = await storage.updateInvoice(req.params.id, invoiceData);
+      if (!invoice) {
+        return res.status(404).json({ message: "Invoice not found" });
+      }
+      res.json(invoice);
+    } catch (error) {
+      res.status(400).json({ message: "Failed to update invoice" });
+    }
+  });
+
+  app.delete("/api/invoices/:id", async (req, res) => {
+    try {
+      const deleted = await storage.deleteInvoice(req.params.id);
+      if (!deleted) {
+        return res.status(404).json({ message: "Invoice not found" });
+      }
+      res.json({ message: "Invoice deleted successfully" });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to delete invoice" });
+    }
+  });
+
+  // Documents by client/project
+  app.get("/api/clients/:clientId/quotes", async (req, res) => {
+    try {
+      const quotes = await storage.getQuotesByClient(req.params.clientId);
+      res.json(quotes);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch quotes for client" });
+    }
+  });
+
+  app.get("/api/clients/:clientId/contracts", async (req, res) => {
+    try {
+      const contracts = await storage.getContractsByClient(req.params.clientId);
+      res.json(contracts);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch contracts for client" });
+    }
+  });
+
+  app.get("/api/clients/:clientId/invoices", async (req, res) => {
+    try {
+      const invoices = await storage.getInvoicesByClient(req.params.clientId);
+      res.json(invoices);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch invoices for client" });
+    }
+  });
+
+  // Combined documents endpoint for Documents page
+  app.get("/api/documents", async (req, res) => {
+    try {
+      const { clientId, projectId, status, type } = req.query;
+      
+      let quotes, contracts, invoices;
+      
+      if (clientId) {
+        quotes = await storage.getQuotesByClient(clientId as string);
+        contracts = await storage.getContractsByClient(clientId as string);
+        invoices = await storage.getInvoicesByClient(clientId as string);
+      } else {
+        quotes = await storage.getQuotes();
+        contracts = await storage.getContracts();
+        invoices = await storage.getInvoices();
+      }
+
+      // Filter by type if specified
+      const documents = [];
+      if (!type || type === 'quotes') {
+        documents.push(...quotes.map(q => ({ ...q, documentType: 'quote' })));
+      }
+      if (!type || type === 'contracts') {
+        documents.push(...contracts.map(c => ({ ...c, documentType: 'contract' })));
+      }
+      if (!type || type === 'invoices') {
+        documents.push(...invoices.map(i => ({ ...i, documentType: 'invoice' })));
+      }
+
+      // Filter by status if specified
+      const filteredDocuments = status 
+        ? documents.filter(doc => doc.status === status)
+        : documents;
+
+      // Sort by creation date (newest first)
+      filteredDocuments.sort((a, b) => {
+        const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        return dateB - dateA;
+      });
+
+      res.json(filteredDocuments);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch documents" });
+    }
+  });
+
+  // Status workflow actions
+  app.post("/api/quotes/:id/send", async (req, res) => {
+    try {
+      const quote = await storage.updateQuote(req.params.id, {
+        status: 'sent',
+        sentAt: new Date()
+      });
+      if (!quote) {
+        return res.status(404).json({ message: "Quote not found" });
+      }
+      res.json(quote);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to send quote" });
+    }
+  });
+
+  app.post("/api/quotes/:id/approve", async (req, res) => {
+    try {
+      const quote = await storage.updateQuote(req.params.id, {
+        status: 'approved',
+        approvedAt: new Date()
+      });
+      if (!quote) {
+        return res.status(404).json({ message: "Quote not found" });
+      }
+      res.json(quote);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to approve quote" });
+    }
+  });
+
+  app.post("/api/contracts/:id/send", async (req, res) => {
+    try {
+      const contract = await storage.updateContract(req.params.id, {
+        status: 'sent'
+      });
+      if (!contract) {
+        return res.status(404).json({ message: "Contract not found" });
+      }
+      res.json(contract);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to send contract" });
+    }
+  });
+
+  app.post("/api/contracts/:id/sign", async (req, res) => {
+    try {
+      const contract = await storage.updateContract(req.params.id, {
+        status: 'signed',
+        signedAt: new Date()
+      });
+      if (!contract) {
+        return res.status(404).json({ message: "Contract not found" });
+      }
+      res.json(contract);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to sign contract" });
+    }
+  });
+
+  app.post("/api/invoices/:id/send", async (req, res) => {
+    try {
+      const invoice = await storage.updateInvoice(req.params.id, {
+        status: 'sent',
+        sentAt: new Date()
+      });
+      if (!invoice) {
+        return res.status(404).json({ message: "Invoice not found" });
+      }
+      res.json(invoice);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to send invoice" });
+    }
+  });
+
+  app.post("/api/invoices/:id/pay", async (req, res) => {
+    try {
+      const invoice = await storage.updateInvoice(req.params.id, {
+        status: 'paid',
+        paidAt: new Date()
+      });
+      if (!invoice) {
+        return res.status(404).json({ message: "Invoice not found" });
+      }
+      res.json(invoice);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to mark invoice as paid" });
+    }
+  });
+
   // Tasks
   app.get("/api/tasks", async (req, res) => {
     try {

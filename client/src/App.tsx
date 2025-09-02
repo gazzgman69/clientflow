@@ -11,6 +11,7 @@ import Projects from "@/pages/projects";
 import Quotes from "@/pages/quotes";
 import Contracts from "@/pages/contracts";
 import Invoices from "@/pages/invoices";
+import Documents from "@/pages/documents";
 import Email from "@/pages/email";
 import Calendar from "@/pages/calendar";
 import Automations from "@/pages/automations";
@@ -41,6 +42,7 @@ function Router() {
                 <Route path="/projects" component={Projects} />
                 <Route path="/members" component={Members} />
                 <Route path="/venues" component={Venues} />
+                <Route path="/documents" component={Documents} />
                 <Route path="/quotes" component={Quotes} />
                 <Route path="/contracts" component={Contracts} />
                 <Route path="/invoices" component={Invoices} />

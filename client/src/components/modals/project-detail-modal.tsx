@@ -2,7 +2,8 @@ import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { 
   FileText, Upload, Users, MessageSquare, Plus, 
-  Download, Trash, Clock, DollarSign, MapPin, Briefcase 
+  Download, Trash, Clock, DollarSign, MapPin, Briefcase,
+  Receipt, File, Send, Check 
 } from "lucide-react";
 import {
   Dialog,
@@ -46,7 +47,7 @@ import { useToast } from "@/hooks/use-toast";
 import { formatDistanceToNow } from "date-fns";
 import type { 
   Project, Member, Venue, ProjectFile, 
-  ProjectNote, ProjectMember 
+  ProjectNote, ProjectMember, Quote, Contract, Invoice, Client
 } from "@shared/schema";
 
 interface ProjectDetailModalProps {
@@ -94,6 +95,27 @@ export default function ProjectDetailModal({ project, isOpen, onClose }: Project
 
   const { data: projectMembers = [] } = useQuery<ProjectMember[]>({
     queryKey: ["/api/projects", project?.id, "members"],
+    enabled: isOpen && !!project,
+  });
+
+  // Fetch documents for this project's client
+  const { data: projectQuotes = [] } = useQuery<Quote[]>({
+    queryKey: ["/api/clients", project?.clientId, "quotes"],
+    enabled: isOpen && !!project && !!project.clientId,
+  });
+
+  const { data: projectContracts = [] } = useQuery<Contract[]>({
+    queryKey: ["/api/clients", project?.clientId, "contracts"],
+    enabled: isOpen && !!project && !!project.clientId,
+  });
+
+  const { data: projectInvoices = [] } = useQuery<Invoice[]>({
+    queryKey: ["/api/clients", project?.clientId, "invoices"],
+    enabled: isOpen && !!project && !!project.clientId,
+  });
+
+  const { data: clients = [] } = useQuery<Client[]>({
+    queryKey: ["/api/clients"],
     enabled: isOpen && !!project,
   });
 
@@ -204,6 +226,56 @@ export default function ProjectDetailModal({ project, isOpen, onClose }: Project
     },
   });
 
+  // Document status workflow mutations
+  const sendDocumentMutation = useMutation({
+    mutationFn: async ({ id, type }: { id: string; type: string }) => {
+      const response = await apiRequest("POST", `/api/${type}s/${id}/send`, {});
+      return response.json();
+    },
+    onSuccess: () => {
+      // Invalidate all document queries to refresh the lists
+      queryClient.invalidateQueries({ queryKey: ["/api/clients", project?.clientId, "quotes"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/clients", project?.clientId, "contracts"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/clients", project?.clientId, "invoices"] });
+      toast({
+        title: "Success",
+        description: "Document sent successfully!",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to send document. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const approveDocumentMutation = useMutation({
+    mutationFn: async ({ id, type }: { id: string; type: string }) => {
+      const endpoint = type === 'quote' ? 'approve' : type === 'contract' ? 'sign' : 'pay';
+      const response = await apiRequest("POST", `/api/${type}s/${id}/${endpoint}`, {});
+      return response.json();
+    },
+    onSuccess: () => {
+      // Invalidate all document queries to refresh the lists
+      queryClient.invalidateQueries({ queryKey: ["/api/clients", project?.clientId, "quotes"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/clients", project?.clientId, "contracts"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/clients", project?.clientId, "invoices"] });
+      toast({
+        title: "Success",
+        description: "Document status updated successfully!",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to update document status. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
   const handleFileUpload = () => {
     if (selectedFile) {
       uploadFileMutation.mutate(selectedFile);
@@ -281,9 +353,10 @@ export default function ProjectDetailModal({ project, isOpen, onClose }: Project
           </Card>
 
           <Tabs defaultValue="members" className="w-full">
-            <TabsList className="grid w-full grid-cols-4">
+            <TabsList className="grid w-full grid-cols-5">
               <TabsTrigger value="members">Members</TabsTrigger>
               <TabsTrigger value="files">Files</TabsTrigger>
+              <TabsTrigger value="documents">Documents</TabsTrigger>
               <TabsTrigger value="notes">Notes</TabsTrigger>
               <TabsTrigger value="details">Details</TabsTrigger>
             </TabsList>
@@ -461,6 +534,242 @@ export default function ProjectDetailModal({ project, isOpen, onClose }: Project
                       No files uploaded yet
                     </p>
                   )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            {/* Documents Tab */}
+            <TabsContent value="documents" className="space-y-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Receipt className="h-5 w-5" />
+                    Project Documents
+                  </CardTitle>
+                  <CardDescription>
+                    Manage quotes, contracts, and invoices for this project
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  {/* Document Creation Buttons */}
+                  <div className="flex gap-2">
+                    <Button 
+                      variant="outline" 
+                      className="flex-1"
+                      data-testid="button-create-quote"
+                    >
+                      <FileText className="h-4 w-4 mr-2" />
+                      Create Quote
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      className="flex-1"
+                      data-testid="button-create-contract"
+                    >
+                      <File className="h-4 w-4 mr-2" />
+                      Create Contract
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      className="flex-1"
+                      data-testid="button-create-invoice"
+                    >
+                      <Receipt className="h-4 w-4 mr-2" />
+                      Create Invoice
+                    </Button>
+                  </div>
+
+                  {/* Quotes Section */}
+                  <div className="space-y-3">
+                    <h4 className="font-medium flex items-center gap-2">
+                      <FileText className="h-4 w-4" />
+                      Quotes ({projectQuotes.length})
+                    </h4>
+                    {projectQuotes.length > 0 ? (
+                      <div className="space-y-2">
+                        {projectQuotes.map((quote) => (
+                          <div
+                            key={quote.id}
+                            className="flex items-center justify-between p-3 border rounded-lg"
+                          >
+                            <div className="flex items-center gap-3">
+                              <FileText className="h-4 w-4 text-blue-500" />
+                              <div>
+                                <p className="font-medium" data-testid={`text-quote-title-${quote.id}`}>
+                                  {quote.title}
+                                </p>
+                                <p className="text-sm text-muted-foreground">
+                                  ${quote.total} • {quote.status}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="flex gap-2">
+                              {quote.status === 'draft' && (
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm"
+                                  onClick={() => sendDocumentMutation.mutate({ id: quote.id, type: 'quote' })}
+                                  disabled={sendDocumentMutation.isPending}
+                                  data-testid={`button-send-quote-${quote.id}`}
+                                >
+                                  <Send className="h-4 w-4" />
+                                </Button>
+                              )}
+                              {quote.status === 'sent' && (
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm"
+                                  onClick={() => approveDocumentMutation.mutate({ id: quote.id, type: 'quote' })}
+                                  disabled={approveDocumentMutation.isPending}
+                                  data-testid={`button-approve-quote-${quote.id}`}
+                                >
+                                  <Check className="h-4 w-4" />
+                                </Button>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-muted-foreground text-center py-3 text-sm">
+                        No quotes created yet
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Contracts Section */}
+                  <div className="space-y-3">
+                    <h4 className="font-medium flex items-center gap-2">
+                      <File className="h-4 w-4" />
+                      Contracts ({projectContracts.length})
+                    </h4>
+                    {projectContracts.length > 0 ? (
+                      <div className="space-y-2">
+                        {projectContracts.map((contract) => (
+                          <div
+                            key={contract.id}
+                            className="flex items-center justify-between p-3 border rounded-lg"
+                          >
+                            <div className="flex items-center gap-3">
+                              <File className="h-4 w-4 text-green-500" />
+                              <div>
+                                <p className="font-medium" data-testid={`text-contract-title-${contract.id}`}>
+                                  {contract.title}
+                                </p>
+                                <p className="text-sm text-muted-foreground">
+                                  ${contract.amount} • {contract.status}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="flex gap-2">
+                              {contract.status === 'draft' && (
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm"
+                                  onClick={() => sendDocumentMutation.mutate({ id: contract.id, type: 'contract' })}
+                                  disabled={sendDocumentMutation.isPending}
+                                  data-testid={`button-send-contract-${contract.id}`}
+                                >
+                                  <Send className="h-4 w-4" />
+                                </Button>
+                              )}
+                              {contract.status === 'sent' && (
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm"
+                                  onClick={() => approveDocumentMutation.mutate({ id: contract.id, type: 'contract' })}
+                                  disabled={approveDocumentMutation.isPending}
+                                  data-testid={`button-sign-contract-${contract.id}`}
+                                >
+                                  <Check className="h-4 w-4" />
+                                </Button>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-muted-foreground text-center py-3 text-sm">
+                        No contracts created yet
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Invoices Section */}
+                  <div className="space-y-3">
+                    <h4 className="font-medium flex items-center gap-2">
+                      <Receipt className="h-4 w-4" />
+                      Invoices ({projectInvoices.length})
+                    </h4>
+                    {projectInvoices.length > 0 ? (
+                      <div className="space-y-2">
+                        {projectInvoices.map((invoice) => (
+                          <div
+                            key={invoice.id}
+                            className="flex items-center justify-between p-3 border rounded-lg"
+                          >
+                            <div className="flex items-center gap-3">
+                              <Receipt className="h-4 w-4 text-orange-500" />
+                              <div>
+                                <p className="font-medium" data-testid={`text-invoice-title-${invoice.id}`}>
+                                  {invoice.title}
+                                </p>
+                                <p className="text-sm text-muted-foreground">
+                                  ${invoice.total} • {invoice.status}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="flex gap-2">
+                              {invoice.status === 'draft' && (
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm"
+                                  onClick={() => sendDocumentMutation.mutate({ id: invoice.id, type: 'invoice' })}
+                                  disabled={sendDocumentMutation.isPending}
+                                  data-testid={`button-send-invoice-${invoice.id}`}
+                                >
+                                  <Send className="h-4 w-4" />
+                                </Button>
+                              )}
+                              {invoice.status === 'sent' && (
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm"
+                                  onClick={() => approveDocumentMutation.mutate({ id: invoice.id, type: 'invoice' })}
+                                  disabled={approveDocumentMutation.isPending}
+                                  data-testid={`button-pay-invoice-${invoice.id}`}
+                                >
+                                  <Check className="h-4 w-4" />
+                                </Button>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-muted-foreground text-center py-3 text-sm">
+                        No invoices created yet
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Document Summary */}
+                  <div className="pt-4 border-t">
+                    <div className="grid grid-cols-3 gap-4 text-center">
+                      <div>
+                        <p className="text-2xl font-bold text-blue-600">{projectQuotes.length}</p>
+                        <p className="text-sm text-muted-foreground">Quotes</p>
+                      </div>
+                      <div>
+                        <p className="text-2xl font-bold text-green-600">{projectContracts.length}</p>
+                        <p className="text-sm text-muted-foreground">Contracts</p>
+                      </div>
+                      <div>
+                        <p className="text-2xl font-bold text-orange-600">{projectInvoices.length}</p>
+                        <p className="text-sm text-muted-foreground">Invoices</p>
+                      </div>
+                    </div>
+                  </div>
                 </CardContent>
               </Card>
             </TabsContent>

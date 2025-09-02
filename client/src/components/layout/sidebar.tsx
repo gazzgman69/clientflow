@@ -3,7 +3,7 @@ import { cn } from "@/lib/utils";
 import { 
   BarChart3, Users, UserPlus, Briefcase, FileText, 
   File, Receipt, Mail, Calendar, Bot, Settings,
-  Music, MapPin 
+  Music, MapPin, FolderOpen 
 } from "lucide-react";
 
 const navigationItems = [
@@ -13,6 +13,7 @@ const navigationItems = [
   { href: "/projects", icon: Briefcase, label: "Projects", badge: null },
   { href: "/members", icon: Music, label: "Members", badge: null },
   { href: "/venues", icon: MapPin, label: "Venues", badge: null },
+  { href: "/documents", icon: FolderOpen, label: "Documents", badge: null },
   { href: "/quotes", icon: FileText, label: "Quotes", badge: null },
   { href: "/contracts", icon: File, label: "Contracts", badge: null },
   { href: "/invoices", icon: Receipt, label: "Invoices", badge: null },

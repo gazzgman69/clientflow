@@ -2,7 +2,8 @@ import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
 import { 
   BarChart3, Users, UserPlus, Briefcase, FileText, 
-  File, Receipt, Mail, Calendar, Bot, Settings 
+  File, Receipt, Mail, Calendar, Bot, Settings,
+  Music, MapPin 
 } from "lucide-react";
 
 const navigationItems = [
@@ -10,6 +11,8 @@ const navigationItems = [
   { href: "/leads", icon: UserPlus, label: "Leads", badge: 23 },
   { href: "/clients", icon: Users, label: "Clients", badge: null },
   { href: "/projects", icon: Briefcase, label: "Projects", badge: null },
+  { href: "/members", icon: Music, label: "Members", badge: null },
+  { href: "/venues", icon: MapPin, label: "Venues", badge: null },
   { href: "/quotes", icon: FileText, label: "Quotes", badge: null },
   { href: "/contracts", icon: File, label: "Contracts", badge: null },
   { href: "/invoices", icon: Receipt, label: "Invoices", badge: null },

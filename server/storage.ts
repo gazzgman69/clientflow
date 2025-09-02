@@ -9,7 +9,11 @@ import {
   type Task, type InsertTask,
   type Email, type InsertEmail,
   type Activity, type InsertActivity,
-  type Automation, type InsertAutomation
+  type Automation, type InsertAutomation,
+  type Member, type InsertMember,
+  type Venue, type InsertVenue,
+  type ProjectMember, type InsertProjectMember,
+  type MemberAvailability, type InsertMemberAvailability
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 
@@ -94,6 +98,34 @@ export interface IStorage {
   updateAutomation(id: string, automation: Partial<InsertAutomation>): Promise<Automation | undefined>;
   deleteAutomation(id: string): Promise<boolean>;
   
+  // Members (Musicians)
+  getMembers(): Promise<Member[]>;
+  getMember(id: string): Promise<Member | undefined>;
+  createMember(member: InsertMember): Promise<Member>;
+  updateMember(id: string, member: Partial<InsertMember>): Promise<Member | undefined>;
+  deleteMember(id: string): Promise<boolean>;
+  
+  // Venues
+  getVenues(): Promise<Venue[]>;
+  getVenue(id: string): Promise<Venue | undefined>;
+  createVenue(venue: InsertVenue): Promise<Venue>;
+  updateVenue(id: string, venue: Partial<InsertVenue>): Promise<Venue | undefined>;
+  deleteVenue(id: string): Promise<boolean>;
+  
+  // Project Members
+  getProjectMembers(projectId: string): Promise<ProjectMember[]>;
+  addProjectMember(projectMember: InsertProjectMember): Promise<ProjectMember>;
+  updateProjectMember(projectId: string, memberId: string, data: Partial<InsertProjectMember>): Promise<ProjectMember | undefined>;
+  removeProjectMember(projectId: string, memberId: string): Promise<boolean>;
+  
+  // Member Availability
+  getMemberAvailability(memberId: string, startDate?: Date, endDate?: Date): Promise<MemberAvailability[]>;
+  setMemberAvailability(availability: InsertMemberAvailability): Promise<MemberAvailability>;
+  
+  // Authentication
+  validateUser(username: string, password: string): Promise<User | undefined>;
+  updateUser(id: string, user: Partial<InsertUser>): Promise<User | undefined>;
+  
   // Dashboard metrics
   getDashboardMetrics(): Promise<{
     totalLeads: number;
@@ -115,14 +147,19 @@ export class MemStorage implements IStorage {
   private emails: Map<string, Email> = new Map();
   private activities: Map<string, Activity> = new Map();
   private automations: Map<string, Automation> = new Map();
+  private members: Map<string, Member> = new Map();
+  private venues: Map<string, Venue> = new Map();
+  private projectMembers: Map<string, ProjectMember[]> = new Map();
+  private memberAvailability: Map<string, MemberAvailability[]> = new Map();
 
   constructor() {
-    // Initialize with default user
+    // Initialize with default admin user
     const defaultUser: User = {
       id: randomUUID(),
       username: "admin",
       password: "password",
       email: "john@company.com",
+      role: "admin",
       firstName: "John",
       lastName: "Smith",
       avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=100&h=100",
@@ -653,6 +690,212 @@ export class MemStorage implements IStorage {
 
   async deleteAutomation(id: string): Promise<boolean> {
     return this.automations.delete(id);
+  }
+
+  // Members (Musicians)
+  async getMembers(): Promise<Member[]> {
+    return Array.from(this.members.values()).sort((a, b) => 
+      new Date(b.createdAt!).getTime() - new Date(a.createdAt!).getTime()
+    );
+  }
+
+  async getMember(id: string): Promise<Member | undefined> {
+    return this.members.get(id);
+  }
+
+  async createMember(insertMember: InsertMember): Promise<Member> {
+    const id = randomUUID();
+    const member: Member = {
+      ...insertMember,
+      phone: insertMember.phone ?? null,
+      instruments: insertMember.instruments ?? null,
+      hourlyRate: insertMember.hourlyRate ?? null,
+      address: insertMember.address ?? null,
+      city: insertMember.city ?? null,
+      state: insertMember.state ?? null,
+      zipCode: insertMember.zipCode ?? null,
+      preferredStatus: insertMember.preferredStatus ?? null,
+      notes: insertMember.notes ?? null,
+      id,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    this.members.set(id, member);
+    return member;
+  }
+
+  async updateMember(id: string, memberUpdate: Partial<InsertMember>): Promise<Member | undefined> {
+    const member = this.members.get(id);
+    if (!member) return undefined;
+    
+    const updatedMember: Member = {
+      ...member,
+      ...memberUpdate,
+      updatedAt: new Date(),
+    };
+    this.members.set(id, updatedMember);
+    return updatedMember;
+  }
+
+  async deleteMember(id: string): Promise<boolean> {
+    return this.members.delete(id);
+  }
+
+  // Venues
+  async getVenues(): Promise<Venue[]> {
+    return Array.from(this.venues.values()).sort((a, b) => 
+      new Date(b.createdAt!).getTime() - new Date(a.createdAt!).getTime()
+    );
+  }
+
+  async getVenue(id: string): Promise<Venue | undefined> {
+    return this.venues.get(id);
+  }
+
+  async createVenue(insertVenue: InsertVenue): Promise<Venue> {
+    const id = randomUUID();
+    const venue: Venue = {
+      ...insertVenue,
+      address: insertVenue.address ?? null,
+      city: insertVenue.city ?? null,
+      state: insertVenue.state ?? null,
+      zipCode: insertVenue.zipCode ?? null,
+      capacity: insertVenue.capacity ?? null,
+      contactName: insertVenue.contactName ?? null,
+      contactPhone: insertVenue.contactPhone ?? null,
+      contactEmail: insertVenue.contactEmail ?? null,
+      notes: insertVenue.notes ?? null,
+      id,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    this.venues.set(id, venue);
+    return venue;
+  }
+
+  async updateVenue(id: string, venueUpdate: Partial<InsertVenue>): Promise<Venue | undefined> {
+    const venue = this.venues.get(id);
+    if (!venue) return undefined;
+    
+    const updatedVenue: Venue = {
+      ...venue,
+      ...venueUpdate,
+      updatedAt: new Date(),
+    };
+    this.venues.set(id, updatedVenue);
+    return updatedVenue;
+  }
+
+  async deleteVenue(id: string): Promise<boolean> {
+    return this.venues.delete(id);
+  }
+
+  // Project Members
+  async getProjectMembers(projectId: string): Promise<ProjectMember[]> {
+    return this.projectMembers.get(projectId) || [];
+  }
+
+  async addProjectMember(insertProjectMember: InsertProjectMember): Promise<ProjectMember> {
+    const projectMember: ProjectMember = {
+      ...insertProjectMember,
+      role: insertProjectMember.role ?? null,
+      fee: insertProjectMember.fee ?? null,
+      status: insertProjectMember.status ?? 'pending',
+      confirmedAt: insertProjectMember.confirmedAt ?? null,
+      notes: insertProjectMember.notes ?? null,
+      createdAt: new Date(),
+    };
+    
+    const existing = this.projectMembers.get(insertProjectMember.projectId) || [];
+    existing.push(projectMember);
+    this.projectMembers.set(insertProjectMember.projectId, existing);
+    
+    return projectMember;
+  }
+
+  async updateProjectMember(projectId: string, memberId: string, data: Partial<InsertProjectMember>): Promise<ProjectMember | undefined> {
+    const projectMembers = this.projectMembers.get(projectId);
+    if (!projectMembers) return undefined;
+    
+    const index = projectMembers.findIndex(pm => pm.memberId === memberId);
+    if (index === -1) return undefined;
+    
+    projectMembers[index] = {
+      ...projectMembers[index],
+      ...data,
+    };
+    
+    this.projectMembers.set(projectId, projectMembers);
+    return projectMembers[index];
+  }
+
+  async removeProjectMember(projectId: string, memberId: string): Promise<boolean> {
+    const projectMembers = this.projectMembers.get(projectId);
+    if (!projectMembers) return false;
+    
+    const filtered = projectMembers.filter(pm => pm.memberId !== memberId);
+    if (filtered.length === projectMembers.length) return false;
+    
+    this.projectMembers.set(projectId, filtered);
+    return true;
+  }
+
+  // Member Availability
+  async getMemberAvailability(memberId: string, startDate?: Date, endDate?: Date): Promise<MemberAvailability[]> {
+    const availability = this.memberAvailability.get(memberId) || [];
+    
+    if (!startDate && !endDate) {
+      return availability;
+    }
+    
+    return availability.filter(a => {
+      const date = new Date(a.date);
+      if (startDate && date < startDate) return false;
+      if (endDate && date > endDate) return false;
+      return true;
+    });
+  }
+
+  async setMemberAvailability(insertAvailability: InsertMemberAvailability): Promise<MemberAvailability> {
+    const id = randomUUID();
+    const availability: MemberAvailability = {
+      ...insertAvailability,
+      available: insertAvailability.available ?? true,
+      notes: insertAvailability.notes ?? null,
+      id,
+      createdAt: new Date(),
+    };
+    
+    const existing = this.memberAvailability.get(insertAvailability.memberId) || [];
+    existing.push(availability);
+    this.memberAvailability.set(insertAvailability.memberId, existing);
+    
+    return availability;
+  }
+
+  // Authentication
+  async validateUser(username: string, password: string): Promise<User | undefined> {
+    const user = await this.getUserByUsername(username);
+    if (!user) return undefined;
+    
+    // Simple password check (in production, this should use bcrypt)
+    if (user.password === password) {
+      return user;
+    }
+    
+    return undefined;
+  }
+
+  async updateUser(id: string, userUpdate: Partial<InsertUser>): Promise<User | undefined> {
+    const user = this.users.get(id);
+    if (!user) return undefined;
+    
+    const updatedUser: User = {
+      ...user,
+      ...userUpdate,
+    };
+    this.users.set(id, updatedUser);
+    return updatedUser;
   }
 
   // Dashboard metrics

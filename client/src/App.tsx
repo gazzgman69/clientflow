@@ -15,6 +15,8 @@ import Email from "@/pages/email";
 import Calendar from "@/pages/calendar";
 import Automations from "@/pages/automations";
 import Settings from "@/pages/settings";
+import Members from "@/pages/members";
+import Venues from "@/pages/venues";
 import Sidebar from "@/components/layout/sidebar";
 
 function Router() {
@@ -27,6 +29,8 @@ function Router() {
           <Route path="/leads" component={Leads} />
           <Route path="/clients" component={Clients} />
           <Route path="/projects" component={Projects} />
+          <Route path="/members" component={Members} />
+          <Route path="/venues" component={Venues} />
           <Route path="/quotes" component={Quotes} />
           <Route path="/contracts" component={Contracts} />
           <Route path="/invoices" component={Invoices} />

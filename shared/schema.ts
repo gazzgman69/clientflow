@@ -11,6 +11,7 @@ export const users = pgTable("users", {
   firstName: text("first_name").notNull(),
   lastName: text("last_name").notNull(),
   avatar: text("avatar"),
+  role: text("role").notNull().default('client'), // admin, musician, client
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -177,6 +178,64 @@ export const automations = pgTable("automations", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// Members (Musicians) Management
+export const members = pgTable("members", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  firstName: text("first_name").notNull(),
+  lastName: text("last_name").notNull(),
+  email: text("email").notNull().unique(),
+  phone: text("phone"),
+  instruments: text("instruments").array(), // Array of instruments they play
+  hourlyRate: decimal("hourly_rate", { precision: 10, scale: 2 }),
+  address: text("address"),
+  city: text("city"),
+  state: text("state"),
+  zipCode: text("zip_code"),
+  preferredStatus: boolean("preferred_status").default(false),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Venues Management
+export const venues = pgTable("venues", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  address: text("address"),
+  city: text("city"),
+  state: text("state"),
+  zipCode: text("zip_code"),
+  capacity: integer("capacity"),
+  contactName: text("contact_name"),
+  contactPhone: text("contact_phone"),
+  contactEmail: text("contact_email"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Project Members Junction Table
+export const projectMembers = pgTable("project_members", {
+  projectId: varchar("project_id").references(() => projects.id).notNull(),
+  memberId: varchar("member_id").references(() => members.id).notNull(),
+  role: text("role"), // Lead, Support, etc.
+  fee: decimal("fee", { precision: 10, scale: 2 }),
+  status: text("status").notNull().default('pending'), // pending, confirmed, declined
+  confirmedAt: timestamp("confirmed_at"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Member Availability
+export const memberAvailability = pgTable("member_availability", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  memberId: varchar("member_id").references(() => members.id).notNull(),
+  date: timestamp("date").notNull(),
+  available: boolean("available").default(true),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // Insert schemas
 export const insertUserSchema = createInsertSchema(users).omit({ id: true, createdAt: true });
 export const insertLeadSchema = createInsertSchema(leads).omit({ id: true, createdAt: true, updatedAt: true });
@@ -189,6 +248,10 @@ export const insertTaskSchema = createInsertSchema(tasks).omit({ id: true, creat
 export const insertEmailSchema = createInsertSchema(emails).omit({ id: true, createdAt: true });
 export const insertActivitySchema = createInsertSchema(activities).omit({ id: true, createdAt: true });
 export const insertAutomationSchema = createInsertSchema(automations).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertMemberSchema = createInsertSchema(members).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertVenueSchema = createInsertSchema(venues).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertProjectMemberSchema = createInsertSchema(projectMembers).omit({ createdAt: true });
+export const insertMemberAvailabilitySchema = createInsertSchema(memberAvailability).omit({ id: true, createdAt: true });
 
 // Types
 export type User = typeof users.$inferSelect;
@@ -213,3 +276,11 @@ export type Activity = typeof activities.$inferSelect;
 export type InsertActivity = z.infer<typeof insertActivitySchema>;
 export type Automation = typeof automations.$inferSelect;
 export type InsertAutomation = z.infer<typeof insertAutomationSchema>;
+export type Member = typeof members.$inferSelect;
+export type InsertMember = z.infer<typeof insertMemberSchema>;
+export type Venue = typeof venues.$inferSelect;
+export type InsertVenue = z.infer<typeof insertVenueSchema>;
+export type ProjectMember = typeof projectMembers.$inferSelect;
+export type InsertProjectMember = z.infer<typeof insertProjectMemberSchema>;
+export type MemberAvailability = typeof memberAvailability.$inferSelect;
+export type InsertMemberAvailability = z.infer<typeof insertMemberAvailabilitySchema>;

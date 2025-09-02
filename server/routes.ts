@@ -10,7 +10,11 @@ import {
   insertInvoiceSchema, 
   insertTaskSchema, 
   insertEmailSchema,
-  insertAutomationSchema
+  insertAutomationSchema,
+  insertMemberSchema,
+  insertVenueSchema,
+  insertProjectMemberSchema,
+  insertMemberAvailabilitySchema
 } from "@shared/schema";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -310,6 +314,210 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(201).json(automation);
     } catch (error) {
       res.status(400).json({ message: "Invalid automation data" });
+    }
+  });
+
+  // Authentication
+  app.post("/api/auth/login", async (req, res) => {
+    try {
+      const { username, password } = req.body;
+      const user = await storage.validateUser(username, password);
+      if (!user) {
+        return res.status(401).json({ message: "Invalid credentials" });
+      }
+      // Store user in session (simplified version)
+      (req as any).session = { userId: user.id, user };
+      res.json({ 
+        id: user.id, 
+        username: user.username, 
+        email: user.email, 
+        firstName: user.firstName,
+        lastName: user.lastName,
+        role: user.role 
+      });
+    } catch (error) {
+      res.status(500).json({ message: "Login failed" });
+    }
+  });
+
+  app.post("/api/auth/logout", async (req, res) => {
+    try {
+      (req as any).session = null;
+      res.json({ message: "Logged out successfully" });
+    } catch (error) {
+      res.status(500).json({ message: "Logout failed" });
+    }
+  });
+
+  app.get("/api/auth/session", async (req, res) => {
+    try {
+      const session = (req as any).session;
+      if (!session?.user) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
+      res.json(session.user);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to get session" });
+    }
+  });
+
+  // Members (Musicians)
+  app.get("/api/members", async (req, res) => {
+    try {
+      const members = await storage.getMembers();
+      res.json(members);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch members" });
+    }
+  });
+
+  app.get("/api/members/:id", async (req, res) => {
+    try {
+      const member = await storage.getMember(req.params.id);
+      if (!member) {
+        return res.status(404).json({ message: "Member not found" });
+      }
+      res.json(member);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch member" });
+    }
+  });
+
+  app.post("/api/members", async (req, res) => {
+    try {
+      const memberData = insertMemberSchema.parse(req.body);
+      const member = await storage.createMember(memberData);
+      res.status(201).json(member);
+    } catch (error) {
+      res.status(400).json({ message: "Invalid member data" });
+    }
+  });
+
+  app.patch("/api/members/:id", async (req, res) => {
+    try {
+      const memberData = insertMemberSchema.partial().parse(req.body);
+      const member = await storage.updateMember(req.params.id, memberData);
+      if (!member) {
+        return res.status(404).json({ message: "Member not found" });
+      }
+      res.json(member);
+    } catch (error) {
+      res.status(400).json({ message: "Invalid member data" });
+    }
+  });
+
+  app.delete("/api/members/:id", async (req, res) => {
+    try {
+      const deleted = await storage.deleteMember(req.params.id);
+      if (!deleted) {
+        return res.status(404).json({ message: "Member not found" });
+      }
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ message: "Failed to delete member" });
+    }
+  });
+
+  // Member Availability
+  app.get("/api/members/:id/availability", async (req, res) => {
+    try {
+      const availability = await storage.getMemberAvailability(req.params.id);
+      res.json(availability);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch availability" });
+    }
+  });
+
+  app.post("/api/members/:id/availability", async (req, res) => {
+    try {
+      const availabilityData = insertMemberAvailabilitySchema.parse({
+        ...req.body,
+        memberId: req.params.id
+      });
+      const availability = await storage.setMemberAvailability(availabilityData);
+      res.status(201).json(availability);
+    } catch (error) {
+      res.status(400).json({ message: "Invalid availability data" });
+    }
+  });
+
+  // Venues
+  app.get("/api/venues", async (req, res) => {
+    try {
+      const venues = await storage.getVenues();
+      res.json(venues);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch venues" });
+    }
+  });
+
+  app.get("/api/venues/:id", async (req, res) => {
+    try {
+      const venue = await storage.getVenue(req.params.id);
+      if (!venue) {
+        return res.status(404).json({ message: "Venue not found" });
+      }
+      res.json(venue);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch venue" });
+    }
+  });
+
+  app.post("/api/venues", async (req, res) => {
+    try {
+      const venueData = insertVenueSchema.parse(req.body);
+      const venue = await storage.createVenue(venueData);
+      res.status(201).json(venue);
+    } catch (error) {
+      res.status(400).json({ message: "Invalid venue data" });
+    }
+  });
+
+  app.patch("/api/venues/:id", async (req, res) => {
+    try {
+      const venueData = insertVenueSchema.partial().parse(req.body);
+      const venue = await storage.updateVenue(req.params.id, venueData);
+      if (!venue) {
+        return res.status(404).json({ message: "Venue not found" });
+      }
+      res.json(venue);
+    } catch (error) {
+      res.status(400).json({ message: "Invalid venue data" });
+    }
+  });
+
+  // Project Members
+  app.get("/api/projects/:id/members", async (req, res) => {
+    try {
+      const members = await storage.getProjectMembers(req.params.id);
+      res.json(members);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch project members" });
+    }
+  });
+
+  app.post("/api/projects/:id/members", async (req, res) => {
+    try {
+      const memberData = insertProjectMemberSchema.parse({
+        ...req.body,
+        projectId: req.params.id
+      });
+      const member = await storage.addProjectMember(memberData);
+      res.status(201).json(member);
+    } catch (error) {
+      res.status(400).json({ message: "Invalid project member data" });
+    }
+  });
+
+  app.delete("/api/projects/:projectId/members/:memberId", async (req, res) => {
+    try {
+      const deleted = await storage.removeProjectMember(req.params.projectId, req.params.memberId);
+      if (!deleted) {
+        return res.status(404).json({ message: "Project member not found" });
+      }
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ message: "Failed to remove project member" });
     }
   });
 

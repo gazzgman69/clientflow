@@ -17,31 +17,44 @@ import Automations from "@/pages/automations";
 import Settings from "@/pages/settings";
 import Members from "@/pages/members";
 import Venues from "@/pages/venues";
+import MusicianPortal from "@/pages/portal/musician-portal";
+import ClientPortal from "@/pages/portal/client-portal";
 import Sidebar from "@/components/layout/sidebar";
 
 function Router() {
   return (
-    <div className="flex h-screen bg-background">
-      <Sidebar />
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <Switch>
-          <Route path="/" component={Dashboard} />
-          <Route path="/leads" component={Leads} />
-          <Route path="/clients" component={Clients} />
-          <Route path="/projects" component={Projects} />
-          <Route path="/members" component={Members} />
-          <Route path="/venues" component={Venues} />
-          <Route path="/quotes" component={Quotes} />
-          <Route path="/contracts" component={Contracts} />
-          <Route path="/invoices" component={Invoices} />
-          <Route path="/email" component={Email} />
-          <Route path="/calendar" component={Calendar} />
-          <Route path="/automations" component={Automations} />
-          <Route path="/settings" component={Settings} />
-          <Route component={NotFound} />
-        </Switch>
-      </div>
-    </div>
+    <Switch>
+      {/* Portal Routes - No Sidebar */}
+      <Route path="/portal/musician" component={MusicianPortal} />
+      <Route path="/portal/client" component={ClientPortal} />
+      
+      {/* Admin Routes - With Sidebar */}
+      <Route>
+        {() => (
+          <div className="flex h-screen bg-background">
+            <Sidebar />
+            <div className="flex-1 flex flex-col overflow-hidden">
+              <Switch>
+                <Route path="/" component={Dashboard} />
+                <Route path="/leads" component={Leads} />
+                <Route path="/clients" component={Clients} />
+                <Route path="/projects" component={Projects} />
+                <Route path="/members" component={Members} />
+                <Route path="/venues" component={Venues} />
+                <Route path="/quotes" component={Quotes} />
+                <Route path="/contracts" component={Contracts} />
+                <Route path="/invoices" component={Invoices} />
+                <Route path="/email" component={Email} />
+                <Route path="/calendar" component={Calendar} />
+                <Route path="/automations" component={Automations} />
+                <Route path="/settings" component={Settings} />
+                <Route component={NotFound} />
+              </Switch>
+            </div>
+          </div>
+        )}
+      </Route>
+    </Switch>
   );
 }
 

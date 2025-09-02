@@ -1,6 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
+import { twilioService } from "./services/twilio";
 import { 
   insertLeadSchema, 
   insertClientSchema, 
@@ -14,7 +15,12 @@ import {
   insertMemberSchema,
   insertVenueSchema,
   insertProjectMemberSchema,
-  insertMemberAvailabilitySchema
+  insertMemberAvailabilitySchema,
+  insertProjectFileSchema,
+  insertProjectNoteSchema,
+  insertSmsMessageSchema,
+  insertMessageTemplateSchema,
+  insertMessageThreadSchema
 } from "@shared/schema";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -297,6 +303,287 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // SMS Messages
+  app.get("/api/sms", async (req, res) => {
+    try {
+      const { threadId, clientId, phone } = req.query;
+      let smsMessages;
+      
+      if (threadId) {
+        smsMessages = await storage.getSmsMessagesByThread(threadId as string);
+      } else if (clientId) {
+        smsMessages = await storage.getSmsMessagesByClient(clientId as string);
+      } else if (phone) {
+        smsMessages = await storage.getSmsMessagesByPhone(phone as string);
+      } else {
+        smsMessages = await storage.getSmsMessages();
+      }
+      
+      res.json(smsMessages);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch SMS messages" });
+    }
+  });
+
+  app.post("/api/sms", async (req, res) => {
+    try {
+      const smsData = insertSmsMessageSchema.parse(req.body);
+      
+      // Validate and format phone numbers
+      const toPhone = twilioService.formatPhoneNumber(smsData.toPhone);
+      const fromPhone = smsData.fromPhone || process.env.TWILIO_PHONE_NUMBER || '';
+      
+      if (!twilioService.validatePhoneNumber(toPhone)) {
+        return res.status(400).json({ message: "Invalid phone number format" });
+      }
+      
+      let twilioSid = null;
+      let status = 'failed';
+      
+      try {
+        // Send SMS via Twilio if configured
+        if (twilioService.isConfigured()) {
+          const twilioResponse = await twilioService.sendSMS({
+            to: toPhone,
+            body: smsData.body,
+            from: fromPhone
+          });
+          twilioSid = twilioResponse.sid;
+          status = twilioResponse.status;
+        } else {
+          console.warn('[SMS] Twilio not configured, SMS will be stored but not sent');
+          status = 'queued'; // Mock status for development
+        }
+      } catch (twilioError) {
+        console.error('[SMS] Twilio error:', twilioError);
+        status = 'failed';
+      }
+      
+      // Store SMS in database
+      const sms = await storage.createSmsMessage({
+        ...smsData,
+        toPhone,
+        fromPhone,
+        sentAt: new Date(),
+        status,
+        direction: 'outbound',
+        twilioSid
+      });
+      
+      res.status(201).json(sms);
+    } catch (error) {
+      console.error('[SMS] Error:', error);
+      res.status(400).json({ message: "Invalid SMS data" });
+    }
+  });
+
+  app.patch("/api/sms/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const updateData = req.body;
+      const sms = await storage.updateSmsMessage(id, updateData);
+      
+      if (!sms) {
+        return res.status(404).json({ message: "SMS message not found" });
+      }
+      
+      res.json(sms);
+    } catch (error) {
+      res.status(400).json({ message: "Failed to update SMS message" });
+    }
+  });
+
+  // SMS Webhook for incoming messages from Twilio
+  app.post("/api/sms/webhook", async (req, res) => {
+    try {
+      // Parse incoming Twilio webhook
+      const incomingMessage = await twilioService.handleIncomingWebhook(req.body);
+      
+      // Store incoming SMS in database
+      const sms = await storage.createSmsMessage({
+        body: incomingMessage.body,
+        fromPhone: incomingMessage.from,
+        toPhone: incomingMessage.to,
+        status: 'delivered',
+        direction: 'inbound',
+        twilioSid: incomingMessage.messageSid,
+        sentAt: new Date()
+      });
+      
+      // Respond with TwiML (Twilio Markup Language) if needed
+      res.set('Content-Type', 'text/xml');
+      res.send('<?xml version="1.0" encoding="UTF-8"?><Response></Response>');
+    } catch (error) {
+      console.error('[SMS Webhook] Error processing incoming SMS:', error);
+      res.status(500).json({ message: "Failed to process incoming SMS" });
+    }
+  });
+
+  // SMS Status callback for delivery updates
+  app.post("/api/sms/status/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { MessageStatus, ErrorCode } = req.body; // Twilio status webhook data
+      
+      // Update SMS status in database
+      const updateData: any = { status: MessageStatus };
+      if (ErrorCode) {
+        updateData.errorCode = ErrorCode;
+      }
+      
+      const sms = await storage.updateSmsMessage(id, updateData);
+      
+      if (!sms) {
+        return res.status(404).json({ message: "SMS message not found" });
+      }
+      
+      res.json({ message: "Status updated successfully" });
+    } catch (error) {
+      console.error('[SMS Status] Error updating SMS status:', error);
+      res.status(500).json({ message: "Failed to update SMS status" });
+    }
+  });
+
+  // Check SMS delivery status
+  app.get("/api/sms/:id/status", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const sms = await storage.getSmsMessage(id);
+      
+      if (!sms) {
+        return res.status(404).json({ message: "SMS message not found" });
+      }
+      
+      // Get latest status from Twilio if we have a SID
+      if (sms.twilioSid && twilioService.isConfigured()) {
+        try {
+          const latestStatus = await twilioService.getMessageStatus(sms.twilioSid);
+          
+          // Update status in database if it changed
+          if (latestStatus !== sms.status) {
+            await storage.updateSmsMessage(id, { status: latestStatus });
+            sms.status = latestStatus;
+          }
+        } catch (error) {
+          console.error('[SMS Status Check] Error getting status from Twilio:', error);
+        }
+      }
+      
+      res.json({ 
+        id: sms.id,
+        status: sms.status,
+        twilioSid: sms.twilioSid,
+        sentAt: sms.sentAt
+      });
+    } catch (error) {
+      console.error('[SMS Status Check] Error:', error);
+      res.status(500).json({ message: "Failed to check SMS status" });
+    }
+  });
+
+  // Message Templates
+  app.get("/api/message-templates", async (req, res) => {
+    try {
+      const { type } = req.query;
+      let templates;
+      
+      if (type) {
+        templates = await storage.getMessageTemplatesByType(type as string);
+      } else {
+        templates = await storage.getMessageTemplates();
+      }
+      
+      res.json(templates);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch message templates" });
+    }
+  });
+
+  app.post("/api/message-templates", async (req, res) => {
+    try {
+      const templateData = insertMessageTemplateSchema.parse(req.body);
+      const template = await storage.createMessageTemplate(templateData);
+      res.status(201).json(template);
+    } catch (error) {
+      res.status(400).json({ message: "Invalid template data" });
+    }
+  });
+
+  app.patch("/api/message-templates/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const updateData = req.body;
+      const template = await storage.updateMessageTemplate(id, updateData);
+      
+      if (!template) {
+        return res.status(404).json({ message: "Template not found" });
+      }
+      
+      res.json(template);
+    } catch (error) {
+      res.status(400).json({ message: "Failed to update template" });
+    }
+  });
+
+  app.delete("/api/message-templates/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const deleted = await storage.deleteMessageTemplate(id);
+      
+      if (!deleted) {
+        return res.status(404).json({ message: "Template not found" });
+      }
+      
+      res.json({ message: "Template deleted successfully" });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to delete template" });
+    }
+  });
+
+  // Message Threads
+  app.get("/api/message-threads", async (req, res) => {
+    try {
+      const { clientId } = req.query;
+      let threads;
+      
+      if (clientId) {
+        threads = await storage.getMessageThreadsByClient(clientId as string);
+      } else {
+        threads = await storage.getMessageThreads();
+      }
+      
+      res.json(threads);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch message threads" });
+    }
+  });
+
+  app.post("/api/message-threads", async (req, res) => {
+    try {
+      const threadData = insertMessageThreadSchema.parse(req.body);
+      const thread = await storage.createMessageThread(threadData);
+      res.status(201).json(thread);
+    } catch (error) {
+      res.status(400).json({ message: "Invalid thread data" });
+    }
+  });
+
+  app.patch("/api/message-threads/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const updateData = req.body;
+      const thread = await storage.updateMessageThread(id, updateData);
+      
+      if (!thread) {
+        return res.status(404).json({ message: "Thread not found" });
+      }
+      
+      res.json(thread);
+    } catch (error) {
+      res.status(400).json({ message: "Failed to update thread" });
+    }
+  });
+
   // Automations
   app.get("/api/automations", async (req, res) => {
     try {
@@ -518,6 +805,76 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(204).send();
     } catch (error) {
       res.status(500).json({ message: "Failed to remove project member" });
+    }
+  });
+
+  // Project Files
+  app.get("/api/projects/:id/files", async (req, res) => {
+    try {
+      const files = await storage.getProjectFiles(req.params.id);
+      res.json(files);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch project files" });
+    }
+  });
+
+  app.post("/api/projects/:id/files", async (req, res) => {
+    try {
+      const fileData = insertProjectFileSchema.parse({
+        ...req.body,
+        projectId: req.params.id
+      });
+      const file = await storage.addProjectFile(fileData);
+      res.status(201).json(file);
+    } catch (error) {
+      res.status(400).json({ message: "Invalid file data" });
+    }
+  });
+
+  app.delete("/api/files/:id", async (req, res) => {
+    try {
+      const deleted = await storage.deleteProjectFile(req.params.id);
+      if (!deleted) {
+        return res.status(404).json({ message: "File not found" });
+      }
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ message: "Failed to delete file" });
+    }
+  });
+
+  // Project Notes
+  app.get("/api/projects/:id/notes", async (req, res) => {
+    try {
+      const notes = await storage.getProjectNotes(req.params.id);
+      res.json(notes);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch project notes" });
+    }
+  });
+
+  app.post("/api/projects/:id/notes", async (req, res) => {
+    try {
+      const noteData = insertProjectNoteSchema.parse({
+        ...req.body,
+        projectId: req.params.id
+      });
+      const note = await storage.addProjectNote(noteData);
+      res.status(201).json(note);
+    } catch (error) {
+      res.status(400).json({ message: "Invalid note data" });
+    }
+  });
+
+  app.delete("/api/notes/:id", async (req, res) => {
+    try {
+      const deleted = await storage.deleteProjectNote(req.params.id);
+      if (!deleted) {
+        return res.status(404).json({ message: "Note not found" });
+      }
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ message: "Failed to delete note" });
     }
   });
 

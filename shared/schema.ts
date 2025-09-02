@@ -156,6 +156,48 @@ export const emails = pgTable("emails", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+export const smsMessages = pgTable("sms_messages", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  body: text("body").notNull(),
+  fromPhone: text("from_phone").notNull(),
+  toPhone: text("to_phone").notNull(),
+  status: text("status").notNull().default('queued'), // queued, sent, delivered, failed, undelivered
+  direction: text("direction").notNull(), // inbound, outbound
+  twilioSid: text("twilio_sid"), // Twilio message SID for tracking
+  threadId: varchar("thread_id"),
+  leadId: varchar("lead_id").references(() => leads.id),
+  clientId: varchar("client_id").references(() => clients.id),
+  projectId: varchar("project_id").references(() => projects.id),
+  sentBy: varchar("sent_by").references(() => users.id),
+  sentAt: timestamp("sent_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const messageTemplates = pgTable("message_templates", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  type: text("type").notNull(), // email, sms, whatsapp
+  subject: text("subject"), // For email templates
+  body: text("body").notNull(),
+  variables: text("variables").array(), // Available template variables like {firstName}, {eventDate}
+  category: text("category"), // reminder, confirmation, follow-up, etc.
+  isActive: boolean("is_active").default(true),
+  createdBy: varchar("created_by").references(() => users.id).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const messageThreads = pgTable("message_threads", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  subject: text("subject"),
+  participants: text("participants").array().notNull(), // Phone numbers or emails
+  leadId: varchar("lead_id").references(() => leads.id),
+  clientId: varchar("client_id").references(() => clients.id),
+  projectId: varchar("project_id").references(() => projects.id),
+  lastMessageAt: timestamp("last_message_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 export const activities = pgTable("activities", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   type: text("type").notNull(), // lead_created, quote_sent, contract_signed, etc.
@@ -236,6 +278,27 @@ export const memberAvailability = pgTable("member_availability", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// Project Files
+export const projectFiles = pgTable("project_files", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  projectId: varchar("project_id").references(() => projects.id).notNull(),
+  fileName: text("file_name").notNull(),
+  originalName: text("original_name").notNull(),
+  fileSize: integer("file_size"),
+  mimeType: text("mime_type"),
+  uploadedBy: varchar("uploaded_by").references(() => users.id).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Project Notes
+export const projectNotes = pgTable("project_notes", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  projectId: varchar("project_id").references(() => projects.id).notNull(),
+  note: text("note").notNull(),
+  createdBy: varchar("created_by").references(() => users.id).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // Insert schemas
 export const insertUserSchema = createInsertSchema(users).omit({ id: true, createdAt: true });
 export const insertLeadSchema = createInsertSchema(leads).omit({ id: true, createdAt: true, updatedAt: true });
@@ -252,6 +315,11 @@ export const insertMemberSchema = createInsertSchema(members).omit({ id: true, c
 export const insertVenueSchema = createInsertSchema(venues).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertProjectMemberSchema = createInsertSchema(projectMembers).omit({ createdAt: true });
 export const insertMemberAvailabilitySchema = createInsertSchema(memberAvailability).omit({ id: true, createdAt: true });
+export const insertProjectFileSchema = createInsertSchema(projectFiles).omit({ id: true, createdAt: true });
+export const insertProjectNoteSchema = createInsertSchema(projectNotes).omit({ id: true, createdAt: true });
+export const insertSmsMessageSchema = createInsertSchema(smsMessages).omit({ id: true, createdAt: true });
+export const insertMessageTemplateSchema = createInsertSchema(messageTemplates).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertMessageThreadSchema = createInsertSchema(messageThreads).omit({ id: true, createdAt: true });
 
 // Types
 export type User = typeof users.$inferSelect;
@@ -284,3 +352,13 @@ export type ProjectMember = typeof projectMembers.$inferSelect;
 export type InsertProjectMember = z.infer<typeof insertProjectMemberSchema>;
 export type MemberAvailability = typeof memberAvailability.$inferSelect;
 export type InsertMemberAvailability = z.infer<typeof insertMemberAvailabilitySchema>;
+export type ProjectFile = typeof projectFiles.$inferSelect;
+export type InsertProjectFile = z.infer<typeof insertProjectFileSchema>;
+export type ProjectNote = typeof projectNotes.$inferSelect;
+export type InsertProjectNote = z.infer<typeof insertProjectNoteSchema>;
+export type SmsMessage = typeof smsMessages.$inferSelect;
+export type InsertSmsMessage = z.infer<typeof insertSmsMessageSchema>;
+export type MessageTemplate = typeof messageTemplates.$inferSelect;
+export type InsertMessageTemplate = z.infer<typeof insertMessageTemplateSchema>;
+export type MessageThread = typeof messageThreads.$inferSelect;
+export type InsertMessageThread = z.infer<typeof insertMessageThreadSchema>;

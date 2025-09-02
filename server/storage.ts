@@ -13,7 +13,12 @@ import {
   type Member, type InsertMember,
   type Venue, type InsertVenue,
   type ProjectMember, type InsertProjectMember,
-  type MemberAvailability, type InsertMemberAvailability
+  type MemberAvailability, type InsertMemberAvailability,
+  type ProjectFile, type InsertProjectFile,
+  type ProjectNote, type InsertProjectNote,
+  type SmsMessage, type InsertSmsMessage,
+  type MessageTemplate, type InsertMessageTemplate,
+  type MessageThread, type InsertMessageThread
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 
@@ -86,6 +91,30 @@ export interface IStorage {
   createEmail(email: InsertEmail): Promise<Email>;
   updateEmail(id: string, email: Partial<InsertEmail>): Promise<Email | undefined>;
   
+  // SMS Messages
+  getSmsMessages(): Promise<SmsMessage[]>;
+  getSmsMessage(id: string): Promise<SmsMessage | undefined>;
+  getSmsMessagesByThread(threadId: string): Promise<SmsMessage[]>;
+  getSmsMessagesByClient(clientId: string): Promise<SmsMessage[]>;
+  getSmsMessagesByPhone(phoneNumber: string): Promise<SmsMessage[]>;
+  createSmsMessage(sms: InsertSmsMessage): Promise<SmsMessage>;
+  updateSmsMessage(id: string, sms: Partial<InsertSmsMessage>): Promise<SmsMessage | undefined>;
+  
+  // Message Templates
+  getMessageTemplates(): Promise<MessageTemplate[]>;
+  getMessageTemplate(id: string): Promise<MessageTemplate | undefined>;
+  getMessageTemplatesByType(type: string): Promise<MessageTemplate[]>;
+  createMessageTemplate(template: InsertMessageTemplate): Promise<MessageTemplate>;
+  updateMessageTemplate(id: string, template: Partial<InsertMessageTemplate>): Promise<MessageTemplate | undefined>;
+  deleteMessageTemplate(id: string): Promise<boolean>;
+  
+  // Message Threads
+  getMessageThreads(): Promise<MessageThread[]>;
+  getMessageThread(id: string): Promise<MessageThread | undefined>;
+  getMessageThreadsByClient(clientId: string): Promise<MessageThread[]>;
+  createMessageThread(thread: InsertMessageThread): Promise<MessageThread>;
+  updateMessageThread(id: string, thread: Partial<InsertMessageThread>): Promise<MessageThread | undefined>;
+  
   // Activities
   getActivities(): Promise<Activity[]>;
   getRecentActivities(limit?: number): Promise<Activity[]>;
@@ -122,6 +151,16 @@ export interface IStorage {
   getMemberAvailability(memberId: string, startDate?: Date, endDate?: Date): Promise<MemberAvailability[]>;
   setMemberAvailability(availability: InsertMemberAvailability): Promise<MemberAvailability>;
   
+  // Project Files
+  getProjectFiles(projectId: string): Promise<ProjectFile[]>;
+  addProjectFile(file: InsertProjectFile): Promise<ProjectFile>;
+  deleteProjectFile(id: string): Promise<boolean>;
+  
+  // Project Notes
+  getProjectNotes(projectId: string): Promise<ProjectNote[]>;
+  addProjectNote(note: InsertProjectNote): Promise<ProjectNote>;
+  deleteProjectNote(id: string): Promise<boolean>;
+  
   // Authentication
   validateUser(username: string, password: string): Promise<User | undefined>;
   updateUser(id: string, user: Partial<InsertUser>): Promise<User | undefined>;
@@ -151,6 +190,11 @@ export class MemStorage implements IStorage {
   private venues: Map<string, Venue> = new Map();
   private projectMembers: Map<string, ProjectMember[]> = new Map();
   private memberAvailability: Map<string, MemberAvailability[]> = new Map();
+  private projectFiles: Map<string, ProjectFile[]> = new Map();
+  private projectNotes: Map<string, ProjectNote[]> = new Map();
+  private smsMessages: Map<string, SmsMessage> = new Map();
+  private messageTemplates: Map<string, MessageTemplate> = new Map();
+  private messageThreads: Map<string, MessageThread> = new Map();
 
   constructor() {
     // Initialize with default admin user
@@ -182,6 +226,7 @@ export class MemStorage implements IStorage {
     const user: User = { 
       ...insertUser, 
       avatar: insertUser.avatar ?? null,
+      role: insertUser.role ?? 'client',
       id, 
       createdAt: new Date()
     };
@@ -625,6 +670,162 @@ export class MemStorage implements IStorage {
     return updatedEmail;
   }
 
+  // SMS Messages
+  async getSmsMessages(): Promise<SmsMessage[]> {
+    return Array.from(this.smsMessages.values()).sort((a, b) => 
+      new Date(b.createdAt!).getTime() - new Date(a.createdAt!).getTime()
+    );
+  }
+
+  async getSmsMessage(id: string): Promise<SmsMessage | undefined> {
+    return this.smsMessages.get(id);
+  }
+
+  async getSmsMessagesByThread(threadId: string): Promise<SmsMessage[]> {
+    return Array.from(this.smsMessages.values())
+      .filter(sms => sms.threadId === threadId)
+      .sort((a, b) => new Date(a.createdAt!).getTime() - new Date(b.createdAt!).getTime());
+  }
+
+  async getSmsMessagesByClient(clientId: string): Promise<SmsMessage[]> {
+    return Array.from(this.smsMessages.values())
+      .filter(sms => sms.clientId === clientId)
+      .sort((a, b) => new Date(b.createdAt!).getTime() - new Date(a.createdAt!).getTime());
+  }
+
+  async getSmsMessagesByPhone(phoneNumber: string): Promise<SmsMessage[]> {
+    return Array.from(this.smsMessages.values())
+      .filter(sms => sms.toPhone === phoneNumber || sms.fromPhone === phoneNumber)
+      .sort((a, b) => new Date(a.createdAt!).getTime() - new Date(b.createdAt!).getTime());
+  }
+
+  async createSmsMessage(insertSms: InsertSmsMessage): Promise<SmsMessage> {
+    const id = randomUUID();
+    const sms: SmsMessage = {
+      ...insertSms,
+      status: insertSms.status ?? 'queued',
+      direction: insertSms.direction ?? 'outbound',
+      leadId: insertSms.leadId ?? null,
+      clientId: insertSms.clientId ?? null,
+      projectId: insertSms.projectId ?? null,
+      threadId: insertSms.threadId ?? null,
+      twilioSid: insertSms.twilioSid ?? null,
+      sentAt: insertSms.sentAt ?? null,
+      sentBy: insertSms.sentBy ?? null,
+      id,
+      createdAt: new Date(),
+    };
+    this.smsMessages.set(id, sms);
+    return sms;
+  }
+
+  async updateSmsMessage(id: string, smsUpdate: Partial<InsertSmsMessage>): Promise<SmsMessage | undefined> {
+    const sms = this.smsMessages.get(id);
+    if (!sms) return undefined;
+    
+    const updatedSms: SmsMessage = {
+      ...sms,
+      ...smsUpdate,
+    };
+    this.smsMessages.set(id, updatedSms);
+    return updatedSms;
+  }
+
+  // Message Templates
+  async getMessageTemplates(): Promise<MessageTemplate[]> {
+    return Array.from(this.messageTemplates.values()).sort((a, b) => 
+      new Date(b.createdAt!).getTime() - new Date(a.createdAt!).getTime()
+    );
+  }
+
+  async getMessageTemplate(id: string): Promise<MessageTemplate | undefined> {
+    return this.messageTemplates.get(id);
+  }
+
+  async getMessageTemplatesByType(type: string): Promise<MessageTemplate[]> {
+    return Array.from(this.messageTemplates.values())
+      .filter(template => template.type === type && template.isActive)
+      .sort((a, b) => new Date(b.createdAt!).getTime() - new Date(a.createdAt!).getTime());
+  }
+
+  async createMessageTemplate(insertTemplate: InsertMessageTemplate): Promise<MessageTemplate> {
+    const id = randomUUID();
+    const template: MessageTemplate = {
+      ...insertTemplate,
+      subject: insertTemplate.subject ?? null,
+      variables: insertTemplate.variables ?? null,
+      category: insertTemplate.category ?? null,
+      isActive: insertTemplate.isActive ?? true,
+      id,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    this.messageTemplates.set(id, template);
+    return template;
+  }
+
+  async updateMessageTemplate(id: string, templateUpdate: Partial<InsertMessageTemplate>): Promise<MessageTemplate | undefined> {
+    const template = this.messageTemplates.get(id);
+    if (!template) return undefined;
+    
+    const updatedTemplate: MessageTemplate = {
+      ...template,
+      ...templateUpdate,
+      updatedAt: new Date(),
+    };
+    this.messageTemplates.set(id, updatedTemplate);
+    return updatedTemplate;
+  }
+
+  async deleteMessageTemplate(id: string): Promise<boolean> {
+    return this.messageTemplates.delete(id);
+  }
+
+  // Message Threads
+  async getMessageThreads(): Promise<MessageThread[]> {
+    return Array.from(this.messageThreads.values()).sort((a, b) => 
+      new Date(b.lastMessageAt || b.createdAt!).getTime() - new Date(a.lastMessageAt || a.createdAt!).getTime()
+    );
+  }
+
+  async getMessageThread(id: string): Promise<MessageThread | undefined> {
+    return this.messageThreads.get(id);
+  }
+
+  async getMessageThreadsByClient(clientId: string): Promise<MessageThread[]> {
+    return Array.from(this.messageThreads.values())
+      .filter(thread => thread.clientId === clientId)
+      .sort((a, b) => new Date(b.lastMessageAt || b.createdAt!).getTime() - new Date(a.lastMessageAt || a.createdAt!).getTime());
+  }
+
+  async createMessageThread(insertThread: InsertMessageThread): Promise<MessageThread> {
+    const id = randomUUID();
+    const thread: MessageThread = {
+      ...insertThread,
+      subject: insertThread.subject ?? null,
+      leadId: insertThread.leadId ?? null,
+      clientId: insertThread.clientId ?? null,
+      projectId: insertThread.projectId ?? null,
+      lastMessageAt: insertThread.lastMessageAt ?? null,
+      id,
+      createdAt: new Date(),
+    };
+    this.messageThreads.set(id, thread);
+    return thread;
+  }
+
+  async updateMessageThread(id: string, threadUpdate: Partial<InsertMessageThread>): Promise<MessageThread | undefined> {
+    const thread = this.messageThreads.get(id);
+    if (!thread) return undefined;
+    
+    const updatedThread: MessageThread = {
+      ...thread,
+      ...threadUpdate,
+    };
+    this.messageThreads.set(id, updatedThread);
+    return updatedThread;
+  }
+
   // Activities
   async getActivities(): Promise<Activity[]> {
     return Array.from(this.activities.values()).sort((a, b) => 
@@ -871,6 +1072,72 @@ export class MemStorage implements IStorage {
     this.memberAvailability.set(insertAvailability.memberId, existing);
     
     return availability;
+  }
+
+  // Project Files
+  async getProjectFiles(projectId: string): Promise<ProjectFile[]> {
+    return this.projectFiles.get(projectId) || [];
+  }
+
+  async addProjectFile(insertFile: InsertProjectFile): Promise<ProjectFile> {
+    const id = randomUUID();
+    const file: ProjectFile = {
+      ...insertFile,
+      fileSize: insertFile.fileSize ?? null,
+      mimeType: insertFile.mimeType ?? null,
+      id,
+      createdAt: new Date(),
+    };
+    
+    const existing = this.projectFiles.get(insertFile.projectId) || [];
+    existing.push(file);
+    this.projectFiles.set(insertFile.projectId, existing);
+    
+    return file;
+  }
+
+  async deleteProjectFile(id: string): Promise<boolean> {
+    for (const [projectId, files] of Array.from(this.projectFiles.entries())) {
+      const index = files.findIndex((f: ProjectFile) => f.id === id);
+      if (index !== -1) {
+        files.splice(index, 1);
+        this.projectFiles.set(projectId, files);
+        return true;
+      }
+    }
+    return false;
+  }
+
+  // Project Notes
+  async getProjectNotes(projectId: string): Promise<ProjectNote[]> {
+    return this.projectNotes.get(projectId) || [];
+  }
+
+  async addProjectNote(insertNote: InsertProjectNote): Promise<ProjectNote> {
+    const id = randomUUID();
+    const note: ProjectNote = {
+      ...insertNote,
+      id,
+      createdAt: new Date(),
+    };
+    
+    const existing = this.projectNotes.get(insertNote.projectId) || [];
+    existing.push(note);
+    this.projectNotes.set(insertNote.projectId, existing);
+    
+    return note;
+  }
+
+  async deleteProjectNote(id: string): Promise<boolean> {
+    for (const [projectId, notes] of Array.from(this.projectNotes.entries())) {
+      const index = notes.findIndex((n: ProjectNote) => n.id === id);
+      if (index !== -1) {
+        notes.splice(index, 1);
+        this.projectNotes.set(projectId, notes);
+        return true;
+      }
+    }
+    return false;
   }
 
   // Authentication

@@ -11,7 +11,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Edit, Trash2, Briefcase, Calendar } from "lucide-react";
+import { Plus, Edit, Trash2, Briefcase, Calendar, Eye } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertProjectSchema } from "@shared/schema";
@@ -20,6 +20,7 @@ import { useToast } from "@/hooks/use-toast";
 import { formatDistanceToNow } from "date-fns";
 import type { Project, Client } from "@shared/schema";
 import { z } from "zod";
+import ProjectDetailModal from "@/components/modals/project-detail-modal";
 
 const projectFormSchema = insertProjectSchema.extend({
   estimatedValue: z.string().optional(),
@@ -28,6 +29,8 @@ const projectFormSchema = insertProjectSchema.extend({
 export default function Projects() {
   const [showProjectModal, setShowProjectModal] = useState(false);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
+  const [selectedProject, setSelectedProject] = useState<Project | null>(null);
+  const [showDetailModal, setShowDetailModal] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -102,6 +105,16 @@ export default function Projects() {
     setEditingProject(null);
     form.reset();
     setShowProjectModal(true);
+  };
+
+  const handleViewDetails = (project: Project) => {
+    setSelectedProject(project);
+    setShowDetailModal(true);
+  };
+
+  const handleCloseDetailModal = () => {
+    setShowDetailModal(false);
+    setSelectedProject(null);
   };
 
   return (
@@ -181,6 +194,14 @@ export default function Projects() {
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center space-x-2">
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            onClick={() => handleViewDetails(project)}
+                            data-testid={`view-details-${project.id}`}
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
                           <Button variant="ghost" size="sm" data-testid={`edit-project-${project.id}`}>
                             <Edit className="h-4 w-4" />
                           </Button>
@@ -333,6 +354,13 @@ export default function Projects() {
           </Form>
         </DialogContent>
       </Dialog>
+
+      {/* Project Detail Modal */}
+      <ProjectDetailModal
+        project={selectedProject}
+        isOpen={showDetailModal}
+        onClose={handleCloseDetailModal}
+      />
     </>
   );
 }

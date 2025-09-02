@@ -1,5 +1,4 @@
 import Header from "@/components/layout/header";
-import MetricsCards from "@/components/dashboard/metrics-cards";
 import CalendarWeekView from "@/components/dashboard/calendar-week-view";
 import RecentClientActivity from "@/components/dashboard/recent-client-activity";
 import PendingItems from "@/components/dashboard/pending-items";
@@ -21,9 +20,6 @@ export default function Dashboard() {
       />
       
       <main className="flex-1 overflow-auto p-6 space-y-6">
-        {/* Top Metrics */}
-        <MetricsCards />
-        
         {/* Calendar Week View - Full Width at Top */}
         <CalendarWeekView />
         

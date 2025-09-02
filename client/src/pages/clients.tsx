@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Plus, Edit, Trash2, Building } from "lucide-react";
@@ -61,6 +62,27 @@ export default function Clients() {
       toast({
         title: "Error",
         description: "Failed to add client. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const deleteClientMutation = useMutation({
+    mutationFn: async (clientId: string) => {
+      return await apiRequest("DELETE", `/api/clients/${clientId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/clients"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/metrics"] });
+      toast({
+        title: "Client deleted",
+        description: "The client has been successfully deleted.",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to delete client. Please try again.",
         variant: "destructive",
       });
     },
@@ -151,9 +173,31 @@ export default function Clients() {
                           <Button variant="ghost" size="sm" data-testid={`edit-client-${client.id}`}>
                             <Edit className="h-4 w-4" />
                           </Button>
-                          <Button variant="ghost" size="sm" data-testid={`delete-client-${client.id}`}>
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button variant="ghost" size="sm" data-testid={`delete-client-${client.id}`}>
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Delete Client</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  Are you sure you want to delete "{client.firstName} {client.lastName}"? This action cannot be undone and will remove all associated data.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction
+                                  onClick={() => deleteClientMutation.mutate(client.id)}
+                                  className="bg-red-600 hover:bg-red-700"
+                                  data-testid={`confirm-delete-client-${client.id}`}
+                                >
+                                  Delete
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
                         </div>
                       </TableCell>
                     </TableRow>

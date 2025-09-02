@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -77,6 +78,27 @@ export default function Projects() {
       toast({
         title: "Error",
         description: "Failed to create project. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const deleteProjectMutation = useMutation({
+    mutationFn: async (projectId: string) => {
+      return await apiRequest("DELETE", `/api/projects/${projectId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/metrics"] });
+      toast({
+        title: "Project deleted",
+        description: "The project has been successfully deleted.",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to delete project. Please try again.",
         variant: "destructive",
       });
     },
@@ -205,9 +227,31 @@ export default function Projects() {
                           <Button variant="ghost" size="sm" data-testid={`edit-project-${project.id}`}>
                             <Edit className="h-4 w-4" />
                           </Button>
-                          <Button variant="ghost" size="sm" data-testid={`delete-project-${project.id}`}>
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button variant="ghost" size="sm" data-testid={`delete-project-${project.id}`}>
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Delete Project</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  Are you sure you want to delete "{project.name}"? This action cannot be undone and will remove all associated tasks, files, and data.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction
+                                  onClick={() => deleteProjectMutation.mutate(project.id)}
+                                  className="bg-red-600 hover:bg-red-700"
+                                  data-testid={`confirm-delete-project-${project.id}`}
+                                >
+                                  Delete
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
                         </div>
                       </TableCell>
                     </TableRow>

@@ -1,20 +1,45 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import Header from "@/components/layout/header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Plus, Edit, Trash2 } from "lucide-react";
 import LeadCaptureModal from "@/components/modals/lead-capture-modal";
+import { apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 import type { Lead } from "@shared/schema";
 import { formatDistanceToNow } from "date-fns";
 
 export default function Leads() {
   const [showLeadCapture, setShowLeadCapture] = useState(false);
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   const { data: leads, isLoading } = useQuery<Lead[]>({
     queryKey: ["/api/leads"],
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (leadId: string) => {
+      return await apiRequest("DELETE", `/api/leads/${leadId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/leads"] });
+      toast({
+        title: "Lead deleted",
+        description: "The lead has been successfully deleted.",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to delete lead. Please try again.",
+        variant: "destructive",
+      });
+    },
   });
 
   const getStatusColor = (status: string) => {
@@ -108,9 +133,31 @@ export default function Leads() {
                           <Button variant="ghost" size="sm" data-testid={`edit-lead-${lead.id}`}>
                             <Edit className="h-4 w-4" />
                           </Button>
-                          <Button variant="ghost" size="sm" data-testid={`delete-lead-${lead.id}`}>
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button variant="ghost" size="sm" data-testid={`delete-lead-${lead.id}`}>
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Delete Lead</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  Are you sure you want to delete "{lead.firstName} {lead.lastName}"? This action cannot be undone.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction
+                                  onClick={() => deleteMutation.mutate(lead.id)}
+                                  className="bg-red-600 hover:bg-red-700"
+                                  data-testid={`confirm-delete-lead-${lead.id}`}
+                                >
+                                  Delete
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
                         </div>
                       </TableCell>
                     </TableRow>

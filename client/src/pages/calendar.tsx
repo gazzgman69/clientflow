@@ -185,11 +185,11 @@ export default function CalendarPage() {
             <>
               <Button 
                 variant="outline" 
-                onClick={() => window.open('/auth/google', '_blank')}
+                onClick={() => window.open('https://calendar.google.com/calendar/u/0/settings/export', '_blank')}
                 data-testid="connect-google-calendar"
               >
                 <ExternalLink className="h-4 w-4 mr-2" />
-                Connect Google Calendar
+                Get Google Calendar Link
               </Button>
               <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
                 <DialogTrigger asChild>
@@ -217,11 +217,14 @@ export default function CalendarPage() {
                       <Label htmlFor="ical-url">iCal URL</Label>
                       <Input
                         id="ical-url"
-                        placeholder="https://calendar.google.com/calendar/ical/..."
+                        placeholder="https://calendar.google.com/calendar/ical/your-email@gmail.com/public/basic.ics"
                         value={icalUrl}
                         onChange={(e) => setIcalUrl(e.target.value)}
                         data-testid="input-ical-url"
                       />
+                      <div className="text-xs text-muted-foreground mt-1">
+                        Tip: Click "Get Google Calendar Link" above to find your calendar's iCal URL in Google Calendar settings
+                      </div>
                     </div>
                     <div className="flex justify-end gap-2">
                       <Button 

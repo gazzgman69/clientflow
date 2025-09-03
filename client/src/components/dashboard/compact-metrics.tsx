@@ -9,7 +9,7 @@ import type { BusinessMetrics } from "@/lib/types";
 export default function CompactMetrics() {
   const [selectedMetrics, setSelectedMetrics] = useState([
     'cashFlowForecast',
-    'totalPotentialRevenue', 
+    'pipelineValue', 
     'responseTime'
   ]);
   const [isMetricDialogOpen, setIsMetricDialogOpen] = useState(false);

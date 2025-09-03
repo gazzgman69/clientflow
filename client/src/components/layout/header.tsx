@@ -14,7 +14,7 @@ export default function Header({ title, subtitle }: HeaderProps) {
 
   return (
     <>
-      <header className="bg-card border-b border-border px-6 py-4 flex items-center justify-between">
+      <header className="bg-card border-b border-border px-6 py-4 flex items-center justify-between pt-[0px] pb-[0px] text-[12px]">
         <div>
           <h1 className="text-2xl font-bold text-foreground" data-testid="page-title">{title}</h1>
           {subtitle && (
@@ -52,7 +52,6 @@ export default function Header({ title, subtitle }: HeaderProps) {
           </Button>
         </div>
       </header>
-
       <QuickActionModal 
         isOpen={showQuickActions} 
         onClose={() => setShowQuickActions(false)} 

@@ -98,7 +98,7 @@ export default function CalendarWeekView() {
 
                     {/* Events and Tasks */}
                     <div className="space-y-1">
-                      {dayEvents.slice(0, 2).map((event, eventIndex) => (
+                      {dayEvents.slice(0, 1).map((event, eventIndex) => (
                         <div
                           key={`event-${eventIndex}`}
                           className="text-[9px] p-1 rounded border-l border-blue-400 bg-blue-50 dark:bg-blue-900/20"
@@ -131,9 +131,9 @@ export default function CalendarWeekView() {
                         </div>
                       )}
                       
-                      {(dayEvents.length > 2 || dayTasks.length > 1) && (
+                      {(dayEvents.length > 1 || dayTasks.length > 1) && (
                         <div className="text-[8px] text-muted-foreground text-center">
-                          +{Math.max(0, dayEvents.length - 2) + Math.max(0, dayTasks.length - 1)} more
+                          +{Math.max(0, dayEvents.length - 1) + Math.max(0, dayTasks.length - 1)} more
                         </div>
                       )}
                     </div>

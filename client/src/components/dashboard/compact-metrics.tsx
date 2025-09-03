@@ -108,7 +108,7 @@ export default function CompactMetrics() {
           </Dialog>
         </div>
       </CardHeader>
-      <CardContent className="pt-0 pb-3">
+      <CardContent className="pt-[3px] pb-[3px]">
         <div className="grid grid-cols-3 gap-3">
           {displayedMetrics.slice(0, 3).map((metric, index) => {
             const Icon = metric.icon;

@@ -69,7 +69,9 @@ export default function CompactMetrics() {
     }
   };
 
-  const displayedMetrics = selectedMetrics.map(key => availableMetrics[key as keyof typeof availableMetrics]).filter(Boolean);
+  // Ensure only unique metrics and exactly 3 are displayed
+  const uniqueSelectedMetrics = [...new Set(selectedMetrics)].slice(0, 3);
+  const displayedMetrics = uniqueSelectedMetrics.map(key => availableMetrics[key as keyof typeof availableMetrics]).filter(Boolean);
 
   if (isLoading) {
     return (
@@ -87,14 +89,14 @@ export default function CompactMetrics() {
 
   return (
     <Card className="w-full">
-      <CardHeader className="pb-3">
+      <CardHeader className="pb-2">
         <div className="flex items-center justify-between">
-          <CardTitle className="text-lg">Business Overview</CardTitle>
+          <CardTitle className="text-base">Business Overview</CardTitle>
           <Dialog>
             <DialogTrigger asChild>
               <Button variant="outline" size="sm" data-testid="view-full-analytics">
-                <BarChart3 className="h-4 w-4 mr-2" />
-                Full Analytics
+                <BarChart3 className="h-4 w-4 mr-1" />
+                Analytics
               </Button>
             </DialogTrigger>
             <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
@@ -106,37 +108,45 @@ export default function CompactMetrics() {
           </Dialog>
         </div>
       </CardHeader>
-      <CardContent className="pt-0">
-        <div className="grid grid-cols-3 gap-4">
-          {displayedMetrics.map((metric) => {
+      <CardContent className="pt-0 pb-3">
+        <div className="grid grid-cols-3 gap-3">
+          {displayedMetrics.slice(0, 3).map((metric, index) => {
             const Icon = metric.icon;
             return (
-              <div key={metric.key} className="text-center" data-testid={`compact-metric-${metric.key}`}>
-                <div className={`w-12 h-12 ${metric.bg} rounded-lg flex items-center justify-center mx-auto mb-2`}>
-                  <Icon className={`${metric.color} h-6 w-6`} />
+              <div key={`${metric.key}-${index}`} className="text-center" data-testid={`compact-metric-${metric.key}`}>
+                <div className={`w-8 h-8 ${metric.bg} rounded-lg flex items-center justify-center mx-auto mb-1`}>
+                  <Icon className={`${metric.color} h-4 w-4`} />
                 </div>
-                <p className="text-2xl font-bold text-foreground">{metric.value}</p>
-                <p className="text-sm text-muted-foreground">{metric.title}</p>
+                <p className="text-lg font-bold text-foreground">{metric.value}</p>
+                <p className="text-xs text-muted-foreground">{metric.title}</p>
               </div>
             );
           })}
         </div>
         
         {/* Metric Selection */}
-        <div className="mt-4 pt-4 border-t">
-          <p className="text-sm text-muted-foreground mb-2">Customize displayed metrics:</p>
-          <div className="grid grid-cols-3 gap-2">
-            {selectedMetrics.map((selectedKey, index) => (
+        <div className="mt-3 pt-3 border-t">
+          <p className="text-xs text-muted-foreground mb-2">Customize:</p>
+          <div className="grid grid-cols-3 gap-1">
+            {uniqueSelectedMetrics.map((selectedKey, index) => (
               <Select
-                key={index}
+                key={`select-${index}`}
                 value={selectedKey}
                 onValueChange={(value) => {
-                  const newMetrics = [...selectedMetrics];
+                  const newMetrics = [...uniqueSelectedMetrics];
                   newMetrics[index] = value;
-                  setSelectedMetrics(newMetrics);
+                  // Ensure exactly 3 unique metrics
+                  const finalMetrics = [...new Set(newMetrics)];
+                  while (finalMetrics.length < 3) {
+                    const availableKeys = Object.keys(availableMetrics);
+                    const unusedKey = availableKeys.find(key => !finalMetrics.includes(key));
+                    if (unusedKey) finalMetrics.push(unusedKey);
+                    else break;
+                  }
+                  setSelectedMetrics(finalMetrics.slice(0, 3));
                 }}
               >
-                <SelectTrigger className="h-8 text-xs">
+                <SelectTrigger className="h-7 text-xs">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>

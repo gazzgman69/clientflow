@@ -151,21 +151,21 @@ export default function CalendarWeekView() {
                     {/* All Events */}
                     {dayEvents.length > 0 && (
                       <div>
-                        <h5 className="text-sm font-medium text-muted-foreground mb-2">Events</h5>
-                        <div className="space-y-2">
+                        <h5 className="text-xs font-medium text-muted-foreground mb-1">Events</h5>
+                        <div className="space-y-1">
                           {dayEvents.map((event, eventIndex) => (
                             <div
                               key={`detail-event-${eventIndex}`}
-                              className="p-2 rounded border-l-2 border-blue-400 bg-blue-50 dark:bg-blue-900/20"
+                              className="p-1 rounded border-l border-blue-400 bg-blue-50 dark:bg-blue-900/20"
                             >
-                              <div className="font-medium text-blue-700 dark:text-blue-300">
+                              <div className="font-medium text-blue-700 dark:text-blue-300 text-xs">
                                 {event.title}
                               </div>
-                              <div className="flex items-center gap-1 text-blue-600 dark:text-blue-400 text-sm mt-1">
-                                <Clock className="h-3 w-3" />
+                              <div className="flex items-center gap-1 text-blue-600 dark:text-blue-400 text-xs">
+                                <Clock className="h-2 w-2" />
                                 {event.time}
                               </div>
-                              <div className="text-blue-600 dark:text-blue-400 text-sm">
+                              <div className="text-blue-600 dark:text-blue-400 text-xs">
                                 {event.clientName}
                               </div>
                             </div>
@@ -177,19 +177,19 @@ export default function CalendarWeekView() {
                     {/* All Tasks */}
                     {dayTasks.length > 0 && (
                       <div>
-                        <h5 className="text-sm font-medium text-muted-foreground mb-2">Tasks</h5>
-                        <div className="space-y-2">
+                        <h5 className="text-xs font-medium text-muted-foreground mb-1">Tasks</h5>
+                        <div className="space-y-1">
                           {dayTasks.map((task, taskIndex) => (
                             <div
                               key={`detail-task-${taskIndex}`}
-                              className="p-2 rounded border-l-2 border-orange-400 bg-orange-50 dark:bg-orange-900/20"
+                              className="p-1 rounded border-l border-orange-400 bg-orange-50 dark:bg-orange-900/20"
                             >
-                              <div className="font-medium text-orange-700 dark:text-orange-300">
+                              <div className="font-medium text-orange-700 dark:text-orange-300 text-xs">
                                 {task.title}
                               </div>
                               <Badge 
                                 variant="outline" 
-                                className="text-xs mt-1 border-orange-300 text-orange-700 dark:border-orange-600 dark:text-orange-400"
+                                className="text-[10px] mt-0.5 border-orange-300 text-orange-700 dark:border-orange-600 dark:text-orange-400 px-1 py-0"
                               >
                                 {task.priority}
                               </Badge>

@@ -3,7 +3,6 @@ import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { BarChart3, DollarSign, Clock, TrendingUp, Users, Target, Calendar, Zap } from "lucide-react";
 import type { BusinessMetrics } from "@/lib/types";
 
@@ -13,6 +12,8 @@ export default function CompactMetrics() {
     'totalPotentialRevenue', 
     'responseTime'
   ]);
+  const [isMetricDialogOpen, setIsMetricDialogOpen] = useState(false);
+  const [changingMetricIndex, setChangingMetricIndex] = useState<number>(0);
 
   const { data: metrics, isLoading } = useQuery<BusinessMetrics>({
     queryKey: ["/api/business/metrics"],
@@ -70,7 +71,7 @@ export default function CompactMetrics() {
   };
 
   // Ensure only unique metrics and exactly 3 are displayed
-  const uniqueSelectedMetrics = [...new Set(selectedMetrics)].slice(0, 3);
+  const uniqueSelectedMetrics = Array.from(new Set(selectedMetrics)).slice(0, 3);
   const displayedMetrics = uniqueSelectedMetrics.map(key => availableMetrics[key as keyof typeof availableMetrics]).filter(Boolean);
 
   if (isLoading) {
@@ -113,7 +114,15 @@ export default function CompactMetrics() {
           {displayedMetrics.slice(0, 3).map((metric, index) => {
             const Icon = metric.icon;
             return (
-              <div key={`${metric.key}-${index}`} className="text-center" data-testid={`compact-metric-${metric.key}`}>
+              <div 
+                key={`${metric.key}-${index}`} 
+                className="text-center cursor-pointer hover:bg-muted/50 p-1 rounded transition-colors" 
+                data-testid={`compact-metric-${metric.key}`}
+                onClick={() => {
+                  setChangingMetricIndex(index);
+                  setIsMetricDialogOpen(true);
+                }}
+              >
                 <div className={`w-6 h-6 ${metric.bg} rounded flex items-center justify-center mx-auto mb-0.5`}>
                   <Icon className={`${metric.color} h-3 w-3`} />
                 </div>
@@ -124,41 +133,43 @@ export default function CompactMetrics() {
           })}
         </div>
         
-        {/* Metric Selection */}
-        <div className="mt-2 pt-2 border-t">
-          <div className="grid grid-cols-3 gap-1">
-            {uniqueSelectedMetrics.map((selectedKey, index) => (
-              <Select
-                key={`select-${index}`}
-                value={selectedKey}
-                onValueChange={(value) => {
-                  const newMetrics = [...uniqueSelectedMetrics];
-                  newMetrics[index] = value;
-                  // Ensure exactly 3 unique metrics
-                  const finalMetrics = [...new Set(newMetrics)];
-                  while (finalMetrics.length < 3) {
-                    const availableKeys = Object.keys(availableMetrics);
-                    const unusedKey = availableKeys.find(key => !finalMetrics.includes(key));
-                    if (unusedKey) finalMetrics.push(unusedKey);
-                    else break;
-                  }
-                  setSelectedMetrics(finalMetrics.slice(0, 3));
-                }}
-              >
-                <SelectTrigger className="h-6 text-[10px]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {Object.values(availableMetrics).map((metric) => (
-                    <SelectItem key={metric.key} value={metric.key}>
-                      {metric.title}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            ))}
-          </div>
-        </div>
+        {/* Metric Selection Dialog */}
+        <Dialog open={isMetricDialogOpen} onOpenChange={setIsMetricDialogOpen}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Choose Metric</DialogTitle>
+            </DialogHeader>
+            <div className="grid grid-cols-2 gap-3">
+              {Object.values(availableMetrics).map((metric) => {
+                const Icon = metric.icon;
+                const isSelected = uniqueSelectedMetrics[changingMetricIndex] === metric.key;
+                
+                return (
+                  <div
+                    key={metric.key}
+                    className={`p-3 rounded-lg border cursor-pointer transition-colors ${
+                      isSelected 
+                        ? 'border-primary bg-primary/10' 
+                        : 'border-border hover:bg-muted'
+                    }`}
+                    onClick={() => {
+                      const newMetrics = [...uniqueSelectedMetrics];
+                      newMetrics[changingMetricIndex] = metric.key;
+                      setSelectedMetrics(newMetrics);
+                      setIsMetricDialogOpen(false);
+                    }}
+                  >
+                    <div className={`w-8 h-8 ${metric.bg} rounded flex items-center justify-center mx-auto mb-2`}>
+                      <Icon className={`${metric.color} h-4 w-4`} />
+                    </div>
+                    <p className="text-xs font-medium text-center">{metric.title}</p>
+                    <p className="text-lg font-bold text-center mt-1">{metric.value}</p>
+                  </div>
+                );
+              })}
+            </div>
+          </DialogContent>
+        </Dialog>
       </CardContent>
     </Card>
   );

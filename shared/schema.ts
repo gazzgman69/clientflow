@@ -356,6 +356,7 @@ export const events = pgTable("events", {
   assignedTo: varchar("assigned_to").references(() => users.id),
   createdBy: varchar("created_by").references(() => users.id).notNull(),
   externalEventId: text("external_event_id"), // For synced events from external calendars
+  providerData: text("provider_data"), // JSON string of provider-specific data
   calendarIntegrationId: varchar("calendar_integration_id").references(() => calendarIntegrations.id),
   reminderMinutes: integer("reminder_minutes").default(15), // Minutes before event to send reminder
   attendees: text("attendees").array(), // Email addresses of attendees

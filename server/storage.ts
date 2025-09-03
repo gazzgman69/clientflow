@@ -183,9 +183,13 @@ export interface IStorage {
   getCalendarIntegrations(): Promise<CalendarIntegration[]>;
   getCalendarIntegration(id: string): Promise<CalendarIntegration | undefined>;
   getCalendarIntegrationsByUser(userId: string): Promise<CalendarIntegration[]>;
+  getCalendarIntegrationByEmail(email: string, userId: string): Promise<CalendarIntegration | undefined>;
   createCalendarIntegration(integration: InsertCalendarIntegration): Promise<CalendarIntegration>;
   updateCalendarIntegration(id: string, integration: Partial<InsertCalendarIntegration>): Promise<CalendarIntegration | undefined>;
   deleteCalendarIntegration(id: string): Promise<boolean>;
+  
+  // Event sync helpers
+  getEventByExternalId(externalId: string): Promise<Event | undefined>;
   
   // Calendar Sync Logs
   getCalendarSyncLogs(integrationId?: string): Promise<CalendarSyncLog[]>;
@@ -1245,6 +1249,7 @@ export class MemStorage implements IStorage {
       projectId: insertEvent.projectId ?? null,
       assignedTo: insertEvent.assignedTo ?? null,
       externalEventId: insertEvent.externalEventId ?? null,
+      providerData: insertEvent.providerData ?? null,
       calendarIntegrationId: insertEvent.calendarIntegrationId ?? null,
       reminderMinutes: insertEvent.reminderMinutes ?? 15,
       attendees: insertEvent.attendees ?? null,
@@ -1289,6 +1294,12 @@ export class MemStorage implements IStorage {
       integration.userId === userId
     );
   }
+  
+  async getCalendarIntegrationByEmail(email: string, userId: string): Promise<CalendarIntegration | undefined> {
+    return Array.from(this.calendarIntegrations.values()).find(integration => 
+      integration.providerAccountId === email && integration.userId === userId && integration.provider === 'google'
+    );
+  }
 
   async createCalendarIntegration(insertIntegration: InsertCalendarIntegration): Promise<CalendarIntegration> {
     const id = randomUUID();
@@ -1328,6 +1339,10 @@ export class MemStorage implements IStorage {
 
   async deleteCalendarIntegration(id: string): Promise<boolean> {
     return this.calendarIntegrations.delete(id);
+  }
+  
+  async getEventByExternalId(externalId: string): Promise<Event | undefined> {
+    return Array.from(this.events.values()).find(event => event.externalEventId === externalId);
   }
 
   // Calendar Sync Logs

@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Calendar, Settings, RotateCcw, Plus, Trash2, ExternalLink, Download, CheckCircle, AlertCircle, Clock } from 'lucide-react';
+import { Calendar, Settings, RotateCcw, Plus, Trash2, ExternalLink, Download, CheckCircle, AlertCircle, Clock, Mail } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -12,6 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest } from '@/lib/queryClient';
 import CalendarView from '@/components/calendar-view';
+import { GoogleOAuthModal } from '@/components/google-oauth-modal';
 
 interface CalendarIntegration {
   id: string;
@@ -38,13 +39,29 @@ interface Event {
 export default function CalendarPage() {
   const [activeTab, setActiveTab] = useState('calendar');
   const [showAddDialog, setShowAddDialog] = useState(false);
-  const [showGoogleHelper, setShowGoogleHelper] = useState(false);
+  const [showGoogleOAuth, setShowGoogleOAuth] = useState(false);
   const [icalUrl, setIcalUrl] = useState('');
   const [calendarName, setCalendarName] = useState('');
-  const [userEmail, setUserEmail] = useState('');
   const [syncingId, setSyncingId] = useState<string | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  
+  // Check for OAuth callback
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('calendar') === 'connected') {
+      setActiveTab('integrations');
+      toast({ title: 'Google Calendar connected successfully!' });
+      window.history.replaceState({}, document.title, window.location.pathname);
+    } else if (params.get('calendar') === 'error') {
+      toast({ 
+        title: 'Failed to connect Google Calendar', 
+        description: params.get('message') || 'An error occurred',
+        variant: 'destructive'
+      });
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  }, [toast]);
 
   // Fetch calendar integrations
   const { data: integrations, isLoading: integrationsLoading } = useQuery<CalendarIntegration[]>({
@@ -185,75 +202,14 @@ export default function CalendarPage() {
         <div className="flex gap-2">
           {activeTab === 'integrations' && (
             <>
-              <Dialog open={showGoogleHelper} onOpenChange={setShowGoogleHelper}>
-                <DialogTrigger asChild>
-                  <Button 
-                    variant="outline"
-                    data-testid="connect-google-calendar"
-                  >
-                    <ExternalLink className="h-4 w-4 mr-2" />
-                    Get Google Calendar Link
-                  </Button>
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>Connect Google Calendar</DialogTitle>
-                  </DialogHeader>
-                  <div className="space-y-4">
-                    <p className="text-sm text-muted-foreground">
-                      To connect your Google Calendar, we need to find your calendar's iCal URL. 
-                      Enter your Google account email below to get the direct link.
-                    </p>
-                    <div>
-                      <Label htmlFor="google-email">Your Google Email</Label>
-                      <Input
-                        id="google-email"
-                        type="email"
-                        placeholder="your-email@gmail.com"
-                        value={userEmail}
-                        onChange={(e) => setUserEmail(e.target.value)}
-                        data-testid="input-google-email"
-                      />
-                    </div>
-                    <div className="flex justify-end gap-2">
-                      <Button 
-                        variant="outline" 
-                        onClick={() => {
-                          setShowGoogleHelper(false);
-                          setUserEmail('');
-                        }}
-                        data-testid="button-cancel-google"
-                      >
-                        Cancel
-                      </Button>
-                      <Button 
-                        onClick={() => {
-                          if (userEmail.trim()) {
-                            // Open main Google Calendar page
-                            window.open('https://calendar.google.com/', '_blank');
-                            setShowGoogleHelper(false);
-                            setUserEmail('');
-                          }
-                        }}
-                        disabled={!userEmail.trim()}
-                        data-testid="button-open-google-settings"
-                      >
-                        Open My Calendar Settings
-                      </Button>
-                    </div>
-                    <div className="mt-4 p-3 bg-muted rounded-lg">
-                      <h4 className="text-sm font-medium mb-2">Next steps:</h4>
-                      <ol className="text-xs text-muted-foreground space-y-1 list-decimal list-inside">
-                        <li>Click the gear icon ⚙️ in the top right to open Settings</li>
-                        <li>In the left sidebar, click on your calendar name ({userEmail || 'your email'})</li>
-                        <li>Scroll down to "Integrate calendar" section</li>
-                        <li>Copy the "Secret address in iCal format" URL</li>
-                        <li>Come back here and paste it in the "Add iCal Feed" dialog</li>
-                      </ol>
-                    </div>
-                  </div>
-                </DialogContent>
-              </Dialog>
+              <Button 
+                variant="outline"
+                onClick={() => setShowGoogleOAuth(true)}
+                data-testid="connect-google-calendar"
+              >
+                <Mail className="h-4 w-4 mr-2" />
+                Connect Google Calendar
+              </Button>
               <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
                 <DialogTrigger asChild>
                   <Button data-testid="add-ical-integration">
@@ -464,6 +420,20 @@ export default function CalendarPage() {
           </div>
         </TabsContent>
       </Tabs>
+      
+      {/* Google OAuth Modal */}
+      {showGoogleOAuth && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <GoogleOAuthModal 
+            userId="test-user"
+            onSuccess={() => {
+              setShowGoogleOAuth(false);
+              queryClient.invalidateQueries({ queryKey: ['/api/calendar-integrations'] });
+            }}
+            onCancel={() => setShowGoogleOAuth(false)}
+          />
+        </div>
+      )}
     </div>
   );
 }

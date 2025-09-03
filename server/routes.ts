@@ -4,6 +4,7 @@ import { storage } from "./storage";
 import { twilioService } from "./services/twilio";
 import { googleCalendarService } from "./services/google-calendar";
 import { icalService } from "./services/ical";
+import oauthRoutes from "./routes/oauth";
 import { 
   insertLeadSchema, 
   insertClientSchema, 
@@ -29,6 +30,9 @@ import {
 } from "@shared/schema";
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // OAuth routes
+  app.use(oauthRoutes);
+  
   // Dashboard metrics
   app.get("/api/dashboard/metrics", async (req, res) => {
     try {

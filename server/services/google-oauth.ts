@@ -1,0 +1,255 @@
+import { google } from 'googleapis';
+import { storage } from '../storage';
+import type { CalendarIntegration } from '@shared/schema';
+
+const oauth2Client = new google.auth.OAuth2(
+  process.env.GOOGLE_CLIENT_ID || 'YOUR_CLIENT_ID',
+  process.env.GOOGLE_CLIENT_SECRET || 'YOUR_CLIENT_SECRET',
+  `${process.env.REPLIT_DOMAINS ? 'https://' + process.env.REPLIT_DOMAINS.split(',')[0] : 'http://localhost:5000'}/auth/google/callback`
+);
+
+const SCOPES = [
+  'https://www.googleapis.com/auth/calendar.readonly',
+  'https://www.googleapis.com/auth/calendar.events',
+  'https://www.googleapis.com/auth/userinfo.email'
+];
+
+export class GoogleOAuthService {
+  /**
+   * Generate OAuth URL for user to authenticate
+   * @param email User's email for login hint
+   * @param userId User ID in our system
+   */
+  generateAuthUrl(email: string, userId: string): string {
+    const state = Buffer.from(JSON.stringify({ email, userId })).toString('base64');
+    
+    return oauth2Client.generateAuthUrl({
+      access_type: 'offline',
+      scope: SCOPES,
+      prompt: 'consent',
+      login_hint: email,
+      state: state,
+      include_granted_scopes: true
+    });
+  }
+
+  /**
+   * Exchange authorization code for tokens
+   */
+  async exchangeCodeForTokens(code: string): Promise<{
+    access_token: string;
+    refresh_token: string | null;
+    email: string;
+  }> {
+    const { tokens } = await oauth2Client.getToken(code);
+    oauth2Client.setCredentials(tokens);
+    
+    // Get user's email
+    const oauth2 = google.oauth2({ version: 'v2', auth: oauth2Client });
+    const { data } = await oauth2.userinfo.get();
+    
+    return {
+      access_token: tokens.access_token!,
+      refresh_token: tokens.refresh_token || null,
+      email: data.email!
+    };
+  }
+
+  /**
+   * Create calendar service with user's tokens
+   */
+  async getCalendarService(integration: CalendarIntegration) {
+    const tokens = {
+      access_token: integration.accessToken,
+      refresh_token: integration.refreshToken
+    };
+    
+    const userOAuth2Client = new google.auth.OAuth2(
+      process.env.GOOGLE_CLIENT_ID || 'YOUR_CLIENT_ID',
+      process.env.GOOGLE_CLIENT_SECRET || 'YOUR_CLIENT_SECRET',
+      `${process.env.REPLIT_DOMAINS ? 'https://' + process.env.REPLIT_DOMAINS.split(',')[0] : 'http://localhost:5000'}/auth/google/callback`
+    );
+    
+    userOAuth2Client.setCredentials(tokens);
+    
+    // Handle token refresh
+    userOAuth2Client.on('tokens', async (tokens) => {
+      if (tokens.refresh_token) {
+        await storage.updateCalendarIntegration(integration.id, {
+          refreshToken: tokens.refresh_token,
+          accessToken: tokens.access_token!
+        });
+      } else if (tokens.access_token) {
+        await storage.updateCalendarIntegration(integration.id, {
+          accessToken: tokens.access_token
+        });
+      }
+    });
+    
+    return google.calendar({ version: 'v3', auth: userOAuth2Client });
+  }
+
+  /**
+   * Sync events from Google Calendar to CRM
+   */
+  async syncFromGoogle(integration: CalendarIntegration) {
+    try {
+      const calendar = await this.getCalendarService(integration);
+      
+      // Get primary calendar events
+      const response = await calendar.events.list({
+        calendarId: 'primary',
+        timeMin: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(), // Last 30 days
+        timeMax: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString(), // Next 90 days
+        singleEvents: true,
+        orderBy: 'startTime',
+        maxResults: 500
+      });
+      
+      const events = response.data.items || [];
+      
+      for (const googleEvent of events) {
+        if (!googleEvent.id || !googleEvent.summary) continue;
+        
+        // Check if event exists
+        const existing = await storage.getEventByExternalId(googleEvent.id);
+        
+        const eventData = {
+          title: googleEvent.summary,
+          description: googleEvent.description || '',
+          startDate: new Date(googleEvent.start?.dateTime || googleEvent.start?.date || new Date()),
+          endDate: new Date(googleEvent.end?.dateTime || googleEvent.end?.date || new Date()),
+          location: googleEvent.location || null,
+          allDay: !googleEvent.start?.dateTime,
+          type: 'meeting',
+          createdBy: integration.userId,
+          calendarIntegrationId: integration.id,
+          externalEventId: googleEvent.id,
+          providerData: JSON.stringify(googleEvent)
+        };
+        
+        if (existing) {
+          await storage.updateEvent(existing.id, eventData);
+        } else {
+          await storage.createEvent(eventData);
+        }
+      }
+      
+      // Update last sync
+      await storage.updateCalendarIntegration(integration.id, {
+        lastSyncAt: new Date().toISOString(),
+        syncToken: response.data.nextSyncToken || null
+      });
+      
+      return { success: true, syncedCount: events.length };
+    } catch (error: any) {
+      console.error('Error syncing from Google:', error);
+      await storage.updateCalendarIntegration(integration.id, {
+        syncErrors: error.message
+      });
+      throw error;
+    }
+  }
+
+  /**
+   * Sync CRM event to Google Calendar
+   */
+  async syncToGoogle(integration: CalendarIntegration, eventId: string) {
+    try {
+      const calendar = await this.getCalendarService(integration);
+      const event = await storage.getEvent(eventId);
+      
+      if (!event) throw new Error('Event not found');
+      
+      const googleEvent = {
+        summary: event.title,
+        description: event.description || '',
+        location: event.location || '',
+        start: event.allDay 
+          ? { date: new Date(event.startDate).toISOString().split('T')[0] }
+          : { dateTime: new Date(event.startDate).toISOString() },
+        end: event.allDay
+          ? { date: new Date(event.endDate).toISOString().split('T')[0] }
+          : { dateTime: new Date(event.endDate).toISOString() }
+      };
+      
+      let response;
+      if (event.externalEventId) {
+        // Update existing Google event
+        response = await calendar.events.update({
+          calendarId: 'primary',
+          eventId: event.externalEventId,
+          requestBody: googleEvent
+        });
+      } else {
+        // Create new Google event
+        response = await calendar.events.insert({
+          calendarId: 'primary',
+          requestBody: googleEvent
+        });
+        
+        // Store the Google event ID
+        await storage.updateEvent(eventId, {
+          externalEventId: response.data.id!,
+          providerData: JSON.stringify(response.data)
+        });
+      }
+      
+      return { success: true, googleEventId: response.data.id };
+    } catch (error: any) {
+      console.error('Error syncing to Google:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Delete event from Google Calendar
+   */
+  async deleteFromGoogle(integration: CalendarIntegration, externalEventId: string) {
+    try {
+      const calendar = await this.getCalendarService(integration);
+      await calendar.events.delete({
+        calendarId: 'primary',
+        eventId: externalEventId
+      });
+      return { success: true };
+    } catch (error: any) {
+      console.error('Error deleting from Google:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Set up webhook for real-time sync
+   */
+  async setupWebhook(integration: CalendarIntegration) {
+    try {
+      const calendar = await this.getCalendarService(integration);
+      const webhookUrl = `${process.env.REPLIT_DOMAINS ? 'https://' + process.env.REPLIT_DOMAINS.split(',')[0] : 'http://localhost:5000'}/webhooks/google-calendar/${integration.id}`;
+      
+      const response = await calendar.events.watch({
+        calendarId: 'primary',
+        requestBody: {
+          id: `webhook-${integration.id}`,
+          type: 'web_hook',
+          address: webhookUrl,
+          params: {
+            ttl: '2592000' // 30 days in seconds
+          }
+        }
+      });
+      
+      await storage.updateCalendarIntegration(integration.id, {
+        webhookId: response.data.resourceId || null
+      });
+      
+      return { success: true, webhookId: response.data.resourceId };
+    } catch (error: any) {
+      console.error('Error setting up webhook:', error);
+      // Webhooks might not work in local development
+      return { success: false, error: error.message };
+    }
+  }
+}
+
+export const googleOAuthService = new GoogleOAuthService();

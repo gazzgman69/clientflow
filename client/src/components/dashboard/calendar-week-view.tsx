@@ -19,6 +19,10 @@ export default function CalendarWeekView() {
   // Mock events for demonstration - in real app, these would come from API
   const mockEvents = [
     { date: today, title: "Client Meeting", time: "10:00 AM", type: "meeting", clientName: "John Smith" },
+    { date: today, title: "Venue Walkthrough", time: "12:30 PM", type: "meeting", clientName: "Grand Ballroom" },
+    { date: today, title: "Sound Check", time: "2:00 PM", type: "event", clientName: "Wedding Party" },
+    { date: today, title: "Final Details Call", time: "4:15 PM", type: "call", clientName: "Sarah Johnson" },
+    { date: today, title: "Equipment Delivery", time: "6:00 PM", type: "event", clientName: "Tech Solutions" },
     { date: addDays(today, 1), title: "Project Review", time: "2:00 PM", type: "review", clientName: "Tech Corp" },
     { date: addDays(today, 2), title: "Follow-up Call", time: "11:00 AM", type: "call", clientName: "Creative Studio" },
     { date: addDays(today, 4), title: "Contract Signing", time: "3:00 PM", type: "meeting", clientName: "Music Venue" },

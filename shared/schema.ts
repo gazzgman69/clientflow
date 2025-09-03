@@ -299,6 +299,70 @@ export const projectNotes = pgTable("project_notes", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// Calendar Integrations
+export const calendarIntegrations = pgTable("calendar_integrations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  provider: text("provider").notNull(), // google, outlook, apple, ical
+  providerAccountId: text("provider_account_id"), // External calendar account ID
+  calendarId: text("calendar_id"), // Specific calendar ID within the account
+  calendarName: text("calendar_name").notNull(),
+  accessToken: text("access_token"), // Encrypted access token for API access
+  refreshToken: text("refresh_token"), // Encrypted refresh token
+  syncToken: text("sync_token"), // For incremental sync
+  webhookId: text("webhook_id"), // For real-time sync
+  isActive: boolean("is_active").default(true),
+  syncDirection: text("sync_direction").notNull().default('bidirectional'), // import, export, bidirectional
+  lastSyncAt: timestamp("last_sync_at"),
+  syncErrors: text("sync_errors"), // JSON string of sync error logs
+  settings: text("settings"), // JSON string for provider-specific settings
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Calendar Sync Log
+export const calendarSyncLog = pgTable("calendar_sync_log", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  integrationId: varchar("integration_id").references(() => calendarIntegrations.id).notNull(),
+  syncType: text("sync_type").notNull(), // manual, automatic, webhook
+  direction: text("direction").notNull(), // import, export
+  eventsProcessed: integer("events_processed").default(0),
+  eventsCreated: integer("events_created").default(0),
+  eventsUpdated: integer("events_updated").default(0),
+  eventsDeleted: integer("events_deleted").default(0),
+  errors: text("errors"), // JSON string of errors during sync
+  startedAt: timestamp("started_at").defaultNow(),
+  completedAt: timestamp("completed_at"),
+  status: text("status").notNull().default('processing'), // processing, completed, failed
+});
+
+// Events/Calendar System
+export const events = pgTable("events", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  title: text("title").notNull(),
+  description: text("description"),
+  location: text("location"),
+  startDate: timestamp("start_date").notNull(),
+  endDate: timestamp("end_date").notNull(),
+  allDay: boolean("all_day").default(false),
+  recurring: boolean("recurring").default(false),
+  recurrenceRule: text("recurrence_rule"), // RRULE format for recurring events
+  type: text("type").notNull().default('meeting'), // meeting, call, event, appointment, reminder
+  status: text("status").notNull().default('confirmed'), // confirmed, tentative, cancelled
+  priority: text("priority").notNull().default('medium'), // low, medium, high, urgent
+  leadId: varchar("lead_id").references(() => leads.id),
+  clientId: varchar("client_id").references(() => clients.id),
+  projectId: varchar("project_id").references(() => projects.id),
+  assignedTo: varchar("assigned_to").references(() => users.id),
+  createdBy: varchar("created_by").references(() => users.id).notNull(),
+  externalEventId: text("external_event_id"), // For synced events from external calendars
+  calendarIntegrationId: varchar("calendar_integration_id").references(() => calendarIntegrations.id),
+  reminderMinutes: integer("reminder_minutes").default(15), // Minutes before event to send reminder
+  attendees: text("attendees").array(), // Email addresses of attendees
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // Insert schemas
 export const insertUserSchema = createInsertSchema(users).omit({ id: true, createdAt: true });
 export const insertLeadSchema = createInsertSchema(leads).omit({ id: true, createdAt: true, updatedAt: true });
@@ -320,6 +384,9 @@ export const insertProjectNoteSchema = createInsertSchema(projectNotes).omit({ i
 export const insertSmsMessageSchema = createInsertSchema(smsMessages).omit({ id: true, createdAt: true });
 export const insertMessageTemplateSchema = createInsertSchema(messageTemplates).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertMessageThreadSchema = createInsertSchema(messageThreads).omit({ id: true, createdAt: true });
+export const insertEventSchema = createInsertSchema(events).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertCalendarIntegrationSchema = createInsertSchema(calendarIntegrations).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertCalendarSyncLogSchema = createInsertSchema(calendarSyncLog).omit({ id: true, startedAt: true });
 
 // Types
 export type User = typeof users.$inferSelect;
@@ -362,3 +429,9 @@ export type MessageTemplate = typeof messageTemplates.$inferSelect;
 export type InsertMessageTemplate = z.infer<typeof insertMessageTemplateSchema>;
 export type MessageThread = typeof messageThreads.$inferSelect;
 export type InsertMessageThread = z.infer<typeof insertMessageThreadSchema>;
+export type Event = typeof events.$inferSelect;
+export type InsertEvent = z.infer<typeof insertEventSchema>;
+export type CalendarIntegration = typeof calendarIntegrations.$inferSelect;
+export type InsertCalendarIntegration = z.infer<typeof insertCalendarIntegrationSchema>;
+export type CalendarSyncLog = typeof calendarSyncLog.$inferSelect;
+export type InsertCalendarSyncLog = z.infer<typeof insertCalendarSyncLogSchema>;

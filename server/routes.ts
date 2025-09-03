@@ -2,6 +2,8 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { twilioService } from "./services/twilio";
+import { googleCalendarService } from "./services/google-calendar";
+import { icalService } from "./services/ical";
 import { 
   insertLeadSchema, 
   insertClientSchema, 
@@ -20,7 +22,10 @@ import {
   insertProjectNoteSchema,
   insertSmsMessageSchema,
   insertMessageTemplateSchema,
-  insertMessageThreadSchema
+  insertMessageThreadSchema,
+  insertEventSchema,
+  insertCalendarIntegrationSchema,
+  insertCalendarSyncLogSchema
 } from "@shared/schema";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -1392,6 +1397,448 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(recentEmails);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch recent emails" });
+    }
+  });
+
+  // Events/Calendar API
+  app.get("/api/events", async (req, res) => {
+    try {
+      const { userId, startDate, endDate, clientId } = req.query;
+      
+      let events;
+      if (startDate && endDate) {
+        events = await storage.getEventsByDateRange(new Date(startDate as string), new Date(endDate as string));
+      } else if (userId) {
+        events = await storage.getEventsByUser(userId as string);
+      } else if (clientId) {
+        events = await storage.getEventsByClient(clientId as string);
+      } else {
+        events = await storage.getEvents();
+      }
+      
+      res.json(events);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch events" });
+    }
+  });
+
+  app.get("/api/events/:id", async (req, res) => {
+    try {
+      const event = await storage.getEvent(req.params.id);
+      if (!event) {
+        return res.status(404).json({ message: "Event not found" });
+      }
+      res.json(event);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch event" });
+    }
+  });
+
+  app.post("/api/events", async (req, res) => {
+    try {
+      const validatedData = insertEventSchema.parse(req.body);
+      const event = await storage.createEvent(validatedData);
+      res.status(201).json(event);
+    } catch (error) {
+      res.status(400).json({ message: "Invalid event data", error });
+    }
+  });
+
+  app.patch("/api/events/:id", async (req, res) => {
+    try {
+      const validatedData = insertEventSchema.partial().parse(req.body);
+      const event = await storage.updateEvent(req.params.id, validatedData);
+      if (!event) {
+        return res.status(404).json({ message: "Event not found" });
+      }
+      res.json(event);
+    } catch (error) {
+      res.status(400).json({ message: "Invalid event data", error });
+    }
+  });
+
+  app.delete("/api/events/:id", async (req, res) => {
+    try {
+      const deleted = await storage.deleteEvent(req.params.id);
+      if (!deleted) {
+        return res.status(404).json({ message: "Event not found" });
+      }
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ message: "Failed to delete event" });
+    }
+  });
+
+  // Calendar Integrations API
+  app.get("/api/calendar-integrations", async (req, res) => {
+    try {
+      const { userId } = req.query;
+      let integrations;
+      if (userId) {
+        integrations = await storage.getCalendarIntegrationsByUser(userId as string);
+      } else {
+        integrations = await storage.getCalendarIntegrations();
+      }
+      res.json(integrations);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch calendar integrations" });
+    }
+  });
+
+  app.get("/api/calendar-integrations/:id", async (req, res) => {
+    try {
+      const integration = await storage.getCalendarIntegration(req.params.id);
+      if (!integration) {
+        return res.status(404).json({ message: "Calendar integration not found" });
+      }
+      res.json(integration);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch calendar integration" });
+    }
+  });
+
+  app.post("/api/calendar-integrations", async (req, res) => {
+    try {
+      const validatedData = insertCalendarIntegrationSchema.parse(req.body);
+      const integration = await storage.createCalendarIntegration(validatedData);
+      res.status(201).json(integration);
+    } catch (error) {
+      res.status(400).json({ message: "Invalid calendar integration data", error });
+    }
+  });
+
+  app.patch("/api/calendar-integrations/:id", async (req, res) => {
+    try {
+      const validatedData = insertCalendarIntegrationSchema.partial().parse(req.body);
+      const integration = await storage.updateCalendarIntegration(req.params.id, validatedData);
+      if (!integration) {
+        return res.status(404).json({ message: "Calendar integration not found" });
+      }
+      res.json(integration);
+    } catch (error) {
+      res.status(400).json({ message: "Invalid calendar integration data", error });
+    }
+  });
+
+  app.delete("/api/calendar-integrations/:id", async (req, res) => {
+    try {
+      const deleted = await storage.deleteCalendarIntegration(req.params.id);
+      if (!deleted) {
+        return res.status(404).json({ message: "Calendar integration not found" });
+      }
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ message: "Failed to delete calendar integration" });
+    }
+  });
+
+  // Calendar Sync API
+  app.post("/api/calendar-integrations/:id/sync", async (req, res) => {
+    try {
+      const integrationId = req.params.id;
+      const integration = await storage.getCalendarIntegration(integrationId);
+      
+      if (!integration) {
+        return res.status(404).json({ message: "Calendar integration not found" });
+      }
+
+      if (!integration.isActive) {
+        return res.status(400).json({ message: "Calendar integration is not active" });
+      }
+
+      // Create sync log
+      const syncLog = await storage.createCalendarSyncLog({
+        integrationId,
+        syncType: 'manual',
+        direction: 'import',
+      });
+
+      // TODO: Implement actual sync logic based on provider
+      // This would integrate with Google Calendar API, iCal parsing, etc.
+      
+      // Update sync log as completed
+      await storage.updateCalendarSyncLog(syncLog.id, {
+        status: 'completed',
+        completedAt: new Date(),
+        eventsProcessed: 0,
+        eventsCreated: 0,
+        eventsUpdated: 0,
+        eventsDeleted: 0,
+      });
+
+      res.json({ message: "Sync initiated", syncLogId: syncLog.id });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to initiate sync" });
+    }
+  });
+
+  // Calendar Sync Logs API
+  app.get("/api/calendar-sync-logs", async (req, res) => {
+    try {
+      const { integrationId } = req.query;
+      const logs = await storage.getCalendarSyncLogs(integrationId as string);
+      res.json(logs);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch sync logs" });
+    }
+  });
+
+  app.post("/api/calendar-sync-logs", async (req, res) => {
+    try {
+      const validatedData = insertCalendarSyncLogSchema.parse(req.body);
+      const log = await storage.createCalendarSyncLog(validatedData);
+      res.status(201).json(log);
+    } catch (error) {
+      res.status(400).json({ message: "Invalid sync log data", error });
+    }
+  });
+
+  app.patch("/api/calendar-sync-logs/:id", async (req, res) => {
+    try {
+      const validatedData = insertCalendarSyncLogSchema.partial().parse(req.body);
+      const log = await storage.updateCalendarSyncLog(req.params.id, validatedData);
+      if (!log) {
+        return res.status(404).json({ message: "Sync log not found" });
+      }
+      res.json(log);
+    } catch (error) {
+      res.status(400).json({ message: "Invalid sync log data", error });
+    }
+  });
+
+  // Google Calendar OAuth Routes
+  app.get("/auth/google", async (req, res) => {
+    try {
+      const authUrl = googleCalendarService.getAuthUrl();
+      res.redirect(authUrl);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to initiate Google Calendar authentication" });
+    }
+  });
+
+  app.get("/auth/google/callback", async (req, res) => {
+    try {
+      const { code, state } = req.query;
+      
+      if (!code) {
+        return res.status(400).json({ message: "Authorization code not provided" });
+      }
+      
+      // Exchange code for tokens
+      const tokens = await googleCalendarService.getTokensFromCode(code as string);
+      
+      // Set credentials to get calendar list
+      googleCalendarService.setCredentials(tokens);
+      const calendars = await googleCalendarService.getCalendarList();
+      
+      // Find primary calendar or use the first one
+      const primaryCalendar = calendars.find(cal => cal.primary) || calendars[0];
+      
+      if (!primaryCalendar) {
+        return res.status(400).json({ message: "No accessible calendars found" });
+      }
+      
+      // Create calendar integration record
+      // Note: In a real app, you'd get the userId from the session/JWT
+      const users = await storage.getUsers();
+      const defaultUserId = users[0]?.id || 'default-user';
+      
+      const integration = await storage.createCalendarIntegration({
+        userId: defaultUserId,
+        provider: 'google',
+        providerAccountId: primaryCalendar.id,
+        calendarId: primaryCalendar.id,
+        calendarName: primaryCalendar.summary,
+        accessToken: tokens.access_token,
+        refreshToken: tokens.refresh_token || null,
+        isActive: true,
+        syncDirection: 'bidirectional'
+      });
+      
+      // Redirect to frontend with success
+      res.redirect(`/?connected=google&calendar=${encodeURIComponent(primaryCalendar.summary)}`);
+    } catch (error) {
+      console.error('Google Calendar OAuth error:', error);
+      res.redirect('/?error=oauth_failed');
+    }
+  });
+
+  // Enhanced sync endpoint with Google Calendar integration
+  app.post("/api/calendar-integrations/:id/sync", async (req, res) => {
+    try {
+      const integrationId = req.params.id;
+      const integration = await storage.getCalendarIntegration(integrationId);
+      
+      if (!integration) {
+        return res.status(404).json({ message: "Calendar integration not found" });
+      }
+
+      if (!integration.isActive) {
+        return res.status(400).json({ message: "Calendar integration is not active" });
+      }
+
+      // Create sync log
+      const syncLog = await storage.createCalendarSyncLog({
+        integrationId,
+        syncType: 'manual',
+        direction: integration.syncDirection === 'export' ? 'export' : 'import',
+      });
+
+      let syncResult = {
+        eventsCreated: 0,
+        eventsUpdated: 0,
+        eventsDeleted: 0
+      };
+
+      try {
+        if (integration.provider === 'google') {
+          // Note: In a real app, you'd get the userId from the session/JWT
+          const users = await storage.getUsers();
+          const defaultUserId = users[0]?.id || 'default-user';
+          
+          if (integration.syncDirection === 'import' || integration.syncDirection === 'bidirectional') {
+            // Sync from Google to CRM
+            const importResult = await googleCalendarService.syncFromGoogle(integration, defaultUserId);
+            syncResult.eventsCreated += importResult.eventsCreated;
+            syncResult.eventsUpdated += importResult.eventsUpdated;
+            syncResult.eventsDeleted += importResult.eventsDeleted;
+          }
+          
+          if (integration.syncDirection === 'export' || integration.syncDirection === 'bidirectional') {
+            // Sync from CRM to Google
+            const exportResult = await googleCalendarService.syncToGoogle(integration);
+            syncResult.eventsCreated += exportResult.eventsCreated;
+            syncResult.eventsUpdated += exportResult.eventsUpdated;
+            syncResult.eventsDeleted += exportResult.eventsDeleted;
+          }
+        } else if (integration.provider === 'ical') {
+          // iCal integration (import only)
+          if (integration.syncDirection === 'import' || integration.syncDirection === 'bidirectional') {
+            const users = await storage.getUsers();
+            const defaultUserId = users[0]?.id || 'default-user';
+            
+            const importResult = await icalService.importFromICal(integration, defaultUserId);
+            syncResult.eventsCreated += importResult.eventsCreated;
+            syncResult.eventsUpdated += importResult.eventsUpdated;
+            syncResult.eventsDeleted += importResult.eventsDeleted;
+          }
+        }
+        
+        // Update sync log as completed
+        await storage.updateCalendarSyncLog(syncLog.id, {
+          status: 'completed',
+          completedAt: new Date(),
+          eventsProcessed: syncResult.eventsCreated + syncResult.eventsUpdated + syncResult.eventsDeleted,
+          eventsCreated: syncResult.eventsCreated,
+          eventsUpdated: syncResult.eventsUpdated,
+          eventsDeleted: syncResult.eventsDeleted,
+        });
+
+        res.json({ 
+          message: "Sync completed", 
+          syncLogId: syncLog.id,
+          ...syncResult
+        });
+      } catch (syncError) {
+        const errorMessage = syncError instanceof Error ? syncError.message : 'Unknown sync error';
+        // Update sync log as failed
+        await storage.updateCalendarSyncLog(syncLog.id, {
+          status: 'failed',
+          completedAt: new Date(),
+          errors: JSON.stringify({ error: errorMessage, timestamp: new Date() })
+        });
+        
+        throw syncError;
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.error('Sync error:', error);
+      res.status(500).json({ message: "Failed to sync calendar", error: errorMessage });
+    }
+  });
+
+  // iCal Routes
+  app.post("/api/calendar-integrations/ical", async (req, res) => {
+    try {
+      const { icalUrl, calendarName, userId } = req.body;
+      
+      if (!icalUrl) {
+        return res.status(400).json({ message: "iCal URL is required" });
+      }
+      
+      // Test parsing the iCal URL
+      try {
+        await icalService.parseICalFromUrl(icalUrl);
+      } catch (error) {
+        return res.status(400).json({ 
+          message: "Invalid iCal URL or unable to parse iCal data",
+          error: error instanceof Error ? error.message : 'Unknown error'
+        });
+      }
+      
+      // Create iCal integration
+      const integration = await storage.createCalendarIntegration({
+        userId: userId || 'default-user',
+        provider: 'ical',
+        calendarName: calendarName || 'iCal Import',
+        isActive: true,
+        syncDirection: 'import',
+        settings: JSON.stringify({ icalUrl })
+      });
+      
+      res.json(integration);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      res.status(500).json({ message: "Failed to create iCal integration", error: errorMessage });
+    }
+  });
+
+  // Export CRM events as iCal feed
+  app.get("/api/calendar/ical/:integrationId", async (req, res) => {
+    try {
+      const integrationId = req.params.integrationId;
+      
+      // Get integration to verify access
+      const integration = await storage.getCalendarIntegration(integrationId);
+      if (!integration) {
+        return res.status(404).json({ message: "Calendar integration not found" });
+      }
+      
+      // Get events to export
+      let events;
+      if (integration.provider === 'google' || integration.provider === 'ical') {
+        // Export events from this integration
+        const allEvents = await storage.getEvents();
+        events = allEvents.filter(e => e.calendarIntegrationId === integrationId);
+      } else {
+        // Export all CRM events
+        events = await storage.getEvents();
+      }
+      
+      // Generate iCal feed
+      const icalFeed = await icalService.generateICalFeed(events, integration.calendarName);
+      
+      res.setHeader('Content-Type', 'text/calendar; charset=utf-8');
+      res.setHeader('Content-Disposition', `attachment; filename="${integration.calendarName.replace(/[^a-zA-Z0-9]/g, '_')}.ics"`);
+      res.send(icalFeed);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      res.status(500).json({ message: "Failed to generate iCal feed", error: errorMessage });
+    }
+  });
+
+  // Export all CRM events as iCal feed
+  app.get("/api/calendar/ical", async (req, res) => {
+    try {
+      const events = await storage.getEvents();
+      const icalFeed = await icalService.generateICalFeed(events, 'CRM Calendar');
+      
+      res.setHeader('Content-Type', 'text/calendar; charset=utf-8');
+      res.setHeader('Content-Disposition', 'attachment; filename="crm_calendar.ics"');
+      res.send(icalFeed);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      res.status(500).json({ message: "Failed to generate iCal feed", error: errorMessage });
     }
   });
 

@@ -18,12 +18,16 @@ import {
   type ProjectNote, type InsertProjectNote,
   type SmsMessage, type InsertSmsMessage,
   type MessageTemplate, type InsertMessageTemplate,
-  type MessageThread, type InsertMessageThread
+  type MessageThread, type InsertMessageThread,
+  type Event, type InsertEvent,
+  type CalendarIntegration, type InsertCalendarIntegration,
+  type CalendarSyncLog, type InsertCalendarSyncLog
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 
 export interface IStorage {
   // Users
+  getUsers(): Promise<User[]>;
   getUser(id: string): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
@@ -165,6 +169,29 @@ export interface IStorage {
   validateUser(username: string, password: string): Promise<User | undefined>;
   updateUser(id: string, user: Partial<InsertUser>): Promise<User | undefined>;
   
+  // Events
+  getEvents(): Promise<Event[]>;
+  getEvent(id: string): Promise<Event | undefined>;
+  getEventsByUser(userId: string): Promise<Event[]>;
+  getEventsByDateRange(startDate: Date, endDate: Date): Promise<Event[]>;
+  getEventsByClient(clientId: string): Promise<Event[]>;
+  createEvent(event: InsertEvent): Promise<Event>;
+  updateEvent(id: string, event: Partial<InsertEvent>): Promise<Event | undefined>;
+  deleteEvent(id: string): Promise<boolean>;
+  
+  // Calendar Integrations
+  getCalendarIntegrations(): Promise<CalendarIntegration[]>;
+  getCalendarIntegration(id: string): Promise<CalendarIntegration | undefined>;
+  getCalendarIntegrationsByUser(userId: string): Promise<CalendarIntegration[]>;
+  createCalendarIntegration(integration: InsertCalendarIntegration): Promise<CalendarIntegration>;
+  updateCalendarIntegration(id: string, integration: Partial<InsertCalendarIntegration>): Promise<CalendarIntegration | undefined>;
+  deleteCalendarIntegration(id: string): Promise<boolean>;
+  
+  // Calendar Sync Logs
+  getCalendarSyncLogs(integrationId?: string): Promise<CalendarSyncLog[]>;
+  createCalendarSyncLog(log: InsertCalendarSyncLog): Promise<CalendarSyncLog>;
+  updateCalendarSyncLog(id: string, log: Partial<InsertCalendarSyncLog>): Promise<CalendarSyncLog | undefined>;
+
   // Dashboard metrics
   getDashboardMetrics(): Promise<{
     totalLeads: number;
@@ -195,6 +222,9 @@ export class MemStorage implements IStorage {
   private smsMessages: Map<string, SmsMessage> = new Map();
   private messageTemplates: Map<string, MessageTemplate> = new Map();
   private messageThreads: Map<string, MessageThread> = new Map();
+  private events: Map<string, Event> = new Map();
+  private calendarIntegrations: Map<string, CalendarIntegration> = new Map();
+  private calendarSyncLogs: Map<string, CalendarSyncLog> = new Map();
 
   constructor() {
     // Initialize with default admin user
@@ -213,6 +243,10 @@ export class MemStorage implements IStorage {
   }
 
   // Users
+  async getUsers(): Promise<User[]> {
+    return Array.from(this.users.values());
+  }
+
   async getUser(id: string): Promise<User | undefined> {
     return this.users.get(id);
   }
@@ -1163,6 +1197,178 @@ export class MemStorage implements IStorage {
     };
     this.users.set(id, updatedUser);
     return updatedUser;
+  }
+
+  // Events
+  async getEvents(): Promise<Event[]> {
+    return Array.from(this.events.values()).sort((a, b) => 
+      new Date(a.startDate).getTime() - new Date(b.startDate).getTime()
+    );
+  }
+
+  async getEvent(id: string): Promise<Event | undefined> {
+    return this.events.get(id);
+  }
+
+  async getEventsByUser(userId: string): Promise<Event[]> {
+    return Array.from(this.events.values()).filter(event => 
+      event.assignedTo === userId || event.createdBy === userId
+    );
+  }
+
+  async getEventsByDateRange(startDate: Date, endDate: Date): Promise<Event[]> {
+    return Array.from(this.events.values()).filter(event => {
+      const eventStart = new Date(event.startDate);
+      const eventEnd = new Date(event.endDate);
+      return (eventStart <= endDate && eventEnd >= startDate);
+    });
+  }
+
+  async getEventsByClient(clientId: string): Promise<Event[]> {
+    return Array.from(this.events.values()).filter(event => event.clientId === clientId);
+  }
+
+  async createEvent(insertEvent: InsertEvent): Promise<Event> {
+    const id = randomUUID();
+    const event: Event = {
+      ...insertEvent,
+      type: insertEvent.type ?? 'meeting',
+      status: insertEvent.status ?? 'confirmed',
+      priority: insertEvent.priority ?? 'medium',
+      allDay: insertEvent.allDay ?? false,
+      recurring: insertEvent.recurring ?? false,
+      description: insertEvent.description ?? null,
+      location: insertEvent.location ?? null,
+      recurrenceRule: insertEvent.recurrenceRule ?? null,
+      leadId: insertEvent.leadId ?? null,
+      clientId: insertEvent.clientId ?? null,
+      projectId: insertEvent.projectId ?? null,
+      assignedTo: insertEvent.assignedTo ?? null,
+      externalEventId: insertEvent.externalEventId ?? null,
+      calendarIntegrationId: insertEvent.calendarIntegrationId ?? null,
+      reminderMinutes: insertEvent.reminderMinutes ?? 15,
+      attendees: insertEvent.attendees ?? null,
+      id,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    this.events.set(id, event);
+    return event;
+  }
+
+  async updateEvent(id: string, eventUpdate: Partial<InsertEvent>): Promise<Event | undefined> {
+    const event = this.events.get(id);
+    if (!event) return undefined;
+    
+    const updatedEvent: Event = {
+      ...event,
+      ...eventUpdate,
+      updatedAt: new Date(),
+    };
+    this.events.set(id, updatedEvent);
+    return updatedEvent;
+  }
+
+  async deleteEvent(id: string): Promise<boolean> {
+    return this.events.delete(id);
+  }
+
+  // Calendar Integrations
+  async getCalendarIntegrations(): Promise<CalendarIntegration[]> {
+    return Array.from(this.calendarIntegrations.values()).sort((a, b) => 
+      new Date(b.createdAt!).getTime() - new Date(a.createdAt!).getTime()
+    );
+  }
+
+  async getCalendarIntegration(id: string): Promise<CalendarIntegration | undefined> {
+    return this.calendarIntegrations.get(id);
+  }
+
+  async getCalendarIntegrationsByUser(userId: string): Promise<CalendarIntegration[]> {
+    return Array.from(this.calendarIntegrations.values()).filter(integration => 
+      integration.userId === userId
+    );
+  }
+
+  async createCalendarIntegration(insertIntegration: InsertCalendarIntegration): Promise<CalendarIntegration> {
+    const id = randomUUID();
+    const integration: CalendarIntegration = {
+      ...insertIntegration,
+      providerAccountId: insertIntegration.providerAccountId ?? null,
+      calendarId: insertIntegration.calendarId ?? null,
+      accessToken: insertIntegration.accessToken ?? null,
+      refreshToken: insertIntegration.refreshToken ?? null,
+      syncToken: insertIntegration.syncToken ?? null,
+      webhookId: insertIntegration.webhookId ?? null,
+      isActive: insertIntegration.isActive ?? true,
+      syncDirection: insertIntegration.syncDirection ?? 'bidirectional',
+      lastSyncAt: insertIntegration.lastSyncAt ?? null,
+      syncErrors: insertIntegration.syncErrors ?? null,
+      settings: insertIntegration.settings ?? null,
+      id,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    this.calendarIntegrations.set(id, integration);
+    return integration;
+  }
+
+  async updateCalendarIntegration(id: string, integrationUpdate: Partial<InsertCalendarIntegration>): Promise<CalendarIntegration | undefined> {
+    const integration = this.calendarIntegrations.get(id);
+    if (!integration) return undefined;
+    
+    const updatedIntegration: CalendarIntegration = {
+      ...integration,
+      ...integrationUpdate,
+      updatedAt: new Date(),
+    };
+    this.calendarIntegrations.set(id, updatedIntegration);
+    return updatedIntegration;
+  }
+
+  async deleteCalendarIntegration(id: string): Promise<boolean> {
+    return this.calendarIntegrations.delete(id);
+  }
+
+  // Calendar Sync Logs
+  async getCalendarSyncLogs(integrationId?: string): Promise<CalendarSyncLog[]> {
+    const logs = Array.from(this.calendarSyncLogs.values());
+    if (integrationId) {
+      return logs.filter(log => log.integrationId === integrationId);
+    }
+    return logs.sort((a, b) => 
+      new Date(b.startedAt!).getTime() - new Date(a.startedAt!).getTime()
+    );
+  }
+
+  async createCalendarSyncLog(insertLog: InsertCalendarSyncLog): Promise<CalendarSyncLog> {
+    const id = randomUUID();
+    const log: CalendarSyncLog = {
+      ...insertLog,
+      eventsProcessed: insertLog.eventsProcessed ?? 0,
+      eventsCreated: insertLog.eventsCreated ?? 0,
+      eventsUpdated: insertLog.eventsUpdated ?? 0,
+      eventsDeleted: insertLog.eventsDeleted ?? 0,
+      errors: insertLog.errors ?? null,
+      completedAt: insertLog.completedAt ?? null,
+      status: insertLog.status ?? 'processing',
+      id,
+      startedAt: new Date(),
+    };
+    this.calendarSyncLogs.set(id, log);
+    return log;
+  }
+
+  async updateCalendarSyncLog(id: string, logUpdate: Partial<InsertCalendarSyncLog>): Promise<CalendarSyncLog | undefined> {
+    const log = this.calendarSyncLogs.get(id);
+    if (!log) return undefined;
+    
+    const updatedLog: CalendarSyncLog = {
+      ...log,
+      ...logUpdate,
+    };
+    this.calendarSyncLogs.set(id, updatedLog);
+    return updatedLog;
   }
 
   // Dashboard metrics

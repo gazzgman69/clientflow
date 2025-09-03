@@ -1,5 +1,5 @@
 // @ts-ignore - node-ical doesn't have TypeScript definitions
-import * as ical from 'node-ical';
+import ical from 'node-ical';
 import { storage } from '../storage';
 import type { Event, InsertEvent, CalendarIntegration } from '@shared/schema';
 
@@ -26,7 +26,7 @@ class ICalService {
   async parseICalData(data: string | Buffer): Promise<ICalEvent[]> {
     try {
       const events: ICalEvent[] = [];
-      const parsed = ical.parseICS(data.toString());
+      const parsed = await ical.async.parseICS(data.toString());
       
       for (const key in parsed) {
         const component = parsed[key];

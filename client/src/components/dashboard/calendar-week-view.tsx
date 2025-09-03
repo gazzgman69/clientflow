@@ -1,6 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
 import { CalendarIcon, Clock } from "lucide-react";
 import { addDays, format, isToday, isSameDay } from "date-fns";
 import { useQuery } from "@tanstack/react-query";
@@ -67,8 +67,8 @@ export default function CalendarWeekView() {
             const isCurrentDay = isToday(date);
 
             return (
-              <Popover key={index}>
-                <PopoverTrigger asChild>
+              <HoverCard key={index}>
+                <HoverCardTrigger asChild>
                   <div
                     className={`p-1 rounded border transition-colors cursor-pointer ${
                       isCurrentDay 
@@ -134,8 +134,8 @@ export default function CalendarWeekView() {
                       )}
                     </div>
                   </div>
-                </PopoverTrigger>
-                <PopoverContent className="w-80" side="top">
+                </HoverCardTrigger>
+                <HoverCardContent className="w-80" side="top">
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
                       <h4 className="font-semibold">{format(date, 'EEEE, MMM d')}</h4>
@@ -202,8 +202,8 @@ export default function CalendarWeekView() {
                       </div>
                     )}
                   </div>
-                </PopoverContent>
-              </Popover>
+                </HoverCardContent>
+              </HoverCard>
             );
           })}
         </div>

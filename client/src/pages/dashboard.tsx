@@ -1,7 +1,8 @@
 import Header from "@/components/layout/header";
 import CalendarWeekView from "@/components/dashboard/calendar-week-view";
-import CombinedBusinessActivity from "@/components/dashboard/combined-business-activity";
+import RecentClientActivity from "@/components/dashboard/recent-client-activity";
 import PendingItems from "@/components/dashboard/pending-items";
+import BusinessPriorities from "@/components/dashboard/business-priorities";
 import EnhancedEmails from "@/components/dashboard/enhanced-emails";
 import { useQuery } from "@tanstack/react-query";
 import type { Project } from "@shared/schema";
@@ -26,12 +27,13 @@ export default function Dashboard() {
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
           {/* Left Column */}
           <div className="space-y-6">
-            <CombinedBusinessActivity />
+            <RecentClientActivity />
             <PendingItems />
           </div>
 
           {/* Right Column */}
           <div className="space-y-6">
+            <BusinessPriorities />
             <EnhancedEmails />
           </div>
         </div>

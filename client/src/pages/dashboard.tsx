@@ -21,11 +21,11 @@ export default function Dashboard() {
       />
       
       <main className="flex-1 overflow-auto p-6 space-y-6">
-        {/* Compact Metrics - Business Overview */}
-        <CompactMetrics />
-        
-        {/* Calendar Week View - Full Width at Top */}
-        <CalendarWeekView />
+        {/* Top Row: Business Overview and Calendar side by side */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <CompactMetrics />
+          <CalendarWeekView />
+        </div>
         
         {/* Main Dashboard Grid */}
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">

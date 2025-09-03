@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { BarChart3, DollarSign, Clock, TrendingUp, Users, Target, Calendar, Zap } from "lucide-react";
+import { BarChart3, DollarSign, Clock, TrendingUp, Users, Target, Calendar, Zap, Star, Award, CheckCircle2, AlertCircle, FileText, UserCheck, Briefcase, Activity, MapPin, Repeat, Share2 } from "lucide-react";
 import type { BusinessMetrics } from "@/lib/types";
 
 export default function CompactMetrics() {
@@ -20,53 +20,170 @@ export default function CompactMetrics() {
   });
 
   const availableMetrics = {
-    cashFlowForecast: {
-      key: 'cashFlowForecast',
-      title: 'Cash Flow Forecast',
-      value: metrics?.cashFlowForecast ? `$${metrics.cashFlowForecast.toLocaleString()}` : '$0',
-      icon: TrendingUp,
-      color: 'text-green-600',
-      bg: 'bg-green-100'
-    },
-    totalPotentialRevenue: {
-      key: 'totalPotentialRevenue',
-      title: 'Potential Revenue',
-      value: metrics?.totalPotentialRevenue ? `$${metrics.totalPotentialRevenue.toLocaleString()}` : '$0',
-      icon: DollarSign,
-      color: 'text-blue-600',
-      bg: 'bg-blue-100'
-    },
-    responseTime: {
-      key: 'responseTime',
-      title: 'Avg Response Time',
-      value: metrics?.responseTime ? `${metrics.responseTime}h` : '0h',
-      icon: Clock,
-      color: 'text-orange-600',
-      bg: 'bg-orange-100'
-    },
+    // 🎯 Pipeline & Conversion Metrics
     leadConversionRate: {
       key: 'leadConversionRate',
-      title: 'Lead Conversion',
+      title: 'Lead Conversion Rate',
       value: metrics?.leadConversionRate ? `${metrics.leadConversionRate}%` : '0%',
       icon: Target,
       color: 'text-purple-600',
       bg: 'bg-purple-100'
     },
+    quoteSuccessRate: {
+      key: 'quoteSuccessRate',
+      title: 'Quote Success Rate',
+      value: metrics?.quoteSuccessRate ? `${metrics.quoteSuccessRate}%` : '0%',
+      icon: CheckCircle2,
+      color: 'text-green-600',
+      bg: 'bg-green-100'
+    },
+    avgTimeToClose: {
+      key: 'avgTimeToClose',
+      title: 'Avg Time to Close',
+      value: metrics?.avgTimeToClose ? `${metrics.avgTimeToClose} days` : '0 days',
+      icon: Clock,
+      color: 'text-blue-600',
+      bg: 'bg-blue-100'
+    },
+    pipelineValue: {
+      key: 'pipelineValue',
+      title: 'Pipeline Value',
+      value: metrics?.pipelineValue ? `$${metrics.pipelineValue.toLocaleString()}` : '$0',
+      icon: TrendingUp,
+      color: 'text-emerald-600',
+      bg: 'bg-emerald-100'
+    },
+    // 💰 Financial Health Indicators
+    monthlyRecurringRevenue: {
+      key: 'monthlyRecurringRevenue',
+      title: 'Monthly Recurring Revenue',
+      value: metrics?.monthlyRecurringRevenue ? `$${metrics.monthlyRecurringRevenue.toLocaleString()}` : '$0',
+      icon: Repeat,
+      color: 'text-green-600',
+      bg: 'bg-green-100'
+    },
     outstandingInvoices: {
       key: 'outstandingInvoices',
       title: 'Outstanding Invoices',
       value: metrics?.outstandingInvoices ? `$${metrics.outstandingInvoices.toLocaleString()}` : '$0',
-      icon: Calendar,
+      icon: FileText,
       color: 'text-red-600',
       bg: 'bg-red-100'
     },
-    activeProjects: {
-      key: 'activeProjects',
-      title: 'Active Projects',
-      value: metrics?.activeProjects || 0,
+    avgProjectValue: {
+      key: 'avgProjectValue',
+      title: 'Avg Project Value',
+      value: metrics?.avgProjectValue ? `$${metrics.avgProjectValue.toLocaleString()}` : '$0',
+      icon: DollarSign,
+      color: 'text-blue-600',
+      bg: 'bg-blue-100'
+    },
+    cashFlowForecast: {
+      key: 'cashFlowForecast',
+      title: 'Cash Flow Forecast',
+      value: metrics?.cashFlowForecast ? `$${metrics.cashFlowForecast.toLocaleString()}` : '$0',
+      icon: TrendingUp,
+      color: 'text-cyan-600',
+      bg: 'bg-cyan-100'
+    },
+    // ⚡ Operational Efficiency
+    responseTime: {
+      key: 'responseTime',
+      title: 'Response Time Avg',
+      value: metrics?.responseTime ? `${metrics.responseTime}h` : '0h',
+      icon: Zap,
+      color: 'text-orange-600',
+      bg: 'bg-orange-100'
+    },
+    overdueItems: {
+      key: 'overdueItems',
+      title: 'Overdue Items',
+      value: metrics?.overdueItems || 0,
+      icon: AlertCircle,
+      color: 'text-red-600',
+      bg: 'bg-red-100'
+    },
+    projectCompletionRate: {
+      key: 'projectCompletionRate',
+      title: 'Project Completion Rate',
+      value: metrics?.projectCompletionRate ? `${metrics.projectCompletionRate}%` : '0%',
+      icon: CheckCircle2,
+      color: 'text-green-600',
+      bg: 'bg-green-100'
+    },
+    clientActivityScore: {
+      key: 'clientActivityScore',
+      title: 'Client Activity Score',
+      value: metrics?.clientActivityScore ? `${metrics.clientActivityScore}/10` : '0/10',
+      icon: Activity,
+      color: 'text-indigo-600',
+      bg: 'bg-indigo-100'
+    },
+    // 📊 Business Intelligence
+    topVenue: {
+      key: 'topVenue',
+      title: 'Top Venue Performance',
+      value: metrics?.topVenue || 'N/A',
+      icon: MapPin,
+      color: 'text-purple-600',
+      bg: 'bg-purple-100'
+    },
+    memberUtilization: {
+      key: 'memberUtilization',
+      title: 'Member Utilization',
+      value: metrics?.memberUtilization ? `${metrics.memberUtilization}%` : '0%',
       icon: Users,
       color: 'text-indigo-600',
       bg: 'bg-indigo-100'
+    },
+    seasonalRevenue: {
+      key: 'seasonalRevenue',
+      title: 'Seasonal Revenue',
+      value: metrics?.seasonalRevenue ? `$${metrics.seasonalRevenue.toLocaleString()}` : '$0',
+      icon: Calendar,
+      color: 'text-amber-600',
+      bg: 'bg-amber-100'
+    },
+    clientRetentionRate: {
+      key: 'clientRetentionRate',
+      title: 'Client Retention Rate',
+      value: metrics?.clientRetentionRate ? `${metrics.clientRetentionRate}%` : '0%',
+      icon: UserCheck,
+      color: 'text-green-600',
+      bg: 'bg-green-100'
+    },
+    // 🚀 Growth Opportunities
+    leadSourcePerformance: {
+      key: 'leadSourcePerformance',
+      title: 'Lead Source Performance',
+      value: metrics?.leadSourcePerformance || 'Social Media',
+      icon: Star,
+      color: 'text-yellow-600',
+      bg: 'bg-yellow-100'
+    },
+    projectTypeProfitability: {
+      key: 'projectTypeProfitability',
+      title: 'Project Type Profit',
+      value: metrics?.projectTypeProfitability || 'Weddings',
+      icon: Award,
+      color: 'text-pink-600',
+      bg: 'bg-pink-100'
+    },
+    followupOpportunities: {
+      key: 'followupOpportunities',
+      title: 'Follow-up Opportunities',
+      value: metrics?.followupOpportunities || 0,
+      icon: Briefcase,
+      color: 'text-teal-600',
+      bg: 'bg-teal-100'
+    },
+    referralRate: {
+      key: 'referralRate',
+      title: 'Referral Rate',
+      value: metrics?.referralRate ? `${metrics.referralRate}%` : '0%',
+      icon: Share2,
+      color: 'text-violet-600',
+      bg: 'bg-violet-100'
     }
   };
 
@@ -135,11 +252,14 @@ export default function CompactMetrics() {
         
         {/* Metric Selection Dialog */}
         <Dialog open={isMetricDialogOpen} onOpenChange={setIsMetricDialogOpen}>
-          <DialogContent className="max-w-md">
+          <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto" aria-describedby="metric-selection-description">
             <DialogHeader>
               <DialogTitle>Choose Metric</DialogTitle>
+              <p id="metric-selection-description" className="text-sm text-muted-foreground">
+                Select a new metric to display in your business overview
+              </p>
             </DialogHeader>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-4 gap-3">
               {Object.values(availableMetrics).map((metric) => {
                 const Icon = metric.icon;
                 const isSelected = uniqueSelectedMetrics[changingMetricIndex] === metric.key;

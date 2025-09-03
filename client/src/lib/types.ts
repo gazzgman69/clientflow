@@ -31,6 +31,12 @@ export interface BusinessMetrics {
   clientRetentionRate: number;
   referralRate: number;
   activeProjects: number;
+  
+  // Additional new metrics
+  seasonalRevenue: number;
+  leadSourcePerformance: string;
+  projectTypeProfitability: string;
+  followupOpportunities: number;
 }
 
 export interface EmailSummary {

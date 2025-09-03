@@ -38,8 +38,10 @@ interface Event {
 export default function CalendarPage() {
   const [activeTab, setActiveTab] = useState('calendar');
   const [showAddDialog, setShowAddDialog] = useState(false);
+  const [showGoogleHelper, setShowGoogleHelper] = useState(false);
   const [icalUrl, setIcalUrl] = useState('');
   const [calendarName, setCalendarName] = useState('');
+  const [userEmail, setUserEmail] = useState('');
   const [syncingId, setSyncingId] = useState<string | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -183,14 +185,74 @@ export default function CalendarPage() {
         <div className="flex gap-2">
           {activeTab === 'integrations' && (
             <>
-              <Button 
-                variant="outline" 
-                onClick={() => window.open('https://calendar.google.com/calendar/u/0/settings/export', '_blank')}
-                data-testid="connect-google-calendar"
-              >
-                <ExternalLink className="h-4 w-4 mr-2" />
-                Get Google Calendar Link
-              </Button>
+              <Dialog open={showGoogleHelper} onOpenChange={setShowGoogleHelper}>
+                <DialogTrigger asChild>
+                  <Button 
+                    variant="outline"
+                    data-testid="connect-google-calendar"
+                  >
+                    <ExternalLink className="h-4 w-4 mr-2" />
+                    Get Google Calendar Link
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Connect Google Calendar</DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-4">
+                    <p className="text-sm text-muted-foreground">
+                      To connect your Google Calendar, we need to find your calendar's iCal URL. 
+                      Enter your Google account email below to get the direct link.
+                    </p>
+                    <div>
+                      <Label htmlFor="google-email">Your Google Email</Label>
+                      <Input
+                        id="google-email"
+                        type="email"
+                        placeholder="your-email@gmail.com"
+                        value={userEmail}
+                        onChange={(e) => setUserEmail(e.target.value)}
+                        data-testid="input-google-email"
+                      />
+                    </div>
+                    <div className="flex justify-end gap-2">
+                      <Button 
+                        variant="outline" 
+                        onClick={() => {
+                          setShowGoogleHelper(false);
+                          setUserEmail('');
+                        }}
+                        data-testid="button-cancel-google"
+                      >
+                        Cancel
+                      </Button>
+                      <Button 
+                        onClick={() => {
+                          if (userEmail.trim()) {
+                            const encodedEmail = encodeURIComponent(userEmail.trim());
+                            window.open(`https://calendar.google.com/calendar/u/0/settings/calendar/${encodedEmail}`, '_blank');
+                            setShowGoogleHelper(false);
+                            setUserEmail('');
+                          }
+                        }}
+                        disabled={!userEmail.trim()}
+                        data-testid="button-open-google-settings"
+                      >
+                        Open My Calendar Settings
+                      </Button>
+                    </div>
+                    <div className="mt-4 p-3 bg-muted rounded-lg">
+                      <h4 className="text-sm font-medium mb-2">Next steps:</h4>
+                      <ol className="text-xs text-muted-foreground space-y-1 list-decimal list-inside">
+                        <li>In your calendar settings, scroll down to "Integrate calendar"</li>
+                        <li>Copy the "Public address in iCal format" URL</li>
+                        <li>Come back here and paste it in the "Add iCal Feed" dialog</li>
+                        <li>Note: You may need to make your calendar public first</li>
+                      </ol>
+                    </div>
+                  </div>
+                </DialogContent>
+              </Dialog>
               <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
                 <DialogTrigger asChild>
                   <Button data-testid="add-ical-integration">

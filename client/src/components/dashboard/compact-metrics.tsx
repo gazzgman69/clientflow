@@ -89,13 +89,13 @@ export default function CompactMetrics() {
 
   return (
     <Card className="w-full">
-      <CardHeader className="pb-2">
+      <CardHeader className="pb-1">
         <div className="flex items-center justify-between">
-          <CardTitle className="text-base">Business Overview</CardTitle>
+          <CardTitle className="text-sm">Business Overview</CardTitle>
           <Dialog>
             <DialogTrigger asChild>
-              <Button variant="outline" size="sm" data-testid="view-full-analytics">
-                <BarChart3 className="h-4 w-4 mr-1" />
+              <Button variant="outline" size="sm" className="h-6 px-2 text-xs" data-testid="view-full-analytics">
+                <BarChart3 className="h-3 w-3 mr-1" />
                 Analytics
               </Button>
             </DialogTrigger>
@@ -108,25 +108,24 @@ export default function CompactMetrics() {
           </Dialog>
         </div>
       </CardHeader>
-      <CardContent className="pt-[5px] pb-[5px]">
-        <div className="grid grid-cols-3 gap-3">
+      <CardContent className="pt-0 pb-2">
+        <div className="grid grid-cols-3 gap-2">
           {displayedMetrics.slice(0, 3).map((metric, index) => {
             const Icon = metric.icon;
             return (
               <div key={`${metric.key}-${index}`} className="text-center" data-testid={`compact-metric-${metric.key}`}>
-                <div className={`w-8 h-8 ${metric.bg} rounded-lg flex items-center justify-center mx-auto mb-1`}>
-                  <Icon className={`${metric.color} h-4 w-4`} />
+                <div className={`w-6 h-6 ${metric.bg} rounded flex items-center justify-center mx-auto mb-0.5`}>
+                  <Icon className={`${metric.color} h-3 w-3`} />
                 </div>
-                <p className="text-lg font-bold text-foreground">{metric.value}</p>
-                <p className="text-xs text-muted-foreground">{metric.title}</p>
+                <p className="text-sm font-bold text-foreground leading-tight">{metric.value}</p>
+                <p className="text-[10px] text-muted-foreground leading-tight">{metric.title}</p>
               </div>
             );
           })}
         </div>
         
         {/* Metric Selection */}
-        <div className="mt-3 pt-3 border-t">
-          <p className="text-xs text-muted-foreground mb-2">Customize:</p>
+        <div className="mt-2 pt-2 border-t">
           <div className="grid grid-cols-3 gap-1">
             {uniqueSelectedMetrics.map((selectedKey, index) => (
               <Select
@@ -146,7 +145,7 @@ export default function CompactMetrics() {
                   setSelectedMetrics(finalMetrics.slice(0, 3));
                 }}
               >
-                <SelectTrigger className="h-7 text-xs">
+                <SelectTrigger className="h-6 text-[10px]">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>

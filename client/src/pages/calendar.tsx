@@ -229,8 +229,8 @@ export default function CalendarPage() {
                       <Button 
                         onClick={() => {
                           if (userEmail.trim()) {
-                            // Open Google Calendar settings - the user will need to select their calendar manually
-                            window.open('https://calendar.google.com/calendar/u/0/settings/export', '_blank');
+                            // Open Google Calendar settings - simple reliable URL
+                            window.open('https://calendar.google.com/calendar/u/0/settings', '_blank');
                             setShowGoogleHelper(false);
                             setUserEmail('');
                           }
@@ -244,11 +244,11 @@ export default function CalendarPage() {
                     <div className="mt-4 p-3 bg-muted rounded-lg">
                       <h4 className="text-sm font-medium mb-2">Next steps:</h4>
                       <ol className="text-xs text-muted-foreground space-y-1 list-decimal list-inside">
-                        <li>Find your calendar ({userEmail || 'your email'}) in the list</li>
-                        <li>Click on the calendar name to expand options</li>
-                        <li>Look for "Secret address in iCal format" and copy that URL</li>
+                        <li>In the left sidebar, find and click on your calendar ({userEmail || 'your email'})</li>
+                        <li>Scroll down to "Integrate calendar" section</li>
+                        <li>Copy the "Secret address in iCal format" URL</li>
                         <li>Come back here and paste it in the "Add iCal Feed" dialog</li>
-                        <li>Note: Use the "Secret address" - it works without making calendar public</li>
+                        <li>Note: The secret address works immediately without making calendar public</li>
                       </ol>
                     </div>
                   </div>

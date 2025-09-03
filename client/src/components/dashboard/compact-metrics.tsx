@@ -89,13 +89,13 @@ export default function CompactMetrics() {
 
   return (
     <Card className="w-full">
-      <CardHeader className="pb-1">
+      <CardHeader className="pt-2 pb-1">
         <div className="flex items-center justify-between">
-          <CardTitle className="text-sm">Business Overview</CardTitle>
+          <CardTitle className="text-xs">Business Overview</CardTitle>
           <Dialog>
             <DialogTrigger asChild>
-              <Button variant="outline" size="sm" className="h-6 px-2 text-xs" data-testid="view-full-analytics">
-                <BarChart3 className="h-3 w-3 mr-1" />
+              <Button variant="outline" size="sm" className="h-5 px-1 text-[10px]" data-testid="view-full-analytics">
+                <BarChart3 className="h-2.5 w-2.5 mr-0.5" />
                 Analytics
               </Button>
             </DialogTrigger>

@@ -45,13 +45,13 @@ export default function CalendarWeekView() {
 
   return (
     <Card data-testid="calendar-week-view-card" className="w-full">
-      <CardHeader className="pb-1">
+      <CardHeader className="pt-2 pb-1">
         <div className="flex items-center justify-between">
-          <CardTitle className="flex items-center gap-1 text-sm">
-            <CalendarIcon className="h-3 w-3" />
+          <CardTitle className="flex items-center gap-0.5 text-xs">
+            <CalendarIcon className="h-2.5 w-2.5" />
             Next 7 Days
           </CardTitle>
-          <div className="text-xs text-muted-foreground">
+          <div className="text-[10px] text-muted-foreground">
             {format(today, 'MMM yyyy')}
           </div>
         </div>

@@ -27,13 +27,13 @@ export default function Dashboard() {
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
           {/* Left Column */}
           <div className="space-y-6">
-            <RecentClientActivity />
+            <BusinessPriorities />
             <PendingItems />
           </div>
 
           {/* Right Column */}
           <div className="space-y-6">
-            <BusinessPriorities />
+            <RecentClientActivity />
             <EnhancedEmails />
           </div>
         </div>

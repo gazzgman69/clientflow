@@ -4,6 +4,7 @@ import RecentClientActivity from "@/components/dashboard/recent-client-activity"
 import PendingItems from "@/components/dashboard/pending-items";
 import BusinessPriorities from "@/components/dashboard/business-priorities";
 import EnhancedEmails from "@/components/dashboard/enhanced-emails";
+import CompactMetrics from "@/components/dashboard/compact-metrics";
 import { useQuery } from "@tanstack/react-query";
 import type { Project } from "@shared/schema";
 
@@ -20,6 +21,9 @@ export default function Dashboard() {
       />
       
       <main className="flex-1 overflow-auto p-6 space-y-6">
+        {/* Compact Metrics - Business Overview */}
+        <CompactMetrics />
+        
         {/* Calendar Week View - Full Width at Top */}
         <CalendarWeekView />
         

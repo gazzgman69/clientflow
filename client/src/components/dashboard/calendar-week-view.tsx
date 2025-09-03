@@ -56,7 +56,7 @@ export default function CalendarWeekView() {
           </div>
         </div>
       </CardHeader>
-      <CardContent>
+      <CardContent className="p-6 pt-[6px] pb-[6px]">
         <div className="grid grid-cols-7 gap-3">
           {weekDays.map((date, index) => {
             const dayEvents = getEventsForDay(date);

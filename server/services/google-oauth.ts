@@ -32,7 +32,7 @@ export class GoogleOAuthService {
   generateAuthUrl(email: string, userId: string): string {
     const state = Buffer.from(JSON.stringify({ email, userId })).toString('base64');
     
-    return oauth2Client.generateAuthUrl({
+    const authUrl = oauth2Client.generateAuthUrl({
       access_type: 'offline',
       scope: SCOPES,
       prompt: 'consent',
@@ -40,6 +40,11 @@ export class GoogleOAuthService {
       state: state,
       include_granted_scopes: true
     });
+    
+    console.log('Generated OAuth URL:', authUrl);
+    console.log('Redirect URI being used:', getRedirectUri());
+    
+    return authUrl;
   }
 
   /**

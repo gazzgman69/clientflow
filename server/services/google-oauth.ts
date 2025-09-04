@@ -277,14 +277,18 @@ export class GoogleOAuthService {
         start: event.allDay 
           ? { date: new Date(event.startDate).toISOString().split('T')[0] }
           : { 
-              dateTime: new Date(event.startDate).toISOString(),
-              timeZone: 'Europe/London' // Set proper timezone
+              dateTime: event.startDate instanceof Date 
+                ? event.startDate.toISOString()
+                : new Date(event.startDate + 'Z').toISOString(), // Treat DB time as UTC
+              timeZone: 'Europe/London'
             },
         end: event.allDay
           ? { date: new Date(event.endDate).toISOString().split('T')[0] }
           : { 
-              dateTime: new Date(event.endDate).toISOString(),
-              timeZone: 'Europe/London' // Set proper timezone
+              dateTime: event.endDate instanceof Date 
+                ? event.endDate.toISOString()
+                : new Date(event.endDate + 'Z').toISOString(), // Treat DB time as UTC
+              timeZone: 'Europe/London'
             },
         ...(attendees.length > 0 && { attendees })
       };

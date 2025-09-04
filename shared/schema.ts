@@ -387,7 +387,13 @@ export const insertMessageTemplateSchema = createInsertSchema(messageTemplates).
 export const insertMessageThreadSchema = createInsertSchema(messageThreads).omit({ id: true, createdAt: true });
 export const insertEventSchema = createInsertSchema(events).omit({ id: true, createdAt: true, updatedAt: true }).extend({
   startDate: z.string().or(z.date()).transform((val) => new Date(val)),
-  endDate: z.string().or(z.date()).transform((val) => new Date(val))
+  endDate: z.string().or(z.date()).transform((val) => new Date(val)),
+  attendees: z.string().optional().transform((val) => {
+    if (!val || val.trim() === '') return [];
+    return val.split(',')
+      .map(email => email.trim())
+      .filter(email => email && email.includes('@'));
+  }).or(z.array(z.string())).optional()
 });
 export const insertCalendarIntegrationSchema = createInsertSchema(calendarIntegrations).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertCalendarSyncLogSchema = createInsertSchema(calendarSyncLog).omit({ id: true, startedAt: true });

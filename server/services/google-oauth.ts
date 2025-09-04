@@ -172,12 +172,11 @@ export class GoogleOAuthService {
       
       if (!event) throw new Error('Event not found');
       
-      // Parse attendees from comma-separated string to Google Calendar format
-      const attendees = event.attendees 
-        ? event.attendees.split(',')
-            .map(email => email.trim())
-            .filter(email => email && email.includes('@'))
-            .map(email => ({ email }))
+      // Handle attendees - database stores as array, form sends as string
+      const attendees = event.attendees && event.attendees.length > 0
+        ? event.attendees
+            .filter((email: string) => email && email.includes('@'))
+            .map((email: string) => ({ email: email.trim() }))
         : [];
 
       const googleEvent = {

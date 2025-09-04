@@ -115,10 +115,30 @@ export class GoogleOAuthService {
       let skippedCount = 0;
       
       for (const event of crmEvents) {
-        // Skip if already synced to Google
+        // If already has Google ID, verify it still exists
         if (event.externalEventId) {
-          skippedCount++;
-          continue;
+          try {
+            const calendar = await this.getCalendarService(integration);
+            await calendar.events.get({
+              calendarId: 'primary',
+              eventId: event.externalEventId
+            });
+            // Event exists, skip it
+            skippedCount++;
+            console.log(`✓ Event "${event.title}" exists in Google Calendar`);
+            continue;
+          } catch (error: any) {
+            if (error.code === 404 || error.status === 404) {
+              // Event doesn't exist in Google Calendar anymore, clear ID and re-sync
+              console.log(`❌ Event "${event.title}" missing from Google Calendar, re-syncing...`);
+              await storage.updateEvent(event.id, { externalEventId: null });
+              event.externalEventId = null; // Update local object for sync
+            } else {
+              console.error(`⚠️ Error checking event "${event.title}":`, error.message);
+              skippedCount++;
+              continue;
+            }
+          }
         }
         
         try {

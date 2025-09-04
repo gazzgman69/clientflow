@@ -562,8 +562,11 @@ export default function CalendarView({ viewMode = 'month' }: CalendarViewProps) 
 
       {/* Add/Edit Event Modal */}
       <Dialog open={showEventModal} onOpenChange={setShowEventModal}>
-        <DialogContent className="sm:max-w-2xl max-h-[75vh] overflow-y-auto" style={{ position: 'fixed' }}>
+        <DialogContent className="sm:max-w-2xl max-h-[75vh] overflow-y-auto" style={{ position: 'fixed' }} aria-describedby="event-form-description">
           <DialogHeader>
+            <p id="event-form-description" className="sr-only">
+              {editingEvent ? 'Edit event details including title, dates, location, and attendees' : 'Create a new event with title, dates, location, and attendees'}
+            </p>
             <DialogTitle className="flex items-center gap-2">
               {editingEvent ? (
                 <>

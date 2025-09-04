@@ -188,11 +188,13 @@ export default function CalendarView({ viewMode = 'month' }: CalendarViewProps) 
       if (!response.ok) {
         throw new Error('Failed to delete event');
       }
-      return response.json();
+      return true; // DELETE returns 204 with no body
     },
     onSuccess: () => {
       toast({ title: 'Event deleted successfully' });
-      queryClient.invalidateQueries({ queryKey: ['/api/events'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/events', 'test-user'] });
+      setShowEventModal(false);
+      setEditingEvent(null);
     },
     onError: (error: any) => {
       toast({ 
@@ -760,9 +762,9 @@ export default function CalendarView({ viewMode = 'month' }: CalendarViewProps) 
                       onClick={() => {
                         if (confirm('Are you sure you want to delete this event?')) {
                           deleteEventMutation.mutate(editingEvent.id);
-                          setShowEventModal(false);
                         }
                       }}
+                      disabled={deleteEventMutation.isPending}
                       data-testid="button-delete-event"
                     >
                       <Trash2 className="h-4 w-4 mr-2" />

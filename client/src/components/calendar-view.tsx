@@ -248,6 +248,7 @@ export default function CalendarView({ viewMode = 'month' }: CalendarViewProps) 
   const handleDateClick = (day: number) => {
     const clickedDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), day);
     setSelectedDate(clickedDate);
+    setEditingEvent(null);
     
     // Set default start and end times
     const startDateTime = new Date(clickedDate);
@@ -255,9 +256,23 @@ export default function CalendarView({ viewMode = 'month' }: CalendarViewProps) 
     const endDateTime = new Date(clickedDate);
     endDateTime.setHours(10, 0, 0, 0); // 10:00 AM
     
-    form.setValue("startDate", startDateTime.toISOString().slice(0, 16));
-    form.setValue("endDate", endDateTime.toISOString().slice(0, 16));
-    setEditingEvent(null);
+    // Reset form with the selected date
+    form.reset({
+      title: "",
+      description: "",
+      startDate: startDateTime.toISOString().slice(0, 16),
+      endDate: endDateTime.toISOString().slice(0, 16),
+      allDay: false,
+      location: "",
+      type: "meeting",
+      status: "confirmed",
+      priority: "medium",
+      attendees: "",
+      reminderMinutes: 15,
+      recurring: false,
+      recurrenceRule: "",
+    });
+    
     setShowEventModal(true);
   };
 

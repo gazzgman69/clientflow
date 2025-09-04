@@ -123,7 +123,9 @@ export default function CalendarView({ viewMode = 'month' }: CalendarViewProps) 
         body: JSON.stringify(eventData),
       });
       if (!response.ok) {
-        throw new Error('Failed to create event');
+        const errorData = await response.json();
+        console.error('Event creation failed:', errorData);
+        throw new Error(errorData.message || 'Failed to create event');
       }
       return response.json();
     },

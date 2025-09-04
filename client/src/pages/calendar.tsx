@@ -78,10 +78,8 @@ export default function CalendarPage() {
   // Add iCal integration
   const addICalMutation = useMutation({
     mutationFn: async (data: { icalUrl: string; calendarName: string }) => {
-      return apiRequest('/api/calendar-integrations/ical', {
-        method: 'POST',
-        body: JSON.stringify(data),
-      });
+      const response = await apiRequest('POST', '/api/calendar-integrations/ical', data);
+      return response.json();
     },
     onSuccess: () => {
       toast({ title: 'iCal integration added successfully' });
@@ -102,14 +100,13 @@ export default function CalendarPage() {
   // Sync integration
   const syncMutation = useMutation({
     mutationFn: async (integrationId: string) => {
-      return apiRequest(`/api/calendar-integrations/${integrationId}/sync`, {
-        method: 'POST',
-      });
+      const response = await apiRequest('POST', `/api/calendar-integrations/${integrationId}/sync`);
+      return response.json();
     },
     onSuccess: (data, integrationId) => {
       toast({ 
         title: 'Sync completed', 
-        description: `${data.eventsCreated || 0} created, ${data.eventsUpdated || 0} updated, ${data.eventsDeleted || 0} deleted`
+        description: `Events synced successfully`
       });
       queryClient.invalidateQueries({ queryKey: ['/api/calendar-integrations', 'test-user'] });
       queryClient.invalidateQueries({ queryKey: ['/api/events', 'test-user'] });
@@ -128,9 +125,8 @@ export default function CalendarPage() {
   // Delete integration
   const deleteMutation = useMutation({
     mutationFn: async (integrationId: string) => {
-      return apiRequest(`/api/calendar-integrations/${integrationId}`, {
-        method: 'DELETE',
-      });
+      const response = await apiRequest('DELETE', `/api/calendar-integrations/${integrationId}`);
+      return response.json();
     },
     onSuccess: () => {
       toast({ title: 'Calendar integration removed' });

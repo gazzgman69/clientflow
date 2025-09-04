@@ -126,9 +126,10 @@ export class GoogleOAuthService {
             
             // Check if event is cancelled/deleted (Google marks as status: 'cancelled')
             if (googleEvent.data.status === 'cancelled') {
-              console.log(`❌ Event "${event.title}" was cancelled in Google Calendar, re-syncing...`);
-              await storage.updateEvent(event.id, { externalEventId: null });
-              event.externalEventId = null; // Update local object for sync
+              console.log(`🗑️ Event "${event.title}" was cancelled in Google Calendar, deleting from CRM...`);
+              await storage.deleteEvent(event.id);
+              skippedCount++;
+              continue;
             } else {
               // Event exists and is active, skip it
               skippedCount++;
@@ -137,10 +138,11 @@ export class GoogleOAuthService {
             }
           } catch (error: any) {
             if (error.code === 404 || error.status === 404) {
-              // Event doesn't exist in Google Calendar anymore, clear ID and re-sync
-              console.log(`❌ Event "${event.title}" missing from Google Calendar, re-syncing...`);
-              await storage.updateEvent(event.id, { externalEventId: null });
-              event.externalEventId = null; // Update local object for sync
+              // Event doesn't exist in Google Calendar anymore, delete from CRM
+              console.log(`🗑️ Event "${event.title}" missing from Google Calendar, deleting from CRM...`);
+              await storage.deleteEvent(event.id);
+              skippedCount++;
+              continue;
             } else {
               console.error(`⚠️ Error checking event "${event.title}":`, error.message);
               skippedCount++;

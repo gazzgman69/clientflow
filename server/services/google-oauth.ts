@@ -172,6 +172,14 @@ export class GoogleOAuthService {
       
       if (!event) throw new Error('Event not found');
       
+      // Parse attendees from comma-separated string to Google Calendar format
+      const attendees = event.attendees 
+        ? event.attendees.split(',')
+            .map(email => email.trim())
+            .filter(email => email && email.includes('@'))
+            .map(email => ({ email }))
+        : [];
+
       const googleEvent = {
         summary: event.title,
         description: event.description || '',
@@ -187,7 +195,8 @@ export class GoogleOAuthService {
           : { 
               dateTime: new Date(event.endDate).toISOString(),
               timeZone: 'Europe/London' // Set proper timezone
-            }
+            },
+        ...(attendees.length > 0 && { attendees })
       };
       
       console.log('Creating Google Calendar event:', JSON.stringify(googleEvent, null, 2));

@@ -218,14 +218,26 @@ export class GoogleOAuthService {
    */
   async deleteFromGoogle(integration: CalendarIntegration, externalEventId: string) {
     try {
+      console.log('Attempting to delete Google Calendar event:', externalEventId);
       const calendar = await this.getCalendarService(integration);
-      await calendar.events.delete({
+      
+      const response = await calendar.events.delete({
         calendarId: 'primary',
         eventId: externalEventId
       });
+      
+      console.log('Google Calendar deletion response status:', response.status);
       return { success: true };
     } catch (error: any) {
-      console.error('Error deleting from Google:', error);
+      console.error('Error deleting from Google Calendar:', error);
+      console.error('Google API Error details:', error.response?.data || error.message);
+      
+      // Don't throw error if event already doesn't exist
+      if (error.code === 404 || error.status === 404) {
+        console.log('Event already deleted from Google Calendar');
+        return { success: true };
+      }
+      
       throw error;
     }
   }

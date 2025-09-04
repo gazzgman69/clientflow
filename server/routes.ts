@@ -1505,12 +1505,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const googleIntegration = integrations.find(int => int.provider === 'google' && int.isActive);
           
           if (googleIntegration) {
+            console.log(`Deleting event "${event.title}" from Google Calendar:`, event.externalEventId);
             await googleOAuthService.deleteFromGoogle(googleIntegration, event.externalEventId);
+            console.log(`Successfully deleted "${event.title}" from Google Calendar`);
+          } else {
+            console.log('No active Google integration found for deletion sync');
           }
         } catch (syncError) {
           console.error('Failed to delete from Google Calendar:', syncError);
+          console.error('Error details:', syncError.response?.data || syncError.message);
           // Continue with CRM deletion even if Google sync fails
         }
+      } else {
+        console.log(`Event "${event.title}" has no external event ID, skipping Google deletion`);
       }
       
       const deleted = await storage.deleteEvent(req.params.id);

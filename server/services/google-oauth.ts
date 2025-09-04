@@ -2,10 +2,19 @@ import { google } from 'googleapis';
 import { storage } from '../storage';
 import type { CalendarIntegration } from '@shared/schema';
 
+// Helper function to get the correct redirect URI
+function getRedirectUri(): string {
+  if (process.env.REPLIT_DOMAINS) {
+    const domain = process.env.REPLIT_DOMAINS.split(',')[0];
+    return `https://${domain}/auth/google/callback`;
+  }
+  return 'http://localhost:5000/auth/google/callback';
+}
+
 const oauth2Client = new google.auth.OAuth2(
   process.env.GOOGLE_CLIENT_ID || 'YOUR_CLIENT_ID',
   process.env.GOOGLE_CLIENT_SECRET || 'YOUR_CLIENT_SECRET',
-  `${process.env.REPLIT_DOMAINS ? 'https://' + process.env.REPLIT_DOMAINS.split(',')[0] : 'http://localhost:5000'}/auth/google/callback`
+  getRedirectUri()
 );
 
 const SCOPES = [
@@ -67,7 +76,7 @@ export class GoogleOAuthService {
     const userOAuth2Client = new google.auth.OAuth2(
       process.env.GOOGLE_CLIENT_ID || 'YOUR_CLIENT_ID',
       process.env.GOOGLE_CLIENT_SECRET || 'YOUR_CLIENT_SECRET',
-      `${process.env.REPLIT_DOMAINS ? 'https://' + process.env.REPLIT_DOMAINS.split(',')[0] : 'http://localhost:5000'}/auth/google/callback`
+      getRedirectUri()
     );
     
     userOAuth2Client.setCredentials(tokens);
@@ -137,7 +146,7 @@ export class GoogleOAuthService {
       
       // Update last sync
       await storage.updateCalendarIntegration(integration.id, {
-        lastSyncAt: new Date().toISOString(),
+        lastSyncAt: new Date(),
         syncToken: response.data.nextSyncToken || null
       });
       
@@ -225,7 +234,10 @@ export class GoogleOAuthService {
   async setupWebhook(integration: CalendarIntegration) {
     try {
       const calendar = await this.getCalendarService(integration);
-      const webhookUrl = `${process.env.REPLIT_DOMAINS ? 'https://' + process.env.REPLIT_DOMAINS.split(',')[0] : 'http://localhost:5000'}/webhooks/google-calendar/${integration.id}`;
+      const baseUrl = process.env.REPLIT_DOMAINS 
+        ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}` 
+        : 'http://localhost:5000';
+      const webhookUrl = `${baseUrl}/webhooks/google-calendar/${integration.id}`;
       
       const response = await calendar.events.watch({
         calendarId: 'primary',

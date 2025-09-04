@@ -101,23 +101,67 @@ export class GoogleOAuthService {
   }
 
   /**
+   * Sync CRM events to Google Calendar (push missing ones)
+   */
+  async syncToGoogleAll(integration: CalendarIntegration) {
+    try {
+      console.log('Starting CRM → Google Calendar sync...');
+      
+      // Get all CRM events for this user
+      const crmEvents = await storage.getEventsByUser(integration.userId);
+      console.log(`Found ${crmEvents.length} CRM events to potentially sync`);
+      
+      let syncedCount = 0;
+      let skippedCount = 0;
+      
+      for (const event of crmEvents) {
+        // Skip if already synced to Google
+        if (event.externalEventId) {
+          skippedCount++;
+          continue;
+        }
+        
+        try {
+          console.log(`Syncing CRM event "${event.title}" to Google Calendar...`);
+          await this.syncToGoogle(integration, event.id);
+          syncedCount++;
+          console.log(`✅ Successfully synced "${event.title}"`);
+        } catch (error) {
+          console.error(`❌ Failed to sync "${event.title}":`, error);
+        }
+      }
+      
+      console.log(`CRM → Google sync complete: ${syncedCount} synced, ${skippedCount} skipped`);
+      return { success: true, syncedCount, skippedCount };
+    } catch (error: any) {
+      console.error('Error in CRM → Google sync:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Sync events from Google Calendar to CRM
    */
   async syncFromGoogle(integration: CalendarIntegration) {
     try {
+      console.log('Starting Google → CRM sync...');
       const calendar = await this.getCalendarService(integration);
       
-      // Get primary calendar events
+      // Get primary calendar events (wider range to catch more events)
       const response = await calendar.events.list({
         calendarId: 'primary',
-        timeMin: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(), // Last 30 days
-        timeMax: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString(), // Next 90 days
+        timeMin: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString(), // Last 90 days
+        timeMax: new Date(Date.now() + 180 * 24 * 60 * 60 * 1000).toISOString(), // Next 180 days
         singleEvents: true,
         orderBy: 'startTime',
-        maxResults: 500
+        maxResults: 1000
       });
       
       const events = response.data.items || [];
+      console.log(`Found ${events.length} events in Google Calendar`);
+
+      // Also sync CRM events TO Google Calendar
+      await this.syncToGoogleAll(integration);
       
       // Get current Google Calendar event IDs for comparison
       const currentGoogleEventIds = new Set(events.map(e => e.id).filter(id => id));

@@ -119,13 +119,13 @@ export class GoogleOAuthService {
         if (event.externalEventId) {
           try {
             const calendar = await this.getCalendarService(integration);
-            await calendar.events.get({
+            const googleEvent = await calendar.events.get({
               calendarId: 'primary',
               eventId: event.externalEventId
             });
             // Event exists, skip it
             skippedCount++;
-            console.log(`✓ Event "${event.title}" exists in Google Calendar`);
+            console.log(`✓ Event "${event.title}" exists in Google Calendar at: ${googleEvent.data.start?.dateTime || googleEvent.data.start?.date}`);
             continue;
           } catch (error: any) {
             if (error.code === 404 || error.status === 404) {

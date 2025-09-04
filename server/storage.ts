@@ -181,6 +181,7 @@ export interface IStorage {
   getEventsByUser(userId: string): Promise<Event[]>;
   getEventsByDateRange(startDate: Date, endDate: Date): Promise<Event[]>;
   getEventsByClient(clientId: string): Promise<Event[]>;
+  getEventsByIntegration(integrationId: string): Promise<Event[]>;
   createEvent(event: InsertEvent): Promise<Event>;
   updateEvent(id: string, event: Partial<InsertEvent>): Promise<Event | undefined>;
   deleteEvent(id: string): Promise<boolean>;
@@ -1238,6 +1239,10 @@ export class MemStorage implements IStorage {
     return Array.from(this.events.values()).filter(event => event.clientId === clientId);
   }
 
+  async getEventsByIntegration(integrationId: string): Promise<Event[]> {
+    return Array.from(this.events.values()).filter(event => event.calendarIntegrationId === integrationId);
+  }
+
   async createEvent(insertEvent: InsertEvent): Promise<Event> {
     const id = randomUUID();
     const event: Event = {
@@ -1628,6 +1633,7 @@ export class DrizzleStorage implements IStorage {
   async deleteMessageThread(id: string) { return this.memStorage.deleteMessageThread(id); }
   
   async getEventsByClient(clientId: string) { return this.memStorage.getEventsByClient(clientId); }
+  async getEventsByIntegration(integrationId: string) { return this.memStorage.getEventsByIntegration(integrationId); }
   async getEventsByProject(projectId: string) { return this.memStorage.getEventsByProject(projectId); }
   
   async getCalendarSyncLogs() { return this.memStorage.getCalendarSyncLogs(); }

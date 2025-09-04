@@ -119,8 +119,22 @@ export class GoogleOAuthService {
       
       const events = response.data.items || [];
       
+      // Get current Google Calendar event IDs for comparison
+      const currentGoogleEventIds = new Set(events.map(e => e.id).filter(id => id));
+
       for (const googleEvent of events) {
         if (!googleEvent.id || !googleEvent.summary) continue;
+        
+        // Handle cancelled events (deletions)
+        if (googleEvent.status === 'cancelled') {
+          console.log(`Google Calendar event "${googleEvent.summary}" was cancelled, removing from CRM`);
+          const existing = await storage.getEventByExternalId(googleEvent.id);
+          if (existing) {
+            await storage.deleteEvent(existing.id);
+            console.log(`Deleted CRM event: ${existing.title}`);
+          }
+          continue;
+        }
         
         // Check if event exists
         const existing = await storage.getEventByExternalId(googleEvent.id);
@@ -136,13 +150,26 @@ export class GoogleOAuthService {
           createdBy: integration.userId,
           calendarIntegrationId: integration.id,
           externalEventId: googleEvent.id,
-          providerData: JSON.stringify(googleEvent)
+          providerData: JSON.stringify(googleEvent),
+          attendees: googleEvent.attendees?.map(attendee => attendee.email).filter(email => email) || []
         };
         
         if (existing) {
           await storage.updateEvent(existing.id, eventData);
         } else {
           await storage.createEvent(eventData);
+        }
+      }
+
+      // Check for events that were completely removed from Google Calendar
+      // (not just cancelled, but deleted entirely)
+      console.log('Checking for events deleted from Google Calendar...');
+      const crmEventsFromGoogle = await storage.getEventsByIntegration(integration.id);
+      
+      for (const crmEvent of crmEventsFromGoogle) {
+        if (crmEvent.externalEventId && !currentGoogleEventIds.has(crmEvent.externalEventId)) {
+          console.log(`Event "${crmEvent.title}" no longer exists in Google Calendar, removing from CRM`);
+          await storage.deleteEvent(crmEvent.id);
         }
       }
       

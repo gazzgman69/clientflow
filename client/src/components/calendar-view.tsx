@@ -283,15 +283,25 @@ export default function CalendarView({ viewMode = 'month' }: CalendarViewProps) 
   const handleEditEvent = (event: Event) => {
     setEditingEvent(event);
     
-    // Convert UTC times to local timezone for form display
-    const startLocal = new Date(event.startDate);
-    const endLocal = new Date(event.endDate);
+    // Convert database UTC time to local datetime-local format
+    const startDate = new Date(event.startDate);
+    const endDate = new Date(event.endDate);
+    
+    // Format for datetime-local input (YYYY-MM-DDTHH:mm)
+    const formatForInput = (date: Date) => {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      const hours = String(date.getHours()).padStart(2, '0');
+      const minutes = String(date.getMinutes()).padStart(2, '0');
+      return `${year}-${month}-${day}T${hours}:${minutes}`;
+    };
     
     form.reset({
       title: event.title,
       description: event.description || "",
-      startDate: startLocal.toISOString().slice(0, 16),
-      endDate: endLocal.toISOString().slice(0, 16),
+      startDate: formatForInput(startDate),
+      endDate: formatForInput(endDate),
       allDay: event.allDay,
       location: event.location || "",
       clientId: event.clientId || "",
@@ -552,7 +562,7 @@ export default function CalendarView({ viewMode = 'month' }: CalendarViewProps) 
 
       {/* Add/Edit Event Modal */}
       <Dialog open={showEventModal} onOpenChange={setShowEventModal}>
-        <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-2xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               {editingEvent ? (

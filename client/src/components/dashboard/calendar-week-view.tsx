@@ -5,7 +5,7 @@ import { CalendarIcon, Clock } from "lucide-react";
 import { addDays, format, isToday, isSameDay } from "date-fns";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import type { Task } from "@shared/schema";
+import type { Task, Event } from "@shared/schema";
 
 export default function CalendarWeekView() {
   const today = new Date();
@@ -16,21 +16,18 @@ export default function CalendarWeekView() {
     queryKey: ["/api/tasks"],
   });
 
-  // Mock events for demonstration - in real app, these would come from API
-  const mockEvents = [
-    { date: today, title: "Client Meeting", time: "10:00 AM", type: "meeting", clientName: "John Smith" },
-    { date: today, title: "Venue Walkthrough", time: "12:30 PM", type: "meeting", clientName: "Grand Ballroom" },
-    { date: today, title: "Sound Check", time: "2:00 PM", type: "event", clientName: "Wedding Party" },
-    { date: today, title: "Final Details Call", time: "4:15 PM", type: "call", clientName: "Sarah Johnson" },
-    { date: today, title: "Equipment Delivery", time: "6:00 PM", type: "event", clientName: "Tech Solutions" },
-    { date: addDays(today, 1), title: "Project Review", time: "2:00 PM", type: "review", clientName: "Tech Corp" },
-    { date: addDays(today, 2), title: "Follow-up Call", time: "11:00 AM", type: "call", clientName: "Creative Studio" },
-    { date: addDays(today, 4), title: "Contract Signing", time: "3:00 PM", type: "meeting", clientName: "Music Venue" },
-    { date: addDays(today, 6), title: "Event Setup", time: "9:00 AM", type: "event", clientName: "Wedding Party" },
-  ];
+  // Fetch real events from database (including Google Calendar events)
+  const { data: events } = useQuery<Event[]>({
+    queryKey: ['/api/events', 'test-user'],
+    queryFn: () => fetch('/api/events?userId=test-user').then(res => res.json()),
+  });
 
   const getEventsForDay = (date: Date) => {
-    return mockEvents.filter(event => isSameDay(event.date, date));
+    if (!events) return [];
+    return events.filter(event => {
+      const eventDate = new Date(event.startDate);
+      return isSameDay(eventDate, date);
+    });
   };
 
   const getTasksForDay = (date: Date) => {
@@ -108,7 +105,7 @@ export default function CalendarWeekView() {
                             {event.title}
                           </div>
                           <div className="text-blue-600 dark:text-blue-400 truncate leading-tight">
-                            {event.time}
+                            {format(new Date(event.startDate), 'HH:mm')}
                           </div>
                         </div>
                       ))}
@@ -163,11 +160,13 @@ export default function CalendarWeekView() {
                               </div>
                               <div className="flex items-center gap-1 text-blue-600 dark:text-blue-400 text-xs">
                                 <Clock className="h-2 w-2" />
-                                {event.time}
+                                {format(new Date(event.startDate), 'HH:mm')}
                               </div>
-                              <div className="text-blue-600 dark:text-blue-400 text-xs">
-                                {event.clientName}
-                              </div>
+                              {event.location && (
+                                <div className="text-blue-600 dark:text-blue-400 text-xs">
+                                  📍 {event.location}
+                                </div>
+                              )}
                             </div>
                           ))}
                         </div>

@@ -76,7 +76,8 @@ export default function CalendarView({ viewMode = 'month' }: CalendarViewProps) 
   const queryClient = useQueryClient();
 
   const { data: events, isLoading: eventsLoading } = useQuery<Event[]>({
-    queryKey: ['/api/events'],
+    queryKey: ['/api/events', 'test-user'],
+    queryFn: () => fetch('/api/events?userId=test-user').then(res => res.json()),
   });
 
   const { data: clients } = useQuery<Client[]>({

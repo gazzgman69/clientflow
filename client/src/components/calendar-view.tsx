@@ -380,7 +380,7 @@ export default function CalendarView({ viewMode = 'month' }: CalendarViewProps) 
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-20">
       {/* Calendar Controls */}
       <Card data-testid="calendar-controls">
         <CardHeader>
@@ -562,7 +562,7 @@ export default function CalendarView({ viewMode = 'month' }: CalendarViewProps) 
 
       {/* Add/Edit Event Modal */}
       <Dialog open={showEventModal} onOpenChange={setShowEventModal}>
-        <DialogContent className="sm:max-w-2xl max-h-[80vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-2xl max-h-[75vh] overflow-y-auto" style={{ position: 'fixed' }}>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               {editingEvent ? (

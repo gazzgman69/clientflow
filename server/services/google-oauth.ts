@@ -236,11 +236,16 @@ export class GoogleOAuthService {
       // Check for events that were completely removed from Google Calendar
       // (not just cancelled, but deleted entirely)
       console.log('Checking for events deleted from Google Calendar...');
-      const crmEventsFromGoogle = await storage.getEventsByIntegration(integration.id);
       
-      for (const crmEvent of crmEventsFromGoogle) {
+      // Get ALL CRM events that have a Google Calendar ID, regardless of origin
+      const allCrmEventsWithGoogleId = await storage.getEventsByUser(integration.userId);
+      const eventsToCheck = allCrmEventsWithGoogleId.filter(e => e.externalEventId);
+      
+      console.log(`Checking ${eventsToCheck.length} CRM events for deletion from Google Calendar...`);
+      
+      for (const crmEvent of eventsToCheck) {
         if (crmEvent.externalEventId && !currentGoogleEventIds.has(crmEvent.externalEventId)) {
-          console.log(`Event "${crmEvent.title}" no longer exists in Google Calendar, removing from CRM`);
+          console.log(`🗑️ Event "${crmEvent.title}" (ID: ${crmEvent.externalEventId}) no longer exists in Google Calendar, removing from CRM`);
           await storage.deleteEvent(crmEvent.id);
         }
       }

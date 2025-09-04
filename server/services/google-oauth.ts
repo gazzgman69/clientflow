@@ -231,6 +231,42 @@ export class GoogleOAuthService {
   }
 
   /**
+   * Clean up orphaned Google Calendar events based on title
+   */
+  async cleanupOrphanedEvents(integration: CalendarIntegration, eventTitles: string[]) {
+    try {
+      const calendar = await this.getCalendarService(integration);
+      
+      for (const title of eventTitles) {
+        // Search for events by title
+        const response = await calendar.events.list({
+          calendarId: 'primary',
+          q: title,
+          timeMin: new Date('2025-01-01').toISOString(), // Only recent events
+          maxResults: 10
+        });
+
+        const events = response.data.items || [];
+        
+        for (const event of events) {
+          if (event.id && event.summary === title) {
+            console.log(`Deleting orphaned Google Calendar event: ${title}`);
+            await calendar.events.delete({
+              calendarId: 'primary',
+              eventId: event.id
+            });
+          }
+        }
+      }
+      
+      return { success: true, deletedCount: eventTitles.length };
+    } catch (error: any) {
+      console.error('Error cleaning orphaned events:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Set up webhook for real-time sync
    */
   async setupWebhook(integration: CalendarIntegration) {

@@ -1811,6 +1811,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Cleanup orphaned Google Calendar events
+  app.post("/api/calendar-integrations/:id/cleanup", async (req, res) => {
+    try {
+      const integration = await storage.getCalendarIntegration(req.params.id);
+      if (!integration) {
+        return res.status(404).json({ message: "Calendar integration not found" });
+      }
+      
+      const { eventTitles } = req.body;
+      if (!eventTitles || !Array.isArray(eventTitles)) {
+        return res.status(400).json({ message: "eventTitles array is required" });
+      }
+      
+      const result = await googleOAuthService.cleanupOrphanedEvents(integration, eventTitles);
+      res.json({ 
+        message: "Cleanup completed successfully", 
+        deletedCount: result.deletedCount 
+      });
+    } catch (error: any) {
+      console.error('Calendar cleanup error:', error);
+      res.status(500).json({ message: "Failed to cleanup orphaned events", error: error.message });
+    }
+  });
+
   // iCal Routes
   app.post("/api/calendar-integrations/ical", async (req, res) => {
     try {

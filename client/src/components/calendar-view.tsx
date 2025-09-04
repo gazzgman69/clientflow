@@ -112,8 +112,10 @@ export default function CalendarView({ viewMode = 'month' }: CalendarViewProps) 
     mutationFn: async (data: EventFormData) => {
       const eventData = {
         ...data,
+        startDate: new Date(data.startDate),
+        endDate: new Date(data.endDate),
         attendees: data.attendees ? data.attendees.split(',').map(email => email.trim()).filter(Boolean) : null,
-        createdBy: 'current-user', // In real app, get from auth context
+        createdBy: 'test-user',
       };
       const response = await fetch('/api/events', {
         method: 'POST',
@@ -129,7 +131,7 @@ export default function CalendarView({ viewMode = 'month' }: CalendarViewProps) 
     },
     onSuccess: () => {
       toast({ title: 'Event created successfully' });
-      queryClient.invalidateQueries({ queryKey: ['/api/events'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/events', 'test-user'] });
       setShowEventModal(false);
       setEditingEvent(null);
       form.reset();
@@ -149,6 +151,8 @@ export default function CalendarView({ viewMode = 'month' }: CalendarViewProps) 
       const { id, ...eventData } = data;
       const updateData = {
         ...eventData,
+        startDate: new Date(eventData.startDate),
+        endDate: new Date(eventData.endDate),
         attendees: eventData.attendees ? eventData.attendees.split(',').map(email => email.trim()).filter(Boolean) : null,
       };
       const response = await fetch(`/api/events/${id}`, {

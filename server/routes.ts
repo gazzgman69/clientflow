@@ -3,6 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { twilioService } from "./services/twilio";
 import { googleCalendarService } from "./services/google-calendar";
+import { googleOAuthService } from "./services/google-oauth";
 import { icalService } from "./services/ical";
 import oauthRoutes from "./routes/oauth";
 import { 
@@ -1442,6 +1443,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const validatedData = insertEventSchema.parse(req.body);
       const event = await storage.createEvent(validatedData);
+      
+      // Auto-sync to Google Calendar if user has an active integration
+      try {
+        const integrations = await storage.getCalendarIntegrationsByUser(event.createdBy);
+        const googleIntegration = integrations.find(int => int.provider === 'google' && int.isActive);
+        
+        if (googleIntegration) {
+          await googleOAuthService.syncToGoogle(googleIntegration, event.id);
+        }
+      } catch (syncError) {
+        console.error('Failed to sync new event to Google:', syncError);
+        // Don't fail the creation if sync fails
+      }
+      
       res.status(201).json(event);
     } catch (error) {
       res.status(400).json({ message: "Invalid event data", error });
@@ -1455,6 +1470,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!event) {
         return res.status(404).json({ message: "Event not found" });
       }
+      
+      // Auto-sync to Google Calendar if user has an active integration
+      try {
+        const integrations = await storage.getCalendarIntegrationsByUser(event.createdBy);
+        const googleIntegration = integrations.find(int => int.provider === 'google' && int.isActive);
+        
+        if (googleIntegration) {
+          await googleOAuthService.syncToGoogle(googleIntegration, event.id);
+        }
+      } catch (syncError) {
+        console.error('Failed to sync updated event to Google:', syncError);
+        // Don't fail the update if sync fails
+      }
+      
       res.json(event);
     } catch (error) {
       res.status(400).json({ message: "Invalid event data", error });

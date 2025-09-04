@@ -468,19 +468,19 @@ export default function CalendarView({ viewMode = 'month' }: CalendarViewProps) 
                             {getEventsForDay(day).map((event, eventIndex) => (
                               <div
                                 key={event.id}
-                                className={`text-xs p-1 rounded truncate cursor-pointer hover:opacity-80 ${getEventTypeColor(event.type)}`}
+                                className={`text-xs p-1 rounded cursor-pointer hover:opacity-80 ${getEventTypeColor(event.type)}`}
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   handleEditEvent(event);
                                 }}
                                 data-testid={`event-${day}-${eventIndex}`}
                               >
-                                <div className="font-medium truncate">{event.title}</div>
-                                <div className="text-xs opacity-80">
+                                <div className="font-medium text-xs leading-tight break-words">{event.title}</div>
+                                <div className="text-xs opacity-80 leading-tight">
                                   {formatEventTime(event.startDate, event.endDate, event.allDay)}
                                 </div>
                                 {event.location && (
-                                  <div className="text-xs opacity-70 truncate">📍 {event.location}</div>
+                                  <div className="text-xs opacity-70 leading-tight break-words">📍 {event.location}</div>
                                 )}
                               </div>
                             ))}

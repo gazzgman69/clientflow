@@ -178,11 +178,19 @@ export class GoogleOAuthService {
         location: event.location || '',
         start: event.allDay 
           ? { date: new Date(event.startDate).toISOString().split('T')[0] }
-          : { dateTime: new Date(event.startDate).toISOString() },
+          : { 
+              dateTime: new Date(event.startDate).toISOString(),
+              timeZone: 'Europe/London' // Set proper timezone
+            },
         end: event.allDay
           ? { date: new Date(event.endDate).toISOString().split('T')[0] }
-          : { dateTime: new Date(event.endDate).toISOString() }
+          : { 
+              dateTime: new Date(event.endDate).toISOString(),
+              timeZone: 'Europe/London' // Set proper timezone
+            }
       };
+      
+      console.log('Creating Google Calendar event:', JSON.stringify(googleEvent, null, 2));
       
       let response;
       if (event.externalEventId) {

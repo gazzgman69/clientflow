@@ -1446,14 +1446,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Auto-sync to Google Calendar if user has an active integration
       try {
+        console.log(`Attempting to sync new event "${event.title}" to Google Calendar`);
         const integrations = await storage.getCalendarIntegrationsByUser(event.createdBy);
         const googleIntegration = integrations.find(int => int.provider === 'google' && int.isActive);
         
         if (googleIntegration) {
-          await googleOAuthService.syncToGoogle(googleIntegration, event.id);
+          console.log('Found active Google integration, starting sync...');
+          const syncResult = await googleOAuthService.syncToGoogle(googleIntegration, event.id);
+          console.log(`Successfully synced event "${event.title}" to Google Calendar:`, syncResult);
+        } else {
+          console.log('No active Google integration found for user:', event.createdBy);
         }
       } catch (syncError) {
         console.error('Failed to sync new event to Google:', syncError);
+        console.error('Sync error details:', syncError.response?.data || syncError.message);
         // Don't fail the creation if sync fails
       }
       

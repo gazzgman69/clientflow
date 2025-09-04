@@ -65,12 +65,14 @@ export default function CalendarPage() {
 
   // Fetch calendar integrations
   const { data: integrations, isLoading: integrationsLoading } = useQuery<CalendarIntegration[]>({
-    queryKey: ['/api/calendar-integrations'],
+    queryKey: ['/api/calendar-integrations', 'test-user'],
+    queryFn: () => fetch('/api/calendar-integrations?userId=test-user').then(res => res.json()),
   });
 
   // Fetch events
   const { data: events, isLoading: eventsLoading } = useQuery<Event[]>({
-    queryKey: ['/api/events'],
+    queryKey: ['/api/events', 'test-user'],
+    queryFn: () => fetch('/api/events?userId=test-user').then(res => res.json()),
   });
 
   // Add iCal integration
@@ -83,7 +85,7 @@ export default function CalendarPage() {
     },
     onSuccess: () => {
       toast({ title: 'iCal integration added successfully' });
-      queryClient.invalidateQueries({ queryKey: ['/api/calendar-integrations'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/calendar-integrations', 'test-user'] });
       setShowAddDialog(false);
       setIcalUrl('');
       setCalendarName('');
@@ -109,8 +111,8 @@ export default function CalendarPage() {
         title: 'Sync completed', 
         description: `${data.eventsCreated || 0} created, ${data.eventsUpdated || 0} updated, ${data.eventsDeleted || 0} deleted`
       });
-      queryClient.invalidateQueries({ queryKey: ['/api/calendar-integrations'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/events'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/calendar-integrations', 'test-user'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/events', 'test-user'] });
       setSyncingId(null);
     },
     onError: (error: any) => {
@@ -132,7 +134,7 @@ export default function CalendarPage() {
     },
     onSuccess: () => {
       toast({ title: 'Calendar integration removed' });
-      queryClient.invalidateQueries({ queryKey: ['/api/calendar-integrations'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/calendar-integrations', 'test-user'] });
     },
     onError: (error: any) => {
       toast({ 
@@ -428,7 +430,7 @@ export default function CalendarPage() {
             userId="test-user"
             onSuccess={() => {
               setShowGoogleOAuth(false);
-              queryClient.invalidateQueries({ queryKey: ['/api/calendar-integrations'] });
+              queryClient.invalidateQueries({ queryKey: ['/api/calendar-integrations', 'test-user'] });
             }}
             onCancel={() => setShowGoogleOAuth(false)}
           />

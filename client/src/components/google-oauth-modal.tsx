@@ -43,8 +43,8 @@ export function GoogleOAuthModal({ userId, onSuccess, onCancel }: GoogleOAuthMod
           onSuccess?.();
         }, 1500);
       } else if (data.authUrl) {
-        // Redirect to Google OAuth
-        window.location.href = data.authUrl;
+        // Open Google OAuth in new window to avoid iframe restrictions
+        window.open(data.authUrl, '_blank');
       }
     },
     onError: (error: Error) => {

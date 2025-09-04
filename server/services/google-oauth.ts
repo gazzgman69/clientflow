@@ -123,10 +123,18 @@ export class GoogleOAuthService {
               calendarId: 'primary',
               eventId: event.externalEventId
             });
-            // Event exists, skip it
-            skippedCount++;
-            console.log(`✓ Event "${event.title}" exists in Google Calendar at: ${googleEvent.data.start?.dateTime || googleEvent.data.start?.date}`);
-            continue;
+            
+            // Check if event is cancelled/deleted (Google marks as status: 'cancelled')
+            if (googleEvent.data.status === 'cancelled') {
+              console.log(`❌ Event "${event.title}" was cancelled in Google Calendar, re-syncing...`);
+              await storage.updateEvent(event.id, { externalEventId: null });
+              event.externalEventId = null; // Update local object for sync
+            } else {
+              // Event exists and is active, skip it
+              skippedCount++;
+              console.log(`✓ Event "${event.title}" exists in Google Calendar at: ${googleEvent.data.start?.dateTime || googleEvent.data.start?.date}`);
+              continue;
+            }
           } catch (error: any) {
             if (error.code === 404 || error.status === 404) {
               // Event doesn't exist in Google Calendar anymore, clear ID and re-sync

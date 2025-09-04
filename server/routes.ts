@@ -1599,9 +1599,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Calendar Sync API
+  // Calendar Sync API - Enhanced with bidirectional Google sync
   app.post("/api/calendar-integrations/:id/sync", async (req, res) => {
     try {
+      console.log('🚀 Sync endpoint called for integration:', req.params.id);
       const integrationId = req.params.id;
       const integration = await storage.getCalendarIntegration(integrationId);
       
@@ -1613,29 +1614,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Calendar integration is not active" });
       }
 
-      // Create sync log
-      const syncLog = await storage.createCalendarSyncLog({
-        integrationId,
-        syncType: 'manual',
-        direction: 'import',
-      });
-
-      // TODO: Implement actual sync logic based on provider
-      // This would integrate with Google Calendar API, iCal parsing, etc.
+      let result;
       
-      // Update sync log as completed
-      await storage.updateCalendarSyncLog(syncLog.id, {
-        status: 'completed',
-        completedAt: new Date(),
-        eventsProcessed: 0,
-        eventsCreated: 0,
-        eventsUpdated: 0,
-        eventsDeleted: 0,
+      if (integration.provider === 'google') {
+        try {
+          console.log('🔄 Starting enhanced Google Calendar bidirectional sync...');
+          // Use the enhanced Google OAuth service for full bidirectional sync
+          result = await googleOAuthService.syncFromGoogle(integration);
+          console.log('🎉 Enhanced Google Calendar sync completed:', result);
+        } catch (error: any) {
+          console.error('❌ Enhanced Google Calendar sync failed:', error);
+          throw new Error(`Google Calendar sync failed: ${error.message}`);
+        }
+      } else if (integration.provider === 'ical') {
+        if (integration.syncDirection === 'import' || integration.syncDirection === 'bidirectional') {
+          result = await icalService.syncFromICal(integration);
+        } else {
+          result = { message: "Only import/bidirectional sync is supported for iCal" };
+        }
+      } else {
+        return res.status(400).json({ message: "Unsupported calendar provider" });
+      }
+      
+      // Update last sync time
+      console.log('⏰ Updating last sync time...');
+      await storage.updateCalendarIntegration(integrationId, {
+        lastSyncAt: new Date()
       });
 
-      res.json({ message: "Sync initiated", syncLogId: syncLog.id });
-    } catch (error) {
-      res.status(500).json({ message: "Failed to initiate sync" });
+      res.json(result);
+    } catch (error: any) {
+      console.error('🚨 Sync endpoint error:', error);
+      res.status(500).json({ message: "Failed to sync calendar", error: error.message });
     }
   });
 
@@ -1817,8 +1827,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         throw syncError;
       }
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    } catch (error: any) {
+      const errorMessage = error?.message || 'Unknown error';
       console.error('Sync error:', error);
       res.status(500).json({ message: "Failed to sync calendar", error: errorMessage });
     }

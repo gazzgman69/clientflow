@@ -215,9 +215,12 @@ export default function CalendarPage() {
                     Add iCal Feed
                   </Button>
                 </DialogTrigger>
-                <DialogContent>
+                <DialogContent aria-describedby="ical-form-description">
                   <DialogHeader>
                     <DialogTitle>Add iCal Integration</DialogTitle>
+                    <p id="ical-form-description" className="sr-only">
+                      Add a new iCal feed integration by providing a calendar name and iCal URL
+                    </p>
                   </DialogHeader>
                   <div className="space-y-4">
                     <div>

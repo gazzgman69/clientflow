@@ -41,9 +41,6 @@ export class GoogleOAuthService {
       include_granted_scopes: true
     });
     
-    console.log('Generated OAuth URL:', authUrl);
-    console.log('Redirect URI being used:', getRedirectUri());
-    
     return authUrl;
   }
 

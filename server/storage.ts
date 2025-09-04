@@ -21,9 +21,15 @@ import {
   type MessageThread, type InsertMessageThread,
   type Event, type InsertEvent,
   type CalendarIntegration, type InsertCalendarIntegration,
-  type CalendarSyncLog, type InsertCalendarSyncLog
+  type CalendarSyncLog, type InsertCalendarSyncLog,
+  users, leads, clients, projects, quotes, contracts, invoices, tasks, emails, activities, automations, 
+  members, venues, projectMembers, memberAvailability, projectFiles, projectNotes, smsMessages, 
+  messageTemplates, messageThreads, events, calendarIntegrations, calendarSyncLog
 } from "@shared/schema";
 import { randomUUID } from "crypto";
+import { drizzle } from 'drizzle-orm/neon-http';
+import { neon } from '@neondatabase/serverless';
+import { eq, and, desc, or } from 'drizzle-orm';
 
 export interface IStorage {
   // Users
@@ -1414,4 +1420,222 @@ export class MemStorage implements IStorage {
   }
 }
 
-export const storage = new MemStorage();
+// Database connection
+const sql = neon(process.env.DATABASE_URL!);
+const db = drizzle(sql);
+
+export class DrizzleStorage implements IStorage {
+  // Calendar Integrations - Core functionality for Google Calendar
+  async getCalendarIntegrations(): Promise<CalendarIntegration[]> {
+    return await db.select().from(calendarIntegrations);
+  }
+
+  async getCalendarIntegrationsByUser(userId: string): Promise<CalendarIntegration[]> {
+    return await db.select().from(calendarIntegrations).where(eq(calendarIntegrations.userId, userId));
+  }
+
+  async getCalendarIntegration(id: string): Promise<CalendarIntegration | undefined> {
+    const result = await db.select().from(calendarIntegrations).where(eq(calendarIntegrations.id, id));
+    return result[0];
+  }
+
+  async getCalendarIntegrationByEmail(email: string, userId: string): Promise<CalendarIntegration | undefined> {
+    const result = await db.select().from(calendarIntegrations)
+      .where(and(eq(calendarIntegrations.providerAccountId, email), eq(calendarIntegrations.userId, userId)));
+    return result[0];
+  }
+
+  async createCalendarIntegration(integration: InsertCalendarIntegration): Promise<CalendarIntegration> {
+    const result = await db.insert(calendarIntegrations).values(integration).returning();
+    return result[0];
+  }
+
+  async updateCalendarIntegration(id: string, updates: Partial<InsertCalendarIntegration>): Promise<CalendarIntegration | undefined> {
+    const result = await db.update(calendarIntegrations).set(updates).where(eq(calendarIntegrations.id, id)).returning();
+    return result[0];
+  }
+
+  async deleteCalendarIntegration(id: string): Promise<boolean> {
+    const result = await db.delete(calendarIntegrations).where(eq(calendarIntegrations.id, id));
+    return result.rowCount > 0;
+  }
+
+  // Events - Core functionality for calendar events
+  async getEvents(): Promise<Event[]> {
+    return await db.select().from(events);
+  }
+
+  async getEventsByUser(userId: string): Promise<Event[]> {
+    return await db.select().from(events)
+      .where(or(eq(events.createdBy, userId), eq(events.assignedTo, userId)));
+  }
+
+  async getEvent(id: string): Promise<Event | undefined> {
+    const result = await db.select().from(events).where(eq(events.id, id));
+    return result[0];
+  }
+
+  async getEventByExternalId(externalId: string): Promise<Event | undefined> {
+    const result = await db.select().from(events).where(eq(events.externalEventId, externalId));
+    return result[0];
+  }
+
+  async createEvent(event: InsertEvent): Promise<Event> {
+    const result = await db.insert(events).values(event).returning();
+    return result[0];
+  }
+
+  async updateEvent(id: string, updates: Partial<InsertEvent>): Promise<Event | undefined> {
+    const result = await db.update(events).set(updates).where(eq(events.id, id)).returning();
+    return result[0];
+  }
+
+  async deleteEvent(id: string): Promise<boolean> {
+    const result = await db.delete(events).where(eq(events.id, id));
+    return result.rowCount > 0;
+  }
+
+  // Basic implementations for other required methods (using MemStorage pattern for now)
+  private memStorage = new MemStorage();
+
+  // Delegate non-calendar methods to MemStorage for now
+  async getUsers() { return this.memStorage.getUsers(); }
+  async getUser(id: string) { return this.memStorage.getUser(id); }
+  async getUserByUsername(username: string) { return this.memStorage.getUserByUsername(username); }
+  async createUser(user: InsertUser) { return this.memStorage.createUser(user); }
+  
+  async getLeads() { return this.memStorage.getLeads(); }
+  async getLead(id: string) { return this.memStorage.getLead(id); }
+  async createLead(lead: InsertLead) { return this.memStorage.createLead(lead); }
+  async updateLead(id: string, lead: Partial<InsertLead>) { return this.memStorage.updateLead(id, lead); }
+  async deleteLead(id: string) { return this.memStorage.deleteLead(id); }
+  
+  async getClients() { return this.memStorage.getClients(); }
+  async getClient(id: string) { return this.memStorage.getClient(id); }
+  async createClient(client: InsertClient) { return this.memStorage.createClient(client); }
+  async updateClient(id: string, client: Partial<InsertClient>) { return this.memStorage.updateClient(id, client); }
+  async deleteClient(id: string) { return this.memStorage.deleteClient(id); }
+  
+  async getProjects() { return this.memStorage.getProjects(); }
+  async getProject(id: string) { return this.memStorage.getProject(id); }
+  async getProjectsByClient(clientId: string) { return this.memStorage.getProjectsByClient(clientId); }
+  async createProject(project: InsertProject) { return this.memStorage.createProject(project); }
+  async updateProject(id: string, project: Partial<InsertProject>) { return this.memStorage.updateProject(id, project); }
+  async deleteProject(id: string) { return this.memStorage.deleteProject(id); }
+  
+  async getQuotes() { return this.memStorage.getQuotes(); }
+  async getQuote(id: string) { return this.memStorage.getQuote(id); }
+  async getQuotesByClient(clientId: string) { return this.memStorage.getQuotesByClient(clientId); }
+  async createQuote(quote: InsertQuote) { return this.memStorage.createQuote(quote); }
+  async updateQuote(id: string, quote: Partial<InsertQuote>) { return this.memStorage.updateQuote(id, quote); }
+  async deleteQuote(id: string) { return this.memStorage.deleteQuote(id); }
+  async getQuotesByProject(projectId: string) { return this.memStorage.getQuotesByProject(projectId); }
+  
+  async getContracts() { return this.memStorage.getContracts(); }
+  async getContract(id: string) { return this.memStorage.getContract(id); }
+  async getContractsByClient(clientId: string) { return this.memStorage.getContractsByClient(clientId); }
+  async createContract(contract: InsertContract) { return this.memStorage.createContract(contract); }
+  async updateContract(id: string, contract: Partial<InsertContract>) { return this.memStorage.updateContract(id, contract); }
+  async deleteContract(id: string) { return this.memStorage.deleteContract(id); }
+  async getContractsByProject(projectId: string) { return this.memStorage.getContractsByProject(projectId); }
+  
+  async getInvoices() { return this.memStorage.getInvoices(); }
+  async getInvoice(id: string) { return this.memStorage.getInvoice(id); }
+  async getInvoicesByClient(clientId: string) { return this.memStorage.getInvoicesByClient(clientId); }
+  async createInvoice(invoice: InsertInvoice) { return this.memStorage.createInvoice(invoice); }
+  async updateInvoice(id: string, invoice: Partial<InsertInvoice>) { return this.memStorage.updateInvoice(id, invoice); }
+  async deleteInvoice(id: string) { return this.memStorage.deleteInvoice(id); }
+  async getInvoicesByProject(projectId: string) { return this.memStorage.getInvoicesByProject(projectId); }
+  
+  async getTasks() { return this.memStorage.getTasks(); }
+  async getTask(id: string) { return this.memStorage.getTask(id); }
+  async getTasksByClient(clientId: string) { return this.memStorage.getTasksByClient(clientId); }
+  async getTasksByProject(projectId: string) { return this.memStorage.getTasksByProject(projectId); }
+  async getTasksByUser(userId: string) { return this.memStorage.getTasksByUser(userId); }
+  async createTask(task: InsertTask) { return this.memStorage.createTask(task); }
+  async updateTask(id: string, task: Partial<InsertTask>) { return this.memStorage.updateTask(id, task); }
+  async deleteTask(id: string) { return this.memStorage.deleteTask(id); }
+  
+  async getEmails() { return this.memStorage.getEmails(); }
+  async getEmail(id: string) { return this.memStorage.getEmail(id); }
+  async getEmailsByClient(clientId: string) { return this.memStorage.getEmailsByClient(clientId); }
+  async getEmailsByProject(projectId: string) { return this.memStorage.getEmailsByProject(projectId); }
+  async createEmail(email: InsertEmail) { return this.memStorage.createEmail(email); }
+  async updateEmail(id: string, email: Partial<InsertEmail>) { return this.memStorage.updateEmail(id, email); }
+  async deleteEmail(id: string) { return this.memStorage.deleteEmail(id); }
+  
+  async getActivities() { return this.memStorage.getActivities(); }
+  async getActivity(id: string) { return this.memStorage.getActivity(id); }
+  async getActivitiesByClient(clientId: string) { return this.memStorage.getActivitiesByClient(clientId); }
+  async getActivitiesByProject(projectId: string) { return this.memStorage.getActivitiesByProject(projectId); }
+  async createActivity(activity: InsertActivity) { return this.memStorage.createActivity(activity); }
+  async updateActivity(id: string, activity: Partial<InsertActivity>) { return this.memStorage.updateActivity(id, activity); }
+  async deleteActivity(id: string) { return this.memStorage.deleteActivity(id); }
+  
+  async getAutomations() { return this.memStorage.getAutomations(); }
+  async getAutomation(id: string) { return this.memStorage.getAutomation(id); }
+  async createAutomation(automation: InsertAutomation) { return this.memStorage.createAutomation(automation); }
+  async updateAutomation(id: string, automation: Partial<InsertAutomation>) { return this.memStorage.updateAutomation(id, automation); }
+  async deleteAutomation(id: string) { return this.memStorage.deleteAutomation(id); }
+  
+  async getMembers() { return this.memStorage.getMembers(); }
+  async getMember(id: string) { return this.memStorage.getMember(id); }
+  async createMember(member: InsertMember) { return this.memStorage.createMember(member); }
+  async updateMember(id: string, member: Partial<InsertMember>) { return this.memStorage.updateMember(id, member); }
+  async deleteMember(id: string) { return this.memStorage.deleteMember(id); }
+  
+  async getVenues() { return this.memStorage.getVenues(); }
+  async getVenue(id: string) { return this.memStorage.getVenue(id); }
+  async createVenue(venue: InsertVenue) { return this.memStorage.createVenue(venue); }
+  async updateVenue(id: string, venue: Partial<InsertVenue>) { return this.memStorage.updateVenue(id, venue); }
+  async deleteVenue(id: string) { return this.memStorage.deleteVenue(id); }
+  
+  async getProjectMembers(projectId: string) { return this.memStorage.getProjectMembers(projectId); }
+  async addProjectMember(projectMember: InsertProjectMember) { return this.memStorage.addProjectMember(projectMember); }
+  async removeProjectMember(projectId: string, memberId: string) { return this.memStorage.removeProjectMember(projectId, memberId); }
+  async updateProjectMemberRole(projectId: string, memberId: string, role: string) { return this.memStorage.updateProjectMemberRole(projectId, memberId, role); }
+  
+  async getMemberAvailability(memberId: string) { return this.memStorage.getMemberAvailability(memberId); }
+  async addMemberAvailability(availability: InsertMemberAvailability) { return this.memStorage.addMemberAvailability(availability); }
+  async updateMemberAvailability(id: string, availability: Partial<InsertMemberAvailability>) { return this.memStorage.updateMemberAvailability(id, availability); }
+  async deleteMemberAvailability(id: string) { return this.memStorage.deleteMemberAvailability(id); }
+  
+  async getProjectFiles(projectId: string) { return this.memStorage.getProjectFiles(projectId); }
+  async addProjectFile(file: InsertProjectFile) { return this.memStorage.addProjectFile(file); }
+  async deleteProjectFile(id: string) { return this.memStorage.deleteProjectFile(id); }
+  
+  async getProjectNotes(projectId: string) { return this.memStorage.getProjectNotes(projectId); }
+  async addProjectNote(note: InsertProjectNote) { return this.memStorage.addProjectNote(note); }
+  async updateProjectNote(id: string, note: Partial<InsertProjectNote>) { return this.memStorage.updateProjectNote(id, note); }
+  async deleteProjectNote(id: string) { return this.memStorage.deleteProjectNote(id); }
+  
+  async getSmsMessages() { return this.memStorage.getSmsMessages(); }
+  async getSmsMessage(id: string) { return this.memStorage.getSmsMessage(id); }
+  async createSmsMessage(message: InsertSmsMessage) { return this.memStorage.createSmsMessage(message); }
+  async updateSmsMessage(id: string, message: Partial<InsertSmsMessage>) { return this.memStorage.updateSmsMessage(id, message); }
+  async deleteSmsMessage(id: string) { return this.memStorage.deleteSmsMessage(id); }
+  
+  async getMessageTemplates() { return this.memStorage.getMessageTemplates(); }
+  async getMessageTemplate(id: string) { return this.memStorage.getMessageTemplate(id); }
+  async createMessageTemplate(template: InsertMessageTemplate) { return this.memStorage.createMessageTemplate(template); }
+  async updateMessageTemplate(id: string, template: Partial<InsertMessageTemplate>) { return this.memStorage.updateMessageTemplate(id, template); }
+  async deleteMessageTemplate(id: string) { return this.memStorage.deleteMessageTemplate(id); }
+  
+  async getMessageThreads() { return this.memStorage.getMessageThreads(); }
+  async getMessageThread(id: string) { return this.memStorage.getMessageThread(id); }
+  async createMessageThread(thread: InsertMessageThread) { return this.memStorage.createMessageThread(thread); }
+  async updateMessageThread(id: string, thread: Partial<InsertMessageThread>) { return this.memStorage.updateMessageThread(id, thread); }
+  async deleteMessageThread(id: string) { return this.memStorage.deleteMessageThread(id); }
+  
+  async getEventsByClient(clientId: string) { return this.memStorage.getEventsByClient(clientId); }
+  async getEventsByProject(projectId: string) { return this.memStorage.getEventsByProject(projectId); }
+  
+  async getCalendarSyncLogs() { return this.memStorage.getCalendarSyncLogs(); }
+  async getCalendarSyncLog(id: string) { return this.memStorage.getCalendarSyncLog(id); }
+  async createCalendarSyncLog(log: InsertCalendarSyncLog) { return this.memStorage.createCalendarSyncLog(log); }
+  async updateCalendarSyncLog(id: string, log: Partial<InsertCalendarSyncLog>) { return this.memStorage.updateCalendarSyncLog(id, log); }
+  
+  async getDashboardMetrics() { return this.memStorage.getDashboardMetrics(); }
+}
+
+export const storage = new DrizzleStorage();

@@ -1,0 +1,65 @@
+READ /docs/CONTEXT.md first.
+
+GOAL
+Fix Google OAuth “Missing authorization code or state”:
+- Ensure redirect URI path matches exactly.
+- Add state generation + validation.
+- Ensure session middleware order is correct.
+- Add temporary debug logs to confirm ?code and ?state arrive.
+
+SCOPE
+Edit/create ONLY:
+  - server/src/services/google-oauth.ts
+  - server/src/routes/oauth.ts   (or the actual OAuth routes file)
+  - server/routes.ts             (middleware order & mounting)
+Do NOT add dependencies or change DB schema.
+
+REQUIREMENTS
+1) In routes.ts:
+   - Ensure app.set('trust proxy', 1) and express-session are configured BEFORE mounting oauth routes.
+   - Ensure app.use(express.json()) is also before routes.
+   - Mount oauth routes so that /auth/google and /auth/google/callback resolve EXACTLY at those paths (no /api prefix unless you also update Google Console).
+
+2) In routes/oauth.ts:
+   - GET /auth/google:
+     - Create a random state (crypto.randomUUID()).
+     - Save to req.session.oauth_state.
+     - Call getGoogleAuthUrl({ state }) and redirect.
+   - GET /auth/google/callback:
+     - TEMP LOG: console.log('OAuth callback query:', req.query)
+     - Read req.query.code and req.query.state.
+     - If missing code → 400 'Missing code'.
+     - If missing/invalid state → 400 'Invalid state'.
+     - Exchange code → tokens; persist access_token, refresh_token, expiry.
+     - Log tokens.scope.
+
+3) In services/google-oauth.ts:
+   - getGoogleAuthUrl({ state }):
+     oauth2Client.generateAuthUrl({
+       access_type: 'offline',
+       prompt: 'consent',
+       response_type: 'code',
+       state,
+       scope: [
+         'https://www.googleapis.com/auth/userinfo.email',
+         'https://www.googleapis.com/auth/calendar.readonly',
+         'https://www.googleapis.com/auth/calendar.events',
+         'https://www.googleapis.com/auth/gmail.send',
+         'https://www.googleapis.com/auth/gmail.readonly',
+       ],
+     });
+
+4) At the end of the plan, PRINT the final callback path you used so I can confirm it matches Google Console:
+   e.g. “Final callback path: /auth/google/callback”
+
+DELIVERABLES (DIFF-ONLY MODE)
+- Unified diffs for ONLY the files above.
+- A short manual test checklist:
+  1) Go to /auth/google → consent screen shows Gmail+Calendar scopes.
+  2) After consent, server logs OAuth callback query with code & state.
+  3) No more “Missing authorization code or state”.
+
+ACCEPTANCE
+- tsc passes.
+- Callback receives ?code & ?state and exchanges successfully.
+- Redirect URI path in code matches Google Console exactly.

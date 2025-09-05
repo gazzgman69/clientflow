@@ -448,11 +448,19 @@ export class GoogleOAuthService {
 /**
  * Simple function to get Google auth URL with force consent and Gmail scopes
  */
-export function getGoogleAuthUrl(): string {
+export function getGoogleAuthUrl({ state }: { state: string }): string {
   return oauth2Client.generateAuthUrl({
-    access_type: "offline",
-    prompt: "consent",
-    scope: SCOPES,
+    access_type: 'offline',
+    prompt: 'consent',
+    response_type: 'code',
+    state,
+    scope: [
+      'https://www.googleapis.com/auth/userinfo.email',
+      'https://www.googleapis.com/auth/calendar.readonly',
+      'https://www.googleapis.com/auth/calendar.events',
+      'https://www.googleapis.com/auth/gmail.send',
+      'https://www.googleapis.com/auth/gmail.readonly',
+    ],
   });
 }
 

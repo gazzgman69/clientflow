@@ -1,14 +1,37 @@
 import { Router } from 'express';
+import { randomUUID } from 'crypto';
 import { googleOAuthService, getGoogleAuthUrl } from '../services/google-oauth';
 import { storage } from '../storage';
+
+// Extend session type to include oauth_state
+declare module 'express-session' {
+  interface SessionData {
+    oauth_state?: string;
+  }
+}
 
 const router = Router();
 
 /**
  * Simple auth start route - Force consent with Gmail scopes
  */
-router.get('/auth/google', (_req, res) => {
-  res.redirect(getGoogleAuthUrl());
+router.get('/auth/google', (req, res) => {
+  try {
+    // Create a random state for CSRF protection
+    const state = randomUUID();
+    
+    // Save state to session
+    req.session.oauth_state = state;
+    
+    // Get Google auth URL with state
+    const authUrl = getGoogleAuthUrl({ state });
+    
+    // Redirect to Google OAuth
+    res.redirect(authUrl);
+  } catch (error: any) {
+    console.error('Error starting Google OAuth:', error);
+    res.status(500).send('Failed to start OAuth flow');
+  }
 });
 
 /**
@@ -48,18 +71,39 @@ router.post('/auth/google/start', async (req, res) => {
  */
 router.get('/auth/google/callback', async (req, res) => {
   try {
+    // TEMP LOG: Debug callback query parameters
+    console.log('OAuth callback query:', req.query);
+    
     const { code, state } = req.query;
     
-    if (!code || !state) {
-      return res.status(400).send('Missing authorization code or state');
+    // Validate presence of code
+    if (!code) {
+      console.error('Missing authorization code in callback');
+      return res.status(400).send('Missing code');
     }
     
-    // Decode state to get user info
-    const stateData = JSON.parse(Buffer.from(state as string, 'base64').toString());
-    const { email, userId } = stateData;
+    // Validate presence and correctness of state
+    if (!state) {
+      console.error('Missing state parameter in callback');
+      return res.status(400).send('Invalid state');
+    }
+    
+    if (req.session.oauth_state !== state) {
+      console.error('State mismatch:', { session: req.session.oauth_state, received: state });
+      return res.status(400).send('Invalid state');
+    }
+    
+    // Clear the state from session after validation
+    delete req.session.oauth_state;
+    
+    // Use test-user for now (TODO: Get from actual auth context)
+    const userId = 'test-user';
     
     // Exchange code for tokens
     const tokens = await googleOAuthService.exchangeCodeForTokens(code as string);
+    
+    // Log token scopes for verification
+    console.log('Tokens received with scopes:', tokens);
     
     // Check if integration already exists
     let integration = await storage.getCalendarIntegrationByEmail(tokens.email, userId);

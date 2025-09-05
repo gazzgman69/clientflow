@@ -1,5 +1,8 @@
 import type { Express } from "express";
+import express from "express";
 import { createServer, type Server } from "http";
+import session from "express-session";
+import ConnectPgSimple from "connect-pg-simple";
 import { storage } from "./storage";
 import { twilioService } from "./services/twilio";
 import { googleCalendarService } from "./services/google-calendar";
@@ -33,7 +36,30 @@ import {
 } from "@shared/schema";
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // OAuth routes
+  // Trust proxy for secure sessions
+  app.set('trust proxy', 1);
+  
+  // Session configuration with PostgreSQL store
+  const PgSession = ConnectPgSimple(session);
+  app.use(session({
+    store: new PgSession({
+      conString: process.env.DATABASE_URL,
+      tableName: 'sessions'
+    }),
+    secret: process.env.SESSION_SECRET || 'fallback-secret-for-development',
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      secure: process.env.NODE_ENV === 'production',
+      httpOnly: true,
+      maxAge: 24 * 60 * 60 * 1000 // 24 hours
+    }
+  }));
+  
+  // JSON parsing middleware
+  app.use(express.json());
+  
+  // OAuth routes (must be after session middleware)
   app.use(oauthRoutes);
   
   // Email routes

@@ -8,6 +8,8 @@ declare module 'express-session' {
   interface SessionData {
     oauth_state?: string;
     oauth_return_to?: string;
+    oauth_popup?: boolean;
+    oauth_origin?: string;
   }
 }
 
@@ -18,15 +20,19 @@ const router = Router();
  */
 router.get('/auth/google', (req, res) => {
   try {
-    // Read returnTo query parameter (default to settings email-login)
+    // Read query parameters
+    const popup = Boolean(req.query.popup);
     const returnTo = (req.query.returnTo as string) || '/settings';
+    const origin = (req.query.origin as string) || '';
     
     // Create a random state for CSRF protection
     const state = randomUUID();
     
-    // Save state and return URL to session
+    // Save state, popup flag, return URL, and origin to session
     req.session.oauth_state = state;
+    req.session.oauth_popup = popup;
     req.session.oauth_return_to = returnTo;
+    req.session.oauth_origin = origin;
     
     // Get Google auth URL with state
     const authUrl = getGoogleAuthUrl({ state });
@@ -98,12 +104,16 @@ router.get('/auth/google/callback', async (req, res) => {
       return res.status(400).send('Invalid state');
     }
     
-    // Get return URL from session before clearing
+    // Get session data before clearing
     const returnTo = req.session.oauth_return_to || '/settings';
+    const isPopup = req.session.oauth_popup || false;
+    const origin = req.session.oauth_origin || '';
     
-    // Clear the state and return URL from session after validation
+    // Clear session data after validation
     delete req.session.oauth_state;
     delete req.session.oauth_return_to;
+    delete req.session.oauth_popup;
+    delete req.session.oauth_origin;
     
     // Use test-user for now (TODO: Get from actual auth context)
     const userId = 'test-user';
@@ -148,12 +158,61 @@ router.get('/auth/google/callback', async (req, res) => {
       await googleOAuthService.setupWebhook(integration);
     }
     
-    // Redirect back to the originating CRM page
-    res.redirect(returnTo);
+    // Handle popup vs regular flow
+    if (isPopup && origin) {
+      // Popup flow - return HTML with postMessage
+      const html = `
+        <!DOCTYPE html>
+        <html>
+        <head><title>OAuth Success</title></head>
+        <body>
+          <script>
+            (function() {
+              var origin = ${JSON.stringify(origin)};
+              if (window.opener && origin) {
+                window.opener.postMessage({ type: 'oauth:success' }, origin);
+              }
+              window.close();
+            })();
+          </script>
+        </body>
+        </html>
+      `;
+      res.send(html);
+    } else {
+      // Regular flow - redirect back to the originating CRM page
+      res.redirect(returnTo);
+    }
   } catch (error: any) {
     console.error('OAuth callback error:', error);
     const returnTo = req.session.oauth_return_to || '/settings';
-    res.redirect(returnTo + '?error=' + encodeURIComponent(error.message));
+    const isPopup = req.session.oauth_popup || false;
+    const origin = req.session.oauth_origin || '';
+    
+    if (isPopup && origin) {
+      // Popup flow - return HTML with error message
+      const html = `
+        <!DOCTYPE html>
+        <html>
+        <head><title>OAuth Error</title></head>
+        <body>
+          <script>
+            (function() {
+              var origin = ${JSON.stringify(origin)};
+              if (window.opener && origin) {
+                window.opener.postMessage({ type: 'oauth:error', error: ${JSON.stringify(error.message)} }, origin);
+              }
+              window.close();
+            })();
+          </script>
+        </body>
+        </html>
+      `;
+      res.send(html);
+    } else {
+      // Regular flow - redirect with error
+      res.redirect(returnTo + '?error=' + encodeURIComponent(error.message));
+    }
   }
 });
 

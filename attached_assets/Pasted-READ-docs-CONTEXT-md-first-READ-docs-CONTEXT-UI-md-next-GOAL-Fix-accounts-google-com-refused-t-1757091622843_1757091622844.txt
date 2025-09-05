@@ -1,0 +1,76 @@
+READ /docs/CONTEXT.md first.
+READ /docs/CONTEXT-UI.md next.
+
+GOAL
+Fix "accounts.google.com refused to connect" by removing any iframe-based OAuth and using a POPUP flow (or same-window fallback). Open Google auth in a real popup from a user click, then on callback, postMessage to the opener and close.
+
+SCOPE
+Edit/create ONLY:
+  - web/src/pages/settings/EmailLogin.tsx      // open popup on button click; listen for postMessage
+  - server/src/routes/oauth.ts                 // add popup-aware start + callback handlers
+  - server/src/services/google-oauth.ts        // ensure getGoogleAuthUrl supports state
+Do NOT add dependencies or change DB schema.
+
+REQUIREMENTS
+
+FRONTEND (EmailLogin.tsx):
+1) Replace any iframe or fetch-based auth trigger. On "Connect / Reconnect Google" button CLICK, do:
+   - const returnTo = window.location.pathname;
+   - const origin = window.location.origin; // e.g., https://<your-replit-domain>
+   - const w = 500, h = 650; center the popup; features = `popup,width=${w},height=${h},left=${left},top=${top}`;
+   - const popup = window.open(`/auth/google?popup=1&returnTo=${encodeURIComponent(returnTo)}&origin=${encodeURIComponent(origin)}`, 'oauth', features);
+   - Add window.addEventListener('message', handler) to receive { type:'oauth:success' } ONLY from event.origin === origin.
+   - On success: close popup if still open, refetch status UI, and stay on the same page.
+   - If popup blocked, fallback: window.location.href = `/auth/google?returnTo=${encodeURIComponent(returnTo)}&origin=${encodeURIComponent(origin)}`;
+
+BACKEND (routes/oauth.ts):
+2) GET /auth/google
+   - Read query: popup (boolean), returnTo (default '/settings/email-login'), origin (required for postMessage).
+   - Generate random state via crypto.randomUUID(); save in session:
+       req.session.oauth_state = state
+       req.session.oauth_popup = Boolean(popup)
+       req.session.oauth_return_to = returnTo
+       req.session.oauth_origin = origin
+   - Redirect to getGoogleAuthUrl({ state })
+
+3) GET /auth/google/callback
+   - Validate presence of req.query.code and req.query.state; compare state with req.session.oauth_state.
+   - Exchange code for tokens; persist access_token, refresh_token, expiry_date.
+   - If req.session.oauth_popup is true:
+       - Respond with minimal HTML that does:
+           <script>
+             (function() {
+               var origin = ${JSON.stringify(req.session.oauth_origin || '')};
+               if (window.opener && origin) {
+                 window.opener.postMessage({ type: 'oauth:success' }, origin);
+               }
+               window.close();
+             })();
+           </script>
+       - Do NOT render your app here.
+     Else:
+       - res.redirect(req.session.oauth_return_to || '/settings/email-login')
+   - Clear oauth_state/oauth_popup/oauth_return_to/oauth_origin from session.
+
+OAUTH SERVICE (services/google-oauth.ts):
+4) Ensure getGoogleAuthUrl({ state }) uses:
+   - access_type:'offline', prompt:'consent', response_type:'code', state
+   - scopes include gmail.send and gmail.readonly (plus your existing ones)
+
+SECURITY:
+- In the frontend message handler, verify event.origin === window.location.origin before trusting the message.
+- In the callback HTML, use the exact origin string saved in session.
+
+DELIVERABLES (DIFF-ONLY MODE)
+- Very brief plan (≤5 bullets) listing exact files modified.
+- Unified diffs for ONLY the three files listed.
+- Provide the exact ORIGIN string used (window.location.origin).
+- Manual test:
+  1) Click Connect → popup opens (no iframe).
+  2) Finish Google consent → popup closes.
+  3) Main window updates to "Connected" without navigating away.
+
+ACCEPTANCE
+- No iframe usage for Google auth.
+- Popup opens only on direct user click (avoids popup blockers).
+- Post-consent, popup closes and the main window reflects connected status.

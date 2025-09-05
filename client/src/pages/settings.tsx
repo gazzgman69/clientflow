@@ -399,8 +399,47 @@ export default function Settings() {
                           <div className="flex gap-2">
                             <Button
                               onClick={() => {
-                                const currentPath = encodeURIComponent(window.location.pathname + window.location.search);
-                                window.location.href = `/auth/google?returnTo=${currentPath}`;
+                                const returnTo = window.location.pathname;
+                                const origin = window.location.origin;
+                                const w = 500, h = 650;
+                                const left = Math.round((screen.width / 2) - (w / 2));
+                                const top = Math.round((screen.height / 2) - (h / 2));
+                                const features = `popup,width=${w},height=${h},left=${left},top=${top}`;
+                                
+                                const popup = window.open(
+                                  `/auth/google?popup=1&returnTo=${encodeURIComponent(returnTo)}&origin=${encodeURIComponent(origin)}`,
+                                  'oauth',
+                                  features
+                                );
+                                
+                                if (!popup) {
+                                  // Fallback if popup blocked
+                                  window.location.href = `/auth/google?returnTo=${encodeURIComponent(returnTo)}&origin=${encodeURIComponent(origin)}`;
+                                  return;
+                                }
+                                
+                                // Listen for OAuth success/error messages
+                                const handleMessage = (event: MessageEvent) => {
+                                  if (event.origin !== window.location.origin) return;
+                                  
+                                  if (event.data.type === 'oauth:success') {
+                                    window.removeEventListener('message', handleMessage);
+                                    if (popup && !popup.closed) popup.close();
+                                    // Refresh Google status
+                                    refetchStatus();
+                                    toast({ title: 'Google account connected successfully' });
+                                  } else if (event.data.type === 'oauth:error') {
+                                    window.removeEventListener('message', handleMessage);
+                                    if (popup && !popup.closed) popup.close();
+                                    toast({
+                                      title: 'Failed to connect Google account',
+                                      description: event.data.error || 'An error occurred',
+                                      variant: 'destructive'
+                                    });
+                                  }
+                                };
+                                
+                                window.addEventListener('message', handleMessage);
                               }}
                               disabled={statusLoading}
                               data-testid="button-connect-google"

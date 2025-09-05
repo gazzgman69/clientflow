@@ -1,0 +1,60 @@
+READ /docs/CONTEXT.md first.
+
+GOAL
+Tighten the Gmail integration we just added:
+- Make Gmail service user-aware (use the signed-in user’s Google tokens).
+- Fix base64url padding removal for Gmail send.
+- Pass userId from routes.
+- Correct the email routes import/mount.
+- Ensure JSON body parsing is enabled before routes.
+- (Optional) Limit list to INBOX via labelIds.
+
+SCOPE
+You may ONLY create or edit these files:
+  - server/src/services/gmail.ts
+  - server/src/routes/email.ts
+  - server/routes.ts
+Do NOT modify package.json, DB schema, auth/session setup, or add deps.
+
+REQUIREMENTS
+- In gmail.ts:
+  1) Export a class GmailService that takes a function getTokensForUser(userId) and uses it to set OAuth credentials.
+  2) Methods:
+     - sendEmail(userId, { to, subject, text })
+     - listEmails(userId, limit = 10)
+  3) For send: base64url encode with + -> -, / -> _, and strip trailing '='.
+  4) For list: use users.messages.list (maxResults=limit, q=""), optionally labelIds: ['INBOX'], then users.messages.get with format="metadata" and headers ["From","To","Subject","Date"].
+  5) Export a singleton:
+     export const gmailService = new GmailService(async (userId) => {
+       // TODO: replace with real lookup
+       // Must return { access_token?, refresh_token?, expiry_date? }
+       return await storage.getUserGoogleTokens(userId);
+     });
+     If storage.getUserGoogleTokens doesn’t exist, stub it but clearly mark TODO.
+
+- In routes/email.ts:
+  1) For POST /send and GET /list, read userId from req.user?.id; if missing, 401.
+  2) Call gmailService.sendEmail(userId, ...) and gmailService.listEmails(userId, limit).
+  3) Keep existing Zod validation; return { ok: true } or { ok:false, error }.
+
+- In server/routes.ts:
+  1) Import email routes with a correct relative path (no “./src” from within server):
+     import emailRoutes from "./routes/email";
+  2) Ensure exactly ONE export async function registerRoutes(app: Express): Promise<Server> { ... }.
+  3) Ensure app.use(express.json()) is applied BEFORE mounting routes.
+  4) Mount email routes at /api/email:
+     app.use('/api/email', emailRoutes);
+
+DELIVERABLES (DIFF-ONLY MODE)
+1) Brief plan (≤5 bullets).
+2) Unified diffs for ONLY the three files listed above.
+3) A curl test:
+   curl "https://<YOUR_DOMAIN>/api/email/list?limit=10"
+   and a POST test for send.
+4) Note if Google re-consent is required due to scopes (gmail.send, gmail.readonly).
+
+ACCEPTANCE
+- tsc passes
+- /api/email/send sends successfully (base64url without padding).
+- /api/email/list returns up to 10 items with id, threadId, from, to, subject, date (ISO), snippet.
+- No new dependencies or schema changes.

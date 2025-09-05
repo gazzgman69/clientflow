@@ -398,7 +398,10 @@ export default function Settings() {
                           {/* Action Buttons */}
                           <div className="flex gap-2">
                             <Button
-                              onClick={() => window.open('/auth/google', 'google-oauth', 'width=500,height=600,scrollbars=yes,resizable=yes')}
+                              onClick={() => {
+                                const currentPath = encodeURIComponent(window.location.pathname + window.location.search);
+                                window.location.href = `/auth/google?returnTo=${currentPath}`;
+                              }}
                               disabled={statusLoading}
                               data-testid="button-connect-google"
                             >

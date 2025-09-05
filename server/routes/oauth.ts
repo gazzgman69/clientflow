@@ -3,10 +3,11 @@ import { randomUUID } from 'crypto';
 import { googleOAuthService, getGoogleAuthUrl } from '../services/google-oauth';
 import { storage } from '../storage';
 
-// Extend session type to include oauth_state
+// Extend session type to include oauth_state and oauth_return_to
 declare module 'express-session' {
   interface SessionData {
     oauth_state?: string;
+    oauth_return_to?: string;
   }
 }
 
@@ -17,11 +18,15 @@ const router = Router();
  */
 router.get('/auth/google', (req, res) => {
   try {
+    // Read returnTo query parameter (default to settings email-login)
+    const returnTo = (req.query.returnTo as string) || '/settings';
+    
     // Create a random state for CSRF protection
     const state = randomUUID();
     
-    // Save state to session
+    // Save state and return URL to session
     req.session.oauth_state = state;
+    req.session.oauth_return_to = returnTo;
     
     // Get Google auth URL with state
     const authUrl = getGoogleAuthUrl({ state });
@@ -93,8 +98,12 @@ router.get('/auth/google/callback', async (req, res) => {
       return res.status(400).send('Invalid state');
     }
     
-    // Clear the state from session after validation
+    // Get return URL from session before clearing
+    const returnTo = req.session.oauth_return_to || '/settings';
+    
+    // Clear the state and return URL from session after validation
     delete req.session.oauth_state;
+    delete req.session.oauth_return_to;
     
     // Use test-user for now (TODO: Get from actual auth context)
     const userId = 'test-user';
@@ -139,11 +148,12 @@ router.get('/auth/google/callback', async (req, res) => {
       await googleOAuthService.setupWebhook(integration);
     }
     
-    // Redirect back to app with success message
-    res.redirect('/?calendar=connected');
+    // Redirect back to the originating CRM page
+    res.redirect(returnTo);
   } catch (error: any) {
     console.error('OAuth callback error:', error);
-    res.redirect('/?calendar=error&message=' + encodeURIComponent(error.message));
+    const returnTo = req.session.oauth_return_to || '/settings';
+    res.redirect(returnTo + '?error=' + encodeURIComponent(error.message));
   }
 });
 

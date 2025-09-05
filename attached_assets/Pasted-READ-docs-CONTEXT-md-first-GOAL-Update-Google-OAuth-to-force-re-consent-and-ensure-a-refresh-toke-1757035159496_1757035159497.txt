@@ -1,0 +1,63 @@
+READ /docs/CONTEXT.md first.
+
+GOAL
+Update Google OAuth to force re-consent and ensure a refresh token is issued, then wire a reconnect route that uses it.
+
+SCOPE
+You may ONLY create/edit:
+  - server/src/services/google-oauth.ts
+  - server/src/routes/oauth.ts   (or the existing OAuth routes file if named differently)
+  - server/routes.ts             (ONLY if route mounting needs adjustment)
+Do NOT add dependencies or change DB schema.
+
+REQUIREMENTS
+1) In server/src/services/google-oauth.ts:
+   - Ensure OAuth2 client is created with:
+       new google.auth.OAuth2(GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REDIRECT_URI)
+   - Export a function getGoogleAuthUrl() that returns:
+       oauth2Client.generateAuthUrl({
+         access_type: "offline",
+         prompt: "consent",
+         scope: [
+           "https://www.googleapis.com/auth/userinfo.email",
+           "https://www.googleapis.com/auth/calendar.readonly",
+           "https://www.googleapis.com/auth/calendar.events",
+           "https://www.googleapis.com/auth/gmail.send",
+           "https://www.googleapis.com/auth/gmail.readonly",
+         ],
+       })
+   - In the callback handler logic (where code -> tokens), after getToken:
+       - Persist access_token, refresh_token, expiry_date to the existing storage for the signed-in user.
+       - Log scopes for verification:
+         console.log("Granted scopes:", tokens.scope);
+
+2) In server/src/routes/oauth.ts (or existing OAuth router):
+   - Add/ensure GET route to start auth:
+       router.get("/auth/google", (_req, res) => res.redirect(getGoogleAuthUrl()));
+   - Ensure callback route matches your Authorized redirect URI EXACTLY:
+       router.get("/auth/google/callback", async (req, res) => { /* exchange code, save tokens, redirect */ })
+   - If your app currently mounts OAuth at a base path (e.g., app.use("/api", oauthRoutes)),
+     then callback must be "/api/auth/google/callback". Otherwise use "/auth/google/callback".
+     Keep paths consistent with Google Console.
+
+3) In server/routes.ts:
+   - Ensure app.use(express.json()) is called BEFORE mounting routers.
+   - Ensure the OAuth router is mounted so that the /auth/google and /auth/google/callback routes resolve at runtime.
+   - Do NOT duplicate registerRoutes; keep exactly one export.
+
+4) Provide a short NOTE at the end listing the final callback route path you used so I can copy it to Google Console.
+
+DELIVERABLES (DIFF-ONLY MODE)
+1) Brief plan (≤5 bullets).
+2) Unified diffs for ONLY the files edited above.
+3) A manual test checklist:
+   - Click “Reconnect Google” (hit /auth/google).
+   - See a consent screen that includes Gmail + Calendar scopes.
+   - After consent, tokens.scope includes gmail.send and gmail.readonly.
+4) Final callback route string (exact), e.g. https://<your-domain>/auth/google/callback
+
+ACCEPTANCE
+- tsc passes.
+- Start-auth route redirects with offline + consent + Gmail scopes.
+- Callback persists access_token, refresh_token, expiry_date for the user.
+- Console shows “Granted scopes:” including gmail.send and gmail.readonly.

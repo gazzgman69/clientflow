@@ -18,9 +18,11 @@ const oauth2Client = new google.auth.OAuth2(
 );
 
 const SCOPES = [
+  'https://www.googleapis.com/auth/userinfo.email',
   'https://www.googleapis.com/auth/calendar.readonly',
   'https://www.googleapis.com/auth/calendar.events',
-  'https://www.googleapis.com/auth/userinfo.email'
+  'https://www.googleapis.com/auth/gmail.send',
+  'https://www.googleapis.com/auth/gmail.readonly',
 ];
 
 export class GoogleOAuthService {
@@ -54,6 +56,9 @@ export class GoogleOAuthService {
   }> {
     const { tokens } = await oauth2Client.getToken(code);
     oauth2Client.setCredentials(tokens);
+    
+    // Log scopes for verification
+    console.log("Granted scopes:", tokens.scope);
     
     // Get user's email
     const oauth2 = google.oauth2({ version: 'v2', auth: oauth2Client });
@@ -438,6 +443,17 @@ export class GoogleOAuthService {
       return { success: false, error: error.message };
     }
   }
+}
+
+/**
+ * Simple function to get Google auth URL with force consent and Gmail scopes
+ */
+export function getGoogleAuthUrl(): string {
+  return oauth2Client.generateAuthUrl({
+    access_type: "offline",
+    prompt: "consent",
+    scope: SCOPES,
+  });
 }
 
 export const googleOAuthService = new GoogleOAuthService();

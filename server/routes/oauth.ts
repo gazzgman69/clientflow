@@ -1,8 +1,15 @@
 import { Router } from 'express';
-import { googleOAuthService } from '../services/google-oauth';
+import { googleOAuthService, getGoogleAuthUrl } from '../services/google-oauth';
 import { storage } from '../storage';
 
 const router = Router();
+
+/**
+ * Simple auth start route - Force consent with Gmail scopes
+ */
+router.get('/auth/google', (_req, res) => {
+  res.redirect(getGoogleAuthUrl());
+});
 
 /**
  * Start OAuth flow - Generate auth URL
@@ -58,7 +65,7 @@ router.get('/auth/google/callback', async (req, res) => {
     let integration = await storage.getCalendarIntegrationByEmail(tokens.email, userId);
     
     if (integration) {
-      // Update existing integration
+      // Update existing integration with tokens and expiry
       integration = await storage.updateCalendarIntegration(integration.id, {
         accessToken: tokens.access_token,
         refreshToken: tokens.refresh_token || integration.refreshToken,

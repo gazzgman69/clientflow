@@ -49,6 +49,7 @@ import type {
   Project, Member, Venue, ProjectFile, 
   ProjectNote, ProjectMember, Quote, Contract, Invoice, Client
 } from "@shared/schema";
+import ProjectEmailPanel from "@/components/email/ProjectEmailPanel";
 
 interface ProjectDetailModalProps {
   project: Project | null;
@@ -353,11 +354,12 @@ export default function ProjectDetailModal({ project, isOpen, onClose }: Project
           </Card>
 
           <Tabs defaultValue="members" className="w-full">
-            <TabsList className="grid w-full grid-cols-5">
+            <TabsList className="grid w-full grid-cols-6">
               <TabsTrigger value="members">Members</TabsTrigger>
               <TabsTrigger value="files">Files</TabsTrigger>
               <TabsTrigger value="documents">Documents</TabsTrigger>
               <TabsTrigger value="notes">Notes</TabsTrigger>
+              <TabsTrigger value="email">Email</TabsTrigger>
               <TabsTrigger value="details">Details</TabsTrigger>
             </TabsList>
 
@@ -828,6 +830,14 @@ export default function ProjectDetailModal({ project, isOpen, onClose }: Project
                   )}
                 </CardContent>
               </Card>
+            </TabsContent>
+
+            {/* Email Tab */}
+            <TabsContent value="email" className="space-y-4">
+              <ProjectEmailPanel 
+                projectId={project.id} 
+                emails={project.contactEmails} 
+              />
             </TabsContent>
 
             {/* Details Tab */}

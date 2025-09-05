@@ -4,6 +4,7 @@ import RecentClientActivity from "@/components/dashboard/recent-client-activity"
 import PendingItems from "@/components/dashboard/pending-items";
 import BusinessPriorities from "@/components/dashboard/business-priorities";
 import EnhancedEmails from "@/components/dashboard/enhanced-emails";
+import EmailThreadsWidget from "@/components/dashboard/email-threads-widget";
 import CompactMetrics from "@/components/dashboard/compact-metrics";
 import { useQuery } from "@tanstack/react-query";
 import type { Project } from "@shared/schema";
@@ -38,7 +39,7 @@ export default function Dashboard() {
           {/* Right Column */}
           <div className="space-y-6">
             <RecentClientActivity />
-            <EnhancedEmails />
+            <EmailThreadsWidget />
           </div>
         </div>
       </main>

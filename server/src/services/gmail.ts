@@ -28,6 +28,25 @@ interface EmailListResponse {
   error?: string;
 }
 
+interface EmailThread {
+  threadId: string;
+  latest: {
+    id: string;
+    from: string;
+    to: string;
+    subject: string;
+    dateISO: string;
+    snippet: string;
+  };
+  count: number;
+}
+
+interface ThreadsResponse {
+  ok: boolean;
+  threads?: EmailThread[];
+  error?: string;
+}
+
 interface GoogleTokens {
   access_token?: string;
   refresh_token?: string;
@@ -89,6 +108,181 @@ export class GmailService {
       return { ok: true };
     } catch (error: any) {
       return { ok: false, error: error.message || 'Failed to send email' };
+    }
+  }
+
+  /**
+   * List email threads grouped by Gmail threadId
+   */
+  async listThreads(userId: string, { limit = 20, q = "" }: { limit?: number; q?: string } = {}): Promise<ThreadsResponse> {
+    try {
+      const gmail = await this.getGmailService(userId);
+
+      // Get message list from INBOX
+      const listResponse = await gmail.users.messages.list({
+        userId: 'me',
+        maxResults: limit * 3, // Get more messages to account for threading
+        q: q || '',
+        labelIds: ['INBOX']
+      });
+
+      const messages = listResponse.data.messages || [];
+      const threadMap = new Map<string, EmailListItem[]>();
+
+      // Get details for each message and group by threadId
+      for (const message of messages) {
+        if (!message.id || !message.threadId) continue;
+
+        const detailResponse = await gmail.users.messages.get({
+          userId: 'me',
+          id: message.id,
+          format: 'metadata',
+          metadataHeaders: ['From', 'To', 'Subject', 'Date']
+        });
+
+        const headers = detailResponse.data.payload?.headers || [];
+        const getHeader = (name: string) => headers.find(h => h.name === name)?.value || '';
+        
+        const emailItem: EmailListItem = {
+          id: message.id,
+          threadId: message.threadId,
+          from: getHeader('From'),
+          to: getHeader('To'),
+          subject: getHeader('Subject'),
+          date: new Date(getHeader('Date')).toISOString(),
+          snippet: detailResponse.data.snippet || ''
+        };
+
+        if (!threadMap.has(message.threadId)) {
+          threadMap.set(message.threadId, []);
+        }
+        threadMap.get(message.threadId)!.push(emailItem);
+      }
+
+      // Convert to thread format - pick latest message for each thread
+      const threads: EmailThread[] = [];
+      for (const [threadId, emails] of threadMap.entries()) {
+        if (threads.length >= limit) break;
+        
+        // Sort by date descending to get latest
+        emails.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        const latest = emails[0];
+        
+        threads.push({
+          threadId,
+          latest: {
+            id: latest.id,
+            from: latest.from,
+            to: latest.to,
+            subject: latest.subject,
+            dateISO: latest.date,
+            snippet: latest.snippet
+          },
+          count: emails.length
+        });
+      }
+
+      // Sort threads by latest message date
+      threads.sort((a, b) => new Date(b.latest.dateISO).getTime() - new Date(a.latest.dateISO).getTime());
+
+      return { ok: true, threads: threads.slice(0, limit) };
+    } catch (error: any) {
+      return { ok: false, error: error.message || 'Failed to list email threads' };
+    }
+  }
+
+  /**
+   * List email threads filtered by specific email addresses
+   */
+  async listThreadsForAddresses(userId: string, { limit = 50, addresses }: { limit?: number; addresses: string[] }): Promise<ThreadsResponse> {
+    try {
+      const gmail = await this.getGmailService(userId);
+
+      // Build query to search for messages from/to any of the addresses
+      const addressQueries = addresses.map(addr => `(from:${addr} OR to:${addr})`);
+      const q = addressQueries.join(' OR ');
+
+      // Get message list with address filter
+      const listResponse = await gmail.users.messages.list({
+        userId: 'me',
+        maxResults: limit * 3, // Get more messages to account for threading
+        q,
+        labelIds: ['INBOX']
+      });
+
+      const messages = listResponse.data.messages || [];
+      const threadMap = new Map<string, EmailListItem[]>();
+
+      // Get details for each message and group by threadId
+      for (const message of messages) {
+        if (!message.id || !message.threadId) continue;
+
+        const detailResponse = await gmail.users.messages.get({
+          userId: 'me',
+          id: message.id,
+          format: 'metadata',
+          metadataHeaders: ['From', 'To', 'Subject', 'Date']
+        });
+
+        const headers = detailResponse.data.payload?.headers || [];
+        const getHeader = (name: string) => headers.find(h => h.name === name)?.value || '';
+        
+        const from = getHeader('From');
+        const to = getHeader('To');
+        
+        // Double-check that this message contains one of our target addresses
+        const containsTargetAddress = addresses.some(addr => 
+          from.toLowerCase().includes(addr.toLowerCase()) || 
+          to.toLowerCase().includes(addr.toLowerCase())
+        );
+        
+        if (!containsTargetAddress) continue;
+
+        const emailItem: EmailListItem = {
+          id: message.id,
+          threadId: message.threadId,
+          from,
+          to,
+          subject: getHeader('Subject'),
+          date: new Date(getHeader('Date')).toISOString(),
+          snippet: detailResponse.data.snippet || ''
+        };
+
+        if (!threadMap.has(message.threadId)) {
+          threadMap.set(message.threadId, []);
+        }
+        threadMap.get(message.threadId)!.push(emailItem);
+      }
+
+      // Convert to thread format - pick latest message for each thread
+      const threads: EmailThread[] = [];
+      for (const [threadId, emails] of threadMap.entries()) {
+        if (threads.length >= limit) break;
+        
+        // Sort by date descending to get latest
+        emails.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        const latest = emails[0];
+        
+        threads.push({
+          threadId,
+          latest: {
+            id: latest.id,
+            from: latest.from,
+            to: latest.to,
+            subject: latest.subject,
+            dateISO: latest.date,
+            snippet: latest.snippet
+          },
+          count: emails.length
+        });
+      }
+
+      // Sort threads by latest message date
+      threads.sort((a, b) => new Date(b.latest.dateISO).getTime() - new Date(a.latest.dateISO).getTime());
+
+      return { ok: true, threads: threads.slice(0, limit) };
+    } catch (error: any) {
+      return { ok: false, error: error.message || 'Failed to list email threads for addresses' };
     }
   }
 

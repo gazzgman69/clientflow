@@ -1,0 +1,77 @@
+READ /docs/CONTEXT.md first.
+READ /docs/CONTEXT-UI.md next.
+
+GOAL
+Expose Gmail in the UI so that:
+1) All email use flows THROUGH a specific Project (compose + list).
+2) The Dashboard shows a simple THREADED email widget (group by Gmail threadId) across all projects.
+3) No new deps, no DB schema changes.
+
+SCOPE
+You may create/edit ONLY these files:
+  - server/src/services/gmail.ts
+  - server/src/routes/email.ts
+  - web/src/components/email/ProjectEmailPanel.tsx
+  - web/src/pages/projects/ProjectDetail.tsx           (inject panel; adjust if file name differs)
+  - web/src/pages/Dashboard.tsx                        (thread widget)
+Do NOT modify package.json, auth/session setup, or database schema.
+
+BACKEND REQUIREMENTS
+A) In gmail.ts add helpers (no external deps):
+   - listThreads(userId, { limit=20, q="" }): returns threads grouped by Gmail threadId.
+     For each thread, return:
+       { threadId, latest: { id, from, to, subject, dateISO, snippet }, count }
+     Implementation: users.messages.list -> users.messages.get(format="metadata", headers ["From","To","Subject","Date"]); group by threadId; pick latest by internalDate/date header.
+   - listThreadsForAddresses(userId, { limit=50, addresses: string[] }): same as listThreads, but only include messages where From or To matches any of the addresses (case-insensitive contains).
+
+B) In routes/email.ts add endpoints:
+   - GET /threads?limit=20
+       -> requires req.user.id; returns { ok:true, threads:[...] }
+   - GET /threads/by-project/:projectId?limit=50
+       -> resolve project primary/contact emails (if available in existing storage; if unknown, accept ?emails=a@x.com,b@y.com and use those).
+       -> use gmailService.listThreadsForAddresses(userId, {limit, addresses})
+       -> returns { ok:true, threads:[...] }
+   - POST /send (already exists)
+       -> Accept optional projectId and emails[] in payload; still send via Gmail as before. (If projectId unused by backend, ignore gracefully.)
+
+FRONTEND REQUIREMENTS
+C) Project Email Panel (web/src/components/email/ProjectEmailPanel.tsx)
+   - Props: { projectId: string; emails?: string[] }  // emails = list of addresses linked to the project’s contacts (if caller can provide)
+   - UI:
+     1) “Compose Email” form (To, Subject, Message). Pre-fill “To” with first provided email if available.
+     2) “Project Threads” list:
+        - Load from /api/email/threads/by-project/:projectId (include ?emails= if prop provided).
+        - Render rows: Date (dd/MM/yyyy), From, Subject, Snippet. Clicking a row expands to show last few messages (simple fetch by calling /api/email/list?limit=… and filtering by threadId OR keep it collapsed for MVP).
+     - Dates must render as dd/MM/yyyy (use toLocaleDateString('en-GB')).
+     - No new UI deps; use shadcn components you already have (Card, Table, Button, Input, Textarea).
+
+D) Inject the panel in the Project detail page
+   - In web/src/pages/projects/ProjectDetail.tsx (or your actual file), import and render:
+       <ProjectEmailPanel projectId={project.id} emails={project.contactEmails} />
+     If project.contactEmails isn’t available, pass nothing; the backend endpoint will still work if the route receives ?emails= via query when provided.
+
+E) Dashboard threaded widget
+   - In web/src/pages/Dashboard.tsx add a small “Recent Email Threads” Card:
+       - On mount: GET /api/email/threads?limit=10
+       - Render list with Date (dd/MM/yyyy), From, Subject, Snippet.
+       - Link each row to the corresponding Project if your data model can map it; otherwise just show the list for now.
+
+ERROR & EDGE CASES
+- If Gmail scopes missing (endpoint returns insufficientPermissions), show an inline Alert with a “Reconnect Google” button linking to /auth/google.
+- If /threads/by-project can’t resolve project contacts, accept ?emails=a@x.com,b@y.com and filter on those (document this in a code comment).
+
+DELIVERABLES (DIFF-ONLY MODE)
+1) Brief plan (≤5 bullets).
+2) Unified diffs for ONLY the files listed above.
+3) Two curl tests:
+   # all recent threads
+   curl "https://<YOUR_DOMAIN>/api/email/threads?limit=10"
+   # by project (addresses fallback)
+   curl "https://<YOUR_DOMAIN>/api/email/threads/by-project/<PROJECT_ID>?limit=20&emails=a@x.com,b@y.com"
+4) Screenshot note: where in Dashboard and Project pages the widgets were inserted.
+
+ACCEPTANCE
+- tsc passes.
+- Dashboard shows a threaded list (grouped by threadId); dates display as dd/MM/yyyy.
+- Project page shows a Compose form (POST /api/email/send) and a Project Threads list.
+- No new dependencies or schema changes.

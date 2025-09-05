@@ -6,6 +6,7 @@ import { googleCalendarService } from "./services/google-calendar";
 import { googleOAuthService } from "./services/google-oauth";
 import { icalService } from "./services/ical";
 import oauthRoutes from "./routes/oauth";
+import { calendarAutoSyncService } from "./services/calendar-auto-sync";
 import { 
   insertLeadSchema, 
   insertClientSchema, 
@@ -129,6 +130,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(activities);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch recent activities" });
+    }
+  });
+
+  // Calendar auto-sync status endpoint
+  app.get("/api/calendar-sync/status", async (req, res) => {
+    try {
+      const status = calendarAutoSyncService.getStatus();
+      const activeIntegrations = await storage.getCalendarIntegrations();
+      const activeCount = activeIntegrations.filter(i => i.isActive).length;
+      
+      res.json({
+        autoSync: status,
+        activeIntegrations: activeCount,
+        message: status.running ? 
+          `Auto-sync running every ${status.intervalMs / 60000} minutes for ${activeCount} active integrations` :
+          'Auto-sync is not running'
+      });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
     }
   });
 

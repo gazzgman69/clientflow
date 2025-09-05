@@ -2,7 +2,7 @@ import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
 import { 
   BarChart3, Users, UserPlus, Briefcase, FileText, 
-  File, Receipt, Mail, Calendar, Bot, Settings,
+  File, Receipt, Calendar, Bot, Settings,
   Music, MapPin, FolderOpen 
 } from "lucide-react";
 
@@ -14,7 +14,6 @@ const navigationItems = [
   { href: "/members", icon: Music, label: "Members", badge: null },
   { href: "/venues", icon: MapPin, label: "Venues", badge: null },
   { href: "/documents", icon: FolderOpen, label: "Documents", badge: null },
-  { href: "/email", icon: Mail, label: "Email", badge: 5 },
   { href: "/calendar", icon: Calendar, label: "Calendar", badge: null },
   { href: "/automations", icon: Bot, label: "Automations", badge: null },
   { href: "/settings", icon: Settings, label: "Settings", badge: null },
@@ -56,12 +55,7 @@ export default function Sidebar() {
               <Icon className="h-4 w-4" />
               <span>{item.label}</span>
               {item.badge && (
-                <span className={cn(
-                  "ml-auto text-xs px-2 py-1 rounded-full",
-                  item.label === "Email" 
-                    ? "bg-destructive text-destructive-foreground" 
-                    : "bg-accent text-accent-foreground"
-                )}>
+                <span className="ml-auto text-xs px-2 py-1 rounded-full bg-accent text-accent-foreground">
                   {item.badge}
                 </span>
               )}

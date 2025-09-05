@@ -230,7 +230,7 @@ export class GoogleOAuthService {
           calendarIntegrationId: integration.id,
           externalEventId: googleEvent.id,
           providerData: JSON.stringify(googleEvent),
-          attendees: googleEvent.attendees?.map(attendee => attendee.email).filter(email => email) || []
+          attendees: googleEvent.attendees?.map(attendee => attendee.email).filter(email => email) as string[] || []
         };
         
         if (existing) {

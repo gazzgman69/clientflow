@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import Header from "@/components/layout/header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -11,16 +12,51 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { 
   User, Bell, Shield, Palette, Database, Mail, 
-  Calendar, Key, Globe, Save, Upload, AlertTriangle 
+  Calendar, Key, Globe, Save, Upload, AlertTriangle, 
+  CheckCircle, XCircle, Loader2
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { apiRequest } from "@/lib/queryClient";
 
 export default function Settings() {
   const [activeTab, setActiveTab] = useState("profile");
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
+
+  // Google auth status query
+  const { data: googleStatus, isLoading: statusLoading, refetch: refetchStatus } = useQuery({
+    queryKey: ['/api/auth/google/status'],
+    queryFn: async () => {
+      const response = await fetch('/api/auth/google/status', {
+        headers: {
+          'user-id': 'test-user' // TODO: Get from actual auth context
+        }
+      });
+      return response.json();
+    },
+  });
+
+  // Disconnect Google mutation
+  const disconnectMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest('POST', '/api/auth/google/disconnect', {});
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({ title: 'Google account disconnected successfully' });
+      refetchStatus();
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Failed to disconnect Google account',
+        description: error.message,
+        variant: 'destructive'
+      });
+    },
+  });
 
   const handleSaveSettings = async (section: string) => {
     setIsLoading(true);
@@ -311,16 +347,100 @@ export default function Settings() {
               </CardHeader>
               <CardContent className="space-y-6">
                 <div className="grid gap-4">
-                  <div className="flex items-center justify-between p-4 border rounded-lg">
-                    <div className="flex items-center space-x-3">
-                      <Mail className="h-8 w-8 text-blue-600" />
-                      <div>
-                        <p className="font-medium">Email Provider</p>
-                        <p className="text-sm text-muted-foreground">Connect your email service</p>
-                      </div>
-                    </div>
-                    <Button variant="outline" data-testid="button-connect-email">Connect</Button>
-                  </div>
+                  {/* Gmail Email Login Section */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <Mail className="h-5 w-5 text-blue-600" />
+                        Gmail Email Login
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      {statusLoading ? (
+                        <div className="flex items-center justify-center py-4">
+                          <Loader2 className="h-5 w-5 animate-spin mr-2" />
+                          Checking connection status...
+                        </div>
+                      ) : (
+                        <>
+                          {/* Status Display */}
+                          <div className="flex items-center justify-between p-3 border rounded-lg">
+                            <div className="flex items-center gap-3">
+                              {googleStatus?.connected ? (
+                                <CheckCircle className="h-5 w-5 text-green-600" />
+                              ) : (
+                                <XCircle className="h-5 w-5 text-red-600" />
+                              )}
+                              <div>
+                                <p className="font-medium">
+                                  {googleStatus?.connected ? 'Connected' : 'Disconnected'}
+                                </p>
+                                {googleStatus?.connected && googleStatus?.email && (
+                                  <p className="text-sm text-muted-foreground">{googleStatus.email}</p>
+                                )}
+                              </div>
+                            </div>
+                            <Badge variant={googleStatus?.connected ? "default" : "secondary"}>
+                              {googleStatus?.connected ? 'Connected' : 'Disconnected'}
+                            </Badge>
+                          </div>
+
+                          {/* Gmail Scopes Check */}
+                          {googleStatus?.connected && (!googleStatus?.scopes?.includes?.('gmail.send') || !googleStatus?.scopes?.includes?.('gmail.readonly')) && (
+                            <Alert>
+                              <AlertTriangle className="h-4 w-4" />
+                              <AlertDescription>
+                                Google email access required — please reconnect to grant Gmail permissions.
+                              </AlertDescription>
+                            </Alert>
+                          )}
+
+                          {/* Action Buttons */}
+                          <div className="flex gap-2">
+                            <Button
+                              onClick={() => window.location.href = '/auth/google'}
+                              disabled={statusLoading}
+                              data-testid="button-connect-google"
+                            >
+                              {googleStatus?.connected ? 'Reconnect Google' : 'Connect Google'}
+                            </Button>
+                            {googleStatus?.connected && (
+                              <Button
+                                variant="outline"
+                                onClick={() => disconnectMutation.mutate()}
+                                disabled={disconnectMutation.isPending}
+                                data-testid="button-disconnect-google"
+                              >
+                                {disconnectMutation.isPending ? (
+                                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                ) : null}
+                                Disconnect Google
+                              </Button>
+                            )}
+                          </div>
+
+                          {/* Optional SMTP Section - Coming Soon */}
+                          <Separator />
+                          <div className="space-y-3 opacity-50">
+                            <Label>SMTP Configuration (Coming Soon)</Label>
+                            <div className="grid grid-cols-2 gap-3">
+                              <div className="space-y-1">
+                                <Label className="text-xs">Server</Label>
+                                <Input placeholder="smtp.example.com" disabled />
+                              </div>
+                              <div className="space-y-1">
+                                <Label className="text-xs">Port</Label>
+                                <Input placeholder="587" disabled />
+                              </div>
+                            </div>
+                            <p className="text-xs text-muted-foreground">
+                              SMTP support for other email providers coming in a future update.
+                            </p>
+                          </div>
+                        </>
+                      )}
+                    </CardContent>
+                  </Card>
 
                   <div className="flex items-center justify-between p-4 border rounded-lg">
                     <div className="flex items-center space-x-3">
@@ -365,14 +485,6 @@ export default function Settings() {
                   </div>
                 </div>
 
-                <Button 
-                  onClick={() => handleSaveSettings("Integration")}
-                  disabled={isLoading}
-                  data-testid="button-save-integrations"
-                >
-                  <Save className="h-4 w-4 mr-2" />
-                  {isLoading ? "Saving..." : "Save Changes"}
-                </Button>
               </CardContent>
             </Card>
           </TabsContent>

@@ -386,7 +386,7 @@ export default function Settings() {
                           </div>
 
                           {/* Gmail Scopes Check */}
-                          {googleStatus?.connected && (!googleStatus?.scopes?.includes?.('gmail.send') || !googleStatus?.scopes?.includes?.('gmail.readonly')) && (
+                          {googleStatus?.connected && (!googleStatus?.scopes?.some?.(scope => scope.includes('gmail.send')) || !googleStatus?.scopes?.some?.(scope => scope.includes('gmail.readonly'))) && (
                             <Alert>
                               <AlertTriangle className="h-4 w-4" />
                               <AlertDescription>

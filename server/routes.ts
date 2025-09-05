@@ -41,16 +41,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Session configuration with PostgreSQL store
   const PgSession = ConnectPgSimple(session);
+  const sessionTableName = 'sessions';
+  console.log(`🗄️  Session store using table: ${sessionTableName}`);
+  
   app.use(session({
     store: new PgSession({
       conString: process.env.DATABASE_URL,
-      tableName: 'sessions'
+      tableName: sessionTableName,
+      createTableIfMissing: true // auto-create table on boot if absent
     }),
     secret: process.env.SESSION_SECRET || 'fallback-secret-for-development',
     resave: false,
     saveUninitialized: false,
     cookie: {
-      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      secure: true,
       httpOnly: true,
       maxAge: 24 * 60 * 60 * 1000 // 24 hours
     }

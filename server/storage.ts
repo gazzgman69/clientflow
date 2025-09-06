@@ -22,9 +22,11 @@ import {
   type Event, type InsertEvent,
   type CalendarIntegration, type InsertCalendarIntegration,
   type CalendarSyncLog, type InsertCalendarSyncLog,
+  type Template, type InsertTemplate,
+  type LeadCaptureForm, type InsertLeadCaptureForm,
   users, leads, clients, projects, quotes, contracts, invoices, tasks, emails, activities, automations, 
   members, venues, projectMembers, memberAvailability, projectFiles, projectNotes, smsMessages, 
-  messageTemplates, messageThreads, events, calendarIntegrations, calendarSyncLog
+  messageTemplates, messageThreads, events, calendarIntegrations, calendarSyncLog, templates, leadCaptureForms
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { drizzle } from 'drizzle-orm/neon-http';
@@ -210,6 +212,21 @@ export interface IStorage {
     revenue: number;
     pendingInvoices: number;
   }>;
+
+  // Templates
+  getTemplates(): Promise<Template[]>;
+  getTemplate(id: string): Promise<Template | undefined>;
+  createTemplate(template: InsertTemplate): Promise<Template>;
+  updateTemplate(id: string, template: Partial<InsertTemplate>): Promise<Template | undefined>;
+  deleteTemplate(id: string): Promise<boolean>;
+
+  // Lead Capture Forms
+  getLeadCaptureForms(): Promise<LeadCaptureForm[]>;
+  getLeadCaptureForm(id: string): Promise<LeadCaptureForm | undefined>;
+  getLeadCaptureFormBySlug(slug: string): Promise<LeadCaptureForm | undefined>;
+  createLeadCaptureForm(form: InsertLeadCaptureForm): Promise<LeadCaptureForm>;
+  updateLeadCaptureForm(id: string, form: Partial<InsertLeadCaptureForm>): Promise<LeadCaptureForm | undefined>;
+  deleteLeadCaptureForm(id: string): Promise<boolean>;
 }
 
 export class MemStorage implements IStorage {
@@ -236,6 +253,8 @@ export class MemStorage implements IStorage {
   private events: Map<string, Event> = new Map();
   private calendarIntegrations: Map<string, CalendarIntegration> = new Map();
   private calendarSyncLogs: Map<string, CalendarSyncLog> = new Map();
+  private templates: Map<string, Template> = new Map();
+  private leadCaptureForms: Map<string, LeadCaptureForm> = new Map();
 
   constructor() {
     // Initialize with default admin user
@@ -1422,6 +1441,90 @@ export class MemStorage implements IStorage {
       revenue,
       pendingInvoices,
     };
+  }
+
+  // Templates
+  async getTemplates(): Promise<Template[]> {
+    return Array.from(this.templates.values()).sort((a, b) => 
+      new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+    );
+  }
+
+  async getTemplate(id: string): Promise<Template | undefined> {
+    return this.templates.get(id);
+  }
+
+  async createTemplate(insertTemplate: InsertTemplate): Promise<Template> {
+    const id = randomUUID();
+    const template: Template = { 
+      ...insertTemplate,
+      id, 
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    this.templates.set(id, template);
+    return template;
+  }
+
+  async updateTemplate(id: string, updateData: Partial<InsertTemplate>): Promise<Template | undefined> {
+    const existing = this.templates.get(id);
+    if (!existing) return undefined;
+
+    const updated: Template = {
+      ...existing,
+      ...updateData,
+      updatedAt: new Date()
+    };
+    this.templates.set(id, updated);
+    return updated;
+  }
+
+  async deleteTemplate(id: string): Promise<boolean> {
+    return this.templates.delete(id);
+  }
+
+  // Lead Capture Forms
+  async getLeadCaptureForms(): Promise<LeadCaptureForm[]> {
+    return Array.from(this.leadCaptureForms.values()).sort((a, b) => 
+      new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+    );
+  }
+
+  async getLeadCaptureForm(id: string): Promise<LeadCaptureForm | undefined> {
+    return this.leadCaptureForms.get(id);
+  }
+
+  async getLeadCaptureFormBySlug(slug: string): Promise<LeadCaptureForm | undefined> {
+    return Array.from(this.leadCaptureForms.values()).find(form => form.slug === slug);
+  }
+
+  async createLeadCaptureForm(insertForm: InsertLeadCaptureForm): Promise<LeadCaptureForm> {
+    const id = randomUUID();
+    const form: LeadCaptureForm = { 
+      ...insertForm,
+      id, 
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    this.leadCaptureForms.set(id, form);
+    return form;
+  }
+
+  async updateLeadCaptureForm(id: string, updateData: Partial<InsertLeadCaptureForm>): Promise<LeadCaptureForm | undefined> {
+    const existing = this.leadCaptureForms.get(id);
+    if (!existing) return undefined;
+
+    const updated: LeadCaptureForm = {
+      ...existing,
+      ...updateData,
+      updatedAt: new Date()
+    };
+    this.leadCaptureForms.set(id, updated);
+    return updated;
+  }
+
+  async deleteLeadCaptureForm(id: string): Promise<boolean> {
+    return this.leadCaptureForms.delete(id);
   }
 }
 

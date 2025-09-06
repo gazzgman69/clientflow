@@ -245,6 +245,7 @@ router.post('/leads/public/:slug/submit', async (req, res) => {
     const { slug } = req.params;
     const formData = req.body;
     
+    
     const form = await storage.getLeadCaptureFormBySlug(slug);
     if (!form || !form.isActive) {
       return res.status(404).json({ error: 'Form not found' });

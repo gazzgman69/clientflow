@@ -89,7 +89,8 @@ export default function LeadCard({ lead, onClick, draggable = false, onDragStart
               onClick={(e) => {
                 e.stopPropagation();
                 if (lead.conflictDetails?.projectIds?.[0]) {
-                  window.open(`/projects/${lead.conflictDetails.projectIds[0]}`, '_blank');
+                  // Use Link component for internal navigation instead of window.open
+                  window.location.href = `/projects/${lead.conflictDetails.projectIds[0]}`;
                 }
               }}
             >

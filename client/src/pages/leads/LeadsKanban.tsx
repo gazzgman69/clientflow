@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import Header from "@/components/layout/header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -53,6 +53,7 @@ export default function LeadsKanban() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const previousDataRef = useRef<KanbanData | null>(null);
+  const [, setLocation] = useLocation();
 
   // Fetch kanban data (no polling for now to fix issues)
   const { data: kanbanData, isLoading, refetch } = useQuery<KanbanData>({
@@ -308,10 +309,10 @@ export default function LeadsKanban() {
                           onDelete={handleDeleteLead}
                           onClick={() => {
                             if (lead.projectId) {
-                              window.open(`/projects/${lead.projectId}`, '_blank');
+                              setLocation(`/projects/${lead.projectId}`);
                             } else {
-                              // If no project exists, navigate to the project page anyway (it will show "not found" or we can create one)
-                              window.open(`/projects/new?leadId=${lead.id}`, '_blank');
+                              // If no project exists, navigate to create a new project for this lead
+                              setLocation(`/projects/new?leadId=${lead.id}`);
                             }
                           }}
                         />

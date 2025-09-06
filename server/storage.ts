@@ -1644,18 +1644,64 @@ export class DrizzleStorage implements IStorage {
     return result.rowCount > 0;
   }
   
-  async getClients() { return this.memStorage.getClients(); }
-  async getClient(id: string) { return this.memStorage.getClient(id); }
-  async createClient(client: InsertClient) { return this.memStorage.createClient(client); }
-  async updateClient(id: string, client: Partial<InsertClient>) { return this.memStorage.updateClient(id, client); }
-  async deleteClient(id: string) { return this.memStorage.deleteClient(id); }
+  // Clients - Using PostgreSQL
+  async getClients(): Promise<Client[]> {
+    return await this.db.select().from(clients).orderBy(desc(clients.createdAt));
+  }
+  async getClient(id: string): Promise<Client | undefined> {
+    const result = await this.db.select().from(clients).where(eq(clients.id, id));
+    return result[0];
+  }
+  async createClient(client: InsertClient): Promise<Client> {
+    const result = await this.db.insert(clients).values({
+      ...client,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    }).returning();
+    return result[0];
+  }
+  async updateClient(id: string, clientUpdate: Partial<InsertClient>): Promise<Client | undefined> {
+    const result = await this.db.update(clients).set({
+      ...clientUpdate,
+      updatedAt: new Date(),
+    }).where(eq(clients.id, id)).returning();
+    return result[0];
+  }
+  async deleteClient(id: string): Promise<boolean> {
+    const result = await this.db.delete(clients).where(eq(clients.id, id));
+    return result.rowCount > 0;
+  }
   
-  async getProjects() { return this.memStorage.getProjects(); }
-  async getProject(id: string) { return this.memStorage.getProject(id); }
-  async getProjectsByClient(clientId: string) { return this.memStorage.getProjectsByClient(clientId); }
-  async createProject(project: InsertProject) { return this.memStorage.createProject(project); }
-  async updateProject(id: string, project: Partial<InsertProject>) { return this.memStorage.updateProject(id, project); }
-  async deleteProject(id: string) { return this.memStorage.deleteProject(id); }
+  // Projects - Using PostgreSQL
+  async getProjects(): Promise<Project[]> {
+    return await this.db.select().from(projects).orderBy(desc(projects.createdAt));
+  }
+  async getProject(id: string): Promise<Project | undefined> {
+    const result = await this.db.select().from(projects).where(eq(projects.id, id));
+    return result[0];
+  }
+  async getProjectsByClient(clientId: string): Promise<Project[]> {
+    return await this.db.select().from(projects).where(eq(projects.clientId, clientId)).orderBy(desc(projects.createdAt));
+  }
+  async createProject(project: InsertProject): Promise<Project> {
+    const result = await this.db.insert(projects).values({
+      ...project,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    }).returning();
+    return result[0];
+  }
+  async updateProject(id: string, projectUpdate: Partial<InsertProject>): Promise<Project | undefined> {
+    const result = await this.db.update(projects).set({
+      ...projectUpdate,
+      updatedAt: new Date(),
+    }).where(eq(projects.id, id)).returning();
+    return result[0];
+  }
+  async deleteProject(id: string): Promise<boolean> {
+    const result = await this.db.delete(projects).where(eq(projects.id, id));
+    return result.rowCount > 0;
+  }
   
   async getQuotes() { return this.memStorage.getQuotes(); }
   async getQuote(id: string) { return this.memStorage.getQuote(id); }

@@ -55,6 +55,20 @@ export default function LeadsKanban() {
   const previousDataRef = useRef<KanbanData | null>(null);
   const [, setLocation] = useLocation();
 
+  // Mark leads as viewed when page loads
+  const markLeadsViewed = useMutation({
+    mutationFn: () => apiRequest("POST", "/api/leads/mark-viewed"),
+    onSuccess: () => {
+      // Invalidate leads summary to update badge count
+      queryClient.invalidateQueries({ queryKey: ["/api/leads/summary"] });
+    }
+  });
+
+  // Mark leads as viewed when page loads
+  useEffect(() => {
+    markLeadsViewed.mutate();
+  }, []);
+
   // Fetch kanban data (no polling for now to fix issues)
   const { data: kanbanData, isLoading, refetch } = useQuery<KanbanData>({
     queryKey: ["/api/leads/kanban"],

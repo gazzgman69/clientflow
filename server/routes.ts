@@ -355,13 +355,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const leads = await storage.getLeads();
       const counts = {
-        new: leads.filter(l => l.status === 'new').length,
+        new: leads.filter(l => l.status === 'new' && !l.lastViewedAt).length, // Only count unseen new leads
         total: leads.length
       };
       
       res.json({ counts });
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch summary data" });
+    }
+  });
+
+  // Mark leads as viewed (for notification badge)
+  app.post("/api/leads/mark-viewed", async (req, res) => {
+    try {
+      const leads = await storage.getLeads();
+      const unseenLeads = leads.filter(l => l.status === 'new' && !l.lastViewedAt);
+      
+      // Mark all unseen new leads as viewed
+      for (const lead of unseenLeads) {
+        await storage.updateLead(lead.id, { lastViewedAt: new Date() });
+      }
+      
+      res.json({ marked: unseenLeads.length });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to mark leads as viewed" });
     }
   });
 

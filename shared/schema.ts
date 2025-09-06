@@ -30,6 +30,7 @@ export const leads = pgTable("leads", {
   lastContactAt: timestamp("last_contact_at"), // updated on outbound email or logged call
   lastManualStatusAt: timestamp("last_manual_status_at"), // set when status changed by a user
   projectDate: timestamp("project_date"), // event/project date from form
+  lastViewedAt: timestamp("last_viewed_at"), // when user last viewed this lead
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });

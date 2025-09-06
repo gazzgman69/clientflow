@@ -1997,13 +1997,7 @@ export class DrizzleStorage implements IStorage {
     return result.rowCount > 0;
   }
 
-  // Lead Capture Forms - Temporarily using memory storage until database schema is properly synced
-  async getLeadCaptureForms() { return this.memStorage.getLeadCaptureForms(); }
-  async getLeadCaptureForm(id: string) { return this.memStorage.getLeadCaptureForm(id); }
-  async getLeadCaptureFormBySlug(slug: string) { return this.memStorage.getLeadCaptureFormBySlug(slug); }
-  async createLeadCaptureForm(form: InsertLeadCaptureForm) { return this.memStorage.createLeadCaptureForm(form); }
-  async updateLeadCaptureForm(id: string, form: Partial<InsertLeadCaptureForm>) { return this.memStorage.updateLeadCaptureForm(id, form); }
-  async deleteLeadCaptureForm(id: string) { return this.memStorage.deleteLeadCaptureForm(id); }
+  // Lead Capture Forms now use PostgreSQL (implemented above around lines 1489-1520)
 }
 
 export const storage = new DrizzleStorage();

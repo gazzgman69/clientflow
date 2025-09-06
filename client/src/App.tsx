@@ -16,6 +16,7 @@ import Calendar from "@/pages/calendar";
 import Automations from "@/pages/automations";
 import Settings from "@/pages/settings";
 import Templates from "@/pages/settings/Templates";
+import LeadAutomations from "@/pages/settings/Automations";
 import LeadCaptureBuilder from "@/pages/leads/LeadCaptureBuilder";
 import LeadsKanban from "@/pages/leads/LeadsKanban";
 import LeadsInbox from "@/pages/leads/LeadsInbox";
@@ -67,6 +68,7 @@ function Router() {
                 <Route path="/calendar" component={Calendar} />
                 <Route path="/automations" component={Automations} />
                 <Route path="/settings/templates" component={Templates} />
+                <Route path="/settings/automations" component={LeadAutomations} />
                 <Route path="/settings" component={Settings} />
                 <Route component={NotFound} />
               </Switch>

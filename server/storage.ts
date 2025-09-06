@@ -24,9 +24,11 @@ import {
   type CalendarSyncLog, type InsertCalendarSyncLog,
   type Template, type InsertTemplate,
   type LeadCaptureForm, type InsertLeadCaptureForm,
+  type LeadStatusHistory, type InsertLeadStatusHistory,
   users, leads, clients, projects, quotes, contracts, invoices, tasks, emails, activities, automations, 
   members, venues, projectMembers, memberAvailability, projectFiles, projectNotes, smsMessages, 
-  messageTemplates, messageThreads, events, calendarIntegrations, calendarSyncLog, templates, leadCaptureForms
+  messageTemplates, messageThreads, events, calendarIntegrations, calendarSyncLog, templates, leadCaptureForms,
+  leadStatusHistory
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { drizzle } from 'drizzle-orm/neon-http';

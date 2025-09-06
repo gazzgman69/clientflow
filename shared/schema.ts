@@ -27,6 +27,8 @@ export const leads = pgTable("leads", {
   status: text("status").notNull().default('new'), // new, qualified, follow-up, converted, lost
   notes: text("notes"),
   assignedTo: varchar("assigned_to").references(() => users.id),
+  lastContactAt: timestamp("last_contact_at"), // updated on outbound email or logged call
+  lastManualStatusAt: timestamp("last_manual_status_at"), // set when status changed by a user
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -480,5 +482,38 @@ export type CalendarSyncLog = typeof calendarSyncLog.$inferSelect;
 export type InsertCalendarSyncLog = z.infer<typeof insertCalendarSyncLogSchema>;
 export type Template = typeof templates.$inferSelect;
 export type InsertTemplate = z.infer<typeof insertTemplateSchema>;
+export const leadStatusHistory = pgTable("lead_status_history", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  leadId: varchar("lead_id").references(() => leads.id).notNull(),
+  fromStatus: text("from_status"),
+  toStatus: text("to_status").notNull(),
+  reason: text("reason").notNull(), // manual, auto, event
+  metadata: text("metadata"), // json text for rule info etc
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const leadAutomationRules = pgTable("lead_automation_rules", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  enabled: boolean("enabled").default(true).notNull(),
+  fromStatus: text("from_status"), // null = any status
+  toStatus: text("to_status").notNull(),
+  triggerType: text("trigger_type").notNull(), // TIME_SINCE_CREATED, TIME_SINCE_LAST_CONTACT, PROJECT_DATE_IN_DAYS, FORM_ANSWER_EQUALS
+  triggerConfig: text("trigger_config").notNull(), // json text for trigger parameters
+  ifConflictBlock: boolean("if_conflict_block").default(false).notNull(),
+  requireNoManualSinceMinutes: integer("require_no_manual_since_minutes"), // nullable
+  actionEmailTemplateId: varchar("action_email_template_id").references(() => messageTemplates.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Insert schemas
+export const insertLeadStatusHistorySchema = createInsertSchema(leadStatusHistory);
+export const insertLeadAutomationRuleSchema = createInsertSchema(leadAutomationRules);
+
 export type LeadCaptureForm = typeof leadCaptureForms.$inferSelect;
 export type InsertLeadCaptureForm = z.infer<typeof insertLeadCaptureFormSchema>;
+export type LeadStatusHistory = typeof leadStatusHistory.$inferSelect;
+export type InsertLeadStatusHistory = z.infer<typeof insertLeadStatusHistorySchema>;
+export type LeadAutomationRule = typeof leadAutomationRules.$inferSelect;
+export type InsertLeadAutomationRule = z.infer<typeof insertLeadAutomationRuleSchema>;

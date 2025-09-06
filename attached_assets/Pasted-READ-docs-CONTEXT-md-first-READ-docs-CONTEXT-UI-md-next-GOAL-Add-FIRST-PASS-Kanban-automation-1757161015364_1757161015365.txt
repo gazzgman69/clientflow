@@ -1,0 +1,126 @@
+READ /docs/CONTEXT.md first.
+READ /docs/CONTEXT-UI.md next.
+
+GOAL
+Add FIRST-PASS **Kanban automation** for Leads:
+- Rules engine that can auto-move leads between stages based on time/conditions.
+- Periodic worker (every 5 minutes) + event hooks (on lead created / email received).
+- Audit trail of status changes.
+- Simple Settings UI to add/enable/disable rules.
+- Respect manual overrides; never re-move a lead already advanced by a human.
+
+SCOPE (CREATE/EDIT ONLY)
+  - server/src/db/schema.ts
+  - server/src/services/lead-automation.ts
+  - server/src/routes/lead-automation.ts
+  - server/src/services/lead.ts            // call hooks on create/update
+  - server/src/routes/leads.ts             // expose “run now” endpoint (admin)
+  - web/src/pages/settings/Automations.tsx
+  - web/src/pages/leads/LeadsKanban.tsx    // show “Auto-move is ON” per column (read-only badge)
+  - web/src/router.tsx (or web/src/App.tsx)
+  - web/src/components/nav/*               // Settings → Automations link
+
+RULES (NO NEW DEPENDENCIES)
+- Use a lightweight in-process scheduler: setInterval(() => runTick(), 5*60*1000).
+- Also expose POST /api/admin/lead-automation/run to trigger manually.
+- Future: can swap to Bull/cron later (leave TODOs).
+
+DATA MODEL (Drizzle) — add:
+1) lead_status_history
+   - id (pk), leadId (fk), fromStatus, toStatus, reason ("manual"|"auto"|"event"), metadata (json text), createdAt
+2) lead_automation_rules
+   - id (pk), name, enabled (boolean default true)
+   - fromStatus ("new"|"contacted"|"qualified"|"archived"|null)  // null = any
+   - toStatus   ("new"|"contacted"|"qualified"|"archived")
+   - triggerType ("TIME_SINCE_CREATED"|"TIME_SINCE_LAST_CONTACT"|"PROJECT_DATE_IN_DAYS"|"FORM_ANSWER_EQUALS")
+   - triggerConfig (json text)  // e.g. {"minutes":120} or {"days":7} or {"field":"service","equals":"Wedding"}
+   - ifConflictBlock (boolean default false) // don’t move if conflict detected
+   - requireNoManualSinceMinutes (int nullable) // skip if human touched recently
+   - actionEmailTemplateId (nullable) // optional auto-email on move
+   - createdAt, updatedAt
+3) leads (augment if missing):
+   - lastContactAt (timestamp nullable)     // update on outbound email or logged call
+   - lastManualStatusAt (timestamp nullable)// set when status changed by a user
+
+SERVER — Automation service (server/src/services/lead-automation.ts)
+- runTick(now = new Date()):
+   1) Load enabled rules.
+   2) Fetch candidate leads by fromStatus (or all if null).
+   3) For each, evaluate trigger:
+        • TIME_SINCE_CREATED: now - lead.createdAt ≥ minutes
+        • TIME_SINCE_LAST_CONTACT: now - lead.lastContactAt ≥ minutes (null counts as ∞)
+        • PROJECT_DATE_IN_DAYS: project.projectDate within N days (>=0 & <=N)
+        • FORM_ANSWER_EQUALS: check leads.service/message or stored form answers (best-effort)
+      Skip if rule.ifConflictBlock && hasConflict(lead.projectId).
+      Skip if lastManualStatusAt within requireNoManualSinceMinutes.
+   4) If pass, move lead → toStatus (single UPDATE), insert lead_status_history with reason:"auto" and metadata:{ruleId}.
+   5) If actionEmailTemplateId, render & send email (or log TODO if mail not wired).
+- onEvent(type, payload): lightweight evaluator for immediate moves on:
+   • "lead.created"
+   • "email.incoming" (if you already record them; else TODO)
+- hasConflict(projectId): reuse existing conflict logic (same-day date clash).
+
+ROUTES (server/src/routes/lead-automation.ts)
+- GET  /api/admin/lead-automation/rules
+- POST /api/admin/lead-automation/rules            // create
+- PATCH /api/admin/lead-automation/rules/:id       // update/enable/disable
+- DELETE /api/admin/lead-automation/rules/:id
+- POST /api/admin/lead-automation/run              // runTick now
+(All require req.user?.id)
+
+INTEGRATION POINTS
+- server/src/services/lead.ts:
+   • after creating a lead → call automation.onEvent("lead.created",{leadId})
+   • when user changes status → set lastManualStatusAt=now and insert history reason:"manual"
+   • when logging/sending email (if available) → set lastContactAt=now and automation.onEvent("email.incoming",{leadId}) if relevant
+
+FRONTEND — Settings UI (web/src/pages/settings/Automations.tsx)
+- List rules (name, from→to, trigger summary, enabled toggle, updated dd/MM/yyyy).
+- “New Rule” / “Edit Rule” modal:
+   • Name, Enabled
+   • From status (Any or specific), To status (select)
+   • Trigger Type (select) with dynamic fields:
+       - TIME_SINCE_CREATED → Minutes
+       - TIME_SINCE_LAST_CONTACT → Minutes
+       - PROJECT_DATE_IN_DAYS → Days window (e.g., 7)
+       - FORM_ANSWER_EQUALS → Field (service/message), Value
+   • Options: Block if conflict, Require no manual activity in last N minutes
+   • Optional: Auto Email Template (dropdown from Templates where type="auto_responder")
+   • Save/Cancel
+- “Run Now” button (POST /api/admin/lead-automation/run) with toast.
+
+FRONTEND — Kanban tweaks (web/src/pages/leads/LeadsKanban.tsx)
+- If any rule targets a column, show a small badge on that column header: “Auto-move ON”.
+- When a card is auto-moved (if you refetch), briefly show a toast: “Moved to Contacted by rule ‘X’”.
+
+SIDEBAR NAV
+- Add Settings → “Automations”.
+
+DATES
+- Render all dates as dd/MM/yyyy (toLocaleDateString('en-GB')).
+
+SAFETY
+- Automation MUST NOT overwrite manual recent changes:
+   • Check lastManualStatusAt against each rule’s requireNoManualSinceMinutes.
+- Always record in lead_status_history.
+
+DELIVERABLES (DIFF-ONLY MODE)
+1) Brief plan (≤6 bullets) and which rules were seeded (optional).
+2) Unified diffs for ONLY files in SCOPE.
+3) Drizzle commands:
+   - npx drizzle-kit generate
+   - npx drizzle-kit migrate
+4) curl tests:
+   - curl GET  https://<HOST>/api/admin/lead-automation/rules
+   - curl POST https://<HOST>/api/admin/lead-automation/rules -H "Content-Type: application/json" -d '{"name":"Auto-contact after 2h","fromStatus":"new","toStatus":"contacted","triggerType":"TIME_SINCE_CREATED","triggerConfig":{"minutes":120},"requireNoManualSinceMinutes":30,"enabled":true}'
+   - curl POST https://<HOST>/api/admin/lead-automation/run
+5) Manual QA:
+   - Create a lead, wait/run → moves to Contacted after rule time.
+   - Manual move sets lastManualStatusAt and prevents auto-move for the grace window.
+   - History shows reasons (manual/auto) with timestamps.
+
+ACCEPTANCE
+- Rules can be created/edited and are enforced by the 5-minute worker and “Run Now”.
+- Auto-moves happen without page refresh after refetch; Kanban shows updated column.
+- Manual overrides respected; every change logged.
+- No new dependencies.

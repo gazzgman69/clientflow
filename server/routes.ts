@@ -12,6 +12,7 @@ import oauthRoutes from "./routes/oauth";
 import emailRoutes from "./src/routes/email";
 import templatesRoutes from "./src/routes/templates";
 import leadFormsRoutes from "./src/routes/lead-forms";
+import leadAutomationSimpleRoutes from "./src/routes/lead-automation-simple";
 import { calendarAutoSyncService } from "./services/calendar-auto-sync";
 import { 
   insertLeadSchema, 
@@ -77,6 +78,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Lead Forms routes
   app.use('/api', leadFormsRoutes);
+  
+  // Lead Automation routes (simplified version)
+  app.use('/api/admin/lead-automation', leadAutomationSimpleRoutes);
   
   // Dashboard metrics
   app.get("/api/dashboard/metrics", async (req, res) => {
@@ -409,15 +413,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Invalid status" });
       }
 
+      // Get current lead first
+      const currentLead = await storage.getLead(req.params.id);
+      if (!currentLead) {
+        return res.status(404).json({ message: "Lead not found" });
+      }
+
       // Map pipeline status back to lead status
       let leadStatus = status;
       if (status === 'contacted') leadStatus = 'follow-up';
       if (status === 'archived') leadStatus = 'converted';
 
-      const lead = await storage.updateLead(req.params.id, { status: leadStatus });
-      if (!lead) {
-        return res.status(404).json({ message: "Lead not found" });
-      }
+      // Update with manual status tracking
+      const lead = await storage.updateLead(req.params.id, { 
+        status: leadStatus,
+        lastManualStatusAt: new Date()
+      });
+      
+      // TODO: Record manual status change in history
+      // await storage.createLeadStatusHistory({
+      //   leadId: req.params.id,
+      //   fromStatus: currentLead.status,
+      //   toStatus: status,
+      //   reason: 'manual',
+      //   metadata: JSON.stringify({ userId: req.headers['user-id'] || 'unknown' })
+      // });
+      
+      // TODO: Trigger automation event for lead update
+      // leadAutomationService.onEvent('lead.status_changed', {
+      //   leadId: req.params.id,
+      //   fromStatus: currentLead.status,
+      //   toStatus: status,
+      //   reason: 'manual'
+      // });
       
       res.json({ ok: true });
     } catch (error) {

@@ -1535,6 +1535,8 @@ const sql = neon(process.env.DATABASE_URL!);
 const db = drizzle(sql);
 
 export class DrizzleStorage implements IStorage {
+  private db = drizzle(sql);
+  
   // Calendar Integrations - Core functionality for Google Calendar
   async getCalendarIntegrations(): Promise<CalendarIntegration[]> {
     return await db.select().from(calendarIntegrations);
@@ -1794,7 +1796,7 @@ export class DrizzleStorage implements IStorage {
   async updateTemplate(id: string, template: Partial<InsertTemplate>) { return this.memStorage.updateTemplate(id, template); }
   async deleteTemplate(id: string) { return this.memStorage.deleteTemplate(id); }
 
-  // Lead Capture Forms
+  // Lead Capture Forms - Temporarily using memory storage until database schema is properly synced
   async getLeadCaptureForms() { return this.memStorage.getLeadCaptureForms(); }
   async getLeadCaptureForm(id: string) { return this.memStorage.getLeadCaptureForm(id); }
   async getLeadCaptureFormBySlug(slug: string) { return this.memStorage.getLeadCaptureFormBySlug(slug); }

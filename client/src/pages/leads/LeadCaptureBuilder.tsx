@@ -59,6 +59,7 @@ export default function LeadCaptureBuilder() {
   const [showQuestionEditor, setShowQuestionEditor] = useState(false);
   const [editingQuestion, setEditingQuestion] = useState<Question | null>(null);
   const [draggedQuestionId, setDraggedQuestionId] = useState<string | null>(null);
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -195,34 +196,49 @@ export default function LeadCaptureBuilder() {
   const handleDragStart = (e: React.DragEvent, questionId: string) => {
     setDraggedQuestionId(questionId);
     e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', questionId);
+    
+    // Create a custom drag image
+    const dragElement = e.currentTarget as HTMLElement;
+    const rect = dragElement.getBoundingClientRect();
+    e.dataTransfer.setDragImage(dragElement, rect.width / 2, rect.height / 2);
   };
 
-  const handleDragOver = (e: React.DragEvent) => {
+  const handleDragOver = (e: React.DragEvent, targetIndex: number) => {
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
+    setDragOverIndex(targetIndex);
   };
 
-  const handleDrop = (e: React.DragEvent, targetQuestionId: string) => {
+  const handleDragLeave = (e: React.DragEvent) => {
     e.preventDefault();
+    setDragOverIndex(null);
+  };
+
+  const handleDrop = (e: React.DragEvent, targetIndex: number) => {
+    e.preventDefault();
+    setDragOverIndex(null);
     
-    if (!draggedQuestionId || draggedQuestionId === targetQuestionId) {
-      setDraggedQuestionId(null);
+    if (!draggedQuestionId) {
       return;
     }
 
     setQuestions(prev => {
-      const newQuestions = [...prev];
-      const draggedIndex = newQuestions.findIndex(q => q.id === draggedQuestionId);
-      const targetIndex = newQuestions.findIndex(q => q.id === targetQuestionId);
+      const sortedQuestions = [...prev].sort((a, b) => a.orderIndex - b.orderIndex);
+      const draggedIndex = sortedQuestions.findIndex(q => q.id === draggedQuestionId);
       
-      if (draggedIndex === -1 || targetIndex === -1) return prev;
+      if (draggedIndex === -1 || draggedIndex === targetIndex) {
+        return prev;
+      }
 
-      // Remove the dragged question and insert it at the target position
-      const [draggedQuestion] = newQuestions.splice(draggedIndex, 1);
-      newQuestions.splice(targetIndex, 0, draggedQuestion);
+      // Remove the dragged question
+      const [draggedQuestion] = sortedQuestions.splice(draggedIndex, 1);
+      
+      // Insert at new position
+      sortedQuestions.splice(targetIndex, 0, draggedQuestion);
 
       // Update orderIndex for all questions
-      return newQuestions.map((question, index) => ({
+      return sortedQuestions.map((question, index) => ({
         ...question,
         orderIndex: index
       }));
@@ -233,6 +249,7 @@ export default function LeadCaptureBuilder() {
 
   const handleDragEnd = () => {
     setDraggedQuestionId(null);
+    setDragOverIndex(null);
   };
 
   const formatDate = (dateString: string) => {
@@ -491,56 +508,87 @@ export default function LeadCaptureBuilder() {
                         </Button>
                       </div>
                     ) : (
-                      <div className="space-y-3">
+                      <div className="space-y-1">
                         {questions
                           .sort((a, b) => a.orderIndex - b.orderIndex)
-                          .map((question) => (
-                            <div
-                              key={question.id}
-                              draggable
-                              onDragStart={(e) => handleDragStart(e, question.id)}
-                              onDragOver={handleDragOver}
-                              onDrop={(e) => handleDrop(e, question.id)}
-                              onDragEnd={handleDragEnd}
-                              className={`flex items-center justify-between p-3 border rounded-lg transition-all ${
-                                draggedQuestionId === question.id 
-                                  ? 'opacity-50 scale-95' 
-                                  : 'hover:shadow-md'
-                              }`}
-                              data-testid={`question-${question.id}`}
-                            >
-                              <div className="flex items-center gap-3">
-                                <GripVertical className="h-4 w-4 text-muted-foreground cursor-move" />
-                                <div>
-                                  <div className="flex items-center gap-2">
-                                    <span className="font-medium">{question.label}</span>
-                                    {question.required && (
-                                      <Badge variant="destructive" className="text-xs">Required</Badge>
-                                    )}
+                          .map((question, index) => (
+                            <div key={question.id}>
+                              {/* Drop zone above each item */}
+                              <div
+                                onDragOver={(e) => handleDragOver(e, index)}
+                                onDragLeave={handleDragLeave}
+                                onDrop={(e) => handleDrop(e, index)}
+                                className={`h-3 transition-all ${
+                                  dragOverIndex === index && draggedQuestionId !== question.id
+                                    ? 'bg-primary/20 border-2 border-dashed border-primary rounded'
+                                    : ''
+                                }`}
+                              />
+                              
+                              {/* Question item */}
+                              <div
+                                className={`flex items-center justify-between p-3 border rounded-lg transition-all ${
+                                  draggedQuestionId === question.id 
+                                    ? 'opacity-30 scale-95 bg-muted' 
+                                    : 'hover:shadow-md hover:border-primary/30'
+                                }`}
+                                data-testid={`question-${question.id}`}
+                              >
+                                <div className="flex items-center gap-3">
+                                  <div
+                                    draggable
+                                    onDragStart={(e) => handleDragStart(e, question.id)}
+                                    onDragEnd={handleDragEnd}
+                                    className="cursor-move p-1 hover:bg-muted rounded transition-colors"
+                                    title="Drag to reorder"
+                                  >
+                                    <GripVertical className="h-4 w-4 text-muted-foreground" />
                                   </div>
-                                  <p className="text-xs text-muted-foreground">
-                                    {question.type} • Maps to: {question.mapTo}
-                                  </p>
+                                  <div>
+                                    <div className="flex items-center gap-2">
+                                      <span className="font-medium">{question.label}</span>
+                                      {question.required && (
+                                        <Badge variant="destructive" className="text-xs">Required</Badge>
+                                      )}
+                                    </div>
+                                    <p className="text-xs text-muted-foreground">
+                                      {question.type} • Maps to: {question.mapTo}
+                                    </p>
+                                  </div>
+                                </div>
+                                <div className="flex gap-2">
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handleEditQuestion(question)}
+                                    data-testid={`button-edit-question-${question.id}`}
+                                  >
+                                    <Settings className="h-3 w-3" />
+                                  </Button>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handleDeleteQuestion(question.id)}
+                                    data-testid={`button-delete-question-${question.id}`}
+                                  >
+                                    <Trash2 className="h-3 w-3" />
+                                  </Button>
                                 </div>
                               </div>
-                              <div className="flex gap-2">
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => handleEditQuestion(question)}
-                                  data-testid={`button-edit-question-${question.id}`}
-                                >
-                                  <Settings className="h-3 w-3" />
-                                </Button>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => handleDeleteQuestion(question.id)}
-                                  data-testid={`button-delete-question-${question.id}`}
-                                >
-                                  <Trash2 className="h-3 w-3" />
-                                </Button>
-                              </div>
+                              
+                              {/* Drop zone after last item */}
+                              {index === questions.length - 1 && (
+                                <div
+                                  onDragOver={(e) => handleDragOver(e, questions.length)}
+                                  onDragLeave={handleDragLeave}
+                                  onDrop={(e) => handleDrop(e, questions.length)}
+                                  className={`h-3 transition-all ${
+                                    dragOverIndex === questions.length
+                                      ? 'bg-primary/20 border-2 border-dashed border-primary rounded'
+                                      : ''
+                                  }`}
+                                />
+                              )}
                             </div>
                           ))}
                       </div>

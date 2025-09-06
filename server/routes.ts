@@ -11,6 +11,7 @@ import { icalService } from "./services/ical";
 import oauthRoutes from "./routes/oauth";
 import emailRoutes from "./src/routes/email";
 import templatesRoutes from "./src/routes/templates";
+import leadFormsRoutes from "./src/routes/lead-forms";
 import { calendarAutoSyncService } from "./services/calendar-auto-sync";
 import { 
   insertLeadSchema, 
@@ -73,6 +74,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Templates routes
   app.use('/api', templatesRoutes);
+  
+  // Lead Forms routes
+  app.use('/api', leadFormsRoutes);
   
   // Dashboard metrics
   app.get("/api/dashboard/metrics", async (req, res) => {

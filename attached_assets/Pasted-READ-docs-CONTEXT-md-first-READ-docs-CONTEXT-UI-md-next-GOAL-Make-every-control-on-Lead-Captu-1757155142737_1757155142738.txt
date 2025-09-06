@@ -1,0 +1,85 @@
+READ /docs/CONTEXT.md first.
+READ /docs/CONTEXT-UI.md next.
+
+GOAL
+Make every control on **Lead Capture Forms** functional:
+- Load list of forms
+- “+ Add Method” creates a new form and selects it
+- Selecting a form loads its details & questions
+- “Save” persists form + questions
+- “Preview” opens hosted /f/:slug in a new tab
+- “Install Form” menu shows working copyable snippets (Hosted, Embed, Popup)
+- “+ Add Question” adds to list; delete works; required/mapTo stored
+- Public page /f/:slug renders & submit works (already implemented)
+
+SCOPE (EDIT/CREATE ONLY)
+  - server/src/routes/leads.ts                // verify/admin & public endpoints
+  - server/src/services/lead.ts              // ensure form CRUD helpers
+  - web/src/pages/leads/LeadCaptureBuilder.tsx
+  - web/src/components/leads/InstallFormMenu.tsx
+  - web/src/components/leads/QuestionEditor.tsx
+  - web/src/pages/public/LeadFormHosted.tsx  // ensure supports ?embed=1 & ?dialog=1
+  - web/src/router.tsx (or web/src/App.tsx)  // confirm routes
+
+RULES
+- No new dependencies.
+- Use fetch with JSON; handle loading + error states with toasts.
+- Dates in UI as dd/MM/yyyy.
+
+BACKEND (confirm endpoints exist & fix if not)
+Admin
+- GET    /api/admin/lead-forms                       → [{id,title,slug,updatedAt}]
+- POST   /api/admin/lead-forms                       → {id,slug} (create default form + 7 default questions)
+- GET    /api/admin/lead-forms/:id                   → {form, questions}
+- PATCH  /api/admin/lead-forms/:id                   → {ok:true} (upsert form & questions by orderIndex)
+- DELETE /api/admin/lead-forms/:id                   → {ok:true} (soft delete optional)
+Public
+- GET    /api/leads/public/:slug                     → {form, questions}
+- POST   /api/leads/public/:slug/submit              → {ok:true, projectId, leadId, afterSubmit:{type,url?,message?}}
+Embed helper
+- GET    /embed.js                                   → JS as previously spec’d
+
+If any are missing, add them; otherwise leave logic as-is. Ensure express.json() before routes, auth guard only on /api/admin/*.
+
+FRONTEND — LeadCaptureBuilder.tsx
+1) Sidebar list:
+   - On mount: fetch /api/admin/lead-forms → setForms
+   - “+ Add Method”: POST /api/admin/lead-forms with {title:"New Capture Form"} → push to list, select it, load details
+   - Clicking a form: GET /api/admin/lead-forms/:id → setForm + setQuestions
+
+2) Form Details panel fields (controlled):
+   - Bind Title, Project Name, Notification (Email/SMS), Auto-response (template dropdown), Calendar, Lifecycle, Workflow, Tags CSV, reCaptcha, Transparency.
+   - “Save”:
+       PATCH /api/admin/lead-forms/:id with:
+         { form: {...controlledFields}, questions: mappedQuestionsArraySortedByOrderIndex }
+       - On success: toast “Saved”; refresh updatedAt in list.
+
+3) Preview button:
+   - If slug missing, generate one on save first (server should create slug if null).
+   - Open new tab to `/f/${slug}`.
+
+4) Questions:
+   - Render list with orderIndex; allow add/remove, edit label/required/type/mapTo/options.
+   - “+ Add Question” opens QuestionEditor; on submit → append with next orderIndex.
+   - Delete question: remove from local state; Save persists.
+   - (Optional) If drag reorder is present, update orderIndex accordingly before Save.
+
+5) InstallFormMenu:
+   - Display URLs/snippets using current slug:
+     a) Hosted Link:
+        https://<HOST>/f/${slug}
+     b) Website Embed:
+        <div data-crm-form="${slug}"></div>
+        <script src="https://<HOST>/embed.js" data-slug="${slug}" async></script>
+     c) Dialog/Popup helper:
+        <script>
+          function openLeadForm(slug){
+            var w=520,h=700,l=(screen.width-w)/2,t=(screen.height-h)/2;
+            window.open('/f/'+slug+'?dialog=1','crmLeadForm','width='+w+',height='+h+',left='+l+',top='+t);
+          }
+        </script>
+        <button onclick="openLeadForm('${slug}')">Open Lead Form</button>
+   - Copy-to-clipboard buttons for each block (use navigator.clipboard if available).
+
+6) UX:
+   - Disable Sa

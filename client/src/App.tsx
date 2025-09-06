@@ -17,6 +17,7 @@ import Automations from "@/pages/automations";
 import Settings from "@/pages/settings";
 import Templates from "@/pages/settings/Templates";
 import LeadCaptureBuilder from "@/pages/leads/LeadCaptureBuilder";
+import LeadFormHosted from "@/pages/public/LeadFormHosted";
 import Members from "@/pages/members";
 import Venues from "@/pages/venues";
 import MusicianPortal from "@/pages/portal/musician-portal";
@@ -29,6 +30,11 @@ function Router() {
       {/* Portal Routes - No Sidebar */}
       <Route path="/portal/musician" component={MusicianPortal} />
       <Route path="/portal/client" component={ClientPortal} />
+      
+      {/* Public Form Routes - No Sidebar */}
+      <Route path="/f/:slug">
+        {(params) => <LeadFormHosted slug={params.slug} />}
+      </Route>
       
       {/* Admin Routes - With Sidebar */}
       <Route>

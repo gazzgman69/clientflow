@@ -1997,7 +1997,42 @@ export class DrizzleStorage implements IStorage {
     return result.rowCount > 0;
   }
 
-  // Lead Capture Forms now use PostgreSQL (implemented above around lines 1489-1520)
+  // Lead Capture Forms - PostgreSQL implementation
+  async getLeadCaptureForms(): Promise<LeadCaptureForm[]> {
+    return await this.db.select().from(leadCaptureForms).orderBy(desc(leadCaptureForms.updatedAt));
+  }
+
+  async getLeadCaptureForm(id: string): Promise<LeadCaptureForm | undefined> {
+    const result = await this.db.select().from(leadCaptureForms).where(eq(leadCaptureForms.id, id));
+    return result[0];
+  }
+
+  async getLeadCaptureFormBySlug(slug: string): Promise<LeadCaptureForm | undefined> {
+    const result = await this.db.select().from(leadCaptureForms).where(eq(leadCaptureForms.slug, slug));
+    return result[0];
+  }
+
+  async createLeadCaptureForm(insertForm: InsertLeadCaptureForm): Promise<LeadCaptureForm> {
+    const result = await this.db.insert(leadCaptureForms).values({
+      ...insertForm,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    }).returning();
+    return result[0];
+  }
+
+  async updateLeadCaptureForm(id: string, updateData: Partial<InsertLeadCaptureForm>): Promise<LeadCaptureForm | undefined> {
+    const result = await this.db.update(leadCaptureForms).set({
+      ...updateData,
+      updatedAt: new Date(),
+    }).where(eq(leadCaptureForms.id, id)).returning();
+    return result[0];
+  }
+
+  async deleteLeadCaptureForm(id: string): Promise<boolean> {
+    const result = await this.db.delete(leadCaptureForms).where(eq(leadCaptureForms.id, id));
+    return result.rowCount > 0;
+  }
 }
 
 export const storage = new DrizzleStorage();

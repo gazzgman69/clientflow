@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
-import { useRoute } from "wouter";
+import { useRoute, useLocation } from "wouter";
 import { Link } from "wouter";
+import { useEffect } from "react";
 import Header from "@/components/layout/header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -12,7 +13,15 @@ import type { Project, Client } from "@shared/schema";
 
 export default function ProjectDetail() {
   const [match, params] = useRoute("/projects/:id");
+  const [, setLocation] = useLocation();
   const projectId = params?.id;
+
+  // Handle "new" project creation case - redirect to projects page
+  useEffect(() => {
+    if (projectId === "new") {
+      setLocation("/projects");
+    }
+  }, [projectId, setLocation]);
 
   const { data: project, isLoading } = useQuery<Project>({
     queryKey: ["/api/projects", projectId],

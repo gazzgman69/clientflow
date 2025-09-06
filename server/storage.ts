@@ -1611,10 +1611,22 @@ export class DrizzleStorage implements IStorage {
   private memStorage = new MemStorage();
 
   // Delegate non-calendar methods to MemStorage for now
-  async getUsers() { return this.memStorage.getUsers(); }
-  async getUser(id: string) { return this.memStorage.getUser(id); }
-  async getUserByUsername(username: string) { return this.memStorage.getUserByUsername(username); }
-  async createUser(user: InsertUser) { return this.memStorage.createUser(user); }
+  // Users - PostgreSQL implementation
+  async getUsers() { 
+    return await this.db.select().from(users);
+  }
+  async getUser(id: string) { 
+    const result = await this.db.select().from(users).where(eq(users.id, id));
+    return result[0];
+  }
+  async getUserByUsername(username: string) { 
+    const result = await this.db.select().from(users).where(eq(users.username, username));
+    return result[0];
+  }
+  async createUser(user: InsertUser) { 
+    const result = await this.db.insert(users).values(user).returning();
+    return result[0];
+  }
   
   async getLeads(): Promise<Lead[]> {
     return await db.select().from(leads).orderBy(desc(leads.createdAt));
@@ -1703,13 +1715,39 @@ export class DrizzleStorage implements IStorage {
     return result.rowCount > 0;
   }
   
-  async getQuotes() { return this.memStorage.getQuotes(); }
-  async getQuote(id: string) { return this.memStorage.getQuote(id); }
-  async getQuotesByClient(clientId: string) { return this.memStorage.getQuotesByClient(clientId); }
-  async createQuote(quote: InsertQuote) { return this.memStorage.createQuote(quote); }
-  async updateQuote(id: string, quote: Partial<InsertQuote>) { return this.memStorage.updateQuote(id, quote); }
-  async deleteQuote(id: string) { return this.memStorage.deleteQuote(id); }
-  async getQuotesByProject(projectId: string) { return this.memStorage.getQuotesByProject ? this.memStorage.getQuotesByProject(projectId) : []; }
+  // Quotes - PostgreSQL implementation
+  async getQuotes() { 
+    return await this.db.select().from(quotes).orderBy(desc(quotes.createdAt));
+  }
+  async getQuote(id: string) { 
+    const result = await this.db.select().from(quotes).where(eq(quotes.id, id));
+    return result[0];
+  }
+  async getQuotesByClient(clientId: string) { 
+    return await this.db.select().from(quotes).where(eq(quotes.contactId, clientId));
+  }
+  async createQuote(quote: InsertQuote) { 
+    const result = await this.db.insert(quotes).values({
+      ...quote,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    }).returning();
+    return result[0];
+  }
+  async updateQuote(id: string, quote: Partial<InsertQuote>) { 
+    const result = await this.db.update(quotes).set({
+      ...quote,
+      updatedAt: new Date(),
+    }).where(eq(quotes.id, id)).returning();
+    return result[0];
+  }
+  async deleteQuote(id: string) { 
+    const result = await this.db.delete(quotes).where(eq(quotes.id, id));
+    return result.rowCount > 0;
+  }
+  async getQuotesByProject(projectId: string) { 
+    return await this.db.select().from(quotes).where(eq(quotes.leadId, projectId));
+  }
   
   async getContracts() { return this.memStorage.getContracts(); }
   async getContract(id: string) { return this.memStorage.getContract(id); }

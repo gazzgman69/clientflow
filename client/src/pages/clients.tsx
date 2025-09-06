@@ -53,66 +53,66 @@ export default function Contacts() {
       queryClient.invalidateQueries({ queryKey: ["/api/contacts"] });
       toast({
         title: "Success",
-        description: "Client added successfully!",
+        description: "Contact added successfully!",
       });
       form.reset();
-      setShowClientModal(false);
+      setShowContactModal(false);
     },
     onError: () => {
       toast({
         title: "Error",
-        description: "Failed to add client. Please try again.",
+        description: "Failed to add contact. Please try again.",
         variant: "destructive",
       });
     },
   });
 
-  const deleteClientMutation = useMutation({
-    mutationFn: async (clientId: string) => {
-      return await apiRequest("DELETE", `/api/contacts/${clientId}`);
+  const deleteContactMutation = useMutation({
+    mutationFn: async (contactId: string) => {
+      return await apiRequest("DELETE", `/api/contacts/${contactId}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/contacts"] });
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard/metrics"] });
       toast({
-        title: "Client deleted",
-        description: "The client has been successfully deleted.",
+        title: "Contact deleted",
+        description: "The contact has been successfully deleted.",
       });
     },
     onError: () => {
       toast({
         title: "Error",
-        description: "Failed to delete client. Please try again.",
+        description: "Failed to delete contact. Please try again.",
         variant: "destructive",
       });
     },
   });
 
   const onSubmit = (data: z.infer<typeof insertContactSchema>) => {
-    createClientMutation.mutate(data);
+    createContactMutation.mutate(data);
   };
 
-  const handleAddClient = () => {
-    setEditingClient(null);
+  const handleAddContact = () => {
+    setEditingContact(null);
     form.reset();
-    setShowClientModal(true);
+    setShowContactModal(true);
   };
 
   return (
     <>
       <Header 
-        title="Clients" 
-        subtitle="Manage your client relationships and information"
+        title="Contacts" 
+        subtitle="Manage your contact relationships and information"
       />
       
       <main className="flex-1 overflow-auto p-6">
-        <Card data-testid="clients-table-card">
+        <Card data-testid="contacts-table-card">
           <CardHeader>
             <div className="flex items-center justify-between">
-              <CardTitle>All Clients</CardTitle>
-              <Button onClick={handleAddClient} data-testid="button-add-client">
+              <CardTitle>All Contacts</CardTitle>
+              <Button onClick={handleAddContact} data-testid="button-add-contact">
                 <Plus className="h-4 w-4 mr-2" />
-                Add Client
+                Add Contact
               </Button>
             </div>
           </CardHeader>
@@ -125,13 +125,13 @@ export default function Contacts() {
                   ))}
                 </div>
               </div>
-            ) : !clients || clients.length === 0 ? (
+            ) : !contacts || contacts.length === 0 ? (
               <div className="text-center py-12" data-testid="empty-clients-state">
                 <Building className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                <p className="text-muted-foreground mb-4">No clients found</p>
-                <Button onClick={handleAddClient} data-testid="button-add-first-client">
+                <p className="text-muted-foreground mb-4">No contacts found</p>
+                <Button onClick={handleAddContact} data-testid="button-add-first-contact">
                   <Plus className="h-4 w-4 mr-2" />
-                  Add Your First Client
+                  Add Your First Contact
                 </Button>
               </div>
             ) : (
@@ -148,50 +148,50 @@ export default function Contacts() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {clients.map((client) => (
-                    <TableRow key={client.id} data-testid={`client-row-${client.id}`}>
-                      <TableCell className="font-medium" data-testid={`client-name-${client.id}`}>
-                        {client.firstName} {client.lastName}
+                  {contacts.map((contact) => (
+                    <TableRow key={contact.id} data-testid={`contact-row-${contact.id}`}>
+                      <TableCell className="font-medium" data-testid={`contact-name-${contact.id}`}>
+                        {contact.firstName} {contact.lastName}
                       </TableCell>
-                      <TableCell data-testid={`client-company-${client.id}`}>
-                        {client.company || '-'}
+                      <TableCell data-testid={`contact-company-${contact.id}`}>
+                        {contact.company || '-'}
                       </TableCell>
-                      <TableCell data-testid={`client-email-${client.id}`}>
-                        {client.email}
+                      <TableCell data-testid={`contact-email-${contact.id}`}>
+                        {contact.email}
                       </TableCell>
-                      <TableCell data-testid={`client-phone-${client.id}`}>
-                        {client.phone || '-'}
+                      <TableCell data-testid={`contact-phone-${contact.id}`}>
+                        {contact.phone || '-'}
                       </TableCell>
-                      <TableCell data-testid={`client-location-${client.id}`}>
-                        {client.city && client.state ? `${client.city}, ${client.state}` : '-'}
+                      <TableCell data-testid={`contact-location-${contact.id}`}>
+                        {contact.city && contact.state ? `${contact.city}, ${contact.state}` : '-'}
                       </TableCell>
-                      <TableCell data-testid={`client-created-${client.id}`}>
-                        {formatDistanceToNow(new Date(client.createdAt!), { addSuffix: true })}
+                      <TableCell data-testid={`contact-created-${contact.id}`}>
+                        {formatDistanceToNow(new Date(contact.createdAt!), { addSuffix: true })}
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center space-x-2">
-                          <Button variant="ghost" size="sm" data-testid={`edit-client-${client.id}`}>
+                          <Button variant="ghost" size="sm" data-testid={`edit-contact-${contact.id}`}>
                             <Edit className="h-4 w-4" />
                           </Button>
                           <AlertDialog>
                             <AlertDialogTrigger asChild>
-                              <Button variant="ghost" size="sm" data-testid={`delete-client-${client.id}`}>
+                              <Button variant="ghost" size="sm" data-testid={`delete-contact-${contact.id}`}>
                                 <Trash2 className="h-4 w-4" />
                               </Button>
                             </AlertDialogTrigger>
                             <AlertDialogContent>
                               <AlertDialogHeader>
-                                <AlertDialogTitle>Delete Client</AlertDialogTitle>
+                                <AlertDialogTitle>Delete Contact</AlertDialogTitle>
                                 <AlertDialogDescription>
-                                  Are you sure you want to delete "{client.firstName} {client.lastName}"? This action cannot be undone and will remove all associated data.
+                                  Are you sure you want to delete "{contact.firstName} {contact.lastName}"? This action cannot be undone and will remove all associated data.
                                 </AlertDialogDescription>
                               </AlertDialogHeader>
                               <AlertDialogFooter>
                                 <AlertDialogCancel>Cancel</AlertDialogCancel>
                                 <AlertDialogAction
-                                  onClick={() => deleteClientMutation.mutate(client.id)}
+                                  onClick={() => deleteContactMutation.mutate(contact.id)}
                                   className="bg-red-600 hover:bg-red-700"
-                                  data-testid={`confirm-delete-client-${client.id}`}
+                                  data-testid={`confirm-delete-contact-${contact.id}`}
                                 >
                                   Delete
                                 </AlertDialogAction>
@@ -209,11 +209,11 @@ export default function Contacts() {
         </Card>
       </main>
 
-      {/* Add/Edit Client Modal */}
-      <Dialog open={showClientModal} onOpenChange={setShowClientModal}>
+      {/* Add/Edit Contact Modal */}
+      <Dialog open={showContactModal} onOpenChange={setShowContactModal}>
         <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{editingClient ? 'Edit Client' : 'Add New Client'}</DialogTitle>
+            <DialogTitle>{editingContact ? 'Edit Contact' : 'Add New Contact'}</DialogTitle>
           </DialogHeader>
           
           <Form {...form}>
@@ -226,7 +226,7 @@ export default function Contacts() {
                     <FormItem>
                       <FormLabel>First Name *</FormLabel>
                       <FormControl>
-                        <Input {...field} data-testid="input-client-first-name" />
+                        <Input {...field} data-testid="input-contact-first-name" />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -314,7 +314,7 @@ export default function Contacts() {
                     <FormItem>
                       <FormLabel>City</FormLabel>
                       <FormControl>
-                        <Input {...field} value={field.value || ""} data-testid="input-client-city" />
+                        <Input {...field} value={field.value || ""} data-testid="input-contact-city" />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -328,7 +328,7 @@ export default function Contacts() {
                     <FormItem>
                       <FormLabel>State</FormLabel>
                       <FormControl>
-                        <Input {...field} value={field.value || ""} data-testid="input-client-state" />
+                        <Input {...field} value={field.value || ""} data-testid="input-contact-state" />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -342,7 +342,7 @@ export default function Contacts() {
                     <FormItem>
                       <FormLabel>ZIP Code</FormLabel>
                       <FormControl>
-                        <Input {...field} value={field.value || ""} data-testid="input-client-zip" />
+                        <Input {...field} value={field.value || ""} data-testid="input-contact-zip" />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -356,7 +356,7 @@ export default function Contacts() {
                     <FormItem>
                       <FormLabel>Country</FormLabel>
                       <FormControl>
-                        <Input {...field} value={field.value || ""} data-testid="input-client-country" />
+                        <Input {...field} value={field.value || ""} data-testid="input-contact-country" />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -368,17 +368,17 @@ export default function Contacts() {
                 <Button 
                   type="button" 
                   variant="secondary" 
-                  onClick={() => setShowClientModal(false)}
-                  data-testid="button-cancel-client"
+                  onClick={() => setShowContactModal(false)}
+                  data-testid="button-cancel-contact"
                 >
                   Cancel
                 </Button>
                 <Button 
                   type="submit" 
-                  disabled={createClientMutation.isPending}
-                  data-testid="button-save-client"
+                  disabled={createContactMutation.isPending}
+                  data-testid="button-save-contact"
                 >
-                  {createClientMutation.isPending ? "Saving..." : "Save Client"}
+                  {createContactMutation.isPending ? "Saving..." : "Save Contact"}
                 </Button>
               </div>
             </form>

@@ -19,7 +19,7 @@ import { insertProjectSchema } from "@shared/schema";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { formatDistanceToNow } from "date-fns";
-import type { Project, Client } from "@shared/schema";
+import type { Project, Contact } from "@shared/schema";
 import { z } from "zod";
 import ProjectDetailModal from "@/components/modals/project-detail-modal";
 
@@ -39,8 +39,8 @@ export default function Projects() {
     queryKey: ["/api/projects"],
   });
 
-  const { data: clients } = useQuery<Client[]>({
-    queryKey: ["/api/clients"],
+  const { data: contacts } = useQuery<Contact[]>({
+    queryKey: ["/api/contacts"],
   });
 
   const form = useForm<z.infer<typeof projectFormSchema>>({
@@ -48,7 +48,7 @@ export default function Projects() {
     defaultValues: {
       name: "",
       description: "",
-      clientId: "",
+      contactId: "",
       status: "active",
       progress: 0,
       estimatedValue: "",
@@ -118,9 +118,9 @@ export default function Projects() {
     }
   };
 
-  const getClientName = (clientId: string) => {
-    const client = clients?.find(c => c.id === clientId);
-    return client ? `${client.firstName} ${client.lastName}` : 'Unknown Client';
+  const getContactName = (contactId: string) => {
+    const contact = contacts?.find(c => c.id === contactId);
+    return contact ? `${contact.firstName} ${contact.lastName}` : 'Unknown Contact';
   };
 
   const handleAddProject = () => {
@@ -180,7 +180,7 @@ export default function Projects() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Project Name</TableHead>
-                    <TableHead>Client</TableHead>
+                    <TableHead>Contact</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Progress</TableHead>
                     <TableHead>Value</TableHead>
@@ -195,7 +195,7 @@ export default function Projects() {
                         {project.name}
                       </TableCell>
                       <TableCell data-testid={`project-client-${project.id}`}>
-                        {getClientName(project.clientId)}
+                        {getContactName(project.contactId)}
                       </TableCell>
                       <TableCell data-testid={`project-status-${project.id}`}>
                         <Badge className={getStatusColor(project.status)}>
@@ -288,20 +288,20 @@ export default function Projects() {
               
               <FormField
                 control={form.control}
-                name="clientId"
+                name="contactId"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Client *</FormLabel>
+                    <FormLabel>Contact *</FormLabel>
                     <Select onValueChange={field.onChange} defaultValue={field.value}>
                       <FormControl>
-                        <SelectTrigger data-testid="select-project-client">
-                          <SelectValue placeholder="Select a client..." />
+                        <SelectTrigger data-testid="select-project-contact">
+                          <SelectValue placeholder="Select a contact..." />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {clients?.map((client) => (
-                          <SelectItem key={client.id} value={client.id}>
-                            {client.firstName} {client.lastName} {client.company && `(${client.company})`}
+                        {contacts?.map((contact) => (
+                          <SelectItem key={contact.id} value={contact.id}>
+                            {contact.firstName} {contact.lastName} {contact.company && `(${contact.company})`}
                           </SelectItem>
                         ))}
                       </SelectContent>

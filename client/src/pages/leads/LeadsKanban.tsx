@@ -64,8 +64,8 @@ export default function LeadsKanban() {
   });
   
   // Simple manual refresh
-  const refetchNow = async () => {
-    await refetch();
+  const refetchNow = () => {
+    refetch();
   };
   
   const lastUpdated = new Date();
@@ -124,42 +124,24 @@ export default function LeadsKanban() {
     deleteLeadMutation.mutate(leadId);
   };
 
-  // Keyboard shortcut for refresh
+  // Keyboard shortcut for refresh (fixed)
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.shiftKey && (e.key === 'R' || e.key === 'r')) {
         e.preventDefault();
-        refetchNow();
+        refetch();
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [refetchNow]);
+  }, [refetch]);
   
-  // Manual refresh from sidebar
+  // Manual refresh from sidebar (fixed)
   useEffect(() => {
-    const handler = () => refetchNow();
+    const handler = () => refetch();
     window.addEventListener('leads:manual-refresh', handler);
     return () => window.removeEventListener('leads:manual-refresh', handler);
-  }, [refetchNow]);
-  
-  // Persist view state
-  useEffect(() => {
-    const scrollY = sessionStorage.getItem('leads:board:scrollY');
-    if (scrollY) {
-      window.scrollTo(0, parseInt(scrollY, 10));
-    }
-    
-    const onScroll = () => {
-      sessionStorage.setItem('leads:board:scrollY', window.scrollY.toString());
-    };
-    
-    window.addEventListener('scroll', onScroll);
-    return () => {
-      window.removeEventListener('scroll', onScroll);
-      sessionStorage.setItem('leads:board:scrollY', window.scrollY.toString());
-    };
-  }, []);
+  }, [refetch]);
   
   const formatLastUpdated = (date?: Date) => {
     if (!date) return 'Never';

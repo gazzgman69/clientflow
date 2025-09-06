@@ -86,7 +86,9 @@ export default function Sidebar() {
                 data-testid={`nav-${item.label.toLowerCase()}`}
                 onClick={() => {
                   if (item.label === 'Leads') {
-                    window.dispatchEvent(new CustomEvent('leads:manual-refresh'));
+                    setTimeout(() => {
+                      window.dispatchEvent(new CustomEvent('leads:manual-refresh'));
+                    }, 0);
                   }
                 }}
               >

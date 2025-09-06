@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "wouter";
 import Header from "@/components/layout/header";
@@ -54,63 +54,22 @@ export default function LeadsKanban() {
   const queryClient = useQueryClient();
   const previousDataRef = useRef<KanbanData | null>(null);
 
-  // Fetch kanban data with smart polling
+  // Fetch kanban data (no polling for now to fix issues)
   const { data: kanbanData, isLoading, refetch } = useQuery<KanbanData>({
     queryKey: ["/api/leads/kanban"],
     queryFn: async () => {
       const response = await apiRequest("GET", "/api/leads/kanban");
-      const data = await response.json();
-      
-      // Detect changes for highlighting
-      if (previousDataRef.current) {
-        const newFlashIds = new Set<string>();
-        const allPreviousIds = new Set();
-        
-        Object.values(previousDataRef.current.columns).forEach(leads => 
-          leads.forEach(lead => allPreviousIds.add(lead.id))
-        );
-        
-        Object.values(data.columns).forEach(leads => 
-          leads.forEach(lead => {
-            const wasPresent = allPreviousIds.has(lead.id);
-            if (!wasPresent) {
-              newFlashIds.add(lead.id); // New card
-            } else {
-              // Check if changed (status, date, etc.)
-              const previousLead = Object.values(previousDataRef.current!.columns)
-                .flat().find(l => l.id === lead.id);
-              if (previousLead && (
-                previousLead.status !== lead.status ||
-                previousLead.projectDateISO !== lead.projectDateISO ||
-                previousLead.contactName !== lead.contactName
-              )) {
-                newFlashIds.add(lead.id); // Changed card
-              }
-            }
-          })
-        );
-        
-        if (newFlashIds.size > 0) {
-          setFlashIds(newFlashIds);
-          setTimeout(() => setFlashIds(new Set()), 1500);
-        }
-      }
-      
-      previousDataRef.current = data;
-      return data;
+      return response.json();
     },
-    enabled: !draggedLeadId, // Don't refetch while dragging
   });
   
-  const loadKanban = async () => {
+  // Simple manual refresh
+  const refetchNow = async () => {
     await refetch();
   };
   
-  const { refetchNow, lastUpdated, fetching } = useSmartPolling({
-    fetchFn: loadKanban,
-    visibleMs: 30000,
-    hiddenMs: 120000
-  });
+  const lastUpdated = new Date();
+  const fetching = isLoading;
 
   // Mutation to update lead status
   const updateStatusMutation = useMutation({

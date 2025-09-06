@@ -115,7 +115,7 @@ export function useSmartPolling({
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('focus', handleFocus);
     };
-  }, [fetchFn, visibleMs, hiddenMs, debounceMs]);
+  }, []); // Remove dependencies to prevent infinite loop
 
   return {
     refetchNow,

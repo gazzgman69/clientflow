@@ -53,6 +53,8 @@ export default function LeadsInbox() {
     },
     refetchInterval: 30000, // Refresh every 30 seconds to pick up new form submissions
     refetchIntervalInBackground: true,
+    refetchOnWindowFocus: true, // Refresh when tab/window gains focus
+    refetchOnMount: true, // Refresh when component mounts
   });
 
   // Mutation to mark lead as contacted

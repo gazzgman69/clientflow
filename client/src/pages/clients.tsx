@@ -11,25 +11,25 @@ import { Input } from "@/components/ui/input";
 import { Plus, Edit, Trash2, Building } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { insertClientSchema } from "@shared/schema";
+import { insertContactSchema } from "@shared/schema";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { formatDistanceToNow } from "date-fns";
-import type { Client } from "@shared/schema";
+import type { Contact } from "@shared/schema";
 import { z } from "zod";
 
 export default function Contacts() {
   const [showContactModal, setShowContactModal] = useState(false);
-  const [editingContact, setEditingContact] = useState<Client | null>(null);
+  const [editingContact, setEditingContact] = useState<Contact | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: contacts, isLoading } = useQuery<Client[]>({
-    queryKey: ["/api/clients"],
+  const { data: contacts, isLoading } = useQuery<Contact[]>({
+    queryKey: ["/api/contacts"],
   });
 
-  const form = useForm<z.infer<typeof insertClientSchema>>({
-    resolver: zodResolver(insertClientSchema),
+  const form = useForm<z.infer<typeof insertContactSchema>>({
+    resolver: zodResolver(insertContactSchema),
     defaultValues: {
       firstName: "",
       lastName: "",
@@ -45,12 +45,12 @@ export default function Contacts() {
   });
 
   const createContactMutation = useMutation({
-    mutationFn: async (data: z.infer<typeof insertClientSchema>) => {
-      const response = await apiRequest("POST", "/api/clients", data);
+    mutationFn: async (data: z.infer<typeof insertContactSchema>) => {
+      const response = await apiRequest("POST", "/api/contacts", data);
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/clients"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/contacts"] });
       toast({
         title: "Success",
         description: "Client added successfully!",
@@ -69,10 +69,10 @@ export default function Contacts() {
 
   const deleteClientMutation = useMutation({
     mutationFn: async (clientId: string) => {
-      return await apiRequest("DELETE", `/api/clients/${clientId}`);
+      return await apiRequest("DELETE", `/api/contacts/${clientId}`);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/clients"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/contacts"] });
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard/metrics"] });
       toast({
         title: "Client deleted",
@@ -88,7 +88,7 @@ export default function Contacts() {
     },
   });
 
-  const onSubmit = (data: z.infer<typeof insertClientSchema>) => {
+  const onSubmit = (data: z.infer<typeof insertContactSchema>) => {
     createClientMutation.mutate(data);
   };
 

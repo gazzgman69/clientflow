@@ -51,6 +51,8 @@ export default function LeadsInbox() {
       const response = await apiRequest("GET", `/api/leads/inbox?${params}`);
       return response.json();
     },
+    refetchInterval: 30000, // Refresh every 30 seconds to pick up new form submissions
+    refetchIntervalInBackground: true,
   });
 
   // Mutation to mark lead as contacted

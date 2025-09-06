@@ -57,6 +57,8 @@ export default function LeadsKanban() {
       const response = await apiRequest("GET", "/api/leads/kanban");
       return response.json();
     },
+    refetchInterval: 30000, // Refresh every 30 seconds to pick up new form submissions
+    refetchIntervalInBackground: true,
   });
 
   // Mutation to update lead status

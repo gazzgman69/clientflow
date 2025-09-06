@@ -33,19 +33,20 @@ const QUESTION_TYPES = [
   { value: 'email', label: 'Email' },
   { value: 'tel', label: 'Phone Number' },
   { value: 'number', label: 'Number' },
+  { value: 'date', label: 'Date' },
   { value: 'select', label: 'Dropdown' },
   { value: 'radio', label: 'Multiple Choice' },
   { value: 'checkbox', label: 'Checkboxes' },
 ];
 
 const MAP_TO_OPTIONS = [
-  { value: 'firstName', label: 'First Name' },
-  { value: 'lastName', label: 'Last Name' },
-  { value: 'email', label: 'Email' },
-  { value: 'phone', label: 'Phone' },
-  { value: 'company', label: 'Company' },
-  { value: 'leadSource', label: 'Lead Source' },
-  { value: 'notes', label: 'Notes' },
+  { value: 'leadName', label: 'Lead name' },
+  { value: 'leadEmail', label: 'Lead email' },
+  { value: 'leadPhoneNumber', label: 'Lead phone number' },
+  { value: 'whatKindOfEventIsIt', label: 'What Kind Of Event Is It?' },
+  { value: 'eventLocation', label: 'Event Location' },
+  { value: 'projectDate', label: 'Project date' },
+  { value: 'nothing', label: 'Nothing' },
   { value: 'custom', label: 'Custom Field' },
 ];
 

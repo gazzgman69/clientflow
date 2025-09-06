@@ -61,15 +61,15 @@ router.post('/admin/lead-forms', requireAuth, async (req, res) => {
 
     const form = await storage.createLeadCaptureForm(formData);
     
-    // Create default questions
+    // Create default questions to match the provided template
     const defaultQuestions = [
-      { type: 'text', label: 'First Name', required: true, mapTo: 'firstName', orderIndex: 0 },
-      { type: 'text', label: 'Last Name', required: true, mapTo: 'lastName', orderIndex: 1 },
-      { type: 'email', label: 'Email Address', required: true, mapTo: 'email', orderIndex: 2 },
-      { type: 'tel', label: 'Phone Number', required: false, mapTo: 'phone', orderIndex: 3 },
-      { type: 'text', label: 'Company', required: false, mapTo: 'company', orderIndex: 4 },
-      { type: 'select', label: 'Service Interest', required: true, mapTo: 'leadSource', orderIndex: 5, options: 'Web Development,Design,Consulting' },
-      { type: 'textarea', label: 'Project Details', required: false, mapTo: 'notes', orderIndex: 6 }
+      { type: 'text', label: 'Name', required: true, mapTo: 'leadName', orderIndex: 0 },
+      { type: 'email', label: 'Email Address', required: true, mapTo: 'leadEmail', orderIndex: 1 },
+      { type: 'tel', label: 'Phone Number', required: true, mapTo: 'leadPhoneNumber', orderIndex: 2 },
+      { type: 'text', label: 'Event Type', required: true, mapTo: 'whatKindOfEventIsIt', orderIndex: 3 },
+      { type: 'text', label: 'Event Location (Full address if possible please)', required: true, mapTo: 'eventLocation', orderIndex: 4 },
+      { type: 'date', label: 'Event Date', required: true, mapTo: 'projectDate', orderIndex: 5 },
+      { type: 'textarea', label: 'Message', required: false, mapTo: 'nothing', orderIndex: 6 }
     ];
 
     // For now, we'll store questions in the form's metadata or create a separate questions system
@@ -99,13 +99,13 @@ router.get('/admin/lead-forms/:id', requireAuth, async (req, res) => {
     // For now, return form with default questions
     // In a full implementation, you'd fetch questions from a separate table
     const defaultQuestions = [
-      { id: '1', type: 'text', label: 'First Name', required: true, mapTo: 'firstName', orderIndex: 0 },
-      { id: '2', type: 'text', label: 'Last Name', required: true, mapTo: 'lastName', orderIndex: 1 },
-      { id: '3', type: 'email', label: 'Email Address', required: true, mapTo: 'email', orderIndex: 2 },
-      { id: '4', type: 'tel', label: 'Phone Number', required: false, mapTo: 'phone', orderIndex: 3 },
-      { id: '5', type: 'text', label: 'Company', required: false, mapTo: 'company', orderIndex: 4 },
-      { id: '6', type: 'select', label: 'Service Interest', required: true, mapTo: 'leadSource', orderIndex: 5, options: 'Web Development,Design,Consulting' },
-      { id: '7', type: 'textarea', label: 'Project Details', required: false, mapTo: 'notes', orderIndex: 6 }
+      { id: '1', type: 'text', label: 'Name', required: true, mapTo: 'leadName', orderIndex: 0 },
+      { id: '2', type: 'email', label: 'Email Address', required: true, mapTo: 'leadEmail', orderIndex: 1 },
+      { id: '3', type: 'tel', label: 'Phone Number', required: true, mapTo: 'leadPhoneNumber', orderIndex: 2 },
+      { id: '4', type: 'text', label: 'Event Type', required: true, mapTo: 'whatKindOfEventIsIt', orderIndex: 3 },
+      { id: '5', type: 'text', label: 'Event Location (Full address if possible please)', required: true, mapTo: 'eventLocation', orderIndex: 4 },
+      { id: '6', type: 'date', label: 'Event Date', required: true, mapTo: 'projectDate', orderIndex: 5 },
+      { id: '7', type: 'textarea', label: 'Message', required: false, mapTo: 'nothing', orderIndex: 6 }
     ];
 
     res.json({
@@ -214,13 +214,13 @@ router.get('/leads/public/:slug', async (req, res) => {
 
     // Return public form data with questions
     const defaultQuestions = [
-      { id: '1', type: 'text', label: 'First Name', required: true, mapTo: 'firstName', orderIndex: 0 },
-      { id: '2', type: 'text', label: 'Last Name', required: true, mapTo: 'lastName', orderIndex: 1 },
-      { id: '3', type: 'email', label: 'Email Address', required: true, mapTo: 'email', orderIndex: 2 },
-      { id: '4', type: 'tel', label: 'Phone Number', required: false, mapTo: 'phone', orderIndex: 3 },
-      { id: '5', type: 'text', label: 'Company', required: false, mapTo: 'company', orderIndex: 4 },
-      { id: '6', type: 'select', label: 'Service Interest', required: true, mapTo: 'leadSource', orderIndex: 5, options: 'Web Development,Design,Consulting' },
-      { id: '7', type: 'textarea', label: 'Project Details', required: false, mapTo: 'notes', orderIndex: 6 }
+      { id: '1', type: 'text', label: 'Name', required: true, mapTo: 'leadName', orderIndex: 0 },
+      { id: '2', type: 'email', label: 'Email Address', required: true, mapTo: 'leadEmail', orderIndex: 1 },
+      { id: '3', type: 'tel', label: 'Phone Number', required: true, mapTo: 'leadPhoneNumber', orderIndex: 2 },
+      { id: '4', type: 'text', label: 'Event Type', required: true, mapTo: 'whatKindOfEventIsIt', orderIndex: 3 },
+      { id: '5', type: 'text', label: 'Event Location (Full address if possible please)', required: true, mapTo: 'eventLocation', orderIndex: 4 },
+      { id: '6', type: 'date', label: 'Event Date', required: true, mapTo: 'projectDate', orderIndex: 5 },
+      { id: '7', type: 'textarea', label: 'Message', required: false, mapTo: 'nothing', orderIndex: 6 }
     ];
 
     res.json({

@@ -137,6 +137,7 @@ export default function LeadFormHosted({ slug }: LeadFormHostedProps) {
       case 'email':
       case 'tel':
       case 'number':
+      case 'date':
         return (
           <Input
             type={question.type}

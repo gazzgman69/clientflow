@@ -190,7 +190,20 @@ export default function LeadsInbox() {
                     <TableRow key={lead.id} data-testid={`inbox-row-${lead.id}`}>
                       <TableCell className="font-medium">
                         <div className="flex items-center gap-2">
-                          {lead.contactName}
+                          {lead.projectId ? (
+                            <Link href={`/projects/${lead.projectId}`}>
+                              <span 
+                                className="hover:text-primary hover:underline cursor-pointer"
+                                data-testid={`lead-card-name-${lead.id}`}
+                              >
+                                {lead.contactName}
+                              </span>
+                            </Link>
+                          ) : (
+                            <span data-testid={`lead-card-name-${lead.id}`}>
+                              {lead.contactName}
+                            </span>
+                          )}
                           {lead.hasConflict && (
                             <Badge variant="destructive" className="text-xs">
                               Conflict

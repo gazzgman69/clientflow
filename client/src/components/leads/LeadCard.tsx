@@ -56,12 +56,20 @@ export default function LeadCard({ lead, onClick, draggable = false, onDragStart
         <div className="flex-1">
           {lead.projectId ? (
             <Link href={`/projects/${lead.projectId}`}>
-              <h3 className="font-medium text-sm hover:text-primary cursor-pointer">
+              <h3 
+                className="font-medium text-sm hover:text-primary hover:underline cursor-pointer"
+                data-testid={`lead-card-name-${lead.id}`}
+              >
                 {lead.contactName}
               </h3>
             </Link>
           ) : (
-            <h3 className="font-medium text-sm">{lead.contactName}</h3>
+            <h3 
+              className="font-medium text-sm"
+              data-testid={`lead-card-name-${lead.id}`}
+            >
+              {lead.contactName}
+            </h3>
           )}
         </div>
         <div className="flex items-center gap-2">

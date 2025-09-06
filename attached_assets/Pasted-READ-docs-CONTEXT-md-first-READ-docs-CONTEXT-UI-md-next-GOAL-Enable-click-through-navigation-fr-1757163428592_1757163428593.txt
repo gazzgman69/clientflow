@@ -1,0 +1,58 @@
+READ /docs/CONTEXT.md first.
+READ /docs/CONTEXT-UI.md next.
+
+GOAL
+Enable click-through navigation from client/lead names → Project detail view.
+
+SCOPE (EDIT ONLY)
+  - web/src/components/leads/LeadCard.tsx
+  - web/src/pages/leads/LeadsInbox.tsx
+  - web/src/pages/leads/LeadsKanban.tsx
+  - web/src/pages/leads/LeadsList.tsx
+  - web/src/router.tsx (or web/src/App.tsx) ← confirm /projects/:id route exists
+  - web/src/pages/projects/ProjectDetail.tsx (stub page if missing)
+
+REQUIREMENTS
+1) LeadCard.tsx
+   - Wrap the client name in a <Link to={`/projects/${projectId}`}>.
+   - Add data-testid={`lead-card-name-${lead.id}`} for test hooks.
+   - Keep existing card layout intact.
+
+2) LeadsInbox.tsx + LeadsList.tsx
+   - Wherever contactName is shown, render as a Link to `/projects/:id`.
+   - Use the same data-testid pattern for consistency.
+
+3) LeadsKanban.tsx
+   - Cards already render <LeadCard/> → no change needed if updated above.
+   - Ensure drag/drop still works when clicking anywhere *except* the link.
+
+4) Router
+   - Confirm /projects/:id is registered to ProjectDetail page.
+   - If missing, add route: { path:"/projects/:id", element:<ProjectDetail/> }.
+   - ProjectDetail can be a placeholder page with projectId param for now.
+
+5) ProjectDetail.tsx (if missing)
+   - Create basic stub:
+     - Show Project ID, title, status, date (dd/MM/yyyy), linked Contact info.
+     - data-testid="project-detail"
+   - Later can be expanded to include tasks, emails, docs, etc.
+
+6) UX
+   - Links open in same tab.
+   - Title hover underline to indicate clickability.
+   - Keyboard accessible (tab/enter).
+
+DELIVERABLES (DIFF-ONLY MODE)
+1) Brief plan (≤4 bullets) listing files touched.
+2) Unified diffs for only those files.
+3) Manual QA:
+   - On Kanban card, clicking client name opens ProjectDetail.
+   - On Inbox/List rows, clicking name opens ProjectDetail.
+   - ProjectDetail shows correct projectId from URL.
+   - Drag/drop on Kanban still works when clicking the card background.
+
+ACCEPTANCE
+- All client names are clickable links to ProjectDetail.
+- /projects/:id route exists and loads.
+- No broken drag/drop behavior.
+- No new dependencies.

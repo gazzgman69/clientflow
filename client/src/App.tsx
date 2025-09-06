@@ -21,6 +21,7 @@ import LeadCaptureBuilder from "@/pages/leads/LeadCaptureBuilder";
 import LeadsKanban from "@/pages/leads/LeadsKanban";
 import LeadsInbox from "@/pages/leads/LeadsInbox";
 import LeadFormHosted from "@/pages/public/LeadFormHosted";
+import ProjectDetail from "@/pages/ProjectDetail";
 import Members from "@/pages/members";
 import Venues from "@/pages/venues";
 import MusicianPortal from "@/pages/portal/musician-portal";
@@ -58,6 +59,7 @@ function Router() {
                   }}
                 </Route>
                 <Route path="/clients" component={Clients} />
+                <Route path="/projects/:id" component={ProjectDetail} />
                 <Route path="/projects" component={Projects} />
                 <Route path="/members" component={Members} />
                 <Route path="/venues" component={Venues} />

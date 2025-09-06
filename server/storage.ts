@@ -1,7 +1,7 @@
 import { 
   type User, type InsertUser,
   type Lead, type InsertLead,
-  type Client, type InsertClient,
+  type Contact, type InsertContact,
   type Project, type InsertProject,
   type Quote, type InsertQuote,
   type Contract, type InsertContract,
@@ -25,7 +25,7 @@ import {
   type Template, type InsertTemplate,
   type LeadCaptureForm, type InsertLeadCaptureForm,
   type LeadStatusHistory, type InsertLeadStatusHistory,
-  users, leads, clients, projects, quotes, contracts, invoices, tasks, emails, activities, automations, 
+  users, leads, contacts, projects, quotes, contracts, invoices, tasks, emails, activities, automations, 
   members, venues, projectMembers, memberAvailability, projectFiles, projectNotes, smsMessages, 
   messageTemplates, messageThreads, events, calendarIntegrations, calendarSyncLog, templates, leadCaptureForms,
   leadStatusHistory
@@ -49,17 +49,17 @@ export interface IStorage {
   updateLead(id: string, lead: Partial<InsertLead>): Promise<Lead | undefined>;
   deleteLead(id: string): Promise<boolean>;
   
-  // Clients
-  getClients(): Promise<Client[]>;
-  getClient(id: string): Promise<Client | undefined>;
-  createClient(client: InsertClient): Promise<Client>;
-  updateClient(id: string, client: Partial<InsertClient>): Promise<Client | undefined>;
-  deleteClient(id: string): Promise<boolean>;
+  // Contacts
+  getContacts(): Promise<Contact[]>;
+  getContact(id: string): Promise<Contact | undefined>;
+  createContact(contact: InsertContact): Promise<Contact>;
+  updateContact(id: string, contact: Partial<InsertContact>): Promise<Contact | undefined>;
+  deleteContact(id: string): Promise<boolean>;
   
   // Projects
   getProjects(): Promise<Project[]>;
   getProject(id: string): Promise<Project | undefined>;
-  getProjectsByClient(clientId: string): Promise<Project[]>;
+  getProjectsByContact(contactId: string): Promise<Project[]>;
   createProject(project: InsertProject): Promise<Project>;
   updateProject(id: string, project: Partial<InsertProject>): Promise<Project | undefined>;
   deleteProject(id: string): Promise<boolean>;
@@ -67,7 +67,7 @@ export interface IStorage {
   // Quotes
   getQuotes(): Promise<Quote[]>;
   getQuote(id: string): Promise<Quote | undefined>;
-  getQuotesByClient(clientId: string): Promise<Quote[]>;
+  getQuotesByContact(contactId: string): Promise<Quote[]>;
   createQuote(quote: InsertQuote): Promise<Quote>;
   updateQuote(id: string, quote: Partial<InsertQuote>): Promise<Quote | undefined>;
   deleteQuote(id: string): Promise<boolean>;
@@ -1644,31 +1644,31 @@ export class DrizzleStorage implements IStorage {
     return result.rowCount > 0;
   }
   
-  // Clients - Using PostgreSQL
-  async getClients(): Promise<Client[]> {
-    return await this.db.select().from(clients).orderBy(desc(clients.createdAt));
+  // Contacts - Using PostgreSQL
+  async getContacts(): Promise<Contact[]> {
+    return await this.db.select().from(contacts).orderBy(desc(contacts.createdAt));
   }
-  async getClient(id: string): Promise<Client | undefined> {
-    const result = await this.db.select().from(clients).where(eq(clients.id, id));
+  async getContact(id: string): Promise<Contact | undefined> {
+    const result = await this.db.select().from(contacts).where(eq(contacts.id, id));
     return result[0];
   }
-  async createClient(client: InsertClient): Promise<Client> {
-    const result = await this.db.insert(clients).values({
-      ...client,
+  async createContact(contact: InsertContact): Promise<Contact> {
+    const result = await this.db.insert(contacts).values({
+      ...contact,
       createdAt: new Date(),
       updatedAt: new Date(),
     }).returning();
     return result[0];
   }
-  async updateClient(id: string, clientUpdate: Partial<InsertClient>): Promise<Client | undefined> {
-    const result = await this.db.update(clients).set({
-      ...clientUpdate,
+  async updateContact(id: string, contactUpdate: Partial<InsertContact>): Promise<Contact | undefined> {
+    const result = await this.db.update(contacts).set({
+      ...contactUpdate,
       updatedAt: new Date(),
-    }).where(eq(clients.id, id)).returning();
+    }).where(eq(contacts.id, id)).returning();
     return result[0];
   }
-  async deleteClient(id: string): Promise<boolean> {
-    const result = await this.db.delete(clients).where(eq(clients.id, id));
+  async deleteContact(id: string): Promise<boolean> {
+    const result = await this.db.delete(contacts).where(eq(contacts.id, id));
     return result.rowCount > 0;
   }
   
@@ -1680,8 +1680,8 @@ export class DrizzleStorage implements IStorage {
     const result = await this.db.select().from(projects).where(eq(projects.id, id));
     return result[0];
   }
-  async getProjectsByClient(clientId: string): Promise<Project[]> {
-    return await this.db.select().from(projects).where(eq(projects.clientId, clientId)).orderBy(desc(projects.createdAt));
+  async getProjectsByContact(contactId: string): Promise<Project[]> {
+    return await this.db.select().from(projects).where(eq(projects.contactId, contactId)).orderBy(desc(projects.createdAt));
   }
   async createProject(project: InsertProject): Promise<Project> {
     const result = await this.db.insert(projects).values({

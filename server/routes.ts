@@ -16,7 +16,7 @@ import leadAutomationSimpleRoutes from "./src/routes/lead-automation-simple";
 import { calendarAutoSyncService } from "./services/calendar-auto-sync";
 import { 
   insertLeadSchema, 
-  insertClientSchema, 
+  insertContactSchema, 
   insertProjectSchema, 
   insertQuoteSchema, 
   insertContractSchema, 

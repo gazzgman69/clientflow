@@ -91,7 +91,7 @@ export default function LeadsKanban() {
   const deleteLeadMutation = useMutation({
     mutationFn: async (leadId: string) => {
       const response = await apiRequest("DELETE", `/api/leads/${leadId}`);
-      return response.json();
+      return response.status === 204 ? {} : response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/leads/kanban"] });

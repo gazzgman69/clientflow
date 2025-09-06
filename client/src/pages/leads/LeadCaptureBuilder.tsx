@@ -64,9 +64,7 @@ export default function LeadCaptureBuilder() {
   const { data: forms = [], isLoading: formsLoading } = useQuery<LeadForm[]>({
     queryKey: ['/api/admin/lead-forms'],
     queryFn: async () => {
-      const response = await fetch('/api/admin/lead-forms', {
-        headers: { 'user-id': 'test-user' }
-      });
+      const response = await apiRequest('GET', '/api/admin/lead-forms');
       return response.json();
     },
   });
@@ -76,9 +74,7 @@ export default function LeadCaptureBuilder() {
     queryKey: ['/api/admin/lead-forms', selectedFormId],
     queryFn: async () => {
       if (!selectedFormId) return null;
-      const response = await fetch(`/api/admin/lead-forms/${selectedFormId}`, {
-        headers: { 'user-id': 'test-user' }
-      });
+      const response = await apiRequest('GET', `/api/admin/lead-forms/${selectedFormId}`);
       return response.json();
     },
     enabled: !!selectedFormId,

@@ -57,6 +57,7 @@ export default function LeadCaptureBuilder() {
   const [questions, setQuestions] = useState<Question[]>([]);
   const [showQuestionEditor, setShowQuestionEditor] = useState(false);
   const [editingQuestion, setEditingQuestion] = useState<Question | null>(null);
+  const [draggedQuestionId, setDraggedQuestionId] = useState<string | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -163,6 +164,49 @@ export default function LeadCaptureBuilder() {
 
   const handleDeleteQuestion = (questionId: string) => {
     setQuestions(prev => prev.filter(q => q.id !== questionId));
+  };
+
+  const handleDragStart = (e: React.DragEvent, questionId: string) => {
+    setDraggedQuestionId(questionId);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  };
+
+  const handleDrop = (e: React.DragEvent, targetQuestionId: string) => {
+    e.preventDefault();
+    
+    if (!draggedQuestionId || draggedQuestionId === targetQuestionId) {
+      setDraggedQuestionId(null);
+      return;
+    }
+
+    setQuestions(prev => {
+      const newQuestions = [...prev];
+      const draggedIndex = newQuestions.findIndex(q => q.id === draggedQuestionId);
+      const targetIndex = newQuestions.findIndex(q => q.id === targetQuestionId);
+      
+      if (draggedIndex === -1 || targetIndex === -1) return prev;
+
+      // Remove the dragged question and insert it at the target position
+      const [draggedQuestion] = newQuestions.splice(draggedIndex, 1);
+      newQuestions.splice(targetIndex, 0, draggedQuestion);
+
+      // Update orderIndex for all questions
+      return newQuestions.map((question, index) => ({
+        ...question,
+        orderIndex: index
+      }));
+    });
+
+    setDraggedQuestionId(null);
+  };
+
+  const handleDragEnd = () => {
+    setDraggedQuestionId(null);
   };
 
   const formatDate = (dateString: string) => {
@@ -393,7 +437,16 @@ export default function LeadCaptureBuilder() {
                           .map((question) => (
                             <div
                               key={question.id}
-                              className="flex items-center justify-between p-3 border rounded-lg"
+                              draggable
+                              onDragStart={(e) => handleDragStart(e, question.id)}
+                              onDragOver={handleDragOver}
+                              onDrop={(e) => handleDrop(e, question.id)}
+                              onDragEnd={handleDragEnd}
+                              className={`flex items-center justify-between p-3 border rounded-lg transition-all ${
+                                draggedQuestionId === question.id 
+                                  ? 'opacity-50 scale-95' 
+                                  : 'hover:shadow-md'
+                              }`}
                               data-testid={`question-${question.id}`}
                             >
                               <div className="flex items-center gap-3">

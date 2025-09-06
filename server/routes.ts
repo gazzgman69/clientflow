@@ -491,34 +491,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Clients
-  app.get("/api/clients", async (req, res) => {
+  app.get("/api/contacts", async (req, res) => {
     try {
-      const clients = await storage.getClients();
-      res.json(clients);
+      const contacts = await storage.getContacts();
+      res.json(contacts);
     } catch (error) {
-      res.status(500).json({ message: "Failed to fetch clients" });
+      res.status(500).json({ message: "Failed to fetch contacts" });
     }
   });
 
-  app.get("/api/clients/:id", async (req, res) => {
+  app.get("/api/contacts/:id", async (req, res) => {
     try {
-      const client = await storage.getClient(req.params.id);
-      if (!client) {
-        return res.status(404).json({ message: "Client not found" });
+      const contact = await storage.getContact(req.params.id);
+      if (!contact) {
+        return res.status(404).json({ message: "Contact not found" });
       }
-      res.json(client);
+      res.json(contact);
     } catch (error) {
-      res.status(500).json({ message: "Failed to fetch client" });
+      res.status(500).json({ message: "Failed to fetch contact" });
     }
   });
 
-  app.post("/api/clients", async (req, res) => {
+  app.post("/api/contacts", async (req, res) => {
     try {
-      const clientData = insertClientSchema.parse(req.body);
-      const client = await storage.createClient(clientData);
-      res.status(201).json(client);
+      const contactData = insertContactSchema.parse(req.body);
+      const contact = await storage.createContact(contactData);
+      res.status(201).json(contact);
     } catch (error) {
-      res.status(400).json({ message: "Invalid client data" });
+      res.status(400).json({ message: "Invalid contact data" });
     }
   });
 

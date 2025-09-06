@@ -16,6 +16,7 @@ import Calendar from "@/pages/calendar";
 import Automations from "@/pages/automations";
 import Settings from "@/pages/settings";
 import Templates from "@/pages/settings/Templates";
+import LeadCaptureBuilder from "@/pages/leads/LeadCaptureBuilder";
 import Members from "@/pages/members";
 import Venues from "@/pages/venues";
 import MusicianPortal from "@/pages/portal/musician-portal";
@@ -37,6 +38,7 @@ function Router() {
             <div className="flex-1 flex flex-col overflow-hidden">
               <Switch>
                 <Route path="/" component={Dashboard} />
+                <Route path="/leads/capture" component={LeadCaptureBuilder} />
                 <Route path="/leads" component={Leads} />
                 <Route path="/clients" component={Clients} />
                 <Route path="/projects" component={Projects} />

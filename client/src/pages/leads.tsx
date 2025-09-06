@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { Link } from "wouter";
 import Header from "@/components/layout/header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -65,10 +66,15 @@ export default function Leads() {
           <CardHeader>
             <div className="flex items-center justify-between">
               <CardTitle>All Leads</CardTitle>
-              <Button onClick={() => setShowLeadCapture(true)} data-testid="button-add-lead">
-                <Plus className="h-4 w-4 mr-2" />
-                Add Lead
-              </Button>
+              <div className="flex gap-2">
+                <Button variant="outline" asChild data-testid="button-lead-capture-forms">
+                  <Link href="/leads/capture">Lead Capture Forms</Link>
+                </Button>
+                <Button onClick={() => setShowLeadCapture(true)} data-testid="button-add-lead">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Lead
+                </Button>
+              </div>
             </div>
           </CardHeader>
           <CardContent>

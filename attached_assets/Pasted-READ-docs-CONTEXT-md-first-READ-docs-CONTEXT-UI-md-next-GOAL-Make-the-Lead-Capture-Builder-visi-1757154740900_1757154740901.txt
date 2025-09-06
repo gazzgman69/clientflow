@@ -1,0 +1,57 @@
+READ /docs/CONTEXT.md first.
+READ /docs/CONTEXT-UI.md next.
+
+GOAL
+Make the Lead Capture Builder visible in the UI:
+1) Add a “Lead Capture Forms” link under the **Leads** section in the left sidebar.
+2) Add a top-right action on the **/leads** page: a primary/ghost Button labeled “Lead Capture Forms” that routes to **/leads/capture**.
+
+SCOPE (EDIT/CREATE ONLY)
+  - web/src/components/Sidebar.tsx            // or actual sidebar/nav file
+  - web/src/pages/leads/LeadsList.tsx         // top-right page actions
+  - web/src/router.tsx (or web/src/App.tsx)   // ensure /leads/capture route exists
+  - web/src/pages/leads/LeadCaptureBuilder.tsx  // only if import path needs fix
+
+RULES
+- Do NOT add dependencies.
+- Keep existing styles (shadcn + Tailwind) and icons consistent with current nav.
+- Respect active state highlighting for the new link when route is /leads/capture.
+
+REQUIREMENTS
+
+A) Sidebar
+- Under the existing “Leads” group, add a nested/indented item:
+    Label: “Lead Capture Forms”
+    Path:  “/leads/capture”
+    Icon:  reuse Leads icon or a simple form icon if available; otherwise no icon.
+- Ensure keyboard navigation and active-state styling work (the item highlights on /leads/capture).
+
+B) Leads page header actions (web/src/pages/leads/LeadsList.tsx)
+- In the top-right action bar (beside existing “Quick Add” / “Add Lead” controls), add:
+    <Button variant="outline" asChild>
+      <Link to="/leads/capture">Lead Capture Forms</Link>
+    </Button>
+- On small screens, ensure it wraps below or into your existing overflow menu if present.
+
+C) Route
+- Verify that /leads/capture is registered and renders LeadCaptureBuilder.
+- If the route isn’t mounted, add:
+    { path: "/leads/capture", element: <LeadCaptureBuilder /> }
+
+D) QA / Visual
+- The left sidebar now shows:
+    Leads
+      • (default Leads link)
+      • Lead Capture Forms   ← new
+- The /leads page header (top-right) now shows a “Lead Capture Forms” button.
+
+DELIVERABLES (DIFF-ONLY MODE)
+1) Brief plan (≤4 bullets) listing the exact files touched.
+2) Unified diffs for ONLY those files.
+3) Screenshot note: where the new sidebar link and top-right button appear.
+
+ACCEPTANCE
+- Clicking the sidebar “Lead Capture Forms” opens /leads/capture.
+- Clicking the top-right “Lead Capture Forms” button on /leads opens /leads/capture.
+- Active state highlights correctly when on /leads/capture.
+- No layout regressions on the Leads page header.

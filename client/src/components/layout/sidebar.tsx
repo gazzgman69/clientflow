@@ -8,7 +8,15 @@ import {
 
 const navigationItems = [
   { href: "/", icon: BarChart3, label: "Dashboard", badge: null },
-  { href: "/leads", icon: UserPlus, label: "Leads", badge: 23 },
+  { 
+    href: "/leads", 
+    icon: UserPlus, 
+    label: "Leads", 
+    badge: 23,
+    subItems: [
+      { href: "/leads/capture", icon: FileText, label: "Lead Capture Forms", badge: null }
+    ]
+  },
   { href: "/clients", icon: Users, label: "Clients", badge: null },
   { href: "/projects", icon: Briefcase, label: "Projects", badge: null },
   { href: "/members", icon: Music, label: "Members", badge: null },
@@ -39,27 +47,61 @@ export default function Sidebar() {
         {navigationItems.map((item) => {
           const Icon = item.icon;
           const isActive = location === item.href;
+          const hasSubItems = item.subItems && item.subItems.length > 0;
           
           return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={cn(
-                "sidebar-link flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium",
-                isActive 
-                  ? "active bg-primary text-primary-foreground" 
-                  : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+            <div key={item.href}>
+              <Link
+                href={item.href}
+                className={cn(
+                  "sidebar-link flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium",
+                  isActive 
+                    ? "active bg-primary text-primary-foreground" 
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                )}
+                data-testid={`nav-${item.label.toLowerCase()}`}
+              >
+                <Icon className="h-4 w-4" />
+                <span>{item.label}</span>
+                {item.badge && (
+                  <span className="ml-auto text-xs px-2 py-1 rounded-full bg-accent text-accent-foreground">
+                    {item.badge}
+                  </span>
+                )}
+              </Link>
+              
+              {/* Sub-items */}
+              {hasSubItems && (
+                <div className="ml-6 mt-1 space-y-1">
+                  {item.subItems.map((subItem) => {
+                    const SubIcon = subItem.icon;
+                    const isSubActive = location === subItem.href;
+                    
+                    return (
+                      <Link
+                        key={subItem.href}
+                        href={subItem.href}
+                        className={cn(
+                          "sidebar-link flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium",
+                          isSubActive 
+                            ? "active bg-primary text-primary-foreground" 
+                            : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                        )}
+                        data-testid={`nav-${subItem.label.toLowerCase().replace(/\s+/g, '-')}`}
+                      >
+                        <SubIcon className="h-4 w-4" />
+                        <span>{subItem.label}</span>
+                        {subItem.badge && (
+                          <span className="ml-auto text-xs px-2 py-1 rounded-full bg-accent text-accent-foreground">
+                            {subItem.badge}
+                          </span>
+                        )}
+                      </Link>
+                    );
+                  })}
+                </div>
               )}
-              data-testid={`nav-${item.label.toLowerCase()}`}
-            >
-              <Icon className="h-4 w-4" />
-              <span>{item.label}</span>
-              {item.badge && (
-                <span className="ml-auto text-xs px-2 py-1 rounded-full bg-accent text-accent-foreground">
-                  {item.badge}
-                </span>
-              )}
-            </Link>
+            </div>
           );
         })}
       </nav>

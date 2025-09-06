@@ -18,13 +18,13 @@ import { formatDistanceToNow } from "date-fns";
 import type { Client } from "@shared/schema";
 import { z } from "zod";
 
-export default function Clients() {
-  const [showClientModal, setShowClientModal] = useState(false);
-  const [editingClient, setEditingClient] = useState<Client | null>(null);
+export default function Contacts() {
+  const [showContactModal, setShowContactModal] = useState(false);
+  const [editingContact, setEditingContact] = useState<Client | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: clients, isLoading } = useQuery<Client[]>({
+  const { data: contacts, isLoading } = useQuery<Client[]>({
     queryKey: ["/api/clients"],
   });
 
@@ -44,7 +44,7 @@ export default function Clients() {
     },
   });
 
-  const createClientMutation = useMutation({
+  const createContactMutation = useMutation({
     mutationFn: async (data: z.infer<typeof insertClientSchema>) => {
       const response = await apiRequest("POST", "/api/clients", data);
       return response.json();

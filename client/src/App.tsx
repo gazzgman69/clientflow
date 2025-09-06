@@ -6,7 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/not-found";
 import Dashboard from "@/pages/dashboard";
 import Leads from "@/pages/leads";
-import Clients from "@/pages/clients";
+import Contacts from "@/pages/clients";
 import Projects from "@/pages/projects";
 import Quotes from "@/pages/quotes";
 import Contracts from "@/pages/contracts";
@@ -58,7 +58,7 @@ function Router() {
                     return <LeadsKanban />;
                   }}
                 </Route>
-                <Route path="/clients" component={Clients} />
+                <Route path="/clients" component={Contacts} />
                 <Route path="/projects/:id" component={ProjectDetail} />
                 <Route path="/projects" component={Projects} />
                 <Route path="/members" component={Members} />

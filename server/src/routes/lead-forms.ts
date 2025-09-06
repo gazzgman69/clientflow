@@ -267,7 +267,38 @@ router.post('/leads/public/:slug/submit', async (req, res) => {
 
     const lead = await storage.createLead(leadData);
 
-    // TODO: Create project if specified in form settings
+    // Automatically create contact (client) from lead data
+    const contactData = {
+      firstName: formData.leadName || '',
+      lastName: '',
+      email: formData.leadEmail || '',
+      phone: formData.leadPhoneNumber || '',
+      address: formData.eventLocation || '',
+      company: formData.eventLocation || '',
+      notes: `Auto-created from lead form: ${formData.nothing || ''}`
+    };
+
+    const contact = await storage.createClient(contactData);
+
+    // Automatically create project from lead data
+    const projectData = {
+      name: `${formData.whatKindOfEventIsIt || 'Event'} - ${formData.leadName || 'Unknown'}`,
+      description: `${formData.whatKindOfEventIsIt || 'Event'} at ${formData.eventLocation || 'TBD'}`,
+      clientId: contact.id,
+      status: 'pending' as const,
+      startDate: formData.projectDate ? new Date(formData.projectDate) : null,
+      endDate: null,
+      estimatedValue: null,
+      progress: 0
+    };
+
+    const project = await storage.createProject(projectData);
+
+    // Update lead notes to reference the created contact and project
+    await storage.updateLead(lead.id, { 
+      notes: `${leadData.notes}. Auto-linked to Contact: ${contact.id} and Project: ${project.id}`
+    });
+
     // TODO: Send auto-response if template configured
     // TODO: Trigger workflows if configured
 

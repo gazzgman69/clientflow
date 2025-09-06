@@ -227,15 +227,26 @@ export default function LeadCaptureBuilder() {
       const sortedQuestions = [...prev].sort((a, b) => a.orderIndex - b.orderIndex);
       const draggedIndex = sortedQuestions.findIndex(q => q.id === draggedQuestionId);
       
-      if (draggedIndex === -1 || draggedIndex === targetIndex) {
+      if (draggedIndex === -1) {
+        return prev;
+      }
+
+      // Don't move if dropping in the same position or adjacent position
+      if (draggedIndex === targetIndex || draggedIndex === targetIndex - 1) {
         return prev;
       }
 
       // Remove the dragged question
       const [draggedQuestion] = sortedQuestions.splice(draggedIndex, 1);
       
+      // Adjust target index if dragging from above
+      let insertIndex = targetIndex;
+      if (draggedIndex < targetIndex) {
+        insertIndex = targetIndex - 1;
+      }
+      
       // Insert at new position
-      sortedQuestions.splice(targetIndex, 0, draggedQuestion);
+      sortedQuestions.splice(insertIndex, 0, draggedQuestion);
 
       // Update orderIndex for all questions
       return sortedQuestions.map((question, index) => ({

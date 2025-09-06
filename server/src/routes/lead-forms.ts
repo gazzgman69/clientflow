@@ -260,7 +260,7 @@ router.post('/leads/public/:slug/submit', async (req, res) => {
       company: formData.eventLocation || '',  // Use event location as company for now
       leadSource: formData.whatKindOfEventIsIt ? `${formData.whatKindOfEventIsIt} Event` : 'Website Form',
       notes: formData.nothing || '',  // Message field maps to notes
-      projectDate: formData.projectDate || null,  // Event date from the form
+      projectDate: formData.projectDate ? new Date(formData.projectDate) : null,  // Convert string to Date object
       status: 'new' as const,
       estimatedValue: null
     };

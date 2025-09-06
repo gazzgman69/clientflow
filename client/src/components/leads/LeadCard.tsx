@@ -1,6 +1,6 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Mail, ExternalLink } from "lucide-react";
+import { Mail, ExternalLink, Trash2 } from "lucide-react";
 import { Link } from "wouter";
 
 interface LeadCardDTO {
@@ -22,9 +22,10 @@ interface LeadCardProps {
   onClick?: () => void;
   draggable?: boolean;
   onDragStart?: (e: React.DragEvent, leadId: string) => void;
+  onDelete?: (leadId: string) => void;
 }
 
-export default function LeadCard({ lead, onClick, draggable = false, onDragStart }: LeadCardProps) {
+export default function LeadCard({ lead, onClick, draggable = false, onDragStart, onDelete }: LeadCardProps) {
   const formatDate = (dateString: string | null) => {
     if (!dateString) return "No date";
     return new Date(dateString).toLocaleDateString('en-GB');
@@ -63,11 +64,28 @@ export default function LeadCard({ lead, onClick, draggable = false, onDragStart
             <h3 className="font-medium text-sm">{lead.contactName}</h3>
           )}
         </div>
-        {lead.hasConflict && (
-          <Badge variant="destructive" className="text-xs ml-2">
-            Date conflict
-          </Badge>
-        )}
+        <div className="flex items-center gap-2">
+          {lead.hasConflict && (
+            <Badge variant="destructive" className="text-xs">
+              Date conflict
+            </Badge>
+          )}
+          {onDelete && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive"
+              onClick={(e) => {
+                e.stopPropagation();
+                onDelete(lead.id);
+              }}
+              title="Delete Lead"
+              data-testid={`delete-lead-${lead.id}`}
+            >
+              <Trash2 className="h-3 w-3" />
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Project Date */}

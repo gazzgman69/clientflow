@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Kanban, Search, Mail, ExternalLink } from "lucide-react";
+import { Kanban, Search, Mail, ExternalLink, Trash2 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 
@@ -77,6 +77,33 @@ export default function LeadsInbox() {
       });
     },
   });
+
+  // Mutation to delete lead
+  const deleteLeadMutation = useMutation({
+    mutationFn: async (leadId: string) => {
+      const response = await apiRequest("DELETE", `/api/leads/${leadId}`);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/leads/inbox"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/leads/summary"] });
+      toast({
+        title: "Lead deleted",
+        description: "Lead has been deleted successfully.",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to delete lead.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleDeleteLead = (leadId: string) => {
+    deleteLeadMutation.mutate(leadId);
+  };
 
   const formatDate = (dateString: string | null) => {
     if (!dateString) return "No date";
@@ -221,6 +248,16 @@ export default function LeadsInbox() {
                               </Link>
                             </Button>
                           )}
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDeleteLead(lead.id)}
+                            disabled={deleteLeadMutation.isPending}
+                            data-testid={`delete-lead-${lead.id}`}
+                            className="text-muted-foreground hover:text-destructive"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
                         </div>
                       </TableCell>
                     </TableRow>

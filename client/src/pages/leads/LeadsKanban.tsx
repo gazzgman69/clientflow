@@ -85,6 +85,33 @@ export default function LeadsKanban() {
     },
   });
 
+  // Mutation to delete lead
+  const deleteLeadMutation = useMutation({
+    mutationFn: async (leadId: string) => {
+      const response = await apiRequest("DELETE", `/api/leads/${leadId}`);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/leads/kanban"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/leads/summary"] });
+      toast({
+        title: "Lead deleted",
+        description: "Lead has been deleted successfully.",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to delete lead.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleDeleteLead = (leadId: string) => {
+    deleteLeadMutation.mutate(leadId);
+  };
+
   const handleDragStart = (e: React.DragEvent, leadId: string) => {
     setDraggedLeadId(leadId);
     e.dataTransfer.setData("text/plain", leadId);
@@ -222,6 +249,7 @@ export default function LeadsKanban() {
                           lead={lead}
                           draggable={true}
                           onDragStart={handleDragStart}
+                          onDelete={handleDeleteLead}
                         />
                       </div>
                     ))

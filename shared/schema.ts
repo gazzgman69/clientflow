@@ -29,6 +29,7 @@ export const leads = pgTable("leads", {
   assignedTo: varchar("assigned_to").references(() => users.id),
   lastContactAt: timestamp("last_contact_at"), // updated on outbound email or logged call
   lastManualStatusAt: timestamp("last_manual_status_at"), // set when status changed by a user
+  projectDate: timestamp("project_date"), // event/project date from form
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });

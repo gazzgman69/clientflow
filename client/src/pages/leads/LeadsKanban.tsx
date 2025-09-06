@@ -310,11 +310,8 @@ export default function LeadsKanban() {
                             if (lead.projectId) {
                               window.open(`/projects/${lead.projectId}`, '_blank');
                             } else {
-                              // Show lead details in a toast for leads without projects
-                              toast({
-                                title: "Lead Details",
-                                description: `${lead.contactName} - ${lead.email} - Event: ${formatDate(lead.projectDateISO)}`,
-                              });
+                              // If no project exists, navigate to the project page anyway (it will show "not found" or we can create one)
+                              window.open(`/projects/new?leadId=${lead.id}`, '_blank');
                             }
                           }}
                         />

@@ -96,7 +96,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/business/metrics", async (req, res) => {
     try {
       const leads = await storage.getLeads();
-      const clients = await storage.getClients();
+      const clients = await storage.getContacts();
       const projects = await storage.getProjects();
       const quotes = await storage.getQuotes();
       const invoices = await storage.getInvoices();

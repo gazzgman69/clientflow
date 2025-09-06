@@ -1,0 +1,122 @@
+READ /docs/CONTEXT.md first.
+READ /docs/CONTEXT-UI.md next.
+
+GOAL
+Upgrade Leads UX:
+1) Default view = Kanban board (pipeline columns).
+2) Sidebar badge = count of NEW leads needing action.
+3) Top-right toggle button = “Inbox View” (email-like triage) and back to “Board View”.
+4) Conflict alerts = red badge on each lead card if project date conflicts.
+
+SCOPE (CREATE/EDIT ONLY)
+  - server/src/routes/leads.ts
+  - server/src/services/lead.ts
+  - server/src/db/schema.ts            // only if small enum additions are needed
+  - web/src/pages/leads/LeadsKanban.tsx
+  - web/src/pages/leads/LeadsInbox.tsx
+  - web/src/pages/leads/LeadsList.tsx  // header actions + default route redirect → Kanban
+  - web/src/components/leads/LeadCard.tsx
+  - web/src/components/Sidebar.tsx      // sidebar badge
+  - web/src/router.tsx (or web/src/App.tsx)
+
+RULES
+- Do NOT add dependencies. Use native HTML5 drag & drop (no dnd libs).
+- Respect dd/MM/yyyy format.
+- Keep existing styling (shadcn + Tailwind). Use existing icons if available.
+
+DATA / MODEL
+Assume `leads` has `status` ("new"|"contacted"|"qualified"|"archived") and `createdAt`, `projectId`, `contactId`, `service`, `message`.
+Assume `projects` has `projectDate` (nullable date) and `status` ("lead"|"active"|...).
+
+If enums differ, map to these four pipeline stages on the server:
+  STAGES = ["new","contacted","qualified","archived"]
+
+BACKEND — Endpoints (add if missing)
+1) GET  /api/leads/kanban
+   → { columns: { new: LeadCardDTO[], contacted:[], qualified:[], archived:[] }, counts: { new: number } }
+   LeadCardDTO: { id, contactName, email, phone, projectId, projectTitle, projectDateISO, source, createdAtISO, status, hasConflict:boolean }
+
+2) PATCH /api/leads/:id/status
+   Body: { status: "new"|"contacted"|"qualified"|"archived" }
+   → { ok:true }
+
+3) GET  /api/leads/inbox?limit=50&cursor=
+   → { items: LeadCardDTO[], nextCursor?: string, counts:{ new:number } }
+
+4) GET  /api/leads/summary
+   → { counts:{ new:number, total:number } }
+
+CONFLICT DETECTION (server/services/lead.ts)
+- hasConflict = true if project.projectDate is set AND EXISTS another project with same date (same day) that is “active” OR belongs to another lead with same date.
+- Use DATE only comparison (ignore time). Postgres: DATE(projectDate) = DATE($1).
+- Return hasConflict per lead.
+
+FRONTEND — Components
+A) LeadCard.tsx
+- Compact card showing:
+  - Name (contactName) → clicking opens /projects/:projectId
+  - Project Date (dd/MM/yyyy or “No date”)
+  - Source (small muted)
+  - Status badge
+  - **Conflict badge**: red pill “Date conflict” if hasConflict
+  - Quick actions (icon buttons): Email (mailto:), View Project
+- Props: LeadCardDTO; onClick?; draggable if provided.
+
+B) LeadsKanban.tsx (default route)
+- Columns: New, Contacted, Qualified, Archived.
+- Fetch /api/leads/kanban on mount.
+- Native drag & drop:
+  - each LeadCard has draggable attrs (draggable, onDragStart sets dataTransfer with leadId)
+  - each column has onDragOver preventDefault + onDrop → PATCH /api/leads/:id/status then optimistically move card.
+- Column headers show counts.
+- Top-right button: “Inbox View” (variant="outline") → navigate /leads/inbox
+- Persisted order: store order in-memory only (no persistence needed now).
+
+C) LeadsInbox.tsx
+- Email-like list for quick triage of NEW leads (default filter status=new).
+- Search box filters by name/email/service.
+- Row shows Name, Received (dd/MM/yyyy), Project Date, Source, **Conflict badge** if applicable.
+- Row actions: “Mark Contacted” (PATCH status=contacted), “Open Project”.
+- Pagination via /api/leads/inbox.
+
+D) LeadsList.tsx (wrapper for legacy page)
+- If currently used at /leads, redirect immediately to /leads/board.
+- Provide header with title “Leads” and actions area. Add:
+   - On /leads/board → show “Inbox View” button (→ /leads/inbox).
+   - On /leads/inbox → show “Board View” button (→ /leads/board).
+
+E) Routing
+- /leads           → redirect to /leads/board
+- /leads/board    → <LeadsKanban/>
+- /leads/inbox    → <LeadsInbox/>
+
+F) Sidebar Badge
+- Sidebar “Leads” item shows a pill with `counts.new` from /api/leads/summary.
+- Poll every 60s (lightweight) or refresh on focus.
+
+UX DETAILS
+- All dates render with toLocaleDateString('en-GB').
+- Show toast on drag update failure and revert card.
+- Empty states per column (“Drop leads here”).
+- Keep accessibility: draggable elements have aria-grabbed and keyboard hint.
+
+DELIVERABLES (DIFF-ONLY MODE)
+1) Brief plan (≤6 bullets) listing files touched and how conflict is calculated.
+2) Unified diffs for ONLY the files in SCOPE.
+3) Manual test checklist:
+   - Sidebar shows New count badge.
+   - /leads → lands on Kanban Board with the four columns.
+   - Drag a card from New → Contacted → status updates & persists.
+   - Click “Inbox View” → triage list; “Board View” returns.
+   - Conflict badge shows on cards that share a date with another project.
+4) curl tests:
+   - curl GET  https://<HOST>/api/leads/kanban
+   - curl PATCH https://<HOST>/api/leads/<ID>/status -H "Content-Type: application/json" -d '{"status":"contacted"}'
+   - curl GET  https://<HOST>/api/leads/summary
+
+ACCEPTANCE
+- Default leads route shows Kanban.
+- Sidebar badge increments when a new lead arrives (after refresh or 60s poll).
+- Inbox View available from top-right; supports quick status change.
+- Conflict alerts are visible as red badges on cards/rows.
+- No new dependencies; build clean.

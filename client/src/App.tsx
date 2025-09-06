@@ -17,6 +17,8 @@ import Automations from "@/pages/automations";
 import Settings from "@/pages/settings";
 import Templates from "@/pages/settings/Templates";
 import LeadCaptureBuilder from "@/pages/leads/LeadCaptureBuilder";
+import LeadsKanban from "@/pages/leads/LeadsKanban";
+import LeadsInbox from "@/pages/leads/LeadsInbox";
 import LeadFormHosted from "@/pages/public/LeadFormHosted";
 import Members from "@/pages/members";
 import Venues from "@/pages/venues";
@@ -45,7 +47,15 @@ function Router() {
               <Switch>
                 <Route path="/" component={Dashboard} />
                 <Route path="/leads/capture" component={LeadCaptureBuilder} />
-                <Route path="/leads" component={Leads} />
+                <Route path="/leads/board" component={LeadsKanban} />
+                <Route path="/leads/inbox" component={LeadsInbox} />
+                <Route path="/leads">
+                  {() => {
+                    // Redirect /leads to /leads/board
+                    window.history.replaceState(null, '', '/leads/board');
+                    return <LeadsKanban />;
+                  }}
+                </Route>
                 <Route path="/clients" component={Clients} />
                 <Route path="/projects" component={Projects} />
                 <Route path="/members" component={Members} />

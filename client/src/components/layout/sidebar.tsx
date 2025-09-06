@@ -1,18 +1,20 @@
 import { Link, useLocation } from "wouter";
+import { useQuery } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 import { 
   BarChart3, Users, UserPlus, Briefcase, FileText, 
   File, Receipt, Calendar, Bot, Settings,
   Music, MapPin, FolderOpen 
 } from "lucide-react";
+import { apiRequest } from "@/lib/queryClient";
 
-const navigationItems = [
+const staticNavigationItems = [
   { href: "/", icon: BarChart3, label: "Dashboard", badge: null },
   { 
     href: "/leads", 
     icon: UserPlus, 
     label: "Leads", 
-    badge: 23,
+    badge: null, // Will be populated dynamically
     subItems: [
       { href: "/leads/capture", icon: FileText, label: "Lead Capture Forms", badge: null }
     ]
@@ -29,6 +31,28 @@ const navigationItems = [
 
 export default function Sidebar() {
   const [location] = useLocation();
+
+  // Fetch leads summary for new leads count
+  const { data: leadsSummary } = useQuery({
+    queryKey: ["/api/leads/summary"],
+    queryFn: async () => {
+      const response = await apiRequest("GET", "/api/leads/summary");
+      return response.json();
+    },
+    refetchInterval: 60000, // Poll every 60 seconds
+    refetchOnWindowFocus: true,
+  });
+
+  // Create navigation items with dynamic badge for leads
+  const navigationItems = staticNavigationItems.map(item => {
+    if (item.label === "Leads") {
+      return {
+        ...item,
+        badge: leadsSummary?.counts?.new || null
+      };
+    }
+    return item;
+  });
 
   return (
     <div className="w-64 bg-card border-r border-border flex flex-col">

@@ -195,7 +195,165 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Leads
+  // Helper function to map lead status to pipeline stages
+  const mapStatusToPipeline = (status: string): string => {
+    switch (status) {
+      case 'new': return 'new';
+      case 'qualified': return 'qualified';
+      case 'follow-up': return 'contacted';
+      case 'converted':
+      case 'lost': return 'archived';
+      default: return 'new';
+    }
+  };
+
+  // Helper function to detect conflicts
+  const detectConflicts = async (leads: any[]): Promise<any[]> => {
+    const leadsWithProjects = await Promise.all(
+      leads.map(async (lead) => {
+        if (!lead.projectId) {
+          return { ...lead, hasConflict: false };
+        }
+
+        const project = await storage.getProject(lead.projectId);
+        if (!project?.startDate) {
+          return { ...lead, hasConflict: false };
+        }
+
+        // Check for other projects with same date
+        const allProjects = await storage.getProjects();
+        const conflictingProjects = allProjects.filter(p => 
+          p.id !== project.id && 
+          p.startDate && 
+          new Date(p.startDate).toDateString() === new Date(project.startDate).toDateString() &&
+          (p.status === 'active' || p.status === 'lead')
+        );
+
+        return { 
+          ...lead, 
+          projectDate: project.startDate,
+          projectTitle: project.name,
+          hasConflict: conflictingProjects.length > 0 
+        };
+      })
+    );
+
+    return leadsWithProjects;
+  };
+
+  // Leads - Specific routes first
+  // GET /api/leads/kanban
+  app.get("/api/leads/kanban", async (req, res) => {
+    try {
+      const leads = await storage.getLeads();
+      const leadsWithConflicts = await detectConflicts(leads);
+      
+      // Group leads by pipeline stage
+      const columns = {
+        new: [],
+        contacted: [],
+        qualified: [],
+        archived: []
+      };
+
+      const counts = { new: 0 };
+
+      for (const lead of leadsWithConflicts) {
+        const pipelineStatus = mapStatusToPipeline(lead.status);
+        const leadCardData = {
+          id: lead.id,
+          contactName: `${lead.firstName} ${lead.lastName}`.trim() || 'No Name',
+          email: lead.email,
+          phone: lead.phone,
+          projectId: lead.projectId,
+          projectTitle: lead.projectTitle || null,
+          projectDateISO: lead.projectDate || null,
+          source: lead.leadSource || 'Unknown',
+          createdAtISO: lead.createdAt,
+          status: pipelineStatus,
+          hasConflict: lead.hasConflict || false
+        };
+
+        columns[pipelineStatus].push(leadCardData);
+        
+        if (pipelineStatus === 'new') {
+          counts.new++;
+        }
+      }
+
+      res.json({ columns, counts });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch kanban data" });
+    }
+  });
+
+  // GET /api/leads/inbox
+  app.get("/api/leads/inbox", async (req, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 50;
+      const search = req.query.search as string || '';
+      
+      let leads = await storage.getLeads();
+      
+      // Filter by search term
+      if (search) {
+        leads = leads.filter(lead => 
+          lead.firstName?.toLowerCase().includes(search.toLowerCase()) ||
+          lead.lastName?.toLowerCase().includes(search.toLowerCase()) ||
+          lead.email?.toLowerCase().includes(search.toLowerCase()) ||
+          lead.leadSource?.toLowerCase().includes(search.toLowerCase())
+        );
+      }
+
+      // Sort by newest first
+      leads.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      
+      // Apply limit
+      const paginatedLeads = leads.slice(0, limit);
+      const leadsWithConflicts = await detectConflicts(paginatedLeads);
+      
+      const items = leadsWithConflicts.map(lead => ({
+        id: lead.id,
+        contactName: `${lead.firstName} ${lead.lastName}`.trim() || 'No Name',
+        email: lead.email,
+        phone: lead.phone,
+        projectId: lead.projectId,
+        projectTitle: lead.projectTitle || null,
+        projectDateISO: lead.projectDate || null,
+        source: lead.leadSource || 'Unknown',
+        createdAtISO: lead.createdAt,
+        status: mapStatusToPipeline(lead.status),
+        hasConflict: lead.hasConflict || false
+      }));
+
+      const counts = { new: leads.filter(l => l.status === 'new').length };
+
+      res.json({ 
+        items, 
+        nextCursor: items.length === limit ? 'more' : null,
+        counts 
+      });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch inbox data" });
+    }
+  });
+
+  // GET /api/leads/summary
+  app.get("/api/leads/summary", async (req, res) => {
+    try {
+      const leads = await storage.getLeads();
+      const counts = {
+        new: leads.filter(l => l.status === 'new').length,
+        total: leads.length
+      };
+      
+      res.json({ counts });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch summary data" });
+    }
+  });
+
+  // General leads routes
   app.get("/api/leads", async (req, res) => {
     try {
       const leads = await storage.getLeads();
@@ -237,6 +395,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(lead);
     } catch (error) {
       res.status(400).json({ message: "Invalid lead data" });
+    }
+  });
+
+  // PATCH /api/leads/:id/status
+  app.patch("/api/leads/:id/status", async (req, res) => {
+    try {
+      const { status } = req.body;
+      
+      // Validate status
+      const validStatuses = ['new', 'contacted', 'qualified', 'archived'];
+      if (!validStatuses.includes(status)) {
+        return res.status(400).json({ message: "Invalid status" });
+      }
+
+      // Map pipeline status back to lead status
+      let leadStatus = status;
+      if (status === 'contacted') leadStatus = 'follow-up';
+      if (status === 'archived') leadStatus = 'converted';
+
+      const lead = await storage.updateLead(req.params.id, { status: leadStatus });
+      if (!lead) {
+        return res.status(404).json({ message: "Lead not found" });
+      }
+      
+      res.json({ ok: true });
+    } catch (error) {
+      res.status(400).json({ message: "Failed to update lead status" });
     }
   });
 

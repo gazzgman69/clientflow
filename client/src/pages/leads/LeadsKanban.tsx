@@ -254,6 +254,11 @@ export default function LeadsKanban() {
                           draggable={true}
                           onDragStart={handleDragStart}
                           onDelete={handleDeleteLead}
+                          onClick={() => {
+                            if (lead.projectId) {
+                              window.open(`/projects/${lead.projectId}`, '_blank');
+                            }
+                          }}
                         />
                       </div>
                     ))

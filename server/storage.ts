@@ -1614,11 +1614,33 @@ export class DrizzleStorage implements IStorage {
   async getUserByUsername(username: string) { return this.memStorage.getUserByUsername(username); }
   async createUser(user: InsertUser) { return this.memStorage.createUser(user); }
   
-  async getLeads() { return this.memStorage.getLeads(); }
-  async getLead(id: string) { return this.memStorage.getLead(id); }
-  async createLead(lead: InsertLead) { return this.memStorage.createLead(lead); }
-  async updateLead(id: string, lead: Partial<InsertLead>) { return this.memStorage.updateLead(id, lead); }
-  async deleteLead(id: string) { return this.memStorage.deleteLead(id); }
+  async getLeads(): Promise<Lead[]> {
+    return await db.select().from(leads).orderBy(desc(leads.createdAt));
+  }
+  async getLead(id: string): Promise<Lead | undefined> {
+    const result = await db.select().from(leads).where(eq(leads.id, id));
+    return result[0];
+  }
+  async createLead(insertLead: InsertLead): Promise<Lead> {
+    const result = await db.insert(leads).values({
+      ...insertLead,
+      status: insertLead.status ?? 'new',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    }).returning();
+    return result[0];
+  }
+  async updateLead(id: string, leadUpdate: Partial<InsertLead>): Promise<Lead | undefined> {
+    const result = await db.update(leads).set({
+      ...leadUpdate,
+      updatedAt: new Date(),
+    }).where(eq(leads.id, id)).returning();
+    return result[0];
+  }
+  async deleteLead(id: string): Promise<boolean> {
+    const result = await db.delete(leads).where(eq(leads.id, id));
+    return result.rowCount > 0;
+  }
   
   async getClients() { return this.memStorage.getClients(); }
   async getClient(id: string) { return this.memStorage.getClient(id); }

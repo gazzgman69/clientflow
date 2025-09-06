@@ -364,6 +364,37 @@ export const events = pgTable("events", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// Templates table for auto-responders, emails, invoices, contracts
+export const templates = pgTable("templates", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  type: text("type").notNull(), // auto_responder, email, invoice, contract
+  title: text("title").notNull(),
+  subject: text("subject"), // nullable - for email types
+  body: text("body").notNull(), // can include tokens like {{contact.firstName}}, {{project.title}}, {{project.date}}
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Lead Capture Forms table
+export const leadCaptureForms = pgTable("lead_capture_forms", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  slug: text("slug").notNull().unique(),
+  autoResponseTemplateId: varchar("auto_response_template_id").references(() => templates.id),
+  notification: text("notification").notNull().default('email'), // email, sms
+  calendarId: varchar("calendar_id").references(() => calendarIntegrations.id),
+  lifecycleId: varchar("lifecycle_id"), // store id only (TODO automate later)
+  workflowId: varchar("workflow_id"), // store id only (TODO automate later)
+  contactTags: text("contact_tags"), // CSV for now (TODO normalize)
+  projectTags: text("project_tags"), // CSV for now (TODO normalize)
+  recaptchaEnabled: boolean("recaptcha_enabled").default(false),
+  isActive: boolean("is_active").default(true),
+  createdBy: varchar("created_by").references(() => users.id).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // Insert schemas
 export const insertUserSchema = createInsertSchema(users).omit({ id: true, createdAt: true });
 export const insertLeadSchema = createInsertSchema(leads).omit({ id: true, createdAt: true, updatedAt: true });
@@ -397,6 +428,8 @@ export const insertEventSchema = createInsertSchema(events).omit({ id: true, cre
 });
 export const insertCalendarIntegrationSchema = createInsertSchema(calendarIntegrations).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertCalendarSyncLogSchema = createInsertSchema(calendarSyncLog).omit({ id: true, startedAt: true });
+export const insertTemplateSchema = createInsertSchema(templates).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertLeadCaptureFormSchema = createInsertSchema(leadCaptureForms).omit({ id: true, createdAt: true, updatedAt: true });
 
 // Types
 export type User = typeof users.$inferSelect;
@@ -445,3 +478,7 @@ export type CalendarIntegration = typeof calendarIntegrations.$inferSelect;
 export type InsertCalendarIntegration = z.infer<typeof insertCalendarIntegrationSchema>;
 export type CalendarSyncLog = typeof calendarSyncLog.$inferSelect;
 export type InsertCalendarSyncLog = z.infer<typeof insertCalendarSyncLogSchema>;
+export type Template = typeof templates.$inferSelect;
+export type InsertTemplate = z.infer<typeof insertTemplateSchema>;
+export type LeadCaptureForm = typeof leadCaptureForms.$inferSelect;
+export type InsertLeadCaptureForm = z.infer<typeof insertLeadCaptureFormSchema>;

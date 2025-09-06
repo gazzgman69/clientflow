@@ -10,6 +10,7 @@ import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Plus, Settings, Eye, Copy, Trash2, FileText, GripVertical, Code, ExternalLink } from "lucide-react";
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest } from '@/lib/queryClient';
@@ -124,12 +125,37 @@ export default function LeadCaptureBuilder() {
     },
   });
 
+  // Delete form mutation
+  const deleteFormMutation = useMutation({
+    mutationFn: async (formId: string) => {
+      const response = await apiRequest('DELETE', `/api/admin/lead-forms/${formId}`);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/lead-forms'] });
+      if (selectedFormId === deleteFormMutation.variables) {
+        setSelectedFormId(null);
+        setFormDetails(null);
+        setQuestions([]);
+      }
+      toast({ title: 'Form deleted successfully' });
+    },
+    onError: () => {
+      toast({ title: 'Failed to delete form', variant: 'destructive' });
+    },
+  });
+
   const handleCreateForm = () => {
     createFormMutation.mutate('New Capture Form');
   };
 
   const handleSaveForm = () => {
     saveFormMutation.mutate();
+  };
+
+  const handleDeleteForm = (formId: string, e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent form selection when clicking delete
+    deleteFormMutation.mutate(formId);
   };
 
   const handlePreview = () => {
@@ -254,17 +280,51 @@ export default function LeadCaptureBuilder() {
                     <div
                       key={form.id}
                       onClick={() => setSelectedFormId(form.id)}
-                      className={`p-3 rounded-lg border cursor-pointer transition-colors ${
+                      className={`group p-3 rounded-lg border cursor-pointer transition-colors ${
                         selectedFormId === form.id 
                           ? 'bg-primary/10 border-primary' 
                           : 'hover:bg-muted/50'
                       }`}
                       data-testid={`form-item-${form.id}`}
                     >
-                      <h4 className="font-medium text-sm">{form.title}</h4>
-                      <p className="text-xs text-muted-foreground">
-                        Updated {formatDate(form.updatedAt)}
-                      </p>
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <h4 className="font-medium text-sm">{form.title}</h4>
+                          <p className="text-xs text-muted-foreground">
+                            Updated {formatDate(form.updatedAt)}
+                          </p>
+                        </div>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="opacity-0 group-hover:opacity-100 transition-opacity h-6 w-6 p-0"
+                              data-testid={`button-delete-form-${form.id}`}
+                            >
+                              <Trash2 className="h-3 w-3 text-destructive" />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Delete Form</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Are you sure you want to delete "{form.title}"? This action cannot be undone and will permanently remove the form and all its submissions.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+                              <AlertDialogAction
+                                onClick={(e) => handleDeleteForm(form.id, e)}
+                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                data-testid={`confirm-delete-form-${form.id}`}
+                              >
+                                Delete Form
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </div>
                     </div>
                   ))
                 )}

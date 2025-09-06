@@ -250,15 +250,15 @@ router.post('/leads/public/:slug/submit', async (req, res) => {
       return res.status(404).json({ error: 'Form not found' });
     }
 
-    // Create lead from form submission
+    // Create lead from form submission - map new form fields to lead fields
     const leadData = {
-      firstName: formData.firstName || '',
-      lastName: formData.lastName || '',
-      email: formData.email || '',
-      phone: formData.phone || '',
-      company: formData.company || '',
-      leadSource: formData.leadSource || 'Website Form',
-      notes: formData.notes || '',
+      firstName: formData.leadName || '',  // Full name in firstName field
+      lastName: '',  // We only collect full name now
+      email: formData.leadEmail || '',
+      phone: formData.leadPhoneNumber || '',
+      company: formData.eventLocation || '',  // Use event location as company for now
+      leadSource: formData.whatKindOfEventIsIt ? `${formData.whatKindOfEventIsIt} Event` : 'Website Form',
+      notes: formData.nothing || '',  // Message field maps to notes
       status: 'new' as const,
       estimatedValue: null
     };

@@ -35,7 +35,7 @@ export const leads = pgTable("leads", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
-export const clients = pgTable("clients", {
+export const contacts = pgTable("contacts", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   firstName: text("first_name").notNull(),
   lastName: text("last_name").notNull(),
@@ -56,7 +56,7 @@ export const projects = pgTable("projects", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   name: text("name").notNull(),
   description: text("description"),
-  clientId: varchar("client_id").references(() => clients.id).notNull(),
+  contactId: varchar("contact_id").references(() => contacts.id).notNull(),
   status: text("status").notNull().default('active'), // active, completed, on-hold, cancelled
   progress: integer("progress").default(0), // 0-100
   startDate: timestamp("start_date"),
@@ -71,7 +71,7 @@ export const projects = pgTable("projects", {
 export const quotes = pgTable("quotes", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   quoteNumber: text("quote_number").notNull().unique(),
-  clientId: varchar("client_id").references(() => clients.id),
+  contactId: varchar("contact_id").references(() => contacts.id),
   leadId: varchar("lead_id").references(() => leads.id),
   title: text("title").notNull(),
   description: text("description"),
@@ -90,7 +90,7 @@ export const quotes = pgTable("quotes", {
 export const contracts = pgTable("contracts", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   contractNumber: text("contract_number").notNull().unique(),
-  clientId: varchar("client_id").references(() => clients.id).notNull(),
+  contactId: varchar("contact_id").references(() => contacts.id).notNull(),
   projectId: varchar("project_id").references(() => projects.id),
   quoteId: varchar("quote_id").references(() => quotes.id),
   title: text("title").notNull(),
@@ -108,7 +108,7 @@ export const contracts = pgTable("contracts", {
 export const invoices = pgTable("invoices", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   invoiceNumber: text("invoice_number").notNull().unique(),
-  clientId: varchar("client_id").references(() => clients.id).notNull(),
+  contactId: varchar("contact_id").references(() => contacts.id).notNull(),
   projectId: varchar("project_id").references(() => projects.id),
   contractId: varchar("contract_id").references(() => contracts.id),
   title: text("title").notNull(),
@@ -135,7 +135,7 @@ export const tasks = pgTable("tasks", {
   completedAt: timestamp("completed_at"),
   assignedTo: varchar("assigned_to").references(() => users.id),
   leadId: varchar("lead_id").references(() => leads.id),
-  clientId: varchar("client_id").references(() => clients.id),
+  contactId: varchar("contact_id").references(() => contacts.id),
   projectId: varchar("project_id").references(() => projects.id),
   createdBy: varchar("created_by").references(() => users.id).notNull(),
   createdAt: timestamp("created_at").defaultNow(),
@@ -153,7 +153,7 @@ export const emails = pgTable("emails", {
   status: text("status").notNull().default('draft'), // draft, sent, delivered, bounced, failed
   threadId: varchar("thread_id"),
   leadId: varchar("lead_id").references(() => leads.id),
-  clientId: varchar("client_id").references(() => clients.id),
+  contactId: varchar("contact_id").references(() => contacts.id),
   projectId: varchar("project_id").references(() => projects.id),
   sentBy: varchar("sent_by").references(() => users.id),
   sentAt: timestamp("sent_at"),
@@ -170,7 +170,7 @@ export const smsMessages = pgTable("sms_messages", {
   twilioSid: text("twilio_sid"), // Twilio message SID for tracking
   threadId: varchar("thread_id"),
   leadId: varchar("lead_id").references(() => leads.id),
-  clientId: varchar("client_id").references(() => clients.id),
+  contactId: varchar("contact_id").references(() => contacts.id),
   projectId: varchar("project_id").references(() => projects.id),
   sentBy: varchar("sent_by").references(() => users.id),
   sentAt: timestamp("sent_at"),
@@ -196,7 +196,7 @@ export const messageThreads = pgTable("message_threads", {
   subject: text("subject"),
   participants: text("participants").array().notNull(), // Phone numbers or emails
   leadId: varchar("lead_id").references(() => leads.id),
-  clientId: varchar("client_id").references(() => clients.id),
+  contactId: varchar("contact_id").references(() => contacts.id),
   projectId: varchar("project_id").references(() => projects.id),
   lastMessageAt: timestamp("last_message_at"),
   createdAt: timestamp("created_at").defaultNow(),
@@ -355,7 +355,7 @@ export const events = pgTable("events", {
   status: text("status").notNull().default('confirmed'), // confirmed, tentative, cancelled
   priority: text("priority").notNull().default('medium'), // low, medium, high, urgent
   leadId: varchar("lead_id").references(() => leads.id),
-  clientId: varchar("client_id").references(() => clients.id),
+  contactId: varchar("contact_id").references(() => contacts.id),
   projectId: varchar("project_id").references(() => projects.id),
   assignedTo: varchar("assigned_to").references(() => users.id),
   createdBy: varchar("created_by").references(() => users.id).notNull(),

@@ -228,7 +228,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const allProjects = await storage.getProjects();
         const conflictingProjects = allProjects.filter(p => 
           p.id !== project.id && 
-          p.startDate && 
+          p.startDate && project.startDate &&
           new Date(p.startDate).toDateString() === new Date(project.startDate).toDateString() &&
           (p.status === 'active' || p.status === 'lead')
         );

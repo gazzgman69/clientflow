@@ -148,6 +148,11 @@ export default function LeadsKanban() {
     return date.toLocaleTimeString('en-GB', { hour12: false });
   };
 
+  const formatDate = (dateString: string | null) => {
+    if (!dateString) return "No date";
+    return new Date(dateString).toLocaleDateString('en-GB');
+  };
+
   const handleDragStart = (e: React.DragEvent, leadId: string) => {
     setDraggedLeadId(leadId);
     e.dataTransfer.setData("text/plain", leadId);
@@ -304,6 +309,12 @@ export default function LeadsKanban() {
                           onClick={() => {
                             if (lead.projectId) {
                               window.open(`/projects/${lead.projectId}`, '_blank');
+                            } else {
+                              // Show lead details in a toast for leads without projects
+                              toast({
+                                title: "Lead Details",
+                                description: `${lead.contactName} - ${lead.email} - Event: ${formatDate(lead.projectDateISO)}`,
+                              });
                             }
                           }}
                         />

@@ -1,0 +1,154 @@
+READ /docs/CONTEXT.md first.
+READ /docs/CONTEXT-UI.md next.
+
+GOAL
+Update Lead Capture Builder to use centralized Templates and prep for future SMS:
+1) Add a Settings > Templates hub with types: auto_responder, email, invoice, contract.
+2) In Lead Capture Builder, “Auto-response” must select from Templates(type=auto_responder), with token preview.
+3) “Notification” supports Email (works now) and SMS (store selection; UI notes “coming soon”).
+4) Use existing calendars list (Google sync already working) in the form details selector.
+5) Keep branding for later; dates show dd/MM/yyyy.
+
+SCOPE (CREATE/EDIT ONLY)
+  - server/src/db/schema.ts
+  - server/src/services/templates.ts
+  - server/src/routes/templates.ts
+  - server/src/services/lead.ts
+  - server/src/routes/leads.ts
+  - server/routes.ts
+  - web/src/pages/settings/Templates.tsx
+  - web/src/pages/leads/LeadCaptureBuilder.tsx
+  - web/src/components/leads/InstallFormMenu.tsx
+  - web/src/pages/public/LeadFormHosted.tsx
+  - web/src/router.tsx (or web/src/App.tsx)
+  - web/src/components/nav/*  // add Settings > Templates link
+
+RULES
+- Do NOT add dependencies or modify package.json.
+- Use Drizzle ORM; reuse existing contacts/projects/notes/calendars tables.
+- Respect dd/MM/yyyy in all UI.
+
+DATA MODEL (Drizzle) — ADD if missing
+1) templates
+   - id (pk)
+   - type ("auto_responder" | "email" | "invoice" | "contract")
+   - title (text)
+   - subject (text nullable)
+   - body (text)              // can include tokens like {{contact.firstName}}, {{project.title}}, {{project.date}}
+   - isActive (boolean default true)
+   - createdAt, updatedAt
+
+2) Amend lead_capture_forms (from earlier task) — ensure fields exist:
+   - autoResponseTemplateId (text or uuid nullable)   // reference templates.id
+   - notification ("email" | "sms") default "email"    // SMS not implemented yet; store selection
+   - calendarId (nullable)                             // must match existing calendars table id
+   - lifecycleId (nullable)                            // store id only (TODO automate later)
+   - workflowId (nullable)                             // store id only (TODO automate later)
+   - contactTags (text)    // CSV for now (TODO normalize)
+   - projectTags (text)    // CSV for now (TODO normalize)
+   - recaptchaEnabled (boolean default false)          // toggle only (TODO verify later)
+
+BACKEND
+A) Templates service & routes
+- server/src/services/templates.ts
+  • listTemplates({ type?, q? })
+  • getTemplate(id)
+  • createTemplate({ type, title, subject?, body })
+  • updateTemplate(id, { title?, subject?, body?, isActive? })
+  • softDeleteTemplate(id)
+
+- server/src/routes/templates.ts
+  • GET   /api/admin/templates?type=&q=
+  • GET   /api/admin/templates/:id
+  • POST  /api/admin/templates
+  • PATCH /api/admin/templates/:id
+  • DELETE /api/admin/templates/:id
+  All require req.user?.id else 401.
+
+B) Lead service (augment existing)
+- When public submission occurs:
+  • If form.autoResponseTemplateId set, render template with tokens:
+      - {{contact.firstName}}, {{contact.lastName}}, {{contact.email}}
+      - {{project.title}}, {{project.date}} (format dd/MM/yyyy), {{project.id}}
+      - {{lead.service}}, {{lead.message}}
+    NOTE: if email service exists, send; otherwise log “TODO send auto-response” with rendered subject/body.
+
+C) Leads routes (augment existing)
+- Ensure admin GET/POST/PATCH for forms includes:
+  • notification, autoResponseTemplateId, calendarId, lifecycleId, workflowId, contactTags, projectTags, recaptchaEnabled.
+- Public endpoints unchanged except auto-response now pulls from templates.
+
+D) Mount in server/routes.ts
+- app.use('/api', templatesRouter)
+- Keep express.json() and session middleware ordering intact.
+
+FRONTEND
+
+E) Settings > Templates page (web/src/pages/settings/Templates.tsx)
+- Left: type filter tabs: Auto Responders | Emails | Invoices | Contracts
+- Top-right: “New Template” button.
+- List: Title, Updated (dd/MM/yyyy), Active toggle, Actions (Edit/Delete).
+- Editor Modal:
+  • Fields: Title, Subject (hide for non-email types except auto_responder), Body (textarea with token helper)
+  • Token helper dropdown inserts tokens at cursor ({{contact.firstName}} etc.)
+  • Save/Cancel.
+
+F) LeadCaptureBuilder (web/src/pages/leads/LeadCaptureBuilder.tsx)
+- In “Form Details”:
+  • Notification: Select with options:
+      - Email
+      - SMS (coming soon)  // disabled note in helper text but selection can be stored; future use
+  • Auto-response:
+      - Radio: None | Use Template
+      - If “Use Template”: dropdown loads Templates where type="auto_responder" & isActive=true
+      - “Preview” button opens modal showing rendered example with mock tokens
+  • Calendar: dropdown from existing calendars store/service (read-only list of ids+names)
+  • Lifecycle: dropdown placeholder; stores ID only
+  • Workflow: dropdown placeholder; stores ID only
+  • Tags: contact & project tags inputs (comma-separated chips); save as CSV (TODO normalize)
+  • Enable reCaptcha (toggle) (TODO verify later)
+  • Transparency (toggle) (stored only)
+
+- Questions section unchanged from earlier pass.
+
+G) Public Hosted Form (web/src/pages/public/LeadFormHosted.tsx)
+- No visual change; on submit, server handles auto-response via selected template.
+
+H) Routing & Nav
+- Add Settings > Templates link in settings menu.
+- Routes:
+  • /settings/templates → Templates page
+  • /leads/capture → LeadCaptureBuilder
+  • /f/:slug → Hosted form
+
+VALIDATION & DATES
+- All dates display with toLocaleDateString('en-GB') => dd/MM/yyyy.
+- Simple front-end validation for required fields and email format.
+
+TODO markers (inline comments)
+- // TODO(normalize-tags): move contactTags/projectTags to junction tables later
+- // TODO(recaptcha): wire actual verification & site keys
+- // TODO(workflow): trigger lifecycle/workflow once automation module is ready
+- // TODO(sms): implement SMS sending & templates
+
+DELIVERABLES (DIFF-ONLY MODE)
+1) Brief plan (≤6 bullets) stating whether templates table existed or was created; confirm calendars source used.
+2) Unified diffs for ONLY the files in SCOPE.
+3) Drizzle commands:
+   - npx drizzle-kit generate
+   - npx drizzle-kit migrate
+4) Admin sanity checks:
+   - Create a Template(type=auto_responder).
+   - In Lead Capture Builder, select that template and set Notification=Email, Calendar=<existing>.
+   - Save, Preview, and copy Hosted Link.
+5) Public test:
+   - Submit /f/<slug> with sample data → server logs “Auto-response sent” or “TODO send auto-response” with rendered subject/body.
+6) UI screenshots note: Settings > Templates and Auto-response selector in Lead Capture.
+
+ACCEPTANCE
+- Templates hub working (CRUD; type filter; token helper).
+- Lead forms can select an Auto-Responder template.
+- Notification stores “email” or “sms” (no SMS send yet).
+- Calendars dropdown uses existing calendars and saves calendarId.
+- Public submission creates Contact, Project(status "lead"), Lead, Note, and triggers auto-response rendering.
+- No new dependencies.

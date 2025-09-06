@@ -1854,21 +1854,69 @@ export class DrizzleStorage implements IStorage {
     return result.rowCount > 0;
   }
   
-  async getEmails() { return this.memStorage.getEmails(); }
-  async getEmail(id: string) { return this.memStorage.getEmail(id); }
-  async getEmailsByClient(clientId: string) { return this.memStorage.getEmailsByClient(clientId); }
-  async getEmailsByProject(projectId: string) { return this.memStorage.getEmailsByProject ? this.memStorage.getEmailsByProject(projectId) : []; }
-  async createEmail(email: InsertEmail) { return this.memStorage.createEmail(email); }
-  async updateEmail(id: string, email: Partial<InsertEmail>) { return this.memStorage.updateEmail(id, email); }
-  async deleteEmail(id: string) { return this.memStorage.deleteEmail ? this.memStorage.deleteEmail(id) : false; }
+  // Emails - PostgreSQL implementation
+  async getEmails() { 
+    return await this.db.select().from(emails).orderBy(desc(emails.createdAt));
+  }
+  async getEmail(id: string) { 
+    const result = await this.db.select().from(emails).where(eq(emails.id, id));
+    return result[0];
+  }
+  async getEmailsByClient(clientId: string) { 
+    return await this.db.select().from(emails).where(eq(emails.contactId, clientId));
+  }
+  async getEmailsByProject(projectId: string) { 
+    return await this.db.select().from(emails).where(eq(emails.projectId, projectId));
+  }
+  async createEmail(email: InsertEmail) { 
+    const result = await this.db.insert(emails).values({
+      ...email,
+      createdAt: new Date(),
+    }).returning();
+    return result[0];
+  }
+  async updateEmail(id: string, email: Partial<InsertEmail>) { 
+    const result = await this.db.update(emails).set(email).where(eq(emails.id, id)).returning();
+    return result[0];
+  }
+  async deleteEmail(id: string) { 
+    const result = await this.db.delete(emails).where(eq(emails.id, id));
+    return result.rowCount > 0;
+  }
   
-  async getActivities() { return this.memStorage.getActivities(); }
-  async getActivity(id: string) { return this.memStorage.getActivity ? this.memStorage.getActivity(id) : undefined; }
-  async getActivitiesByClient(clientId: string) { return this.memStorage.getActivitiesByClient ? this.memStorage.getActivitiesByClient(clientId) : []; }
-  async getActivitiesByProject(projectId: string) { return this.memStorage.getActivitiesByProject ? this.memStorage.getActivitiesByProject(projectId) : []; }
-  async createActivity(activity: InsertActivity) { return this.memStorage.createActivity(activity); }
-  async updateActivity(id: string, activity: Partial<InsertActivity>) { return this.memStorage.updateActivity ? this.memStorage.updateActivity(id, activity) : undefined; }
-  async deleteActivity(id: string) { return this.memStorage.deleteActivity ? this.memStorage.deleteActivity(id) : false; }
+  // Activities - PostgreSQL implementation
+  async getActivities() { 
+    return await this.db.select().from(activities).orderBy(desc(activities.createdAt));
+  }
+  async getActivity(id: string) { 
+    const result = await this.db.select().from(activities).where(eq(activities.id, id));
+    return result[0];
+  }
+  async getActivitiesByClient(clientId: string) { 
+    return await this.db.select().from(activities).where(eq(activities.contactId, clientId));
+  }
+  async getActivitiesByProject(projectId: string) { 
+    return await this.db.select().from(activities).where(eq(activities.projectId, projectId));
+  }
+  async createActivity(activity: InsertActivity) { 
+    const result = await this.db.insert(activities).values({
+      ...activity,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    }).returning();
+    return result[0];
+  }
+  async updateActivity(id: string, activity: Partial<InsertActivity>) { 
+    const result = await this.db.update(activities).set({
+      ...activity,
+      updatedAt: new Date(),
+    }).where(eq(activities.id, id)).returning();
+    return result[0];
+  }
+  async deleteActivity(id: string) { 
+    const result = await this.db.delete(activities).where(eq(activities.id, id));
+    return result.rowCount > 0;
+  }
   
   // Automations - PostgreSQL implementation
   async getAutomations(): Promise<Automation[]> {
@@ -2024,11 +2072,29 @@ export class DrizzleStorage implements IStorage {
     return result.rowCount > 0;
   }
   
-  async getSmsMessages() { return this.memStorage.getSmsMessages(); }
-  async getSmsMessage(id: string) { return this.memStorage.getSmsMessage(id); }
-  async createSmsMessage(message: InsertSmsMessage) { return this.memStorage.createSmsMessage(message); }
-  async updateSmsMessage(id: string, message: Partial<InsertSmsMessage>) { return this.memStorage.updateSmsMessage(id, message); }
-  async deleteSmsMessage(id: string) { return this.memStorage.deleteSmsMessage(id); }
+  // SMS Messages - PostgreSQL implementation
+  async getSmsMessages() { 
+    return await this.db.select().from(smsMessages).orderBy(desc(smsMessages.createdAt));
+  }
+  async getSmsMessage(id: string) { 
+    const result = await this.db.select().from(smsMessages).where(eq(smsMessages.id, id));
+    return result[0];
+  }
+  async createSmsMessage(message: InsertSmsMessage) { 
+    const result = await this.db.insert(smsMessages).values({
+      ...message,
+      createdAt: new Date(),
+    }).returning();
+    return result[0];
+  }
+  async updateSmsMessage(id: string, message: Partial<InsertSmsMessage>) { 
+    const result = await this.db.update(smsMessages).set(message).where(eq(smsMessages.id, id)).returning();
+    return result[0];
+  }
+  async deleteSmsMessage(id: string) { 
+    const result = await this.db.delete(smsMessages).where(eq(smsMessages.id, id));
+    return result.rowCount > 0;
+  }
   
   // Message Templates - PostgreSQL implementation
   async getMessageTemplates(): Promise<MessageTemplate[]> {
@@ -2055,22 +2121,80 @@ export class DrizzleStorage implements IStorage {
     return result.rowCount > 0;
   }
   
-  async getMessageThreads() { return this.memStorage.getMessageThreads(); }
-  async getMessageThread(id: string) { return this.memStorage.getMessageThread(id); }
-  async createMessageThread(thread: InsertMessageThread) { return this.memStorage.createMessageThread(thread); }
-  async updateMessageThread(id: string, thread: Partial<InsertMessageThread>) { return this.memStorage.updateMessageThread(id, thread); }
-  async deleteMessageThread(id: string) { return this.memStorage.deleteMessageThread(id); }
+  // Message Threads - PostgreSQL implementation
+  async getMessageThreads() { 
+    return await this.db.select().from(messageThreads).orderBy(desc(messageThreads.createdAt));
+  }
+  async getMessageThread(id: string) { 
+    const result = await this.db.select().from(messageThreads).where(eq(messageThreads.id, id));
+    return result[0];
+  }
+  async createMessageThread(thread: InsertMessageThread) { 
+    const result = await this.db.insert(messageThreads).values({
+      ...thread,
+      createdAt: new Date(),
+    }).returning();
+    return result[0];
+  }
+  async updateMessageThread(id: string, thread: Partial<InsertMessageThread>) { 
+    const result = await this.db.update(messageThreads).set(thread).where(eq(messageThreads.id, id)).returning();
+    return result[0];
+  }
+  async deleteMessageThread(id: string) { 
+    const result = await this.db.delete(messageThreads).where(eq(messageThreads.id, id));
+    return result.rowCount > 0;
+  }
   
-  async getEventsByClient(clientId: string) { return this.memStorage.getEventsByClient(clientId); }
-  async getEventsByIntegration(integrationId: string) { return this.memStorage.getEventsByIntegration(integrationId); }
-  async getEventsByProject(projectId: string) { return this.memStorage.getEventsByProject(projectId); }
+  // Events filtering methods - PostgreSQL implementation
+  async getEventsByClient(clientId: string) { 
+    return await this.db.select().from(events).where(eq(events.contactId, clientId));
+  }
+  async getEventsByIntegration(integrationId: string) { 
+    return await this.db.select().from(events).where(eq(events.calendarIntegrationId, integrationId));
+  }
+  async getEventsByProject(projectId: string) { 
+    return await this.db.select().from(events).where(eq(events.projectId, projectId));
+  }
   
-  async getCalendarSyncLogs() { return this.memStorage.getCalendarSyncLogs(); }
-  async getCalendarSyncLog(id: string) { return this.memStorage.getCalendarSyncLog(id); }
-  async createCalendarSyncLog(log: InsertCalendarSyncLog) { return this.memStorage.createCalendarSyncLog(log); }
-  async updateCalendarSyncLog(id: string, log: Partial<InsertCalendarSyncLog>) { return this.memStorage.updateCalendarSyncLog(id, log); }
+  // Calendar Sync Logs - PostgreSQL implementation
+  async getCalendarSyncLogs() { 
+    return await this.db.select().from(calendarSyncLog).orderBy(desc(calendarSyncLog.createdAt));
+  }
+  async getCalendarSyncLog(id: string) { 
+    const result = await this.db.select().from(calendarSyncLog).where(eq(calendarSyncLog.id, id));
+    return result[0];
+  }
+  async createCalendarSyncLog(log: InsertCalendarSyncLog) { 
+    const result = await this.db.insert(calendarSyncLog).values({
+      ...log,
+      createdAt: new Date(),
+    }).returning();
+    return result[0];
+  }
+  async updateCalendarSyncLog(id: string, log: Partial<InsertCalendarSyncLog>) { 
+    const result = await this.db.update(calendarSyncLog).set(log).where(eq(calendarSyncLog.id, id)).returning();
+    return result[0];
+  }
   
-  async getDashboardMetrics() { return this.memStorage.getDashboardMetrics(); }
+  // Dashboard Metrics - PostgreSQL implementation
+  async getDashboardMetrics() { 
+    // Calculate metrics from PostgreSQL data
+    const leads = await this.getLeads();
+    const contacts = await this.getContacts();
+    const projects = await this.getProjects();
+    const tasks = await this.getTasks();
+    const activities = await this.getActivities();
+    
+    return {
+      totalLeads: leads.length,
+      newLeads: leads.filter(l => l.status === 'new').length,
+      totalContacts: contacts.length,
+      activeProjects: projects.filter(p => p.status === 'active').length,
+      completedTasks: tasks.filter(t => t.status === 'completed').length,
+      pendingTasks: tasks.filter(t => t.status === 'pending').length,
+      recentActivities: activities.slice(0, 10)
+    };
+  }
   
   // Missing methods for API compatibility
   async getRecentActivities(limit: number) { 

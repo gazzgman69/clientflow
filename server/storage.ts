@@ -1752,42 +1752,159 @@ export class DrizzleStorage implements IStorage {
   async updateActivity(id: string, activity: Partial<InsertActivity>) { return this.memStorage.updateActivity ? this.memStorage.updateActivity(id, activity) : undefined; }
   async deleteActivity(id: string) { return this.memStorage.deleteActivity ? this.memStorage.deleteActivity(id) : false; }
   
-  async getAutomations() { return this.memStorage.getAutomations(); }
-  async getAutomation(id: string) { return this.memStorage.getAutomation(id); }
-  async createAutomation(automation: InsertAutomation) { return this.memStorage.createAutomation(automation); }
-  async updateAutomation(id: string, automation: Partial<InsertAutomation>) { return this.memStorage.updateAutomation(id, automation); }
-  async deleteAutomation(id: string) { return this.memStorage.deleteAutomation(id); }
+  // Automations - PostgreSQL implementation
+  async getAutomations(): Promise<Automation[]> {
+    return await this.db.select().from(automations);
+  }
+
+  async getAutomation(id: string): Promise<Automation | undefined> {
+    const result = await this.db.select().from(automations).where(eq(automations.id, id));
+    return result[0];
+  }
+
+  async createAutomation(automation: InsertAutomation): Promise<Automation> {
+    const result = await this.db.insert(automations).values(automation).returning();
+    return result[0];
+  }
+
+  async updateAutomation(id: string, automation: Partial<InsertAutomation>): Promise<Automation | undefined> {
+    const result = await this.db.update(automations).set(automation).where(eq(automations.id, id)).returning();
+    return result[0];
+  }
+
+  async deleteAutomation(id: string): Promise<boolean> {
+    const result = await this.db.delete(automations).where(eq(automations.id, id));
+    return result.rowCount > 0;
+  }
   
-  async getMembers() { return this.memStorage.getMembers(); }
-  async getMember(id: string) { return this.memStorage.getMember(id); }
-  async createMember(member: InsertMember) { return this.memStorage.createMember(member); }
-  async updateMember(id: string, member: Partial<InsertMember>) { return this.memStorage.updateMember(id, member); }
-  async deleteMember(id: string) { return this.memStorage.deleteMember(id); }
+  // Members - PostgreSQL implementation
+  async getMembers(): Promise<Member[]> {
+    return await this.db.select().from(members);
+  }
+
+  async getMember(id: string): Promise<Member | undefined> {
+    const result = await this.db.select().from(members).where(eq(members.id, id));
+    return result[0];
+  }
+
+  async createMember(member: InsertMember): Promise<Member> {
+    const result = await this.db.insert(members).values(member).returning();
+    return result[0];
+  }
+
+  async updateMember(id: string, member: Partial<InsertMember>): Promise<Member | undefined> {
+    const result = await this.db.update(members).set(member).where(eq(members.id, id)).returning();
+    return result[0];
+  }
+
+  async deleteMember(id: string): Promise<boolean> {
+    const result = await this.db.delete(members).where(eq(members.id, id));
+    return result.rowCount > 0;
+  }
   
-  async getVenues() { return this.memStorage.getVenues(); }
-  async getVenue(id: string) { return this.memStorage.getVenue(id); }
-  async createVenue(venue: InsertVenue) { return this.memStorage.createVenue(venue); }
-  async updateVenue(id: string, venue: Partial<InsertVenue>) { return this.memStorage.updateVenue(id, venue); }
-  async deleteVenue(id: string) { return this.memStorage.deleteVenue(id); }
+  // Venues - PostgreSQL implementation
+  async getVenues(): Promise<Venue[]> {
+    return await this.db.select().from(venues);
+  }
+
+  async getVenue(id: string): Promise<Venue | undefined> {
+    const result = await this.db.select().from(venues).where(eq(venues.id, id));
+    return result[0];
+  }
+
+  async createVenue(venue: InsertVenue): Promise<Venue> {
+    const result = await this.db.insert(venues).values(venue).returning();
+    return result[0];
+  }
+
+  async updateVenue(id: string, venue: Partial<InsertVenue>): Promise<Venue | undefined> {
+    const result = await this.db.update(venues).set(venue).where(eq(venues.id, id)).returning();
+    return result[0];
+  }
+
+  async deleteVenue(id: string): Promise<boolean> {
+    const result = await this.db.delete(venues).where(eq(venues.id, id));
+    return result.rowCount > 0;
+  }
   
-  async getProjectMembers(projectId: string) { return this.memStorage.getProjectMembers(projectId); }
-  async addProjectMember(projectMember: InsertProjectMember) { return this.memStorage.addProjectMember(projectMember); }
-  async removeProjectMember(projectId: string, memberId: string) { return this.memStorage.removeProjectMember(projectId, memberId); }
-  async updateProjectMemberRole(projectId: string, memberId: string, role: string) { return this.memStorage.updateProjectMemberRole(projectId, memberId, role); }
+  // Project Members - PostgreSQL implementation
+  async getProjectMembers(projectId: string): Promise<ProjectMember[]> {
+    return await this.db.select().from(projectMembers).where(eq(projectMembers.projectId, projectId));
+  }
+
+  async addProjectMember(projectMember: InsertProjectMember): Promise<ProjectMember> {
+    const result = await this.db.insert(projectMembers).values(projectMember).returning();
+    return result[0];
+  }
+
+  async removeProjectMember(projectId: string, memberId: string): Promise<boolean> {
+    const result = await this.db.delete(projectMembers)
+      .where(and(eq(projectMembers.projectId, projectId), eq(projectMembers.memberId, memberId)));
+    return result.rowCount > 0;
+  }
+
+  async updateProjectMemberRole(projectId: string, memberId: string, role: string): Promise<ProjectMember | undefined> {
+    const result = await this.db.update(projectMembers)
+      .set({ role })
+      .where(and(eq(projectMembers.projectId, projectId), eq(projectMembers.memberId, memberId)))
+      .returning();
+    return result[0];
+  }
   
-  async getMemberAvailability(memberId: string) { return this.memStorage.getMemberAvailability(memberId); }
-  async addMemberAvailability(availability: InsertMemberAvailability) { return this.memStorage.addMemberAvailability(availability); }
-  async updateMemberAvailability(id: string, availability: Partial<InsertMemberAvailability>) { return this.memStorage.updateMemberAvailability(id, availability); }
-  async deleteMemberAvailability(id: string) { return this.memStorage.deleteMemberAvailability(id); }
+  // Member Availability - PostgreSQL implementation
+  async getMemberAvailability(memberId: string): Promise<MemberAvailability[]> {
+    return await this.db.select().from(memberAvailability).where(eq(memberAvailability.memberId, memberId));
+  }
+
+  async addMemberAvailability(availability: InsertMemberAvailability): Promise<MemberAvailability> {
+    const result = await this.db.insert(memberAvailability).values(availability).returning();
+    return result[0];
+  }
+
+  async updateMemberAvailability(id: string, availability: Partial<InsertMemberAvailability>): Promise<MemberAvailability | undefined> {
+    const result = await this.db.update(memberAvailability).set(availability).where(eq(memberAvailability.id, id)).returning();
+    return result[0];
+  }
+
+  async deleteMemberAvailability(id: string): Promise<boolean> {
+    const result = await this.db.delete(memberAvailability).where(eq(memberAvailability.id, id));
+    return result.rowCount > 0;
+  }
   
-  async getProjectFiles(projectId: string) { return this.memStorage.getProjectFiles(projectId); }
-  async addProjectFile(file: InsertProjectFile) { return this.memStorage.addProjectFile(file); }
-  async deleteProjectFile(id: string) { return this.memStorage.deleteProjectFile(id); }
+  // Project Files - PostgreSQL implementation
+  async getProjectFiles(projectId: string): Promise<ProjectFile[]> {
+    return await this.db.select().from(projectFiles).where(eq(projectFiles.projectId, projectId));
+  }
+
+  async addProjectFile(file: InsertProjectFile): Promise<ProjectFile> {
+    const result = await this.db.insert(projectFiles).values(file).returning();
+    return result[0];
+  }
+
+  async deleteProjectFile(id: string): Promise<boolean> {
+    const result = await this.db.delete(projectFiles).where(eq(projectFiles.id, id));
+    return result.rowCount > 0;
+  }
   
-  async getProjectNotes(projectId: string) { return this.memStorage.getProjectNotes(projectId); }
-  async addProjectNote(note: InsertProjectNote) { return this.memStorage.addProjectNote(note); }
-  async updateProjectNote(id: string, note: Partial<InsertProjectNote>) { return this.memStorage.updateProjectNote(id, note); }
-  async deleteProjectNote(id: string) { return this.memStorage.deleteProjectNote(id); }
+  // Project Notes - PostgreSQL implementation
+  async getProjectNotes(projectId: string): Promise<ProjectNote[]> {
+    return await this.db.select().from(projectNotes).where(eq(projectNotes.projectId, projectId));
+  }
+
+  async addProjectNote(note: InsertProjectNote): Promise<ProjectNote> {
+    const result = await this.db.insert(projectNotes).values(note).returning();
+    return result[0];
+  }
+
+  async updateProjectNote(id: string, note: Partial<InsertProjectNote>): Promise<ProjectNote | undefined> {
+    const result = await this.db.update(projectNotes).set(note).where(eq(projectNotes.id, id)).returning();
+    return result[0];
+  }
+
+  async deleteProjectNote(id: string): Promise<boolean> {
+    const result = await this.db.delete(projectNotes).where(eq(projectNotes.id, id));
+    return result.rowCount > 0;
+  }
   
   async getSmsMessages() { return this.memStorage.getSmsMessages(); }
   async getSmsMessage(id: string) { return this.memStorage.getSmsMessage(id); }
@@ -1795,11 +1912,30 @@ export class DrizzleStorage implements IStorage {
   async updateSmsMessage(id: string, message: Partial<InsertSmsMessage>) { return this.memStorage.updateSmsMessage(id, message); }
   async deleteSmsMessage(id: string) { return this.memStorage.deleteSmsMessage(id); }
   
-  async getMessageTemplates() { return this.memStorage.getMessageTemplates(); }
-  async getMessageTemplate(id: string) { return this.memStorage.getMessageTemplate(id); }
-  async createMessageTemplate(template: InsertMessageTemplate) { return this.memStorage.createMessageTemplate(template); }
-  async updateMessageTemplate(id: string, template: Partial<InsertMessageTemplate>) { return this.memStorage.updateMessageTemplate(id, template); }
-  async deleteMessageTemplate(id: string) { return this.memStorage.deleteMessageTemplate(id); }
+  // Message Templates - PostgreSQL implementation
+  async getMessageTemplates(): Promise<MessageTemplate[]> {
+    return await this.db.select().from(messageTemplates);
+  }
+
+  async getMessageTemplate(id: string): Promise<MessageTemplate | undefined> {
+    const result = await this.db.select().from(messageTemplates).where(eq(messageTemplates.id, id));
+    return result[0];
+  }
+
+  async createMessageTemplate(template: InsertMessageTemplate): Promise<MessageTemplate> {
+    const result = await this.db.insert(messageTemplates).values(template).returning();
+    return result[0];
+  }
+
+  async updateMessageTemplate(id: string, template: Partial<InsertMessageTemplate>): Promise<MessageTemplate | undefined> {
+    const result = await this.db.update(messageTemplates).set(template).where(eq(messageTemplates.id, id)).returning();
+    return result[0];
+  }
+
+  async deleteMessageTemplate(id: string): Promise<boolean> {
+    const result = await this.db.delete(messageTemplates).where(eq(messageTemplates.id, id));
+    return result.rowCount > 0;
+  }
   
   async getMessageThreads() { return this.memStorage.getMessageThreads(); }
   async getMessageThread(id: string) { return this.memStorage.getMessageThread(id); }
@@ -1836,11 +1972,30 @@ export class DrizzleStorage implements IStorage {
   async getEventsByDateRange(startDate: Date, endDate: Date) { return []; }
 
   // Templates
-  async getTemplates() { return this.memStorage.getTemplates(); }
-  async getTemplate(id: string) { return this.memStorage.getTemplate(id); }
-  async createTemplate(template: InsertTemplate) { return this.memStorage.createTemplate(template); }
-  async updateTemplate(id: string, template: Partial<InsertTemplate>) { return this.memStorage.updateTemplate(id, template); }
-  async deleteTemplate(id: string) { return this.memStorage.deleteTemplate(id); }
+  // Templates - PostgreSQL implementation
+  async getTemplates(): Promise<Template[]> {
+    return await this.db.select().from(templates);
+  }
+
+  async getTemplate(id: string): Promise<Template | undefined> {
+    const result = await this.db.select().from(templates).where(eq(templates.id, id));
+    return result[0];
+  }
+
+  async createTemplate(template: InsertTemplate): Promise<Template> {
+    const result = await this.db.insert(templates).values(template).returning();
+    return result[0];
+  }
+
+  async updateTemplate(id: string, template: Partial<InsertTemplate>): Promise<Template | undefined> {
+    const result = await this.db.update(templates).set(template).where(eq(templates.id, id)).returning();
+    return result[0];
+  }
+
+  async deleteTemplate(id: string): Promise<boolean> {
+    const result = await this.db.delete(templates).where(eq(templates.id, id));
+    return result.rowCount > 0;
+  }
 
   // Lead Capture Forms - Temporarily using memory storage until database schema is properly synced
   async getLeadCaptureForms() { return this.memStorage.getLeadCaptureForms(); }

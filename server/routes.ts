@@ -233,11 +233,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
           (p.status === 'active' || p.status === 'lead')
         );
 
+        const conflictDetails = conflictingProjects.length > 0 ? {
+          count: conflictingProjects.length,
+          projectIds: conflictingProjects.slice(0, 3).map(p => p.id) // limit to first 3 ids
+        } : undefined;
+
         return { 
           ...lead, 
           projectDate: project.startDate,
           projectTitle: project.name,
-          hasConflict: conflictingProjects.length > 0 
+          hasConflict: conflictingProjects.length > 0,
+          conflictDetails
         };
       })
     );
@@ -275,7 +281,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           source: lead.leadSource || 'Unknown',
           createdAtISO: lead.createdAt,
           status: pipelineStatus,
-          hasConflict: lead.hasConflict || false
+          hasConflict: lead.hasConflict || false,
+          conflictDetails: lead.conflictDetails
         };
 
         columns[pipelineStatus].push(leadCardData);
@@ -327,7 +334,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         source: lead.leadSource || 'Unknown',
         createdAtISO: lead.createdAt,
         status: mapStatusToPipeline(lead.status),
-        hasConflict: lead.hasConflict || false
+        hasConflict: lead.hasConflict || false,
+        conflictDetails: lead.conflictDetails
       }));
 
       const counts = { new: leads.filter(l => l.status === 'new').length };

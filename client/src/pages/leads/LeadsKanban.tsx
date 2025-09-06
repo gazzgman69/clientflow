@@ -1,13 +1,14 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "wouter";
 import Header from "@/components/layout/header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Inbox } from "lucide-react";
+import { Inbox, RefreshCw } from "lucide-react";
 import LeadCard from "@/components/leads/LeadCard";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useSmartPolling } from "@/lib/useSmartPolling";
 
 interface LeadCardDTO {
   id: string;
@@ -21,6 +22,7 @@ interface LeadCardDTO {
   createdAtISO: string;
   status: 'new' | 'contacted' | 'qualified' | 'archived';
   hasConflict: boolean;
+  conflictDetails?: { count: number; projectIds: string[] };
 }
 
 interface KanbanData {
@@ -47,20 +49,67 @@ const COLUMN_ORDER: (keyof KanbanData['columns'])[] = ['new', 'contacted', 'qual
 export default function LeadsKanban() {
   const [draggedLeadId, setDraggedLeadId] = useState<string | null>(null);
   const [dragOverColumn, setDragOverColumn] = useState<string | null>(null);
+  const [flashIds, setFlashIds] = useState<Set<string>>(new Set());
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const previousDataRef = useRef<KanbanData | null>(null);
 
-  // Fetch kanban data
-  const { data: kanbanData, isLoading } = useQuery<KanbanData>({
+  // Fetch kanban data with smart polling
+  const { data: kanbanData, isLoading, refetch } = useQuery<KanbanData>({
     queryKey: ["/api/leads/kanban"],
     queryFn: async () => {
       const response = await apiRequest("GET", "/api/leads/kanban");
-      return response.json();
+      const data = await response.json();
+      
+      // Detect changes for highlighting
+      if (previousDataRef.current) {
+        const newFlashIds = new Set<string>();
+        const allPreviousIds = new Set();
+        
+        Object.values(previousDataRef.current.columns).forEach(leads => 
+          leads.forEach(lead => allPreviousIds.add(lead.id))
+        );
+        
+        Object.values(data.columns).forEach(leads => 
+          leads.forEach(lead => {
+            const wasPresent = allPreviousIds.has(lead.id);
+            if (!wasPresent) {
+              newFlashIds.add(lead.id); // New card
+            } else {
+              // Check if changed (status, date, etc.)
+              const previousLead = Object.values(previousDataRef.current!.columns)
+                .flat().find(l => l.id === lead.id);
+              if (previousLead && (
+                previousLead.status !== lead.status ||
+                previousLead.projectDateISO !== lead.projectDateISO ||
+                previousLead.contactName !== lead.contactName
+              )) {
+                newFlashIds.add(lead.id); // Changed card
+              }
+            }
+          })
+        );
+        
+        if (newFlashIds.size > 0) {
+          setFlashIds(newFlashIds);
+          setTimeout(() => setFlashIds(new Set()), 1500);
+        }
+      }
+      
+      previousDataRef.current = data;
+      return data;
     },
-    refetchInterval: 30000, // Refresh every 30 seconds to pick up new form submissions
-    refetchIntervalInBackground: true,
-    refetchOnWindowFocus: true, // Refresh when tab/window gains focus
-    refetchOnMount: true, // Refresh when component mounts
+    enabled: !draggedLeadId, // Don't refetch while dragging
+  });
+  
+  const loadKanban = async () => {
+    await refetch();
+  };
+  
+  const { refetchNow, lastUpdated, fetching } = useSmartPolling({
+    fetchFn: loadKanban,
+    visibleMs: 30000,
+    hiddenMs: 120000
   });
 
   // Mutation to update lead status
@@ -114,6 +163,48 @@ export default function LeadsKanban() {
 
   const handleDeleteLead = (leadId: string) => {
     deleteLeadMutation.mutate(leadId);
+  };
+
+  // Keyboard shortcut for refresh
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.shiftKey && (e.key === 'R' || e.key === 'r')) {
+        e.preventDefault();
+        refetchNow();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [refetchNow]);
+  
+  // Manual refresh from sidebar
+  useEffect(() => {
+    const handler = () => refetchNow();
+    window.addEventListener('leads:manual-refresh', handler);
+    return () => window.removeEventListener('leads:manual-refresh', handler);
+  }, [refetchNow]);
+  
+  // Persist view state
+  useEffect(() => {
+    const scrollY = sessionStorage.getItem('leads:board:scrollY');
+    if (scrollY) {
+      window.scrollTo(0, parseInt(scrollY, 10));
+    }
+    
+    const onScroll = () => {
+      sessionStorage.setItem('leads:board:scrollY', window.scrollY.toString());
+    };
+    
+    window.addEventListener('scroll', onScroll);
+    return () => {
+      window.removeEventListener('scroll', onScroll);
+      sessionStorage.setItem('leads:board:scrollY', window.scrollY.toString());
+    };
+  }, []);
+  
+  const formatLastUpdated = (date?: Date) => {
+    if (!date) return 'Never';
+    return date.toLocaleTimeString('en-GB', { hour12: false });
   };
 
   const handleDragStart = (e: React.DragEvent, leadId: string) => {
@@ -203,12 +294,27 @@ export default function LeadsKanban() {
         title="Leads" 
         subtitle="Kanban board view"
         actions={
-          <Button variant="outline" asChild data-testid="button-inbox-view">
-            <Link href="/leads/inbox">
-              <Inbox className="h-4 w-4 mr-2" />
-              Inbox View
-            </Link>
-          </Button>
+          <div className="flex items-center gap-3">
+            <div className="text-sm text-muted-foreground">
+              Last updated: {formatLastUpdated(lastUpdated)}
+            </div>
+            <Button 
+              variant="ghost" 
+              size="sm"
+              onClick={refetchNow}
+              disabled={fetching}
+              aria-label="Refresh leads"
+              data-testid="refresh-leads"
+            >
+              <RefreshCw className={`h-4 w-4 ${fetching ? 'animate-spin' : ''}`} />
+            </Button>
+            <Button variant="outline" asChild data-testid="button-inbox-view">
+              <Link href="/leads/inbox">
+                <Inbox className="h-4 w-4 mr-2" />
+                Inbox View
+              </Link>
+            </Button>
+          </div>
         }
       />
       

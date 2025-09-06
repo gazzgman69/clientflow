@@ -84,6 +84,11 @@ export default function Sidebar() {
                     : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
                 )}
                 data-testid={`nav-${item.label.toLowerCase()}`}
+                onClick={() => {
+                  if (item.label === 'Leads') {
+                    window.dispatchEvent(new CustomEvent('leads:manual-refresh'));
+                  }
+                }}
               >
                 <Icon className="h-4 w-4" />
                 <span>{item.label}</span>

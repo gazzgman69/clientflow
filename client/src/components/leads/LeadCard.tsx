@@ -15,6 +15,7 @@ interface LeadCardDTO {
   createdAtISO: string;
   status: 'new' | 'contacted' | 'qualified' | 'archived';
   hasConflict: boolean;
+  conflictDetails?: { count: number; projectIds: string[] };
 }
 
 interface LeadCardProps {
@@ -23,9 +24,10 @@ interface LeadCardProps {
   draggable?: boolean;
   onDragStart?: (e: React.DragEvent, leadId: string) => void;
   onDelete?: (leadId: string) => void;
+  highlightFlash?: boolean;
 }
 
-export default function LeadCard({ lead, onClick, draggable = false, onDragStart, onDelete }: LeadCardProps) {
+export default function LeadCard({ lead, onClick, draggable = false, onDragStart, onDelete, highlightFlash = false }: LeadCardProps) {
   const formatDate = (dateString: string | null) => {
     if (!dateString) return "No date";
     return new Date(dateString).toLocaleDateString('en-GB');
@@ -41,9 +43,15 @@ export default function LeadCard({ lead, onClick, draggable = false, onDragStart
     }
   };
 
+  const conflictTooltip = lead.conflictDetails ? 
+    `Date conflict with ${lead.conflictDetails.count} project${lead.conflictDetails.count > 1 ? 's' : ''}. ${lead.conflictDetails.projectIds.map(id => '/projects/' + id).join(' ')}` : 
+    'Date conflict';
+
   return (
     <div
-      className="bg-white p-3 rounded-lg border shadow-sm hover:shadow-md transition-shadow cursor-pointer"
+      className={`bg-white p-3 rounded-lg border shadow-sm hover:shadow-md transition-shadow cursor-pointer ${
+        highlightFlash ? 'animate-[pulse_1.5s_ease-out_1] bg-amber-50' : ''
+      }`}
       onClick={onClick}
       draggable={draggable}
       onDragStart={draggable && onDragStart ? (e) => onDragStart(e, lead.id) : undefined}
@@ -74,7 +82,17 @@ export default function LeadCard({ lead, onClick, draggable = false, onDragStart
         </div>
         <div className="flex items-center gap-2">
           {lead.hasConflict && (
-            <Badge variant="destructive" className="text-xs">
+            <Badge 
+              variant="destructive" 
+              className="text-xs cursor-pointer" 
+              title={conflictTooltip}
+              onClick={(e) => {
+                e.stopPropagation();
+                if (lead.conflictDetails?.projectIds?.[0]) {
+                  window.open(`/projects/${lead.conflictDetails.projectIds[0]}`, '_blank');
+                }
+              }}
+            >
               Date conflict
             </Badge>
           )}

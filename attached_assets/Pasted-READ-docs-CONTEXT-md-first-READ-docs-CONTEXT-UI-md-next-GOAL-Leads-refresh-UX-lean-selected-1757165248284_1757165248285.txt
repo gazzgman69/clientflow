@@ -1,0 +1,124 @@
+READ /docs/CONTEXT.md first.
+READ /docs/CONTEXT-UI.md next.
+
+GOAL
+Leads refresh UX (lean) + selected extras:
+1) 30s poll when visible; 2m backoff when hidden.
+2) Refetch on window focus / tab visible; manual refresh on clicking “Leads” in sidebar.
+3) Header shows: “Last updated: hh:mm:ss” + Refresh button.
+   • Button spins while fetching, disabled in-flight.
+   • Keyboard shortcut: Shift+R triggers refresh.
+4) Subtle highlight on cards added/changed since last fetch (1–2s glow).
+5) Persist view state in sessionStorage: board/list toggle and scroll position.
+6) Conflict badge tooltip: show reason + quick links to conflicting project(s).
+
+SCOPE (EDIT/CREATE ONLY)
+  - web/src/lib/useSmartPolling.ts            // hook (fetch cadence + state)
+  - web/src/pages/leads/LeadsKanban.tsx
+  - web/src/pages/leads/LeadsInbox.tsx
+  - web/src/pages/leads/LeadsList.tsx         // only if it fetches leads directly
+  - web/src/components/Sidebar.tsx            // manual refresh dispatch on “Leads” click
+  - web/src/components/leads/LeadCard.tsx     // add highlight + conflict tooltip
+  - server/src/services/lead.ts               // augment conflict details (ids,count) if not present
+  - server/src/routes/leads.ts                // include conflictDetails in /kanban & /inbox DTOs
+
+RULES
+- Do NOT add dependencies.
+- Keep dd/MM/yyyy formatting for dates in cards/tables.
+- Maintain current drag/drop; never update while an item is actively dragged.
+
+BACKEND (small augmentation)
+- In LeadCardDTO returned by /api/leads/kanban and /api/leads/inbox, include:
+    hasConflict: boolean,
+    conflictDetails?: { count: number, projectIds: string[] }  // limit to e.g. first 3 ids
+- In services/lead.ts, update conflict detection to also return count+ids (same-day date matches across other projects).
+- Existing consumers can ignore new fields; Kanban/InBox will use them for tooltip.
+
+FRONTEND — Hook: useSmartPolling.ts
+- Signature:
+    export function useSmartPolling(opts: {
+      fetchFn: () => Promise<void>;
+      visibleMs?: number;   // default 30000
+      hiddenMs?: number;    // default 120000
+      debounceMs?: number;  // default 500
+    }): {
+      refetchNow: () => void;
+      stop: () => void;
+      lastUpdated?: Date;
+      lastError?: string | null;
+      fetching: boolean;
+    }
+- Behavior:
+  • Start interval at visibleMs when document is visible; swap to hiddenMs when hidden.
+  • Listen for window 'focus' and document 'visibilitychange' → refetch immediately (debounced) and reset cadence.
+  • Prevent overlapping fetches (track `fetching`).
+  • On success: set lastUpdated, clear lastError. On failure: set lastError.
+  • Clean up listeners/intervals on unmount.
+
+FRONTEND — LeadsKanban.tsx
+- Use hook:
+    const { refetchNow, lastUpdated, lastError, fetching } = useSmartPolling({ fetchFn: loadKanban });
+- Header (top-right, near action buttons):
+    • “Last updated: hh:mm:ss” (toLocaleTimeString('en-GB', { hour12:false }))
+    • Refresh button:
+        - disabled={fetching}
+        - shows ↻ (or <RefreshCw/>) with animate-spin class while fetching
+        - onClick={refetchNow}
+- Keyboard shortcut:
+    useEffect(() => {
+      const onKey = (e: KeyboardEvent) => {
+        if (e.shiftKey && (e.key === 'R' || e.key === 'r')) { e.preventDefault(); refetchNow(); }
+      };
+      window.addEventListener('keydown', onKey);
+      return () => window.removeEventListener('keydown', onKey);
+    }, [refetchNow]);
+- Subtle highlight on new/changed cards:
+    • Keep previous snapshot in a ref. After loadKanban merges new data, compute ids of:
+        - added cards (not in previous)
+        - changed cards (same id but any of status, projectDateISO, subject/service, or snippet differs)
+    • Store a Set of “flashIds” with Date.now(). Apply class e.g. `animate-[pulse_1.5s_ease-out_1] bg-amber-50` on LeadCard root when id ∈ flashIds for 1500ms, then remove.
+- Persist view state:
+    • On mount, read sessionStorage keys:
+        'leads:view' ('board'|'inbox'), 'leads:board:scrollY'
+        If present and route matches board, call window.scrollTo(0, storedY).
+    • On unmount/scroll, write 'leads:board:scrollY' = window.scrollY.
+    • When toggling Board/Inbox, set 'leads:view'.
+- Conflict tooltip:
+    • If card.hasConflict, render a red badge with title derived from conflictDetails:
+       title={`Date conflict with ${count} project${count>1?'s':''}. ${ids.map(id=>'/projects/'+id).join(' ')}`}
+      And an onClick that opens the first conflicting project in a new tab:
+       if (conflictDetails?.projectIds?.[0]) navigate(`/projects/${conflictDetails.projectIds[0]}`);
+    • Keep the existing visual red pill badge; the tooltip adds context.
+
+FRONTEND — LeadsInbox.tsx
+- Same header refresh cluster & keyboard shortcut.
+- Same useSmartPolling pattern.
+- Persist scroll to 'leads:inbox:scrollY' (read on mount; write on scroll/unmount).
+- For rows, apply the same flash effect (e.g., add a `flash` class to row for 1.5s when added/changed).
+
+FRONTEND — LeadsList.tsx (only if it fetches)
+- If this page still fetches leads directly, wrap its loader with useSmartPolling and add the same header refresh cluster.
+
+Sidebar manual refresh (web/src/components/Sidebar.tsx)
+- On clicking the “Leads” nav item, dispatch:
+    window.dispatchEvent(new CustomEvent('leads:manual-refresh'));
+- In Kanban/Inbox useEffect, add/remove listener:
+    const handler = () => refetchNow();
+    window.addEventListener('leads:manual-refresh', handler);
+    return () => window.removeEventListener('leads:manual-refresh', handler);
+
+ACCESSIBILITY & SAFETY
+- Refresh button: `aria-label="Refresh leads"`.
+- Keyboard shortcut uses Shift+R (won’t clash with browser reload).
+- Do not refetch while dragging; delay apply until drop completes (check a `isDragging` flag).
+
+DELIVERABLES (DIFF-ONLY MODE)
+1) Brief plan (≤5 bullets) listing files changed and that conflictDetails were added to DTOs.
+2) Unified diffs for ONLY the files in SCOPE.
+3) Manual QA:
+   - Visible tab: ~30s updates; hidden ≥2m: backoff works; return triggers immediate refresh.
+   - Clicking “Leads” in sidebar refreshes instantly.
+   - Header shows last updated time; refresh button spins & is disabled while fetching.
+   - Shift+R triggers refresh.
+   - New/changed cards flash briefly; scroll position restores when navigating back.
+   - Conflict badge shows a tooltip and clicking it can open the first conflicting project.

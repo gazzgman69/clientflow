@@ -23,6 +23,7 @@ interface LeadCardDTO {
   createdAtISO: string;
   status: 'new' | 'contacted' | 'qualified' | 'archived';
   hasConflict: boolean;
+  conflictDetails?: { count: number; projectIds: string[] };
 }
 
 interface InboxData {

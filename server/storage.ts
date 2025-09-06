@@ -1749,30 +1749,110 @@ export class DrizzleStorage implements IStorage {
     return await this.db.select().from(quotes).where(eq(quotes.leadId, projectId));
   }
   
-  async getContracts() { return this.memStorage.getContracts(); }
-  async getContract(id: string) { return this.memStorage.getContract(id); }
-  async getContractsByClient(clientId: string) { return this.memStorage.getContractsByClient(clientId); }
-  async createContract(contract: InsertContract) { return this.memStorage.createContract(contract); }
-  async updateContract(id: string, contract: Partial<InsertContract>) { return this.memStorage.updateContract(id, contract); }
-  async deleteContract(id: string) { return this.memStorage.deleteContract(id); }
-  async getContractsByProject(projectId: string) { return this.memStorage.getContractsByProject ? this.memStorage.getContractsByProject(projectId) : []; }
+  // Contracts - PostgreSQL implementation  
+  async getContracts() { 
+    return await this.db.select().from(contracts).orderBy(desc(contracts.createdAt));
+  }
+  async getContract(id: string) { 
+    const result = await this.db.select().from(contracts).where(eq(contracts.id, id));
+    return result[0];
+  }
+  async getContractsByClient(clientId: string) { 
+    return await this.db.select().from(contracts).where(eq(contracts.contactId, clientId));
+  }
+  async createContract(contract: InsertContract) { 
+    const result = await this.db.insert(contracts).values({
+      ...contract,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    }).returning();
+    return result[0];
+  }
+  async updateContract(id: string, contract: Partial<InsertContract>) { 
+    const result = await this.db.update(contracts).set({
+      ...contract,
+      updatedAt: new Date(),
+    }).where(eq(contracts.id, id)).returning();
+    return result[0];
+  }
+  async deleteContract(id: string) { 
+    const result = await this.db.delete(contracts).where(eq(contracts.id, id));
+    return result.rowCount > 0;
+  }
+  async getContractsByProject(projectId: string) { 
+    return await this.db.select().from(contracts).where(eq(contracts.leadId, projectId));
+  }
   
-  async getInvoices() { return this.memStorage.getInvoices(); }
-  async getInvoice(id: string) { return this.memStorage.getInvoice(id); }
-  async getInvoicesByClient(clientId: string) { return this.memStorage.getInvoicesByClient(clientId); }
-  async createInvoice(invoice: InsertInvoice) { return this.memStorage.createInvoice(invoice); }
-  async updateInvoice(id: string, invoice: Partial<InsertInvoice>) { return this.memStorage.updateInvoice(id, invoice); }
-  async deleteInvoice(id: string) { return this.memStorage.deleteInvoice(id); }
-  async getInvoicesByProject(projectId: string) { return this.memStorage.getInvoicesByProject ? this.memStorage.getInvoicesByProject(projectId) : []; }
+  // Invoices - PostgreSQL implementation
+  async getInvoices() { 
+    return await this.db.select().from(invoices).orderBy(desc(invoices.createdAt));
+  }
+  async getInvoice(id: string) { 
+    const result = await this.db.select().from(invoices).where(eq(invoices.id, id));
+    return result[0];
+  }
+  async getInvoicesByClient(clientId: string) { 
+    return await this.db.select().from(invoices).where(eq(invoices.contactId, clientId));
+  }
+  async createInvoice(invoice: InsertInvoice) { 
+    const result = await this.db.insert(invoices).values({
+      ...invoice,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    }).returning();
+    return result[0];
+  }
+  async updateInvoice(id: string, invoice: Partial<InsertInvoice>) { 
+    const result = await this.db.update(invoices).set({
+      ...invoice,
+      updatedAt: new Date(),
+    }).where(eq(invoices.id, id)).returning();
+    return result[0];
+  }
+  async deleteInvoice(id: string) { 
+    const result = await this.db.delete(invoices).where(eq(invoices.id, id));
+    return result.rowCount > 0;
+  }
+  async getInvoicesByProject(projectId: string) { 
+    return await this.db.select().from(invoices).where(eq(invoices.leadId, projectId));
+  }
   
-  async getTasks() { return this.memStorage.getTasks(); }
-  async getTask(id: string) { return this.memStorage.getTask(id); }
-  async getTasksByClient(clientId: string) { return this.memStorage.getTasksByClient ? this.memStorage.getTasksByClient(clientId) : []; }
-  async getTasksByProject(projectId: string) { return this.memStorage.getTasksByProject ? this.memStorage.getTasksByProject(projectId) : []; }
-  async getTasksByUser(userId: string) { return this.memStorage.getTasksByUser ? this.memStorage.getTasksByUser(userId) : []; }
-  async createTask(task: InsertTask) { return this.memStorage.createTask(task); }
-  async updateTask(id: string, task: Partial<InsertTask>) { return this.memStorage.updateTask(id, task); }
-  async deleteTask(id: string) { return this.memStorage.deleteTask(id); }
+  // Tasks - PostgreSQL implementation
+  async getTasks() { 
+    return await this.db.select().from(tasks).orderBy(desc(tasks.createdAt));
+  }
+  async getTask(id: string) { 
+    const result = await this.db.select().from(tasks).where(eq(tasks.id, id));
+    return result[0];
+  }
+  async getTasksByClient(clientId: string) { 
+    return await this.db.select().from(tasks).where(eq(tasks.contactId, clientId));
+  }
+  async getTasksByProject(projectId: string) { 
+    return await this.db.select().from(tasks).where(eq(tasks.projectId, projectId));
+  }
+  async getTasksByUser(userId: string) { 
+    return await this.db.select().from(tasks).where(eq(tasks.assignedTo, userId));
+  }
+  async createTask(task: InsertTask) { 
+    const result = await this.db.insert(tasks).values({
+      ...task,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    }).returning();
+    return result[0];
+  }
+  async updateTask(id: string, task: Partial<InsertTask>) { 
+    const result = await this.db.update(tasks).set({
+      ...task,
+      updatedAt: new Date(),
+    }).where(eq(tasks.id, id)).returning();
+    return result[0];
+  }
+  async deleteTask(id: string) { 
+    const result = await this.db.delete(tasks).where(eq(tasks.id, id));
+    return result.rowCount > 0;
+  }
   
   async getEmails() { return this.memStorage.getEmails(); }
   async getEmail(id: string) { return this.memStorage.getEmail(id); }

@@ -1607,10 +1607,7 @@ export class DrizzleStorage implements IStorage {
     return result.rowCount > 0;
   }
 
-  // Basic implementations for other required methods (using MemStorage pattern for now)
-  private memStorage = new MemStorage();
-
-  // Delegate non-calendar methods to MemStorage for now
+  // All storage methods now use PostgreSQL database
   // Users - PostgreSQL implementation
   async getUsers() { 
     return await this.db.select().from(users);
@@ -2198,7 +2195,7 @@ export class DrizzleStorage implements IStorage {
   
   // Missing methods for API compatibility
   async getRecentActivities(limit: number) { 
-    const activities = await this.memStorage.getActivities();
+    const activities = await this.getActivities();
     return activities.slice(0, limit);
   }
   async getTodayTasks() { return []; }

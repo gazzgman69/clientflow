@@ -66,7 +66,7 @@ router.post('/admin/lead-forms', requireAuth, async (req, res) => {
       { type: 'text', label: 'Name', required: true, mapTo: 'leadName', orderIndex: 0 },
       { type: 'email', label: 'Email Address', required: true, mapTo: 'leadEmail', orderIndex: 1 },
       { type: 'tel', label: 'Phone Number', required: true, mapTo: 'leadPhoneNumber', orderIndex: 2 },
-      { type: 'text', label: 'Event Type', required: true, mapTo: 'whatKindOfEventIsIt', orderIndex: 3 },
+      { type: 'select', label: 'Event Type', required: true, mapTo: 'whatKindOfEventIsIt', orderIndex: 3, options: 'Wedding,Private,Corporate,Other' },
       { type: 'text', label: 'Event Location (Full address if possible please)', required: true, mapTo: 'eventLocation', orderIndex: 4 },
       { type: 'date', label: 'Event Date', required: true, mapTo: 'projectDate', orderIndex: 5 },
       { type: 'textarea', label: 'Message', required: false, mapTo: 'nothing', orderIndex: 6 }
@@ -102,7 +102,7 @@ router.get('/admin/lead-forms/:id', requireAuth, async (req, res) => {
       { id: '1', type: 'text', label: 'Name', required: true, mapTo: 'leadName', orderIndex: 0 },
       { id: '2', type: 'email', label: 'Email Address', required: true, mapTo: 'leadEmail', orderIndex: 1 },
       { id: '3', type: 'tel', label: 'Phone Number', required: true, mapTo: 'leadPhoneNumber', orderIndex: 2 },
-      { id: '4', type: 'text', label: 'Event Type', required: true, mapTo: 'whatKindOfEventIsIt', orderIndex: 3 },
+      { id: '4', type: 'select', label: 'Event Type', required: true, mapTo: 'whatKindOfEventIsIt', orderIndex: 3, options: 'Wedding,Private,Corporate,Other' },
       { id: '5', type: 'text', label: 'Event Location (Full address if possible please)', required: true, mapTo: 'eventLocation', orderIndex: 4 },
       { id: '6', type: 'date', label: 'Event Date', required: true, mapTo: 'projectDate', orderIndex: 5 },
       { id: '7', type: 'textarea', label: 'Message', required: false, mapTo: 'nothing', orderIndex: 6 }
@@ -217,7 +217,7 @@ router.get('/leads/public/:slug', async (req, res) => {
       { id: '1', type: 'text', label: 'Name', required: true, mapTo: 'leadName', orderIndex: 0 },
       { id: '2', type: 'email', label: 'Email Address', required: true, mapTo: 'leadEmail', orderIndex: 1 },
       { id: '3', type: 'tel', label: 'Phone Number', required: true, mapTo: 'leadPhoneNumber', orderIndex: 2 },
-      { id: '4', type: 'text', label: 'Event Type', required: true, mapTo: 'whatKindOfEventIsIt', orderIndex: 3 },
+      { id: '4', type: 'select', label: 'Event Type', required: true, mapTo: 'whatKindOfEventIsIt', orderIndex: 3, options: 'Wedding,Private,Corporate,Other' },
       { id: '5', type: 'text', label: 'Event Location (Full address if possible please)', required: true, mapTo: 'eventLocation', orderIndex: 4 },
       { id: '6', type: 'date', label: 'Event Date', required: true, mapTo: 'projectDate', orderIndex: 5 },
       { id: '7', type: 'textarea', label: 'Message', required: false, mapTo: 'nothing', orderIndex: 6 }

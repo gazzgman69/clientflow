@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Plus, Settings, Eye, Copy, Trash2, FileText, GripVertical, Code, ExternalLink } from "lucide-react";
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest } from '@/lib/queryClient';
@@ -52,6 +53,177 @@ interface Question {
   orderIndex: number;
 }
 
+interface PreviewQuestion {
+  id: string;
+  type: string;
+  label: string;
+  required: boolean;
+  mapTo: string;
+  options?: string;
+  orderIndex: number;
+}
+
+// Form Preview Component
+interface FormPreviewProps {
+  slug: string;
+  formTitle: string;
+  onClose: () => void;
+}
+
+function FormPreview({ slug, formTitle, onClose }: FormPreviewProps) {
+  const [formValues, setFormValues] = useState<Record<string, any>>({});
+  const { toast } = useToast();
+
+  // Fetch form data
+  const { data: formData, isLoading, error } = useQuery({
+    queryKey: ['/api/leads/public', slug],
+    queryFn: async () => {
+      const response = await fetch(`/api/leads/public/${slug}`);
+      if (!response.ok) {
+        throw new Error('Form not found');
+      }
+      return response.json();
+    },
+  });
+
+  const handleInputChange = (questionId: string, value: any) => {
+    setFormValues(prev => ({
+      ...prev,
+      [questionId]: value
+    }));
+  };
+
+  const handlePreviewSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    toast({
+      title: 'Preview Mode',
+      description: 'This is a preview - no data was actually submitted.',
+      variant: 'default',
+    });
+  };
+
+  const renderQuestion = (question: PreviewQuestion) => {
+    const value = formValues[question.mapTo] || '';
+
+    switch (question.type) {
+      case 'text':
+      case 'email':
+      case 'tel':
+      case 'number':
+      case 'date':
+        return (
+          <Input
+            type={question.type}
+            value={value}
+            onChange={(e) => handleInputChange(question.mapTo, e.target.value)}
+            required={question.required}
+            data-testid={`preview-input-${question.mapTo}`}
+          />
+        );
+
+      case 'textarea':
+        return (
+          <Textarea
+            value={value}
+            onChange={(e) => handleInputChange(question.mapTo, e.target.value)}
+            required={question.required}
+            rows={4}
+            data-testid={`preview-textarea-${question.mapTo}`}
+          />
+        );
+
+      case 'select':
+        const selectOptions = question.options ? question.options.split(',').map(opt => opt.trim()) : [];
+        return (
+          <Select
+            value={value}
+            onValueChange={(val) => handleInputChange(question.mapTo, val)}
+            required={question.required}
+          >
+            <SelectTrigger data-testid={`preview-select-${question.mapTo}`}>
+              <SelectValue placeholder="Please select..." />
+            </SelectTrigger>
+            <SelectContent>
+              {selectOptions.map((option, idx) => (
+                <SelectItem key={idx} value={option}>
+                  {option}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        );
+
+      default:
+        return (
+          <Input
+            type="text"
+            value={value}
+            onChange={(e) => handleInputChange(question.mapTo, e.target.value)}
+            required={question.required}
+            data-testid={`preview-input-${question.mapTo}`}
+          />
+        );
+    }
+  };
+
+  if (isLoading) {
+    return <div className="p-4 text-center">Loading form preview...</div>;
+  }
+
+  if (error || !formData) {
+    return <div className="p-4 text-center text-red-500">Error loading form preview</div>;
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Preview Notice */}
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+        <p className="text-sm text-blue-700 font-medium">
+          📋 Form Preview Mode - No data will be submitted
+        </p>
+      </div>
+
+      {/* Form */}
+      <Card>
+        <CardHeader>
+          <CardTitle>{formData.form.title}</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handlePreviewSubmit} className="space-y-4">
+            {formData.questions
+              .sort((a: PreviewQuestion, b: PreviewQuestion) => a.orderIndex - b.orderIndex)
+              .map((question: PreviewQuestion) => (
+                <div key={question.id} className="space-y-2">
+                  <Label className="text-sm font-medium">
+                    {question.label}
+                    {question.required && (
+                      <span className="text-red-500 ml-1">*</span>
+                    )}
+                  </Label>
+                  {renderQuestion(question)}
+                </div>
+              ))}
+
+            {/* Transparency text */}
+            {formData.form.transparency && (
+              <div className="mt-6 p-3 bg-gray-50 rounded text-xs text-gray-600">
+                {formData.form.transparency}
+              </div>
+            )}
+
+            {/* Submit button */}
+            <div className="pt-4">
+              <Button type="submit" className="w-full" data-testid="preview-submit-button">
+                Submit Form (Preview)
+              </Button>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
 export default function LeadCaptureBuilder() {
   const [selectedFormId, setSelectedFormId] = useState<string | null>(null);
   const [formDetails, setFormDetails] = useState<FormDetails | null>(null);
@@ -60,6 +232,7 @@ export default function LeadCaptureBuilder() {
   const [editingQuestion, setEditingQuestion] = useState<Question | null>(null);
   const [draggedQuestionId, setDraggedQuestionId] = useState<string | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+  const [showPreview, setShowPreview] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -161,7 +334,7 @@ export default function LeadCaptureBuilder() {
 
   const handlePreview = () => {
     if (formDetails?.slug) {
-      window.open(`/f/${formDetails.slug}`, '_blank');
+      setShowPreview(true);
     } else {
       toast({ 
         title: 'Save required', 
@@ -619,6 +792,22 @@ export default function LeadCaptureBuilder() {
           question={editingQuestion}
           nextOrderIndex={questions.length}
         />
+
+        {/* Form Preview Modal */}
+        <Dialog open={showPreview} onOpenChange={setShowPreview}>
+          <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Form Preview: {formDetails?.title}</DialogTitle>
+            </DialogHeader>
+            {formDetails?.slug && (
+              <FormPreview 
+                slug={formDetails.slug}
+                formTitle={formDetails.title}
+                onClose={() => setShowPreview(false)}
+              />
+            )}
+          </DialogContent>
+        </Dialog>
       </main>
     </>
   );

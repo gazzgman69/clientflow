@@ -33,7 +33,9 @@ export class TemplatesService {
       filtered = filtered.filter((template: Template) => template.isActive);
     }
     
-    return filtered.sort((a: Template, b: Template) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+    return filtered.sort((a: Template, b: Template) => 
+      new Date(b.updatedAt || Date.now()).getTime() - new Date(a.updatedAt || Date.now()).getTime()
+    );
   }
 
   /**

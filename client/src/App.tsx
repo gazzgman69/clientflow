@@ -15,6 +15,7 @@ import Documents from "@/pages/documents";
 import Calendar from "@/pages/calendar";
 import Automations from "@/pages/automations";
 import Settings from "@/pages/settings";
+import Templates from "@/pages/settings/Templates";
 import Members from "@/pages/members";
 import Venues from "@/pages/venues";
 import MusicianPortal from "@/pages/portal/musician-portal";
@@ -47,6 +48,7 @@ function Router() {
                 <Route path="/invoices" component={Invoices} />
                 <Route path="/calendar" component={Calendar} />
                 <Route path="/automations" component={Automations} />
+                <Route path="/settings/templates" component={Templates} />
                 <Route path="/settings" component={Settings} />
                 <Route component={NotFound} />
               </Switch>

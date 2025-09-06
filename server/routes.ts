@@ -10,6 +10,7 @@ import { googleOAuthService } from "./services/google-oauth";
 import { icalService } from "./services/ical";
 import oauthRoutes from "./routes/oauth";
 import emailRoutes from "./src/routes/email";
+import templatesRoutes from "./src/routes/templates";
 import { calendarAutoSyncService } from "./services/calendar-auto-sync";
 import { 
   insertLeadSchema, 
@@ -69,6 +70,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Email routes
   app.use('/api/email', emailRoutes);
+  
+  // Templates routes
+  app.use('/api', templatesRoutes);
   
   // Dashboard metrics
   app.get("/api/dashboard/metrics", async (req, res) => {

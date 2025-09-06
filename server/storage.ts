@@ -1745,6 +1745,21 @@ export class DrizzleStorage implements IStorage {
   async updateCalendarSyncLog(id: string, log: Partial<InsertCalendarSyncLog>) { return this.memStorage.updateCalendarSyncLog(id, log); }
   
   async getDashboardMetrics() { return this.memStorage.getDashboardMetrics(); }
+
+  // Templates
+  async getTemplates() { return this.memStorage.getTemplates(); }
+  async getTemplate(id: string) { return this.memStorage.getTemplate(id); }
+  async createTemplate(template: InsertTemplate) { return this.memStorage.createTemplate(template); }
+  async updateTemplate(id: string, template: Partial<InsertTemplate>) { return this.memStorage.updateTemplate(id, template); }
+  async deleteTemplate(id: string) { return this.memStorage.deleteTemplate(id); }
+
+  // Lead Capture Forms
+  async getLeadCaptureForms() { return this.memStorage.getLeadCaptureForms(); }
+  async getLeadCaptureForm(id: string) { return this.memStorage.getLeadCaptureForm(id); }
+  async getLeadCaptureFormBySlug(slug: string) { return this.memStorage.getLeadCaptureFormBySlug(slug); }
+  async createLeadCaptureForm(form: InsertLeadCaptureForm) { return this.memStorage.createLeadCaptureForm(form); }
+  async updateLeadCaptureForm(id: string, form: Partial<InsertLeadCaptureForm>) { return this.memStorage.updateLeadCaptureForm(id, form); }
+  async deleteLeadCaptureForm(id: string) { return this.memStorage.deleteLeadCaptureForm(id); }
 }
 
 export const storage = new DrizzleStorage();

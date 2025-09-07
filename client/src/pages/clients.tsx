@@ -26,10 +26,11 @@ export default function Contacts() {
 
   const { data: contacts, isLoading } = useQuery<Contact[]>({
     queryKey: ["/api/contacts"],
-    refetchInterval: 3000, // Refresh every 3 seconds for real-time updates
+    refetchInterval: 1000, // Refresh every 1 second for real-time updates
     refetchIntervalInBackground: true,
     refetchOnWindowFocus: true, // Refresh when tab/window gains focus
     refetchOnMount: true, // Refresh when component mounts
+    refetchOnReconnect: true, // Refresh on reconnect
   });
 
   const form = useForm<z.infer<typeof insertContactSchema>>({

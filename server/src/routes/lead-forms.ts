@@ -274,7 +274,7 @@ router.post('/leads/public/:slug/submit', async (req, res) => {
       email: formData.leadEmail || '',
       phone: formData.leadPhoneNumber || '',
       address: formData.eventLocation || '',
-      company: formData.eventLocation || '',
+      company: '', // Leave company blank - venue location goes in address
       notes: `Auto-created from lead form: ${formData.nothing || ''}`
     };
 

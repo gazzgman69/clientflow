@@ -234,7 +234,7 @@ export interface IStorage {
 export class MemStorage implements IStorage {
   private users: Map<string, User> = new Map();
   private leads: Map<string, Lead> = new Map();
-  private clients: Map<string, Client> = new Map();
+  private contacts: Map<string, Contact> = new Map();
   private projects: Map<string, Project> = new Map();
   private quotes: Map<string, Quote> = new Map();
   private contracts: Map<string, Contract> = new Map();
@@ -357,52 +357,52 @@ export class MemStorage implements IStorage {
     return this.leads.delete(id);
   }
 
-  // Clients
-  async getClients(): Promise<Client[]> {
-    return Array.from(this.clients.values()).sort((a, b) => 
+  // Contacts
+  async getContacts(): Promise<Contact[]> {
+    return Array.from(this.contacts.values()).sort((a, b) => 
       new Date(b.createdAt!).getTime() - new Date(a.createdAt!).getTime()
     );
   }
 
-  async getClient(id: string): Promise<Client | undefined> {
-    return this.clients.get(id);
+  async getContact(id: string): Promise<Contact | undefined> {
+    return this.contacts.get(id);
   }
 
-  async createClient(insertClient: InsertClient): Promise<Client> {
+  async createContact(insertContact: InsertContact): Promise<Contact> {
     const id = randomUUID();
-    const client: Client = {
-      ...insertClient,
-      phone: insertClient.phone ?? null,
-      company: insertClient.company ?? null,
-      address: insertClient.address ?? null,
-      city: insertClient.city ?? null,
-      state: insertClient.state ?? null,
-      zipCode: insertClient.zipCode ?? null,
-      country: insertClient.country ?? null,
-      leadId: insertClient.leadId ?? null,
+    const contact: Contact = {
+      ...insertContact,
+      phone: insertContact.phone ?? null,
+      company: insertContact.company ?? null,
+      address: insertContact.address ?? null,
+      city: insertContact.city ?? null,
+      state: insertContact.state ?? null,
+      zipCode: insertContact.zipCode ?? null,
+      country: insertContact.country ?? null,
+      leadId: insertContact.leadId ?? null,
       id,
       createdAt: new Date(),
       updatedAt: new Date(),
     };
-    this.clients.set(id, client);
-    return client;
+    this.contacts.set(id, contact);
+    return contact;
   }
 
-  async updateClient(id: string, clientUpdate: Partial<InsertClient>): Promise<Client | undefined> {
-    const client = this.clients.get(id);
+  async updateContact(id: string, contactUpdate: Partial<InsertContact>): Promise<Contact | undefined> {
+    const contact = this.contacts.get(id);
     if (!client) return undefined;
     
-    const updatedClient: Client = {
-      ...client,
-      ...clientUpdate,
+    const updatedContact: Contact = {
+      ...contact,
+      ...contactUpdate,
       updatedAt: new Date(),
     };
-    this.clients.set(id, updatedClient);
-    return updatedClient;
+    this.contacts.set(id, updatedContact);
+    return updatedContact;
   }
 
-  async deleteClient(id: string): Promise<boolean> {
-    return this.clients.delete(id);
+  async deleteContact(id: string): Promise<boolean> {
+    return this.contacts.delete(id);
   }
 
   // Projects

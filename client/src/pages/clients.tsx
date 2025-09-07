@@ -10,6 +10,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Plus, Edit, Trash2, Building, User, Home, Briefcase, Tag, FileText, MapPin } from "lucide-react";
+import { AddressFields } from "@/components/shared/AddressFields";
 import { Separator } from "@/components/ui/separator";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -367,77 +368,21 @@ export default function Contacts() {
                   <h3 className="text-lg font-semibold">Address</h3>
                 </div>
                 
-                <FormField
+                <AddressFields
                   control={form.control}
-                  name="address"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Street</FormLabel>
-                      <FormControl>
-                        <Input {...field} value={field.value || ""} data-testid="input-contact-address" />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
+                  countryCode={form.watch('country')}
+                  onCountryChange={(countryCode) =>
+                    form.setValue('country', countryCode, { shouldDirty: true, shouldValidate: true })
+                  }
+                  fieldNames={{
+                    address1: 'address',
+                    city: 'city',
+                    state: 'state',
+                    postalCode: 'zipCode',
+                    country: 'country'
+                  }}
+                  testIdPrefix="contact"
                 />
-                
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="city"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>City</FormLabel>
-                        <FormControl>
-                          <Input {...field} value={field.value || ""} data-testid="input-contact-city" />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  
-                  <FormField
-                    control={form.control}
-                    name="state"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>State / Province</FormLabel>
-                        <FormControl>
-                          <Input {...field} value={field.value || ""} data-testid="input-contact-state" />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  
-                  <FormField
-                    control={form.control}
-                    name="zipCode"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Zip / Postal Code</FormLabel>
-                        <FormControl>
-                          <Input {...field} value={field.value || ""} data-testid="input-contact-zip" />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  
-                  <FormField
-                    control={form.control}
-                    name="country"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Country</FormLabel>
-                        <FormControl>
-                          <Input {...field} value={field.value || ""} data-testid="input-contact-country" />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
               </div>
 
               <Separator />
@@ -450,77 +395,21 @@ export default function Contacts() {
                   <span className="text-sm text-muted-foreground">(linked to venues tab)</span>
                 </div>
                 
-                <FormField
+                <AddressFields
                   control={form.control}
-                  name="venueAddress"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Venue Street</FormLabel>
-                      <FormControl>
-                        <Input {...field} value={field.value || ""} data-testid="input-contact-venue-address" />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
+                  countryCode={form.watch('venueCountry')}
+                  onCountryChange={(countryCode) =>
+                    form.setValue('venueCountry', countryCode, { shouldDirty: true, shouldValidate: true })
+                  }
+                  fieldNames={{
+                    address1: 'venueAddress',
+                    city: 'venueCity',
+                    state: 'venueState',
+                    postalCode: 'venueZipCode',
+                    country: 'venueCountry'
+                  }}
+                  testIdPrefix="contact-venue"
                 />
-                
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="venueCity"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Venue City</FormLabel>
-                        <FormControl>
-                          <Input {...field} value={field.value || ""} data-testid="input-contact-venue-city" />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  
-                  <FormField
-                    control={form.control}
-                    name="venueState"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Venue State / Province</FormLabel>
-                        <FormControl>
-                          <Input {...field} value={field.value || ""} data-testid="input-contact-venue-state" />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  
-                  <FormField
-                    control={form.control}
-                    name="venueZipCode"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Venue Zip / Postal</FormLabel>
-                        <FormControl>
-                          <Input {...field} value={field.value || ""} data-testid="input-contact-venue-zip" />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  
-                  <FormField
-                    control={form.control}
-                    name="venueCountry"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Venue Country</FormLabel>
-                        <FormControl>
-                          <Input {...field} value={field.value || ""} data-testid="input-contact-venue-country" />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
               </div>
 
               <Separator />

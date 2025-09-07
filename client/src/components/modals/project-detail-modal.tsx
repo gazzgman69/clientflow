@@ -835,8 +835,7 @@ export default function ProjectDetailModal({ project, isOpen, onClose }: Project
             {/* Email Tab */}
             <TabsContent value="email" className="space-y-4">
               <ProjectEmailPanel 
-                projectId={project.id} 
-                emails={project.contactEmails} 
+                projectId={project.id}
               />
             </TabsContent>
 

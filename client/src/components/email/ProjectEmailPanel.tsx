@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Send, Mail, Loader2, AlertCircle } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
@@ -30,12 +30,44 @@ interface EmailThread {
 }
 
 export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPanelProps) {
-  const [to, setTo] = useState(emails?.[0] || '');
+  const [to, setTo] = useState('');
   const [subject, setSubject] = useState('');
   const [message, setMessage] = useState('');
   const [isComposing, setIsComposing] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+
+  // Fetch project details to get contact information
+  const { data: project } = useQuery({
+    queryKey: [`/api/projects/${projectId}`],
+    queryFn: async () => {
+      const response = await fetch(`/api/projects/${projectId}`);
+      return response.json();
+    },
+    enabled: !!projectId,
+  });
+
+  // Fetch all contacts to find the one matching the project's contactId
+  const { data: contacts } = useQuery({
+    queryKey: ['/api/contacts'],
+    queryFn: async () => {
+      const response = await fetch('/api/contacts');
+      return response.json();
+    },
+    enabled: !!project?.contactId,
+  });
+
+  // Find the contact for this project
+  const contact = contacts?.find((c: any) => c.id === project?.contactId);
+
+  // Update the 'to' field when contact email is available
+  useEffect(() => {
+    if (contact?.email && !to) {
+      setTo(contact.email);
+    } else if (emails?.[0] && !to) {
+      setTo(emails[0]);
+    }
+  }, [contact?.email, emails, to]);
 
   // Fetch project email threads
   const { data: threadsResponse, isLoading: threadsLoading, error: threadsError } = useQuery({
@@ -63,7 +95,7 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
     },
     onSuccess: () => {
       toast({ title: 'Email sent successfully!' });
-      setTo(emails?.[0] || '');
+      setTo(contact?.email || emails?.[0] || '');
       setSubject('');
       setMessage('');
       setIsComposing(false);
@@ -233,7 +265,7 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {threads.map((thread) => (
+                {threads.map((thread: EmailThread) => (
                   <TableRow 
                     key={thread.threadId}
                     className="cursor-pointer hover:bg-muted/50"

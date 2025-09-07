@@ -60,18 +60,9 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
   // Find the contact for this project
   const contact = contacts?.find((c: any) => c.id === project?.contactId);
 
-  // Debug logging
-  console.log('Email Pre-fill Debug:', {
-    project: project ? { id: project.id, name: project.name, contactId: project.contactId } : null,
-    contacts: contacts ? contacts.map(c => ({ id: c.id, email: c.email })) : null,
-    contact: contact ? { id: contact.id, email: contact.email } : null,
-    currentTo: to
-  });
-
   // Update the 'to' field when contact email is available
   useEffect(() => {
     const emailToUse = contact?.email || emails?.[0] || '';
-    console.log('Setting email to:', emailToUse, 'Current to:', to);
     if (emailToUse && emailToUse !== to) {
       setTo(emailToUse);
     }

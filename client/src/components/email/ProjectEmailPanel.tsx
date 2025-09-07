@@ -138,32 +138,20 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
 
   const threads = threadsResponse?.threads || [];
 
-  // Pre-fetch all thread details for instant access
-  const threadQueries = threads.map(thread => ({
-    queryKey: [`/api/email/thread/${thread.threadId}`],
+  // Fetch thread details for selected thread only
+  const { data: selectedThreadDetails, isLoading: threadLoading } = useQuery({
+    queryKey: [`/api/email/thread/${selectedThreadId}`],
     queryFn: async () => {
-      const response = await fetch(`/api/email/thread/${thread.threadId}`, {
+      if (!selectedThreadId) return null;
+      const response = await fetch(`/api/email/thread/${selectedThreadId}`, {
         headers: {
           'user-id': 'test-user'
         }
       });
       return response.json();
     },
-  }));
-
-  // Use parallel queries to pre-load all thread details
-  const threadResults = threadQueries.map(query => useQuery(query));
-  
-  // Create a map for quick thread detail lookup
-  const threadDetailsMap = new Map();
-  threadResults.forEach((result, index) => {
-    if (result.data && threads[index]) {
-      threadDetailsMap.set(threads[index].threadId, result.data);
-    }
+    enabled: !!selectedThreadId,
   });
-
-  // Get details for selected thread (no loading needed - it's already cached)
-  const selectedThreadDetails = selectedThreadId ? threadDetailsMap.get(selectedThreadId) : null;
 
   // Reply email mutation
   const replyEmailMutation = useMutation({
@@ -415,7 +403,12 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
           </DialogHeader>
           
           <div className="flex-1 overflow-auto">
-            {selectedThreadDetails?.thread?.messages ? (
+            {threadLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin mr-2" />
+                Loading thread...
+              </div>
+            ) : selectedThreadDetails?.thread?.messages ? (
               <div className="space-y-4">
                 {selectedThreadDetails.thread.messages.map((message: any, index: number) => (
                   <Card key={message.id} className="border-l-4 border-l-primary/20">
@@ -517,17 +510,12 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
                   </Card>
                 )}
               </div>
-            ) : selectedThreadDetails ? (
+            ) : (
               <div className="text-center py-8 text-muted-foreground">
                 <p>Failed to load thread details</p>
                 {selectedThreadDetails?.error && (
                   <p className="text-sm mt-2">{selectedThreadDetails.error}</p>
                 )}
-              </div>
-            ) : (
-              <div className="flex items-center justify-center py-8">
-                <Loader2 className="h-6 w-6 animate-spin mr-2" />
-                Loading thread...
               </div>
             )}
           </div>

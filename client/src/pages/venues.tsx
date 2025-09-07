@@ -416,7 +416,12 @@ export default function VenuesPage() {
               </TableHeader>
               <TableBody>
                 {venues.map((venue) => (
-                  <TableRow key={venue.id}>
+                  <TableRow 
+                    key={venue.id}
+                    data-testid={`venue-row-${venue.id}`}
+                    className="cursor-pointer"
+                    onClick={() => handleEdit(venue)}
+                  >
                     <TableCell className="font-medium">
                       <div data-testid={`text-venue-name-${venue.id}`}>
                         {venue.name}
@@ -470,7 +475,10 @@ export default function VenuesPage() {
                         <Button
                           variant="ghost"
                           size="icon"
-                          onClick={() => handleEdit(venue)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleEdit(venue);
+                          }}
                           data-testid={`button-edit-${venue.id}`}
                         >
                           <Edit className="h-4 w-4" />
@@ -478,7 +486,10 @@ export default function VenuesPage() {
                         <Button
                           variant="ghost"
                           size="icon"
-                          onClick={() => deleteMutation.mutate(venue.id)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            deleteMutation.mutate(venue.id);
+                          }}
                           data-testid={`button-delete-${venue.id}`}
                         >
                           <Trash className="h-4 w-4" />

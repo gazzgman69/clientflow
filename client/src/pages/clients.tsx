@@ -370,7 +370,7 @@ export default function Contacts() {
                 
                 <AddressFields
                   control={form.control}
-                  countryCode={form.watch('country')}
+                  countryCode={form.watch('country') || undefined}
                   onCountryChange={(countryCode) =>
                     form.setValue('country', countryCode, { shouldDirty: true, shouldValidate: true })
                   }
@@ -397,7 +397,7 @@ export default function Contacts() {
                 
                 <AddressFields
                   control={form.control}
-                  countryCode={form.watch('venueCountry')}
+                  countryCode={form.watch('venueCountry') || undefined}
                   onCountryChange={(countryCode) =>
                     form.setValue('venueCountry', countryCode, { shouldDirty: true, shouldValidate: true })
                   }

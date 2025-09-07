@@ -264,6 +264,7 @@ export const venues = pgTable("venues", {
   city: text("city"),
   state: text("state"),
   zipCode: text("zip_code"),
+  country: text("country"),
   capacity: integer("capacity"),
   contactName: text("contact_name"),
   contactPhone: text("contact_phone"),

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Plus, MapPin, Phone, Mail, Users, Edit, Trash } from "lucide-react";
+import { AddressFields } from "@/components/shared/AddressFields";
 import {
   Card,
   CardContent,
@@ -51,6 +52,7 @@ const venueSchema = z.object({
   city: z.string().optional(),
   state: z.string().optional(),
   zipCode: z.string().optional(),
+  country: z.string().optional(),
   capacity: z.string().optional(),
   contactName: z.string().optional(),
   contactPhone: z.string().optional(),
@@ -77,6 +79,7 @@ export default function VenuesPage() {
       city: "",
       state: "",
       zipCode: "",
+      country: "",
       capacity: "",
       contactName: "",
       contactPhone: "",
@@ -91,6 +94,7 @@ export default function VenuesPage() {
         ...data,
         capacity: data.capacity ? parseInt(data.capacity) : undefined,
         contactEmail: data.contactEmail || undefined,
+        country: data.country || undefined,
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/venues"] });
@@ -116,6 +120,7 @@ export default function VenuesPage() {
         ...data,
         capacity: data.capacity ? parseInt(data.capacity) : undefined,
         contactEmail: data.contactEmail || undefined,
+        country: data.country || undefined,
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/venues"] });
@@ -170,6 +175,7 @@ export default function VenuesPage() {
       city: venue.city || "",
       state: venue.state || "",
       zipCode: venue.zipCode || "",
+      country: venue.country || "",
       capacity: venue.capacity?.toString() || "",
       contactName: venue.contactName || "",
       contactPhone: venue.contactPhone || "",
@@ -231,60 +237,21 @@ export default function VenuesPage() {
                     </FormItem>
                   )}
                 />
-                <FormField
+                <AddressFields
                   control={form.control}
-                  name="address"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Address</FormLabel>
-                      <FormControl>
-                        <Input {...field} data-testid="input-address" />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
+                  countryCode={form.watch('country') || undefined}
+                  onCountryChange={(countryCode) =>
+                    form.setValue('country', countryCode, { shouldDirty: true, shouldValidate: true })
+                  }
+                  fieldNames={{
+                    address1: 'address',
+                    city: 'city',
+                    state: 'state',
+                    postalCode: 'zipCode',
+                    country: 'country'
+                  }}
+                  testIdPrefix="venue"
                 />
-                <div className="grid grid-cols-3 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="city"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>City</FormLabel>
-                        <FormControl>
-                          <Input {...field} data-testid="input-city" />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="state"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>State</FormLabel>
-                        <FormControl>
-                          <Input {...field} data-testid="input-state" />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="zipCode"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Zip Code</FormLabel>
-                        <FormControl>
-                          <Input {...field} data-testid="input-zip-code" />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
                 <FormField
                   control={form.control}
                   name="capacity"

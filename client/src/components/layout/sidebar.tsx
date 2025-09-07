@@ -19,7 +19,7 @@ const staticNavigationItems = [
       { href: "/leads/capture", icon: FileText, label: "Lead Capture Forms", badge: null }
     ]
   },
-  { href: "/clients", icon: Users, label: "Contacts", badge: null },
+  { href: "/contacts", icon: Users, label: "Contacts", badge: null },
   { href: "/projects", icon: Briefcase, label: "Projects", badge: null },
   { href: "/members", icon: Music, label: "Members", badge: null },
   { href: "/venues", icon: MapPin, label: "Venues", badge: null },

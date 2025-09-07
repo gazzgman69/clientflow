@@ -54,7 +54,7 @@ function Router() {
                 <Route path="/leads">
                   <Redirect to="/leads/board" replace />
                 </Route>
-                <Route path="/clients" component={Contacts} />
+                <Route path="/contacts" component={Contacts} />
                 <Route path="/projects/:id" component={ProjectDetail} />
                 <Route path="/projects" component={Projects} />
                 <Route path="/members" component={Members} />

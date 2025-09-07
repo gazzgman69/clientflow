@@ -78,6 +78,11 @@ export default function LeadFormHosted({ slug }: LeadFormHostedProps) {
     },
     onSuccess: (data) => {
       setSubmitted(true);
+      // Invalidate all related caches for instant updates (like leads do)
+      queryClient.invalidateQueries({ queryKey: ["/api/leads"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/contacts"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/metrics"] });
       toast({
         title: 'Form submitted successfully!',
         description: data.afterSubmit?.message || 'Thank you for your submission.',

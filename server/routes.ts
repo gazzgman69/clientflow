@@ -259,7 +259,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const leadsWithConflicts = await detectConflicts(leads);
       
       // Group leads by pipeline stage
-      const columns = {
+      const columns: Record<string, any[]> = {
         new: [],
         contacted: [],
         qualified: [],
@@ -317,7 +317,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Sort by newest first
-      leads.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      leads.sort((a, b) => {
+        const aDate = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const bDate = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        return bDate - aDate;
+      });
       
       // Apply limit
       const paginatedLeads = leads.slice(0, limit);
@@ -1561,7 +1565,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           documentTitle: "Performance Contract #WR-2024-001",
           timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000),
           description: "Opened and viewed contract",
-          clientId: "client-1",
+          contactId: "contact-1",
           projectId: "project-1"
         },
         {
@@ -1572,7 +1576,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           documentTitle: "Event Quote #CE-2024-015",
           timestamp: new Date(Date.now() - 4 * 60 * 60 * 1000),
           description: "Opened quote document",
-          clientId: "client-2",
+          contactId: "contact-2",
           projectId: "project-2"
         }
       ];
@@ -1593,12 +1597,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         id: q.id,
         type: 'quote',
         title: q.title,
-        clientName: q.clientId, // In real implementation, would join with client data
+        clientName: q.contactId, // In real implementation, would join with contact data
         projectName: q.leadId || 'General Project',
         sentDate: q.createdAt,
         amount: parseFloat(q.subtotal),
         status: q.status,
-        clientId: q.clientId,
+        contactId: q.contactId,
         projectId: q.leadId,
         urgency: 'medium'
       }));
@@ -1607,11 +1611,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         id: c.id,
         type: 'contract',
         title: c.title,
-        clientName: c.clientId,
+        clientName: c.contactId,
         projectName: c.projectId || 'General Project',
         sentDate: c.createdAt,
         status: c.status,
-        clientId: c.clientId,
+        contactId: c.contactId,
         projectId: c.projectId,
         urgency: 'high'
       }));
@@ -1620,12 +1624,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         id: i.id,
         type: 'invoice',
         title: i.title,
-        clientName: i.clientId,
+        clientName: i.contactId,
         projectName: i.projectId || 'General Project',
         sentDate: i.createdAt,
         amount: parseFloat(i.total),
         status: i.status,
-        clientId: i.clientId,
+        contactId: i.contactId,
         projectId: i.projectId,
         urgency: i.status === 'overdue' ? 'critical' : 'medium'
       }));
@@ -1649,7 +1653,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         clientName: `${l.firstName} ${l.lastName}`,
         createdDate: l.createdAt,
         urgency: 'high',
-        clientId: l.id
+        contactId: l.id
       }));
 
       // Get overdue tasks
@@ -1664,7 +1668,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         dueDate: t.dueDate,
         createdDate: t.createdAt,
         urgency: 'critical',
-        clientId: t.clientId,
+        contactId: t.contactId,
         projectId: t.projectId
       }));
 
@@ -1693,9 +1697,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           isRead: e.status === 'delivered',
           hasAttachments: false,
           projectName: e.projectId || 'General',
-          clientName: e.clientId || 'Unknown',
+          clientName: e.contactId || 'Unknown',
           projectId: e.projectId,
-          clientId: e.clientId,
+          contactId: e.contactId,
           priority: 'medium',
           labels: []
         }));
@@ -1758,9 +1762,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         } else {
           console.log('No active Google integration found for user:', event.createdBy);
         }
-      } catch (syncError) {
+      } catch (syncError: any) {
         console.error('Failed to sync new event to Google:', syncError);
-        console.error('Sync error details:', syncError.response?.data || syncError.message);
+        console.error('Sync error details:', syncError?.response?.data || syncError?.message);
         // Don't fail the creation if sync fails
       }
       
@@ -1786,7 +1790,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (googleIntegration) {
           await googleOAuthService.syncToGoogle(googleIntegration, event.id);
         }
-      } catch (syncError) {
+      } catch (syncError: any) {
         console.error('Failed to sync updated event to Google:', syncError);
         // Don't fail the update if sync fails
       }

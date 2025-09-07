@@ -26,7 +26,7 @@ export default function Contacts() {
 
   const { data: contacts, isLoading } = useQuery<Contact[]>({
     queryKey: ["/api/contacts"],
-    refetchInterval: 30000, // Refresh every 30 seconds to pick up new contacts
+    refetchInterval: 10000, // Refresh every 10 seconds for better responsiveness
     refetchIntervalInBackground: true,
     refetchOnWindowFocus: true, // Refresh when tab/window gains focus
     refetchOnMount: true, // Refresh when component mounts

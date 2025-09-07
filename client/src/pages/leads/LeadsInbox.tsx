@@ -52,7 +52,7 @@ export default function LeadsInbox() {
       const response = await apiRequest("GET", `/api/leads/inbox?${params}`);
       return response.json();
     },
-    refetchInterval: 30000, // Refresh every 30 seconds to pick up new form submissions
+    refetchInterval: 10000, // Refresh every 10 seconds for better responsiveness
     refetchIntervalInBackground: true,
     refetchOnWindowFocus: true, // Refresh when tab/window gains focus
     refetchOnMount: true, // Refresh when component mounts

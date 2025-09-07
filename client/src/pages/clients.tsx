@@ -58,22 +58,25 @@ export default function Contacts() {
 
   const createContactMutation = useMutation({
     mutationFn: async (data: z.infer<typeof insertContactSchema>) => {
-      const response = await apiRequest("POST", "/api/contacts", data);
+      const method = editingContact ? "PUT" : "POST";
+      const url = editingContact ? `/api/contacts/${editingContact.id}` : "/api/contacts";
+      const response = await apiRequest(method, url, data);
       return response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/contacts"] });
       toast({
         title: "Success",
-        description: "Contact added successfully!",
+        description: editingContact ? "Contact updated successfully!" : "Contact added successfully!",
       });
       form.reset();
+      setEditingContact(null);
       setShowContactModal(false);
     },
     onError: () => {
       toast({
         title: "Error",
-        description: "Failed to add contact. Please try again.",
+        description: editingContact ? "Failed to update contact. Please try again." : "Failed to add contact. Please try again.",
         variant: "destructive",
       });
     },
@@ -151,10 +154,11 @@ export default function Contacts() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Name</TableHead>
-                    <TableHead>Company</TableHead>
+                    <TableHead>Company & Role</TableHead>
                     <TableHead>Email</TableHead>
                     <TableHead>Phone</TableHead>
                     <TableHead>Location</TableHead>
+                    <TableHead>Tags</TableHead>
                     <TableHead>Created</TableHead>
                     <TableHead>Actions</TableHead>
                   </TableRow>
@@ -167,7 +171,14 @@ export default function Contacts() {
                       className="cursor-pointer"
                       onClick={() => {
                         setEditingContact(contact);
-                        form.reset(contact);
+                        form.reset({
+                          ...contact,
+                          tags: contact.tags || [],
+                          jobTitle: contact.jobTitle || "",
+                          website: contact.website || "",
+                          leadSource: contact.leadSource || "",
+                          notes: contact.notes || ""
+                        });
                         setShowContactModal(true);
                       }}
                     >
@@ -175,7 +186,12 @@ export default function Contacts() {
                         {contact.firstName} {contact.lastName}
                       </TableCell>
                       <TableCell data-testid={`contact-company-${contact.id}`}>
-                        {contact.company || '-'}
+                        <div>
+                          <div className="font-medium">{contact.company || '-'}</div>
+                          {contact.jobTitle && (
+                            <div className="text-sm text-muted-foreground">{contact.jobTitle}</div>
+                          )}
+                        </div>
                       </TableCell>
                       <TableCell data-testid={`contact-email-${contact.id}`}>
                         {contact.email}
@@ -184,7 +200,23 @@ export default function Contacts() {
                         {contact.phone || '-'}
                       </TableCell>
                       <TableCell data-testid={`contact-location-${contact.id}`}>
-                        {contact.address || '-'}
+                        {contact.city ? `${contact.city}${contact.state ? `, ${contact.state}` : ''}` : (contact.address || '-')}
+                      </TableCell>
+                      <TableCell data-testid={`contact-tags-${contact.id}`}>
+                        {contact.tags && contact.tags.length > 0 ? (
+                          <div className="flex flex-wrap gap-1">
+                            {contact.tags.slice(0, 2).map((tag, index) => (
+                              <span key={index} className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
+                                {tag}
+                              </span>
+                            ))}
+                            {contact.tags.length > 2 && (
+                              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300">
+                                +{contact.tags.length - 2}
+                              </span>
+                            )}
+                          </div>
+                        ) : '-'}
                       </TableCell>
                       <TableCell data-testid={`contact-created-${contact.id}`}>
                         {formatDistanceToNow(new Date(contact.createdAt!), { addSuffix: true })}

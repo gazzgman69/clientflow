@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Send, Mail, Loader2, AlertCircle, X } from 'lucide-react';
+import { Send, Mail, Loader2, AlertCircle, X, Reply } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -36,6 +36,10 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
   const [message, setMessage] = useState('');
   const [isComposing, setIsComposing] = useState(false);
   const [selectedThreadId, setSelectedThreadId] = useState<string | null>(null);
+  const [showReplyForm, setShowReplyForm] = useState(false);
+  const [replyTo, setReplyTo] = useState('');
+  const [replySubject, setReplySubject] = useState('');
+  const [replyMessage, setReplyMessage] = useState('');
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -160,6 +164,64 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
 
   // Get details for selected thread (no loading needed - it's already cached)
   const selectedThreadDetails = selectedThreadId ? threadDetailsMap.get(selectedThreadId) : null;
+
+  // Reply email mutation
+  const replyEmailMutation = useMutation({
+    mutationFn: async (emailData: { to: string; subject: string; text: string }) => {
+      return apiRequest('/api/email/send', {
+        method: 'POST',
+        body: JSON.stringify(emailData),
+      });
+    },
+    onSuccess: () => {
+      toast({ title: 'Reply sent successfully!' });
+      setShowReplyForm(false);
+      setReplyMessage('');
+      // Refresh threads to show the new reply
+      queryClient.invalidateQueries({ queryKey: [`/api/email/threads/by-project/${projectId}`] });
+      // Refresh the thread details
+      if (selectedThreadId) {
+        queryClient.invalidateQueries({ queryKey: [`/api/email/thread/${selectedThreadId}`] });
+      }
+    },
+    onError: (error: any) => {
+      toast({ 
+        title: 'Failed to send reply', 
+        description: error.message,
+        variant: 'destructive' 
+      });
+    },
+  });
+
+  const handleReply = (originalMessage: any) => {
+    // Set reply details based on the original message
+    const replyToEmail = originalMessage.from.includes('<') 
+      ? originalMessage.from.match(/<(.+)>/)?.[1] || originalMessage.from
+      : originalMessage.from;
+    
+    setReplyTo(replyToEmail);
+    setReplySubject(originalMessage.subject.startsWith('Re:') 
+      ? originalMessage.subject 
+      : `Re: ${originalMessage.subject}`);
+    setShowReplyForm(true);
+  };
+
+  const handleSendReply = () => {
+    if (!replyTo || !replySubject || !replyMessage) {
+      toast({ 
+        title: 'Missing fields', 
+        description: 'Please fill in all required fields',
+        variant: 'destructive' 
+      });
+      return;
+    }
+
+    replyEmailMutation.mutate({ 
+      to: replyTo, 
+      subject: replySubject, 
+      text: replyMessage 
+    });
+  };
 
   // Check for insufficient permissions error
   const needsReconnect = threadsError || threadsResponse?.error?.includes?.('insufficientPermissions');
@@ -325,7 +387,11 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
       </Card>
 
       {/* Thread Details Modal */}
-      <Dialog open={!!selectedThreadId} onOpenChange={() => setSelectedThreadId(null)}>
+      <Dialog open={!!selectedThreadId} onOpenChange={() => {
+        setSelectedThreadId(null);
+        setShowReplyForm(false);
+        setReplyMessage('');
+      }}>
         <DialogContent className="max-w-4xl max-h-[80vh] overflow-hidden flex flex-col">
           <DialogHeader>
             <DialogTitle className="flex items-center justify-between">
@@ -336,7 +402,11 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
               <Button 
                 variant="ghost" 
                 size="sm" 
-                onClick={() => setSelectedThreadId(null)}
+                onClick={() => {
+                  setSelectedThreadId(null);
+                  setShowReplyForm(false);
+                  setReplyMessage('');
+                }}
                 data-testid="button-close-thread"
               >
                 <X className="h-4 w-4" />
@@ -361,12 +431,91 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
                       </div>
                     </CardHeader>
                     <CardContent className="pt-0">
-                      <div className="whitespace-pre-wrap text-sm bg-muted/30 p-3 rounded max-h-64 overflow-y-auto">
+                      <div className="whitespace-pre-wrap text-sm bg-muted/30 p-3 rounded max-h-64 overflow-y-auto mb-3">
                         {message.body || message.snippet}
+                      </div>
+                      <div className="flex justify-end">
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          onClick={() => handleReply(message)}
+                          data-testid={`button-reply-${message.id}`}
+                        >
+                          <Reply className="h-4 w-4 mr-2" />
+                          Reply
+                        </Button>
                       </div>
                     </CardContent>
                   </Card>
                 ))}
+
+                {/* Reply Form */}
+                {showReplyForm && (
+                  <Card className="border-2 border-primary/20 bg-primary/5">
+                    <CardHeader>
+                      <CardTitle className="text-lg">Reply to Thread</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div>
+                        <Label htmlFor="reply-to">To</Label>
+                        <Input
+                          id="reply-to"
+                          value={replyTo}
+                          onChange={(e) => setReplyTo(e.target.value)}
+                          data-testid="input-reply-to"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="reply-subject">Subject</Label>
+                        <Input
+                          id="reply-subject"
+                          value={replySubject}
+                          onChange={(e) => setReplySubject(e.target.value)}
+                          data-testid="input-reply-subject"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="reply-message">Message</Label>
+                        <Textarea
+                          id="reply-message"
+                          value={replyMessage}
+                          onChange={(e) => setReplyMessage(e.target.value)}
+                          rows={6}
+                          data-testid="textarea-reply-message"
+                        />
+                      </div>
+                      <div className="flex gap-2 justify-end">
+                        <Button 
+                          variant="outline" 
+                          onClick={() => {
+                            setShowReplyForm(false);
+                            setReplyMessage('');
+                          }}
+                          data-testid="button-cancel-reply"
+                        >
+                          Cancel
+                        </Button>
+                        <Button 
+                          onClick={handleSendReply}
+                          disabled={replyEmailMutation.isPending}
+                          data-testid="button-send-reply"
+                        >
+                          {replyEmailMutation.isPending ? (
+                            <>
+                              <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                              Sending...
+                            </>
+                          ) : (
+                            <>
+                              <Send className="h-4 w-4 mr-2" />
+                              Send Reply
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
               </div>
             ) : selectedThreadDetails ? (
               <div className="text-center py-8 text-muted-foreground">

@@ -168,7 +168,7 @@ export default function Contacts() {
                         {contact.phone || '-'}
                       </TableCell>
                       <TableCell data-testid={`contact-location-${contact.id}`}>
-                        {contact.city && contact.state ? `${contact.city}, ${contact.state}` : '-'}
+                        {contact.address || '-'}
                       </TableCell>
                       <TableCell data-testid={`contact-created-${contact.id}`}>
                         {formatDistanceToNow(new Date(contact.createdAt!), { addSuffix: true })}

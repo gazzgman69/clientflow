@@ -39,8 +39,11 @@ export default function Sidebar() {
       const response = await apiRequest("GET", "/api/leads/summary");
       return response.json();
     },
-    refetchInterval: 60000, // Poll every 60 seconds
+    refetchInterval: 1000, // Poll every 1 second for real-time updates
+    refetchIntervalInBackground: true,
     refetchOnWindowFocus: true,
+    refetchOnMount: true,
+    refetchOnReconnect: true,
   });
 
   // Create navigation items with dynamic badge for leads

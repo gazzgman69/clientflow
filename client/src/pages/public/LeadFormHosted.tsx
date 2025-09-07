@@ -11,6 +11,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest } from '@/lib/queryClient';
+import { useQueryClient } from '@tanstack/react-query';
 
 interface Question {
   id: string;
@@ -43,6 +44,7 @@ export default function LeadFormHosted({ slug }: LeadFormHostedProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   // Check for embed or dialog mode
   const urlParams = new URLSearchParams(window.location.search);

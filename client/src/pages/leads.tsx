@@ -21,6 +21,10 @@ export default function Leads() {
 
   const { data: leads, isLoading } = useQuery<Lead[]>({
     queryKey: ["/api/leads"],
+    refetchInterval: 30000, // Refresh every 30 seconds to pick up new leads
+    refetchIntervalInBackground: true,
+    refetchOnWindowFocus: true, // Refresh when tab/window gains focus
+    refetchOnMount: true, // Refresh when component mounts
   });
 
   const deleteMutation = useMutation({

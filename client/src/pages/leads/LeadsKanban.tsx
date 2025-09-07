@@ -69,13 +69,17 @@ export default function LeadsKanban() {
     markLeadsViewed.mutate();
   }, []);
 
-  // Fetch kanban data (no polling for now to fix issues)
+  // Fetch kanban data with auto-refresh
   const { data: kanbanData, isLoading, refetch } = useQuery<KanbanData>({
     queryKey: ["/api/leads/kanban"],
     queryFn: async () => {
       const response = await apiRequest("GET", "/api/leads/kanban");
       return response.json();
     },
+    refetchInterval: 30000, // Refresh every 30 seconds to pick up new leads
+    refetchIntervalInBackground: true,
+    refetchOnWindowFocus: true, // Refresh when tab/window gains focus
+    refetchOnMount: true, // Refresh when component mounts
   });
   
   // Simple manual refresh

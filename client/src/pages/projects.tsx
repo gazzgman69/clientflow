@@ -200,7 +200,12 @@ export default function Projects() {
                 </TableHeader>
                 <TableBody>
                   {projects.map((project) => (
-                    <TableRow key={project.id} data-testid={`project-row-${project.id}`}>
+                    <TableRow 
+                      key={project.id} 
+                      data-testid={`project-row-${project.id}`}
+                      className="cursor-pointer"
+                      onClick={() => handleViewDetails(project)}
+                    >
                       <TableCell className="font-medium" data-testid={`project-name-${project.id}`}>
                         {project.name}
                       </TableCell>
@@ -224,22 +229,35 @@ export default function Projects() {
                       <TableCell data-testid={`project-created-${project.id}`}>
                         {formatDistanceToNow(new Date(project.createdAt!), { addSuffix: true })}
                       </TableCell>
-                      <TableCell>
+                      <TableCell onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center space-x-2">
                           <Button 
                             variant="ghost" 
                             size="sm" 
-                            onClick={() => handleViewDetails(project)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleViewDetails(project);
+                            }}
                             data-testid={`view-details-${project.id}`}
                           >
                             <Eye className="h-4 w-4" />
                           </Button>
-                          <Button variant="ghost" size="sm" data-testid={`edit-project-${project.id}`}>
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            onClick={(e) => e.stopPropagation()}
+                            data-testid={`edit-project-${project.id}`}
+                          >
                             <Edit className="h-4 w-4" />
                           </Button>
                           <AlertDialog>
                             <AlertDialogTrigger asChild>
-                              <Button variant="ghost" size="sm" data-testid={`delete-project-${project.id}`}>
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                onClick={(e) => e.stopPropagation()}
+                                data-testid={`delete-project-${project.id}`}
+                              >
                                 <Trash2 className="h-4 w-4" />
                               </Button>
                             </AlertDialogTrigger>

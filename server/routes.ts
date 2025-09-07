@@ -526,6 +526,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.patch("/api/contacts/:id", async (req, res) => {
+    try {
+      const contactData = insertContactSchema.partial().parse(req.body);
+      const contact = await storage.updateContact(req.params.id, contactData);
+      if (!contact) {
+        return res.status(404).json({ message: "Contact not found" });
+      }
+      res.json(contact);
+    } catch (error) {
+      res.status(400).json({ message: "Invalid contact data" });
+    }
+  });
+
+  app.delete("/api/contacts/:id", async (req, res) => {
+    try {
+      const deleted = await storage.deleteContact(req.params.id);
+      if (!deleted) {
+        return res.status(404).json({ message: "Contact not found" });
+      }
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ message: "Failed to delete contact" });
+    }
+  });
+
   // Projects
   app.get("/api/projects", async (req, res) => {
     try {
@@ -556,6 +581,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(project);
     } catch (error) {
       res.status(400).json({ message: "Invalid project data" });
+    }
+  });
+
+  app.delete("/api/projects/:id", async (req, res) => {
+    try {
+      const deleted = await storage.deleteProject(req.params.id);
+      if (!deleted) {
+        return res.status(404).json({ message: "Project not found" });
+      }
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ message: "Failed to delete project" });
     }
   });
 

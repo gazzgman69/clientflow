@@ -37,12 +37,6 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Initialize with emails prop if available
-  useEffect(() => {
-    if (emails?.[0] && !to) {
-      setTo(emails[0]);
-    }
-  }, [emails, to]);
 
   // Fetch project details to get contact information
   const { data: project } = useQuery({
@@ -68,21 +62,11 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
 
   // Update the 'to' field when contact email is available
   useEffect(() => {
-    console.log('EmailPanel Debug:', {
-      project,
-      contactId: project?.contactId,
-      contacts,
-      contact,
-      contactEmail: contact?.email,
-      currentTo: to
-    });
-    
     const emailToUse = contact?.email || emails?.[0] || '';
     if (emailToUse && emailToUse !== to) {
-      console.log('Setting email to:', emailToUse);
       setTo(emailToUse);
     }
-  }, [project, contacts, contact?.email, emails, to]);
+  }, [contact?.email, emails, to]);
 
   // Fetch project email threads
   const { data: threadsResponse, isLoading: threadsLoading, error: threadsError } = useQuery({

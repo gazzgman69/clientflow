@@ -134,19 +134,32 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
 
   const threads = threadsResponse?.threads || [];
 
-  // Fetch selected thread details
-  const { data: threadDetails, isLoading: threadLoading } = useQuery({
-    queryKey: [`/api/email/thread/${selectedThreadId}`],
+  // Pre-fetch all thread details for instant access
+  const threadQueries = threads.map(thread => ({
+    queryKey: [`/api/email/thread/${thread.threadId}`],
     queryFn: async () => {
-      const response = await fetch(`/api/email/thread/${selectedThreadId}`, {
+      const response = await fetch(`/api/email/thread/${thread.threadId}`, {
         headers: {
           'user-id': 'test-user'
         }
       });
       return response.json();
     },
-    enabled: !!selectedThreadId,
+  }));
+
+  // Use parallel queries to pre-load all thread details
+  const threadResults = threadQueries.map(query => useQuery(query));
+  
+  // Create a map for quick thread detail lookup
+  const threadDetailsMap = new Map();
+  threadResults.forEach((result, index) => {
+    if (result.data && threads[index]) {
+      threadDetailsMap.set(threads[index].threadId, result.data);
+    }
   });
+
+  // Get details for selected thread (no loading needed - it's already cached)
+  const selectedThreadDetails = selectedThreadId ? threadDetailsMap.get(selectedThreadId) : null;
 
   // Check for insufficient permissions error
   const needsReconnect = threadsError || threadsResponse?.error?.includes?.('insufficientPermissions');
@@ -318,7 +331,7 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
             <DialogTitle className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Mail className="h-5 w-5" />
-                {threadDetails?.thread?.subject || 'Email Thread'}
+                {selectedThreadDetails?.thread?.subject || 'Email Thread'}
               </div>
               <Button 
                 variant="ghost" 
@@ -332,14 +345,9 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
           </DialogHeader>
           
           <div className="flex-1 overflow-auto">
-            {threadLoading ? (
-              <div className="flex items-center justify-center py-8">
-                <Loader2 className="h-6 w-6 animate-spin mr-2" />
-                Loading thread...
-              </div>
-            ) : threadDetails?.thread?.messages ? (
+            {selectedThreadDetails?.thread?.messages ? (
               <div className="space-y-4">
-                {threadDetails.thread.messages.map((message: any, index: number) => (
+                {selectedThreadDetails.thread.messages.map((message: any, index: number) => (
                   <Card key={message.id} className="border-l-4 border-l-primary/20">
                     <CardHeader className="pb-2">
                       <div className="flex justify-between items-start">
@@ -360,12 +368,17 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
                   </Card>
                 ))}
               </div>
-            ) : (
+            ) : selectedThreadDetails ? (
               <div className="text-center py-8 text-muted-foreground">
                 <p>Failed to load thread details</p>
-                {threadDetails?.error && (
-                  <p className="text-sm mt-2">{threadDetails.error}</p>
+                {selectedThreadDetails?.error && (
+                  <p className="text-sm mt-2">{selectedThreadDetails.error}</p>
                 )}
+              </div>
+            ) : (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin mr-2" />
+                Loading thread...
               </div>
             )}
           </div>

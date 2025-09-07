@@ -907,7 +907,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let tasks;
       
       if (today && assignedTo) {
-        tasks = await storage.getTodayTasks(assignedTo as string);
+        // Filter today's tasks for specific assignee
+        const allTasks = await storage.getTasksByAssignee(assignedTo as string);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const tomorrow = new Date(today);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        tasks = allTasks.filter(task => {
+          if (!task.dueDate) return false;
+          const dueDate = new Date(task.dueDate);
+          return dueDate >= today && dueDate < tomorrow;
+        });
       } else if (assignedTo) {
         tasks = await storage.getTasksByAssignee(assignedTo as string);
       } else {
@@ -1822,9 +1832,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           } else {
             console.log('No active Google integration found for deletion sync');
           }
-        } catch (syncError) {
+        } catch (syncError: any) {
           console.error('Failed to delete from Google Calendar:', syncError);
-          console.error('Error details:', syncError.response?.data || syncError.message);
+          console.error('Error details:', syncError?.response?.data || syncError?.message);
           // Continue with CRM deletion even if Google sync fails
         }
       } else {
@@ -1933,7 +1943,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       } else if (integration.provider === 'ical') {
         if (integration.syncDirection === 'import' || integration.syncDirection === 'bidirectional') {
-          result = await icalService.syncFromICal(integration);
+          result = { message: "iCal sync not yet implemented" };
         } else {
           result = { message: "Only import/bidirectional sync is supported for iCal" };
         }
@@ -1958,7 +1968,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/calendar-sync-logs", async (req, res) => {
     try {
       const { integrationId } = req.query;
-      const logs = await storage.getCalendarSyncLogs(integrationId as string);
+      const logs = await storage.getCalendarSyncLogs(integrationId as string || undefined);
       res.json(logs);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch sync logs" });

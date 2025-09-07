@@ -37,6 +37,13 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
+  // Initialize with emails prop if available
+  useEffect(() => {
+    if (emails?.[0] && !to) {
+      setTo(emails[0]);
+    }
+  }, [emails, to]);
+
   // Fetch project details to get contact information
   const { data: project } = useQuery({
     queryKey: [`/api/projects/${projectId}`],
@@ -54,7 +61,6 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
       const response = await fetch('/api/contacts');
       return response.json();
     },
-    enabled: !!project?.contactId,
   });
 
   // Find the contact for this project
@@ -62,12 +68,21 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
 
   // Update the 'to' field when contact email is available
   useEffect(() => {
-    if (contact?.email && !to) {
-      setTo(contact.email);
-    } else if (emails?.[0] && !to) {
-      setTo(emails[0]);
+    console.log('EmailPanel Debug:', {
+      project,
+      contactId: project?.contactId,
+      contacts,
+      contact,
+      contactEmail: contact?.email,
+      currentTo: to
+    });
+    
+    const emailToUse = contact?.email || emails?.[0] || '';
+    if (emailToUse && emailToUse !== to) {
+      console.log('Setting email to:', emailToUse);
+      setTo(emailToUse);
     }
-  }, [contact?.email, emails, to]);
+  }, [project, contacts, contact?.email, emails, to]);
 
   // Fetch project email threads
   const { data: threadsResponse, isLoading: threadsLoading, error: threadsError } = useQuery({

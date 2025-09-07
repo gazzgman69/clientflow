@@ -37,10 +37,18 @@ export default function Projects() {
 
   const { data: projects, isLoading } = useQuery<Project[]>({
     queryKey: ["/api/projects"],
+    refetchInterval: 30000, // Refresh every 30 seconds to pick up new projects
+    refetchIntervalInBackground: true,
+    refetchOnWindowFocus: true, // Refresh when tab/window gains focus
+    refetchOnMount: true, // Refresh when component mounts
   });
 
   const { data: contacts } = useQuery<Contact[]>({
     queryKey: ["/api/contacts"],
+    refetchInterval: 30000, // Refresh every 30 seconds to pick up new contacts
+    refetchIntervalInBackground: true,
+    refetchOnWindowFocus: true, // Refresh when tab/window gains focus
+    refetchOnMount: true, // Refresh when component mounts
   });
 
   const form = useForm<z.infer<typeof projectFormSchema>>({

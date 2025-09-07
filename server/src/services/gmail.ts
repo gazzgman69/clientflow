@@ -334,6 +334,94 @@ export class GmailService {
       return { ok: false, error: error.message || 'Failed to list emails' };
     }
   }
+
+  /**
+   * Get detailed thread content by threadId
+   */
+  async getThreadDetails(userId: string, threadId: string) {
+    try {
+      const gmail = await this.getGmailService(userId);
+
+      // Get the thread with all messages
+      const threadResponse = await gmail.users.threads.get({
+        userId: 'me',
+        id: threadId
+      });
+
+      const messages = threadResponse.data.messages || [];
+      const threadMessages = [];
+
+      // Get details for each message in the thread
+      for (const message of messages) {
+        if (!message.id) continue;
+
+        const detailResponse = await gmail.users.messages.get({
+          userId: 'me',
+          id: message.id,
+          format: 'full'
+        });
+
+        const headers = detailResponse.data.payload?.headers || [];
+        const getHeader = (name: string) => headers.find(h => h.name === name)?.value || '';
+
+        // Extract message body
+        let body = '';
+        const payload = detailResponse.data.payload;
+        if (payload) {
+          if (payload.parts) {
+            // Multipart message
+            for (const part of payload.parts) {
+              if (part.mimeType === 'text/plain' && part.body?.data) {
+                body += Buffer.from(part.body.data, 'base64').toString();
+              } else if (part.mimeType === 'text/html' && part.body?.data && !body) {
+                // Fallback to HTML if no plain text
+                body += Buffer.from(part.body.data, 'base64').toString();
+              }
+            }
+          } else if (payload.body?.data) {
+            // Single part message
+            body = Buffer.from(payload.body.data, 'base64').toString();
+          }
+        }
+
+        threadMessages.push({
+          id: message.id,
+          from: getHeader('From'),
+          to: getHeader('To'),
+          subject: getHeader('Subject'),
+          date: getHeader('Date'),
+          dateISO: new Date(getHeader('Date')).toISOString(),
+          body: body || detailResponse.data.snippet || '',
+          snippet: detailResponse.data.snippet || ''
+        });
+      }
+
+      // Sort messages by date (oldest first for thread view)
+      threadMessages.sort((a, b) => new Date(a.dateISO).getTime() - new Date(b.dateISO).getTime());
+
+      return {
+        ok: true,
+        thread: {
+          threadId,
+          messages: threadMessages,
+          count: threadMessages.length,
+          subject: threadMessages[0]?.subject || 'No Subject'
+        }
+      };
+
+    } catch (error: any) {
+      console.error('Error getting thread details:', error);
+      
+      if (error.code === 401 || error.message?.includes('invalid_grant')) {
+        return { ok: false, needsReconnect: true };
+      }
+      
+      return { 
+        ok: false, 
+        error: error.message || 'Unknown error occurred'
+      };
+    }
+  }
 }
 
 // Singleton with proper token lookup function

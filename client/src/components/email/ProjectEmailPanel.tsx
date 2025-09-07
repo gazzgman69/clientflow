@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Send, Mail, Loader2, AlertCircle } from 'lucide-react';
+import { Send, Mail, Loader2, AlertCircle, X } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest } from '@/lib/queryClient';
 
@@ -34,6 +35,7 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
   const [subject, setSubject] = useState('');
   const [message, setMessage] = useState('');
   const [isComposing, setIsComposing] = useState(false);
+  const [selectedThreadId, setSelectedThreadId] = useState<string | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -131,6 +133,20 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
   };
 
   const threads = threadsResponse?.threads || [];
+
+  // Fetch selected thread details
+  const { data: threadDetails, isLoading: threadLoading } = useQuery({
+    queryKey: [`/api/email/thread/${selectedThreadId}`],
+    queryFn: async () => {
+      const response = await fetch(`/api/email/thread/${selectedThreadId}`, {
+        headers: {
+          'user-id': 'test-user'
+        }
+      });
+      return response.json();
+    },
+    enabled: !!selectedThreadId,
+  });
 
   // Check for insufficient permissions error
   const needsReconnect = threadsError || threadsResponse?.error?.includes?.('insufficientPermissions');
@@ -271,6 +287,7 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
                   <TableRow 
                     key={thread.threadId}
                     className="cursor-pointer hover:bg-muted/50"
+                    onClick={() => setSelectedThreadId(thread.threadId)}
                     data-testid={`row-thread-${thread.threadId}`}
                   >
                     <TableCell className="font-medium">
@@ -293,6 +310,67 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
           )}
         </CardContent>
       </Card>
+
+      {/* Thread Details Modal */}
+      <Dialog open={!!selectedThreadId} onOpenChange={() => setSelectedThreadId(null)}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Mail className="h-5 w-5" />
+                {threadDetails?.thread?.subject || 'Email Thread'}
+              </div>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={() => setSelectedThreadId(null)}
+                data-testid="button-close-thread"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="flex-1 overflow-auto">
+            {threadLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin mr-2" />
+                Loading thread...
+              </div>
+            ) : threadDetails?.thread?.messages ? (
+              <div className="space-y-4">
+                {threadDetails.thread.messages.map((message: any, index: number) => (
+                  <Card key={message.id} className="border-l-4 border-l-primary/20">
+                    <CardHeader className="pb-2">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <p className="font-medium text-sm">{message.from}</p>
+                          <p className="text-xs text-muted-foreground">To: {message.to}</p>
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          {formatDate(message.dateISO)}
+                        </div>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="pt-0">
+                      <div className="whitespace-pre-wrap text-sm bg-muted/30 p-3 rounded max-h-64 overflow-y-auto">
+                        {message.body || message.snippet}
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                <p>Failed to load thread details</p>
+                {threadDetails?.error && (
+                  <p className="text-sm mt-2">{threadDetails.error}</p>
+                )}
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

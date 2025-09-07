@@ -110,6 +110,22 @@ router.get('/threads/by-project/:projectId', requireAuth, async (req: any, res) 
 });
 
 /**
+ * Get detailed thread content by threadId
+ */
+router.get('/thread/:threadId', requireAuth, async (req: any, res) => {
+  try {
+    const threadId = req.params.threadId;
+    const userId = req.user.id;
+    
+    const result = await gmailService.getThreadDetails(userId, threadId);
+    
+    res.json(result);
+  } catch (error: any) {
+    res.status(500).json({ ok: false, error: 'Internal server error' });
+  }
+});
+
+/**
  * List emails (existing endpoint)
  */
 router.get('/list', requireAuth, async (req: any, res) => {

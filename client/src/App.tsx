@@ -1,4 +1,4 @@
-import { Switch, Route } from "wouter";
+import { Switch, Route, Redirect } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -52,11 +52,7 @@ function Router() {
                 <Route path="/leads/board" component={LeadsKanban} />
                 <Route path="/leads/inbox" component={LeadsInbox} />
                 <Route path="/leads">
-                  {() => {
-                    // Redirect /leads to /leads/board
-                    window.history.replaceState(null, '', '/leads/board');
-                    return <LeadsKanban />;
-                  }}
+                  <Redirect to="/leads/board" replace />
                 </Route>
                 <Route path="/clients" component={Contacts} />
                 <Route path="/projects/:id" component={ProjectDetail} />

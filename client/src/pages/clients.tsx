@@ -9,7 +9,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Edit, Trash2, Building, User, Home, Briefcase, Tag, FileText } from "lucide-react";
+import { Plus, Edit, Trash2, Building, User, Home, Briefcase, Tag, FileText, MapPin } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -50,6 +50,12 @@ export default function Contacts() {
       state: "",
       zipCode: "",
       country: "",
+      venueAddress: "",
+      venueCity: "",
+      venueState: "",
+      venueZipCode: "",
+      venueCountry: "",
+      venueId: null,
       tags: [],
       leadSource: "",
       notes: "",
@@ -177,7 +183,13 @@ export default function Contacts() {
                           jobTitle: contact.jobTitle || "",
                           website: contact.website || "",
                           leadSource: contact.leadSource || "",
-                          notes: contact.notes || ""
+                          notes: contact.notes || "",
+                          venueAddress: contact.venueAddress || "",
+                          venueCity: contact.venueCity || "",
+                          venueState: contact.venueState || "",
+                          venueZipCode: contact.venueZipCode || "",
+                          venueCountry: contact.venueCountry || "",
+                          venueId: contact.venueId || null
                         });
                         setShowContactModal(true);
                       }}
@@ -411,6 +423,89 @@ export default function Contacts() {
                         <FormLabel>Country</FormLabel>
                         <FormControl>
                           <Input {...field} value={field.value || ""} data-testid="input-contact-country" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              </div>
+
+              <Separator />
+
+              {/* 📍 Venue Address Section */}
+              <div className="space-y-4">
+                <div className="flex items-center gap-2">
+                  <MapPin className="h-4 w-4" />
+                  <h3 className="text-lg font-semibold">Venue Address</h3>
+                  <span className="text-sm text-muted-foreground">(linked to venues tab)</span>
+                </div>
+                
+                <FormField
+                  control={form.control}
+                  name="venueAddress"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Venue Street</FormLabel>
+                      <FormControl>
+                        <Input {...field} value={field.value || ""} data-testid="input-contact-venue-address" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="venueCity"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Venue City</FormLabel>
+                        <FormControl>
+                          <Input {...field} value={field.value || ""} data-testid="input-contact-venue-city" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={form.control}
+                    name="venueState"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Venue State / Province</FormLabel>
+                        <FormControl>
+                          <Input {...field} value={field.value || ""} data-testid="input-contact-venue-state" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={form.control}
+                    name="venueZipCode"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Venue Zip / Postal</FormLabel>
+                        <FormControl>
+                          <Input {...field} value={field.value || ""} data-testid="input-contact-venue-zip" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={form.control}
+                    name="venueCountry"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Venue Country</FormLabel>
+                        <FormControl>
+                          <Input {...field} value={field.value || ""} data-testid="input-contact-venue-country" />
                         </FormControl>
                         <FormMessage />
                       </FormItem>

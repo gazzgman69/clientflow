@@ -278,13 +278,13 @@ router.post('/leads/public/:slug/submit', async (req, res) => {
       notes: `Auto-created from lead form: ${formData.nothing || ''}`
     };
 
-    const contact = await storage.createClient(contactData);
+    const contact = await storage.createContact(contactData);
 
     // Automatically create project from lead data
     const projectData = {
       name: `${formData.whatKindOfEventIsIt || 'Event'} - ${formData.leadName || 'Unknown'}`,
       description: `${formData.whatKindOfEventIsIt || 'Event'} at ${formData.eventLocation || 'TBD'}`,
-      clientId: contact.id,
+      contactId: contact.id,
       status: 'pending' as const,
       startDate: formData.projectDate ? new Date(formData.projectDate) : null,
       endDate: null,

@@ -70,9 +70,11 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
 
   // Fetch project email threads
   const { data: threadsResponse, isLoading: threadsLoading, error: threadsError } = useQuery({
-    queryKey: [`/api/email/threads/by-project/${projectId}`, emails],
+    queryKey: [`/api/email/threads/by-project/${projectId}`, contact?.email, emails],
     queryFn: async () => {
-      const emailsParam = emails?.length ? `?emails=${emails.join(',')}` : '';
+      // Use contact's email or emails prop for the search
+      const emailAddresses = contact?.email ? [contact.email] : (emails || []);
+      const emailsParam = emailAddresses?.length ? `?emails=${emailAddresses.join(',')}` : '';
       const response = await fetch(`/api/email/threads/by-project/${projectId}${emailsParam}`, {
         headers: {
           'user-id': 'test-user' // TODO: Get from actual auth context
@@ -80,6 +82,7 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
       });
       return response.json();
     },
+    enabled: !!projectId && (!!contact?.email || (emails && emails.length > 0)),
   });
 
   // Send email mutation

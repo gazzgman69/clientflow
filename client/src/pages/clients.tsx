@@ -154,7 +154,16 @@ export default function Contacts() {
                 </TableHeader>
                 <TableBody>
                   {contacts.map((contact) => (
-                    <TableRow key={contact.id} data-testid={`contact-row-${contact.id}`}>
+                    <TableRow 
+                      key={contact.id} 
+                      data-testid={`contact-row-${contact.id}`}
+                      className="cursor-pointer"
+                      onClick={() => {
+                        setEditingContact(contact);
+                        form.reset(contact);
+                        setShowContactModal(true);
+                      }}
+                    >
                       <TableCell className="font-medium" data-testid={`contact-name-${contact.id}`}>
                         {contact.firstName} {contact.lastName}
                       </TableCell>
@@ -173,37 +182,32 @@ export default function Contacts() {
                       <TableCell data-testid={`contact-created-${contact.id}`}>
                         {formatDistanceToNow(new Date(contact.createdAt!), { addSuffix: true })}
                       </TableCell>
-                      <TableCell>
-                        <div className="flex items-center space-x-2">
-                          <Button variant="ghost" size="sm" data-testid={`edit-contact-${contact.id}`}>
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                              <Button variant="ghost" size="sm" data-testid={`delete-contact-${contact.id}`}>
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                              <AlertDialogHeader>
-                                <AlertDialogTitle>Delete Contact</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                  Are you sure you want to delete "{contact.firstName} {contact.lastName}"? This action cannot be undone and will remove all associated data.
-                                </AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter>
-                                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                <AlertDialogAction
-                                  onClick={() => deleteContactMutation.mutate(contact.id)}
-                                  className="bg-red-600 hover:bg-red-700"
-                                  data-testid={`confirm-delete-contact-${contact.id}`}
-                                >
-                                  Delete
-                                </AlertDialogAction>
-                              </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
-                        </div>
+                      <TableCell onClick={(e) => e.stopPropagation()}>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button variant="ghost" size="sm" data-testid={`delete-contact-${contact.id}`}>
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Delete Contact</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Are you sure you want to delete "{contact.firstName} {contact.lastName}"? This action cannot be undone and will remove all associated data.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+                              <AlertDialogAction
+                                onClick={() => deleteContactMutation.mutate(contact.id)}
+                                className="bg-red-600 hover:bg-red-700"
+                                data-testid={`confirm-delete-contact-${contact.id}`}
+                              >
+                                Delete
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
                       </TableCell>
                     </TableRow>
                   ))}

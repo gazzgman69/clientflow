@@ -212,7 +212,16 @@ export default function Contacts() {
                         {contact.phone || '-'}
                       </TableCell>
                       <TableCell data-testid={`contact-location-${contact.id}`}>
-                        {contact.city ? `${contact.city}${contact.state ? `, ${contact.state}` : ''}` : (contact.address || '-')}
+                        <div className="space-y-1">
+                          <div className="text-sm">
+                            <span className="font-medium">Personal:</span> {contact.city ? `${contact.city}${contact.state ? `, ${contact.state}` : ''}` : (contact.address || '-')}
+                          </div>
+                          {(contact.venueCity || contact.venueAddress) && (
+                            <div className="text-sm text-muted-foreground">
+                              <span className="font-medium">Venue:</span> {contact.venueCity ? `${contact.venueCity}${contact.venueState ? `, ${contact.venueState}` : ''}` : (contact.venueAddress || '-')}
+                            </div>
+                          )}
+                        </div>
                       </TableCell>
                       <TableCell data-testid={`contact-tags-${contact.id}`}>
                         {contact.tags && contact.tags.length > 0 ? (

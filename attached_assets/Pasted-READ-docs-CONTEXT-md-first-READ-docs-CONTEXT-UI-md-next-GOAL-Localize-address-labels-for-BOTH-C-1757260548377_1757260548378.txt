@@ -1,0 +1,142 @@
+READ /docs/CONTEXT.md first.
+READ /docs/CONTEXT-UI.md next.
+
+GOAL
+Localize address labels for BOTH Contacts and Venues:
+- If Country is selected → use that country’s label set (e.g., UK → “Postcode”, “County”).
+- If Country isn’t selected yet → fallback to browser locale (navigator.language).
+- Labels update live when Country changes.
+- Reuse one shared AddressFields component across Contacts & Venues.
+- No new dependencies. Do not change any field names or backend schema.
+
+SCOPE (CREATE/EDIT ONLY)
+  - web/src/lib/i18n/addressLabels.ts            // NEW util for label resolution
+  - web/src/components/shared/AddressFields.tsx  // NEW shared address component
+  - web/src/components/contacts/ContactForm.tsx  // switch to shared AddressFields
+  - web/src/pages/contacts/ContactNew.tsx        // adjust import if needed
+  - web/src/pages/contacts/ContactEdit.tsx       // adjust import if needed
+  - web/src/components/venues/VenueForm.tsx      // switch to shared AddressFields
+  - web/src/pages/venues/VenueNew.tsx            // adjust import if needed
+  - web/src/pages/venues/VenueEdit.tsx           // adjust import if needed
+
+RULES
+- Keep react-hook-form/zod wiring intact; pass control/register down.
+- Change only visible labels/placeholders, NOT the submitted field names.
+- Must work client-side only; no server changes.
+- Maintain dd/MM/yyyy elsewhere (no change here).
+
+IMPLEMENTATION
+
+A) Address label util (web/src/lib/i18n/addressLabels.ts)
+- Export types + resolver:
+
+  export type AddressLabelSet = {
+    address1: string;
+    address2: string;
+    city: string;
+    state: string;       // State/County/Province/Region
+    postalCode: string;  // Zip Code / Postcode / Postal Code / Eircode
+    country: string;
+  };
+
+  export function getAddressLabels(opts: {
+    countryCode?: string;  // ISO-3166-1 alpha-2, e.g. 'GB', 'US'
+    locale?: string;       // e.g. 'en-GB'
+  }): AddressLabelSet
+
+- Behavior:
+  • If countryCode present → map directly.
+  • Else, infer 2-letter region from locale (split by '-' and upper-case).
+  • Mapping (minimal, extendable):
+      US: state="State",        postalCode="Zip Code"
+      GB: state="County",       postalCode="Postcode"
+      IE: state="County",       postalCode="Eircode"
+      CA: state="Province",     postalCode="Postal Code"
+      AU: state="State/Region", postalCode="Postcode"
+      NZ: state="Region",       postalCode="Postcode"
+      DEFAULT: state="State/Region", postalCode="Postal Code"
+  • Return labels with:
+      address1="Address Line 1", address2="Address Line 2",
+      city="City", country="Country", plus mapped state/postalCode.
+
+B) Shared AddressFields (web/src/components/shared/AddressFields.tsx)
+- Props:
+  {
+    control?: any; register?: any; errors?: any;        // from react-hook-form
+    countryCode?: string;                               // current ISO code from parent form (optional)
+    onCountryChange?: (cc: string) => void;             // called when Country select changes
+    fieldNames?: {
+      address1?: string; address2?: string; city?: string;
+      state?: string; postalCode?: string; country?: string;
+    };                                                  // maps to parent form field names
+    disabled?: boolean;
+    className?: string;
+    testIdPrefix?: string;                              // 'contact' or 'venue'
+  }
+
+- Logic:
+  • Resolve effective countryCode = prop.countryCode || value from form watch (if available).
+  • const labels = getAddressLabels({ countryCode, locale: navigator.language });
+  • Render inputs bound to fieldNames (defaults):
+      'address.address1', 'address.address2', 'address.city',
+      'address.state', 'address.postalCode', 'address.countryCode'
+  • Use shadcn Form/Label components as in current codebase.
+  • Labels:
+      <FormLabel data-testid={`${testIdPrefix}-label-postal-code`}>{labels.postalCode}</FormLabel>
+      <FormLabel data-testid={`${testIdPrefix}-label-state`}>{labels.state}</FormLabel>
+  • Country select onChange:
+      onCountryChange?.(cc); also set form value if control/register provided.
+  • Optional: mirror placeholders to match labels (e.g., “Enter your postcode”).
+
+C) Wire Contacts to shared component
+- In web/src/components/contacts/ContactForm.tsx replace inline address fields with:
+
+  <AddressFields
+    control={form.control}
+    register={form.register}
+    errors={form.formState.errors}
+    countryCode={form.watch('address.countryCode')}
+    onCountryChange={(cc) =>
+      form.setValue('address.countryCode', cc, { shouldDirty: true, shouldValidate: true })
+    }
+    fieldNames={{
+      address1: 'address.address1',
+      address2: 'address.address2',
+      city: 'address.city',
+      state: 'address.state',
+      postalCode: 'address.postalCode',
+      country: 'address.countryCode'
+    }}
+    testIdPrefix="contact"
+  />
+
+- Remove any prior hard-coded “Zip/State” labels.
+
+D) Wire Venues to shared component
+- In web/src/components/venues/VenueForm.tsx do the same, but testIdPrefix="venue".
+- Keep existing field names intact; only labels/placeholder text change.
+
+E) Extendable country list (optional)
+- If you already store a country dropdown with ISO codes, ensure it passes those codes to AddressFields.
+- If not, leave the util fallback to locale and default mapping.
+
+QA (manual)
+1) Contacts:
+   - With browser locale en-GB and no Country selected: labels show “Postcode” / “County”.
+   - Change Country to “United States” → labels switch to “Zip Code” / “State” immediately.
+   - Switch back to “United Kingdom” → “Postcode” / “County”.
+2) Venues:
+   - Same behaviours as Contacts.
+3) Submission payload unchanged (only labels/placeholder strings changed).
+4) data-testid checks:
+   - contact-label-postal-code / venue-label-postal-code reflect correct terms per Country.
+
+DELIVERABLES (DIFF-ONLY MODE)
+1) Brief plan (≤4 bullets) listing files created/edited and that both Contacts & Venues now use AddressFields.
+2) Unified diffs for ONLY the files in SCOPE.
+3) Screenshot note showing GB vs US labels on both forms.
+
+ACCEPTANCE
+- Contacts and Venues show localized address labels with country-first logic and locale fallback.
+- Labels update live on Country change without remounting forms.
+- No dependency or backend changes; current validations and field names preserved.

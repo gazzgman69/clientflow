@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Bell, Plus, Search } from "lucide-react";
 import QuickActionModal from "@/components/modals/quick-action-modal";
+import { EmailSyncStatus } from "@/components/ui/email-sync-status";
 
 interface HeaderProps {
   title: string;
@@ -33,6 +34,9 @@ export default function Header({ title, subtitle }: HeaderProps) {
             />
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
           </div>
+          
+          {/* Email Sync Status */}
+          <EmailSyncStatus />
           
           {/* Notifications */}
           <Button variant="ghost" size="icon" className="relative" data-testid="notifications-button">

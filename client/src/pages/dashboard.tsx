@@ -5,7 +5,6 @@ import PendingItems from "@/components/dashboard/pending-items";
 import BusinessPriorities from "@/components/dashboard/business-priorities";
 import EnhancedEmails from "@/components/dashboard/enhanced-emails";
 import EmailThreadsWidget from "@/components/dashboard/email-threads-widget";
-import { EmailStatusWidget } from "@/components/dashboard/EmailStatusWidget";
 import CompactMetrics from "@/components/dashboard/compact-metrics";
 import { useQuery } from "@tanstack/react-query";
 import type { Project } from "@shared/schema";
@@ -24,9 +23,8 @@ export default function Dashboard() {
       
       <main className="flex-1 overflow-auto p-6 space-y-6">
         {/* Top Row: Business Overview and Calendar side by side */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <CompactMetrics />
-          <EmailStatusWidget />
           <CalendarWeekView />
         </div>
         

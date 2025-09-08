@@ -25,10 +25,11 @@ import {
   type Template, type InsertTemplate,
   type LeadCaptureForm, type InsertLeadCaptureForm,
   type LeadStatusHistory, type InsertLeadStatusHistory,
+  type EmailSignature, type InsertEmailSignature,
   users, leads, contacts, projects, quotes, contracts, invoices, tasks, emails, activities, automations, 
   members, venues, projectMembers, memberAvailability, projectFiles, projectNotes, smsMessages, 
   messageTemplates, messageThreads, events, calendarIntegrations, calendarSyncLog, templates, leadCaptureForms,
-  leadStatusHistory
+  leadStatusHistory, emailSignatures
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { drizzle } from 'drizzle-orm/neon-http';
@@ -222,6 +223,15 @@ export interface IStorage {
   updateTemplate(id: string, template: Partial<InsertTemplate>): Promise<Template | undefined>;
   deleteTemplate(id: string): Promise<boolean>;
 
+  // Email Signatures
+  getUserSignatures(userId: string): Promise<EmailSignature[]>;
+  getSignature(id: string, userId: string): Promise<EmailSignature | null>;
+  getDefaultSignature(userId: string): Promise<EmailSignature | null>;
+  createSignature(signature: InsertEmailSignature): Promise<EmailSignature>;
+  updateSignature(id: string, userId: string, signature: Partial<InsertEmailSignature>): Promise<EmailSignature | null>;
+  deleteSignature(id: string, userId: string): Promise<boolean>;
+  clearDefaultSignatures(userId: string): Promise<void>;
+
   // Lead Capture Forms
   getLeadCaptureForms(): Promise<LeadCaptureForm[]>;
   getLeadCaptureForm(id: string): Promise<LeadCaptureForm | undefined>;
@@ -257,6 +267,7 @@ export class MemStorage implements IStorage {
   private calendarSyncLogs: Map<string, CalendarSyncLog> = new Map();
   private templates: Map<string, Template> = new Map();
   private leadCaptureForms: Map<string, LeadCaptureForm> = new Map();
+  private emailSignatures: Map<string, EmailSignature> = new Map();
 
   constructor() {
     // Initialize with default admin user
@@ -1485,6 +1496,67 @@ export class MemStorage implements IStorage {
     return this.templates.delete(id);
   }
 
+  // Email Signatures
+  async getUserSignatures(userId: string): Promise<EmailSignature[]> {
+    return Array.from(this.emailSignatures.values())
+      .filter(signature => signature.userId === userId && signature.isActive)
+      .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+  }
+
+  async getSignature(id: string, userId: string): Promise<EmailSignature | null> {
+    const signature = this.emailSignatures.get(id);
+    if (!signature || signature.userId !== userId) return null;
+    return signature;
+  }
+
+  async getDefaultSignature(userId: string): Promise<EmailSignature | null> {
+    return Array.from(this.emailSignatures.values())
+      .find(signature => signature.userId === userId && signature.isDefault && signature.isActive) || null;
+  }
+
+  async createSignature(insertSignature: InsertEmailSignature): Promise<EmailSignature> {
+    const id = randomUUID();
+    const signature: EmailSignature = { 
+      ...insertSignature,
+      id, 
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    this.emailSignatures.set(id, signature);
+    return signature;
+  }
+
+  async updateSignature(id: string, userId: string, updateData: Partial<InsertEmailSignature>): Promise<EmailSignature | null> {
+    const existing = this.emailSignatures.get(id);
+    if (!existing || existing.userId !== userId) return null;
+
+    const updated: EmailSignature = {
+      ...existing,
+      ...updateData,
+      updatedAt: new Date()
+    };
+    this.emailSignatures.set(id, updated);
+    return updated;
+  }
+
+  async deleteSignature(id: string, userId: string): Promise<boolean> {
+    const signature = this.emailSignatures.get(id);
+    if (!signature || signature.userId !== userId) return false;
+    return this.emailSignatures.delete(id);
+  }
+
+  async clearDefaultSignatures(userId: string): Promise<void> {
+    Array.from(this.emailSignatures.values())
+      .filter(signature => signature.userId === userId && signature.isDefault)
+      .forEach(signature => {
+        this.emailSignatures.set(signature.id, {
+          ...signature,
+          isDefault: false,
+          updatedAt: new Date()
+        });
+      });
+  }
+
   // Lead Capture Forms
   async getLeadCaptureForms(): Promise<LeadCaptureForm[]> {
     return Array.from(this.leadCaptureForms.values()).sort((a, b) => 
@@ -2234,6 +2306,54 @@ export class DrizzleStorage implements IStorage {
   async deleteTemplate(id: string): Promise<boolean> {
     const result = await this.db.delete(templates).where(eq(templates.id, id));
     return result.rowCount > 0;
+  }
+
+  // Email Signatures - PostgreSQL implementation
+  async getUserSignatures(userId: string): Promise<EmailSignature[]> {
+    return await this.db.select().from(emailSignatures)
+      .where(and(eq(emailSignatures.userId, userId), eq(emailSignatures.isActive, true)))
+      .orderBy(desc(emailSignatures.updatedAt));
+  }
+
+  async getSignature(id: string, userId: string): Promise<EmailSignature | null> {
+    const result = await this.db.select().from(emailSignatures)
+      .where(and(eq(emailSignatures.id, id), eq(emailSignatures.userId, userId)));
+    return result[0] || null;
+  }
+
+  async getDefaultSignature(userId: string): Promise<EmailSignature | null> {
+    const result = await this.db.select().from(emailSignatures)
+      .where(and(
+        eq(emailSignatures.userId, userId), 
+        eq(emailSignatures.isDefault, true), 
+        eq(emailSignatures.isActive, true)
+      ));
+    return result[0] || null;
+  }
+
+  async createSignature(signature: InsertEmailSignature): Promise<EmailSignature> {
+    const result = await this.db.insert(emailSignatures).values(signature).returning();
+    return result[0];
+  }
+
+  async updateSignature(id: string, userId: string, signature: Partial<InsertEmailSignature>): Promise<EmailSignature | null> {
+    const result = await this.db.update(emailSignatures)
+      .set(signature)
+      .where(and(eq(emailSignatures.id, id), eq(emailSignatures.userId, userId)))
+      .returning();
+    return result[0] || null;
+  }
+
+  async deleteSignature(id: string, userId: string): Promise<boolean> {
+    const result = await this.db.delete(emailSignatures)
+      .where(and(eq(emailSignatures.id, id), eq(emailSignatures.userId, userId)));
+    return result.rowCount > 0;
+  }
+
+  async clearDefaultSignatures(userId: string): Promise<void> {
+    await this.db.update(emailSignatures)
+      .set({ isDefault: false })
+      .where(and(eq(emailSignatures.userId, userId), eq(emailSignatures.isDefault, true)));
   }
 
   // Lead Capture Forms - PostgreSQL implementation

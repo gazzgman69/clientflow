@@ -15,6 +15,7 @@ import mailSettingsRoutes from "./src/routes/mailSettings";
 import userPrefsRoutes from "./src/routes/userPrefs";
 import leadFormsRoutes from "./src/routes/lead-forms";
 import leadAutomationSimpleRoutes from "./src/routes/lead-automation-simple";
+import signaturesRoutes from "./src/routes/signatures";
 import { calendarAutoSyncService } from "./services/calendar-auto-sync";
 import { 
   insertLeadSchema, 
@@ -87,6 +88,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Templates routes
   app.use('/api', templatesRoutes);
+  
+  // Signatures routes
+  app.use('/api/signatures', signaturesRoutes);
   
   // Lead Forms routes
   app.use('/api', leadFormsRoutes);

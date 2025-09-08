@@ -1,5 +1,5 @@
 import { eq, and } from 'drizzle-orm';
-import { storage } from '../storage';
+import { storage } from '../../storage';
 import { emailSignatures, type EmailSignature, type InsertEmailSignature } from '@shared/schema';
 
 export class SignaturesService {

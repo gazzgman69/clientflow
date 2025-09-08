@@ -6,7 +6,7 @@ import { z } from 'zod';
 import { storage } from '../../storage';
 import { db } from '../../db';
 import { emailThreads, emails, emailAttachments, projects, contacts, emailThreadReads } from '@shared/schema';
-import { eq, and, desc, asc } from 'drizzle-orm';
+import { eq, and, or, sql, desc, asc } from 'drizzle-orm';
 import multer from 'multer';
 import path from 'path';
 
@@ -81,7 +81,40 @@ router.post('/send', requireAuth, async (req: any, res) => {
         }
         
         // Create outbound email record in database
+        // First, try to find existing thread with emails involving this contact
+        // Extract email address from "Name <email@example.com>" format
+        const existingThreads = await db
+          .select({
+            threadId: emails.threadId
+          })
+          .from(emails)
+          .innerJoin(emailThreads, eq(emails.threadId, emailThreads.id))
+          .where(
+            and(
+              eq(emailThreads.projectId, projectId || ''),
+              or(
+                sql`${emails.fromEmail} LIKE ${'%' + emailData.to + '%'}`,
+                sql`EXISTS (
+                  SELECT 1 FROM unnest(${emails.toEmails}) AS email_addr 
+                  WHERE email_addr LIKE ${'%' + emailData.to + '%'}
+                )`
+              )
+            )
+          )
+          .limit(1);
+
+        const existingThreadId = existingThreads.length > 0 ? existingThreads[0].threadId : undefined;
+        console.log(`🔍 Looking for existing thread with contact: ${emailData.to}`);
+        console.log(`✅ Found existing thread: ${existingThreadId || 'none'}`);
+        
+        if (existingThreadId) {
+          console.log(`🔗 Adding email to existing thread: ${existingThreadId}`);
+        } else {
+          console.log(`🆕 Creating new thread for this email`);
+        }
+        
         await emailSyncService.createOutboundEmail({
+          threadId: existingThreadId, // Use existing thread if available
           projectId: projectId || undefined,
           to: [emailData.to],
           subject: emailData.subject,

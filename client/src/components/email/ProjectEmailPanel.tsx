@@ -107,10 +107,10 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
     const currentMessage = message;
     const signatureContent = signature.content;
     
-    // Add signature at the end of the message with proper formatting
+    // Add signature at the end of the message with proper formatting (more spacing for better positioning)
     const newMessage = currentMessage ? 
-      `${currentMessage}\n\n${signatureContent}` : 
-      `\n\n${signatureContent}`;
+      `${currentMessage}\n\n\n\n${signatureContent}` : 
+      `\n\n\n\n${signatureContent}`;
     
     setMessage(newMessage);
     toast({ 

@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import EmailSettings from "@/pages/settings/EmailSettings";
 
 export default function Settings() {
   const [activeTab, setActiveTab] = useState("profile");
@@ -79,7 +80,7 @@ export default function Settings() {
       
       <main className="flex-1 overflow-auto p-6">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-7" data-testid="settings-tabs">
+          <TabsList className="grid w-full grid-cols-8" data-testid="settings-tabs">
             <TabsTrigger value="profile" data-testid="tab-profile">
               <User className="h-4 w-4 mr-2" />
               Profile
@@ -95,6 +96,10 @@ export default function Settings() {
             <TabsTrigger value="integrations" data-testid="tab-integrations">
               <Globe className="h-4 w-4 mr-2" />
               Integrations
+            </TabsTrigger>
+            <TabsTrigger value="email" data-testid="tab-email">
+              <Mail className="h-4 w-4 mr-2" />
+              Email
             </TabsTrigger>
             <TabsTrigger value="templates" data-testid="tab-templates">
               <FileText className="h-4 w-4 mr-2" />
@@ -538,6 +543,11 @@ export default function Settings() {
 
               </CardContent>
             </Card>
+          </TabsContent>
+
+          {/* Email Settings */}
+          <TabsContent value="email" className="space-y-6">
+            <EmailSettings />
           </TabsContent>
 
           {/* Templates */}

@@ -32,7 +32,6 @@ const staticNavigationItems = [
     label: "Settings", 
     badge: null,
     subItems: [
-      { href: "/settings/email", icon: Mail, label: "Email Settings", badge: null },
       { href: "/settings/templates", icon: FileText, label: "Templates", badge: null }
     ]
   },

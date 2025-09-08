@@ -99,9 +99,6 @@ export class EmailSyncService {
 
       for (const gmailThread of gmailThreads.threads) {
         try {
-          // Use Gmail thread ID as our thread ID initially
-          let threadId = gmailThread.threadId;
-          
           // Extract emails from the from and to fields to match with projects
           const fromEmail = this.extractEmails(gmailThread.latest.from)[0]?.toLowerCase();
           const toEmails = this.extractEmails(gmailThread.latest.to);
@@ -126,28 +123,10 @@ export class EmailSyncService {
             }
           }
 
-          // Intelligent thread consolidation: merge replies with existing threads
-          const subject = gmailThread.latest.subject;
-          if (matchedProjectId && subject && (subject.toLowerCase().startsWith('re:') || subject.toLowerCase().startsWith('fwd:'))) {
-            const baseSubject = subject.replace(/^(re:|fwd:)\s*/i, '').trim();
-            
-            // Look for existing threads with the same base subject in this project
-            const existingThread = await db
-              .select({ threadId: emails.threadId })
-              .from(emails)
-              .where(
-                and(
-                  eq(emails.projectId, matchedProjectId),
-                  sql`LOWER(REPLACE(REPLACE(${emails.subject}, 'Re: ', ''), 'Fwd: ', '')) = ${baseSubject.toLowerCase()}`
-                )
-              )
-              .limit(1);
-            
-            if (existingThread.length > 0) {
-              threadId = existingThread[0].threadId;
-              console.log(`📧 Consolidating reply "${subject}" into existing thread ${threadId}`);
-            }
-          }
+          // RFC-compliant threading: Use Message-ID, In-Reply-To, References for proper threading
+          // Note: We need to get the full message details to access RFC headers
+          // For quick sync, we'll use Gmail thread ID as fallback, but mark for RFC processing
+          let threadId = gmailThread.threadId; // Temporary - will be updated during full message sync
 
           // Check if thread already exists
           const existingThread = await db
@@ -234,9 +213,6 @@ export class EmailSyncService {
         }
       }
 
-      // Run thread consolidation for existing separated threads
-      await this.consolidateExistingSeparatedThreads();
-
       console.log(`✅ Gmail sync complete: ${synced} synced, ${skipped} skipped${errors.length > 0 ? `, ${errors.length} errors` : ''}`);
       return { synced, skipped, errors };
     } catch (error: any) {
@@ -246,65 +222,74 @@ export class EmailSyncService {
   }
 
   /**
-   * Consolidate existing separated threads that should be grouped together
+   * Find or create thread based on RFC email headers (Message-ID, In-Reply-To, References)
+   * This replaces subject-based threading with proper RFC compliance
    */
-  private async consolidateExistingSeparatedThreads() {
+  private async findRFCThread(messageId: string, inReplyTo?: string | null, references?: string | null, projectId?: string | null): Promise<string> {
     try {
-      console.log('🔧 Running thread consolidation for existing separated threads...');
-      
-      // Find all reply emails that might need consolidation
-      const replyEmails = await db
-        .select()
-        .from(emails)
-        .where(
-          and(
-            isNotNull(emails.projectId),
-            or(
-              sql`LOWER(${emails.subject}) LIKE 're:%'`,
-              sql`LOWER(${emails.subject}) LIKE 'fwd:%'`
-            )
-          )
-        );
-
-      let consolidated = 0;
-      
-      for (const replyEmail of replyEmails) {
-        const subject = replyEmail.subject;
-        if (!subject) continue;
-        
-        // Extract base subject
-        const baseSubject = subject.replace(/^(re:|fwd:)\s*/i, '').trim();
-        
-        // Find the main thread with this base subject
-        const mainThreadEmails = await db
+      // If this message has In-Reply-To header, find the thread containing that Message-ID
+      if (inReplyTo) {
+        const parentMessage = await db
           .select({ threadId: emails.threadId })
           .from(emails)
-          .where(
-            and(
-              eq(emails.projectId, replyEmail.projectId),
-              sql`LOWER(REPLACE(REPLACE(${emails.subject}, 'Re: ', ''), 'Fwd: ', '')) = ${baseSubject.toLowerCase()}`,
-              not(eq(emails.threadId, replyEmail.threadId))
-            )
-          )
+          .where(eq(emails.messageId, inReplyTo))
           .limit(1);
 
-        if (mainThreadEmails.length > 0) {
-          const targetThreadId = mainThreadEmails[0].threadId;
-          
-          // Move this reply email to the main thread
-          await db
-            .update(emails)
-            .set({ threadId: targetThreadId })
-            .where(eq(emails.id, replyEmail.id));
-            
-          console.log(`🔄 Consolidated "${subject}" into thread ${targetThreadId}`);
-          consolidated++;
+        if (parentMessage.length > 0) {
+          console.log(`🔗 RFC Threading: Found parent message with Message-ID ${inReplyTo}, joining thread ${parentMessage[0].threadId}`);
+          return parentMessage[0].threadId;
         }
       }
+
+      // If In-Reply-To didn't work, try References header
+      if (references) {
+        // References contain chain of Message-IDs, try each one
+        const referenceIds = references.split(/\s+/).filter(id => id.includes('@'));
+        
+        for (const refId of referenceIds.reverse()) { // Start with most recent reference
+          const refMessage = await db
+            .select({ threadId: emails.threadId })
+            .from(emails)
+            .where(eq(emails.messageId, refId.trim()))
+            .limit(1);
+
+          if (refMessage.length > 0) {
+            console.log(`🔗 RFC Threading: Found reference message with Message-ID ${refId}, joining thread ${refMessage[0].threadId}`);
+            return refMessage[0].threadId;
+          }
+        }
+      }
+
+      // No RFC headers match existing threads - create new thread
+      const newThreadId = `thread_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
       
-      console.log(`✅ Thread consolidation complete: ${consolidated} emails consolidated`);
+      await db.insert(emailThreads).values({
+        id: newThreadId,
+        projectId: projectId || null,
+        subject: null, // Subject is display-only, not used for threading
+        lastMessageAt: new Date(),
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+
+      console.log(`🆕 RFC Threading: Created new thread ${newThreadId} for Message-ID ${messageId}`);
+      return newThreadId;
+      
     } catch (error) {
-      console.error('❌ Error consolidating threads:', error);
+      console.error('❌ Error in RFC thread finding:', error);
+      // Fallback: create unique thread
+      const fallbackThreadId = `fallback_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      
+      await db.insert(emailThreads).values({
+        id: fallbackThreadId,
+        projectId: projectId || null,
+        subject: null,
+        lastMessageAt: new Date(),
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+      
+      return fallbackThreadId;
     }
   }
 
@@ -559,9 +544,9 @@ export class EmailSyncService {
   }
 
   /**
-   * Sync a Gmail message to our database
+   * Sync a Gmail message to our database using RFC-compliant threading
    */
-  async syncGmailMessage(gmailMessage: GmailMessage, threadId: string, projectId?: string): Promise<Email | null> {
+  async syncGmailMessage(gmailMessage: GmailMessage, fallbackThreadId: string, projectId?: string): Promise<Email | null> {
     try {
       if (!gmailMessage.id) return null;
 
@@ -579,6 +564,14 @@ export class EmailSyncService {
       // Parse headers
       const headers = this.parseHeaders(gmailMessage.payload);
       const content = this.extractContent(gmailMessage.payload);
+
+      // Extract RFC headers for proper threading
+      const messageId = headers['message-id'] || '';
+      const inReplyTo = headers['in-reply-to'] || null;
+      const references = headers.references || null;
+
+      // Use RFC headers to find/create the correct thread
+      const correctThreadId = await this.findRFCThread(messageId, inReplyTo, references, projectId);
 
       // Extract email addresses
       const fromEmails = this.extractEmails(headers.from || '');
@@ -600,17 +593,17 @@ export class EmailSyncService {
       // Check for attachments
       const hasAttachments = this.hasAttachments(gmailMessage.payload);
 
-      // Insert message
+      // Insert message with RFC-determined thread
       const [newMessage] = await db
         .insert(emails)
         .values({
-          threadId,
+          threadId: correctThreadId, // Use RFC-determined thread, not Gmail thread ID
           provider: 'gmail',
           providerMessageId: gmailMessage.id,
           providerThreadId: gmailMessage.threadId || '',
-          messageId: headers['message-id'] || '',
-          inReplyTo: headers['in-reply-to'] || null,
-          references: headers.references || null,
+          messageId,
+          inReplyTo,
+          references,
           direction,
           fromEmail: fromEmails[0] || '',
           toEmails,
@@ -629,11 +622,23 @@ export class EmailSyncService {
         })
         .returning();
 
-      // TODO: Extract and save attachments if any
+      // Update thread's last message timestamp and subject
+      await db
+        .update(emailThreads)
+        .set({
+          lastMessageAt: newMessage.sentAt,
+          subject: headers.subject || null, // Subject for display only
+          projectId: projectId || null,
+          updatedAt: new Date(),
+        })
+        .where(eq(emailThreads.id, correctThreadId));
+
+      // Extract and save attachments if any
       if (hasAttachments) {
         await this.extractAttachments(gmailMessage.payload, newMessage.id);
       }
 
+      console.log(`📧 RFC Threading: Synced message "${headers.subject}" with Message-ID: ${messageId} to thread: ${correctThreadId}`);
       return newMessage;
     } catch (error) {
       console.error('Error syncing Gmail message:', error);
@@ -742,17 +747,16 @@ export class EmailSyncService {
     fromEmail: string; // Add required fromEmail parameter
   }): Promise<Email | null> {
     try {
-      let threadId = data.threadId;
+      // Generate a Message-ID for this outbound email (RFC 2822 compliant)
+      const messageId = `<${Date.now()}.${Math.random().toString(36).substr(2, 9)}@crm.system>`;
       
-      // Create new thread if not provided
-      if (!threadId) {
-        const newThreadId = await this.findOrCreateThread(
-          `thread-${Date.now()}`, // Generate temporary ID
-          data.projectId,
-          data.subject
-        );
-        threadId = newThreadId;
-      }
+      // Use RFC threading to find/create the correct thread
+      const correctThreadId = await this.findRFCThread(
+        messageId, 
+        data.inReplyTo, 
+        data.references, 
+        data.projectId
+      );
 
       // Find contact for primary recipient
       const contactId = data.to.length > 0 
@@ -762,10 +766,11 @@ export class EmailSyncService {
       const [newEmail] = await db
         .insert(emails)
         .values({
-          threadId,
+          threadId: correctThreadId, // Use RFC-determined thread
           provider: 'gmail',
           direction: 'outbound',
-          fromEmail: data.fromEmail, // Use the provided email address
+          messageId, // Store the generated Message-ID
+          fromEmail: data.fromEmail,
           toEmails: data.to,
           ccEmails: data.cc || [],
           bccEmails: data.bcc || [],

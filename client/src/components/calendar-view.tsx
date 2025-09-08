@@ -858,7 +858,6 @@ export default function CalendarView({ viewMode = 'month' }: CalendarViewProps) 
                       {events
                         .filter(event => new Date(event.startDate) < new Date())
                         .sort((a, b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime())
-                        .slice(0, 10)
                         .map((event, index) => (
                           <div
                             key={event.id}

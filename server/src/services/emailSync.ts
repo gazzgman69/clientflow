@@ -22,7 +22,7 @@ export class EmailSyncService {
   /**
    * Sync Gmail threads to database for instant access
    */
-  async syncGmailThreadsToDatabase(userId: string, projectId?: string): Promise<{
+  async syncGmailThreadsToDatabase(userId: string, specificProjectId?: string): Promise<{
     synced: number;
     skipped: number;
     errors: string[];
@@ -30,6 +30,26 @@ export class EmailSyncService {
     try {
       const { gmailService } = await import('./gmail');
       console.log('🔄 Syncing Gmail threads to database...');
+      
+      // Get all projects and their contact emails for matching
+      const projectsWithContacts = await db
+        .select({
+          projectId: projects.id,
+          projectName: projects.name,
+          contactEmail: contacts.email,
+        })
+        .from(projects)
+        .leftJoin(contacts, eq(contacts.id, projects.contactId))
+        .where(contacts.email.isNotNull());
+
+      const emailToProjectMap = new Map<string, string>();
+      projectsWithContacts.forEach(p => {
+        if (p.contactEmail) {
+          emailToProjectMap.set(p.contactEmail.toLowerCase(), p.projectId);
+        }
+      });
+
+      console.log(`📧 Found ${emailToProjectMap.size} project email mappings`);
       
       // Get recent Gmail threads (last 100 to include test emails)
       const gmailThreads = await gmailService.listThreads(userId, { limit: 100 });
@@ -50,6 +70,30 @@ export class EmailSyncService {
           // Use Gmail thread ID as our thread ID
           const threadId = gmailThread.threadId;
           
+          // Extract emails from the from and to fields to match with projects
+          const fromEmail = this.extractEmails(gmailThread.latest.from)[0]?.toLowerCase();
+          const toEmails = this.extractEmails(gmailThread.latest.to);
+          
+          // Find which project this email belongs to
+          let matchedProjectId: string | null = specificProjectId || null;
+          
+          // Check if sender or recipient matches any project contact
+          if (!matchedProjectId) {
+            if (fromEmail && emailToProjectMap.has(fromEmail)) {
+              matchedProjectId = emailToProjectMap.get(fromEmail)!;
+            }
+            
+            if (!matchedProjectId) {
+              for (const email of toEmails) {
+                const lowerEmail = email.toLowerCase();
+                if (emailToProjectMap.has(lowerEmail)) {
+                  matchedProjectId = emailToProjectMap.get(lowerEmail)!;
+                  break;
+                }
+              }
+            }
+          }
+
           // Check if thread already exists
           const existingThread = await db
             .select()
@@ -64,20 +108,27 @@ export class EmailSyncService {
               .values({
                 id: threadId,
                 subject: gmailThread.latest.subject,
-                projectId: projectId || null,
+                projectId: matchedProjectId,
                 lastMessageAt: new Date(gmailThread.latest.dateISO),
                 createdAt: new Date(),
                 updatedAt: new Date(),
               });
           } else {
-            // Update existing thread
+            // Update existing thread, ensuring project association is preserved
+            const updateData: any = {
+              subject: gmailThread.latest.subject,
+              lastMessageAt: new Date(gmailThread.latest.dateISO),
+              updatedAt: new Date(),
+            };
+            
+            // Only update project ID if we found a better match
+            if (matchedProjectId && !existingThread[0].projectId) {
+              updateData.projectId = matchedProjectId;
+            }
+            
             await db
               .update(emailThreads)
-              .set({
-                subject: gmailThread.latest.subject,
-                lastMessageAt: new Date(gmailThread.latest.dateISO),
-                updatedAt: new Date(),
-              })
+              .set(updateData)
               .where(eq(emailThreads.id, threadId));
           }
 
@@ -102,7 +153,7 @@ export class EmailSyncService {
               sentAt: new Date(gmailThread.latest.dateISO),
               hasAttachments: false,
               contactId: null,
-              projectId: projectId || null,
+              projectId: matchedProjectId,
               createdAt: new Date(),
               updatedAt: new Date(),
             })
@@ -112,8 +163,13 @@ export class EmailSyncService {
                 updatedAt: new Date(),
                 bodyText: gmailThread.latest.snippet,
                 subject: gmailThread.latest.subject,
+                projectId: matchedProjectId,
               },
             });
+
+          if (matchedProjectId) {
+            console.log(`📧 Associated thread "${gmailThread.latest.subject}" with project ${matchedProjectId}`);
+          }
 
           synced++;
         } catch (error: any) {

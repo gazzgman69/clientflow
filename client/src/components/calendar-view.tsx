@@ -16,7 +16,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest } from '@/lib/queryClient';
-import type { Client, Lead } from '@shared/schema';
+import type { Lead } from '@shared/schema';
 
 interface Event {
   id: string;
@@ -82,7 +82,7 @@ export default function CalendarView({ viewMode = 'month' }: CalendarViewProps) 
     queryFn: () => fetch('/api/events?userId=test-user').then(res => res.json()),
   });
 
-  const { data: clients } = useQuery<Client[]>({
+  const { data: clients } = useQuery<any[]>({
     queryKey: ['/api/clients'],
   });
 
@@ -473,7 +473,7 @@ export default function CalendarView({ viewMode = 'month' }: CalendarViewProps) 
                 <div className="grid grid-cols-7 gap-2">
                   {days.map((day, index) => {
                     const dayEvents = day ? getEventsForDay(day) : [];
-                    const maxEventsToShow = 2;
+                    const maxEventsToShow = 1;
                     const visibleEvents = dayEvents.slice(0, maxEventsToShow);
                     const hiddenEventsCount = dayEvents.length - maxEventsToShow;
                     

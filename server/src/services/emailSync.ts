@@ -543,6 +543,20 @@ export class EmailSyncService {
       return null;
     }
   }
+
+  /**
+   * Background sync Gmail threads - can be called periodically
+   */
+  async backgroundSync(userId: string): Promise<void> {
+    try {
+      console.log('🔄 Running background Gmail sync...');
+      const result = await this.syncGmailThreadsToDatabase(userId);
+      console.log(`📧 Background sync complete: ${result.synced} synced, ${result.skipped} skipped`);
+    } catch (error) {
+      console.error('❌ Background Gmail sync failed:', error);
+    }
+  }
 }
 
+// Export singleton instance
 export const emailSyncService = new EmailSyncService();

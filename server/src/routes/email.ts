@@ -82,7 +82,7 @@ router.post('/send', requireAuth, async (req: any, res) => {
         
         // Create outbound email record in database
         await emailSyncService.createOutboundEmail({
-          projectId,
+          projectId: projectId || undefined,
           to: [emailData.to],
           subject: emailData.subject,
           bodyText: emailData.text,

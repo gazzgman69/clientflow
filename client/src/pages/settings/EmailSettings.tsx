@@ -192,15 +192,16 @@ export default function EmailSettings() {
         )}
 
         {/* Settings Display */}
-        {settings ? (
-          <Tabs defaultValue="overview" className="space-y-6">
-            <TabsList>
-              <TabsTrigger value="overview">Overview</TabsTrigger>
-              <TabsTrigger value="logs">Activity Logs</TabsTrigger>
-              <TabsTrigger value="signatures">Signatures</TabsTrigger>
-              <TabsTrigger value="edit">Edit Settings</TabsTrigger>
-            </TabsList>
+        <Tabs defaultValue={settings ? "overview" : "signatures"} className="space-y-6">
+          <TabsList>
+            {settings && <TabsTrigger value="overview">Overview</TabsTrigger>}
+            {settings && <TabsTrigger value="logs">Activity Logs</TabsTrigger>}
+            <TabsTrigger value="signatures">Signatures</TabsTrigger>
+            {settings && <TabsTrigger value="edit">Edit Settings</TabsTrigger>}
+            {!settings && <TabsTrigger value="setup">Setup Email</TabsTrigger>}
+          </TabsList>
 
+          {settings && (
             <TabsContent value="overview" className="space-y-6">
               {/* Status Overview */}
               <Card data-testid="card-email-status">
@@ -383,27 +384,104 @@ export default function EmailSettings() {
                 onCancel={() => {}}
               />
             </TabsContent>
-          </Tabs>
-        ) : (
-          /* No Settings - First Time Setup */
-          <Card data-testid="card-no-settings">
-            <CardContent className="text-center py-12">
-              <Mail className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-lg font-semibold mb-2">No Email Account Configured</h3>
-              <p className="text-gray-600 mb-6">
-                Set up your email account to enable email sync, sending, and automated workflows.
-              </p>
-              <Button 
-                onClick={() => setShowForm(true)}
-                size="lg"
-                data-testid="button-setup-email"
-              >
-                <Settings className="h-4 w-4 mr-2" />
-                Setup Email Account
-              </Button>
-            </CardContent>
-          </Card>
-        )}
+          )}
+
+          {settings && (
+            <TabsContent value="logs" className="space-y-6">
+              <Card data-testid="card-email-logs">
+                <CardHeader>
+                  <CardTitle>Activity Logs</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {logsLoading ? (
+                    <div className="space-y-2">
+                      {[...Array(5)].map((_, i) => (
+                        <div key={i} className="h-12 bg-gray-200 rounded"></div>
+                      ))}
+                    </div>
+                  ) : logs.length > 0 ? (
+                    <div className="space-y-2">
+                      {logs.map((log) => (
+                        <div 
+                          key={log.id} 
+                          className="flex items-center justify-between p-3 border rounded-lg"
+                          data-testid={`log-entry-${log.kind}`}
+                        >
+                          <div className="flex items-center space-x-3">
+                            {log.ok ? (
+                              <CheckCircle className="h-4 w-4 text-green-600" />
+                            ) : (
+                              <XCircle className="h-4 w-4 text-red-600" />
+                            )}
+                            <div>
+                              <p className="text-sm font-medium capitalize">
+                                {log.kind.replace(/([A-Z])/g, ' $1').toLowerCase()}
+                              </p>
+                              {log.error && (
+                                <p className="text-xs text-red-600">{log.error}</p>
+                              )}
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-xs text-gray-500" data-testid="text-log-time">
+                              {formatDate(log.createdAt)}
+                            </p>
+                            {log.durationMs > 0 && (
+                              <p className="text-xs text-gray-400">{log.durationMs}ms</p>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-gray-500 text-center py-8" data-testid="text-no-logs">
+                      No activity logs found
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+          )}
+
+          <TabsContent value="signatures">
+            <SignatureManagement />
+          </TabsContent>
+
+          {settings && (
+            <TabsContent value="edit">
+              <MailForm 
+                initialData={settings} 
+                onSuccess={() => {
+                  setAlertMessage({ type: 'success', message: 'Email settings updated successfully' });
+                  queryClient.invalidateQueries({ queryKey: ['mail-settings'] });
+                }} 
+                onCancel={() => {}}
+              />
+            </TabsContent>
+          )}
+
+          {!settings && (
+            <TabsContent value="setup">
+              <Card data-testid="card-no-settings">
+                <CardContent className="text-center py-12">
+                  <Mail className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold mb-2">No Email Account Configured</h3>
+                  <p className="text-gray-600 mb-6">
+                    Set up your email account to enable email sync, sending, and automated workflows.
+                  </p>
+                  <Button 
+                    onClick={() => setShowForm(true)}
+                    size="lg"
+                    data-testid="button-setup-email"
+                  >
+                    <Settings className="h-4 w-4 mr-2" />
+                    Setup Email Account
+                  </Button>
+                </CardContent>
+              </Card>
+            </TabsContent>
+          )}
+        </Tabs>
 
         {/* Mail Form Modal */}
         {showForm && (

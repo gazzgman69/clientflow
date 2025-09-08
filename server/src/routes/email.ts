@@ -200,7 +200,7 @@ router.get('/threads/by-project/:projectId', requireAuth, async (req: any, res) 
           threadId: emailThreads.id,
           subject: emailThreads.subject,
           lastMessageAt: emailThreads.lastMessageAt,
-          emailCount: sql<number>`cast(count(${emails.id}) as int)`,
+          emailCount: sql<number>`cast(count(${emails.id}) as int)`.as('emailCount'),
         })
         .from(emailThreads)
         .leftJoin(emails, eq(emails.threadId, emailThreads.id))
@@ -341,47 +341,68 @@ router.get('/projects/:projectId/email-threads', requireAuth, async (req: any, r
     }
 
     try {
-      // Load email threads from database for instant response
+      // Get threads with proper counts
       const threadsFromDB = await db
         .select({
           threadId: emailThreads.id,
           subject: emailThreads.subject,
           lastMessageAt: emailThreads.lastMessageAt,
-          latest: {
-            id: emails.providerMessageId,
-            from: emails.fromEmail,
-            to: emails.toEmails,
-            subject: emails.subject,
-            snippet: emails.bodyText,
-            dateISO: emails.sentAt,
-          },
-          count: 1, // Simplified count for now
         })
         .from(emailThreads)
-        .leftJoin(emails, eq(emails.threadId, emailThreads.id))
         .where(eq(emailThreads.projectId, projectId))
         .orderBy(desc(emailThreads.lastMessageAt))
         .limit(Number(limit));
 
-      // Transform to match expected format
-      const threads = threadsFromDB
-        .filter(thread => thread.latest && thread.latest.id) // Only include threads with messages
-        .map(thread => ({
-          threadId: thread.threadId,
-          latest: {
-            ...thread.latest,
-            dateISO: thread.latest.dateISO?.toISOString() || new Date().toISOString(),
-          },
-          count: thread.count,
-        }));
+      // Get latest message and count for each thread
+      const threads = await Promise.all(
+        threadsFromDB.map(async (thread) => {
+          // Get the latest message
+          const [latestMessage] = await db
+            .select({
+              id: emails.providerMessageId,
+              from: emails.fromEmail,
+              to: emails.toEmails,
+              subject: emails.subject,
+              snippet: emails.bodyText,
+              dateISO: emails.sentAt,
+            })
+            .from(emails)
+            .where(eq(emails.threadId, thread.threadId))
+            .orderBy(desc(emails.sentAt))
+            .limit(1);
 
-      console.log(`📧 Loaded ${threads.length} email threads from database for project ${projectId}`);
+          // Get the count
+          const [countResult] = await db
+            .select({ count: sql<number>`count(*)` })
+            .from(emails)
+            .where(eq(emails.threadId, thread.threadId));
+
+          const emailCount = Number(countResult.count) || 1;
+          console.log(`🔍 Thread ${thread.threadId}: Found ${emailCount} emails`);
+
+          if (!latestMessage) return null; // Skip threads with no messages
+
+          return {
+            threadId: thread.threadId,
+            latest: {
+              ...latestMessage,
+              dateISO: latestMessage.dateISO?.toISOString() || new Date().toISOString(),
+            },
+            count: emailCount,
+          };
+        })
+      );
+
+      // Filter out null entries
+      const validThreads = threads.filter(thread => thread !== null);
+
+      console.log(`📧 Loaded ${validThreads.length} email threads from database for project ${projectId}`);
 
       res.json({
-        threads,
+        threads: validThreads,
         page: 1,
         limit: Number(limit),
-        total: threads.length,
+        total: validThreads.length,
         needsReconnect: false
       });
 

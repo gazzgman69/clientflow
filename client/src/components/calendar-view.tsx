@@ -463,47 +463,66 @@ export default function CalendarView({ viewMode = 'month' }: CalendarViewProps) 
                 
                 {/* Calendar days */}
                 <div className="grid grid-cols-7 gap-2">
-                  {days.map((day, index) => (
-                    <div
-                      key={index}
-                      className={`min-h-[120px] p-2 border rounded-lg cursor-pointer transition-colors ${
-                        day === null 
-                          ? 'bg-muted/20' 
-                          : isToday(day)
-                            ? 'bg-primary text-primary-foreground border-primary'
-                            : 'hover:bg-muted/50'
-                      }`}
-                      onClick={() => day && handleDateClick(day)}
-                      data-testid={day ? `calendar-day-${day}` : `calendar-empty-${index}`}
-                    >
-                      {day && (
-                        <>
-                          <div className="font-medium mb-1">{day}</div>
-                          <div className="space-y-1">
-                            {getEventsForDay(day).map((event, eventIndex) => (
-                              <div
-                                key={event.id}
-                                className={`text-xs p-1 rounded cursor-pointer hover:opacity-80 ${getEventTypeColor(event.type)}`}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleEditEvent(event);
-                                }}
-                                data-testid={`event-${day}-${eventIndex}`}
-                              >
-                                <div className="font-medium text-xs leading-tight break-words">{event.title}</div>
-                                <div className="text-xs opacity-80 leading-tight">
-                                  {formatEventTime(event.startDate, event.endDate, event.allDay)}
+                  {days.map((day, index) => {
+                    const dayEvents = day ? getEventsForDay(day) : [];
+                    const maxEventsToShow = 2;
+                    const visibleEvents = dayEvents.slice(0, maxEventsToShow);
+                    const hiddenEventsCount = dayEvents.length - maxEventsToShow;
+                    
+                    return (
+                      <div
+                        key={index}
+                        className={`h-[120px] p-2 border rounded-lg cursor-pointer transition-colors overflow-hidden ${
+                          day === null 
+                            ? 'bg-muted/20' 
+                            : isToday(day)
+                              ? 'bg-primary text-primary-foreground border-primary'
+                              : 'hover:bg-muted/50'
+                        }`}
+                        onClick={() => day && handleDateClick(day)}
+                        data-testid={day ? `calendar-day-${day}` : `calendar-empty-${index}`}
+                      >
+                        {day && (
+                          <>
+                            <div className="font-medium mb-1">{day}</div>
+                            <div className="space-y-1">
+                              {visibleEvents.map((event, eventIndex) => (
+                                <div
+                                  key={event.id}
+                                  className={`text-xs p-1 rounded cursor-pointer hover:opacity-80 ${getEventTypeColor(event.type)}`}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleEditEvent(event);
+                                  }}
+                                  data-testid={`event-${day}-${eventIndex}`}
+                                >
+                                  <div className="font-medium text-xs leading-tight break-words">{event.title}</div>
+                                  <div className="text-xs opacity-80 leading-tight">
+                                    {formatEventTime(event.startDate, event.endDate, event.allDay)}
+                                  </div>
+                                  {event.location && (
+                                    <div className="text-xs opacity-70 leading-tight break-words">📍 {event.location}</div>
+                                  )}
                                 </div>
-                                {event.location && (
-                                  <div className="text-xs opacity-70 leading-tight break-words">📍 {event.location}</div>
-                                )}
-                              </div>
-                            ))}
-                          </div>
-                        </>
-                      )}
-                    </div>
-                  ))}
+                              ))}
+                              {hiddenEventsCount > 0 && (
+                                <div 
+                                  className="text-xs text-muted-foreground font-medium cursor-pointer hover:text-foreground"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleDateClick(day);
+                                  }}
+                                  data-testid={`more-events-${day}`}
+                                >
+                                  +{hiddenEventsCount} more
+                                </div>
+                              )}
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               </>
             )}

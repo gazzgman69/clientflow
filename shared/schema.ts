@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, integer, boolean, timestamp, decimal } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, integer, boolean, timestamp, decimal, index, unique } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -163,7 +163,9 @@ export const emailThreads = pgTable("email_threads", {
   lastMessageAt: timestamp("last_message_at"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
-});
+}, (table) => ({
+  projectIdLastMessageAtIdx: index("email_threads_project_id_last_message_at_idx").on(table.projectId, table.lastMessageAt.desc()),
+}));
 
 export const emails = pgTable("emails", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -189,7 +191,12 @@ export const emails = pgTable("emails", {
   projectId: varchar("project_id").references(() => projects.id),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
-});
+}, (table) => ({
+  providerMessageIdUnique: unique("emails_provider_provider_message_id_unique").on(table.provider, table.providerMessageId),
+  threadIdIdx: index("emails_thread_id_idx").on(table.threadId),
+  projectIdSentAtIdx: index("emails_project_id_sent_at_idx").on(table.projectId, table.sentAt.desc()),
+  providerThreadIdIdx: index("emails_provider_thread_id_idx").on(table.providerThreadId),
+}));
 
 export const emailAttachments = pgTable("email_attachments", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -206,7 +213,9 @@ export const emailThreadReads = pgTable("email_thread_reads", {
   threadId: varchar("thread_id").references(() => emailThreads.id).notNull(),
   userId: varchar("user_id").references(() => users.id).notNull(),
   lastReadAt: timestamp("last_read_at"),
-});
+}, (table) => ({
+  threadIdUserIdUnique: unique("email_thread_reads_thread_id_user_id_unique").on(table.threadId, table.userId),
+}));
 
 export const smsMessages = pgTable("sms_messages", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),

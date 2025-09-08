@@ -74,6 +74,7 @@ export default function CalendarView({ viewMode = 'month' }: CalendarViewProps) 
   const [currentViewMode, setCurrentViewMode] = useState(viewMode);
   const [showDayEventsModal, setShowDayEventsModal] = useState(false);
   const [selectedDayEvents, setSelectedDayEvents] = useState<{ day: number; events: Event[] } | null>(null);
+  const [showAllEventsModal, setShowAllEventsModal] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -426,10 +427,7 @@ export default function CalendarView({ viewMode = 'month' }: CalendarViewProps) 
               <Button 
                 variant="outline" 
                 size="sm" 
-                onClick={() => {
-                  // For now, we'll show a simple alert. This could later open a dedicated events page
-                  alert(`You have ${getUpcomingEvents().length} upcoming events. Click on any event above to edit it, or use the Add Event button to create a new one.`);
-                }}
+                onClick={() => setShowAllEventsModal(true)}
                 data-testid="view-all-events"
               >
                 View All
@@ -795,6 +793,125 @@ export default function CalendarView({ viewMode = 'month' }: CalendarViewProps) 
               </div>
             </form>
           </Form>
+        </DialogContent>
+      </Dialog>
+
+      {/* All Events Modal */}
+      <Dialog open={showAllEventsModal} onOpenChange={setShowAllEventsModal}>
+        <DialogContent className="sm:max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CalendarIcon className="h-5 w-5" />
+              All Events ({events?.length || 0} total)
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            {eventsLoading ? (
+              <div className="text-center py-8">Loading events...</div>
+            ) : !events || events.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <CalendarIcon className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                <p>No events found</p>
+              </div>
+            ) : (
+              <>
+                {/* Upcoming Events Section */}
+                {getUpcomingEvents().length > 0 && (
+                  <div>
+                    <h3 className="font-medium text-sm text-muted-foreground mb-3">UPCOMING EVENTS</h3>
+                    <div className="space-y-2">
+                      {getUpcomingEvents().map((event, index) => (
+                        <div
+                          key={event.id}
+                          className={`p-3 rounded-lg cursor-pointer border transition-colors hover:bg-muted/50 ${getEventTypeColor(event.type)}`}
+                          onClick={() => {
+                            setShowAllEventsModal(false);
+                            handleEditEvent(event);
+                          }}
+                          data-testid={`all-events-upcoming-${index}`}
+                        >
+                          <div className="font-medium text-sm">{event.title}</div>
+                          <div className="text-sm text-muted-foreground mt-1">
+                            {new Date(event.startDate).toLocaleDateString()} at {formatEventTime(event.startDate, event.endDate, event.allDay)}
+                          </div>
+                          {event.location && (
+                            <div className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+                              <MapPin className="h-3 w-3" />
+                              {event.location}
+                            </div>
+                          )}
+                          <Badge variant="outline" className="text-xs mt-2">
+                            {event.type}
+                          </Badge>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                
+                {/* Past Events Section */}
+                {events.filter(event => new Date(event.startDate) < new Date()).length > 0 && (
+                  <div>
+                    <h3 className="font-medium text-sm text-muted-foreground mb-3">PAST EVENTS</h3>
+                    <div className="space-y-2">
+                      {events
+                        .filter(event => new Date(event.startDate) < new Date())
+                        .sort((a, b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime())
+                        .slice(0, 10)
+                        .map((event, index) => (
+                          <div
+                            key={event.id}
+                            className={`p-3 rounded-lg cursor-pointer border transition-colors hover:bg-muted/50 opacity-75 ${getEventTypeColor(event.type)}`}
+                            onClick={() => {
+                              setShowAllEventsModal(false);
+                              handleEditEvent(event);
+                            }}
+                            data-testid={`all-events-past-${index}`}
+                          >
+                            <div className="font-medium text-sm">{event.title}</div>
+                            <div className="text-sm text-muted-foreground mt-1">
+                              {new Date(event.startDate).toLocaleDateString()} at {formatEventTime(event.startDate, event.endDate, event.allDay)}
+                            </div>
+                            {event.location && (
+                              <div className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+                                <MapPin className="h-3 w-3" />
+                                {event.location}
+                              </div>
+                            )}
+                            <Badge variant="outline" className="text-xs mt-2">
+                              {event.type}
+                            </Badge>
+                          </div>
+                        ))
+                      }
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+          
+          <div className="flex justify-end pt-4 border-t gap-2">
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                setShowAllEventsModal(false);
+                handleAddEvent();
+              }}
+              data-testid="button-add-event-from-all"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Add New Event
+            </Button>
+            <Button 
+              variant="secondary" 
+              onClick={() => setShowAllEventsModal(false)}
+              data-testid="button-close-all-events"
+            >
+              Close
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
 

@@ -11,6 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest } from '@/lib/queryClient';
 import { useEmailViewMode } from '@/hooks/useUserPrefs';
@@ -49,6 +50,8 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
   const [forceRefresh, setForceRefresh] = useState(false);
   const [showTemplateModal, setShowTemplateModal] = useState(false);
   const [showSignatureDropdown, setShowSignatureDropdown] = useState(false);
+  const [selectedTemplate, setSelectedTemplate] = useState<any>(null);
+  const [updateTemplate, setUpdateTemplate] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
   
@@ -81,6 +84,7 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
     if (template.body) {
       setMessage(template.body);
     }
+    setSelectedTemplate(template);
     setShowTemplateModal(false);
     toast({ 
       title: 'Template applied', 
@@ -166,6 +170,31 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
     refetchInterval: forceRefresh ? 5000 : 60000,
   });
 
+  // Update template mutation
+  const updateTemplateMutation = useMutation({
+    mutationFn: async (templateData: { id: string; subject: string; body: string }) => {
+      const response = await apiRequest('PUT', `/api/templates/${templateData.id}`, {
+        subject: templateData.subject,
+        body: templateData.body
+      });
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({ 
+        title: 'Template updated!', 
+        description: 'Template has been updated with current email content' 
+      });
+      queryClient.invalidateQueries({ queryKey: ['/api/templates'] });
+    },
+    onError: (error: any) => {
+      toast({ 
+        title: 'Failed to update template', 
+        description: error.message,
+        variant: 'destructive' 
+      });
+    },
+  });
+
   // Send email mutation
   const sendEmailMutation = useMutation({
     mutationFn: async (emailData: { to: string; subject: string; text: string }) => {
@@ -181,6 +210,8 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
       setTo(contact?.email || emails?.[0] || '');
       setSubject('');
       setMessage('');
+      setSelectedTemplate(null);
+      setUpdateTemplate(false);
       setIsComposing(false);
       // Refresh threads
       queryClient.invalidateQueries({ queryKey: [`/api/email/projects/${projectId}/email-messages`] });
@@ -202,6 +233,15 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
         variant: 'destructive' 
       });
       return;
+    }
+
+    // Update template if checkbox is checked and a template is selected
+    if (updateTemplate && selectedTemplate) {
+      updateTemplateMutation.mutate({
+        id: selectedTemplate.id,
+        subject: subject,
+        body: message
+      });
     }
 
     sendEmailMutation.mutate({ to, subject, text: message });
@@ -412,7 +452,7 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
                   data-testid="textarea-email-message"
                 />
               </div>
-              <div className="flex gap-2">
+              <div className="flex gap-2 items-center">
                 <Button 
                   onClick={handleSendEmail} 
                   disabled={sendEmailMutation.isPending}
@@ -482,6 +522,24 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
                 >
                   Cancel
                 </Button>
+
+                {/* Update Template Checkbox */}
+                {selectedTemplate && (
+                  <div className="flex items-center space-x-2 ml-auto">
+                    <Checkbox 
+                      id="update-template"
+                      checked={updateTemplate}
+                      onCheckedChange={setUpdateTemplate}
+                      data-testid="checkbox-update-template"
+                    />
+                    <Label 
+                      htmlFor="update-template" 
+                      className="text-sm font-medium cursor-pointer"
+                    >
+                      Update template
+                    </Label>
+                  </div>
+                )}
               </div>
             </div>
           )}

@@ -73,8 +73,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // OAuth routes (must be after session middleware)
   app.use(oauthRoutes);
   
-  // Email routes
+  // Email routes  
   app.use('/api/email', emailRoutes);
+  app.use('/api', emailRoutes); // Direct mounting for /api/email-threads routes
   
   // Templates routes
   app.use('/api', templatesRoutes);

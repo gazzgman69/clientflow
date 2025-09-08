@@ -382,6 +382,11 @@ export default function Settings() {
                                 {googleStatus?.connected && googleStatus?.email && (
                                   <p className="text-sm text-muted-foreground">{googleStatus.email}</p>
                                 )}
+                                {googleStatus?.connected && googleStatus?.lastSyncAt && (
+                                  <p className="text-xs text-muted-foreground">
+                                    Last synced: {new Date(googleStatus.lastSyncAt).toLocaleString()}
+                                  </p>
+                                )}
                               </div>
                             </div>
                             <Badge variant={googleStatus?.connected ? "default" : "secondary"}>
@@ -390,7 +395,7 @@ export default function Settings() {
                           </div>
 
                           {/* Gmail Scopes Check */}
-                          {googleStatus?.connected && (!googleStatus?.scopes?.some?.(scope => scope.includes('gmail.send')) || !googleStatus?.scopes?.some?.(scope => scope.includes('gmail.readonly'))) && (
+                          {googleStatus?.connected && (!googleStatus?.scopes?.some?.((scope: string) => scope.includes('gmail.send')) || !googleStatus?.scopes?.some?.((scope: string) => scope.includes('gmail.readonly'))) && (
                             <Alert>
                               <AlertTriangle className="h-4 w-4" />
                               <AlertDescription>

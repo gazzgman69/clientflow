@@ -351,7 +351,8 @@ router.get('/api/auth/google/status', async (req, res) => {
       ok: true, 
       connected: true, 
       scopes,
-      email: googleIntegration.providerAccountId 
+      email: googleIntegration.providerAccountId,
+      lastSyncAt: googleIntegration.lastSyncAt
     });
   } catch (error: any) {
     console.error('Error checking Google auth status:', error);

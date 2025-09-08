@@ -715,28 +715,65 @@ router.post('/email-threads/:threadId/mark-read', async (req, res) => {
   }
 });
 
-// Manual Gmail sync endpoint
+// Manual Gmail + IMAP sync endpoint
 router.post('/sync', requireAuth, async (req: any, res) => {
   try {
     const userId = req.user.id;
     const { emailSyncService } = await import('../services/emailSync');
+    const { imapService } = await import('../services/imap');
     
-    console.log('🔄 Manual Gmail sync requested');
-    const result = await emailSyncService.syncGmailThreadsToDatabase(userId);
+    console.log('🔄 Manual email sync requested (Gmail + IMAP)');
+    
+    // Sync Gmail
+    let gmailResult = { synced: 0, skipped: 0, errors: [] };
+    try {
+      gmailResult = await emailSyncService.syncGmailThreadsToDatabase(userId);
+    } catch (error) {
+      console.error('❌ Manual Gmail sync failed:', error);
+      gmailResult.errors.push(error);
+    }
+
+    // Sync IMAP if configured
+    let imapResult = { synced: 0, skipped: 0, errors: [] };
+    try {
+      if (imapService.isImapConfigured()) {
+        console.log('🔄 Manual IMAP sync starting...');
+        imapResult = await imapService.fetchNewMessages(userId);
+      }
+    } catch (error) {
+      console.error('❌ Manual IMAP sync failed:', error);
+      imapResult.errors.push(error);
+    }
+
+    const totalSynced = gmailResult.synced + imapResult.synced;
+    const totalSkipped = gmailResult.skipped + imapResult.skipped;
+    const totalErrors = [...gmailResult.errors, ...imapResult.errors];
     
     res.json({
-      success: true,
-      synced: result.synced,
-      skipped: result.skipped,
-      errors: result.errors,
-      message: `Synced ${result.synced} emails successfully`
+      success: totalErrors.length === 0,
+      gmail: {
+        synced: gmailResult.synced,
+        skipped: gmailResult.skipped,
+        errors: gmailResult.errors
+      },
+      imap: {
+        synced: imapResult.synced,
+        skipped: imapResult.skipped,
+        errors: imapResult.errors,
+        configured: imapService.isImapConfigured()
+      },
+      total: {
+        synced: totalSynced,
+        skipped: totalSkipped
+      },
+      message: `Synced ${totalSynced} emails successfully (Gmail: ${gmailResult.synced}, IMAP: ${imapResult.synced})`
     });
   } catch (error) {
-    console.error('Manual Gmail sync failed:', error);
+    console.error('Manual email sync failed:', error);
     res.status(500).json({ 
       success: false, 
-      error: 'Gmail sync failed',
-      message: 'Please make sure your Google account is connected'
+      error: 'Email sync failed',
+      message: 'Please check your email provider connections'
     });
   }
 });

@@ -803,16 +803,39 @@ export class EmailSyncService {
   }
 
   /**
-   * Background sync Gmail threads - can be called periodically
+   * Background sync Gmail threads and IMAP - can be called periodically
    */
   async backgroundSync(userId: string): Promise<void> {
+    let gmailResult = { synced: 0, skipped: 0, errors: [] };
+    let imapResult = { synced: 0, skipped: 0, errors: [] };
+
+    // Sync Gmail
     try {
       console.log('🔄 Running background Gmail sync...');
-      const result = await this.syncGmailThreadsToDatabase(userId);
-      console.log(`📧 Background sync complete: ${result.synced} synced, ${result.skipped} skipped`);
+      gmailResult = await this.syncGmailThreadsToDatabase(userId);
+      console.log(`✅ Gmail sync complete: ${gmailResult.synced} synced, ${gmailResult.skipped} skipped`);
     } catch (error) {
       console.error('❌ Background Gmail sync failed:', error);
+      gmailResult.errors.push(error);
     }
+
+    // Sync IMAP if configured
+    try {
+      const { imapService } = await import('./imap');
+      if (imapService.isImapConfigured()) {
+        console.log('🔄 Running background IMAP sync...');
+        imapResult = await imapService.fetchNewMessages(userId);
+        console.log(`✅ IMAP sync complete: ${imapResult.synced} synced, ${imapResult.skipped} skipped`);
+      }
+    } catch (error) {
+      console.error('❌ Background IMAP sync failed:', error);
+      imapResult.errors.push(error);
+    }
+
+    // Combined summary
+    const totalSynced = gmailResult.synced + imapResult.synced;
+    const totalSkipped = gmailResult.skipped + imapResult.skipped;
+    console.log(`📧 Background sync complete: ${totalSynced} synced, ${totalSkipped} skipped`);
   }
 }
 

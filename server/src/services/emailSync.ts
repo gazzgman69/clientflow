@@ -22,7 +22,7 @@ export class EmailSyncService {
   private gmailService: any;
 
   constructor() {
-    this.initializeGmailService();
+    // Gmail service will be initialized on first use
   }
 
   private async initializeGmailService() {
@@ -30,6 +30,7 @@ export class EmailSyncService {
       const { gmailService } = await import('./gmail');
       this.gmailService = gmailService;
     }
+    return this.gmailService;
   }
 
   /**
@@ -41,7 +42,7 @@ export class EmailSyncService {
     errors: string[];
   }> {
     try {
-      await this.initializeGmailService();
+      this.gmailService = await this.initializeGmailService();
       console.log('🔄 Syncing Gmail threads to database...');
       
       // Get all projects and their contact emails for matching
@@ -72,7 +73,7 @@ export class EmailSyncService {
       const allEmailsToSearch = ['skinnycheck@gmail.com', ...contactEmails];
       console.log('🔍 Searching for emails involving addresses:', allEmailsToSearch);
       
-      const gmailThreads = await gmailService.listThreadsForAddresses(userId, { 
+      const gmailThreads = await this.gmailService.listThreadsForAddresses(userId, { 
         limit: 100,
         addresses: allEmailsToSearch // Business email + contact emails
       });
@@ -87,7 +88,7 @@ export class EmailSyncService {
       // Log the first few threads for debugging
       if (gmailThreads.threads.length > 0) {
         console.log('📧 Sample threads found:');
-        gmailThreads.threads.slice(0, 3).forEach((thread, i) => {
+        gmailThreads.threads.slice(0, 3).forEach((thread: any, i: number) => {
           console.log(`  ${i+1}. Subject: "${thread.latest.subject}" | From: ${thread.latest.from} | To: ${thread.latest.to}`);
         });
       };
@@ -163,12 +164,40 @@ export class EmailSyncService {
               .where(eq(emailThreads.id, threadId));
           }
 
-          // Get ALL messages in the thread, not just the latest
-          const threadMessages = await this.gmailService.getThreadMessages('test-user', threadId);
+          // Store the latest message details (quick sync)
+          const emailId = `email_${gmailThread.latest.id}`;
           
-          for (const gmailMessage of threadMessages) {
-            await this.syncThreadMessage(gmailMessage, threadId, matchedProjectId);
-          }
+          await db
+            .insert(emails)
+            .values({
+              id: emailId,
+              threadId,
+              provider: 'gmail',
+              providerMessageId: gmailThread.latest.id,
+              direction: 'inbound',
+              fromEmail: gmailThread.latest.from,
+              toEmails: [gmailThread.latest.to],
+              ccEmails: [],
+              bccEmails: [],
+              subject: gmailThread.latest.subject,
+              bodyText: gmailThread.latest.snippet,
+              bodyHtml: null,
+              sentAt: new Date(gmailThread.latest.dateISO),
+              hasAttachments: false,
+              contactId: null,
+              projectId: matchedProjectId,
+              createdAt: new Date(),
+              updatedAt: new Date(),
+            })
+            .onConflictDoUpdate({
+              target: emails.providerMessageId,
+              set: {
+                updatedAt: new Date(),
+                bodyText: gmailThread.latest.snippet,
+                subject: gmailThread.latest.subject,
+                projectId: matchedProjectId,
+              },
+            });
 
           if (matchedProjectId) {
             console.log(`📧 Associated thread "${gmailThread.latest.subject}" with project ${matchedProjectId}`);

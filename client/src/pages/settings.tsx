@@ -99,7 +99,7 @@ export default function Settings() {
             </TabsTrigger>
             <TabsTrigger value="email" data-testid="tab-email">
               <Mail className="h-4 w-4 mr-2" />
-              Email
+              Email & Calendar
             </TabsTrigger>
             <TabsTrigger value="templates" data-testid="tab-templates">
               <FileText className="h-4 w-4 mr-2" />
@@ -356,6 +356,52 @@ export default function Settings() {
               </CardHeader>
               <CardContent className="space-y-6">
                 <div className="grid gap-4">
+
+                  <div className="flex items-center justify-between p-4 border rounded-lg">
+                    <div className="flex items-center space-x-3">
+                      <Database className="h-8 w-8 text-purple-600" />
+                      <div>
+                        <p className="font-medium">Backup Service</p>
+                        <p className="text-sm text-muted-foreground">Automated data backups</p>
+                      </div>
+                    </div>
+                    <Button variant="outline" data-testid="button-connect-backup">Connect</Button>
+                  </div>
+                </div>
+
+                <Separator />
+
+                <div className="space-y-4">
+                  <Label>API Keys</Label>
+                  <div className="space-y-3">
+                    <div className="space-y-2">
+                      <Label htmlFor="apiKey">Your API Key</Label>
+                      <div className="flex space-x-2">
+                        <Input 
+                          id="apiKey" 
+                          value="crm_••••••••••••••••••••••••••••••••"
+                          readOnly
+                          data-testid="input-api-key"
+                        />
+                        <Button variant="outline" data-testid="button-regenerate-api">Regenerate</Button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Email & Calendar Settings */}
+          <TabsContent value="email" className="space-y-6">
+            {/* Google Integrations */}
+            <Card data-testid="google-integrations-card">
+              <CardHeader>
+                <CardTitle>Google Integrations</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="grid gap-4">
                   {/* Gmail Email Login Section */}
                   <Card>
                     <CardHeader>
@@ -498,6 +544,7 @@ export default function Settings() {
                     </CardContent>
                   </Card>
 
+                  {/* Calendar Integration */}
                   <div className="flex items-center justify-between p-4 border rounded-lg">
                     <div className="flex items-center space-x-3">
                       <Calendar className="h-8 w-8 text-green-600" />
@@ -508,45 +555,11 @@ export default function Settings() {
                     </div>
                     <Badge variant="secondary">Connected</Badge>
                   </div>
-
-                  <div className="flex items-center justify-between p-4 border rounded-lg">
-                    <div className="flex items-center space-x-3">
-                      <Database className="h-8 w-8 text-purple-600" />
-                      <div>
-                        <p className="font-medium">Backup Service</p>
-                        <p className="text-sm text-muted-foreground">Automated data backups</p>
-                      </div>
-                    </div>
-                    <Button variant="outline" data-testid="button-connect-backup">Connect</Button>
-                  </div>
                 </div>
-
-                <Separator />
-
-                <div className="space-y-4">
-                  <Label>API Keys</Label>
-                  <div className="space-y-3">
-                    <div className="space-y-2">
-                      <Label htmlFor="apiKey">Your API Key</Label>
-                      <div className="flex space-x-2">
-                        <Input 
-                          id="apiKey" 
-                          value="crm_••••••••••••••••••••••••••••••••"
-                          readOnly
-                          data-testid="input-api-key"
-                        />
-                        <Button variant="outline" data-testid="button-regenerate-api">Regenerate</Button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
               </CardContent>
             </Card>
-          </TabsContent>
 
-          {/* Email Settings */}
-          <TabsContent value="email" className="space-y-6">
+            {/* Email Settings */}
             <EmailSettings />
           </TabsContent>
 

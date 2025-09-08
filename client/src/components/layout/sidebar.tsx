@@ -26,7 +26,15 @@ const staticNavigationItems = [
   { href: "/documents", icon: FolderOpen, label: "Documents", badge: null },
   { href: "/calendar", icon: Calendar, label: "Calendar", badge: null },
   { href: "/automations", icon: Bot, label: "Automations", badge: null },
-  { href: "/settings", icon: Settings, label: "Settings", badge: null },
+  { 
+    href: "/settings", 
+    icon: Settings, 
+    label: "Settings", 
+    badge: null,
+    subItems: [
+      { href: "/settings/templates", icon: FileText, label: "Templates", badge: null }
+    ]
+  },
 ];
 
 export default function Sidebar() {

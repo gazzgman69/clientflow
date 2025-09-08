@@ -69,7 +69,7 @@ function Router() {
                 <Route path="/settings/email" component={EmailSettings} />
                 <Route path="/settings/templates" component={Templates} />
                 <Route path="/settings/automations" component={LeadAutomations} />
-                <Route path="/settings" component={Templates} />
+                <Route path="/settings" component={Settings} />
                 <Route component={NotFound} />
               </Switch>
             </div>

@@ -312,7 +312,9 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
                 <Button 
                   variant="link" 
                   className="px-2" 
-                  onClick={() => window.location.href = '/auth/google'}
+                  onClick={() => {
+                    window.location.href = `/auth/google?returnTo=${encodeURIComponent(window.location.pathname)}`;
+                  }}
                   data-testid="button-reconnect-google"
                 >
                   Reconnect Google

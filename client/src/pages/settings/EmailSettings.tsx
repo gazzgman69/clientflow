@@ -371,10 +371,6 @@ export default function EmailSettings() {
                 </Card>
               </TabsContent>
 
-              <TabsContent value="signatures">
-                <SignatureManagement />
-              </TabsContent>
-
               <TabsContent value="edit">
                 <MailForm 
                   initialData={settings} 
@@ -387,6 +383,10 @@ export default function EmailSettings() {
               </TabsContent>
             </>
           )}
+
+          <TabsContent value="signatures">
+            <SignatureManagement />
+          </TabsContent>
 
           {!settings && (
             <TabsContent value="setup">

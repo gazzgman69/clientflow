@@ -346,8 +346,8 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
                 </ToggleGroup>
               </div>
               <Button 
-              variant="outline" 
-              size="sm"
+                variant="outline" 
+                size="sm"
               onClick={async () => {
                 try {
                   setForceRefresh(true);
@@ -401,6 +401,7 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
                 <RefreshCw className="h-4 w-4" />
               )}
             </Button>
+            </div>
           </CardTitle>
         </CardHeader>
         <CardContent>

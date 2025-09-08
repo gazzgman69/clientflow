@@ -99,8 +99,8 @@ export class EmailSyncService {
 
       for (const gmailThread of gmailThreads.threads) {
         try {
-          // Use Gmail thread ID as our thread ID
-          const threadId = gmailThread.threadId;
+          // Use Gmail thread ID as our thread ID initially
+          let threadId = gmailThread.threadId;
           
           // Extract emails from the from and to fields to match with projects
           const fromEmail = this.extractEmails(gmailThread.latest.from)[0]?.toLowerCase();
@@ -123,6 +123,29 @@ export class EmailSyncService {
                   break;
                 }
               }
+            }
+          }
+
+          // Intelligent thread consolidation: merge replies with existing threads
+          const subject = gmailThread.latest.subject;
+          if (matchedProjectId && subject && (subject.toLowerCase().startsWith('re:') || subject.toLowerCase().startsWith('fwd:'))) {
+            const baseSubject = subject.replace(/^(re:|fwd:)\s*/i, '').trim();
+            
+            // Look for existing threads with the same base subject in this project
+            const existingThread = await db
+              .select({ threadId: emails.threadId })
+              .from(emails)
+              .where(
+                and(
+                  eq(emails.projectId, matchedProjectId),
+                  sql`LOWER(REPLACE(REPLACE(${emails.subject}, 'Re: ', ''), 'Fwd: ', '')) = ${baseSubject.toLowerCase()}`
+                )
+              )
+              .limit(1);
+            
+            if (existingThread.length > 0) {
+              threadId = existingThread[0].threadId;
+              console.log(`📧 Consolidating reply "${subject}" into existing thread ${threadId}`);
             }
           }
 

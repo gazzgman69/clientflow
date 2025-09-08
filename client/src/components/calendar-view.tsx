@@ -389,59 +389,79 @@ export default function CalendarView({ viewMode = 'month' }: CalendarViewProps) 
 
   return (
     <div className="space-y-6 pb-20">
+      {/* Upcoming Events */}
+      <Card data-testid="upcoming-events">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <CalendarIcon className="h-5 w-5" />
+            Upcoming Events
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {eventsLoading ? (
+            <div className="text-center py-4">Loading events...</div>
+          ) : getUpcomingEvents().length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              <CalendarIcon className="h-8 w-8 mx-auto mb-2 opacity-50" />
+              <p>No upcoming events</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {getUpcomingEvents().map((event, index) => (
+                <div 
+                  key={event.id} 
+                  className="border-l-4 border-primary pl-3 cursor-pointer hover:bg-muted/50 p-2 rounded-r"
+                  onClick={() => handleEditEvent(event)}
+                  data-testid={`upcoming-event-${index + 1}`}
+                >
+                  <div className="font-medium">{event.title}</div>
+                  <div className="text-sm text-muted-foreground">
+                    {new Date(event.startDate).toLocaleDateString()} at {formatEventTime(event.startDate, event.endDate, event.allDay)}
+                  </div>
+                  {event.location && (
+                    <div className="text-xs text-muted-foreground flex items-center gap-1">
+                      <MapPin className="h-3 w-3" />
+                      {event.location}
+                    </div>
+                  )}
+                  <Badge variant="outline" className="text-xs mt-1">
+                    {event.type}
+                  </Badge>
+                </div>
+              ))}
+            </div>
+          )}
+          
+          <Button variant="ghost" className="w-full mt-4" data-testid="view-all-events">
+            View All Events
+          </Button>
+        </CardContent>
+      </Card>
+
       {/* Calendar Controls */}
       <Card data-testid="calendar-controls">
         <CardHeader>
           <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <div className="flex items-center space-x-2">
-                <Button 
-                  variant="outline" 
-                  size="icon"
-                  onClick={() => navigateMonth('prev')}
-                  data-testid="calendar-prev-month"
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                </Button>
-                <h2 className="text-xl font-semibold" data-testid="calendar-month-year">
-                  {monthNames[currentDate.getMonth()]} {currentDate.getFullYear()}
-                </h2>
-                <Button 
-                  variant="outline" 
-                  size="icon"
-                  onClick={() => navigateMonth('next')}
-                  data-testid="calendar-next-month"
-                >
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
-              </div>
-              
-              <div className="flex items-center space-x-2">
-                <Button
-                  variant={currentViewMode === 'month' ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => setCurrentViewMode('month')}
-                  data-testid="view-month"
-                >
-                  Month
-                </Button>
-                <Button
-                  variant={currentViewMode === 'week' ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => setCurrentViewMode('week')}
-                  data-testid="view-week"
-                >
-                  Week
-                </Button>
-                <Button
-                  variant={currentViewMode === 'day' ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => setCurrentViewMode('day')}
-                  data-testid="view-day"
-                >
-                  Day
-                </Button>
-              </div>
+            <div className="flex items-center space-x-2">
+              <Button 
+                variant="outline" 
+                size="icon"
+                onClick={() => navigateMonth('prev')}
+                data-testid="calendar-prev-month"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <h2 className="text-xl font-semibold" data-testid="calendar-month-year">
+                {monthNames[currentDate.getMonth()]} {currentDate.getFullYear()}
+              </h2>
+              <Button 
+                variant="outline" 
+                size="icon"
+                onClick={() => navigateMonth('next')}
+                data-testid="calendar-next-month"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
             </div>
             
             <Button onClick={handleAddEvent} data-testid="button-add-event">
@@ -452,9 +472,8 @@ export default function CalendarView({ viewMode = 'month' }: CalendarViewProps) 
         </CardHeader>
       </Card>
 
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-        {/* Calendar Grid */}
-        <Card className="lg:col-span-3" data-testid="calendar-grid">
+      {/* Calendar Grid */}
+      <Card data-testid="calendar-grid">
           <CardContent className="p-6">
             {eventsLoading ? (
               <div className="text-center py-8">Loading calendar...</div>
@@ -473,14 +492,12 @@ export default function CalendarView({ viewMode = 'month' }: CalendarViewProps) 
                 <div className="grid grid-cols-7 gap-2">
                   {days.map((day, index) => {
                     const dayEvents = day ? getEventsForDay(day) : [];
-                    const maxEventsToShow = 2;
-                    const visibleEvents = dayEvents.slice(0, maxEventsToShow);
-                    const hiddenEventsCount = dayEvents.length - maxEventsToShow;
+                    // Show all events when expanding, no more limiting
                     
                     return (
                       <div
                         key={index}
-                        className={`h-[120px] p-2 border rounded-lg cursor-pointer transition-colors overflow-hidden ${
+                        className={`min-h-[120px] p-2 border rounded-lg cursor-pointer transition-colors ${
                           day === null 
                             ? 'bg-muted/20' 
                             : isToday(day)
@@ -494,7 +511,7 @@ export default function CalendarView({ viewMode = 'month' }: CalendarViewProps) 
                           <>
                             <div className="font-medium mb-1">{day}</div>
                             <div className="space-y-1">
-                              {visibleEvents.map((event, eventIndex) => (
+                              {dayEvents.map((event, eventIndex) => (
                                 <div
                                   key={event.id}
                                   className={`text-xs p-1 rounded cursor-pointer hover:opacity-80 ${getEventTypeColor(event.type)}`}
@@ -513,18 +530,6 @@ export default function CalendarView({ viewMode = 'month' }: CalendarViewProps) 
                                   )}
                                 </div>
                               ))}
-                              {hiddenEventsCount > 0 && (
-                                <div 
-                                  className="text-xs text-muted-foreground font-medium cursor-pointer hover:text-foreground"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleShowDayEvents(day);
-                                  }}
-                                  data-testid={`more-events-${day}`}
-                                >
-                                  +{hiddenEventsCount} more
-                                </div>
-                              )}
                             </div>
                           </>
                         )}
@@ -536,56 +541,6 @@ export default function CalendarView({ viewMode = 'month' }: CalendarViewProps) 
             )}
           </CardContent>
         </Card>
-
-        {/* Upcoming Events Sidebar */}
-        <Card data-testid="upcoming-events">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <CalendarIcon className="h-5 w-5" />
-              Upcoming Events
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {eventsLoading ? (
-              <div className="text-center py-4">Loading events...</div>
-            ) : getUpcomingEvents().length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">
-                <CalendarIcon className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                <p>No upcoming events</p>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {getUpcomingEvents().map((event, index) => (
-                  <div 
-                    key={event.id} 
-                    className="border-l-4 border-primary pl-3 cursor-pointer hover:bg-muted/50 p-2 rounded-r"
-                    onClick={() => handleEditEvent(event)}
-                    data-testid={`upcoming-event-${index + 1}`}
-                  >
-                    <div className="font-medium">{event.title}</div>
-                    <div className="text-sm text-muted-foreground">
-                      {new Date(event.startDate).toLocaleDateString()} at {formatEventTime(event.startDate, event.endDate, event.allDay)}
-                    </div>
-                    {event.location && (
-                      <div className="text-xs text-muted-foreground flex items-center gap-1">
-                        <MapPin className="h-3 w-3" />
-                        {event.location}
-                      </div>
-                    )}
-                    <Badge variant="outline" className="text-xs mt-1">
-                      {event.type}
-                    </Badge>
-                  </div>
-                ))}
-              </div>
-            )}
-            
-            <Button variant="ghost" className="w-full mt-4" data-testid="view-all-events">
-              View All Events
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
 
       {/* Add/Edit Event Modal */}
       <Dialog open={showEventModal} onOpenChange={setShowEventModal}>

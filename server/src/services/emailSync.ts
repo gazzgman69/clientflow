@@ -150,40 +150,12 @@ export class EmailSyncService {
               .where(eq(emailThreads.id, threadId));
           }
 
-          // Store the latest message details
-          const emailId = `email_${gmailThread.latest.id}`;
+          // Get ALL messages in the thread, not just the latest
+          const threadMessages = await this.gmailService.getThreadMessages('test-user', threadId);
           
-          await db
-            .insert(emails)
-            .values({
-              id: emailId,
-              threadId,
-              provider: 'gmail',
-              providerMessageId: gmailThread.latest.id,
-              direction: 'inbound',
-              fromEmail: gmailThread.latest.from,
-              toEmails: [gmailThread.latest.to],
-              ccEmails: [],
-              bccEmails: [],
-              subject: gmailThread.latest.subject,
-              bodyText: gmailThread.latest.snippet,
-              bodyHtml: null,
-              sentAt: new Date(gmailThread.latest.dateISO),
-              hasAttachments: false,
-              contactId: null,
-              projectId: matchedProjectId,
-              createdAt: new Date(),
-              updatedAt: new Date(),
-            })
-            .onConflictDoUpdate({
-              target: emails.providerMessageId,
-              set: {
-                updatedAt: new Date(),
-                bodyText: gmailThread.latest.snippet,
-                subject: gmailThread.latest.subject,
-                projectId: matchedProjectId,
-              },
-            });
+          for (const gmailMessage of threadMessages) {
+            await this.syncThreadMessage(gmailMessage, threadId, matchedProjectId);
+          }
 
           if (matchedProjectId) {
             console.log(`📧 Associated thread "${gmailThread.latest.subject}" with project ${matchedProjectId}`);
@@ -383,6 +355,79 @@ export class EmailSyncService {
   }
 
   /**
+   * Sync a thread message from getThreadMessages format
+   */
+  private async syncThreadMessage(message: any, threadId: string, projectId?: string): Promise<any> {
+    try {
+      // Check if message already exists
+      const [existingMessage] = await db
+        .select()
+        .from(emails)
+        .where(eq(emails.providerMessageId, message.id))
+        .limit(1);
+
+      if (existingMessage) {
+        return existingMessage;
+      }
+
+      // Extract email addresses
+      const fromEmails = this.extractEmails(message.from || '');
+      const toEmails = this.extractEmails(message.to || '');
+      const ccEmails = this.extractEmails(message.cc || '');
+      const bccEmails = this.extractEmails(message.bcc || '');
+
+      // Find contact for sender
+      const contactId = fromEmails.length > 0 
+        ? await this.findOrCreateContact(fromEmails[0], projectId)
+        : null;
+
+      // Determine direction (inbound/outbound) based on user's email
+      const userEmail = await this.gmailService.getUserEmail('test-user');
+      const direction = fromEmails.some(email => email.toLowerCase().includes(userEmail.toLowerCase())) 
+        ? 'outbound' 
+        : 'inbound';
+
+      // Convert date
+      const sentAt = message.date ? new Date(message.date) : (
+        message.internalDate ? new Date(parseInt(message.internalDate)) : new Date()
+      );
+
+      // Insert message
+      const [newMessage] = await db
+        .insert(emails)
+        .values({
+          threadId,
+          provider: 'gmail',
+          providerMessageId: message.id,
+          providerThreadId: message.threadId || '',
+          messageId: message.messageId || '',
+          inReplyTo: message.inReplyTo || null,
+          references: message.references || null,
+          direction,
+          fromEmail: fromEmails[0] || '',
+          toEmails,
+          ccEmails,
+          bccEmails,
+          subject: message.subject || '',
+          snippet: message.snippet || '',
+          sentAt,
+          bodyHtml: message.bodyHtml || null,
+          bodyText: message.bodyText || null,
+          hasAttachments: false,
+          contactId,
+          projectId: projectId || null,
+        })
+        .returning();
+
+      console.log(`📧 Synced ${direction} email: "${message.subject}" from ${fromEmails[0] || 'unknown'}`);
+      return newMessage;
+    } catch (error) {
+      console.error('Error syncing thread message:', error);
+      return null;
+    }
+  }
+
+  /**
    * Sync a Gmail message to our database
    */
   async syncGmailMessage(gmailMessage: GmailMessage, threadId: string, projectId?: string): Promise<Email | null> {
@@ -415,9 +460,11 @@ export class EmailSyncService {
         ? await this.findOrCreateContact(fromEmails[0], projectId)
         : null;
 
-      // Determine direction (inbound/outbound)
-      // This would need to be configured based on the user's email addresses
-      const direction = 'inbound'; // Default for now
+      // Determine direction (inbound/outbound) based on user's email
+      const userEmail = await this.gmailService.getUserEmail('test-user');
+      const direction = fromEmails.some(email => email.toLowerCase().includes(userEmail.toLowerCase())) 
+        ? 'outbound' 
+        : 'inbound';
 
       // Check for attachments
       const hasAttachments = this.hasAttachments(gmailMessage.payload);

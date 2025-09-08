@@ -321,6 +321,90 @@ export class GmailService {
   }
 
   /**
+   * Get all messages in a specific Gmail thread
+   */
+  async getThreadMessages(userId: string, threadId: string): Promise<any[]> {
+    try {
+      const gmail = await this.getGmailService(userId);
+      
+      // Get the full thread with all messages
+      const threadResponse = await gmail.users.threads.get({
+        userId: 'me',
+        id: threadId,
+        format: 'full'
+      });
+
+      const messages = threadResponse.data.messages || [];
+      const emailMessages = [];
+
+      for (const message of messages) {
+        if (!message.id) continue;
+        
+        const headers = message.payload?.headers || [];
+        const getHeader = (name: string) => headers.find(h => h.name === name)?.value || '';
+        
+        // Extract content
+        const content = this.extractMessageContent(message.payload);
+        
+        emailMessages.push({
+          id: message.id,
+          threadId: threadId,
+          from: getHeader('From'),
+          to: getHeader('To'),
+          cc: getHeader('Cc'),
+          bcc: getHeader('Bcc'),
+          subject: getHeader('Subject'),
+          date: getHeader('Date'),
+          snippet: message.snippet || '',
+          bodyHtml: content.html,
+          bodyText: content.text,
+          inReplyTo: getHeader('In-Reply-To'),
+          references: getHeader('References'),
+          messageId: getHeader('Message-ID'),
+          internalDate: message.internalDate
+        });
+      }
+
+      return emailMessages;
+    } catch (error: any) {
+      console.error(`Failed to get thread messages: ${error.message}`);
+      return [];
+    }
+  }
+
+  /**
+   * Extract content from Gmail message payload
+   */
+  private extractMessageContent(payload: any): { html?: string, text?: string } {
+    if (!payload) return {};
+    
+    let html = '';
+    let text = '';
+    
+    const extractFromPart = (part: any) => {
+      if (part.mimeType === 'text/html' && part.body?.data) {
+        html = Buffer.from(part.body.data, 'base64').toString('utf8');
+      } else if (part.mimeType === 'text/plain' && part.body?.data) {
+        text = Buffer.from(part.body.data, 'base64').toString('utf8');
+      } else if (part.parts) {
+        part.parts.forEach(extractFromPart);
+      }
+    };
+    
+    if (payload.body?.data) {
+      if (payload.mimeType === 'text/html') {
+        html = Buffer.from(payload.body.data, 'base64').toString('utf8');
+      } else if (payload.mimeType === 'text/plain') {
+        text = Buffer.from(payload.body.data, 'base64').toString('utf8');
+      }
+    } else if (payload.parts) {
+      payload.parts.forEach(extractFromPart);
+    }
+    
+    return { html, text };
+  }
+
+  /**
    * List recent emails from Gmail INBOX
    */
   async listEmails(userId: string, limit = 10): Promise<EmailListResponse> {

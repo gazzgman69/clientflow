@@ -52,6 +52,14 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
   // Email view mode preference
   const { emailViewMode, setEmailViewMode, isSettingViewMode } = useEmailViewMode();
 
+  // Decode HTML entities in email content
+  const decodeHtmlEntities = (text: string) => {
+    if (!text) return text;
+    const textarea = document.createElement('textarea');
+    textarea.innerHTML = text;
+    return textarea.value;
+  };
+
 
   // Fetch project details to get contact information
   const { data: project } = useQuery({
@@ -579,7 +587,7 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
                       </span>
                     </TableCell>
                     <TableCell className="max-w-xs truncate">
-                      {message.snippet || message.bodyText?.substring(0, 100) || 'No preview'}
+                      {decodeHtmlEntities(message.snippet || message.bodyText?.substring(0, 100)) || 'No preview'}
                     </TableCell>
                   </TableRow>
                 ))}
@@ -641,7 +649,7 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
                   <CardContent className="pt-0 py-2">
                     <div className="bg-muted/20 p-2 rounded text-xs">
                       <p className="text-muted-foreground line-clamp-2 leading-relaxed">
-                        {message.snippet || message.bodyText?.substring(0, 150) || 'No preview available'}
+                        {decodeHtmlEntities(message.snippet || message.bodyText?.substring(0, 150)) || 'No preview available'}
                       </p>
                     </div>
                   </CardContent>
@@ -694,7 +702,7 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
                     </CardHeader>
                     <CardContent className="pt-0">
                       <div className="whitespace-pre-wrap text-sm bg-muted/30 p-3 rounded max-h-64 overflow-y-auto mb-3">
-                        {message.bodyText || message.bodyHtml || 'No content'}
+                        {decodeHtmlEntities(message.bodyText || message.bodyHtml) || 'No content'}
                       </div>
                       <div className="flex justify-end">
                         <Button 

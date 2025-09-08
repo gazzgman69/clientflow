@@ -15,6 +15,7 @@ import Documents from "@/pages/documents";
 import Calendar from "@/pages/calendar";
 import Automations from "@/pages/automations";
 import Settings from "@/pages/settings";
+import EmailSettings from "@/pages/settings/EmailSettings";
 import Templates from "@/pages/settings/Templates";
 import LeadAutomations from "@/pages/settings/Automations";
 import LeadCaptureBuilder from "@/pages/leads/LeadCaptureBuilder";
@@ -65,6 +66,7 @@ function Router() {
                 <Route path="/invoices" component={Invoices} />
                 <Route path="/calendar" component={Calendar} />
                 <Route path="/automations" component={Automations} />
+                <Route path="/settings/email" component={EmailSettings} />
                 <Route path="/settings/templates" component={Templates} />
                 <Route path="/settings/automations" component={LeadAutomations} />
                 <Route path="/settings" component={Settings} />

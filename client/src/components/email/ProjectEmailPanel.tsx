@@ -144,12 +144,16 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
     queryKey: [`/api/email-threads/${selectedThreadId}/messages`],
     queryFn: async () => {
       if (!selectedThreadId) return null;
+      console.log(`🔍 Fetching thread details for: ${selectedThreadId}`);
       const response = await fetch(`/api/email-threads/${selectedThreadId}/messages`, {
         headers: {
           'user-id': 'test-user'
         }
       });
-      return response.json();
+      const data = await response.json();
+      console.log(`📧 Thread details response:`, data);
+      console.log(`📧 Messages count:`, data?.messages?.length || 0);
+      return data;
     },
     enabled: !!selectedThreadId,
   });

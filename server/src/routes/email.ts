@@ -382,6 +382,16 @@ router.get('/email-threads/:threadId/messages', async (req, res) => {
     }
 
     const emailsWithAttachments = Array.from(emailsMap.values());
+    
+    console.log(`📧 Thread ${threadId} returning ${emailsWithAttachments.length} messages`);
+    if (emailsWithAttachments.length > 0) {
+      console.log('📧 Sample message:', {
+        id: emailsWithAttachments[0].id,
+        subject: emailsWithAttachments[0].subject,
+        from: emailsWithAttachments[0].fromEmail,
+        bodyText: emailsWithAttachments[0].bodyText?.substring(0, 50) + '...'
+      });
+    }
 
     res.json({ messages: emailsWithAttachments });
   } catch (error) {

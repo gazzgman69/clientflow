@@ -79,9 +79,9 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
 
   // Fetch project email threads
   const { data: threadsResponse, isLoading: threadsLoading, error: threadsError } = useQuery({
-    queryKey: [`/api/projects/${projectId}/email-threads`, contact?.email, emails],
+    queryKey: [`/api/email/projects/${projectId}/email-threads`, contact?.email, emails],
     queryFn: async () => {
-      const response = await fetch(`/api/projects/${projectId}/email-threads`, {
+      const response = await fetch(`/api/email/projects/${projectId}/email-threads`, {
         headers: {
           'user-id': 'test-user' // TODO: Get from actual auth context
         }
@@ -108,7 +108,7 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
       setMessage('');
       setIsComposing(false);
       // Refresh threads
-      queryClient.invalidateQueries({ queryKey: [`/api/projects/${projectId}/email-threads`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/email/projects/${projectId}/email-threads`] });
     },
     onError: (error: any) => {
       toast({ 
@@ -167,7 +167,7 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
       setShowReplyForm(false);
       setReplyMessage('');
       // Refresh threads to show the new reply
-      queryClient.invalidateQueries({ queryKey: [`/api/projects/${projectId}/email-threads`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/email/projects/${projectId}/email-threads`] });
       // Refresh the thread details
       if (selectedThreadId) {
         queryClient.invalidateQueries({ queryKey: [`/api/email-threads/${selectedThreadId}/messages`] });
@@ -323,7 +323,7 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
                       if (popup?.closed) {
                         clearInterval(checkClosed);
                         // Refresh the page or refetch data after auth
-                        queryClient.invalidateQueries({ queryKey: [`/api/projects/${projectId}/email-threads`] });
+                        queryClient.invalidateQueries({ queryKey: [`/api/email/projects/${projectId}/email-threads`] });
                       }
                     }, 1000);
                     
@@ -337,7 +337,7 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
                         popup?.close();
                         
                         // Refresh email threads after successful auth
-                        queryClient.invalidateQueries({ queryKey: [`/api/projects/${projectId}/email-threads`] });
+                        queryClient.invalidateQueries({ queryKey: [`/api/email/projects/${projectId}/email-threads`] });
                         toast({ title: 'Google account connected successfully!' });
                       } else if (event.data.type === 'oauth:error') {
                         clearInterval(checkClosed);

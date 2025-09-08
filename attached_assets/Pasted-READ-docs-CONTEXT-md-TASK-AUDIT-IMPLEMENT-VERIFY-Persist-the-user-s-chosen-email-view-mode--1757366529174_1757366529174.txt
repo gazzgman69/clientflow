@@ -1,0 +1,64 @@
+READ /docs/CONTEXT.md.
+
+TASK (AUDIT → IMPLEMENT → VERIFY)
+Persist the user’s chosen email view mode per user and restore it on load:
+- Modes: "unified" (default) | "rfc"
+- Remember per user (global preference for Project Email tab)
+- Load preference on tab mount; fall back to "unified"
+- Update preference when user toggles modes
+
+AUDIT (NO WRITES)
+- Print if a user settings/preferences mechanism already exists (e.g., user_settings table, profile JSON, or settings API).
+- Print current Project Email tab files and the toggle implementation from the last task.
+
+IMPLEMENT (SMALLEST DIFFS)
+SCOPE
+Backend:
+  - server/src/routes/userPrefs.ts            // NEW (or extend existing prefs route)
+  - server/src/services/userPrefs.ts          // NEW: get/set helpers
+  - server/src/db/schema.ts                   // Add table only if no prefs exist
+
+Frontend:
+  - web/src/components/project/EmailThreads.tsx   // where the toggle lives
+  - web/src/lib/userPrefs.ts                      // NEW small helper: get/set
+
+DB (only if needed; adapt to existing pattern)
+user_prefs (
+  id uuid pk,
+  userId fk → users.id,
+  key text,           -- e.g., "emailViewMode"
+  value text,         -- "unified" | "rfc"
+  updatedAt timestamptz default now()
+)
+UNIQUE (userId, key)
+
+Backend API (or extend existing):
+- GET  /api/user/prefs?keys=emailViewMode
+  → { emailViewMode: "unified" | "rfc" | null }
+- POST /api/user/prefs
+  Body: { key: "emailViewMode", value: "unified" | "rfc" }
+  → { ok:true }
+
+Frontend wiring:
+- On Project Email tab mount:
+   1) call getUserPref("emailViewMode"); default to "unified" if null
+   2) set toggle to that mode and fetch feed with ?mode=<value>
+- On toggle change:
+   1) optimistic update UI + refetch with new mode
+   2) persist via setUserPref("emailViewMode", value) in background
+- Ensure dates display dd/MM/yyyy HH:mm (unchanged)
+
+RULES
+- Do not introduce heavyweight state libs; use existing fetch utils.
+- Keep error handling silent/friendly (if prefs API fails, stay on current toggle).
+
+VERIFY
+- First load with no pref → defaults to "unified".
+- Switch to "threaded" → navigate away and back → tab restores "threaded".
+- API shows a single user_prefs row for key "emailViewMode".
+- Feed respects the active mode and Refresh button keeps the mode.
+
+ACCEPTANCE
+- The user’s chosen email view mode is remembered and restored per user.
+- No schema duplication; reuse existing prefs if present or create minimal table above.
+- Dates remain dd/MM/yyyy HH:mm in the UI.

@@ -188,7 +188,7 @@ export class MailSettingsService {
       const decryptedSettings = secureStore.decryptObject(settings, MAIL_SENSITIVE_FIELDS);
 
       // Test IMAP connection
-      let imapResult = { success: false, error: 'Not tested' };
+      let imapResult: { success: boolean; error?: string } = { success: false, error: 'Not tested' };
       if (decryptedSettings.imapHost && decryptedSettings.imapUsername && decryptedSettings.imapPassword) {
         try {
           // Import imap service dynamically to avoid circular deps
@@ -225,7 +225,7 @@ export class MailSettingsService {
             testImap.connect();
           });
 
-          imapResult = { success: true, error: undefined };
+          imapResult = { success: true };
           
         } catch (error) {
           imapResult = { 
@@ -236,7 +236,7 @@ export class MailSettingsService {
       }
 
       // Test SMTP connection
-      let smtpResult = { success: false, error: 'Not tested' };
+      let smtpResult: { success: boolean; error?: string } = { success: false, error: 'Not tested' };
       if (decryptedSettings.smtpHost && decryptedSettings.smtpUsername && decryptedSettings.smtpPassword) {
         try {
           const nodemailer = await import('nodemailer');
@@ -251,7 +251,7 @@ export class MailSettingsService {
           });
 
           await transporter.verify();
-          smtpResult = { success: true, error: undefined };
+          smtpResult = { success: true };
           
         } catch (error) {
           smtpResult = { 

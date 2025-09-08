@@ -212,8 +212,8 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
     });
   };
 
-  // Check for insufficient permissions error
-  const needsReconnect = threadsError || threadsResponse?.error?.includes?.('insufficientPermissions');
+  // Check if Gmail reconnection is needed
+  const needsReconnect = threadsResponse?.needsReconnect || threadsError;
 
   return (
     <div className="space-y-6">
@@ -388,24 +388,24 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {threads.map((thread: EmailThread) => (
+                {threads.map((thread: any) => (
                   <TableRow 
-                    key={thread.id}
+                    key={thread.threadId}
                     className="cursor-pointer hover:bg-muted/50"
-                    onClick={() => setSelectedThreadId(thread.id)}
-                    data-testid={`row-thread-${thread.id}`}
+                    onClick={() => setSelectedThreadId(thread.threadId)}
+                    data-testid={`row-thread-${thread.threadId}`}
                   >
                     <TableCell className="font-medium">
-                      {formatDate(thread.latestEmail?.sentAt || thread.lastMessageAt)}
+                      {formatDate(thread.latest?.dateISO || new Date().toISOString())}
                     </TableCell>
-                    <TableCell>{thread.latestEmail?.fromEmail || 'Unknown'}</TableCell>
-                    <TableCell>{thread.subject}</TableCell>
+                    <TableCell>{thread.latest?.from || 'Unknown'}</TableCell>
+                    <TableCell>{thread.latest?.subject || 'No subject'}</TableCell>
                     <TableCell className="max-w-xs truncate">
-                      {thread.latestEmail?.bodyText || 'No preview'}
+                      {thread.latest?.snippet || 'No preview'}
                     </TableCell>
                     <TableCell>
                       <span className="text-sm text-muted-foreground">
-                        Thread
+                        {thread.count || 1} message{(thread.count || 1) > 1 ? 's' : ''}
                       </span>
                     </TableCell>
                   </TableRow>

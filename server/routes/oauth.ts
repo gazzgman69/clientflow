@@ -159,16 +159,17 @@ router.get('/auth/google/callback', async (req, res) => {
       
       // Also sync Gmail emails after authentication
       try {
-        const { emailSyncService } = await import('../src/services/emailSync');
         const { gmailService } = await import('../src/services/gmail');
         
         console.log('🔄 Syncing Gmail emails after OAuth...');
         
-        // Fetch recent emails from Gmail and sync to database
-        const messages = await gmailService.fetchMessages(userId, { maxResults: 50 });
-        if (messages && messages.length > 0) {
-          await emailSyncService.syncMessages(messages, userId);
-          console.log(`✅ Synced ${messages.length} Gmail messages to database`);
+        // Fetch recent email threads from Gmail
+        const threadsResponse = await gmailService.listThreads(userId, { limit: 20 });
+        if (threadsResponse.ok && threadsResponse.threads && threadsResponse.threads.length > 0) {
+          console.log(`✅ Found ${threadsResponse.threads.length} Gmail threads after OAuth`);
+          // Email threads are now accessible via Gmail API, no additional sync needed
+        } else {
+          console.log('ℹ️  No Gmail threads found or error occurred:', threadsResponse.error);
         }
       } catch (emailSyncError) {
         console.error('❌ Failed to sync Gmail emails:', emailSyncError);

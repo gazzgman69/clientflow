@@ -163,64 +163,97 @@ router.get('/list', requireAuth, async (req: any, res) => {
 
 /**
  * GET /api/projects/:projectId/email-threads
- * Get email threads for a project from database
+ * Get email threads for a project from Gmail for project contacts
  */
-router.get('/projects/:projectId/email-threads', async (req, res) => {
+router.get('/projects/:projectId/email-threads', requireAuth, async (req: any, res) => {
   try {
     const { projectId } = req.params;
-    const { page = 1, limit = 20 } = req.query;
-    
-    const offset = (Number(page) - 1) * Number(limit);
+    const { limit = 20 } = req.query;
+    const userId = req.user.id;
 
-    // Get threads with their latest email
-    const threads = await db
+    // Get project with its contacts
+    const project = await db
       .select({
-        id: emailThreads.id,
-        subject: emailThreads.subject,
-        lastMessageAt: emailThreads.lastMessageAt,
-        createdAt: emailThreads.createdAt,
-        updatedAt: emailThreads.updatedAt,
-        latestEmail: {
-          id: emails.id,
-          subject: emails.subject,
-          fromEmail: emails.fromEmail,
-          direction: emails.direction,
-          toEmails: emails.toEmails,
-          bodyText: emails.bodyText,
-          bodyHtml: emails.bodyHtml,
-          sentAt: emails.sentAt,
-          hasAttachments: emails.hasAttachments,
-        }
+        id: projects.id,
+        name: projects.name,
+        contactId: projects.contactId,
       })
-      .from(emailThreads)
-      .leftJoin(emails, eq(emails.threadId, emailThreads.id))
-      .where(eq(emailThreads.projectId, projectId))
-      .orderBy(desc(emailThreads.updatedAt))
-      .limit(Number(limit))
-      .offset(offset);
+      .from(projects)
+      .where(eq(projects.id, projectId))
+      .limit(1);
 
-    // Group by thread ID and get latest email for each
-    const threadMap = new Map();
-    for (const row of threads) {
-      const threadId = row.id;
-      if (!threadMap.has(threadId) || 
-          (row.latestEmail?.sentAt && 
-           (!threadMap.get(threadId).latestEmail?.sentAt || 
-            new Date(row.latestEmail.sentAt) > new Date(threadMap.get(threadId).latestEmail.sentAt)))) {
-        threadMap.set(threadId, row);
+    if (!project.length) {
+      return res.status(404).json({ error: 'Project not found' });
+    }
+
+    // Get contact emails for the project (primary contact + any related contacts)
+    const contactEmails: string[] = [];
+    
+    if (project[0].contactId) {
+      const contact = await db
+        .select({ email: contacts.email })
+        .from(contacts)
+        .where(eq(contacts.id, project[0].contactId))
+        .limit(1);
+      
+      if (contact.length && contact[0].email) {
+        contactEmails.push(contact[0].email);
       }
     }
 
-    const uniqueThreads = Array.from(threadMap.values());
+    // If no contact emails found, return empty result
+    if (contactEmails.length === 0) {
+      return res.json({
+        threads: [],
+        page: 1,
+        limit: Number(limit),
+        total: 0,
+        needsReconnect: false
+      });
+    }
 
-    res.json({
-      threads: uniqueThreads,
-      page: Number(page),
-      limit: Number(limit),
-      total: uniqueThreads.length
-    });
+    try {
+      // Use Gmail service to find threads for these email addresses
+      const result = await gmailService.listThreadsForAddresses(userId, {
+        limit: Number(limit),
+        addresses: contactEmails
+      });
+
+      if (result.ok && result.threads) {
+        res.json({
+          threads: result.threads,
+          page: 1,
+          limit: Number(limit),
+          total: result.threads.length,
+          needsReconnect: false
+        });
+      } else {
+        // Gmail API error - likely needs reconnection
+        res.json({
+          threads: [],
+          page: 1,
+          limit: Number(limit),
+          total: 0,
+          needsReconnect: true,
+          error: result.error
+        });
+      }
+    } catch (gmailError: any) {
+      console.error('Gmail service error:', gmailError);
+      // Return needs reconnect status if it's an auth error
+      const needsReconnect = gmailError.message && gmailError.message.includes('access token');
+      
+      res.json({
+        threads: [],
+        page: 1,
+        limit: Number(limit),
+        total: 0,
+        needsReconnect,
+        error: needsReconnect ? 'Gmail access required' : 'Failed to fetch email threads'
+      });
+    }
   } catch (error) {
-    console.error('Error fetching email threads:', error);
+    console.error('Error fetching project email threads:', error);
     res.status(500).json({ error: 'Failed to fetch email threads' });
   }
 });

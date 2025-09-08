@@ -578,4 +578,30 @@ router.post('/email-threads/:threadId/mark-read', async (req, res) => {
   }
 });
 
+// Manual Gmail sync endpoint
+router.post('/sync', requireAuth, async (req: any, res) => {
+  try {
+    const userId = req.user.id;
+    const { emailSyncService } = await import('../services/emailSync');
+    
+    console.log('🔄 Manual Gmail sync requested');
+    const result = await emailSyncService.syncGmailThreadsToDatabase(userId);
+    
+    res.json({
+      success: true,
+      synced: result.synced,
+      skipped: result.skipped,
+      errors: result.errors,
+      message: `Synced ${result.synced} emails successfully`
+    });
+  } catch (error) {
+    console.error('Manual Gmail sync failed:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Gmail sync failed',
+      message: 'Please make sure your Google account is connected'
+    });
+  }
+});
+
 export default router;

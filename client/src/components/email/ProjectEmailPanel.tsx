@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Send, Mail, Loader2, AlertCircle, X, Reply } from 'lucide-react';
+import { Send, Mail, Loader2, AlertCircle, X, Reply, RefreshCw } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -43,6 +43,7 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
   const [replyTo, setReplyTo] = useState('');
   const [replySubject, setReplySubject] = useState('');
   const [replyMessage, setReplyMessage] = useState('');
+  const [forceRefresh, setForceRefresh] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -298,9 +299,45 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
       {/* Project Threads Section */}
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Mail className="h-5 w-5" />
-            Project Email Threads
+          <CardTitle className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Mail className="h-5 w-5" />
+              Project Email Threads
+            </div>
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={async () => {
+                try {
+                  setForceRefresh(true);
+                  const response = await fetch('/api/email/sync', { method: 'POST' });
+                  if (response.ok) {
+                    // Refresh threads after sync
+                    queryClient.invalidateQueries({ queryKey: [`/api/email/projects/${projectId}/email-threads`] });
+                    toast({ title: 'Email sync complete', description: 'Latest emails have been synced' });
+                  } else {
+                    throw new Error('Sync failed');
+                  }
+                } catch (error) {
+                  console.error('Manual sync failed:', error);
+                  toast({ 
+                    title: 'Sync failed', 
+                    description: 'Please try reconnecting Google',
+                    variant: 'destructive' 
+                  });
+                } finally {
+                  setForceRefresh(false);
+                }
+              }}
+              disabled={forceRefresh}
+              data-testid="button-refresh-emails"
+            >
+              {forceRefresh ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <RefreshCw className="h-4 w-4" />
+              )}
+            </Button>
           </CardTitle>
         </CardHeader>
         <CardContent>

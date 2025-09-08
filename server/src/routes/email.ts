@@ -115,9 +115,43 @@ router.get('/threads/by-project/:projectId', requireAuth, async (req: any, res) 
       });
     }
     
-    const result = await gmailService.listThreadsForAddresses(userId, { limit, addresses });
-    
-    res.json(result);
+    // Load email threads from database for instant response
+    try {
+      const threadsFromDB = await db
+        .select({
+          threadId: emailThreads.id,
+          subject: emailThreads.subject,
+          lastMessageAt: emailThreads.lastMessageAt,
+          latest: {
+            id: emails.providerMessageId,
+            from: emails.fromEmail,
+            to: emails.toEmails,
+            subject: emails.subject,
+            snippet: emails.bodyText,
+            dateISO: emails.sentAt,
+          },
+          count: 1, // For now, simplified count
+        })
+        .from(emailThreads)
+        .leftJoin(emails, eq(emails.threadId, emailThreads.id))
+        .where(eq(emailThreads.projectId, projectId))
+        .orderBy(desc(emailThreads.lastMessageAt))
+        .limit(limit);
+
+      // Transform to match Gmail API response format
+      const threads = threadsFromDB.map(thread => ({
+        threadId: thread.threadId,
+        latest: thread.latest,
+        count: thread.count,
+      }));
+
+      res.json({ ok: true, threads, needsReconnect: false });
+    } catch (dbError) {
+      console.error('Database query failed, falling back to Gmail API:', dbError);
+      // Fallback to Gmail API if database fails
+      const result = await gmailService.listThreadsForAddresses(userId, { limit, addresses });
+      res.json(result);
+    }
   } catch (error: any) {
     res.status(500).json({ ok: false, error: 'Internal server error' });
   }
@@ -213,44 +247,89 @@ router.get('/projects/:projectId/email-threads', requireAuth, async (req: any, r
     }
 
     try {
-      // Use Gmail service to find threads for these email addresses
-      const result = await gmailService.listThreadsForAddresses(userId, {
+      // Load email threads from database for instant response
+      const threadsFromDB = await db
+        .select({
+          threadId: emailThreads.id,
+          subject: emailThreads.subject,
+          lastMessageAt: emailThreads.lastMessageAt,
+          latest: {
+            id: emails.providerMessageId,
+            from: emails.fromEmail,
+            to: emails.toEmails,
+            subject: emails.subject,
+            snippet: emails.bodyText,
+            dateISO: emails.sentAt,
+          },
+          count: 1, // Simplified count for now
+        })
+        .from(emailThreads)
+        .leftJoin(emails, eq(emails.threadId, emailThreads.id))
+        .where(eq(emailThreads.projectId, projectId))
+        .orderBy(desc(emailThreads.lastMessageAt))
+        .limit(Number(limit));
+
+      // Transform to match expected format
+      const threads = threadsFromDB
+        .filter(thread => thread.latest.id) // Only include threads with messages
+        .map(thread => ({
+          threadId: thread.threadId,
+          latest: {
+            ...thread.latest,
+            dateISO: thread.latest.dateISO?.toISOString() || new Date().toISOString(),
+          },
+          count: thread.count,
+        }));
+
+      console.log(`📧 Loaded ${threads.length} email threads from database for project ${projectId}`);
+
+      res.json({
+        threads,
+        page: 1,
         limit: Number(limit),
-        addresses: contactEmails
+        total: threads.length,
+        needsReconnect: false
       });
 
-      if (result.ok && result.threads) {
-        res.json({
-          threads: result.threads,
-          page: 1,
+    } catch (dbError: any) {
+      console.error('Database error, falling back to Gmail API:', dbError);
+      
+      // Fallback to Gmail API if database fails
+      try {
+        const result = await gmailService.listThreadsForAddresses(userId, {
           limit: Number(limit),
-          total: result.threads.length,
-          needsReconnect: false
+          addresses: contactEmails
         });
-      } else {
-        // Gmail API error - likely needs reconnection
+
+        if (result.ok && result.threads) {
+          res.json({
+            threads: result.threads,
+            page: 1,
+            limit: Number(limit),
+            total: result.threads.length,
+            needsReconnect: false
+          });
+        } else {
+          res.json({
+            threads: [],
+            page: 1,
+            limit: Number(limit),
+            total: 0,
+            needsReconnect: true,
+            error: result.error
+          });
+        }
+      } catch (gmailError: any) {
+        console.error('Gmail service also failed:', gmailError);
         res.json({
           threads: [],
           page: 1,
           limit: Number(limit),
           total: 0,
           needsReconnect: true,
-          error: result.error
+          error: 'Gmail access required'
         });
       }
-    } catch (gmailError: any) {
-      console.error('Gmail service error:', gmailError);
-      // Return needs reconnect status if it's an auth error
-      const needsReconnect = gmailError.message && gmailError.message.includes('access token');
-      
-      res.json({
-        threads: [],
-        page: 1,
-        limit: Number(limit),
-        total: 0,
-        needsReconnect,
-        error: needsReconnect ? 'Gmail access required' : 'Failed to fetch email threads'
-      });
     }
   } catch (error) {
     console.error('Error fetching project email threads:', error);

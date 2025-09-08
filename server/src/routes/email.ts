@@ -51,6 +51,50 @@ router.post('/send', requireAuth, async (req: any, res) => {
       text: emailData.text
     });
     
+    // If email was sent successfully, save to database immediately
+    if (result.ok) {
+      try {
+        // Use existing service instance
+        
+        // Find project ID if provided, or determine from contact email
+        let projectId = emailData.projectId || null;
+        
+        if (!projectId && emailData.to) {
+          // Try to find project by contact email
+          const [contact] = await db
+            .select({ id: contacts.id })
+            .from(contacts)
+            .where(eq(contacts.email, emailData.to))
+            .limit(1);
+            
+          if (contact) {
+            const [project] = await db
+              .select({ id: projects.id })
+              .from(projects)
+              .where(eq(projects.contactId, contact.id))
+              .limit(1);
+              
+            if (project) {
+              projectId = project.id;
+            }
+          }
+        }
+        
+        // Create outbound email record in database
+        await emailSyncService.createOutboundEmail({
+          projectId,
+          to: [emailData.to],
+          subject: emailData.subject,
+          bodyText: emailData.text,
+        });
+        
+        console.log(`💾 Saved outbound email to database (project: ${projectId})`);
+      } catch (dbError) {
+        console.error('Failed to save sent email to database:', dbError);
+        // Don't fail the request if database save fails
+      }
+    }
+    
     res.json(result);
   } catch (error: any) {
     if (error.issues) {

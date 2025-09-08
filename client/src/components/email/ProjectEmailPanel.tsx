@@ -18,16 +18,19 @@ interface ProjectEmailPanelProps {
 }
 
 interface EmailThread {
-  threadId: string;
-  latest: {
+  id: string;
+  subject: string;
+  lastMessageAt: string;
+  latestEmail: {
     id: string;
-    from: string;
-    to: string;
+    fromEmail: string;
+    toEmails: string[];
     subject: string;
-    dateISO: string;
-    snippet: string;
+    sentAt: string;
+    bodyText: string;
+    direction: string;
+    hasAttachments: boolean;
   };
-  count: number;
 }
 
 export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPanelProps) {
@@ -76,19 +79,16 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
 
   // Fetch project email threads
   const { data: threadsResponse, isLoading: threadsLoading, error: threadsError } = useQuery({
-    queryKey: [`/api/email/threads/by-project/${projectId}`, contact?.email, emails],
+    queryKey: [`/api/projects/${projectId}/email-threads`, contact?.email, emails],
     queryFn: async () => {
-      // Use contact's email or emails prop for the search
-      const emailAddresses = contact?.email ? [contact.email] : (emails || []);
-      const emailsParam = emailAddresses?.length ? `?emails=${emailAddresses.join(',')}` : '';
-      const response = await fetch(`/api/email/threads/by-project/${projectId}${emailsParam}`, {
+      const response = await fetch(`/api/projects/${projectId}/email-threads`, {
         headers: {
           'user-id': 'test-user' // TODO: Get from actual auth context
         }
       });
       return response.json();
     },
-    enabled: !!projectId && (!!contact?.email || (emails && emails.length > 0)),
+    enabled: !!projectId,
   });
 
   // Send email mutation
@@ -108,7 +108,7 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
       setMessage('');
       setIsComposing(false);
       // Refresh threads
-      queryClient.invalidateQueries({ queryKey: [`/api/email/threads/by-project/${projectId}`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/projects/${projectId}/email-threads`] });
     },
     onError: (error: any) => {
       toast({ 
@@ -140,10 +140,10 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
 
   // Fetch thread details for selected thread only
   const { data: selectedThreadDetails, isLoading: threadLoading } = useQuery({
-    queryKey: [`/api/email/thread/${selectedThreadId}`],
+    queryKey: [`/api/email-threads/${selectedThreadId}/messages`],
     queryFn: async () => {
       if (!selectedThreadId) return null;
-      const response = await fetch(`/api/email/thread/${selectedThreadId}`, {
+      const response = await fetch(`/api/email-threads/${selectedThreadId}/messages`, {
         headers: {
           'user-id': 'test-user'
         }
@@ -156,20 +156,21 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
   // Reply email mutation
   const replyEmailMutation = useMutation({
     mutationFn: async (emailData: { to: string; subject: string; text: string }) => {
-      return apiRequest('/api/email/send', {
-        method: 'POST',
-        body: JSON.stringify(emailData),
+      const response = await apiRequest('POST', '/api/email/send', {
+        ...emailData,
+        projectId
       });
+      return response.json();
     },
     onSuccess: () => {
       toast({ title: 'Reply sent successfully!' });
       setShowReplyForm(false);
       setReplyMessage('');
       // Refresh threads to show the new reply
-      queryClient.invalidateQueries({ queryKey: [`/api/email/threads/by-project/${projectId}`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/projects/${projectId}/email-threads`] });
       // Refresh the thread details
       if (selectedThreadId) {
-        queryClient.invalidateQueries({ queryKey: [`/api/email/thread/${selectedThreadId}`] });
+        queryClient.invalidateQueries({ queryKey: [`/api/email-threads/${selectedThreadId}/messages`] });
       }
     },
     onError: (error: any) => {
@@ -183,9 +184,9 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
 
   const handleReply = (originalMessage: any) => {
     // Set reply details based on the original message
-    const replyToEmail = originalMessage.from.includes('<') 
-      ? originalMessage.from.match(/<(.+)>/)?.[1] || originalMessage.from
-      : originalMessage.from;
+    const replyToEmail = originalMessage.fromEmail.includes('<') 
+      ? originalMessage.fromEmail.match(/<(.+)>/)?.[1] || originalMessage.fromEmail
+      : originalMessage.fromEmail;
     
     setReplyTo(replyToEmail);
     setReplySubject(originalMessage.subject.startsWith('Re:') 
@@ -348,22 +349,22 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
               <TableBody>
                 {threads.map((thread: EmailThread) => (
                   <TableRow 
-                    key={thread.threadId}
+                    key={thread.id}
                     className="cursor-pointer hover:bg-muted/50"
-                    onClick={() => setSelectedThreadId(thread.threadId)}
-                    data-testid={`row-thread-${thread.threadId}`}
+                    onClick={() => setSelectedThreadId(thread.id)}
+                    data-testid={`row-thread-${thread.id}`}
                   >
                     <TableCell className="font-medium">
-                      {formatDate(thread.latest.dateISO)}
+                      {formatDate(thread.latestEmail?.sentAt || thread.lastMessageAt)}
                     </TableCell>
-                    <TableCell>{thread.latest.from}</TableCell>
-                    <TableCell>{thread.latest.subject}</TableCell>
+                    <TableCell>{thread.latestEmail?.fromEmail || 'Unknown'}</TableCell>
+                    <TableCell>{thread.subject}</TableCell>
                     <TableCell className="max-w-xs truncate">
-                      {thread.latest.snippet}
+                      {thread.latestEmail?.bodyText || 'No preview'}
                     </TableCell>
                     <TableCell>
                       <span className="text-sm text-muted-foreground">
-                        {thread.count} message{thread.count !== 1 ? 's' : ''}
+                        Thread
                       </span>
                     </TableCell>
                   </TableRow>
@@ -385,7 +386,7 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
             <DialogTitle className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Mail className="h-5 w-5" />
-                {selectedThreadDetails?.thread?.subject || 'Email Thread'}
+                {selectedThreadDetails?.messages?.[0]?.subject || 'Email Thread'}
               </div>
               <Button 
                 variant="ghost" 
@@ -411,24 +412,24 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
                 <Loader2 className="h-6 w-6 animate-spin mr-2" />
                 Loading thread...
               </div>
-            ) : selectedThreadDetails?.thread?.messages ? (
+            ) : selectedThreadDetails?.messages ? (
               <div className="space-y-4">
-                {selectedThreadDetails.thread.messages.map((message: any, index: number) => (
+                {selectedThreadDetails.messages.map((message: any, index: number) => (
                   <Card key={message.id} className="border-l-4 border-l-primary/20">
                     <CardHeader className="pb-2">
                       <div className="flex justify-between items-start">
                         <div>
-                          <p className="font-medium text-sm">{message.from}</p>
-                          <p className="text-xs text-muted-foreground">To: {message.to}</p>
+                          <p className="font-medium text-sm">{message.fromEmail}</p>
+                          <p className="text-xs text-muted-foreground">To: {Array.isArray(message.toEmails) ? message.toEmails.join(', ') : message.toEmails}</p>
                         </div>
                         <div className="text-xs text-muted-foreground">
-                          {formatDate(message.dateISO)}
+                          {formatDate(message.sentAt)}
                         </div>
                       </div>
                     </CardHeader>
                     <CardContent className="pt-0">
                       <div className="whitespace-pre-wrap text-sm bg-muted/30 p-3 rounded max-h-64 overflow-y-auto mb-3">
-                        {message.body || message.snippet}
+                        {message.bodyText || message.bodyHtml || 'No content'}
                       </div>
                       <div className="flex justify-end">
                         <Button 

@@ -155,22 +155,57 @@ export const tasks = pgTable("tasks", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// Email Threading System - replaces existing emails table with proper threading
+export const emailThreads = pgTable("email_threads", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  projectId: varchar("project_id").references(() => projects.id),
+  subject: text("subject"),
+  lastMessageAt: timestamp("last_message_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 export const emails = pgTable("emails", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  subject: text("subject").notNull(),
-  body: text("body").notNull(),
+  threadId: varchar("thread_id").references(() => emailThreads.id).notNull(),
+  provider: text("provider"), // 'gmail'
+  providerMessageId: text("provider_message_id"),
+  providerThreadId: text("provider_thread_id"),
+  messageId: text("message_id"), // RFC Message-ID
+  inReplyTo: text("in_reply_to"),
+  references: text("references"),
+  direction: text("direction"), // 'inbound' | 'outbound'
   fromEmail: text("from_email").notNull(),
-  toEmail: text("to_email").notNull(),
+  toEmails: text("to_emails").array(), // Changed from single to array
   ccEmails: text("cc_emails").array(),
   bccEmails: text("bcc_emails").array(),
-  status: text("status").notNull().default('draft'), // draft, sent, delivered, bounced, failed
-  threadId: varchar("thread_id"),
-  leadId: varchar("lead_id").references(() => leads.id),
+  subject: text("subject"),
+  snippet: text("snippet"),
+  sentAt: timestamp("sent_at"),
+  bodyHtml: text("body_html"),
+  bodyText: text("body_text"),
+  hasAttachments: boolean("has_attachments").default(false),
   contactId: varchar("contact_id").references(() => contacts.id),
   projectId: varchar("project_id").references(() => projects.id),
-  sentBy: varchar("sent_by").references(() => users.id),
-  sentAt: timestamp("sent_at"),
   createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const emailAttachments = pgTable("email_attachments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  emailId: varchar("email_id").references(() => emails.id).notNull(),
+  filename: text("filename"),
+  mimeType: text("mime_type"),
+  size: integer("size"),
+  storageKey: text("storage_key"), // fs path or S3 key
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const emailThreadReads = pgTable("email_thread_reads", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  threadId: varchar("thread_id").references(() => emailThreads.id).notNull(),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  lastReadAt: timestamp("last_read_at"),
 });
 
 export const smsMessages = pgTable("sms_messages", {
@@ -422,7 +457,10 @@ export const insertQuoteSchema = createInsertSchema(quotes).omit({ id: true, cre
 export const insertContractSchema = createInsertSchema(contracts).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertInvoiceSchema = createInsertSchema(invoices).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertTaskSchema = createInsertSchema(tasks).omit({ id: true, createdAt: true, updatedAt: true });
-export const insertEmailSchema = createInsertSchema(emails).omit({ id: true, createdAt: true });
+export const insertEmailThreadSchema = createInsertSchema(emailThreads).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertEmailSchema = createInsertSchema(emails).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertEmailAttachmentSchema = createInsertSchema(emailAttachments).omit({ id: true, createdAt: true });
+export const insertEmailThreadReadSchema = createInsertSchema(emailThreadReads).omit({ id: true });
 export const insertActivitySchema = createInsertSchema(activities).omit({ id: true, createdAt: true });
 export const insertAutomationSchema = createInsertSchema(automations).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertMemberSchema = createInsertSchema(members).omit({ id: true, createdAt: true, updatedAt: true });
@@ -466,8 +504,14 @@ export type Invoice = typeof invoices.$inferSelect;
 export type InsertInvoice = z.infer<typeof insertInvoiceSchema>;
 export type Task = typeof tasks.$inferSelect;
 export type InsertTask = z.infer<typeof insertTaskSchema>;
+export type EmailThread = typeof emailThreads.$inferSelect;
+export type InsertEmailThread = z.infer<typeof insertEmailThreadSchema>;
 export type Email = typeof emails.$inferSelect;
 export type InsertEmail = z.infer<typeof insertEmailSchema>;
+export type EmailAttachment = typeof emailAttachments.$inferSelect;
+export type InsertEmailAttachment = z.infer<typeof insertEmailAttachmentSchema>;
+export type EmailThreadRead = typeof emailThreadReads.$inferSelect;
+export type InsertEmailThreadRead = z.infer<typeof insertEmailThreadReadSchema>;
 export type Activity = typeof activities.$inferSelect;
 export type InsertActivity = z.infer<typeof insertActivitySchema>;
 export type Automation = typeof automations.$inferSelect;

@@ -402,7 +402,7 @@ export default function CalendarView({ viewMode = 'month' }: CalendarViewProps) 
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <CalendarIcon className="h-5 w-5" />
-              <CardTitle>Upcoming Events</CardTitle>
+              <CardTitle className="font-semibold tracking-tight text-[20px]">Upcoming Events</CardTitle>
             </div>
             <div className="flex items-center gap-2">
               {!eventsLoading && getUpcomingEvents().length > 0 && (

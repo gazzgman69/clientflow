@@ -1,6 +1,6 @@
 import { db } from "../../db";
 import { emailThreads, emails, emailAttachments, contacts, projects } from "@shared/schema";
-import { eq, and, or, desc, isNotNull } from "drizzle-orm";
+import { eq, and, or, desc, isNotNull, sql, not } from "drizzle-orm";
 import type { gmail_v1 } from "googleapis";
 import type { EmailThread, Email, InsertEmailThread, InsertEmail, InsertEmailAttachment } from "@shared/schema";
 
@@ -234,11 +234,77 @@ export class EmailSyncService {
         }
       }
 
+      // Run thread consolidation for existing separated threads
+      await this.consolidateExistingSeparatedThreads();
+
       console.log(`✅ Gmail sync complete: ${synced} synced, ${skipped} skipped${errors.length > 0 ? `, ${errors.length} errors` : ''}`);
       return { synced, skipped, errors };
     } catch (error: any) {
       console.error('❌ Gmail sync failed:', error);
       return { synced: 0, skipped: 0, errors: [error.message] };
+    }
+  }
+
+  /**
+   * Consolidate existing separated threads that should be grouped together
+   */
+  private async consolidateExistingSeparatedThreads() {
+    try {
+      console.log('🔧 Running thread consolidation for existing separated threads...');
+      
+      // Find all reply emails that might need consolidation
+      const replyEmails = await db
+        .select()
+        .from(emails)
+        .where(
+          and(
+            isNotNull(emails.projectId),
+            or(
+              sql`LOWER(${emails.subject}) LIKE 're:%'`,
+              sql`LOWER(${emails.subject}) LIKE 'fwd:%'`
+            )
+          )
+        );
+
+      let consolidated = 0;
+      
+      for (const replyEmail of replyEmails) {
+        const subject = replyEmail.subject;
+        if (!subject) continue;
+        
+        // Extract base subject
+        const baseSubject = subject.replace(/^(re:|fwd:)\s*/i, '').trim();
+        
+        // Find the main thread with this base subject
+        const mainThreadEmails = await db
+          .select({ threadId: emails.threadId })
+          .from(emails)
+          .where(
+            and(
+              eq(emails.projectId, replyEmail.projectId),
+              sql`LOWER(REPLACE(REPLACE(${emails.subject}, 'Re: ', ''), 'Fwd: ', '')) = ${baseSubject.toLowerCase()}`,
+              not(eq(emails.threadId, replyEmail.threadId))
+            )
+          )
+          .limit(1);
+
+        if (mainThreadEmails.length > 0) {
+          const targetThreadId = mainThreadEmails[0].threadId;
+          
+          // Move this reply email to the main thread
+          await db
+            .update(emails)
+            .set({ threadId: targetThreadId })
+            .where(eq(emails.id, replyEmail.id));
+            
+          console.log(`🔄 Consolidated "${subject}" into thread ${targetThreadId}`);
+          consolidated++;
+        }
+      }
+      
+      console.log(`✅ Thread consolidation complete: ${consolidated} emails consolidated`);
+    } catch (error) {
+      console.error('❌ Error consolidating threads:', error);
     }
   }
 

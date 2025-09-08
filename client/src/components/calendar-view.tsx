@@ -331,6 +331,13 @@ export default function CalendarView({ viewMode = 'month' }: CalendarViewProps) 
     setShowDayEventsModal(true);
   };
 
+  const handleViewAllEvents = () => {
+    // For now, show an alert with event count and quick actions
+    const upcomingCount = getUpcomingEvents().length;
+    const totalCount = events?.length || 0;
+    alert(`You have ${upcomingCount} upcoming events out of ${totalCount} total events.\n\nQuick actions:\n• Click any event to edit it\n• Use "Add Event" to create new events\n• Click calendar days to see events for that day`);
+  };
+
   const onSubmit = (data: EventFormData) => {
     if (editingEvent) {
       updateEventMutation.mutate({ ...data, id: editingEvent.id });
@@ -392,50 +399,44 @@ export default function CalendarView({ viewMode = 'month' }: CalendarViewProps) 
       {/* Upcoming Events */}
       <Card data-testid="upcoming-events">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <CalendarIcon className="h-5 w-5" />
-            Upcoming Events
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {eventsLoading ? (
-            <div className="text-center py-4">Loading events...</div>
-          ) : getUpcomingEvents().length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              <CalendarIcon className="h-8 w-8 mx-auto mb-2 opacity-50" />
-              <p>No upcoming events</p>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <CalendarIcon className="h-5 w-5" />
+              <CardTitle>Upcoming Events</CardTitle>
             </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {getUpcomingEvents().map((event, index) => (
-                <div 
-                  key={event.id} 
-                  className="border-l-4 border-primary pl-3 cursor-pointer hover:bg-muted/50 p-2 rounded-r"
-                  onClick={() => handleEditEvent(event)}
-                  data-testid={`upcoming-event-${index + 1}`}
-                >
-                  <div className="font-medium">{event.title}</div>
-                  <div className="text-sm text-muted-foreground">
-                    {new Date(event.startDate).toLocaleDateString()} at {formatEventTime(event.startDate, event.endDate, event.allDay)}
-                  </div>
-                  {event.location && (
-                    <div className="text-xs text-muted-foreground flex items-center gap-1">
-                      <MapPin className="h-3 w-3" />
-                      {event.location}
+            <div className="flex items-center gap-2">
+              {!eventsLoading && getUpcomingEvents().length > 0 && (
+                <>
+                  {getUpcomingEvents().slice(0, 3).map((event, index) => (
+                    <div 
+                      key={event.id} 
+                      className="text-xs px-2 py-1 bg-primary/10 text-primary rounded cursor-pointer hover:bg-primary/20 transition-colors"
+                      onClick={() => handleEditEvent(event)}
+                      data-testid={`upcoming-event-${index + 1}`}
+                      title={`${event.title} - ${new Date(event.startDate).toLocaleDateString()} at ${formatEventTime(event.startDate, event.endDate, event.allDay)}`}
+                    >
+                      {event.title}
                     </div>
+                  ))}
+                  {getUpcomingEvents().length > 3 && (
+                    <div className="text-xs text-muted-foreground">+{getUpcomingEvents().length - 3} more</div>
                   )}
-                  <Badge variant="outline" className="text-xs mt-1">
-                    {event.type}
-                  </Badge>
-                </div>
-              ))}
+                </>
+              )}
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => {
+                  // For now, we'll show a simple alert. This could later open a dedicated events page
+                  alert(`You have ${getUpcomingEvents().length} upcoming events. Click on any event above to edit it, or use the Add Event button to create a new one.`);
+                }}
+                data-testid="view-all-events"
+              >
+                View All
+              </Button>
             </div>
-          )}
-          
-          <Button variant="ghost" className="w-full mt-4" data-testid="view-all-events">
-            View All Events
-          </Button>
-        </CardContent>
+          </div>
+        </CardHeader>
       </Card>
 
       {/* Calendar Controls */}

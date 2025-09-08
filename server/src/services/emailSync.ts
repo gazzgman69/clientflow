@@ -51,8 +51,14 @@ export class EmailSyncService {
 
       console.log(`📧 Found ${emailToProjectMap.size} project email mappings`);
       
-      // Get recent Gmail threads (last 100 to include test emails)
-      const gmailThreads = await gmailService.listThreads(userId, { limit: 100 });
+      // Get contact email addresses to search for
+      const contactEmails = Array.from(emailToProjectMap.keys());
+      
+      // Get recent Gmail threads from contacts to business email (skinnycheck@gmail.com)
+      const gmailThreads = await gmailService.listThreadsForAddresses(userId, { 
+        limit: 100,
+        addresses: ['skinnycheck@gmail.com'] // Business email to monitor
+      });
       
       if (!gmailThreads.ok || !gmailThreads.threads) {
         console.error('❌ Failed to fetch Gmail threads:', gmailThreads.error);

@@ -459,7 +459,16 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
                     data-testid={`row-thread-${thread.threadId}`}
                   >
                     <TableCell className="font-medium">
-                      {formatDate(thread.latest?.dateISO || new Date().toISOString())}
+                      <div className="flex flex-col">
+                        <span>{formatDate(thread.latest?.dateISO || new Date().toISOString())}</span>
+                        <span className="text-xs text-muted-foreground">
+                          {new Date(thread.latest?.dateISO || new Date().toISOString()).toLocaleTimeString('en-US', { 
+                            hour: '2-digit', 
+                            minute: '2-digit',
+                            hour12: true
+                          })}
+                        </span>
+                      </div>
                     </TableCell>
                     <TableCell>{thread.latest?.from || 'Unknown'}</TableCell>
                     <TableCell>{thread.latest?.subject || 'No subject'}</TableCell>

@@ -271,7 +271,7 @@ router.get('/projects/:projectId/email-threads', requireAuth, async (req: any, r
 
       // Transform to match expected format
       const threads = threadsFromDB
-        .filter(thread => thread.latest.id) // Only include threads with messages
+        .filter(thread => thread.latest && thread.latest.id) // Only include threads with messages
         .map(thread => ({
           threadId: thread.threadId,
           latest: {

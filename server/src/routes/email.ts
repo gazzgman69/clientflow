@@ -5,7 +5,7 @@ import { emailSyncService } from '../services/emailSync';
 import { z } from 'zod';
 import { storage } from '../../storage';
 import { db } from '../../db';
-import { emailThreads, emails, emailAttachments, projects, clients } from '@shared/schema';
+import { emailThreads, emails, emailAttachments, projects, contacts, emailThreadReads } from '@shared/schema';
 import { eq, and, desc, asc } from 'drizzle-orm';
 import multer from 'multer';
 import path from 'path';
@@ -177,20 +177,18 @@ router.get('/projects/:projectId/email-threads', async (req, res) => {
       .select({
         id: emailThreads.id,
         subject: emailThreads.subject,
-        gmailThreadId: emailThreads.gmailThreadId,
-        participants: emailThreads.participants,
+        lastMessageAt: emailThreads.lastMessageAt,
         createdAt: emailThreads.createdAt,
         updatedAt: emailThreads.updatedAt,
         latestEmail: {
           id: emails.id,
           subject: emails.subject,
           fromEmail: emails.fromEmail,
-          fromName: emails.fromName,
+          direction: emails.direction,
           toEmails: emails.toEmails,
           bodyText: emails.bodyText,
           bodyHtml: emails.bodyHtml,
           sentAt: emails.sentAt,
-          isOutbound: emails.isOutbound,
           hasAttachments: emails.hasAttachments,
         }
       })
@@ -240,14 +238,13 @@ router.get('/email-threads/:threadId/messages', async (req, res) => {
         id: emails.id,
         subject: emails.subject,
         fromEmail: emails.fromEmail,
-        fromName: emails.fromName,
+        direction: emails.direction,
         toEmails: emails.toEmails,
         ccEmails: emails.ccEmails,
         bccEmails: emails.bccEmails,
         bodyText: emails.bodyText,
         bodyHtml: emails.bodyHtml,
         sentAt: emails.sentAt,
-        isOutbound: emails.isOutbound,
         hasAttachments: emails.hasAttachments,
         providerMessageId: emails.providerMessageId,
         attachments: emailAttachments
@@ -310,8 +307,7 @@ router.post('/email-threads/:threadId/reply', upload.array('attachments'), async
       to: Array.isArray(to) ? to.join(', ') : to,
       subject: subject || `Re: ${thread.subject}`,
       text: body,
-      threadId: thread.gmailThreadId,
-      projectId: thread.projectId
+      projectId: thread.projectId || undefined
     };
 
     const sendResult = await gmailService.sendEmail(userId, emailRequest);
@@ -341,7 +337,7 @@ router.post('/projects/:projectId/compose-email', upload.array('attachments'), a
     const [project] = await db
       .select()
       .from(projects)
-      .leftJoin(clients, eq(clients.id, projects.clientId))
+      .leftJoin(contacts, eq(contacts.id, projects.contactId))
       .where(eq(projects.id, projectId))
       .limit(1);
 
@@ -420,20 +416,19 @@ router.get('/attachments/:attachmentId/download', async (req, res) => {
     const userId = 'test-user';
 
     // Get attachment stream
-    const stream = await attachmentsService.getAttachmentStream(attachmentId, userId);
+    const result = await attachmentsService.getAttachmentStream(attachmentId, userId);
     
-    if (!stream) {
+    if (!result || !result.stream) {
       return res.status(404).json({ error: 'Attachment not found or failed to download' });
     }
 
-    // Get attachment metadata
-    const attachment = await attachmentsService.getAttachment(attachmentId);
-    if (attachment) {
-      res.setHeader('Content-Disposition', `attachment; filename="${attachment.filename}"`);
-      res.setHeader('Content-Type', attachment.mimeType || 'application/octet-stream');
+    // Set headers from attachment metadata
+    if (result.attachment) {
+      res.setHeader('Content-Disposition', `attachment; filename="${result.attachment.filename}"`);
+      res.setHeader('Content-Type', result.attachment.mimeType || 'application/octet-stream');
     }
 
-    stream.pipe(res);
+    result.stream.pipe(res);
   } catch (error) {
     console.error('Error downloading attachment:', error);
     res.status(500).json({ error: 'Failed to download attachment' });
@@ -451,8 +446,18 @@ router.post('/email-threads/:threadId/mark-read', async (req, res) => {
     // Use test-user for now (should get from auth)
     const userId = 'test-user';
 
-    // Mark thread as read using emailSync service
-    await emailSyncService.markThreadAsRead(threadId, userId);
+    // Mark thread as read - insert or update in emailThreadReads table
+    await db
+      .insert(emailThreadReads)
+      .values({
+        threadId,
+        userId,
+        lastReadAt: new Date()
+      })
+      .onConflictDoUpdate({
+        target: [emailThreadReads.threadId, emailThreadReads.userId],
+        set: { lastReadAt: new Date() }
+      });
 
     res.json({ success: true });
   } catch (error) {

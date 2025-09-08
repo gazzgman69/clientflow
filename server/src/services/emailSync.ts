@@ -40,7 +40,7 @@ export class EmailSyncService {
         })
         .from(projects)
         .leftJoin(contacts, eq(contacts.id, projects.contactId))
-        .where(contacts.email.isNotNull());
+        .where(contacts.email.isNotNull);
 
       const emailToProjectMap = new Map<string, string>();
       projectsWithContacts.forEach(p => {
@@ -49,15 +49,19 @@ export class EmailSyncService {
         }
       });
 
-      console.log(`📧 Found ${emailToProjectMap.size} project email mappings`);
+      console.log(`📧 Found ${emailToProjectMap.size} project email mappings:`, 
+        Array.from(emailToProjectMap.keys()));
       
       // Get contact email addresses to search for
       const contactEmails = Array.from(emailToProjectMap.keys());
       
-      // Get recent Gmail threads from contacts to business email (skinnycheck@gmail.com)
+      // Search for emails between business email AND contact emails (both directions)
+      const allEmailsToSearch = ['skinnycheck@gmail.com', ...contactEmails];
+      console.log('🔍 Searching for emails involving addresses:', allEmailsToSearch);
+      
       const gmailThreads = await gmailService.listThreadsForAddresses(userId, { 
         limit: 100,
-        addresses: ['skinnycheck@gmail.com'] // Business email to monitor
+        addresses: allEmailsToSearch // Business email + contact emails
       });
       
       if (!gmailThreads.ok || !gmailThreads.threads) {

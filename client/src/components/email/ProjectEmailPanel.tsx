@@ -313,7 +313,46 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
                   variant="link" 
                   className="px-2" 
                   onClick={() => {
-                    window.location.href = `/auth/google?returnTo=${encodeURIComponent(window.location.pathname)}`;
+                    const popup = window.open(
+                      `/auth/google?popup=true&origin=${encodeURIComponent(window.location.origin)}`,
+                      'google-auth',
+                      'width=500,height=600,scrollbars=yes,resizable=yes'
+                    );
+                    
+                    const checkClosed = setInterval(() => {
+                      if (popup?.closed) {
+                        clearInterval(checkClosed);
+                        // Refresh the page or refetch data after auth
+                        queryClient.invalidateQueries({ queryKey: [`/api/projects/${projectId}/email-threads`] });
+                      }
+                    }, 1000);
+                    
+                    // Listen for success message from popup
+                    const messageListener = (event: MessageEvent) => {
+                      if (event.origin !== window.location.origin) return;
+                      
+                      if (event.data.type === 'oauth:success') {
+                        clearInterval(checkClosed);
+                        window.removeEventListener('message', messageListener);
+                        popup?.close();
+                        
+                        // Refresh email threads after successful auth
+                        queryClient.invalidateQueries({ queryKey: [`/api/projects/${projectId}/email-threads`] });
+                        toast({ title: 'Google account connected successfully!' });
+                      } else if (event.data.type === 'oauth:error') {
+                        clearInterval(checkClosed);
+                        window.removeEventListener('message', messageListener);
+                        popup?.close();
+                        
+                        toast({ 
+                          title: 'Failed to connect Google account', 
+                          description: event.data.error,
+                          variant: 'destructive' 
+                        });
+                      }
+                    };
+                    
+                    window.addEventListener('message', messageListener);
                   }}
                   data-testid="button-reconnect-google"
                 >

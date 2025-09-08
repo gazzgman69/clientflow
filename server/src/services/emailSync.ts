@@ -1,5 +1,5 @@
 import { db } from "../../db";
-import { emailThreads, emails, emailAttachments, contacts } from "@shared/schema";
+import { emailThreads, emails, emailAttachments, contacts, projects } from "@shared/schema";
 import { eq, and, or, desc } from "drizzle-orm";
 import type { gmail_v1 } from "googleapis";
 import type { EmailThread, Email, InsertEmailThread, InsertEmail, InsertEmailAttachment } from "@shared/schema";

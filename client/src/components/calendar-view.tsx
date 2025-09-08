@@ -473,7 +473,7 @@ export default function CalendarView({ viewMode = 'month' }: CalendarViewProps) 
                 <div className="grid grid-cols-7 gap-2">
                   {days.map((day, index) => {
                     const dayEvents = day ? getEventsForDay(day) : [];
-                    const maxEventsToShow = 1;
+                    const maxEventsToShow = 2;
                     const visibleEvents = dayEvents.slice(0, maxEventsToShow);
                     const hiddenEventsCount = dayEvents.length - maxEventsToShow;
                     

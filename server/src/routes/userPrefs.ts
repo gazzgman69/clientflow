@@ -1,6 +1,10 @@
-import { Router } from 'express';
+import { Router, Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
 import { userPrefsService } from '../services/userPrefs';
+
+interface AuthenticatedRequest extends Request {
+  user: { id: string };
+}
 
 const router = Router();
 
@@ -15,10 +19,10 @@ const setUserPrefSchema = z.object({
 });
 
 // Middleware for authentication (using existing pattern)
-const requireAuth = (req: any, res: any, next: any) => {
+const requireAuth = (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   // Get user ID from header (same pattern as other routes)
   const userId = req.headers['user-id'] || 'test-user';
-  req.user = { id: userId };
+  req.user = { id: userId as string };
   next();
 };
 
@@ -26,7 +30,7 @@ const requireAuth = (req: any, res: any, next: any) => {
  * GET /api/user/prefs?keys=emailViewMode
  * Get user preferences, optionally filtered by keys
  */
-router.get('/prefs', requireAuth, async (req, res) => {
+router.get('/prefs', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { keys } = getUserPrefsSchema.parse(req.query);
     const userId = req.user.id;
@@ -58,7 +62,7 @@ router.get('/prefs', requireAuth, async (req, res) => {
  * POST /api/user/prefs
  * Set a user preference
  */
-router.post('/prefs', requireAuth, async (req, res) => {
+router.post('/prefs', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { key, value } = setUserPrefSchema.parse(req.body);
     const userId = req.user.id;
@@ -97,7 +101,7 @@ router.post('/prefs', requireAuth, async (req, res) => {
  * DELETE /api/user/prefs/:key
  * Delete a specific user preference
  */
-router.delete('/prefs/:key', requireAuth, async (req, res) => {
+router.delete('/prefs/:key', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const key = req.params.key;
     const userId = req.user.id;

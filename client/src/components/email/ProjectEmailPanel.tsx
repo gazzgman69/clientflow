@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Send, Mail, Loader2, AlertCircle, X, Reply, RefreshCw } from 'lucide-react';
+import { Send, Mail, Loader2, AlertCircle, X, Reply, RefreshCw, List, Layers } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,8 +9,10 @@ import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest } from '@/lib/queryClient';
+import { useEmailViewMode } from '@/hooks/useUserPrefs';
 
 interface ProjectEmailPanelProps {
   projectId: string;
@@ -46,6 +48,9 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
   const [forceRefresh, setForceRefresh] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  
+  // Email view mode preference
+  const { emailViewMode, setEmailViewMode, isSettingViewMode } = useEmailViewMode();
 
 
   // Fetch project details to get contact information
@@ -316,7 +321,31 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
               <Mail className="h-5 w-5" />
               Project Email Threads
             </div>
-            <Button 
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground">View:</span>
+                <ToggleGroup 
+                  type="single" 
+                  value={emailViewMode} 
+                  onValueChange={(value) => {
+                    if (value && (value === 'unified' || value === 'rfc')) {
+                      setEmailViewMode(value);
+                    }
+                  }}
+                  disabled={isSettingViewMode}
+                  data-testid="toggle-email-view-mode"
+                >
+                  <ToggleGroupItem value="unified" size="sm" data-testid="toggle-unified-view">
+                    <List className="h-4 w-4 mr-1" />
+                    Unified
+                  </ToggleGroupItem>
+                  <ToggleGroupItem value="rfc" size="sm" data-testid="toggle-rfc-view">
+                    <Layers className="h-4 w-4 mr-1" />
+                    RFC
+                  </ToggleGroupItem>
+                </ToggleGroup>
+              </div>
+              <Button 
               variant="outline" 
               size="sm"
               onClick={async () => {

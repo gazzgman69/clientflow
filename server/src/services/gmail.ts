@@ -80,6 +80,20 @@ export class GmailService {
   }
 
   /**
+   * Get user's Gmail profile to get their email address
+   */
+  private async getUserEmail(userId: string): Promise<string> {
+    try {
+      const gmail = await this.getGmailService(userId);
+      const profile = await gmail.users.getProfile({ userId: 'me' });
+      return profile.data.emailAddress || 'user@example.com';
+    } catch (error) {
+      console.error('Failed to get user email:', error);
+      return 'user@example.com'; // Fallback
+    }
+  }
+
+  /**
    * Send email using Gmail API with database sync
    */
   async sendEmail(userId: string, emailRequest: EmailRequest & { projectId?: string; threadId?: string }): Promise<EmailResponse> {
@@ -110,12 +124,14 @@ export class GmailService {
       // Sync to database if successful
       if (response.data.id) {
         try {
+          const userEmail = await this.getUserEmail(userId);
           await emailSyncService.createOutboundEmail({
             threadId: emailRequest.threadId,
             projectId: emailRequest.projectId,
             to: [emailRequest.to],
             subject: emailRequest.subject,
             bodyText: emailRequest.text,
+            fromEmail: userEmail, // Pass the user's actual email
           });
         } catch (syncError) {
           console.error('Failed to sync sent email to database:', syncError);

@@ -561,6 +561,7 @@ export class EmailSyncService {
     bodyText?: string;
     inReplyTo?: string;
     references?: string;
+    fromEmail: string; // Add required fromEmail parameter
   }): Promise<Email | null> {
     try {
       let threadId = data.threadId;
@@ -586,7 +587,7 @@ export class EmailSyncService {
           threadId,
           provider: 'gmail',
           direction: 'outbound',
-          fromEmail: 'user@example.com', // This should come from user's settings
+          fromEmail: data.fromEmail, // Use the provided email address
           toEmails: data.to,
           ccEmails: data.cc || [],
           bccEmails: data.bcc || [],

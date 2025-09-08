@@ -156,6 +156,24 @@ router.get('/auth/google/callback', async (req, res) => {
       
       // Set up webhook for real-time sync
       await googleOAuthService.setupWebhook(integration);
+      
+      // Also sync Gmail emails after authentication
+      try {
+        const { emailSyncService } = await import('../src/services/emailSync');
+        const { gmailService } = await import('../src/services/gmail');
+        
+        console.log('🔄 Syncing Gmail emails after OAuth...');
+        
+        // Fetch recent emails from Gmail and sync to database
+        const messages = await gmailService.fetchMessages(userId, { maxResults: 50 });
+        if (messages && messages.length > 0) {
+          await emailSyncService.syncMessages(messages, userId);
+          console.log(`✅ Synced ${messages.length} Gmail messages to database`);
+        }
+      } catch (emailSyncError) {
+        console.error('❌ Failed to sync Gmail emails:', emailSyncError);
+        // Don't fail the whole OAuth flow if email sync fails
+      }
     }
     
     // Handle popup vs regular flow

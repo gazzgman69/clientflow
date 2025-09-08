@@ -1,5 +1,7 @@
 import { google } from 'googleapis';
 import { getUserGoogleTokens } from '../storage/google-tokens';
+import { emailSyncService } from './emailSync';
+import type { gmail_v1 } from 'googleapis';
 
 interface EmailRequest {
   to: string;
@@ -78,9 +80,9 @@ export class GmailService {
   }
 
   /**
-   * Send email using Gmail API
+   * Send email using Gmail API with database sync
    */
-  async sendEmail(userId: string, emailRequest: EmailRequest): Promise<EmailResponse> {
+  async sendEmail(userId: string, emailRequest: EmailRequest & { projectId?: string; threadId?: string }): Promise<EmailResponse> {
     try {
       const gmail = await this.getGmailService(userId);
 
@@ -100,10 +102,26 @@ export class GmailService {
         .replace(/=+$/, ''); // Remove trailing padding
 
       // Send email
-      await gmail.users.messages.send({
+      const response = await gmail.users.messages.send({
         userId: 'me',
         requestBody: { raw: encodedMessage }
       });
+
+      // Sync to database if successful
+      if (response.data.id) {
+        try {
+          await emailSyncService.createOutboundEmail({
+            threadId: emailRequest.threadId,
+            projectId: emailRequest.projectId,
+            to: [emailRequest.to],
+            subject: emailRequest.subject,
+            bodyText: emailRequest.text,
+          });
+        } catch (syncError) {
+          console.error('Failed to sync sent email to database:', syncError);
+          // Don't fail the send operation if sync fails
+        }
+      }
 
       return { ok: true };
     } catch (error: any) {
@@ -420,6 +438,107 @@ export class GmailService {
         ok: false, 
         error: error.message || 'Unknown error occurred'
       };
+    }
+  }
+
+  /**
+   * Sync Gmail thread to database
+   */
+  async syncThreadToDatabase(userId: string, threadId: string, projectId?: string) {
+    try {
+      const gmail = await this.getGmailService(userId);
+
+      // Get the thread with all messages
+      const threadResponse = await gmail.users.threads.get({
+        userId: 'me',
+        id: threadId,
+        format: 'full'
+      });
+
+      if (!threadResponse.data.messages) {
+        return { ok: false, error: 'No messages in thread' };
+      }
+
+      // Convert Gmail thread format to our sync format
+      const gmailThread = {
+        id: threadId,
+        snippet: threadResponse.data.messages[0]?.snippet,
+        messages: threadResponse.data.messages.map(msg => ({
+          id: msg.id,
+          threadId: msg.threadId,
+          payload: msg.payload,
+          snippet: msg.snippet,
+          internalDate: msg.internalDate
+        }))
+      };
+
+      // Sync to database
+      const syncedThread = await emailSyncService.syncGmailThread(gmailThread, projectId);
+      
+      return { ok: true, thread: syncedThread };
+    } catch (error: any) {
+      console.error('Error syncing thread to database:', error);
+      return { ok: false, error: error.message || 'Failed to sync thread' };
+    }
+  }
+
+  /**
+   * Sync multiple Gmail threads for project addresses
+   */
+  async syncProjectThreads(userId: string, projectId: string, addresses: string[], limit = 50) {
+    try {
+      // Get threads from Gmail for these addresses
+      const threadsResponse = await this.listThreadsForAddresses(userId, { addresses, limit });
+      
+      if (!threadsResponse.ok || !threadsResponse.threads) {
+        return { ok: false, error: 'Failed to fetch threads from Gmail' };
+      }
+
+      const syncResults = [];
+      
+      // Sync each thread to database
+      for (const thread of threadsResponse.threads) {
+        const syncResult = await this.syncThreadToDatabase(userId, thread.threadId, projectId);
+        syncResults.push({
+          threadId: thread.threadId,
+          synced: syncResult.ok,
+          error: syncResult.error
+        });
+      }
+
+      return {
+        ok: true,
+        syncedCount: syncResults.filter(r => r.synced).length,
+        totalThreads: syncResults.length,
+        results: syncResults
+      };
+    } catch (error: any) {
+      console.error('Error syncing project threads:', error);
+      return { ok: false, error: error.message || 'Failed to sync project threads' };
+    }
+  }
+
+  /**
+   * Get attachment data from Gmail
+   */
+  async getAttachmentData(userId: string, messageId: string, attachmentId: string): Promise<Buffer | null> {
+    try {
+      const gmail = await this.getGmailService(userId);
+      
+      const response = await gmail.users.messages.attachments.get({
+        userId: 'me',
+        messageId,
+        id: attachmentId
+      });
+
+      if (response.data.data) {
+        return Buffer.from(response.data.data, 'base64');
+      }
+      
+      return null;
+    } catch (error: any) {
+      console.error('Error fetching attachment from Gmail:', error);
+      return null;
     }
   }
 }

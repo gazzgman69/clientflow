@@ -586,3 +586,91 @@ export type LeadStatusHistory = typeof leadStatusHistory.$inferSelect;
 export type InsertLeadStatusHistory = z.infer<typeof insertLeadStatusHistorySchema>;
 export type LeadAutomationRule = typeof leadAutomationRules.$inferSelect;
 export type InsertLeadAutomationRule = z.infer<typeof insertLeadAutomationRuleSchema>;
+
+// Mail Settings for encrypted IMAP/SMTP credentials
+export const mailSettings = pgTable("mail_settings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(), // "Primary Email", "Support Email", etc
+  provider: text("provider"), // "gmail", "outlook", "icloud", "custom"
+  
+  // IMAP Settings (encrypted)
+  imapHost: text("imap_host"),
+  imapPort: integer("imap_port").default(993),
+  imapUsername: text("imap_username"),
+  imapPassword: text("imap_password"), // Encrypted at rest
+  imapSecurity: text("imap_security").default('ssl'), // ssl, starttls, none
+  
+  // SMTP Settings (encrypted)
+  smtpHost: text("smtp_host"),
+  smtpPort: integer("smtp_port").default(587),
+  smtpUsername: text("smtp_username"),
+  smtpPassword: text("smtp_password"), // Encrypted at rest
+  smtpSecurity: text("smtp_security").default('starttls'), // ssl, starttls, none
+  
+  // Email Identity
+  fromName: text("from_name"),
+  fromEmail: text("from_email"),
+  replyToEmail: text("reply_to_email"),
+  
+  // Settings
+  isActive: boolean("is_active").default(true),
+  isDefault: boolean("is_default").default(false),
+  syncIntervalMinutes: integer("sync_interval_minutes").default(5), // 1-15 mins
+  
+  // Status & Testing
+  lastTestedAt: timestamp("last_tested_at"),
+  lastTestResult: text("last_test_result"), // 'ok', 'fail'
+  lastTestError: text("last_test_error"),
+  
+  // Quota Management
+  quotaUsed: integer("quota_used").default(0),
+  quotaLimit: integer("quota_limit").default(500), // daily send limit
+  quotaResetAt: timestamp("quota_reset_at"),
+  
+  // Failure Tracking
+  consecutiveFailures: integer("consecutive_failures").default(0),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  // Note: Unique constraint on isDefault will be enforced in application logic
+  // to ensure only one default account exists at a time
+}));
+
+// Mail Settings Audit Log
+export const mailSettingsAudit = pgTable("mail_settings_audit", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  settingsId: varchar("settings_id").references(() => mailSettings.id).notNull(),
+  kind: text("kind").notNull(), // 'imapTest', 'smtpTest', 'sync', 'send', 'quota'
+  ok: boolean("ok").notNull(),
+  error: text("error"),
+  durationMs: integer("duration_ms"),
+  meta: text("meta"), // JSON text for additional data
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  settingsIdCreatedAtIdx: index("mail_settings_audit_settings_id_created_at_idx").on(table.settingsId, table.createdAt.desc()),
+}));
+
+// Insert schemas for mail settings
+export const insertMailSettingsSchema = createInsertSchema(mailSettings).omit({ 
+  id: true, 
+  createdAt: true, 
+  updatedAt: true,
+  lastTestedAt: true,
+  lastTestResult: true,
+  lastTestError: true,
+  quotaUsed: true,
+  quotaResetAt: true,
+  consecutiveFailures: true
+});
+
+export const insertMailSettingsAuditSchema = createInsertSchema(mailSettingsAudit).omit({ 
+  id: true, 
+  createdAt: true 
+});
+
+// Types
+export type MailSettings = typeof mailSettings.$inferSelect;
+export type InsertMailSettings = z.infer<typeof insertMailSettingsSchema>;
+export type MailSettingsAudit = typeof mailSettingsAudit.$inferSelect;
+export type InsertMailSettingsAudit = z.infer<typeof insertMailSettingsAuditSchema>;

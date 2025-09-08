@@ -40,7 +40,7 @@ export class EmailSyncService {
         })
         .from(projects)
         .leftJoin(contacts, eq(contacts.id, projects.contactId))
-        .where(contacts.email.isNotNull);
+        .where(contacts.email.isNotNull());
 
       const emailToProjectMap = new Map<string, string>();
       projectsWithContacts.forEach(p => {

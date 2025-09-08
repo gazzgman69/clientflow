@@ -1,6 +1,6 @@
 import { db } from "../../db";
 import { emailThreads, emails, emailAttachments, contacts, projects } from "@shared/schema";
-import { eq, and, or, desc } from "drizzle-orm";
+import { eq, and, or, desc, isNotNull } from "drizzle-orm";
 import type { gmail_v1 } from "googleapis";
 import type { EmailThread, Email, InsertEmailThread, InsertEmail, InsertEmailAttachment } from "@shared/schema";
 
@@ -40,7 +40,7 @@ export class EmailSyncService {
         })
         .from(projects)
         .leftJoin(contacts, eq(contacts.id, projects.contactId))
-        .where(contacts.email.isNotNull());
+        .where(isNotNull(contacts.email));
 
       const emailToProjectMap = new Map<string, string>();
       projectsWithContacts.forEach(p => {

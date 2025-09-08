@@ -20,6 +20,118 @@ interface GmailThread {
 
 export class EmailSyncService {
   /**
+   * Sync Gmail threads to database for instant access
+   */
+  async syncGmailThreadsToDatabase(userId: string, projectId?: string): Promise<{
+    synced: number;
+    skipped: number;
+    errors: string[];
+  }> {
+    try {
+      const { gmailService } = await import('./gmail');
+      console.log('🔄 Syncing Gmail threads to database...');
+      
+      // Get recent Gmail threads (last 100 to include test emails)
+      const gmailThreads = await gmailService.listThreads(userId, { limit: 100 });
+      
+      if (!gmailThreads.ok || !gmailThreads.threads) {
+        console.error('❌ Failed to fetch Gmail threads:', gmailThreads.error);
+        return { synced: 0, skipped: 0, errors: [gmailThreads.error || 'Unknown Gmail API error'] };
+      }
+
+      console.log(`📧 Found ${gmailThreads.threads.length} Gmail threads, syncing to database...`);
+      
+      let synced = 0;
+      let skipped = 0;
+      const errors: string[] = [];
+
+      for (const gmailThread of gmailThreads.threads) {
+        try {
+          // Use Gmail thread ID as our thread ID
+          const threadId = gmailThread.threadId;
+          
+          // Check if thread already exists
+          const existingThread = await db
+            .select()
+            .from(emailThreads)
+            .where(eq(emailThreads.id, threadId))
+            .limit(1);
+
+          if (existingThread.length === 0) {
+            // Create new thread
+            await db
+              .insert(emailThreads)
+              .values({
+                id: threadId,
+                subject: gmailThread.latest.subject,
+                projectId: projectId || null,
+                lastMessageAt: new Date(gmailThread.latest.dateISO),
+                createdAt: new Date(),
+                updatedAt: new Date(),
+              });
+          } else {
+            // Update existing thread
+            await db
+              .update(emailThreads)
+              .set({
+                subject: gmailThread.latest.subject,
+                lastMessageAt: new Date(gmailThread.latest.dateISO),
+                updatedAt: new Date(),
+              })
+              .where(eq(emailThreads.id, threadId));
+          }
+
+          // Store the latest message details
+          const emailId = `email_${gmailThread.latest.id}`;
+          
+          await db
+            .insert(emails)
+            .values({
+              id: emailId,
+              threadId,
+              provider: 'gmail',
+              providerMessageId: gmailThread.latest.id,
+              direction: 'inbound',
+              fromEmail: gmailThread.latest.from,
+              toEmails: [gmailThread.latest.to],
+              ccEmails: [],
+              bccEmails: [],
+              subject: gmailThread.latest.subject,
+              bodyText: gmailThread.latest.snippet,
+              bodyHtml: null,
+              sentAt: new Date(gmailThread.latest.dateISO),
+              hasAttachments: false,
+              contactId: null,
+              projectId: projectId || null,
+              createdAt: new Date(),
+              updatedAt: new Date(),
+            })
+            .onConflictDoUpdate({
+              target: emails.providerMessageId,
+              set: {
+                updatedAt: new Date(),
+                bodyText: gmailThread.latest.snippet,
+                subject: gmailThread.latest.subject,
+              },
+            });
+
+          synced++;
+        } catch (error: any) {
+          console.error(`❌ Error syncing thread ${gmailThread.threadId}:`, error);
+          errors.push(`Thread ${gmailThread.threadId}: ${error.message}`);
+          skipped++;
+        }
+      }
+
+      console.log(`✅ Gmail sync complete: ${synced} synced, ${skipped} skipped${errors.length > 0 ? `, ${errors.length} errors` : ''}`);
+      return { synced, skipped, errors };
+    } catch (error: any) {
+      console.error('❌ Gmail sync failed:', error);
+      return { synced: 0, skipped: 0, errors: [error.message] };
+    }
+  }
+
+  /**
    * Extract email addresses from Gmail API format
    */
   private extractEmails(headerValue: string): string[] {

@@ -687,6 +687,28 @@ export type InsertMailSettings = z.infer<typeof insertMailSettingsSchema>;
 export type MailSettingsAudit = typeof mailSettingsAudit.$inferSelect;
 export type InsertMailSettingsAudit = z.infer<typeof insertMailSettingsAuditSchema>;
 
+// Email signatures table
+export const emailSignatures = pgTable("email_signatures", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  name: text("name").notNull(), // e.g., "Professional", "Personal", "Company"
+  content: text("content").notNull(), // HTML or plain text signature
+  isDefault: boolean("is_default").default(false),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Insert schemas and types for email signatures
+export const insertEmailSignatureSchema = createInsertSchema(emailSignatures).omit({ 
+  id: true, 
+  createdAt: true, 
+  updatedAt: true 
+});
+
+export type EmailSignature = typeof emailSignatures.$inferSelect;
+export type InsertEmailSignature = z.infer<typeof insertEmailSignatureSchema>;
+
 export const insertUserPrefSchema = createInsertSchema(userPrefs).omit({ 
   id: true, 
   updatedAt: true 

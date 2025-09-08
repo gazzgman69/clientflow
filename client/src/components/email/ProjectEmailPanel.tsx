@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Send, Mail, Loader2, AlertCircle, X, Reply, RefreshCw, List, Layers } from 'lucide-react';
+import { Send, Mail, Loader2, AlertCircle, X, Reply, RefreshCw, List, Layers, FileText } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -46,6 +46,7 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
   const [replySubject, setReplySubject] = useState('');
   const [replyMessage, setReplyMessage] = useState('');
   const [forceRefresh, setForceRefresh] = useState(false);
+  const [showTemplateModal, setShowTemplateModal] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
   
@@ -58,6 +59,31 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
     const textarea = document.createElement('textarea');
     textarea.innerHTML = text;
     return textarea.value;
+  };
+
+  // Fetch email templates
+  const { data: emailTemplates, isLoading: templatesLoading } = useQuery({
+    queryKey: ['/api/templates'],
+    queryFn: async () => {
+      const response = await fetch('/api/templates?type=email');
+      if (!response.ok) throw new Error('Failed to fetch templates');
+      return response.json();
+    }
+  });
+
+  // Apply template to compose form
+  const applyTemplate = (template: any) => {
+    if (template.subject) {
+      setSubject(template.subject);
+    }
+    if (template.body) {
+      setMessage(template.body);
+    }
+    setShowTemplateModal(false);
+    toast({ 
+      title: 'Template applied', 
+      description: `Applied "${template.title}" to your email` 
+    });
   };
 
 
@@ -365,6 +391,14 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
                     <Send className="h-4 w-4 mr-2" />
                   )}
                   Send
+                </Button>
+                <Button 
+                  variant="outline" 
+                  onClick={() => setShowTemplateModal(true)}
+                  data-testid="button-select-template"
+                >
+                  <FileText className="h-4 w-4 mr-2" />
+                  Templates
                 </Button>
                 <Button 
                   variant="outline" 
@@ -795,6 +829,88 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
                 )}
               </div>
             )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Template Selection Modal */}
+      <Dialog open={showTemplateModal} onOpenChange={setShowTemplateModal}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileText className="h-5 w-5" />
+              Select Email Template
+            </DialogTitle>
+            <DialogDescription>
+              Choose a template to apply to your email. You can modify it after applying.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="flex-1 overflow-auto">
+            {templatesLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin mr-2" />
+                Loading templates...
+              </div>
+            ) : emailTemplates?.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <p>No email templates found</p>
+                <p className="text-sm mt-2">
+                  Create templates in Settings to use them here
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {emailTemplates?.map((template: any) => (
+                  <Card 
+                    key={template.id}
+                    className="cursor-pointer hover:bg-muted/50 transition-colors border-l-4 border-l-primary/20"
+                    onClick={() => applyTemplate(template)}
+                    data-testid={`card-template-${template.id}`}
+                  >
+                    <CardHeader className="pb-2">
+                      <div className="flex justify-between items-start">
+                        <div className="flex-1">
+                          <CardTitle className="text-base font-semibold">
+                            {template.title}
+                          </CardTitle>
+                          {template.subject && (
+                            <p className="text-sm text-muted-foreground mt-1">
+                              Subject: {template.subject}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="pt-0">
+                      <div className="bg-muted/30 p-3 rounded text-sm">
+                        <p className="text-muted-foreground line-clamp-3 leading-relaxed">
+                          {template.body?.substring(0, 200) || 'No preview available'}...
+                        </p>
+                      </div>
+                      <div className="mt-3 flex justify-between items-center text-xs text-muted-foreground">
+                        <span>Click to apply template</span>
+                        <span className="font-medium">
+                          Email Template
+                        </span>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </div>
+          
+          <div className="border-t pt-4">
+            <div className="flex justify-end">
+              <Button 
+                variant="outline" 
+                onClick={() => setShowTemplateModal(false)}
+                data-testid="button-close-templates"
+              >
+                Close
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>

@@ -135,4 +135,30 @@ router.get('/templates/tokens', requireAuth, async (req, res) => {
   }
 });
 
+// GET /api/templates - Public endpoint for email templates (for compose functionality)
+router.get('/templates', async (req, res) => {
+  try {
+    const { type } = req.query;
+    
+    const options: {
+      type?: 'auto_responder' | 'email' | 'invoice' | 'contract';
+      activeOnly?: boolean;
+    } = {
+      activeOnly: true // Only return active templates
+    };
+    
+    if (type && typeof type === 'string') {
+      if (['auto_responder', 'email', 'invoice', 'contract'].includes(type)) {
+        options.type = type as 'auto_responder' | 'email' | 'invoice' | 'contract';
+      }
+    }
+    
+    const templates = await templatesService.listTemplates(options);
+    res.json(templates);
+  } catch (error) {
+    console.error('Error fetching public templates:', error);
+    res.status(500).json({ error: 'Failed to fetch templates' });
+  }
+});
+
 export default router;

@@ -202,262 +202,190 @@ export default function EmailSettings() {
           </TabsList>
 
           {settings && (
-            <TabsContent value="overview" className="space-y-6">
-              {/* Status Overview */}
-              <Card data-testid="card-email-status">
-                <CardHeader>
-                  <CardTitle className="flex items-center justify-between">
-                    <span>Email Account Status</span>
-                    <div className="flex items-center space-x-2">
-                      <Badge variant={settings.isActive ? 'default' : 'secondary'}>
-                        {settings.isActive ? 'Active' : 'Inactive'}
-                      </Badge>
-                      {settings.isDefault && (
-                        <Badge variant="outline">Default</Badge>
-                      )}
+            <>
+              <TabsContent value="overview" className="space-y-6">
+                {/* Status Overview */}
+                <Card data-testid="card-email-status">
+                  <CardHeader>
+                    <CardTitle className="flex items-center justify-between">
+                      <span>Email Account Status</span>
+                      <div className="flex items-center space-x-2">
+                        <Badge variant={settings.isActive ? 'default' : 'secondary'}>
+                          {settings.isActive ? 'Active' : 'Inactive'}
+                        </Badge>
+                        {settings.isDefault && (
+                          <Badge variant="outline">Default</Badge>
+                        )}
+                      </div>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="text-sm font-medium text-gray-600">Account Name</label>
+                        <p className="text-sm font-mono" data-testid="text-account-name">{settings.name}</p>
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium text-gray-600">Provider</label>
+                        <p className="text-sm" data-testid="text-provider">{settings.provider || 'Custom'}</p>
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium text-gray-600">From Email</label>
+                        <p className="text-sm font-mono" data-testid="text-from-email">{settings.fromEmail || 'Not set'}</p>
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium text-gray-600">Sync Interval</label>
+                        <p className="text-sm" data-testid="text-sync-interval">{settings.syncIntervalMinutes} minutes</p>
+                      </div>
                     </div>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="text-sm font-medium text-gray-600">Account Name</label>
-                      <p className="text-sm font-mono" data-testid="text-account-name">{settings.name}</p>
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium text-gray-600">Provider</label>
-                      <p className="text-sm" data-testid="text-provider">{settings.provider || 'Custom'}</p>
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium text-gray-600">From Email</label>
-                      <p className="text-sm font-mono" data-testid="text-from-email">{settings.fromEmail || 'Not set'}</p>
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium text-gray-600">Sync Interval</label>
-                      <p className="text-sm" data-testid="text-sync-interval">{settings.syncIntervalMinutes} minutes</p>
-                    </div>
-                  </div>
 
-                  <Separator />
+                    <Separator />
 
-                  {/* Connection Status */}
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-2">
-                      {getStatusIcon(settings.lastTestResult)}
-                      <span className="text-sm font-medium">Connection Status</span>
-                    </div>
-                    <div className="text-right">
-                      {settings.lastTestedAt ? (
-                        <div>
-                          <p className="text-sm" data-testid="text-last-tested">
-                            Last tested: {formatDate(settings.lastTestedAt)}
-                          </p>
-                          {settings.lastTestResult === 'fail' && settings.lastTestError && (
-                            <p className="text-xs text-red-600 mt-1" data-testid="text-test-error">
-                              {settings.lastTestError}
+                    {/* Connection Status */}
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-2">
+                        {getStatusIcon(settings.lastTestResult)}
+                        <span className="text-sm font-medium">Connection Status</span>
+                      </div>
+                      <div className="text-right">
+                        {settings.lastTestedAt ? (
+                          <div>
+                            <p className="text-sm" data-testid="text-last-tested">
+                              Last tested: {formatDate(settings.lastTestedAt)}
                             </p>
-                          )}
-                        </div>
-                      ) : (
-                        <p className="text-sm text-gray-500" data-testid="text-not-tested">Not tested yet</p>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Quota Status */}
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium">Daily Quota Usage</span>
-                    <div className="text-right">
-                      <p className={`text-sm font-mono ${getQuotaColor(settings.quotaUsed, settings.quotaLimit)}`} data-testid="text-quota-usage">
-                        {settings.quotaUsed} / {settings.quotaLimit}
-                      </p>
-                      <p className="text-xs text-gray-500">
-                        Resets: {settings.quotaResetAt ? formatDate(settings.quotaResetAt) : 'Not set'}
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Action Buttons */}
-                  <div className="flex space-x-3 pt-4">
-                    <Button
-                      onClick={() => testConnectionMutation.mutate()}
-                      disabled={testConnectionMutation.isPending}
-                      variant="outline"
-                      data-testid="button-test-connection"
-                    >
-                      {testConnectionMutation.isPending ? (
-                        <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                      ) : (
-                        <RefreshCw className="h-4 w-4 mr-2" />
-                      )}
-                      Test Connection
-                    </Button>
-
-                    <Button
-                      onClick={() => sendTestMutation.mutate()}
-                      disabled={sendTestMutation.isPending || !settings.fromEmail}
-                      variant="outline"
-                      data-testid="button-send-test-email"
-                    >
-                      {sendTestMutation.isPending ? (
-                        <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                      ) : (
-                        <Send className="h-4 w-4 mr-2" />
-                      )}
-                      Send Test Email
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            <TabsContent value="logs" className="space-y-6">
-              {/* Activity Logs */}
-              <Card data-testid="card-activity-logs">
-                <CardHeader>
-                  <CardTitle className="flex items-center space-x-2">
-                    <Activity className="h-5 w-5" />
-                    <span>Recent Activity</span>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {logsLoading ? (
-                    <div className="animate-pulse space-y-2">
-                      {[1, 2, 3].map(i => (
-                        <div key={i} className="h-12 bg-gray-200 rounded"></div>
-                      ))}
-                    </div>
-                  ) : logs.length > 0 ? (
-                    <div className="space-y-2">
-                      {logs.map((log) => (
-                        <div 
-                          key={log.id} 
-                          className="flex items-center justify-between p-3 border rounded-lg"
-                          data-testid={`log-entry-${log.kind}`}
-                        >
-                          <div className="flex items-center space-x-3">
-                            {log.ok ? (
-                              <CheckCircle className="h-4 w-4 text-green-600" />
-                            ) : (
-                              <XCircle className="h-4 w-4 text-red-600" />
-                            )}
-                            <div>
-                              <p className="text-sm font-medium capitalize">
-                                {log.kind.replace(/([A-Z])/g, ' $1').toLowerCase()}
+                            {settings.lastTestResult === 'fail' && settings.lastTestError && (
+                              <p className="text-xs text-red-600 mt-1" data-testid="text-test-error">
+                                {settings.lastTestError}
                               </p>
-                              {log.error && (
-                                <p className="text-xs text-red-600">{log.error}</p>
+                            )}
+                          </div>
+                        ) : (
+                          <p className="text-sm text-gray-500" data-testid="text-not-tested">Not tested yet</p>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Quota Status */}
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium">Daily Quota Usage</span>
+                      <div className="text-right">
+                        <p className={`text-sm font-mono ${getQuotaColor(settings.quotaUsed, settings.quotaLimit)}`} data-testid="text-quota-usage">
+                          {settings.quotaUsed} / {settings.quotaLimit}
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          Resets: {settings.quotaResetAt ? formatDate(settings.quotaResetAt) : 'Not set'}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Action Buttons */}
+                    <div className="flex space-x-3 pt-4">
+                      <Button
+                        onClick={() => testConnectionMutation.mutate()}
+                        disabled={testConnectionMutation.isPending}
+                        variant="outline"
+                        data-testid="button-test-connection"
+                      >
+                        {testConnectionMutation.isPending ? (
+                          <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                        ) : (
+                          <RefreshCw className="h-4 w-4 mr-2" />
+                        )}
+                        Test Connection
+                      </Button>
+
+                      <Button
+                        onClick={() => sendTestMutation.mutate()}
+                        disabled={sendTestMutation.isPending || !settings.fromEmail}
+                        variant="outline"
+                        data-testid="button-send-test-email"
+                      >
+                        {sendTestMutation.isPending ? (
+                          <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                        ) : (
+                          <Send className="h-4 w-4 mr-2" />
+                        )}
+                        Send Test Email
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              <TabsContent value="logs" className="space-y-6">
+                {/* Activity Logs */}
+                <Card data-testid="card-activity-logs">
+                  <CardHeader>
+                    <CardTitle className="flex items-center space-x-2">
+                      <Activity className="h-5 w-5" />
+                      <span>Recent Activity</span>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {logsLoading ? (
+                      <div className="animate-pulse space-y-2">
+                        {[1, 2, 3].map(i => (
+                          <div key={i} className="h-12 bg-gray-200 rounded"></div>
+                        ))}
+                      </div>
+                    ) : logs.length > 0 ? (
+                      <div className="space-y-2">
+                        {logs.map((log) => (
+                          <div 
+                            key={log.id} 
+                            className="flex items-center justify-between p-3 border rounded-lg"
+                            data-testid={`log-entry-${log.kind}`}
+                          >
+                            <div className="flex items-center space-x-3">
+                              {log.ok ? (
+                                <CheckCircle className="h-4 w-4 text-green-600" />
+                              ) : (
+                                <XCircle className="h-4 w-4 text-red-600" />
+                              )}
+                              <div>
+                                <p className="text-sm font-medium capitalize">
+                                  {log.kind.replace(/([A-Z])/g, ' $1').toLowerCase()}
+                                </p>
+                                {log.error && (
+                                  <p className="text-xs text-red-600">{log.error}</p>
+                                )}
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <p className="text-xs text-gray-500" data-testid="text-log-time">
+                                {formatDate(log.createdAt)}
+                              </p>
+                              {log.durationMs > 0 && (
+                                <p className="text-xs text-gray-400">{log.durationMs}ms</p>
                               )}
                             </div>
                           </div>
-                          <div className="text-right">
-                            <p className="text-xs text-gray-500" data-testid="text-log-time">
-                              {formatDate(log.createdAt)}
-                            </p>
-                            {log.durationMs > 0 && (
-                              <p className="text-xs text-gray-400">{log.durationMs}ms</p>
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-gray-500 text-center py-8" data-testid="text-no-logs">
-                      No activity logs found
-                    </p>
-                  )}
-                </CardContent>
-              </Card>
-            </TabsContent>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-gray-500 text-center py-8" data-testid="text-no-logs">
+                        No activity logs found
+                      </p>
+                    )}
+                  </CardContent>
+                </Card>
+              </TabsContent>
 
-            <TabsContent value="signatures">
-              <SignatureManagement />
-            </TabsContent>
+              <TabsContent value="signatures">
+                <SignatureManagement />
+              </TabsContent>
 
-            <TabsContent value="edit">
-              <MailForm 
-                initialData={settings} 
-                onSuccess={() => {
-                  setAlertMessage({ type: 'success', message: 'Email settings updated successfully' });
-                  queryClient.invalidateQueries({ queryKey: ['mail-settings'] });
-                }} 
-                onCancel={() => {}}
-              />
-            </TabsContent>
-          )}
-
-          {settings && (
-            <TabsContent value="logs" className="space-y-6">
-              <Card data-testid="card-email-logs">
-                <CardHeader>
-                  <CardTitle>Activity Logs</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {logsLoading ? (
-                    <div className="space-y-2">
-                      {[...Array(5)].map((_, i) => (
-                        <div key={i} className="h-12 bg-gray-200 rounded"></div>
-                      ))}
-                    </div>
-                  ) : logs.length > 0 ? (
-                    <div className="space-y-2">
-                      {logs.map((log) => (
-                        <div 
-                          key={log.id} 
-                          className="flex items-center justify-between p-3 border rounded-lg"
-                          data-testid={`log-entry-${log.kind}`}
-                        >
-                          <div className="flex items-center space-x-3">
-                            {log.ok ? (
-                              <CheckCircle className="h-4 w-4 text-green-600" />
-                            ) : (
-                              <XCircle className="h-4 w-4 text-red-600" />
-                            )}
-                            <div>
-                              <p className="text-sm font-medium capitalize">
-                                {log.kind.replace(/([A-Z])/g, ' $1').toLowerCase()}
-                              </p>
-                              {log.error && (
-                                <p className="text-xs text-red-600">{log.error}</p>
-                              )}
-                            </div>
-                          </div>
-                          <div className="text-right">
-                            <p className="text-xs text-gray-500" data-testid="text-log-time">
-                              {formatDate(log.createdAt)}
-                            </p>
-                            {log.durationMs > 0 && (
-                              <p className="text-xs text-gray-400">{log.durationMs}ms</p>
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-gray-500 text-center py-8" data-testid="text-no-logs">
-                      No activity logs found
-                    </p>
-                  )}
-                </CardContent>
-              </Card>
-            </TabsContent>
-          )}
-
-          <TabsContent value="signatures">
-            <SignatureManagement />
-          </TabsContent>
-
-          {settings && (
-            <TabsContent value="edit">
-              <MailForm 
-                initialData={settings} 
-                onSuccess={() => {
-                  setAlertMessage({ type: 'success', message: 'Email settings updated successfully' });
-                  queryClient.invalidateQueries({ queryKey: ['mail-settings'] });
-                }} 
-                onCancel={() => {}}
-              />
-            </TabsContent>
+              <TabsContent value="edit">
+                <MailForm 
+                  initialData={settings} 
+                  onSuccess={() => {
+                    setAlertMessage({ type: 'success', message: 'Email settings updated successfully' });
+                    queryClient.invalidateQueries({ queryKey: ['mail-settings'] });
+                  }} 
+                  onCancel={() => {}}
+                />
+              </TabsContent>
+            </>
           )}
 
           {!settings && (

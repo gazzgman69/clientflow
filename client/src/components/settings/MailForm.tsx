@@ -101,21 +101,13 @@ export function MailForm({ initialData, onSuccess, onCancel }: MailFormProps) {
 
   // Fetch provider presets
   const { data: presetsData } = useQuery({
-    queryKey: ['mail-settings', 'presets'],
-    queryFn: async () => {
-      const response = await apiRequest('/api/settings/mail/presets');
-      return response.json();
-    }
+    queryKey: ['/api/settings/mail/presets']
   });
 
   // Auto-detect settings mutation
   const autoDetectMutation = useMutation({
     mutationFn: async (email: string) => {
-      const response = await apiRequest('/api/settings/mail/detect', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email })
-      });
+      const response = await apiRequest('POST', '/api/settings/mail/detect', { email });
       return response.json();
     },
     onSuccess: (data) => {
@@ -153,11 +145,7 @@ export function MailForm({ initialData, onSuccess, onCancel }: MailFormProps) {
   // Save settings mutation
   const saveMutation = useMutation({
     mutationFn: async (data: MailFormData) => {
-      const response = await apiRequest('/api/settings/mail/save', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data)
-      });
+      const response = await apiRequest('POST', '/api/settings/mail/save', data);
       return response.json();
     },
     onSuccess: (data) => {
@@ -173,7 +161,7 @@ export function MailForm({ initialData, onSuccess, onCancel }: MailFormProps) {
     }
   });
 
-  const presets = presetsData?.presets as Record<string, ProviderPreset> || {};
+  const presets = (presetsData as any)?.presets as Record<string, ProviderPreset> || {};
 
   const handleProviderSelect = (provider: string) => {
     const preset = presets[provider];

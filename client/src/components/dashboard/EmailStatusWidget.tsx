@@ -3,7 +3,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { apiRequest } from '@/lib/queryClient';
+// apiRequest not needed for GET requests
 import { 
   Mail, 
   CheckCircle, 
@@ -28,15 +28,11 @@ interface MailSettings {
 
 export function EmailStatusWidget() {
   const { data: settingsData, isLoading, error } = useQuery({
-    queryKey: ['mail-settings', 'current'],
-    queryFn: async () => {
-      const response = await apiRequest('/api/settings/mail/current');
-      return response.json();
-    },
+    queryKey: ['/api/settings/mail/current'],
     refetchInterval: 30000 // Refresh every 30 seconds
   });
 
-  const settings = settingsData?.settings as MailSettings | null;
+  const settings = (settingsData as any)?.settings as MailSettings | null;
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-GB', {

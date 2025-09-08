@@ -58,28 +58,18 @@ export default function EmailSettings() {
 
   // Fetch current mail settings
   const { data: settingsData, isLoading: settingsLoading, error: settingsError } = useQuery({
-    queryKey: ['mail-settings', 'current'],
-    queryFn: async () => {
-      const response = await apiRequest('/api/settings/mail/current');
-      return response.json();
-    }
+    queryKey: ['/api/settings/mail/current']
   });
 
   // Fetch audit logs
   const { data: logsData, isLoading: logsLoading } = useQuery({
-    queryKey: ['mail-settings', 'logs'],
-    queryFn: async () => {
-      const response = await apiRequest('/api/settings/mail/logs?limit=20');
-      return response.json();
-    }
+    queryKey: ['/api/settings/mail/logs?limit=20']
   });
 
   // Test connection mutation
   const testConnectionMutation = useMutation({
     mutationFn: async () => {
-      const response = await apiRequest('/api/settings/mail/test', {
-        method: 'POST'
-      });
+      const response = await apiRequest('POST', '/api/settings/mail/test');
       return response.json();
     },
     onSuccess: (data) => {
@@ -100,9 +90,7 @@ export default function EmailSettings() {
   // Send test email mutation
   const sendTestMutation = useMutation({
     mutationFn: async () => {
-      const response = await apiRequest('/api/settings/mail/send-test', {
-        method: 'POST'
-      });
+      const response = await apiRequest('POST', '/api/settings/mail/send-test');
       return response.json();
     },
     onSuccess: (data) => {
@@ -120,8 +108,8 @@ export default function EmailSettings() {
     }
   });
 
-  const settings = settingsData?.settings as MailSettings | null;
-  const logs = logsData?.logs as AuditLog[] || [];
+  const settings = (settingsData as any)?.settings as MailSettings | null;
+  const logs = (logsData as any)?.logs as AuditLog[] || [];
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-GB', {

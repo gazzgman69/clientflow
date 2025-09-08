@@ -677,7 +677,9 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
               </div>
             ) : selectedThreadDetails?.messages ? (
               <div className="space-y-4">
-                {selectedThreadDetails.messages.map((message: any, index: number) => (
+                {selectedThreadDetails.messages
+                  .sort((a: any, b: any) => new Date(b.sentAt).getTime() - new Date(a.sentAt).getTime())
+                  .map((message: any, index: number) => (
                   <Card key={message.id} className="border-l-4 border-l-primary/20">
                     <CardHeader className="pb-2">
                       <div className="flex justify-between items-start">

@@ -7,6 +7,7 @@ import { Separator } from '@/components/ui/separator';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { MailForm } from '@/components/settings/MailForm';
+import SignatureManagement from '@/components/settings/SignatureManagement';
 import { apiRequest } from '@/lib/queryClient';
 import { 
   Mail, 
@@ -196,6 +197,7 @@ export default function EmailSettings() {
             <TabsList>
               <TabsTrigger value="overview">Overview</TabsTrigger>
               <TabsTrigger value="logs">Activity Logs</TabsTrigger>
+              <TabsTrigger value="signatures">Signatures</TabsTrigger>
               <TabsTrigger value="edit">Edit Settings</TabsTrigger>
             </TabsList>
 
@@ -365,6 +367,10 @@ export default function EmailSettings() {
                   )}
                 </CardContent>
               </Card>
+            </TabsContent>
+
+            <TabsContent value="signatures">
+              <SignatureManagement />
             </TabsContent>
 
             <TabsContent value="edit">

@@ -194,32 +194,49 @@ router.get('/threads/by-project/:projectId', requireAuth, async (req: any, res) 
     
     // Load email threads from database for instant response
     try {
-      const threadsFromDB = await db
+      // Get threads with proper counts
+      const threadsData = await db
         .select({
           threadId: emailThreads.id,
           subject: emailThreads.subject,
           lastMessageAt: emailThreads.lastMessageAt,
-          latest: {
+          emailCount: sql<number>`cast(count(${emails.id}) as int)`,
+        })
+        .from(emailThreads)
+        .leftJoin(emails, eq(emails.threadId, emailThreads.id))
+        .where(eq(emailThreads.projectId, projectId))
+        .groupBy(emailThreads.id, emailThreads.subject, emailThreads.lastMessageAt)
+        .orderBy(desc(emailThreads.lastMessageAt))
+        .limit(limit);
+
+      // Get latest message for each thread
+      const threads = await Promise.all(threadsData.map(async (thread) => {
+        const [latestMessage] = await db
+          .select({
             id: emails.providerMessageId,
             from: emails.fromEmail,
             to: emails.toEmails,
             subject: emails.subject,
             snippet: emails.bodyText,
             dateISO: emails.sentAt,
-          },
-          count: 1, // For now, simplified count
-        })
-        .from(emailThreads)
-        .leftJoin(emails, eq(emails.threadId, emailThreads.id))
-        .where(eq(emailThreads.projectId, projectId))
-        .orderBy(desc(emailThreads.lastMessageAt))
-        .limit(limit);
+          })
+          .from(emails)
+          .where(eq(emails.threadId, thread.threadId))
+          .orderBy(desc(emails.sentAt))
+          .limit(1);
 
-      // Transform to match Gmail API response format
-      const threads = threadsFromDB.map(thread => ({
-        threadId: thread.threadId,
-        latest: thread.latest,
-        count: thread.count,
+        return {
+          threadId: thread.threadId,
+          latest: latestMessage || {
+            id: null,
+            from: 'Unknown',
+            to: [],
+            subject: thread.subject || 'No subject',
+            snippet: 'No preview',
+            dateISO: thread.lastMessageAt || new Date().toISOString(),
+          },
+          count: thread.emailCount || 1,
+        };
       }));
 
       res.json({ ok: true, threads, needsReconnect: false });

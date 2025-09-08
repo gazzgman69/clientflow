@@ -80,7 +80,7 @@ export default function Settings() {
       
       <main className="flex-1 overflow-auto p-6">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-8" data-testid="settings-tabs">
+          <TabsList className="grid w-full grid-cols-7" data-testid="settings-tabs">
             <TabsTrigger value="profile" data-testid="tab-profile">
               <User className="h-4 w-4 mr-2" />
               Profile
@@ -100,10 +100,6 @@ export default function Settings() {
             <TabsTrigger value="email" data-testid="tab-email">
               <Mail className="h-4 w-4 mr-2" />
               Email & Calendar
-            </TabsTrigger>
-            <TabsTrigger value="templates" data-testid="tab-templates">
-              <FileText className="h-4 w-4 mr-2" />
-              Templates
             </TabsTrigger>
             <TabsTrigger value="appearance" data-testid="tab-appearance">
               <Palette className="h-4 w-4 mr-2" />
@@ -563,49 +559,6 @@ export default function Settings() {
             <EmailSettings />
           </TabsContent>
 
-          {/* Templates */}
-          <TabsContent value="templates" className="space-y-6">
-            <Card data-testid="templates-settings-card">
-              <CardHeader>
-                <CardTitle>Template Management</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <p className="text-muted-foreground">
-                    Manage your email templates, auto-responders, invoices, and contracts. 
-                    Create dynamic templates with token placeholders for personalized content.
-                  </p>
-                  <div className="flex gap-4">
-                    <div className="space-y-2">
-                      <h4 className="font-medium">Available Template Types:</h4>
-                      <ul className="text-sm text-muted-foreground space-y-1">
-                        <li>• Auto Responders - Automatic email responses</li>
-                        <li>• Email Templates - Reusable email content</li>
-                        <li>• Invoice Templates - Professional invoice layouts</li>
-                        <li>• Contract Templates - Legal document templates</li>
-                      </ul>
-                    </div>
-                    <div className="space-y-2">
-                      <h4 className="font-medium">Dynamic Tokens:</h4>
-                      <ul className="text-sm text-muted-foreground space-y-1">
-                        <li>• {'{{contact.firstName}}'} - Contact first name</li>
-                        <li>• {'{{project.title}}'} - Project title</li>
-                        <li>• {'{{lead.service}}'} - Requested service</li>
-                        <li>• And many more...</li>
-                      </ul>
-                    </div>
-                  </div>
-                  <Button 
-                    onClick={() => window.location.href = '/settings/templates'}
-                    data-testid="button-manage-templates"
-                  >
-                    <FileText className="h-4 w-4 mr-2" />
-                    Manage Templates
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
 
           {/* Appearance */}
           <TabsContent value="appearance" className="space-y-6">

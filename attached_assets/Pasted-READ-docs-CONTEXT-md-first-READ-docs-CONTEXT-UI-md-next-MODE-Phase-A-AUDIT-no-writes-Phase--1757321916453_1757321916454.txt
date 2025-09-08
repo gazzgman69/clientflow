@@ -1,0 +1,234 @@
+READ /docs/CONTEXT.md first.
+READ /docs/CONTEXT-UI.md next.
+
+MODE
+Phase A = AUDIT (no writes)
+Phase B = IMPLEMENT (scoped diffs only)
+Phase C = VERIFY (curl + manual)
+
+GOAL
+Deliver a 17hats-style email experience INSIDE each Project:
+- Persist inbound/outbound Gmail messages locally (fast thread view).
+- Proper threading via RFC headers (Message-ID / In-Reply-To / References).
+- Attachments (store + download; send with replies).
+- Unread counts per user per thread.
+- In-project Email tab with thread list + message viewer + reply composer.
+- Dates in UI formatted as dd/MM/yyyy (and times 24-hour).
+
+TERMINOLOGY ALIGNMENT (MANDATORY)
+Before editing, SEARCH the repo and ADAPT to existing names:
+- Project page/router/component names.
+- Email/Gmail service naming.
+- DB helpers (Drizzle schema file/path).
+- Don’t create parallel versions if names differ.
+
+SCOPE (FILES YOU MAY TOUCH/CREATE)
+DB
+  - server/src/db/schema.ts
+
+Services
+  - server/src/services/emailSync.ts            // NEW: parse, thread-link, persist
+  - server/src/services/gmail.ts               // UPDATE: hook send/fetch to emailSync
+  - server/src/services/attachments.ts         // NEW: save/read attachments (fs now; S3 later)
+
+Routes
+  - server/src/routes/emailThreads.ts          // NEW: threads/messages CRUD+read
+  - server/src/routes/emailUpload.ts           // NEW: upload/download attachments
+  - server/routes.ts                           // mount new routes
+
+UI
+  - web/src/pages/projects/ProjectDetail.tsx         // add Email tab/panel
+  - web/src/components/project/EmailThreads.tsx      // NEW: list + viewer + composer
+  - web/src/components/project/EmailMessage.tsx      // NEW: render a single message
+  - web/src/components/project/EmailComposer.tsx     // NEW: reply/new with attachments
+
+ALLOWED DEPENDENCIES (backend only, minimal)
+- "multer" for multipart uploads (if not present). No other new deps.
+If adding, show package.json diff ONLY for multer.
+
+PHASE A — AUDIT (NO WRITES)
+1) Find existing email tables (emails, messageThreads, attachments?). Print fields.
+2) Find Gmail integration (tokens retrieval, send). Print file paths and methods.
+3) Find any email send route. Note signature.
+4) Find Project detail page & where tabs are rendered; note file path to inject “Email” tab.
+Output a concise report; DO NOT modify files.
+
+PHASE B — IMPLEMENT
+
+DB (Drizzle) — create/extend minimally (adapt names if similar exist)
+- email_threads
+  id (pk)
+  projectId (fk → projects.id) nullable
+  subject text
+  lastMessageAt timestamptz
+  createdAt timestamptz default now(), updatedAt timestamptz default now()
+  INDEX (projectId, lastMessageAt DESC)
+
+- emails
+  id (pk)
+  threadId (fk → email_threads.id)
+  provider text          // 'gmail'
+  providerMessageId text // Gmail msg id
+  providerThreadId text  // Gmail thread id
+  messageId text         // RFC
+  inReplyTo text
+  references text
+  direction text         // 'inbound' | 'outbound'
+  from text NOT NULL
+  to jsonb
+  cc jsonb
+  bcc jsonb
+  subject text
+  snippet text
+  sentAt timestamptz
+  bodyHtml text
+  bodyText text
+  hasAttachments boolean default false
+  contactId (fk) nullable
+  projectId (fk) nullable
+  createdAt timestamptz default now(), updatedAt timestamptz default now()
+  UNIQUE(provider, providerMessageId)
+  INDEX(providerThreadId)
+  INDEX(projectId, sentAt DESC)
+
+- email_attachments
+  id (pk)
+  emailId (fk → emails.id)
+  filename text
+  mimeType text
+  size integer
+  storageKey text        // fs path or S3 key
+  createdAt timestamptz default now()
+  INDEX(emailId)
+
+- email_thread_reads
+  id (pk)
+  threadId (fk → email_threads.id)
+  userId (fk → users.id)
+  lastReadAt timestamptz
+  UNIQUE(threadId, userId)
+
+SERVICE — emailSync.ts (NEW)
+Export:
+- parseHeaders(headers) → { messageId, inReplyTo, references[] }
+- resolveThread({ subject, inReplyTo, references[], providerThreadId, projectId? }):
+    1) if inReplyTo/references match existing emails.messageId → use that thread
+    2) else if providerThreadId maps to any email → use that thread
+    3) else create a new thread (subject || "(no subject)")
+- upsertMessage(input):
+    input = {provider, providerMessageId, providerThreadId, messageId, inReplyTo, references,
+             direction, from, to[], cc[], bcc[], subject, snippet, sentAt, bodyHtml?, bodyText?,
+             hasAttachments, projectId?, contactId?}
+    Steps:
+      a) threadId = resolveThread(...)
+      b) insert emails row (ignore on UNIQUE clash)
+      c) update email_threads.lastMessageAt = sentAt
+      d) if projectId provided, set on email + thread if null
+    Return { emailId, threadId }
+- markThreadRead({ threadId, userId, when = new Date() })
+- listThreads(projectId, { limit, offset }) → [{ id, subject, lastMessageAt, unreadCount, lastSnippet }]
+- listMessages(threadId) → messages sorted ASC
+Notes:
+- unreadCount = messages after user.lastReadAt (if no record → count all).
+
+SERVICE — gmail.ts (UPDATE)
+- On SEND (existing send path):
+    • Build RFC822, send via Gmail API.
+    • After success, call emailSync.upsertMessage({ direction:'outbound', ... }).
+    • If attachments present, persist with email_attachments (see attachments service).
+- On FETCH (sync job or button):
+    • List recent Gmail msgs for the user; for each not in DB by providerMessageId:
+        – fetch headers + payload (HTML/text + attachment metadata)
+        – call emailSync.upsertMessage({ direction:'inbound', ... })
+        – if attachments exist, download/save metadata (actual file download optional now; set hasAttachments=true).
+- Keep tokens via existing storage method; reuse your Google OAuth refresh.
+
+SERVICE — attachments.ts (NEW, filesystem now; TODO: S3 later)
+- saveUpload(file) → { storageKey, size, mimeType }
+  • Dev: save to ./uploads/email/<yyyy-mm>/<uuid> (ensure folder exists).
+- readStream(storageKey) → Node stream
+- delete(storageKey) → remove file
+- (Leave TODO for S3 integration via env later)
+
+ROUTES — emailUpload.ts (NEW)
+- POST /api/email/upload
+   multipart (multer), fields: files[]
+   → returns [{ tempId, filename, size, mimeType, storageKey }]
+   (Temp attachments will be associated when message is sent)
+- GET /api/email/attachments/:id/download
+   → streams file by storageKey, sets Content-Type, Content-Disposition
+
+ROUTES — emailThreads.ts (NEW)
+- GET /api/email/threads?projectId=...&limit=50
+  → emailSync.listThreads()
+- GET /api/email/threads/:id
+  → { thread, messages: emailSync.listMessages(id) }
+- POST /api/email/threads/:id/read
+  Body: { when? } → emailSync.markThreadRead({threadId, userId, when})
+- POST /api/email/compose
+  Body: { projectId, threadId?, to[], cc?, bcc?, subject?, text?, html?, attachments?: [{storageKey, filename, mimeType}] }
+  Logic:
+    • If threadId present: set In-Reply-To to last message’s messageId and include References chain.
+    • Build and SEND via Gmail (include attachments).
+    • Persist outbound via emailSync.upsertMessage (set hasAttachments; insert email_attachments rows).
+    • Return { ok:true, emailId, threadId }
+
+UI — Project Email tab
+- ProjectDetail.tsx: add “Email” tab (inside project view).
+- EmailThreads.tsx:
+  • Left pane: threads (subject, lastSnippet, lastMessageAt dd/MM/yyyy HH:mm, unread badge).
+  • Right pane:
+      – thread viewer (messages rendered newest→bottom, each via EmailMessage.tsx)
+      – EmailComposer at bottom
+  • On thread open → POST /api/email/threads/:id/read
+  • Poll threads every 30s while tab visible; refetch on focus (reuse existing smart polling hook).
+- EmailMessage.tsx:
+  • Render from/to, timestamp (dd/MM/yyyy HH:mm), bodyText or sanitized HTML.
+  • Show attachment list with download links.
+- EmailComposer.tsx:
+  • “Reply” if a thread is open; “New Email” if none.
+  • Inputs: To (pre-fill project primary contact), CC/BCC (collapsible), Subject (for new), Message (rich or plain textarea), Attach files (calls /api/email/upload, then includes returned storageKey).
+  • Send button → POST /api/email/compose → on success, clear draft and refetch thread.
+
+SECURITY / PERFORMANCE
+- Never expose Google API key or OAuth tokens to the client.
+- Sanitize or safely render HTML (basic approach: display plain text now; leave TODO sanitizer).
+- Indexes exactly as defined for fast loads.
+- Attachment downloads must require auth (same as project access).
+
+PHASE C — VERIFY
+
+1) Outbound send (new thread)
+curl -X POST https://<HOST>/api/email/compose \
+  -H "Content-Type: application/json" \
+  -d '{ "projectId":"<PID>","to":["you@example.com"],"subject":"Alpha Thread","text":"Hello from CRM" }'
+
+Expect: { ok:true, emailId, threadId }
+
+2) Thread list
+curl "https://<HOST>/api/email/threads?projectId=<PID>&limit=10"
+
+3) Thread detail
+curl "https://<HOST>/api/email/threads/<THREAD_ID>"
+
+4) Reply (existing thread)
+curl -X POST https://<HOST>/api/email/compose \
+  -H "Content-Type: application/json" \
+  -d '{ "projectId":"<PID>","threadId":"<THREAD_ID>","to":["you@example.com"],"text":"Reply message" }'
+
+5) Upload + send with attachment (manual UI test)
+- In the Email tab composer, attach a small file → verify it appears on the sent message and is downloadable.
+
+ACCEPTANCE
+- Project Email tab shows threads instantly; clicking shows messages without Gmail round-trips.
+- New sends and replies are persisted and threaded correctly.
+- Attachments upload, persist, and download.
+- Unread badges decrement when a thread is viewed (mark read).
+- Backend changed only within SCOPE; only new dep allowed is multer (if added).
+- All dates/times in UI display dd/MM/yyyy and 24-hour time.
+
+NOTES / TODO (leave in code)
+- TODO(email): HTML sanitizer for bodyHtml
+- TODO(email): S3 storage integration (replace fs with S3 via env)
+- TODO(email): smarter inbound project/contact inference
+- TODO(email): Gmail incremental sync job / webhook

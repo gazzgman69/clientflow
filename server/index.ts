@@ -71,5 +71,36 @@ app.use((req, res, next) => {
     
     // Start calendar auto-sync service after server is ready
     calendarAutoSyncService.start();
+
+    // Start Gmail auto-sync service after server is ready
+    const startGmailAutoSync = async () => {
+      try {
+        console.log('🚀 Starting Gmail auto-sync service (every 3 minutes)');
+        const { emailSyncService } = await import('./src/services/emailSync');
+        
+        // Run initial sync after 30 seconds
+        setTimeout(async () => {
+          console.log('🔄 Running initial Gmail sync...');
+          await emailSyncService.backgroundSync('test-user');
+        }, 30000);
+        
+        // Run sync every 3 minutes for continuous email updates
+        setInterval(async () => {
+          try {
+            console.log('🔄 Running scheduled Gmail sync...');
+            await emailSyncService.backgroundSync('test-user');
+          } catch (error) {
+            console.error('❌ Scheduled Gmail sync failed:', error);
+          }
+        }, 3 * 60 * 1000); // 3 minutes
+        
+        console.log('✅ Gmail auto-sync service started successfully');
+      } catch (error) {
+        console.error('❌ Failed to start Gmail auto-sync service:', error);
+      }
+    };
+
+    // Start Gmail sync service
+    startGmailAutoSync();
   });
 })();

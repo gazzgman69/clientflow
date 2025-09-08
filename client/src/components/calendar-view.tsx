@@ -72,6 +72,8 @@ export default function CalendarView({ viewMode = 'month' }: CalendarViewProps) 
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [editingEvent, setEditingEvent] = useState<Event | null>(null);
   const [currentViewMode, setCurrentViewMode] = useState(viewMode);
+  const [showDayEventsModal, setShowDayEventsModal] = useState(false);
+  const [selectedDayEvents, setSelectedDayEvents] = useState<{ day: number; events: Event[] } | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -323,6 +325,12 @@ export default function CalendarView({ viewMode = 'month' }: CalendarViewProps) 
     setShowEventModal(true);
   };
 
+  const handleShowDayEvents = (day: number) => {
+    const dayEvents = getEventsForDay(day);
+    setSelectedDayEvents({ day, events: dayEvents });
+    setShowDayEventsModal(true);
+  };
+
   const onSubmit = (data: EventFormData) => {
     if (editingEvent) {
       updateEventMutation.mutate({ ...data, id: editingEvent.id });
@@ -510,7 +518,7 @@ export default function CalendarView({ viewMode = 'month' }: CalendarViewProps) 
                                   className="text-xs text-muted-foreground font-medium cursor-pointer hover:text-foreground"
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    handleDateClick(day);
+                                    handleShowDayEvents(day);
                                   }}
                                   data-testid={`more-events-${day}`}
                                 >
@@ -831,6 +839,72 @@ export default function CalendarView({ viewMode = 'month' }: CalendarViewProps) 
               </div>
             </form>
           </Form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Day Events Modal */}
+      <Dialog open={showDayEventsModal} onOpenChange={setShowDayEventsModal}>
+        <DialogContent className="sm:max-w-lg max-h-[70vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CalendarIcon className="h-5 w-5" />
+              Events for {selectedDayEvents?.day && 
+                new Date(currentDate.getFullYear(), currentDate.getMonth(), selectedDayEvents.day).toLocaleDateString('en-US', { 
+                  weekday: 'long', 
+                  month: 'long', 
+                  day: 'numeric' 
+                })
+              }
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-3">
+            {selectedDayEvents?.events.map((event, index) => (
+              <div
+                key={event.id}
+                className={`p-3 rounded-lg cursor-pointer border transition-colors hover:bg-muted/50 ${getEventTypeColor(event.type)}`}
+                onClick={() => {
+                  setShowDayEventsModal(false);
+                  handleEditEvent(event);
+                }}
+                data-testid={`day-event-${index}`}
+              >
+                <div className="font-medium text-sm">{event.title}</div>
+                <div className="text-sm text-muted-foreground mt-1">
+                  {formatEventTime(event.startDate, event.endDate, event.allDay)}
+                </div>
+                {event.location && (
+                  <div className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+                    <MapPin className="h-3 w-3" />
+                    {event.location}
+                  </div>
+                )}
+                <Badge variant="outline" className="text-xs mt-2">
+                  {event.type}
+                </Badge>
+              </div>
+            )) || (
+              <div className="text-center py-4 text-muted-foreground">
+                No events for this day
+              </div>
+            )}
+          </div>
+          
+          <div className="flex justify-end pt-4 border-t">
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                setShowDayEventsModal(false);
+                if (selectedDayEvents?.day) {
+                  handleDateClick(selectedDayEvents.day);
+                }
+              }}
+              data-testid="button-add-event-to-day"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Add Event to This Day
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

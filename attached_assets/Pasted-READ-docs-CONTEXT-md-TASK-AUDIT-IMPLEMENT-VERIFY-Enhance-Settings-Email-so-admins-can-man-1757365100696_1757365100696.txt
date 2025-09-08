@@ -1,0 +1,118 @@
+READ /docs/CONTEXT.md.
+
+TASK (AUDIT → IMPLEMENT → VERIFY)
+Enhance Settings → Email so admins can manage IMAP/SMTP creds in-app (encrypted, no env) with:
+
+CORE FEATURES
+- DB-stored IMAP/SMTP credentials (encrypted at rest)
+- Provider Presets + Auto-Detect (MX lookup)
+- Test Connection + Save (auto-test on save)
+- Last Tested timestamp + status
+- From Name / From Email / Reply-To
+- Enable/Disable toggle + Default account
+- Sync interval (mins) with safe min/max (1–15) + backoff on repeated failures
+- Recent connection logs (last 20)
+- Soft alerts in UI if repeated failures occur
+- Dashboard widget: “Last checked / Last result”
+- Quota monitoring: warn if near provider send limits
+- Alerts via email + SMS if sync fails >3 times
+- Send Test Email button (sends to From Email address)
+
+AUDIT (NO WRITES)
+1. Confirm whether IMAP/SMTP creds are currently pulled from env or DB.
+   - Print the exact code paths (imap.ts, smtp.ts, mailSettings.ts).
+   - Print how credentials are currently injected (env vars, DB, or mixed).
+2. Print mail_settings schema fields; note missing ones (lastTestedAt, lastTestResult, lastTestError, quotaUsed, quotaLimit).
+3. Print if any audit/log table exists for email; if not, note it.
+
+IMPLEMENT (SCOPED DIFFS)
+SCOPE
+Backend:
+  - server/src/db/schema.ts
+  - server/src/services/secureStore.ts
+  - server/src/services/mailSettings.ts
+  - server/src/services/imap.ts
+  - server/src/services/smtp.ts
+  - server/src/routes/mailSettings.ts
+  - server/routes.ts
+
+Frontend:
+  - web/src/pages/settings/EmailSettings.tsx
+  - web/src/components/settings/MailForm.tsx
+  - web/src/lib/mail/providerPresets.ts
+  - web/src/components/dashboard/EmailStatusWidget.tsx
+
+DB (extend mail_settings)
+  - fromName text, fromEmail text, replyToEmail text
+  - isActive boolean default true
+  - isDefault boolean default true (only one allowed)
+  - syncIntervalMinutes int default 5 (clamp 1–15)
+  - lastTestedAt timestamptz nullable
+  - lastTestResult text nullable
+  - lastTestError text nullable
+  - quotaUsed int default 0
+  - quotaLimit int default 500 (daily default; configurable later)
+
+Logs table (mail_settings_audit)
+  - id uuid pk
+  - settingsId fk → mail_settings.id
+  - kind text (‘imapTest’, ‘smtpTest’, ‘sync’, ‘send’, ‘quota’)
+  - ok boolean
+  - error text nullable
+  - durationMs int
+  - createdAt timestamptz default now()
+  - meta jsonb
+  INDEX(settingsId, createdAt DESC)
+
+Backend routes (/api/settings/mail)
+- GET  /current → settings with redacted passwords
+- POST /save → save encrypted creds, enforce 1 default, auto-test → update lastTested*
+- POST /test → run IMAP+SMTP connect (5s timeout), update lastTested*, log results
+- POST /detect → MX lookup by email → return suggested hosts/ports
+- GET  /logs?limit=20 → recent audit rows
+- POST /send-test → send a short test email to fromEmail (logs as kind=‘send’)
+
+*lastTested fields: update lastTestedAt, lastTestResult (‘ok’/’fail’), lastTestError
+
+Quota Monitoring
+- smtp.ts: increment quotaUsed on send
+- If quotaUsed > 80% of quotaLimit → log warning + surface UI banner
+- If quotaUsed exceeds quotaLimit → block send, clear error
+
+Alerts
+- If sync fails 3+ times consecutively:
+  - Store counter in audit/logs
+  - Trigger notification: email (to admin), SMS (if phone configured)
+  - Reset counter on success
+- Alerts never include passwords
+
+Frontend (EmailSettings.tsx / MailForm.tsx)
+- Provider Presets dropdown + Auto-Detect button
+- Fields: fromName, fromEmail, replyTo
+- Toggles: Enable/Disable, Make Default
+- Sync interval selector (1–15 mins)
+- Buttons: Test, Save, Send Test Email
+- Status line: “Last tested: dd/MM/yyyy HH:mm — OK/Failed”
+- Logs section: show last 20 attempts
+- Soft alerts: inline banner if repeated failures detected
+
+Frontend (Dashboard widget)
+- Show Last Checked, Last Result, Next Sync
+- Badge for quota (e.g., 420/500 used; turns orange/red on thresholds)
+- Banner if sync disabled or failing
+
+RULES
+- No manual env vars for IMAP/SMTP
+- All creds encrypted at rest in DB
+- No decrypted values ever returned to client
+- Dates in UI = dd/MM/yyyy HH:mm (24h)
+- Alerts configurable later; fixed threshold=3 for now
+
+VERIFY
+- Audit confirms creds are pulled from DB (not env).
+- Save creds → auto-test runs → Last Tested updates
+- Test → ✅/❌ inline + audit log entry
+- Auto-Detect with user@icloud.com → fills iCloud hosts
+- Send Test Email → inbox receives message
+- Repeated sync failures → banner appears + alert email/SMS triggered
+- Dashboard widget shows Last Checked/Result + quota usage

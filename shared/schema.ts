@@ -15,6 +15,18 @@ export const users = pgTable("users", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+export const userPrefs = pgTable("user_prefs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  key: text("key").notNull(), // e.g., "emailViewMode"
+  value: text("value").notNull(), // "unified" | "rfc"
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => {
+  return {
+    userKeyUnique: unique().on(table.userId, table.key)
+  };
+});
+
 export const leads = pgTable("leads", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   firstName: text("first_name").notNull(),
@@ -674,3 +686,10 @@ export type MailSettings = typeof mailSettings.$inferSelect;
 export type InsertMailSettings = z.infer<typeof insertMailSettingsSchema>;
 export type MailSettingsAudit = typeof mailSettingsAudit.$inferSelect;
 export type InsertMailSettingsAudit = z.infer<typeof insertMailSettingsAuditSchema>;
+
+export const insertUserPrefSchema = createInsertSchema(userPrefs).omit({ 
+  id: true, 
+  updatedAt: true 
+});
+export type InsertUserPref = z.infer<typeof insertUserPrefSchema>;
+export type UserPref = typeof userPrefs.$inferSelect;

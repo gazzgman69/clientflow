@@ -12,6 +12,7 @@ import oauthRoutes from "./routes/oauth";
 import emailRoutes from "./src/routes/email";
 import templatesRoutes from "./src/routes/templates";
 import mailSettingsRoutes from "./src/routes/mailSettings";
+import userPrefsRoutes from "./src/routes/userPrefs";
 import leadFormsRoutes from "./src/routes/lead-forms";
 import leadAutomationSimpleRoutes from "./src/routes/lead-automation-simple";
 import { calendarAutoSyncService } from "./services/calendar-auto-sync";
@@ -80,6 +81,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Mail settings routes
   app.use('/api/settings/mail', mailSettingsRoutes);
+  
+  // User preferences routes
+  app.use('/api/user', userPrefsRoutes);
   
   // Templates routes
   app.use('/api', templatesRoutes);

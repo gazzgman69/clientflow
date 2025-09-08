@@ -793,7 +793,7 @@ export class EmailSyncService {
           lastMessageAt: new Date(),
           updatedAt: new Date()
         })
-        .where(eq(emailThreads.id, threadId));
+        .where(eq(emailThreads.id, newEmail.threadId));
 
       return newEmail;
     } catch (error) {
@@ -806,8 +806,8 @@ export class EmailSyncService {
    * Background sync Gmail threads and IMAP - can be called periodically
    */
   async backgroundSync(userId: string): Promise<void> {
-    let gmailResult = { synced: 0, skipped: 0, errors: [] };
-    let imapResult = { synced: 0, skipped: 0, errors: [] };
+    let gmailResult = { synced: 0, skipped: 0, errors: [] as any[] };
+    let imapResult = { synced: 0, skipped: 0, errors: [] as any[] };
 
     // Sync Gmail
     try {
@@ -816,7 +816,7 @@ export class EmailSyncService {
       console.log(`✅ Gmail sync complete: ${gmailResult.synced} synced, ${gmailResult.skipped} skipped`);
     } catch (error) {
       console.error('❌ Background Gmail sync failed:', error);
-      gmailResult.errors.push(error);
+      gmailResult.errors.push(error as any);
     }
 
     // Sync IMAP if configured
@@ -829,7 +829,7 @@ export class EmailSyncService {
       }
     } catch (error) {
       console.error('❌ Background IMAP sync failed:', error);
-      imapResult.errors.push(error);
+      imapResult.errors.push(error as any);
     }
 
     // Combined summary

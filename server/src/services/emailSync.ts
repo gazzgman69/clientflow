@@ -67,6 +67,14 @@ export class EmailSyncService {
 
       console.log(`📧 Found ${gmailThreads.threads.length} Gmail threads, syncing to database...`);
       
+      // Log the first few threads for debugging
+      if (gmailThreads.threads.length > 0) {
+        console.log('📧 Sample threads found:');
+        gmailThreads.threads.slice(0, 3).forEach((thread, i) => {
+          console.log(`  ${i+1}. Subject: "${thread.latest.subject}" | From: ${thread.latest.from} | To: ${thread.latest.to}`);
+        });
+      };
+      
       let synced = 0;
       let skipped = 0;
       const errors: string[] = [];

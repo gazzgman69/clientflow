@@ -391,8 +391,7 @@ export default function CalendarView({ viewMode = 'month' }: CalendarViewProps) 
     const now = new Date();
     return events
       .filter(event => new Date(event.startDate) >= now)
-      .sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime())
-      .slice(0, 5);
+      .sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime());
   };
 
   return (

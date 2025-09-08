@@ -465,23 +465,9 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
       }}>
         <DialogContent className="max-w-4xl max-h-[80vh] overflow-hidden flex flex-col">
           <DialogHeader>
-            <DialogTitle className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Mail className="h-5 w-5" />
-                {selectedThreadDetails?.messages?.[0]?.subject || 'Email Thread'}
-              </div>
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                onClick={() => {
-                  setSelectedThreadId(null);
-                  setShowReplyForm(false);
-                  setReplyMessage('');
-                }}
-                data-testid="button-close-thread"
-              >
-                <X className="h-4 w-4" />
-              </Button>
+            <DialogTitle className="flex items-center gap-2">
+              <Mail className="h-5 w-5" />
+              {selectedThreadDetails?.messages?.[0]?.subject || 'Email Thread'}
             </DialogTitle>
             <DialogDescription>
               View the complete email thread conversation and reply to messages

@@ -15,12 +15,20 @@ interface MailSettings {
 }
 
 export function EmailSyncStatus() {
-  const { data: settingsData, isLoading } = useQuery({
+  const { data: settingsData, isLoading: settingsLoading } = useQuery({
     queryKey: ['/api/settings/mail/current'],
     refetchInterval: 30000
   });
 
+  const { data: gmailStatusData, isLoading: gmailLoading } = useQuery({
+    queryKey: ['/api/auth/google/status'],
+    refetchInterval: 30000
+  });
+
   const settings = (settingsData as any)?.settings as MailSettings | null;
+  const gmailStatus = gmailStatusData as { ok: boolean; connected: boolean; scopes?: string[] } | undefined;
+  
+  const isLoading = settingsLoading || gmailLoading;
 
   if (isLoading) {
     return (
@@ -30,7 +38,21 @@ export function EmailSyncStatus() {
     );
   }
 
-  if (!settings) {
+  // If Gmail is connected, show Gmail status even without mail settings
+  if (gmailStatus?.connected) {
+    return (
+      <div 
+        className="flex items-center space-x-1" 
+        data-testid="email-sync-gmail-connected"
+        title="Gmail connected and syncing"
+      >
+        <CheckCircle className="h-4 w-4 text-green-500" />
+        <span className="text-xs text-green-500">Gmail</span>
+      </div>
+    );
+  }
+
+  if (!settings && !gmailStatus?.connected) {
     return (
       <div className="flex items-center space-x-1" data-testid="email-sync-not-configured">
         <Mail className="h-4 w-4 text-muted-foreground" />
@@ -39,43 +61,54 @@ export function EmailSyncStatus() {
     );
   }
 
-  const getStatusIcon = () => {
-    if (settings.consecutiveFailures >= 3) {
-      return <AlertTriangle className="h-4 w-4 text-orange-500" />;
-    }
-    if (settings.lastTestResult === 'ok') {
-      return <CheckCircle className="h-4 w-4 text-green-500" />;
-    }
-    if (settings.lastTestResult === 'fail') {
-      return <XCircle className="h-4 w-4 text-red-500" />;
-    }
-    return <Mail className="h-4 w-4 text-muted-foreground" />;
-  };
+  // For settings-based status (fallback when Gmail is connected but settings exist)
+  if (settings) {
+    const getStatusIcon = () => {
+      if (settings.consecutiveFailures >= 3) {
+        return <AlertTriangle className="h-4 w-4 text-orange-500" />;
+      }
+      if (settings.lastTestResult === 'ok') {
+        return <CheckCircle className="h-4 w-4 text-green-500" />;
+      }
+      if (settings.lastTestResult === 'fail') {
+        return <XCircle className="h-4 w-4 text-red-500" />;
+      }
+      return <Mail className="h-4 w-4 text-muted-foreground" />;
+    };
 
-  const getStatusText = () => {
-    if (settings.consecutiveFailures >= 3) return 'Issues';
-    if (settings.lastTestResult === 'ok') return 'Synced';
-    if (settings.lastTestResult === 'fail') return 'Failed';
-    return 'Unknown';
-  };
+    const getStatusText = () => {
+      if (settings.consecutiveFailures >= 3) return 'Issues';
+      if (settings.lastTestResult === 'ok') return 'Synced';
+      if (settings.lastTestResult === 'fail') return 'Failed';
+      return 'Unknown';
+    };
 
-  const getStatusColor = () => {
-    if (settings.consecutiveFailures >= 3) return 'text-orange-500';
-    if (settings.lastTestResult === 'ok') return 'text-green-500';
-    if (settings.lastTestResult === 'fail') return 'text-red-500';
-    return 'text-muted-foreground';
-  };
+    const getStatusColor = () => {
+      if (settings.consecutiveFailures >= 3) return 'text-orange-500';
+      if (settings.lastTestResult === 'ok') return 'text-green-500';
+      if (settings.lastTestResult === 'fail') return 'text-red-500';
+      return 'text-muted-foreground';
+    };
 
+    return (
+      <div 
+        className="flex items-center space-x-1" 
+        data-testid="email-sync-status"
+        title={`Email sync: ${getStatusText()} | ${settings.quotaUsed}/${settings.quotaLimit} quota used`}
+      >
+        {getStatusIcon()}
+        <span className={cn("text-xs", getStatusColor())}>
+          {getStatusText()}
+        </span>
+      </div>
+    );
+  }
+
+  // Fallback - should not reach here normally
   return (
-    <div 
-      className="flex items-center space-x-1" 
-      data-testid="email-sync-status"
-      title={`Email sync: ${getStatusText()} | ${settings.quotaUsed}/${settings.quotaLimit} quota used`}
-    >
-      {getStatusIcon()}
-      <span className={cn("text-xs", getStatusColor())}>
-        {getStatusText()}
-      </span>
+    <div className="flex items-center space-x-1" data-testid="email-sync-unknown">
+      <Mail className="h-4 w-4 text-muted-foreground" />
+      <span className="text-xs text-muted-foreground">Unknown</span>
     </div>
   );
 }

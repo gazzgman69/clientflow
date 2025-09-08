@@ -359,22 +359,23 @@ router.get('/projects/:projectId/email-threads', requireAuth, async (req: any, r
     }
 
     try {
-      // Get threads with proper counts
-      const threadsFromDB = await db
+      // Get threads directly from emails table, grouped by thread ID
+      const threadsQuery = await db
         .select({
-          threadId: emailThreads.id,
-          subject: emailThreads.subject,
-          lastMessageAt: emailThreads.lastMessageAt,
+          threadId: emails.threadId,
+          count: sql<number>`count(*)`,
+          latestSentAt: sql<Date>`max(${emails.sentAt})`,
         })
-        .from(emailThreads)
-        .where(eq(emailThreads.projectId, projectId))
-        .orderBy(desc(emailThreads.lastMessageAt))
+        .from(emails)
+        .where(eq(emails.projectId, projectId))
+        .groupBy(emails.threadId)
+        .orderBy(desc(sql`max(${emails.sentAt})`))
         .limit(Number(limit));
 
-      // Get latest message and count for each thread
+      // Get latest message for each thread
       const threads = await Promise.all(
-        threadsFromDB.map(async (thread) => {
-          // Get the latest message
+        threadsQuery.map(async (threadInfo) => {
+          // Get the latest message for this thread
           const [latestMessage] = await db
             .select({
               id: emails.providerMessageId,
@@ -385,32 +386,24 @@ router.get('/projects/:projectId/email-threads', requireAuth, async (req: any, r
               dateISO: emails.sentAt,
             })
             .from(emails)
-            .where(eq(emails.threadId, thread.threadId))
+            .where(eq(emails.threadId, threadInfo.threadId))
             .orderBy(desc(emails.sentAt))
             .limit(1);
 
-          // Get the count
-          const [countResult] = await db
-            .select({ count: sql<number>`count(*)` })
-            .from(emails)
-            .where(eq(emails.threadId, thread.threadId));
-
-          const emailCount = Number(countResult.count) || 1;
-
-          if (!latestMessage) return null; // Skip threads with no messages
+          if (!latestMessage) return null;
 
           return {
-            threadId: thread.threadId,
+            threadId: threadInfo.threadId,
             latest: {
               ...latestMessage,
               dateISO: latestMessage.dateISO?.toISOString() || new Date().toISOString(),
             },
-            count: emailCount,
+            count: Number(threadInfo.count) || 1,
           };
         })
       );
 
-      // Filter out null entries
+      // Filter out null entries  
       const validThreads = threads.filter(thread => thread !== null);
 
       console.log(`📧 Loaded ${validThreads.length} email threads from database for project ${projectId}`);

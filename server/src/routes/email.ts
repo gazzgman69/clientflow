@@ -465,6 +465,59 @@ router.get('/projects/:projectId/email-threads', requireAuth, async (req: any, r
 });
 
 /**
+ * GET /api/projects/:projectId/email-messages
+ * Get individual email messages for a project (for unified and RFC threading views)
+ */
+router.get('/projects/:projectId/email-messages', requireAuth, async (req: any, res) => {
+  try {
+    const { projectId } = req.params;
+    const { limit = 100 } = req.query;
+
+    // Get all individual email messages for the project
+    const messages = await db
+      .select({
+        id: emails.id,
+        subject: emails.subject,
+        fromEmail: emails.fromEmail,
+        direction: emails.direction,
+        toEmails: emails.toEmails,
+        ccEmails: emails.ccEmails,
+        bccEmails: emails.bccEmails,
+        bodyText: emails.bodyText,
+        bodyHtml: emails.bodyHtml,
+        sentAt: emails.sentAt,
+        hasAttachments: emails.hasAttachments,
+        providerMessageId: emails.providerMessageId,
+        threadId: emails.threadId,
+        // RFC headers for threading
+        messageId: emails.messageId,
+        inReplyTo: emails.inReplyTo,
+        references: emails.references,
+        snippet: emails.snippet
+      })
+      .from(emails)
+      .where(eq(emails.projectId, projectId))
+      .orderBy(desc(emails.sentAt))
+      .limit(Number(limit));
+
+    console.log(`📧 Found ${messages.length} individual messages for project ${projectId}`);
+
+    res.json({
+      messages,
+      total: messages.length,
+      needsReconnect: false
+    });
+
+  } catch (error) {
+    console.error('Error fetching project email messages:', error);
+    res.status(500).json({ 
+      error: 'Failed to fetch project email messages',
+      needsReconnect: false 
+    });
+  }
+});
+
+/**
  * GET /api/email-threads/:threadId/messages
  * Get all messages in an email thread from database
  */

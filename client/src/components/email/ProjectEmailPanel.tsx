@@ -83,11 +83,11 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
     }
   }, [contact?.email, emails, to]);
 
-  // Fetch project email threads
-  const { data: threadsResponse, isLoading: threadsLoading, error: threadsError } = useQuery({
-    queryKey: [`/api/email/projects/${projectId}/email-threads`, contact?.email, emails],
+  // Fetch individual email messages for the project
+  const { data: messagesResponse, isLoading: messagesLoading, error: messagesError } = useQuery({
+    queryKey: [`/api/email/projects/${projectId}/email-messages`, contact?.email, emails],
     queryFn: async () => {
-      const response = await fetch(`/api/email/projects/${projectId}/email-threads`, {
+      const response = await fetch(`/api/email/projects/${projectId}/email-messages`, {
         headers: {
           'user-id': 'test-user' // TODO: Get from actual auth context
         }
@@ -95,6 +95,8 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
       return response.json();
     },
     enabled: !!projectId,
+    staleTime: 30000,
+    refetchInterval: forceRefresh ? 5000 : 60000,
   });
 
   // Send email mutation
@@ -114,7 +116,7 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
       setMessage('');
       setIsComposing(false);
       // Refresh threads
-      queryClient.invalidateQueries({ queryKey: [`/api/email/projects/${projectId}/email-threads`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/email/projects/${projectId}/email-messages`] });
     },
     onError: (error: any) => {
       toast({ 
@@ -150,7 +152,6 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
     }).replace(/,/, '');
   };
 
-  const threads = threadsResponse?.threads || [];
 
   // Fetch thread details for selected thread only
   const { data: selectedThreadDetails, isLoading: threadLoading } = useQuery({
@@ -185,7 +186,7 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
       setShowReplyForm(false);
       setReplyMessage('');
       // Refresh threads to show the new reply
-      queryClient.invalidateQueries({ queryKey: [`/api/email/projects/${projectId}/email-threads`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/email/projects/${projectId}/email-messages`] });
       // Refresh the thread details
       if (selectedThreadId) {
         queryClient.invalidateQueries({ queryKey: [`/api/email-threads/${selectedThreadId}/messages`] });
@@ -230,8 +231,65 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
     });
   };
 
-  // Check if Gmail reconnection is needed
-  const needsReconnect = threadsResponse?.needsReconnect || threadsError;
+  // Extract messages and connection status
+  const messages = messagesResponse?.messages || [];
+  const needsReconnect = messagesResponse?.needsReconnect || messagesError;
+
+  // Helper function to build RFC threading from individual messages
+  const buildRFCThreads = (messages: any[]) => {
+    const messageMap = new Map();
+    const rootMessages: any[] = [];
+
+    // Build message map
+    messages.forEach(msg => {
+      messageMap.set(msg.messageId || msg.id, { ...msg, children: [] });
+    });
+
+    // Build thread hierarchy using RFC headers
+    messages.forEach(msg => {
+      const messageObj = messageMap.get(msg.messageId || msg.id);
+      if (!messageObj) return;
+
+      if (msg.inReplyTo) {
+        const parent = messageMap.get(msg.inReplyTo);
+        if (parent) {
+          parent.children.push(messageObj);
+          messageObj.isReply = true;
+          messageObj.depth = (parent.depth || 0) + 1;
+        } else {
+          rootMessages.push(messageObj);
+          messageObj.depth = 0;
+        }
+      } else {
+        rootMessages.push(messageObj);
+        messageObj.depth = 0;
+      }
+    });
+
+    return rootMessages;
+  };
+
+  // Process messages based on view mode
+  const processedData = emailViewMode === 'unified' 
+    ? messages.sort((a: any, b: any) => new Date(b.sentAt).getTime() - new Date(a.sentAt).getTime())
+    : buildRFCThreads(messages);
+
+  // Flatten RFC threads for rendering with hierarchy info
+  const flattenRFCThreads = (threads: any[]): any[] => {
+    const result: any[] = [];
+    
+    const traverse = (thread: any) => {
+      result.push(thread);
+      if (thread.children && thread.children.length > 0) {
+        thread.children.forEach(traverse);
+      }
+    };
+
+    threads.forEach(traverse);
+    return result;
+  };
+
+  const displayData = emailViewMode === 'rfc' ? flattenRFCThreads(processedData) : processedData;
 
   return (
     <div className="space-y-6">
@@ -353,7 +411,7 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
                   setForceRefresh(true);
                   
                   // Immediately refresh the UI with existing data
-                  queryClient.invalidateQueries({ queryKey: [`/api/email/projects/${projectId}/email-threads`] });
+                  queryClient.invalidateQueries({ queryKey: [`/api/email/projects/${projectId}/email-messages`] });
                   toast({ title: 'Refreshing emails...', description: 'Getting latest data and syncing new emails' });
                   
                   // Start background sync without waiting for it
@@ -361,7 +419,7 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
                     .then(response => {
                       if (response.ok) {
                         // Refresh again after sync completes
-                        queryClient.invalidateQueries({ queryKey: [`/api/email/projects/${projectId}/email-threads`] });
+                        queryClient.invalidateQueries({ queryKey: [`/api/email/projects/${projectId}/email-messages`] });
                         toast({ title: 'Email sync complete', description: 'All latest emails synced' });
                       } else {
                         toast({ 
@@ -424,7 +482,7 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
                       if (popup?.closed) {
                         clearInterval(checkClosed);
                         // Refresh the page or refetch data after auth
-                        queryClient.invalidateQueries({ queryKey: [`/api/email/projects/${projectId}/email-threads`] });
+                        queryClient.invalidateQueries({ queryKey: [`/api/email/projects/${projectId}/email-messages`] });
                       }
                     }, 1000);
                     
@@ -438,7 +496,7 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
                         popup?.close();
                         
                         // Refresh email threads after successful auth
-                        queryClient.invalidateQueries({ queryKey: [`/api/email/projects/${projectId}/email-threads`] });
+                        queryClient.invalidateQueries({ queryKey: [`/api/email/projects/${projectId}/email-messages`] });
                         toast({ title: 'Google account connected successfully!' });
                       } else if (event.data.type === 'oauth:error') {
                         clearInterval(checkClosed);
@@ -463,12 +521,12 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
             </Alert>
           )}
 
-          {threadsLoading ? (
+          {messagesLoading ? (
             <div className="flex items-center justify-center py-8">
               <Loader2 className="h-6 w-6 animate-spin mr-2" />
               Loading email threads...
             </div>
-          ) : threads.length === 0 ? (
+          ) : displayData.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
               <p>No email threads found for this project</p>
               {emails?.length === 0 && (
@@ -478,29 +536,30 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
               )}
             </div>
           ) : emailViewMode === 'unified' ? (
+            // Unified View - Flat chronological list of individual messages
             <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead>Date</TableHead>
                   <TableHead>From</TableHead>
                   <TableHead>Subject</TableHead>
+                  <TableHead>Direction</TableHead>
                   <TableHead>Snippet</TableHead>
-                  <TableHead>Count</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {threads.map((thread: any) => (
+                {displayData.map((message: any) => (
                   <TableRow 
-                    key={thread.threadId}
+                    key={message.id}
                     className="cursor-pointer hover:bg-muted/50"
-                    onClick={() => setSelectedThreadId(thread.threadId)}
-                    data-testid={`row-thread-${thread.threadId}`}
+                    onClick={() => setSelectedThreadId(message.threadId)}
+                    data-testid={`row-message-${message.id}`}
                   >
                     <TableCell className="font-medium">
                       <div className="flex flex-col">
-                        <span>{formatDate(thread.latest?.dateISO || new Date().toISOString())}</span>
+                        <span>{formatDate(message.sentAt || new Date().toISOString())}</span>
                         <span className="text-xs text-muted-foreground">
-                          {new Date(thread.latest?.dateISO || new Date().toISOString()).toLocaleTimeString('en-US', { 
+                          {new Date(message.sentAt || new Date().toISOString()).toLocaleTimeString('en-US', { 
                             hour: '2-digit', 
                             minute: '2-digit',
                             hour12: true
@@ -508,70 +567,82 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
                         </span>
                       </div>
                     </TableCell>
-                    <TableCell>{thread.latest?.from || 'Unknown'}</TableCell>
-                    <TableCell>{thread.latest?.subject || 'No subject'}</TableCell>
-                    <TableCell className="max-w-xs truncate">
-                      {thread.latest?.snippet || 'No preview'}
-                    </TableCell>
+                    <TableCell>{message.fromEmail || 'Unknown'}</TableCell>
+                    <TableCell>{message.subject || 'No subject'}</TableCell>
                     <TableCell>
-                      <span className="text-sm text-muted-foreground">
-                        {thread.count || 1} message{(thread.count || 1) > 1 ? 's' : ''}
+                      <span className={`text-xs px-2 py-1 rounded-full ${
+                        message.direction === 'inbound' 
+                          ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' 
+                          : 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+                      }`}>
+                        {message.direction || 'unknown'}
                       </span>
+                    </TableCell>
+                    <TableCell className="max-w-xs truncate">
+                      {message.snippet || message.bodyText?.substring(0, 100) || 'No preview'}
                     </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
             </Table>
           ) : (
-            // RFC Threading View - Card-based layout with thread hierarchy
-            <div className="space-y-4">
-              {threads.map((thread: any) => (
+            // RFC Threading View - Hierarchical view with indentation
+            <div className="space-y-2">
+              {displayData.map((message: any) => (
                 <Card 
-                  key={thread.threadId}
-                  className="cursor-pointer hover:bg-muted/50 transition-colors border-l-4 border-l-primary/20"
-                  onClick={() => setSelectedThreadId(thread.threadId)}
-                  data-testid={`card-thread-${thread.threadId}`}
+                  key={message.id}
+                  className={`cursor-pointer hover:bg-muted/50 transition-colors border-l-4 ${
+                    message.isReply 
+                      ? 'border-l-orange-400 bg-orange-50/30 dark:bg-orange-950/20' 
+                      : 'border-l-primary/40 bg-primary/5'
+                  }`}
+                  style={{ marginLeft: `${(message.depth || 0) * 20}px` }}
+                  onClick={() => setSelectedThreadId(message.threadId)}
+                  data-testid={`card-message-${message.id}`}
                 >
-                  <CardHeader className="pb-3">
+                  <CardHeader className="pb-2 py-3">
                     <div className="flex items-start justify-between">
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-2">
-                          <Layers className="h-4 w-4 text-primary flex-shrink-0" />
-                          <CardTitle className="text-base font-semibold truncate">
-                            {thread.latest?.subject || 'No subject'}
+                        <div className="flex items-center gap-2 mb-1">
+                          {message.depth > 0 && (
+                            <span className="text-xs text-muted-foreground">
+                              {'↳ '.repeat(message.depth)}
+                            </span>
+                          )}
+                          <Layers className="h-3 w-3 text-primary flex-shrink-0" />
+                          <CardTitle className="text-sm font-medium truncate">
+                            {message.subject || 'No subject'}
                           </CardTitle>
-                          {(thread.count || 1) > 1 && (
-                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-primary/10 text-primary whitespace-nowrap">
-                              {thread.count} messages
+                          {message.isReply && (
+                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200">
+                              Reply
                             </span>
                           )}
                         </div>
-                        <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                        <div className="flex items-center gap-3 text-xs text-muted-foreground">
                           <span className="flex items-center gap-1">
                             <Mail className="h-3 w-3" />
-                            {thread.latest?.from || 'Unknown'}
+                            {message.fromEmail || 'Unknown'}
                           </span>
                           <span>•</span>
-                          <span>{formatDate(thread.latest?.dateISO || new Date().toISOString())}</span>
+                          <span>{formatDate(message.sentAt || new Date().toISOString())}</span>
+                          <span>•</span>
+                          <span className={`px-1.5 py-0.5 rounded text-xs ${
+                            message.direction === 'inbound' 
+                              ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200' 
+                              : 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-200'
+                          }`}>
+                            {message.direction || 'unknown'}
+                          </span>
                         </div>
                       </div>
                     </div>
                   </CardHeader>
-                  <CardContent className="pt-0">
-                    <div className="bg-muted/30 p-3 rounded-md">
-                      <p className="text-sm text-muted-foreground line-clamp-2 leading-relaxed">
-                        {thread.latest?.snippet || 'No preview available'}
+                  <CardContent className="pt-0 py-2">
+                    <div className="bg-muted/20 p-2 rounded text-xs">
+                      <p className="text-muted-foreground line-clamp-2 leading-relaxed">
+                        {message.snippet || message.bodyText?.substring(0, 150) || 'No preview available'}
                       </p>
-                    </div>
-                    <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground">
-                      <span>Click to view full conversation</span>
-                      <span className="font-medium">
-                        {new Date(thread.latest?.dateISO || new Date().toISOString()).toLocaleTimeString('en-US', { 
-                          hour: '2-digit', 
-                          minute: '2-digit',
-                          hour12: true
-                        })}
-                      </span>
                     </div>
                   </CardContent>
                 </Card>

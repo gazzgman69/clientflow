@@ -99,6 +99,10 @@ router.post('/send', requireAuth, async (req: any, res) => {
         // Create outbound email record in database
         // First, try to find existing thread with emails involving this contact
         // Extract email address from "Name <email@example.com>" format
+        const cleanToEmail = emailData.to.toLowerCase().includes('<') 
+          ? emailData.to.match(/<([^>]+)>/)?.[1] || emailData.to 
+          : emailData.to;
+        
         const existingThreads = await db
           .select({
             threadId: emails.threadId
@@ -109,14 +113,12 @@ router.post('/send', requireAuth, async (req: any, res) => {
             and(
               eq(emailThreads.projectId, projectId || ''),
               or(
-                sql`${emails.fromEmail} LIKE ${'%' + emailData.to + '%'}`,
-                sql`EXISTS (
-                  SELECT 1 FROM unnest(${emails.toEmails}) AS email_addr 
-                  WHERE email_addr LIKE ${'%' + emailData.to + '%'}
-                )`
+                sql`LOWER(${emails.fromEmail}) LIKE LOWER(${'%' + cleanToEmail + '%'})`,
+                sql`LOWER(${emails.toEmails}::text) LIKE LOWER(${'%' + cleanToEmail + '%'})`
               )
             )
           )
+          .orderBy(desc(emails.sentAt))
           .limit(1);
 
         const existingThreadId = existingThreads.length > 0 ? existingThreads[0].threadId : undefined;

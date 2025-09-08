@@ -314,23 +314,45 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
               onClick={async () => {
                 try {
                   setForceRefresh(true);
-                  const response = await fetch('/api/email/sync', { method: 'POST' });
-                  if (response.ok) {
-                    // Refresh threads after sync
-                    queryClient.invalidateQueries({ queryKey: [`/api/email/projects/${projectId}/email-threads`] });
-                    toast({ title: 'Email sync complete', description: 'Latest emails have been synced' });
-                  } else {
-                    throw new Error('Sync failed');
-                  }
+                  
+                  // Immediately refresh the UI with existing data
+                  queryClient.invalidateQueries({ queryKey: [`/api/email/projects/${projectId}/email-threads`] });
+                  toast({ title: 'Refreshing emails...', description: 'Getting latest data and syncing new emails' });
+                  
+                  // Start background sync without waiting for it
+                  fetch('/api/email/sync', { method: 'POST' })
+                    .then(response => {
+                      if (response.ok) {
+                        // Refresh again after sync completes
+                        queryClient.invalidateQueries({ queryKey: [`/api/email/projects/${projectId}/email-threads`] });
+                        toast({ title: 'Email sync complete', description: 'All latest emails synced' });
+                      } else {
+                        toast({ 
+                          title: 'Background sync had issues', 
+                          description: 'Recent emails shown, but sync may need retry',
+                          variant: 'destructive' 
+                        });
+                      }
+                    })
+                    .catch(error => {
+                      console.error('Background sync failed:', error);
+                      toast({ 
+                        title: 'Background sync failed', 
+                        description: 'Showing cached emails - try reconnecting Google',
+                        variant: 'destructive' 
+                      });
+                    });
+                  
                 } catch (error) {
-                  console.error('Manual sync failed:', error);
+                  console.error('Refresh failed:', error);
                   toast({ 
-                    title: 'Sync failed', 
-                    description: 'Please try reconnecting Google',
+                    title: 'Refresh failed', 
+                    description: 'Please try again or reconnect Google',
                     variant: 'destructive' 
                   });
                 } finally {
-                  setForceRefresh(false);
+                  // Show instant feedback, stop loading after 2 seconds max
+                  setTimeout(() => setForceRefresh(false), 2000);
                 }
               }}
               disabled={forceRefresh}

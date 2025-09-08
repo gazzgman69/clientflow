@@ -19,6 +19,19 @@ interface GmailThread {
 }
 
 export class EmailSyncService {
+  private gmailService: any;
+
+  constructor() {
+    this.initializeGmailService();
+  }
+
+  private async initializeGmailService() {
+    if (!this.gmailService) {
+      const { gmailService } = await import('./gmail');
+      this.gmailService = gmailService;
+    }
+  }
+
   /**
    * Sync Gmail threads to database for instant access
    */
@@ -28,7 +41,7 @@ export class EmailSyncService {
     errors: string[];
   }> {
     try {
-      const { gmailService } = await import('./gmail');
+      await this.initializeGmailService();
       console.log('🔄 Syncing Gmail threads to database...');
       
       // Get all projects and their contact emails for matching

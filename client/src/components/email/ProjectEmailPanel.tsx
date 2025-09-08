@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Send, Mail, Loader2, AlertCircle, X, Reply, RefreshCw, List, Layers, FileText } from 'lucide-react';
+import { Send, Mail, Loader2, AlertCircle, X, Reply, RefreshCw, List, Layers, FileText, Edit3, ChevronDown } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,6 +10,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest } from '@/lib/queryClient';
 import { useEmailViewMode } from '@/hooks/useUserPrefs';
@@ -47,6 +48,7 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
   const [replyMessage, setReplyMessage] = useState('');
   const [forceRefresh, setForceRefresh] = useState(false);
   const [showTemplateModal, setShowTemplateModal] = useState(false);
+  const [showSignatureDropdown, setShowSignatureDropdown] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
   
@@ -83,6 +85,37 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
     toast({ 
       title: 'Template applied', 
       description: `Applied "${template.title}" to your email` 
+    });
+  };
+
+  // Fetch email signatures
+  const { data: emailSignatures, isLoading: signaturesLoading } = useQuery({
+    queryKey: ['/api/signatures'],
+    queryFn: async () => {
+      const response = await fetch('/api/signatures', {
+        headers: {
+          'user-id': 'test-user' // Using hardcoded user ID for development
+        }
+      });
+      if (!response.ok) throw new Error('Failed to fetch signatures');
+      return response.json();
+    }
+  });
+
+  // Apply signature to compose form
+  const applySignature = (signature: any) => {
+    const currentMessage = message;
+    const signatureContent = signature.content;
+    
+    // Add signature at the end of the message with proper formatting
+    const newMessage = currentMessage ? 
+      `${currentMessage}\n\n${signatureContent}` : 
+      `\n\n${signatureContent}`;
+    
+    setMessage(newMessage);
+    toast({ 
+      title: 'Signature applied', 
+      description: `Applied "${signature.name}" signature` 
     });
   };
 
@@ -400,6 +433,48 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
                   <FileText className="h-4 w-4 mr-2" />
                   Templates
                 </Button>
+                
+                {/* Signature Dropdown */}
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button 
+                      variant="outline"
+                      data-testid="button-select-signature"
+                    >
+                      <Edit3 className="h-4 w-4 mr-2" />
+                      Signature
+                      <ChevronDown className="h-4 w-4 ml-2" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start" className="w-56">
+                    {signaturesLoading ? (
+                      <div className="flex items-center justify-center py-2">
+                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                        Loading...
+                      </div>
+                    ) : emailSignatures?.length === 0 ? (
+                      <div className="text-center py-2 text-muted-foreground text-sm">
+                        No signatures found
+                      </div>
+                    ) : (
+                      emailSignatures?.map((signature: any) => (
+                        <DropdownMenuItem 
+                          key={signature.id}
+                          onClick={() => applySignature(signature)}
+                          data-testid={`dropdown-signature-${signature.id}`}
+                        >
+                          <div className="flex flex-col">
+                            <span className="font-medium">{signature.name}</span>
+                            {signature.isDefault && (
+                              <span className="text-xs text-muted-foreground">Default</span>
+                            )}
+                          </div>
+                        </DropdownMenuItem>
+                      ))
+                    )}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+                
                 <Button 
                   variant="outline" 
                   onClick={() => setIsComposing(false)}

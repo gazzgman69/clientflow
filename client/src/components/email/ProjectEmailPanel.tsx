@@ -477,7 +477,7 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
                 </p>
               )}
             </div>
-          ) : (
+          ) : emailViewMode === 'unified' ? (
             <Table>
               <TableHeader>
                 <TableRow>
@@ -522,6 +522,61 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
                 ))}
               </TableBody>
             </Table>
+          ) : (
+            // RFC Threading View - Card-based layout with thread hierarchy
+            <div className="space-y-4">
+              {threads.map((thread: any) => (
+                <Card 
+                  key={thread.threadId}
+                  className="cursor-pointer hover:bg-muted/50 transition-colors border-l-4 border-l-primary/20"
+                  onClick={() => setSelectedThreadId(thread.threadId)}
+                  data-testid={`card-thread-${thread.threadId}`}
+                >
+                  <CardHeader className="pb-3">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-2">
+                          <Layers className="h-4 w-4 text-primary flex-shrink-0" />
+                          <CardTitle className="text-base font-semibold truncate">
+                            {thread.latest?.subject || 'No subject'}
+                          </CardTitle>
+                          {(thread.count || 1) > 1 && (
+                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-primary/10 text-primary whitespace-nowrap">
+                              {thread.count} messages
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                          <span className="flex items-center gap-1">
+                            <Mail className="h-3 w-3" />
+                            {thread.latest?.from || 'Unknown'}
+                          </span>
+                          <span>•</span>
+                          <span>{formatDate(thread.latest?.dateISO || new Date().toISOString())}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="pt-0">
+                    <div className="bg-muted/30 p-3 rounded-md">
+                      <p className="text-sm text-muted-foreground line-clamp-2 leading-relaxed">
+                        {thread.latest?.snippet || 'No preview available'}
+                      </p>
+                    </div>
+                    <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground">
+                      <span>Click to view full conversation</span>
+                      <span className="font-medium">
+                        {new Date(thread.latest?.dateISO || new Date().toISOString()).toLocaleTimeString('en-US', { 
+                          hour: '2-digit', 
+                          minute: '2-digit',
+                          hour12: true
+                        })}
+                      </span>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
           )}
         </CardContent>
       </Card>

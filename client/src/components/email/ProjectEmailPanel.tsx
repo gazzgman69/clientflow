@@ -134,7 +134,15 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
   };
 
   const formatDate = (dateISO: string) => {
-    return new Date(dateISO).toLocaleDateString('en-GB');
+    const date = new Date(dateISO);
+    return date.toLocaleDateString('en-GB', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false
+    }).replace(/,/, '');
   };
 
   const threads = threadsResponse?.threads || [];

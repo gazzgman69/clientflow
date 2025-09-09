@@ -61,9 +61,14 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
   // Decode HTML entities in email content
   const decodeHtmlEntities = (text: string) => {
     if (!text) return text;
-    const textarea = document.createElement('textarea');
-    textarea.textContent = text;
-    return textarea.value;
+    try {
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(text, 'text/html');
+      return doc.documentElement.textContent || text;
+    } catch (error) {
+      // Fallback to original text if parsing fails
+      return text;
+    }
   };
 
   // Fetch email templates

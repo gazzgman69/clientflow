@@ -102,5 +102,20 @@ app.use((req, res, next) => {
 
     // Start Gmail sync service
     startGmailAutoSync();
+
+    // Start lead automation service
+    const startLeadAutomation = async () => {
+      try {
+        console.log('🚀 Starting lead automation service (every 5 minutes)');
+        const { leadAutomationService } = await import('./src/services/lead-automation');
+        // Service auto-starts in constructor, but let's ensure it's running
+        console.log('✅ Lead automation service started successfully');
+      } catch (error) {
+        console.error('❌ Failed to start lead automation service:', error);
+      }
+    };
+
+    // Start lead automation service
+    startLeadAutomation();
   });
 })();

@@ -173,7 +173,7 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
   // Update template mutation
   const updateTemplateMutation = useMutation({
     mutationFn: async (templateData: { id: string; subject: string; body: string }) => {
-      const response = await apiRequest('PUT', `/api/templates/${templateData.id}`, {
+      const response = await apiRequest('PATCH', `/api/admin/templates/${templateData.id}`, {
         subject: templateData.subject,
         body: templateData.body
       });

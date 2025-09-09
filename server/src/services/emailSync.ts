@@ -1,5 +1,5 @@
 import { db } from "../../db";
-import { emailThreads, emails, emailAttachments, contacts, projects } from "@shared/schema";
+import { emailThreads, emails, emailAttachments, contacts, projects, leads } from "@shared/schema";
 import { eq, and, or, desc, isNotNull, sql, not } from "drizzle-orm";
 import type { gmail_v1 } from "googleapis";
 import type { EmailThread, Email, InsertEmailThread, InsertEmail, InsertEmailAttachment } from "@shared/schema";
@@ -794,6 +794,34 @@ export class EmailSyncService {
           updatedAt: new Date()
         })
         .where(eq(emailThreads.id, newEmail.threadId));
+
+      // Update lead lastContactAt if this email is to a lead contact
+      if (data.to.length > 0) {
+        const recipientEmail = data.to[0].toLowerCase();
+        
+        // Find leads that match this email address
+        const matchingLeads = await db
+          .select()
+          .from(leads)
+          .where(eq(leads.email, recipientEmail));
+        
+        if (matchingLeads.length > 0) {
+          console.log(`📧 Updating lastContactAt for ${matchingLeads.length} lead(s) contacted via email: ${recipientEmail}`);
+          
+          // Update all matching leads
+          for (const lead of matchingLeads) {
+            await db
+              .update(leads)
+              .set({ 
+                lastContactAt: new Date(),
+                updatedAt: new Date()
+              })
+              .where(eq(leads.id, lead.id));
+            
+            console.log(`📧 Updated lead ${lead.id} (${lead.firstName} ${lead.lastName}) - lastContactAt set to now`);
+          }
+        }
+      }
 
       return newEmail;
     } catch (error) {

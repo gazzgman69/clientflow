@@ -8,9 +8,10 @@ import { EmailSyncStatus } from "@/components/ui/email-sync-status";
 interface HeaderProps {
   title: string;
   subtitle?: string;
+  actions?: React.ReactNode;
 }
 
-export default function Header({ title, subtitle }: HeaderProps) {
+export default function Header({ title, subtitle, actions }: HeaderProps) {
   const [showQuickActions, setShowQuickActions] = useState(false);
 
   return (
@@ -24,6 +25,9 @@ export default function Header({ title, subtitle }: HeaderProps) {
         </div>
         
         <div className="flex items-center space-x-4">
+          {/* Page-specific actions */}
+          {actions}
+          
           {/* Search */}
           <div className="relative">
             <Input 

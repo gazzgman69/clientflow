@@ -14,10 +14,7 @@ const staticNavigationItems = [
     href: "/leads", 
     icon: UserPlus, 
     label: "Leads", 
-    badge: null, // Will be populated dynamically
-    subItems: [
-      { href: "/leads/capture", icon: FileText, label: "Lead Capture Forms", badge: null }
-    ]
+    badge: null // Will be populated dynamically
   },
   { href: "/contacts", icon: Users, label: "Contacts", badge: null },
   { href: "/projects", icon: Briefcase, label: "Projects", badge: null },

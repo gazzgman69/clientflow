@@ -820,6 +820,16 @@ export class EmailSyncService {
             
             console.log(`📧 Updated lead ${lead.id} (${lead.firstName} ${lead.lastName}) - lastContactAt set to now`);
           }
+
+          // Trigger automation immediately for contacted leads
+          try {
+            console.log(`🤖 Triggering immediate automation for ${matchingLeads.length} contacted lead(s)`);
+            const { leadAutomationService } = await import('./lead-automation');
+            await leadAutomationService.runTick();
+            console.log(`✅ Immediate automation completed`);
+          } catch (error) {
+            console.error('❌ Failed to trigger immediate automation:', error);
+          }
         }
       }
 

@@ -62,7 +62,7 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
   const decodeHtmlEntities = (text: string) => {
     if (!text) return text;
     const textarea = document.createElement('textarea');
-    textarea.innerHTML = text;
+    textarea.textContent = text;
     return textarea.value;
   };
 

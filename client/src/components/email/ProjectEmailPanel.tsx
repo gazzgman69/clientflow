@@ -530,7 +530,7 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
                     <Checkbox 
                       id="update-template"
                       checked={updateTemplate}
-                      onCheckedChange={setUpdateTemplate}
+                      onCheckedChange={(checked) => setUpdateTemplate(checked === true)}
                       data-testid="checkbox-update-template"
                     />
                     <Label 

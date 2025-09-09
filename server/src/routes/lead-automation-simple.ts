@@ -2,6 +2,24 @@ import { Request, Response, Router } from "express";
 
 const router = Router();
 
+// Allowed properties for rule updates (security: prevent prototype pollution)
+const ALLOWED_RULE_PROPERTIES = [
+  'name', 'enabled', 'fromStatus', 'toStatus', 'triggerType', 
+  'triggerConfig', 'ifConflictBlock', 'requireNoManualSinceMinutes', 
+  'actionEmailTemplateId'
+];
+
+// Safe object property extraction
+const extractAllowedProperties = (obj: any, allowedProps: string[]) => {
+  const result: any = {};
+  for (const prop of allowedProps) {
+    if (obj.hasOwnProperty(prop)) {
+      result[prop] = obj[prop];
+    }
+  }
+  return result;
+};
+
 // Middleware to require authentication (simplified)
 const requireAuth = (req: Request, res: Response, next: Function) => {
   const userId = req.headers['user-id'];
@@ -42,9 +60,10 @@ router.get('/rules', requireAuth, async (req: Request, res: Response) => {
 // POST /api/admin/lead-automation/rules
 router.post('/rules', requireAuth, async (req: Request, res: Response) => {
   try {
+    const safeBody = extractAllowedProperties(req.body, ALLOWED_RULE_PROPERTIES);
     const rule = {
       id: `rule-${Date.now()}`,
-      ...req.body,
+      ...safeBody,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
@@ -67,9 +86,10 @@ router.patch('/rules/:id', requireAuth, async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'Rule not found' });
     }
     
+    const safeBody = extractAllowedProperties(req.body, ALLOWED_RULE_PROPERTIES);
     mockRules[ruleIndex] = {
       ...mockRules[ruleIndex],
-      ...req.body,
+      ...safeBody,
       updatedAt: new Date().toISOString(),
     };
     

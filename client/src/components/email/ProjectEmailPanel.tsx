@@ -185,6 +185,7 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
         description: 'Template has been updated with current email content' 
       });
       queryClient.invalidateQueries({ queryKey: ['/api/templates'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/templates'] });
     },
     onError: (error: any) => {
       toast({ 

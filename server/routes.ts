@@ -219,10 +219,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const mapStatusToPipeline = (status: string): string => {
     switch (status) {
       case 'new': return 'new';
-      case 'qualified': return 'qualified';
+      case 'contacted': return 'contacted';
       case 'follow-up': return 'contacted';
+      case 'qualified': return 'qualified';
       case 'converted':
-      case 'lost': return 'archived';
+      case 'lost': 
+      case 'archived': return 'archived';
       default: return 'new';
     }
   };

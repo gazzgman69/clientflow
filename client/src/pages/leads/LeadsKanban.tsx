@@ -258,7 +258,10 @@ export default function LeadsKanban() {
       <Header 
         title="Leads" 
         subtitle="Kanban board view"
-        actions={
+      />
+      
+      <main className="flex-1 overflow-auto p-6">
+        <div className="flex justify-between items-center mb-6">
           <div className="flex items-center gap-3">
             <div className="text-sm text-muted-foreground">
               Last updated: {formatLastUpdated(lastUpdated)}
@@ -273,6 +276,8 @@ export default function LeadsKanban() {
             >
               <RefreshCw className={`h-4 w-4 ${fetching ? 'animate-spin' : ''}`} />
             </Button>
+          </div>
+          <div className="flex items-center gap-3">
             <Button variant="outline" asChild data-testid="button-inbox-view">
               <Link href="/leads/inbox">
                 <Inbox className="h-4 w-4 mr-2" />
@@ -286,10 +291,7 @@ export default function LeadsKanban() {
               </Link>
             </Button>
           </div>
-        }
-      />
-      
-      <main className="flex-1 overflow-auto p-6">
+        </div>
         <div className="grid grid-cols-4 gap-6" data-testid="kanban-board">
           {COLUMN_ORDER.map((columnId) => {
             const leads = kanbanData?.columns[columnId] || [];

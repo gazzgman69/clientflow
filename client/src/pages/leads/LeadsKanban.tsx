@@ -4,7 +4,7 @@ import { Link, useLocation } from "wouter";
 import Header from "@/components/layout/header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Inbox, RefreshCw } from "lucide-react";
+import { Inbox, RefreshCw, FileText } from "lucide-react";
 import LeadCard from "@/components/leads/LeadCard";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -277,6 +277,12 @@ export default function LeadsKanban() {
               <Link href="/leads/inbox">
                 <Inbox className="h-4 w-4 mr-2" />
                 Inbox View
+              </Link>
+            </Button>
+            <Button variant="outline" asChild data-testid="button-lead-forms">
+              <Link href="/admin/lead-forms">
+                <FileText className="h-4 w-4 mr-2" />
+                Lead Forms
               </Link>
             </Button>
           </div>

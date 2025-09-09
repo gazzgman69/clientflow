@@ -47,8 +47,8 @@ export class SecureStore {
       // Generate random IV for each encryption
       const iv = crypto.randomBytes(this.ivLength);
       
-      // Create cipher
-      const cipher = crypto.createCipher(this.algorithm, this.encryptionKey);
+      // Create cipher with explicit IV
+      const cipher = crypto.createCipheriv(this.algorithm, this.encryptionKey, iv);
       cipher.setAAD(Buffer.from('BusinessCRM')); // Additional authenticated data
       
       // Encrypt the data
@@ -94,8 +94,8 @@ export class SecureStore {
       const tag = combined.subarray(this.ivLength, this.ivLength + this.tagLength);
       const encrypted = combined.subarray(this.ivLength + this.tagLength);
       
-      // Create decipher
-      const decipher = crypto.createDecipher(this.algorithm, this.encryptionKey);
+      // Create decipher with extracted IV
+      const decipher = crypto.createDecipheriv(this.algorithm, this.encryptionKey, iv);
       decipher.setAAD(Buffer.from('BusinessCRM')); // Same AAD as encryption
       decipher.setAuthTag(tag);
       

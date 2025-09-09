@@ -21,6 +21,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import EmailSettings from "@/pages/settings/EmailSettings";
+import TemplatesPage from "@/pages/settings/Templates";
 
 export default function Settings() {
   const [activeTab, setActiveTab] = useState("profile");
@@ -564,47 +565,8 @@ export default function Settings() {
           </TabsContent>
 
           {/* Templates */}
-          <TabsContent value="templates" className="space-y-6">
-            <Card data-testid="templates-settings-card">
-              <CardHeader>
-                <CardTitle>Template Management</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <p className="text-muted-foreground">
-                    Manage your email templates, auto-responders, invoices, and contracts. 
-                    Create dynamic templates with token placeholders for personalized content.
-                  </p>
-                  <div className="flex gap-4">
-                    <div className="space-y-2">
-                      <h4 className="font-medium">Available Template Types:</h4>
-                      <ul className="text-sm text-muted-foreground space-y-1">
-                        <li>• Auto Responders - Automatic email responses</li>
-                        <li>• Email Templates - Reusable email content</li>
-                        <li>• Invoice Templates - Professional invoice layouts</li>
-                        <li>• Contract Templates - Legal document templates</li>
-                      </ul>
-                    </div>
-                    <div className="space-y-2">
-                      <h4 className="font-medium">Dynamic Tokens:</h4>
-                      <ul className="text-sm text-muted-foreground space-y-1">
-                        <li>• {'{{contact.firstName}}'} - Contact first name</li>
-                        <li>• {'{{project.title}}'} - Project title</li>
-                        <li>• {'{{lead.service}}'} - Requested service</li>
-                        <li>• And many more...</li>
-                      </ul>
-                    </div>
-                  </div>
-                  <Button 
-                    onClick={() => window.location.href = '/settings/templates'}
-                    data-testid="button-manage-templates"
-                  >
-                    <FileText className="h-4 w-4 mr-2" />
-                    Manage Templates
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
+          <TabsContent value="templates">
+            <TemplatesPage />
           </TabsContent>
 
           {/* Appearance */}

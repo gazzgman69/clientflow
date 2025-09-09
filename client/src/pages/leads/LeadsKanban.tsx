@@ -285,7 +285,7 @@ export default function LeadsKanban() {
               </Link>
             </Button>
             <Button variant="outline" asChild data-testid="button-lead-forms">
-              <Link href="/admin/lead-forms">
+              <Link href="/leads/capture">
                 <FileText className="h-4 w-4 mr-2" />
                 Lead Forms
               </Link>

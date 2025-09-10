@@ -483,193 +483,50 @@ export default function TemplatesPage() {
                   />
                 )}
 
-                <div className="grid grid-cols-3 gap-4">
-                  <div className="col-span-2">
-                    <FormField
-                      control={form.control}
-                      name="body"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Template Body</FormLabel>
-                          <div className="space-y-2">
-                            <div className="flex items-center justify-between">
-                              <div></div>
-                              <TokenDropdown
-                                onTokenSelect={(token) => {
-                                  if (bodyTextareaRef.current) {
-                                    const textarea = bodyTextareaRef.current;
-                                    const cursorPosition = textarea.selectionStart || 0;
-                                    const currentValue = field.value || '';
-                                    const { newValue, newCursorPosition } = insertTokenIntoValue(currentValue, token, cursorPosition);
-                                    field.onChange(newValue);
-                                    // Restore cursor position after React updates the DOM
-                                    setTimeout(() => {
-                                      if (textarea) {
-                                        textarea.setSelectionRange(newCursorPosition, newCursorPosition);
-                                        textarea.focus();
-                                      }
-                                    }, 0);
+                <FormField
+                  control={form.control}
+                  name="body"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Template Body</FormLabel>
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <div></div>
+                          <TokenDropdown
+                            onTokenSelect={(token) => {
+                              if (bodyTextareaRef.current) {
+                                const textarea = bodyTextareaRef.current;
+                                const cursorPosition = textarea.selectionStart || 0;
+                                const currentValue = field.value || '';
+                                const { newValue, newCursorPosition } = insertTokenIntoValue(currentValue, token, cursorPosition);
+                                field.onChange(newValue);
+                                // Restore cursor position after React updates the DOM
+                                setTimeout(() => {
+                                  if (textarea) {
+                                    textarea.setSelectionRange(newCursorPosition, newCursorPosition);
+                                    textarea.focus();
                                   }
-                                }}
-                                size="sm"
-                                className="ml-auto"
-                              />
-                            </div>
-                            <FormControl>
-                              <Textarea 
-                                {...field}
-                                ref={bodyTextareaRef}
-                                placeholder="Enter your template content here. Use [Token] for dynamic values."
-                                className="min-h-[300px]"
-                                data-testid="textarea-template-body"
-                              />
-                            </FormControl>
-                          </div>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-
-                  <div className="space-y-4">
-                    <Label>Available Tokens</Label>
-                    
-                    {/* New Token System */}
-                    {newTokens && (
-                      <div className="space-y-3">
-                        <div className="text-xs text-muted-foreground border-b pb-2 mb-2">
-                          New Token System - Use [Token] or [Token|format]
+                                }, 0);
+                              }
+                            }}
+                            size="sm"
+                            className="ml-auto"
+                          />
                         </div>
-                        
-                        <div>
-                          <Label className="text-xs font-medium text-blue-600">Contact</Label>
-                          <div className="flex flex-wrap gap-1 mt-1">
-                            {Object.entries(newTokens?.tokens?.contact || {}).map(([token, description]) => (
-                              <Button
-                                key={token}
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                className="text-xs h-6 border-blue-200 hover:border-blue-400"
-                                onClick={() => insertNewToken(token.replace('[', '').replace(']', ''))}
-                                title={description}
-                                data-testid={`button-new-token-${token.replace(/[^a-zA-Z]/g, '-')}`}
-                              >
-                                {token}
-                              </Button>
-                            ))}
-                          </div>
-                        </div>
-
-                        <div>
-                          <Label className="text-xs font-medium text-green-600">Project</Label>
-                          <div className="flex flex-wrap gap-1 mt-1">
-                            {Object.entries(newTokens?.tokens?.project || {}).map(([token, description]) => (
-                              <Button
-                                key={token}
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                className="text-xs h-6 border-green-200 hover:border-green-400"
-                                onClick={() => insertNewToken(token.replace('[', '').replace(']', ''))}
-                                title={description}
-                                data-testid={`button-new-token-${token.replace(/[^a-zA-Z]/g, '-')}`}
-                              >
-                                {token}
-                              </Button>
-                            ))}
-                          </div>
-                        </div>
-
-                        <div>
-                          <Label className="text-xs font-medium text-purple-600">Business</Label>
-                          <div className="flex flex-wrap gap-1 mt-1">
-                            {Object.entries(newTokens?.tokens?.business || {}).map(([token, description]) => (
-                              <Button
-                                key={token}
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                className="text-xs h-6 border-purple-200 hover:border-purple-400"
-                                onClick={() => insertNewToken(token.replace('[', '').replace(']', ''))}
-                                title={description}
-                                data-testid={`button-new-token-${token.replace(/[^a-zA-Z]/g, '-')}`}
-                              >
-                                {token}
-                              </Button>
-                            ))}
-                          </div>
-                        </div>
-
-                        <div className="text-xs text-muted-foreground mt-4 pt-2 border-t">
-                          Legacy Token System - Use {"{{token}}"}
-                        </div>
+                        <FormControl>
+                          <Textarea 
+                            {...field}
+                            ref={bodyTextareaRef}
+                            placeholder="Enter your template content here. Use [Token] for dynamic values."
+                            className="min-h-[300px]"
+                            data-testid="textarea-template-body"
+                          />
+                        </FormControl>
                       </div>
-                    )}
-
-                    {/* Legacy Token System */}
-                    {availableTokens && (
-                      <div className="space-y-3">
-                        <div>
-                          <Label className="text-xs font-medium text-muted-foreground">Contact</Label>
-                          <div className="flex flex-wrap gap-1 mt-1">
-                            {(availableTokens.contact || []).map((token) => (
-                              <Button
-                                key={token}
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                className="text-xs h-6"
-                                onClick={() => insertToken(token)}
-                                data-testid={`button-token-${token.replace('.', '-')}`}
-                              >
-                                {token}
-                              </Button>
-                            ))}
-                          </div>
-                        </div>
-
-                        <div>
-                          <Label className="text-xs font-medium text-muted-foreground">Project</Label>
-                          <div className="flex flex-wrap gap-1 mt-1">
-                            {(availableTokens.project || []).map((token) => (
-                              <Button
-                                key={token}
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                className="text-xs h-6"
-                                onClick={() => insertToken(token)}
-                                data-testid={`button-token-${token.replace('.', '-')}`}
-                              >
-                                {token}
-                              </Button>
-                            ))}
-                          </div>
-                        </div>
-
-                        <div>
-                          <Label className="text-xs font-medium text-muted-foreground">Lead</Label>
-                          <div className="flex flex-wrap gap-1 mt-1">
-                            {(availableTokens.lead || []).map((token) => (
-                              <Button
-                                key={token}
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                className="text-xs h-6"
-                                onClick={() => insertToken(token)}
-                                data-testid={`button-token-${token.replace('.', '-')}`}
-                              >
-                                {token}
-                              </Button>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
                 <div className="flex justify-end gap-2">
                   <Button

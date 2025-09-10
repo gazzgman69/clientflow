@@ -461,7 +461,7 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
                   content={message}
                   onChange={setMessage}
                   placeholder="Enter your message..."
-                  minHeight="150px"
+                  minHeight="300px"
                   data-testid="editor-email-message"
                   onTokenInsert={(insertToken) => (
                     <TokenDropdown
@@ -946,7 +946,7 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
                           content={replyMessage}
                           onChange={setReplyMessage}
                           placeholder="Enter your reply..."
-                          minHeight="150px"
+                          minHeight="300px"
                           data-testid="editor-reply-message"
                         />
                       </div>

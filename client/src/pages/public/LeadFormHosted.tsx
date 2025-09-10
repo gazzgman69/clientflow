@@ -12,6 +12,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest } from '@/lib/queryClient';
 import { useQueryClient } from '@tanstack/react-query';
+import { VenueAutocomplete } from '@/components/venues/VenueAutocomplete';
 
 interface Question {
   id: string;
@@ -227,6 +228,20 @@ export default function LeadFormHosted({ slug }: LeadFormHostedProps) {
               </div>
             ))}
           </div>
+        );
+
+      case 'venue':
+        return (
+          <VenueAutocomplete
+            onVenueSelect={(venue) => {
+              // Store the full venue data as JSON string or formatted address
+              const addressValue = `${venue.name}, ${venue.address1}${venue.address2 ? ', ' + venue.address2 : ''}, ${venue.city}, ${venue.state} ${venue.postalCode}`;
+              handleInputChange(question.mapTo, addressValue);
+            }}
+            placeholder="Search for venues or enter an address..."
+            initialValue={value}
+            data-testid={`venue-${question.mapTo}`}
+          />
         );
 
       default:

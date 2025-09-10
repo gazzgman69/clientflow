@@ -253,16 +253,12 @@ export function VenueAutocomplete({
 
   // Debounced search handler
   useEffect(() => {
-    console.log('useEffect debounced search - state:', { hasSelectedVenue, query, initialValue });
-    
     // Don't fetch predictions if a venue has already been selected
     if (hasSelectedVenue) {
-      console.log('Skipping debounced search - venue already selected');
       return;
     }
     
     const timeoutId = setTimeout(() => {
-      console.log('Triggering fetchPredictions with query:', query);
       fetchPredictions(query);
     }, 300);
 
@@ -278,28 +274,22 @@ export function VenueAutocomplete({
           value={query}
           onChange={(e) => {
             const newValue = e.target.value;
-            console.log('Input onChange:', { newValue, initialValue, hasSelectedVenue });
             setQuery(newValue);
             
             // Only reset venue selection if user is actually changing the text
             // Don't reset if they're just focusing or the value is the same
             if (newValue !== initialValue) {
-              console.log('Resetting hasSelectedVenue to false');
               setHasSelectedVenue(false);
             }
           }}
           onFocus={() => {
-            console.log('Input onFocus:', { hasSelectedVenue, initialValue, query });
-            // Never show predictions if a venue is already selected OR if there's an initial value
+            // Don't auto-show dropdown on focus if venue already selected
+            // User can still edit the field, but dropdown only appears when they type
             if (hasSelectedVenue || (initialValue && initialValue.trim().length > 0)) {
-              console.log('Preventing focus dropdown - venue already selected');
-              // Immediately blur to prevent any focus state
-              if (inputRef.current) {
-                inputRef.current.blur();
-              }
               return;
             }
             
+            // Only auto-show dropdown for new searches
             if (query.length >= 3) {
               setShowPredictions(true);
             }

@@ -293,12 +293,12 @@ router.post('/leads/public/:slug/submit', async (req, res) => {
       phone: formData.leadPhoneNumber || '',
       address: '', // Leave personal address blank 
       company: '',
-      // Map venue location to venue address fields
+      // Map venue location to venue address fields - now includes all address components
       venueAddress: formData.eventLocation || '',
-      venueCity: null,
-      venueState: null,
-      venueZipCode: null,
-      venueCountry: null,
+      venueCity: formData.eventLocationCity || null,
+      venueState: formData.eventLocationState || null,
+      venueZipCode: formData.eventLocationZipCode || null,
+      venueCountry: formData.eventLocationCountry || null,
       notes: `Auto-created from lead form: ${formData.nothing || ''}`
     };
 

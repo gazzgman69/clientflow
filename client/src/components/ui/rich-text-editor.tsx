@@ -5,10 +5,11 @@ import Placeholder from '@tiptap/extension-placeholder';
 import Typography from '@tiptap/extension-typography';
 import Underline from '@tiptap/extension-underline';
 import { TextStyle } from '@tiptap/extension-text-style';
-import { forwardRef, useImperativeHandle } from 'react';
+import { forwardRef, useImperativeHandle, useId } from 'react';
 import { Button } from '@/components/ui/button';
 import { Toggle } from '@/components/ui/toggle';
 import { Separator } from '@/components/ui/separator';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import {
   Bold,
@@ -43,8 +44,10 @@ export interface RichTextEditorRef {
   insertToken: (token: string) => void;
 }
 
-export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(
-  ({ content = '', onChange, placeholder = 'Start typing...', className = '', minHeight = '200px', disabled = false, onFocus, onBlur }, ref) => {
+const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(
+  (props, ref) => {
+    const { content = '', onChange, placeholder = 'Start typing...', className = '', minHeight = '200px', disabled = false, onFocus, onBlur } = props;
+    const contentId = useId();
     const editor = useEditor({
       extensions: [
         StarterKit.configure({
@@ -145,6 +148,11 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
             'focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2',
             disabled && 'cursor-not-allowed opacity-50'
           ),
+          role: 'textbox',
+          'aria-multiline': 'true',
+          'aria-label': placeholder,
+          'aria-disabled': disabled ? 'true' : 'false',
+          id: contentId,
         },
         handleKeyDown: (view, event) => {
           // Handle keyboard shortcuts
@@ -271,126 +279,211 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
     };
 
     return (
-      <div className={cn('w-full', className)}>
-        {/* Toolbar */}
-        <div className="flex flex-wrap items-center gap-1 p-2 border border-input rounded-t-md bg-muted/30 dark:bg-muted/20 max-w-full overflow-hidden sm:flex-row">
+      <TooltipProvider>
+        <div className={cn('w-full', className)}>
+          {/* Toolbar */}
+          <div 
+            className="flex flex-wrap items-center gap-1 p-2 border border-input rounded-t-md bg-muted/30 dark:bg-muted/20 max-w-full overflow-hidden sm:flex-row" 
+            role="toolbar" 
+            aria-label="Text formatting toolbar"
+            aria-controls={contentId}
+            aria-disabled={disabled}
+          >
           {/* Text formatting */}
           <div className="flex items-center gap-1 min-w-0 flex-shrink-0">
-            <Toggle
-              size="sm"
-              pressed={editor.isActive('bold')}
-              onPressedChange={() => editor.chain().focus().toggleBold().run()}
-              aria-label="Bold"
-              data-testid="rte-bold"
-            >
-              <Bold className="h-4 w-4" />
-            </Toggle>
-            <Toggle
-              size="sm"
-              pressed={editor.isActive('italic')}
-              onPressedChange={() => editor.chain().focus().toggleItalic().run()}
-              aria-label="Italic"
-              data-testid="rte-italic"
-            >
-              <Italic className="h-4 w-4" />
-            </Toggle>
-            <Toggle
-              size="sm"
-              pressed={editor.isActive('underline')}
-              onPressedChange={() => editor.chain().focus().toggleUnderline().run()}
-              aria-label="Underline"
-              data-testid="rte-underline"
-            >
-              <UnderlineIcon className="h-4 w-4" />
-            </Toggle>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Toggle
+                  size="sm"
+                  pressed={editor.isActive('bold')}
+                  onPressedChange={() => editor.chain().focus().toggleBold().run()}
+                  disabled={disabled}
+                  aria-label="Bold"
+                  data-testid="rte-bold"
+                >
+                  <Bold className="h-4 w-4" />
+                </Toggle>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Bold (Ctrl+B)</p>
+              </TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Toggle
+                  size="sm"
+                  pressed={editor.isActive('italic')}
+                  onPressedChange={() => editor.chain().focus().toggleItalic().run()}
+                  disabled={disabled}
+                  aria-label="Italic"
+                  data-testid="rte-italic"
+                >
+                  <Italic className="h-4 w-4" />
+                </Toggle>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Italic (Ctrl+I)</p>
+              </TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Toggle
+                  size="sm"
+                  pressed={editor.isActive('underline')}
+                  onPressedChange={() => editor.chain().focus().toggleUnderline().run()}
+                  disabled={disabled}
+                  aria-label="Underline"
+                  data-testid="rte-underline"
+                >
+                  <UnderlineIcon className="h-4 w-4" />
+                </Toggle>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Underline (Ctrl+U)</p>
+              </TooltipContent>
+            </Tooltip>
           </div>
 
           <Separator orientation="vertical" className="h-6 hidden sm:block" />
 
           {/* Link */}
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={addLink}
-            className={cn(editor.isActive('link') && 'bg-muted dark:bg-muted/70')}
-            aria-label="Add Link"
-            data-testid="rte-link"
-          >
-            <Link2 className="h-4 w-4" />
-          </Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={addLink}
+                disabled={disabled}
+                className={cn(editor.isActive('link') && 'bg-muted dark:bg-muted/70')}
+                aria-label="Add Link"
+                data-testid="rte-link"
+              >
+                <Link2 className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Add Link (Ctrl+K)</p>
+            </TooltipContent>
+          </Tooltip>
 
           <Separator orientation="vertical" className="h-6 hidden sm:block" />
 
           {/* Lists */}
           <div className="flex items-center gap-1 min-w-0 flex-shrink-0">
-            <Toggle
-              size="sm"
-              pressed={editor.isActive('bulletList')}
-              onPressedChange={() => editor.chain().focus().toggleBulletList().run()}
-              aria-label="Bullet List"
-              data-testid="rte-bullet-list"
-            >
-              <List className="h-4 w-4" />
-            </Toggle>
-            <Toggle
-              size="sm"
-              pressed={editor.isActive('orderedList')}
-              onPressedChange={() => editor.chain().focus().toggleOrderedList().run()}
-              aria-label="Numbered List"
-              data-testid="rte-ordered-list"
-            >
-              <ListOrdered className="h-4 w-4" />
-            </Toggle>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Toggle
+                  size="sm"
+                  pressed={editor.isActive('bulletList')}
+                  onPressedChange={() => editor.chain().focus().toggleBulletList().run()}
+                  disabled={disabled}
+                  aria-label="Bullet List"
+                  data-testid="rte-bullet-list"
+                >
+                  <List className="h-4 w-4" />
+                </Toggle>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Bullet List</p>
+              </TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Toggle
+                  size="sm"
+                  pressed={editor.isActive('orderedList')}
+                  onPressedChange={() => editor.chain().focus().toggleOrderedList().run()}
+                  disabled={disabled}
+                  aria-label="Numbered List"
+                  data-testid="rte-ordered-list"
+                >
+                  <ListOrdered className="h-4 w-4" />
+                </Toggle>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Numbered List</p>
+              </TooltipContent>
+            </Tooltip>
           </div>
 
           <Separator orientation="vertical" className="h-6 hidden sm:block" />
 
           {/* Block elements */}
           <div className="flex items-center gap-1 min-w-0 flex-shrink-0">
-            <Toggle
-              size="sm"
-              pressed={editor.isActive('blockquote')}
-              onPressedChange={() => editor.chain().focus().toggleBlockquote().run()}
-              aria-label="Quote"
-              data-testid="rte-blockquote"
-            >
-              <Quote className="h-4 w-4" />
-            </Toggle>
-            <Toggle
-              size="sm"
-              pressed={editor.isActive('code')}
-              onPressedChange={() => editor.chain().focus().toggleCode().run()}
-              aria-label="Inline Code"
-              data-testid="rte-code"
-            >
-              <Code className="h-4 w-4" />
-            </Toggle>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Toggle
+                  size="sm"
+                  pressed={editor.isActive('blockquote')}
+                  onPressedChange={() => editor.chain().focus().toggleBlockquote().run()}
+                  disabled={disabled}
+                  aria-label="Quote"
+                  data-testid="rte-blockquote"
+                >
+                  <Quote className="h-4 w-4" />
+                </Toggle>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Quote Block</p>
+              </TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Toggle
+                  size="sm"
+                  pressed={editor.isActive('code')}
+                  onPressedChange={() => editor.chain().focus().toggleCode().run()}
+                  disabled={disabled}
+                  aria-label="Inline Code"
+                  data-testid="rte-code"
+                >
+                  <Code className="h-4 w-4" />
+                </Toggle>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Inline Code</p>
+              </TooltipContent>
+            </Tooltip>
           </div>
 
           <Separator orientation="vertical" className="h-6 hidden sm:block" />
 
           {/* Undo/Redo */}
           <div className="flex items-center gap-1 min-w-0 flex-shrink-0 ml-auto">
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={() => editor.chain().focus().undo().run()}
-              disabled={!editor.can().undo()}
-              aria-label="Undo"
-              data-testid="rte-undo"
-            >
-              <Undo className="h-4 w-4" />
-            </Button>
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={() => editor.chain().focus().redo().run()}
-              disabled={!editor.can().redo()}
-              aria-label="Redo"
-              data-testid="rte-redo"
-            >
-              <Redo className="h-4 w-4" />
-            </Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => editor.chain().focus().undo().run()}
+                  disabled={disabled || !editor.can().undo()}
+                  aria-label="Undo"
+                  data-testid="rte-undo"
+                >
+                  <Undo className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Undo (Ctrl+Z)</p>
+              </TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => editor.chain().focus().redo().run()}
+                  disabled={disabled || !editor.can().redo()}
+                  aria-label="Redo"
+                  data-testid="rte-redo"
+                >
+                  <Redo className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Redo (Ctrl+Y)</p>
+              </TooltipContent>
+            </Tooltip>
           </div>
         </div>
 
@@ -400,8 +493,11 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
           className="rounded-b-md border-x border-b border-input dark:border-input"
         />
       </div>
+      </TooltipProvider>
     );
   }
 );
 
 RichTextEditor.displayName = 'RichTextEditor';
+
+export { RichTextEditor };

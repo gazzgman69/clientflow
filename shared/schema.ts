@@ -27,26 +27,6 @@ export const userPrefs = pgTable("user_prefs", {
   };
 });
 
-export const leads = pgTable("leads", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  firstName: text("first_name").notNull(),
-  lastName: text("last_name").notNull(),
-  email: text("email").notNull(),
-  phone: text("phone"),
-  company: text("company"),
-  leadSource: text("lead_source"),
-  estimatedValue: decimal("estimated_value", { precision: 10, scale: 2 }),
-  status: text("status").notNull().default('new'), // new, qualified, follow-up, converted, lost
-  notes: text("notes"),
-  assignedTo: varchar("assigned_to").references(() => users.id),
-  lastContactAt: timestamp("last_contact_at"), // updated on outbound email or logged call
-  lastManualStatusAt: timestamp("last_manual_status_at"), // set when status changed by a user
-  projectDate: timestamp("project_date"), // event/project date from form
-  lastViewedAt: timestamp("last_viewed_at"), // when user last viewed this lead
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
-});
-
 export const contacts = pgTable("contacts", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   firstName: text("first_name").notNull(),
@@ -68,11 +48,11 @@ export const contacts = pgTable("contacts", {
   venueState: text("venue_state"),
   venueZipCode: text("venue_zip_code"),
   venueCountry: text("venue_country"),
-  venueId: varchar("venue_id").references(() => venues.id),
+  venueId: varchar("venue_id"),
   tags: text("tags").array(),
   leadSource: text("lead_source"),
   notes: text("notes"),
-  leadId: varchar("lead_id").references(() => leads.id),
+  leadId: varchar("lead_id"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -89,6 +69,27 @@ export const projects = pgTable("projects", {
   estimatedValue: decimal("estimated_value", { precision: 10, scale: 2 }),
   actualValue: decimal("actual_value", { precision: 10, scale: 2 }),
   assignedTo: varchar("assigned_to").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const leads = pgTable("leads", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  firstName: text("first_name").notNull(),
+  lastName: text("last_name").notNull(),
+  email: text("email").notNull(),
+  phone: text("phone"),
+  company: text("company"),
+  leadSource: text("lead_source"),
+  estimatedValue: decimal("estimated_value", { precision: 10, scale: 2 }),
+  status: text("status").notNull().default('new'), // new, qualified, follow-up, converted, lost
+  notes: text("notes"),
+  assignedTo: varchar("assigned_to").references(() => users.id),
+  projectId: varchar("project_id").references(() => projects.id),
+  lastContactAt: timestamp("last_contact_at"), // updated on outbound email or logged call
+  lastManualStatusAt: timestamp("last_manual_status_at"), // set when status changed by a user
+  projectDate: timestamp("project_date"), // event/project date from form
+  lastViewedAt: timestamp("last_viewed_at"), // when user last viewed this lead
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });

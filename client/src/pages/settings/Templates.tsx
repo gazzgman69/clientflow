@@ -215,7 +215,7 @@ export default function TemplatesPage() {
   const handleNewTemplate = () => {
     setEditingTemplate(null);
     form.reset({
-      type: activeType,
+      type: 'auto_responder',
       title: '',
       subject: '',
       body: '',
@@ -431,7 +431,7 @@ export default function TemplatesPage() {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Template Type</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value} disabled={!!editingTemplate}>
+                        <Select onValueChange={field.onChange} value={field.value}>
                           <FormControl>
                             <SelectTrigger data-testid="select-template-type">
                               <SelectValue placeholder="Select template type" />

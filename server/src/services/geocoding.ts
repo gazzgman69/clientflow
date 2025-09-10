@@ -33,6 +33,21 @@ export interface GooglePlaceDetailsResponse {
   status: string;
 }
 
+export interface PlacePrediction {
+  place_id: string;
+  description: string;
+  structured_formatting: {
+    main_text: string;
+    secondary_text: string;
+  };
+  types: string[];
+}
+
+export interface GooglePlacePredictionsResponse {
+  predictions: PlacePrediction[];
+  status: string;
+}
+
 export class GeocodingService {
   private apiKey: string;
 
@@ -40,6 +55,44 @@ export class GeocodingService {
     this.apiKey = process.env.GOOGLE_MAPS_API_KEY!;
     if (!this.apiKey) {
       throw new Error('GOOGLE_MAPS_API_KEY environment variable is required');
+    }
+  }
+
+  /**
+   * Get place predictions for autocomplete
+   */
+  async getPlacePredictions(input: string, options: {
+    sessionToken?: string;
+    types?: string[];
+  } = {}): Promise<PlacePrediction[]> {
+    const params = new URLSearchParams({
+      input,
+      key: this.apiKey
+    });
+
+    if (options.sessionToken) {
+      params.append('sessiontoken', options.sessionToken);
+    }
+
+    if (options.types && options.types.length > 0) {
+      params.append('types', options.types.join('|'));
+    }
+
+    const url = `https://maps.googleapis.com/maps/api/place/autocomplete/json?${params}`;
+
+    try {
+      const response = await fetch(url);
+      const data = await response.json() as GooglePlacePredictionsResponse;
+
+      if (data.status !== 'OK') {
+        console.error('Google Places Autocomplete API error:', data.status);
+        return [];
+      }
+
+      return data.predictions;
+    } catch (error) {
+      console.error('Error fetching place predictions:', error);
+      throw new Error('Failed to fetch place predictions from Google Places API');
     }
   }
 

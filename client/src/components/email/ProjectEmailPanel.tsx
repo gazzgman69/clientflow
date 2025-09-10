@@ -451,18 +451,8 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
                   data-testid="input-email-subject"
                 />
               </div>
-              <div>
-                <Label htmlFor="email-message">Message</Label>
-                <Textarea
-                  id="email-message"
-                  ref={messageTextareaRef}
-                  value={message}
-                  onChange={(e) => setMessage(e.target.value)}
-                  placeholder="Enter your message..."
-                  rows={6}
-                  data-testid="textarea-email-message"
-                />
-              </div>
+              
+              {/* Insert Token, Signature, and Templates - moved above compose email box */}
               <div className="flex gap-2 items-center">
                 {/* Token Dropdown - moved to left */}
                 <TokenDropdown
@@ -532,9 +522,24 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
                   data-testid="button-select-template"
                 >
                   <FileText className="h-4 w-4 mr-2" />
-                  Templates
+                  Template
                 </Button>
-                
+              </div>
+
+              <div>
+                <Label htmlFor="email-message">Message</Label>
+                <Textarea
+                  id="email-message"
+                  ref={messageTextareaRef}
+                  value={message}
+                  onChange={(e) => setMessage(e.target.value)}
+                  placeholder="Enter your message..."
+                  rows={6}
+                  data-testid="textarea-email-message"
+                />
+              </div>
+              
+              <div className="flex gap-2 items-center">
                 <Button 
                   onClick={handleSendEmail} 
                   disabled={sendEmailMutation.isPending}

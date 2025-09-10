@@ -281,6 +281,14 @@ export default function VenuesPage() {
     if (selectedPlace.country) {
       form.setValue('country', selectedPlace.country, { shouldDirty: true, shouldValidate: true });
     }
+    
+    // Close the dialog immediately since venue was already created by Google Places
+    setIsDialogOpen(false);
+    queryClient.invalidateQueries({ queryKey: ["/api/venues"] });
+    toast({
+      title: "Success",
+      description: "Venue added from Google Places",
+    });
   };
 
   if (isLoading) {

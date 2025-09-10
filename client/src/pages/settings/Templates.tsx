@@ -1,10 +1,11 @@
 import { useState, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, Edit2, Trash2, Eye, AlertTriangle } from 'lucide-react';
+import { Plus, Edit2, Trash2, Eye, AlertTriangle, ChevronDown, PenTool, Loader2, FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -19,7 +20,6 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { TokenDropdown } from '@/components/ui/token-dropdown';
 import { insertTokenIntoValue } from '@/utils/cursor-utils';
-import { FileText } from 'lucide-react';
 import { z } from 'zod';
 
 interface Template {
@@ -69,6 +69,14 @@ interface Project {
 interface TokenPreviewResult {
   rendered: string;
   unresolved: string[];
+}
+
+interface EmailSignature {
+  id: string;
+  name: string;
+  content: string;
+  isDefault: boolean;
+  isActive: boolean;
 }
 
 export default function TemplatesPage() {
@@ -143,6 +151,17 @@ export default function TemplatesPage() {
     queryKey: ['/api/projects'],
     queryFn: async () => {
       const response = await fetch('/api/projects', {
+        headers: { 'user-id': 'test-user' }
+      });
+      return response.json();
+    },
+  });
+
+  // Fetch signatures for signature dropdown
+  const { data: emailSignatures = [], isLoading: signaturesLoading } = useQuery<EmailSignature[]>({
+    queryKey: ['/api/signatures'],
+    queryFn: async () => {
+      const response = await fetch('/api/signatures', {
         headers: { 'user-id': 'test-user' }
       });
       return response.json();
@@ -512,19 +531,63 @@ export default function TemplatesPage() {
                               }}
                               size="sm"
                             />
-                            <Button 
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={() => {
-                                // Add signature functionality here
-                                console.log('Signature button clicked');
-                              }}
-                              data-testid="button-insert-signature"
-                            >
-                              <FileText className="h-4 w-4 mr-2" />
-                              Signature
-                            </Button>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button 
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  data-testid="button-insert-signature"
+                                >
+                                  <PenTool className="h-4 w-4 mr-2" />
+                                  Signature
+                                  <ChevronDown className="h-4 w-4 ml-1" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="start" className="w-56">
+                                {signaturesLoading ? (
+                                  <div className="flex items-center justify-center py-2">
+                                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                                    Loading...
+                                  </div>
+                                ) : emailSignatures?.length === 0 ? (
+                                  <div className="text-center py-2 text-muted-foreground text-sm">
+                                    No signatures found
+                                  </div>
+                                ) : (
+                                  emailSignatures?.map((signature: EmailSignature) => (
+                                    <DropdownMenuItem 
+                                      key={signature.id}
+                                      onClick={() => {
+                                        if (bodyTextareaRef.current) {
+                                          const textarea = bodyTextareaRef.current;
+                                          const cursorPosition = textarea.selectionStart || textarea.value.length;
+                                          const currentValue = field.value || '';
+                                          const signatureText = `\n\n${signature.content}`;
+                                          const { newValue, newCursorPosition } = insertTokenIntoValue(currentValue, signatureText, cursorPosition);
+                                          field.onChange(newValue);
+                                          // Restore cursor position after React updates the DOM
+                                          setTimeout(() => {
+                                            if (textarea) {
+                                              textarea.setSelectionRange(newCursorPosition, newCursorPosition);
+                                              textarea.focus();
+                                            }
+                                          }, 0);
+                                        }
+                                      }}
+                                      data-testid={`dropdown-signature-${signature.id}`}
+                                    >
+                                      <div className="flex flex-col">
+                                        <span className="font-medium">{signature.name}</span>
+                                        {signature.isDefault && (
+                                          <span className="text-xs text-muted-foreground">Default</span>
+                                        )}
+                                      </div>
+                                    </DropdownMenuItem>
+                                  ))
+                                )}
+                              </DropdownMenuContent>
+                            </DropdownMenu>
                           </div>
                           <div></div>
                         </div>

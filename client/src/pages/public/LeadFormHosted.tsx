@@ -234,8 +234,8 @@ export default function LeadFormHosted({ slug }: LeadFormHostedProps) {
         return (
           <VenueAutocomplete
             onVenueSelect={(venue) => {
-              // Store the full venue data as JSON string or formatted address
-              const addressValue = `${venue.name}, ${venue.address1}${venue.address2 ? ', ' + venue.address2 : ''}, ${venue.city}, ${venue.state} ${venue.postalCode}`;
+              // Store the full venue data as a formatted address
+              const addressValue = venue.address || `${venue.name}`;
               handleInputChange(question.mapTo, addressValue);
             }}
             placeholder="Search for venues or enter an address..."

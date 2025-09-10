@@ -1,9 +1,39 @@
 import { Router } from 'express';
 import { venuesService } from '../services/venues';
+import { geocodingService } from '../services/geocoding';
 import { insertVenueSchema } from '@shared/schema';
 import { z } from 'zod';
 
 const router = Router();
+
+// POST /api/venues/autocomplete - Get place predictions
+router.post('/autocomplete', async (req, res) => {
+  try {
+    const validatedData = autocompleteSchema.parse(req.body);
+    
+    const predictions = await geocodingService.getPlacePredictions(
+      validatedData.input,
+      {
+        sessionToken: validatedData.sessionToken,
+        types: validatedData.types
+      }
+    );
+    
+    res.json({ predictions });
+  } catch (error) {
+    console.error('Error getting place predictions:', error);
+    if (error instanceof z.ZodError) {
+      res.status(400).json({ 
+        message: 'Validation error', 
+        errors: error.errors 
+      });
+    } else {
+      res.status(500).json({ 
+        message: error instanceof Error ? error.message : 'Failed to get place predictions'
+      });
+    }
+  }
+});
 
 // Schema for Google Places venue creation
 const createFromGoogleSchema = z.object({
@@ -19,6 +49,13 @@ const createMinimalSchema = z.object({
   state: z.string().optional(),
   zipCode: z.string().optional(),
   country: z.string().optional()
+});
+
+// Schema for autocomplete request
+const autocompleteSchema = z.object({
+  input: z.string().min(1, 'Search input is required'),
+  sessionToken: z.string().optional(),
+  types: z.array(z.string()).optional()
 });
 
 // POST /api/venues/from-google - Create venue from Google Place

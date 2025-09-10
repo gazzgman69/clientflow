@@ -29,7 +29,9 @@ export const userPrefs = pgTable("user_prefs", {
 
 export const contacts = pgTable("contacts", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  fullName: text("full_name"),
   firstName: text("first_name").notNull(),
+  middleName: text("middle_name"),
   lastName: text("last_name").notNull(),
   email: text("email").notNull(),
   phone: text("phone"),
@@ -76,7 +78,9 @@ export const projects = pgTable("projects", {
 
 export const leads = pgTable("leads", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  fullName: text("full_name"),
   firstName: text("first_name").notNull(),
+  middleName: text("middle_name"),
   lastName: text("last_name").notNull(),
   email: text("email").notNull(),
   phone: text("phone"),

@@ -96,17 +96,30 @@ router.get('/admin/lead-forms/:id', requireAuth, async (req, res) => {
       return res.status(404).json({ error: 'Lead form not found' });
     }
 
-    // For now, return form with default questions
-    // In a full implementation, you'd fetch questions from a separate table
-    const defaultQuestions = [
-      { id: '1', type: 'text', label: 'Name', required: true, mapTo: 'leadName', orderIndex: 0 },
-      { id: '2', type: 'email', label: 'Email Address', required: true, mapTo: 'leadEmail', orderIndex: 1 },
-      { id: '3', type: 'tel', label: 'Phone Number', required: true, mapTo: 'leadPhoneNumber', orderIndex: 2 },
-      { id: '4', type: 'select', label: 'Event Type', required: true, mapTo: 'whatKindOfEventIsIt', orderIndex: 3, options: 'Wedding,Private,Corporate,Other' },
-      { id: '5', type: 'text', label: 'Event Location (Full address if possible please)', required: true, mapTo: 'eventLocation', orderIndex: 4 },
-      { id: '6', type: 'date', label: 'Event Date', required: true, mapTo: 'projectDate', orderIndex: 5 },
-      { id: '7', type: 'textarea', label: 'Message', required: false, mapTo: 'nothing', orderIndex: 6 }
-    ];
+    // Parse questions from form or use default questions
+    let questions;
+    if (form.questions) {
+      try {
+        questions = JSON.parse(form.questions);
+      } catch (e) {
+        console.error('Error parsing questions:', e);
+        questions = getDefaultQuestions();
+      }
+    } else {
+      questions = getDefaultQuestions();
+    }
+
+    function getDefaultQuestions() {
+      return [
+        { id: '1', type: 'text', label: 'Name', required: true, mapTo: 'leadName', orderIndex: 0 },
+        { id: '2', type: 'email', label: 'Email Address', required: true, mapTo: 'leadEmail', orderIndex: 1 },
+        { id: '3', type: 'tel', label: 'Phone Number', required: true, mapTo: 'leadPhoneNumber', orderIndex: 2 },
+        { id: '4', type: 'select', label: 'Event Type', required: true, mapTo: 'whatKindOfEventIsIt', orderIndex: 3, options: 'Wedding,Private,Corporate,Other' },
+        { id: '5', type: 'text', label: 'Event Location (Full address if possible please)', required: true, mapTo: 'eventLocation', orderIndex: 4 },
+        { id: '6', type: 'date', label: 'Event Date', required: true, mapTo: 'projectDate', orderIndex: 5 },
+        { id: '7', type: 'textarea', label: 'Message', required: false, mapTo: 'nothing', orderIndex: 6 }
+      ];
+    }
 
     res.json({
       form: {
@@ -126,7 +139,7 @@ router.get('/admin/lead-forms/:id', requireAuth, async (req, res) => {
         transparency: 'We will use this information to contact you about our services.',
         updatedAt: form.updatedAt
       },
-      questions: defaultQuestions
+      questions: questions
     });
   } catch (error) {
     console.error('Error fetching lead form:', error);
@@ -173,8 +186,10 @@ router.patch('/admin/lead-forms/:id', requireAuth, async (req, res) => {
 
     const updatedForm = await storage.updateLeadCaptureForm(id, updateData);
     
-    // TODO: Handle questions update in a real implementation
-    // For now, just acknowledge the questions were received
+    // Handle questions update
+    if (questions) {
+      updateData.questions = JSON.stringify(questions);
+    }
     
     res.json({ ok: true, slug: updatedForm?.slug });
   } catch (error) {
@@ -212,16 +227,30 @@ router.get('/leads/public/:slug', async (req, res) => {
       return res.status(404).json({ error: 'Form not found' });
     }
 
-    // Return public form data with questions
-    const defaultQuestions = [
-      { id: '1', type: 'text', label: 'Name', required: true, mapTo: 'leadName', orderIndex: 0 },
-      { id: '2', type: 'email', label: 'Email Address', required: true, mapTo: 'leadEmail', orderIndex: 1 },
-      { id: '3', type: 'tel', label: 'Phone Number', required: true, mapTo: 'leadPhoneNumber', orderIndex: 2 },
-      { id: '4', type: 'select', label: 'Event Type', required: true, mapTo: 'whatKindOfEventIsIt', orderIndex: 3, options: 'Wedding,Private,Corporate,Other' },
-      { id: '5', type: 'text', label: 'Event Location (Full address if possible please)', required: true, mapTo: 'eventLocation', orderIndex: 4 },
-      { id: '6', type: 'date', label: 'Event Date', required: true, mapTo: 'projectDate', orderIndex: 5 },
-      { id: '7', type: 'textarea', label: 'Message', required: false, mapTo: 'nothing', orderIndex: 6 }
-    ];
+    // Parse questions from form or use default questions
+    let questions;
+    if (form.questions) {
+      try {
+        questions = JSON.parse(form.questions);
+      } catch (e) {
+        console.error('Error parsing questions:', e);
+        questions = getDefaultQuestions();
+      }
+    } else {
+      questions = getDefaultQuestions();
+    }
+
+    function getDefaultQuestions() {
+      return [
+        { id: '1', type: 'text', label: 'Name', required: true, mapTo: 'leadName', orderIndex: 0 },
+        { id: '2', type: 'email', label: 'Email Address', required: true, mapTo: 'leadEmail', orderIndex: 1 },
+        { id: '3', type: 'tel', label: 'Phone Number', required: true, mapTo: 'leadPhoneNumber', orderIndex: 2 },
+        { id: '4', type: 'select', label: 'Event Type', required: true, mapTo: 'whatKindOfEventIsIt', orderIndex: 3, options: 'Wedding,Private,Corporate,Other' },
+        { id: '5', type: 'text', label: 'Event Location (Full address if possible please)', required: true, mapTo: 'eventLocation', orderIndex: 4 },
+        { id: '6', type: 'date', label: 'Event Date', required: true, mapTo: 'projectDate', orderIndex: 5 },
+        { id: '7', type: 'textarea', label: 'Message', required: false, mapTo: 'nothing', orderIndex: 6 }
+      ];
+    }
 
     res.json({
       form: {
@@ -231,7 +260,7 @@ router.get('/leads/public/:slug', async (req, res) => {
         recaptchaEnabled: form.recaptchaEnabled,
         transparency: 'We will use this information to contact you about our services.'
       },
-      questions: defaultQuestions
+      questions: questions
     });
   } catch (error) {
     console.error('Error fetching public form:', error);

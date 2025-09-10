@@ -42,8 +42,13 @@ export class VenuesService {
       if (!existingVenue.longitude) updates.longitude = details.longitude.toString();
 
       if (Object.keys(updates).length > 0) {
-        const updatedVenue = await storage.updateVenue(existingVenue.id, updates);
-        return updatedVenue!;
+        try {
+          const updatedVenue = await storage.updateVenue(existingVenue.id, updates);
+          return updatedVenue!;
+        } catch (error) {
+          console.warn('Failed to update existing venue, returning existing venue:', error);
+          return existingVenue;
+        }
       }
       return existingVenue;
     }

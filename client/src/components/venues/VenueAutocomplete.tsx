@@ -154,13 +154,46 @@ export function VenueAutocomplete({
       setSessionToken(generateSessionToken());
     } catch (error) {
       console.error('Error selecting venue:', error);
-      // Fallback to basic venue data
-      const basicVenue: SelectedVenue = {
-        placeId: prediction.place_id,
-        name: prediction.structured_formatting.main_text,
-        address: prediction.description
-      };
-      onVenueSelect(basicVenue);
+      // Fallback: Try to get venue details directly from Google if venue creation failed
+      try {
+        const directResponse = await fetch('/api/venues/place-details', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            placeId: prediction.place_id,
+            sessionToken
+          }),
+        });
+        
+        if (directResponse.ok) {
+          const placeDetails = await directResponse.json();
+          const detailedVenue: SelectedVenue = {
+            placeId: prediction.place_id,
+            name: placeDetails.name || prediction.structured_formatting.main_text,
+            address: placeDetails.address1 || prediction.description,
+            city: placeDetails.city,
+            state: placeDetails.state,
+            zipCode: placeDetails.postalCode,
+            country: placeDetails.countryCode,
+            latitude: placeDetails.latitude,
+            longitude: placeDetails.longitude,
+          };
+          onVenueSelect(detailedVenue);
+        } else {
+          throw new Error('Failed to get place details');
+        }
+      } catch (fallbackError) {
+        console.error('Fallback venue selection also failed:', fallbackError);
+        // Final fallback to basic venue data
+        const basicVenue: SelectedVenue = {
+          placeId: prediction.place_id,
+          name: prediction.structured_formatting.main_text,
+          address: prediction.description
+        };
+        onVenueSelect(basicVenue);
+      }
     } finally {
       setIsLoading(false);
     }

@@ -81,6 +81,26 @@ router.post('/from-google', async (req, res) => {
   }
 });
 
+// POST /api/venues/place-details - Get place details without creating venue
+router.post('/place-details', async (req, res) => {
+  try {
+    const { placeId, sessionToken } = req.body;
+    
+    if (!placeId) {
+      return res.status(400).json({ message: 'placeId is required' });
+    }
+    
+    const placeDetails = await geocodingService.getPlaceDetails(placeId, sessionToken);
+    res.json(placeDetails);
+  } catch (error) {
+    console.error('Error getting place details:', error);
+    res.status(500).json({ 
+      message: 'Failed to get place details',
+      error: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
+
 // POST /api/venues/minimal - Create minimal venue manually
 router.post('/minimal', async (req, res) => {
   try {

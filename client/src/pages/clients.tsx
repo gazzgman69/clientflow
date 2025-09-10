@@ -91,7 +91,12 @@ export default function Contacts() {
 
   const deleteContactMutation = useMutation({
     mutationFn: async (contactId: string) => {
-      return await apiRequest("DELETE", `/api/contacts/${contactId}`);
+      const response = await apiRequest("DELETE", `/api/contacts/${contactId}`);
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw errorData;
+      }
+      return response;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/contacts"] });
@@ -101,10 +106,10 @@ export default function Contacts() {
         description: "The contact has been successfully deleted.",
       });
     },
-    onError: () => {
+    onError: (error: any) => {
       toast({
-        title: "Error",
-        description: "Failed to delete contact. Please try again.",
+        title: "Cannot delete contact",
+        description: error.details || error.message || "Failed to delete contact. Please try again.",
         variant: "destructive",
       });
     },

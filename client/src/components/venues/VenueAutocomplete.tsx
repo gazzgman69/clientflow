@@ -172,10 +172,15 @@ export function VenueAutocomplete({
 
       onVenueSelect(selectedVenue);
       
-      // Mark venue as selected and hide predictions
+      // Mark venue as selected and hide predictions immediately
       setHasSelectedVenue(true);
       setShowPredictions(false);
       setPredictions([]);
+      
+      // Remove focus from input to prevent any further events
+      if (inputRef.current) {
+        inputRef.current.blur();
+      }
       
       // Generate new session token for next search
       setSessionToken(generateSessionToken());
@@ -209,10 +214,15 @@ export function VenueAutocomplete({
           };
           onVenueSelect(detailedVenue);
           
-          // Mark venue as selected and hide predictions
+          // Mark venue as selected and hide predictions immediately
           setHasSelectedVenue(true);
           setShowPredictions(false);
           setPredictions([]);
+          
+          // Remove focus from input to prevent any further events
+          if (inputRef.current) {
+            inputRef.current.blur();
+          }
         } else {
           throw new Error('Failed to get place details');
         }
@@ -226,10 +236,15 @@ export function VenueAutocomplete({
         };
         onVenueSelect(basicVenue);
         
-        // Mark venue as selected and hide predictions
+        // Mark venue as selected and hide predictions immediately
         setHasSelectedVenue(true);
         setShowPredictions(false);
         setPredictions([]);
+        
+        // Remove focus from input to prevent any further events
+        if (inputRef.current) {
+          inputRef.current.blur();
+        }
       }
     } finally {
       setIsLoading(false);

@@ -470,7 +470,7 @@ const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(
           )}
 
           {/* Undo/Redo */}
-          <div className="flex items-center gap-1 min-w-0 flex-shrink-0 ml-auto">
+          <div className="flex items-center gap-1 min-w-0 flex-shrink-0">
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button

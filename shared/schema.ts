@@ -62,6 +62,7 @@ export const projects = pgTable("projects", {
   name: text("name").notNull(),
   description: text("description"),
   contactId: varchar("contact_id").references(() => contacts.id).notNull(),
+  venueId: varchar("venue_id").references(() => venues.id),
   status: text("status").notNull().default('active'), // active, completed, on-hold, cancelled
   progress: integer("progress").default(0), // 0-100
   startDate: timestamp("start_date"),

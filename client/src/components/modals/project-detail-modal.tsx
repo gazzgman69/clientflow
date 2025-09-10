@@ -47,7 +47,7 @@ import { useToast } from "@/hooks/use-toast";
 import { formatDistanceToNow } from "date-fns";
 import type { 
   Project, Member, Venue, ProjectFile, 
-  ProjectNote, ProjectMember, Quote, Contract, Invoice, Client
+  ProjectNote, ProjectMember, Quote, Contract, Invoice
 } from "@shared/schema";
 import ProjectEmailPanel from "@/components/email/ProjectEmailPanel";
 
@@ -101,23 +101,24 @@ export default function ProjectDetailModal({ project, isOpen, onClose }: Project
 
   // Fetch documents for this project's client
   const { data: projectQuotes = [] } = useQuery<Quote[]>({
-    queryKey: ["/api/clients", project?.clientId, "quotes"],
-    enabled: isOpen && !!project && !!project.clientId,
+    queryKey: ["/api/contacts", project?.contactId, "quotes"],
+    enabled: isOpen && !!project && !!project.contactId,
   });
 
   const { data: projectContracts = [] } = useQuery<Contract[]>({
-    queryKey: ["/api/clients", project?.clientId, "contracts"],
-    enabled: isOpen && !!project && !!project.clientId,
+    queryKey: ["/api/contacts", project?.contactId, "contracts"],
+    enabled: isOpen && !!project && !!project.contactId,
   });
 
   const { data: projectInvoices = [] } = useQuery<Invoice[]>({
-    queryKey: ["/api/clients", project?.clientId, "invoices"],
-    enabled: isOpen && !!project && !!project.clientId,
+    queryKey: ["/api/contacts", project?.contactId, "invoices"],
+    enabled: isOpen && !!project && !!project.contactId,
   });
 
-  const { data: clients = [] } = useQuery<Client[]>({
-    queryKey: ["/api/clients"],
-    enabled: isOpen && !!project,
+  // Fetch venue information if project has a venue
+  const { data: projectVenue } = useQuery<Venue>({
+    queryKey: ["/api/venues", project?.venueId],
+    enabled: isOpen && !!project && !!project.venueId,
   });
 
   const noteForm = useForm<NoteFormData>({
@@ -235,9 +236,9 @@ export default function ProjectDetailModal({ project, isOpen, onClose }: Project
     },
     onSuccess: () => {
       // Invalidate all document queries to refresh the lists
-      queryClient.invalidateQueries({ queryKey: ["/api/clients", project?.clientId, "quotes"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/clients", project?.clientId, "contracts"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/clients", project?.clientId, "invoices"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/contacts", project?.contactId, "quotes"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/contacts", project?.contactId, "contracts"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/contacts", project?.contactId, "invoices"] });
       toast({
         title: "Success",
         description: "Document sent successfully!",
@@ -260,9 +261,9 @@ export default function ProjectDetailModal({ project, isOpen, onClose }: Project
     },
     onSuccess: () => {
       // Invalidate all document queries to refresh the lists
-      queryClient.invalidateQueries({ queryKey: ["/api/clients", project?.clientId, "quotes"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/clients", project?.clientId, "contracts"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/clients", project?.clientId, "invoices"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/contacts", project?.contactId, "quotes"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/contacts", project?.contactId, "contracts"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/contacts", project?.contactId, "invoices"] });
       toast({
         title: "Success",
         description: "Document status updated successfully!",
@@ -348,6 +349,39 @@ export default function ProjectDetailModal({ project, isOpen, onClose }: Project
                 <div>
                   <Label className="text-sm font-medium">Description</Label>
                   <p className="text-sm text-muted-foreground">{project.description}</p>
+                </div>
+              )}
+              
+              {/* Venue Information */}
+              {project.venueId && projectVenue && (
+                <div>
+                  <Label className="text-sm font-medium flex items-center gap-2">
+                    <MapPin className="h-4 w-4" />
+                    Venue
+                  </Label>
+                  <div className="mt-2">
+                    <div className="text-sm font-medium">{projectVenue.name}</div>
+                    {projectVenue.formattedAddress && (
+                      <div className="text-sm text-muted-foreground">
+                        {projectVenue.formattedAddress}
+                      </div>
+                    )}
+                    {projectVenue.latitude && projectVenue.longitude && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="mt-2"
+                        onClick={() => {
+                          const url = `https://www.google.com/maps/search/?api=1&query=${projectVenue.latitude},${projectVenue.longitude}`;
+                          window.open(url, '_blank');
+                        }}
+                        data-testid={`button-venue-maps-${project.id}`}
+                      >
+                        <MapPin className="h-4 w-4 mr-2" />
+                        Open in Maps
+                      </Button>
+                    )}
+                  </div>
                 </div>
               )}
             </CardContent>

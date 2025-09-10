@@ -22,16 +22,30 @@ import { formatDistanceToNow } from "date-fns";
 import type { Project, Contact } from "@shared/schema";
 import { z } from "zod";
 import ProjectDetailModal from "@/components/modals/project-detail-modal";
+import { VenueSelector } from "@/components/venues";
 
 const projectFormSchema = insertProjectSchema.extend({
   estimatedValue: z.string().optional(),
 });
+
+interface SelectedVenue {
+  placeId?: string;
+  name: string;
+  address: string;
+  city?: string;
+  state?: string;
+  zipCode?: string;
+  country?: string;
+  latitude?: number;
+  longitude?: number;
+}
 
 export default function Projects() {
   const [showProjectModal, setShowProjectModal] = useState(false);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
+  const [selectedVenue, setSelectedVenue] = useState<SelectedVenue | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -67,9 +81,42 @@ export default function Projects() {
 
   const createProjectMutation = useMutation({
     mutationFn: async (data: z.infer<typeof projectFormSchema>) => {
+      let venueId = null;
+      
+      // Create venue first if one is selected
+      if (selectedVenue) {
+        try {
+          let venueResponse;
+          
+          if (selectedVenue.placeId) {
+            // Create from Google Place
+            venueResponse = await apiRequest("POST", "/api/venues/from-google", {
+              placeId: selectedVenue.placeId
+            });
+          } else {
+            // Create minimal venue
+            venueResponse = await apiRequest("POST", "/api/venues/minimal", {
+              name: selectedVenue.name,
+              address: selectedVenue.address,
+              city: selectedVenue.city,
+              state: selectedVenue.state,
+              zipCode: selectedVenue.zipCode,
+              country: selectedVenue.country
+            });
+          }
+          
+          const venue = await venueResponse.json();
+          venueId = venue.id;
+        } catch (error) {
+          console.error('Error creating venue:', error);
+          // Continue without venue if creation fails
+        }
+      }
+      
       const projectData = {
         ...data,
         estimatedValue: data.estimatedValue ? parseFloat(data.estimatedValue) : null,
+        venueId,
       };
       const response = await apiRequest("POST", "/api/projects", projectData);
       return response.json();
@@ -82,6 +129,7 @@ export default function Projects() {
         description: "Project created successfully!",
       });
       form.reset();
+      setSelectedVenue(null);
       setShowProjectModal(false);
     },
     onError: () => {
@@ -136,6 +184,7 @@ export default function Projects() {
   const handleAddProject = () => {
     setEditingProject(null);
     form.reset();
+    setSelectedVenue(null);
     setShowProjectModal(true);
   };
 
@@ -358,6 +407,17 @@ export default function Projects() {
                   </FormItem>
                 )}
               />
+
+              {/* Venue Selection */}
+              <div className="space-y-2">
+                <VenueSelector
+                  onVenueSelect={setSelectedVenue}
+                  selectedVenue={selectedVenue}
+                  placeholder="Search for project venue..."
+                  allowManual={true}
+                  showMap={false}
+                />
+              </div>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <FormField

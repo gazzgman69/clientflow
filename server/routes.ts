@@ -563,21 +563,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.delete("/api/contacts/:id", async (req, res) => {
     try {
-      // Check if contact has associated projects
+      // Check if contact has associated projects and get their details
       const associatedProjects = await storage.getProjectsByContact(req.params.id);
+      
       if (associatedProjects.length > 0) {
-        return res.status(400).json({ 
-          message: "Cannot delete contact with associated projects", 
-          details: `This contact has ${associatedProjects.length} associated project(s). Please delete or reassign the projects first.`,
-          projectCount: associatedProjects.length
-        });
+        // Check if cascade deletion is requested
+        const cascade = req.query.cascade === 'true';
+        
+        if (!cascade) {
+          // Return info about what would be deleted
+          return res.status(400).json({ 
+            message: "Contact has associated projects", 
+            details: `This contact has ${associatedProjects.length} associated project(s). Use cascade=true to delete contact and all associated projects.`,
+            projectCount: associatedProjects.length,
+            projects: associatedProjects.map(p => ({ id: p.id, name: p.name, status: p.status })),
+            requiresCascade: true
+          });
+        }
+        
+        // Perform cascade deletion - delete projects first
+        for (const project of associatedProjects) {
+          await storage.deleteProject(project.id);
+        }
       }
 
+      // Delete the contact
       const deleted = await storage.deleteContact(req.params.id);
       if (!deleted) {
         return res.status(404).json({ message: "Contact not found" });
       }
-      res.status(204).send();
+      
+      res.json({ 
+        message: "Contact deleted successfully",
+        deletedProjects: associatedProjects.length,
+        projectNames: associatedProjects.map(p => p.name)
+      });
     } catch (error) {
       console.error('Error deleting contact:', error);
       res.status(500).json({ message: "Failed to delete contact", error: error.message });

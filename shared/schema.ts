@@ -207,6 +207,10 @@ export const emails = pgTable("emails", {
   hasAttachments: boolean("has_attachments").default(false),
   contactId: varchar("contact_id").references(() => contacts.id),
   projectId: varchar("project_id").references(() => projects.id),
+  leadId: varchar("lead_id").references(() => leads.id),
+  clientId: varchar("client_id").references(() => contacts.id), // Alias for contactId for backward compatibility
+  status: text("status").default('delivered'), // delivered, failed, pending
+  sentBy: varchar("sent_by").references(() => users.id),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => ({
@@ -246,6 +250,7 @@ export const smsMessages = pgTable("sms_messages", {
   threadId: varchar("thread_id"),
   leadId: varchar("lead_id").references(() => leads.id),
   contactId: varchar("contact_id").references(() => contacts.id),
+  clientId: varchar("client_id").references(() => contacts.id), // Alias for contactId for backward compatibility
   projectId: varchar("project_id").references(() => projects.id),
   sentBy: varchar("sent_by").references(() => users.id),
   sentAt: timestamp("sent_at"),
@@ -272,6 +277,7 @@ export const messageThreads = pgTable("message_threads", {
   participants: text("participants").array().notNull(), // Phone numbers or emails
   leadId: varchar("lead_id").references(() => leads.id),
   contactId: varchar("contact_id").references(() => contacts.id),
+  clientId: varchar("client_id").references(() => contacts.id), // Alias for contactId for backward compatibility
   projectId: varchar("project_id").references(() => projects.id),
   lastMessageAt: timestamp("last_message_at"),
   createdAt: timestamp("created_at").defaultNow(),
@@ -283,6 +289,8 @@ export const activities = pgTable("activities", {
   description: text("description").notNull(),
   entityType: text("entity_type"), // lead, client, project, quote, contract, invoice
   entityId: varchar("entity_id"),
+  contactId: varchar("contact_id").references(() => contacts.id),
+  projectId: varchar("project_id").references(() => projects.id),
   userId: varchar("user_id").references(() => users.id).notNull(),
   createdAt: timestamp("created_at").defaultNow(),
 });
@@ -430,6 +438,7 @@ export const calendarSyncLog = pgTable("calendar_sync_log", {
   startedAt: timestamp("started_at").defaultNow(),
   completedAt: timestamp("completed_at"),
   status: text("status").notNull().default('processing'), // processing, completed, failed
+  createdAt: timestamp("created_at").defaultNow(),
 });
 
 // Events/Calendar System

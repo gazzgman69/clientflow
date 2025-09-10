@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Plus, MapPin, Phone, Mail, Users, Edit, Trash } from "lucide-react";
+import { Plus, MapPin, Phone, Mail, Users, Edit, Trash, Globe, Star, Calendar, BarChart3, Tag } from "lucide-react";
 import { AddressFields } from "@/components/shared/AddressFields";
 import {
   Card,
@@ -13,6 +13,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
+import { Separator } from "@/components/ui/separator";
 import {
   Dialog,
   DialogContent,
@@ -57,6 +59,14 @@ const venueSchema = z.object({
   contactName: z.string().optional(),
   contactPhone: z.string().optional(),
   contactEmail: z.string().email().optional().or(z.literal("")),
+  website: z.string().url().optional().or(z.literal("")),
+  restrictions: z.string().optional(),
+  accessNotes: z.string().optional(),
+  managerName: z.string().optional(),
+  managerPhone: z.string().optional(),
+  managerEmail: z.string().email().optional().or(z.literal("")),
+  preferred: z.boolean().optional(),
+  tags: z.string().optional(),
   notes: z.string().optional(),
 });
 
@@ -84,18 +94,32 @@ export default function VenuesPage() {
       contactName: "",
       contactPhone: "",
       contactEmail: "",
+      website: "",
+      restrictions: "",
+      accessNotes: "",
+      managerName: "",
+      managerPhone: "",
+      managerEmail: "",
+      preferred: false,
+      tags: "",
       notes: "",
     },
   });
 
   const createMutation = useMutation({
-    mutationFn: (data: VenueFormData) => 
-      apiRequest("POST", "/api/venues", {
+    mutationFn: (data: VenueFormData) => {
+      const tags = data.tags ? data.tags.split(',').map(t => t.trim()).filter(Boolean) : [];
+      return apiRequest("POST", "/api/venues", {
         ...data,
         capacity: data.capacity ? parseInt(data.capacity) : undefined,
         contactEmail: data.contactEmail || undefined,
         country: data.country || undefined,
-      }),
+        website: data.website || undefined,
+        managerEmail: data.managerEmail || undefined,
+        tags: tags.length > 0 ? tags : undefined,
+        preferred: data.preferred || false,
+      });
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/venues"] });
       setIsDialogOpen(false);
@@ -115,13 +139,19 @@ export default function VenuesPage() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: VenueFormData }) =>
-      apiRequest("PATCH", `/api/venues/${id}`, {
+    mutationFn: ({ id, data }: { id: string; data: VenueFormData }) => {
+      const tags = data.tags ? data.tags.split(',').map(t => t.trim()).filter(Boolean) : [];
+      return apiRequest("PATCH", `/api/venues/${id}`, {
         ...data,
         capacity: data.capacity ? parseInt(data.capacity) : undefined,
         contactEmail: data.contactEmail || undefined,
         country: data.country || undefined,
-      }),
+        website: data.website || undefined,
+        managerEmail: data.managerEmail || undefined,
+        tags: tags.length > 0 ? tags : undefined,
+        preferred: data.preferred || false,
+      });
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/venues"] });
       setIsDialogOpen(false);
@@ -180,6 +210,14 @@ export default function VenuesPage() {
       contactName: venue.contactName || "",
       contactPhone: venue.contactPhone || "",
       contactEmail: venue.contactEmail || "",
+      website: venue.website || "",
+      restrictions: venue.restrictions || "",
+      accessNotes: venue.accessNotes || "",
+      managerName: venue.managerName || "",
+      managerPhone: venue.managerPhone || "",
+      managerEmail: venue.managerEmail || "",
+      preferred: venue.preferred || false,
+      tags: venue.tags ? venue.tags.join(', ') : "",
       notes: venue.notes || "",
     });
     setIsDialogOpen(true);
@@ -252,24 +290,44 @@ export default function VenuesPage() {
                   }}
                   testIdPrefix="venue"
                 />
-                <FormField
-                  control={form.control}
-                  name="capacity"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Capacity</FormLabel>
-                      <FormControl>
-                        <Input 
-                          {...field} 
-                          type="number" 
-                          placeholder="500"
-                          data-testid="input-capacity" 
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="capacity"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Capacity</FormLabel>
+                        <FormControl>
+                          <Input 
+                            {...field} 
+                            type="number" 
+                            placeholder="500"
+                            data-testid="input-capacity" 
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="website"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Website</FormLabel>
+                        <FormControl>
+                          <Input 
+                            {...field} 
+                            type="url" 
+                            placeholder="https://example.com"
+                            data-testid="input-website" 
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
                 <div className="space-y-4">
                   <h3 className="text-sm font-medium">Contact Information</h3>
                   <FormField
@@ -314,6 +372,123 @@ export default function VenuesPage() {
                     />
                   </div>
                 </div>
+                
+                <Separator />
+                <div className="space-y-4">
+                  <h3 className="text-sm font-medium">Manager/Venue Contact</h3>
+                  <FormField
+                    control={form.control}
+                    name="managerName"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Manager Name</FormLabel>
+                        <FormControl>
+                          <Input {...field} data-testid="input-manager-name" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="managerPhone"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Manager Phone</FormLabel>
+                          <FormControl>
+                            <Input {...field} data-testid="input-manager-phone" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="managerEmail"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Manager Email</FormLabel>
+                          <FormControl>
+                            <Input {...field} type="email" data-testid="input-manager-email" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                </div>
+                
+                <Separator />
+                <div className="space-y-4">
+                  <h3 className="text-sm font-medium">Venue Details & Restrictions</h3>
+                  <FormField
+                    control={form.control}
+                    name="restrictions"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Restrictions</FormLabel>
+                        <FormControl>
+                          <Textarea {...field} rows={2} placeholder="Age restrictions, equipment limitations, etc." data-testid="textarea-restrictions" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="accessNotes"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Access Notes</FormLabel>
+                        <FormControl>
+                          <Textarea {...field} rows={2} placeholder="Loading dock info, parking, accessibility notes, etc." data-testid="textarea-access-notes" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="tags"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Tags</FormLabel>
+                        <FormControl>
+                          <Input {...field} placeholder="outdoor, acoustic, large-stage, etc. (comma-separated)" data-testid="input-tags" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                
+                <Separator />
+                <div className="space-y-4">
+                  <h3 className="text-sm font-medium">Preferences</h3>
+                  <FormField
+                    control={form.control}
+                    name="preferred"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                        <div className="space-y-0.5">
+                          <FormLabel className="text-base">Preferred Venue</FormLabel>
+                          <FormControl>
+                            <div className="text-sm text-muted-foreground">Mark as a preferred venue for easier booking</div>
+                          </FormControl>
+                        </div>
+                        <FormControl>
+                          <Switch
+                            checked={field.value}
+                            onCheckedChange={field.onChange}
+                            data-testid="switch-preferred"
+                          />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                
                 <FormField
                   control={form.control}
                   name="notes"
@@ -377,7 +552,8 @@ export default function VenuesPage() {
                   <TableHead>Name</TableHead>
                   <TableHead>Location</TableHead>
                   <TableHead>Contact</TableHead>
-                  <TableHead>Capacity</TableHead>
+                  <TableHead>Details</TableHead>
+                  <TableHead>Usage</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -390,9 +566,20 @@ export default function VenuesPage() {
                     onClick={() => handleEdit(venue)}
                   >
                     <TableCell className="font-medium">
-                      <div data-testid={`text-venue-name-${venue.id}`}>
-                        {venue.name}
+                      <div className="flex items-center gap-2">
+                        {venue.preferred && <Star className="h-4 w-4 text-yellow-500 fill-current" />}
+                        <div data-testid={`text-venue-name-${venue.id}`}>
+                          {venue.name}
+                        </div>
                       </div>
+                      {venue.website && (
+                        <div className="flex items-center gap-1 text-xs text-muted-foreground mt-1">
+                          <Globe className="h-3 w-3" />
+                          <a href={venue.website} target="_blank" rel="noopener noreferrer" className="hover:underline">
+                            Website
+                          </a>
+                        </div>
+                      )}
                     </TableCell>
                     <TableCell>
                       <div className="space-y-1">
@@ -410,6 +597,7 @@ export default function VenuesPage() {
                     </TableCell>
                     <TableCell>
                       <div className="space-y-1">
+                        {/* Primary Contact */}
                         {venue.contactName && (
                           <div className="text-sm font-medium" data-testid={`text-contact-name-${venue.id}`}>
                             {venue.contactName}
@@ -427,15 +615,60 @@ export default function VenuesPage() {
                             <span data-testid={`text-contact-email-${venue.id}`}>{venue.contactEmail}</span>
                           </div>
                         )}
+                        {/* Manager Contact */}
+                        {(venue.managerName || venue.managerPhone || venue.managerEmail) && (
+                          <div className="text-xs text-muted-foreground border-t pt-1 mt-2">
+                            <div className="font-medium">Manager:</div>
+                            {venue.managerName && <div>{venue.managerName}</div>}
+                            {venue.managerPhone && <div>{venue.managerPhone}</div>}
+                            {venue.managerEmail && <div>{venue.managerEmail}</div>}
+                          </div>
+                        )}
                       </div>
                     </TableCell>
                     <TableCell>
-                      {venue.capacity && (
+                      <div className="space-y-1">
+                        {venue.capacity && (
+                          <div className="flex items-center gap-1 text-sm">
+                            <Users className="h-3 w-3" />
+                            <span data-testid={`text-capacity-${venue.id}`}>{venue.capacity}</span>
+                          </div>
+                        )}
+                        {venue.tags && venue.tags.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            {venue.tags.slice(0, 2).map((tag, idx) => (
+                              <Badge key={idx} variant="secondary" className="text-xs">
+                                {tag}
+                              </Badge>
+                            ))}
+                            {venue.tags.length > 2 && (
+                              <Badge variant="outline" className="text-xs">
+                                +{venue.tags.length - 2}
+                              </Badge>
+                            )}
+                          </div>
+                        )}
+                        {(venue.restrictions || venue.accessNotes) && (
+                          <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                            <Tag className="h-3 w-3" />
+                            <span>Has notes</span>
+                          </div>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="space-y-1 text-sm">
                         <div className="flex items-center gap-1">
-                          <Users className="h-3 w-3" />
-                          <span data-testid={`text-capacity-${venue.id}`}>{venue.capacity}</span>
+                          <BarChart3 className="h-3 w-3" />
+                          <span data-testid={`text-use-count-${venue.id}`}>{venue.useCount || 0} uses</span>
                         </div>
-                      )}
+                        {venue.lastUsedAt && (
+                          <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                            <Calendar className="h-3 w-3" />
+                            <span>Last: {new Date(venue.lastUsedAt).toLocaleDateString()}</span>
+                          </div>
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">

@@ -36,6 +36,17 @@ import { drizzle } from 'drizzle-orm/neon-http';
 import { neon } from '@neondatabase/serverless';
 import { eq, and, desc, or } from 'drizzle-orm';
 
+// Helper function to omit undefined values to prevent overwriting required fields
+function omitUndefined<T extends Record<string, any>>(obj: T): Partial<T> {
+  const result: Partial<T> = {};
+  for (const [key, value] of Object.entries(obj)) {
+    if (value !== undefined) {
+      result[key as keyof T] = value;
+    }
+  }
+  return result;
+}
+
 export interface IStorage {
   // Users
   getUsers(): Promise<User[]>;
@@ -326,6 +337,8 @@ export class MemStorage implements IStorage {
     const id = randomUUID();
     const lead: Lead = {
       ...insertLead,
+      fullName: insertLead.fullName ?? null,
+      middleName: insertLead.middleName ?? null,
       status: insertLead.status ?? 'new',
       phone: insertLead.phone ?? null,
       company: insertLead.company ?? null,
@@ -333,6 +346,11 @@ export class MemStorage implements IStorage {
       estimatedValue: insertLead.estimatedValue ?? null,
       notes: insertLead.notes ?? null,
       assignedTo: insertLead.assignedTo ?? null,
+      projectId: insertLead.projectId ?? null,
+      lastContactAt: insertLead.lastContactAt ?? null,
+      lastManualStatusAt: insertLead.lastManualStatusAt ?? null,
+      projectDate: insertLead.projectDate ?? null,
+      lastViewedAt: insertLead.lastViewedAt ?? null,
       id,
       createdAt: new Date(),
       updatedAt: new Date(),
@@ -357,7 +375,7 @@ export class MemStorage implements IStorage {
     
     const updatedLead: Lead = {
       ...lead,
-      ...leadUpdate,
+      ...omitUndefined(leadUpdate),
       updatedAt: new Date(),
     };
     this.leads.set(id, updatedLead);
@@ -383,13 +401,26 @@ export class MemStorage implements IStorage {
     const id = randomUUID();
     const contact: Contact = {
       ...insertContact,
+      fullName: insertContact.fullName ?? null,
+      middleName: insertContact.middleName ?? null,
       phone: insertContact.phone ?? null,
       company: insertContact.company ?? null,
+      jobTitle: insertContact.jobTitle ?? null,
+      website: insertContact.website ?? null,
       address: insertContact.address ?? null,
       city: insertContact.city ?? null,
       state: insertContact.state ?? null,
       zipCode: insertContact.zipCode ?? null,
       country: insertContact.country ?? null,
+      venueAddress: insertContact.venueAddress ?? null,
+      venueCity: insertContact.venueCity ?? null,
+      venueState: insertContact.venueState ?? null,
+      venueZipCode: insertContact.venueZipCode ?? null,
+      venueCountry: insertContact.venueCountry ?? null,
+      venueId: insertContact.venueId ?? null,
+      tags: insertContact.tags ?? null,
+      leadSource: insertContact.leadSource ?? null,
+      notes: insertContact.notes ?? null,
       leadId: insertContact.leadId ?? null,
       id,
       createdAt: new Date(),
@@ -401,11 +432,11 @@ export class MemStorage implements IStorage {
 
   async updateContact(id: string, contactUpdate: Partial<InsertContact>): Promise<Contact | undefined> {
     const contact = this.contacts.get(id);
-    if (!client) return undefined;
+    if (!contact) return undefined;
     
     const updatedContact: Contact = {
       ...contact,
-      ...contactUpdate,
+      ...omitUndefined(contactUpdate),
       updatedAt: new Date(),
     };
     this.contacts.set(id, updatedContact);
@@ -427,8 +458,8 @@ export class MemStorage implements IStorage {
     return this.projects.get(id);
   }
 
-  async getProjectsByClient(clientId: string): Promise<Project[]> {
-    return Array.from(this.projects.values()).filter(project => project.clientId === clientId);
+  async getProjectsByContact(contactId: string): Promise<Project[]> {
+    return Array.from(this.projects.values()).filter(project => project.contactId === contactId);
   }
 
   async createProject(insertProject: InsertProject): Promise<Project> {
@@ -437,7 +468,8 @@ export class MemStorage implements IStorage {
       ...insertProject,
       status: insertProject.status ?? 'active',
       description: insertProject.description ?? null,
-      progress: insertProject.progress ?? null,
+      venueId: insertProject.venueId ?? null,
+      progress: insertProject.progress ?? 0,
       startDate: insertProject.startDate ?? null,
       endDate: insertProject.endDate ?? null,
       estimatedValue: insertProject.estimatedValue ?? null,
@@ -457,7 +489,7 @@ export class MemStorage implements IStorage {
     
     const updatedProject: Project = {
       ...project,
-      ...projectUpdate,
+      ...omitUndefined(projectUpdate),
       updatedAt: new Date(),
     };
     this.projects.set(id, updatedProject);
@@ -479,8 +511,8 @@ export class MemStorage implements IStorage {
     return this.quotes.get(id);
   }
 
-  async getQuotesByClient(clientId: string): Promise<Quote[]> {
-    return Array.from(this.quotes.values()).filter(quote => quote.clientId === clientId);
+  async getQuotesByContact(contactId: string): Promise<Quote[]> {
+    return Array.from(this.quotes.values()).filter(quote => quote.contactId === contactId);
   }
 
   async createQuote(insertQuote: InsertQuote): Promise<Quote> {
@@ -490,9 +522,9 @@ export class MemStorage implements IStorage {
       ...insertQuote,
       status: insertQuote.status ?? 'draft',
       description: insertQuote.description ?? null,
-      clientId: insertQuote.clientId ?? null,
+      contactId: insertQuote.contactId ?? null,
       leadId: insertQuote.leadId ?? null,
-      taxAmount: insertQuote.taxAmount ?? null,
+      taxAmount: insertQuote.taxAmount ?? '0',
       validUntil: insertQuote.validUntil ?? null,
       sentAt: insertQuote.sentAt ?? null,
       approvedAt: insertQuote.approvedAt ?? null,
@@ -511,7 +543,7 @@ export class MemStorage implements IStorage {
     
     const updatedQuote: Quote = {
       ...quote,
-      ...quoteUpdate,
+      ...omitUndefined(quoteUpdate),
       updatedAt: new Date(),
     };
     this.quotes.set(id, updatedQuote);
@@ -534,7 +566,7 @@ export class MemStorage implements IStorage {
   }
 
   async getContractsByClient(clientId: string): Promise<Contract[]> {
-    return Array.from(this.contracts.values()).filter(contract => contract.clientId === clientId);
+    return Array.from(this.contracts.values()).filter(contract => contract.contactId === clientId);
   }
 
   async createContract(insertContract: InsertContract): Promise<Contract> {
@@ -564,7 +596,7 @@ export class MemStorage implements IStorage {
     
     const updatedContract: Contract = {
       ...contract,
-      ...contractUpdate,
+      ...omitUndefined(contractUpdate),
       updatedAt: new Date(),
     };
     this.contracts.set(id, updatedContract);
@@ -587,7 +619,7 @@ export class MemStorage implements IStorage {
   }
 
   async getInvoicesByClient(clientId: string): Promise<Invoice[]> {
-    return Array.from(this.invoices.values()).filter(invoice => invoice.clientId === clientId);
+    return Array.from(this.invoices.values()).filter(invoice => invoice.contactId === clientId);
   }
 
   async createInvoice(insertInvoice: InsertInvoice): Promise<Invoice> {
@@ -618,7 +650,7 @@ export class MemStorage implements IStorage {
     
     const updatedInvoice: Invoice = {
       ...invoice,
-      ...invoiceUpdate,
+      ...omitUndefined(invoiceUpdate),
       updatedAt: new Date(),
     };
     this.invoices.set(id, updatedInvoice);
@@ -664,13 +696,13 @@ export class MemStorage implements IStorage {
       ...insertTask,
       status: insertTask.status ?? 'pending',
       description: insertTask.description ?? null,
+      priority: insertTask.priority ?? 'medium',
+      dueDate: insertTask.dueDate ?? null,
+      completedAt: insertTask.completedAt ?? null,
       assignedTo: insertTask.assignedTo ?? null,
       leadId: insertTask.leadId ?? null,
-      clientId: insertTask.clientId ?? null,
+      contactId: insertTask.contactId ?? null,
       projectId: insertTask.projectId ?? null,
-      dueDate: insertTask.dueDate ?? null,
-      priority: insertTask.priority ?? 'medium',
-      completedAt: insertTask.completedAt ?? null,
       id,
       createdAt: new Date(),
       updatedAt: new Date(),
@@ -685,7 +717,7 @@ export class MemStorage implements IStorage {
     
     const updatedTask: Task = {
       ...task,
-      ...taskUpdate,
+      ...omitUndefined(taskUpdate),
       updatedAt: new Date(),
     };
     this.tasks.set(id, updatedTask);
@@ -721,6 +753,7 @@ export class MemStorage implements IStorage {
       ...insertEmail,
       status: insertEmail.status ?? 'draft',
       leadId: insertEmail.leadId ?? null,
+      contactId: insertEmail.contactId ?? null,
       clientId: insertEmail.clientId ?? null,
       projectId: insertEmail.projectId ?? null,
       threadId: insertEmail.threadId ?? null,
@@ -730,6 +763,7 @@ export class MemStorage implements IStorage {
       sentBy: insertEmail.sentBy ?? null,
       id,
       createdAt: new Date(),
+      updatedAt: new Date(),
     };
     this.emails.set(id, email);
     return email;
@@ -783,6 +817,7 @@ export class MemStorage implements IStorage {
       status: insertSms.status ?? 'queued',
       direction: insertSms.direction ?? 'outbound',
       leadId: insertSms.leadId ?? null,
+      contactId: insertSms.contactId ?? null,
       clientId: insertSms.clientId ?? null,
       projectId: insertSms.projectId ?? null,
       threadId: insertSms.threadId ?? null,
@@ -881,6 +916,7 @@ export class MemStorage implements IStorage {
       ...insertThread,
       subject: insertThread.subject ?? null,
       leadId: insertThread.leadId ?? null,
+      contactId: insertThread.contactId ?? null,
       clientId: insertThread.clientId ?? null,
       projectId: insertThread.projectId ?? null,
       lastMessageAt: insertThread.lastMessageAt ?? null,
@@ -921,6 +957,8 @@ export class MemStorage implements IStorage {
       ...insertActivity,
       entityType: insertActivity.entityType ?? null,
       entityId: insertActivity.entityId ?? null,
+      contactId: insertActivity.contactId ?? null,
+      projectId: insertActivity.projectId ?? null,
       id,
       createdAt: new Date(),
     };
@@ -1008,7 +1046,7 @@ export class MemStorage implements IStorage {
     
     const updatedMember: Member = {
       ...member,
-      ...memberUpdate,
+      ...omitUndefined(memberUpdate),
       updatedAt: new Date(),
     };
     this.members.set(id, updatedMember);
@@ -1035,14 +1073,31 @@ export class MemStorage implements IStorage {
     const venue: Venue = {
       ...insertVenue,
       address: insertVenue.address ?? null,
+      address2: insertVenue.address2 ?? null,
       city: insertVenue.city ?? null,
       state: insertVenue.state ?? null,
       zipCode: insertVenue.zipCode ?? null,
+      country: insertVenue.country ?? null,
+      countryCode: insertVenue.countryCode ?? null,
+      latitude: insertVenue.latitude ?? null,
+      longitude: insertVenue.longitude ?? null,
+      placeId: insertVenue.placeId ?? null,
       capacity: insertVenue.capacity ?? null,
       contactName: insertVenue.contactName ?? null,
       contactPhone: insertVenue.contactPhone ?? null,
       contactEmail: insertVenue.contactEmail ?? null,
+      website: insertVenue.website ?? null,
+      restrictions: insertVenue.restrictions ?? null,
+      accessNotes: insertVenue.accessNotes ?? null,
+      managerName: insertVenue.managerName ?? null,
+      managerPhone: insertVenue.managerPhone ?? null,
+      managerEmail: insertVenue.managerEmail ?? null,
+      preferred: insertVenue.preferred ?? false,
+      useCount: insertVenue.useCount ?? 0,
+      lastUsedAt: insertVenue.lastUsedAt ?? null,
+      tags: insertVenue.tags ?? [],
       notes: insertVenue.notes ?? null,
+      meta: insertVenue.meta ?? null,
       id,
       createdAt: new Date(),
       updatedAt: new Date(),
@@ -1057,7 +1112,7 @@ export class MemStorage implements IStorage {
     
     const updatedVenue: Venue = {
       ...venue,
-      ...venueUpdate,
+      ...omitUndefined(venueUpdate),
       updatedAt: new Date(),
     };
     this.venues.set(id, updatedVenue);
@@ -1236,7 +1291,7 @@ export class MemStorage implements IStorage {
     
     const updatedUser: User = {
       ...user,
-      ...userUpdate,
+      ...omitUndefined(userUpdate),
     };
     this.users.set(id, updatedUser);
     return updatedUser;
@@ -1268,7 +1323,7 @@ export class MemStorage implements IStorage {
   }
 
   async getEventsByClient(clientId: string): Promise<Event[]> {
-    return Array.from(this.events.values()).filter(event => event.clientId === clientId);
+    return Array.from(this.events.values()).filter(event => event.contactId === clientId);
   }
 
   async getEventsByIntegration(integrationId: string): Promise<Event[]> {
@@ -1288,7 +1343,7 @@ export class MemStorage implements IStorage {
       location: insertEvent.location ?? null,
       recurrenceRule: insertEvent.recurrenceRule ?? null,
       leadId: insertEvent.leadId ?? null,
-      clientId: insertEvent.clientId ?? null,
+      contactId: insertEvent.contactId ?? null,
       projectId: insertEvent.projectId ?? null,
       assignedTo: insertEvent.assignedTo ?? null,
       externalEventId: insertEvent.externalEventId ?? null,
@@ -1310,7 +1365,7 @@ export class MemStorage implements IStorage {
     
     const updatedEvent: Event = {
       ...event,
-      ...eventUpdate,
+      ...omitUndefined(eventUpdate),
       updatedAt: new Date(),
     };
     this.events.set(id, updatedEvent);
@@ -1373,7 +1428,7 @@ export class MemStorage implements IStorage {
     
     const updatedIntegration: CalendarIntegration = {
       ...integration,
-      ...integrationUpdate,
+      ...omitUndefined(integrationUpdate),
       updatedAt: new Date(),
     };
     this.calendarIntegrations.set(id, updatedIntegration);
@@ -1412,6 +1467,7 @@ export class MemStorage implements IStorage {
       status: insertLog.status ?? 'processing',
       id,
       startedAt: new Date(),
+      createdAt: new Date(),
     };
     this.calendarSyncLogs.set(id, log);
     return log;
@@ -1459,7 +1515,7 @@ export class MemStorage implements IStorage {
   // Templates
   async getTemplates(): Promise<Template[]> {
     return Array.from(this.templates.values()).sort((a, b) => 
-      new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+      (b.updatedAt ? new Date(b.updatedAt).getTime() : 0) - (a.updatedAt ? new Date(a.updatedAt).getTime() : 0)
     );
   }
 
@@ -1471,6 +1527,8 @@ export class MemStorage implements IStorage {
     const id = randomUUID();
     const template: Template = { 
       ...insertTemplate,
+      subject: insertTemplate.subject ?? null,
+      isActive: insertTemplate.isActive ?? true,
       id, 
       createdAt: new Date(),
       updatedAt: new Date()
@@ -1500,7 +1558,7 @@ export class MemStorage implements IStorage {
   async getUserSignatures(userId: string): Promise<EmailSignature[]> {
     return Array.from(this.emailSignatures.values())
       .filter(signature => signature.userId === userId && signature.isActive)
-      .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+      .sort((a, b) => (b.updatedAt ? new Date(b.updatedAt).getTime() : 0) - (a.updatedAt ? new Date(a.updatedAt).getTime() : 0));
   }
 
   async getSignature(id: string, userId: string): Promise<EmailSignature | null> {
@@ -1518,6 +1576,8 @@ export class MemStorage implements IStorage {
     const id = randomUUID();
     const signature: EmailSignature = { 
       ...insertSignature,
+      isActive: insertSignature.isActive ?? true,
+      isDefault: insertSignature.isDefault ?? false,
       id, 
       createdAt: new Date(),
       updatedAt: new Date()
@@ -1560,7 +1620,7 @@ export class MemStorage implements IStorage {
   // Lead Capture Forms
   async getLeadCaptureForms(): Promise<LeadCaptureForm[]> {
     return Array.from(this.leadCaptureForms.values()).sort((a, b) => 
-      new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+      (b.updatedAt ? new Date(b.updatedAt).getTime() : 0) - (a.updatedAt ? new Date(a.updatedAt).getTime() : 0)
     );
   }
 
@@ -1576,6 +1636,15 @@ export class MemStorage implements IStorage {
     const id = randomUUID();
     const form: LeadCaptureForm = { 
       ...insertForm,
+      notification: insertForm.notification ?? 'email',
+      isActive: insertForm.isActive ?? true,
+      calendarId: insertForm.calendarId ?? null,
+      autoResponseTemplateId: insertForm.autoResponseTemplateId ?? null,
+      lifecycleId: insertForm.lifecycleId ?? null,
+      workflowId: insertForm.workflowId ?? null,
+      contactTags: insertForm.contactTags ?? null,
+      projectTags: insertForm.projectTags ?? null,
+      recaptchaEnabled: insertForm.recaptchaEnabled ?? false,
       id, 
       createdAt: new Date(),
       updatedAt: new Date()
@@ -1855,7 +1924,7 @@ export class DrizzleStorage implements IStorage {
     return result.rowCount > 0;
   }
   async getContractsByProject(projectId: string) { 
-    return await this.db.select().from(contracts).where(eq(contracts.leadId, projectId));
+    return await this.db.select().from(contracts).where(eq(contracts.projectId, projectId));
   }
   
   // Invoices - PostgreSQL implementation
@@ -1889,7 +1958,7 @@ export class DrizzleStorage implements IStorage {
     return result.rowCount > 0;
   }
   async getInvoicesByProject(projectId: string) { 
-    return await this.db.select().from(invoices).where(eq(invoices.leadId, projectId));
+    return await this.db.select().from(invoices).where(eq(invoices.projectId, projectId));
   }
   
   // Tasks - PostgreSQL implementation
@@ -1974,18 +2043,11 @@ export class DrizzleStorage implements IStorage {
     return await this.db.select().from(activities).where(eq(activities.projectId, projectId));
   }
   async createActivity(activity: InsertActivity) { 
-    const result = await this.db.insert(activities).values({
-      ...activity,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    }).returning();
+    const result = await this.db.insert(activities).values(activity).returning();
     return result[0];
   }
   async updateActivity(id: string, activity: Partial<InsertActivity>) { 
-    const result = await this.db.update(activities).set({
-      ...activity,
-      updatedAt: new Date(),
-    }).where(eq(activities.id, id)).returning();
+    const result = await this.db.update(activities).set(activity).where(eq(activities.id, id)).returning();
     return result[0];
   }
   async deleteActivity(id: string) { 
@@ -2252,22 +2314,30 @@ export class DrizzleStorage implements IStorage {
   }
   
   // Dashboard Metrics - PostgreSQL implementation
-  async getDashboardMetrics() { 
+  async getDashboardMetrics(): Promise<{
+    totalLeads: number;
+    activeProjects: number;
+    revenue: number;
+    pendingInvoices: number;
+  }> { 
     // Calculate metrics from PostgreSQL data
     const leads = await this.getLeads();
-    const contacts = await this.getContacts();
     const projects = await this.getProjects();
-    const tasks = await this.getTasks();
-    const activities = await this.getActivities();
+    const invoices = await this.getInvoices();
     
+    const activeProjects = projects.filter(p => p.status === 'active').length;
+    const paidInvoices = invoices.filter(i => i.status === 'paid');
+    const pendingInvoices = invoices.filter(i => i.status === 'sent' || i.status === 'overdue').length;
+    
+    const revenue = paidInvoices.reduce((sum, invoice) => {
+      return sum + parseFloat(invoice.total || '0');
+    }, 0);
+
     return {
       totalLeads: leads.length,
-      newLeads: leads.filter(l => l.status === 'new').length,
-      totalContacts: contacts.length,
-      activeProjects: projects.filter(p => p.status === 'active').length,
-      completedTasks: tasks.filter(t => t.status === 'completed').length,
-      pendingTasks: tasks.filter(t => t.status === 'pending').length,
-      recentActivities: activities.slice(0, 10)
+      activeProjects,
+      revenue,
+      pendingInvoices,
     };
   }
   
@@ -2284,8 +2354,17 @@ export class DrizzleStorage implements IStorage {
   async getSmsMessagesByPhone(phone: string) { return []; }
   async getMessageTemplatesByType(type: string) { return []; }
   async getMessageThreadsByClient(clientId: string) { return []; }
-  async validateUser(username: string, password: string) { return null; }
-  async setMemberAvailability(data: any) { return null; }
+  async validateUser(username: string, password: string): Promise<User | undefined> { 
+    const result = await this.db.select().from(users).where(and(
+      eq(users.username, username),
+      eq(users.password, password) // Note: In production, use proper password hashing
+    ));
+    return result[0];
+  }
+  async setMemberAvailability(availability: InsertMemberAvailability): Promise<MemberAvailability> {
+    const result = await this.db.insert(memberAvailability).values(availability).returning();
+    return result[0];
+  }
   async getEventsByDateRange(startDate: Date, endDate: Date) { return []; }
 
   // Templates

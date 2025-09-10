@@ -87,8 +87,11 @@ export function VenueAutocomplete({
 
   // Fetch place predictions from Google Places API
   const fetchPredictions = async (input: string) => {
+    console.log('fetchPredictions called with:', { input, hasSelectedVenue, initialValue });
+    
     // Never fetch predictions if a venue is already selected
     if (hasSelectedVenue) {
+      console.log('Skipping fetchPredictions - venue already selected');
       setPredictions([]);
       setShowPredictions(false);
       return;
@@ -264,10 +267,16 @@ export function VenueAutocomplete({
             }
           }}
           onFocus={() => {
+            console.log('Input focus - state:', { hasSelectedVenue, query, initialValue });
+            
             // Never show predictions if a venue is already selected
-            if (hasSelectedVenue) return;
+            if (hasSelectedVenue) {
+              console.log('Focus blocked - venue already selected');
+              return;
+            }
             
             if (query.length >= 3) {
+              console.log('Showing predictions on focus');
               setShowPredictions(true);
             }
           }}

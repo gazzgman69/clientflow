@@ -229,6 +229,29 @@ export default function VenuesPage() {
     if (!open) {
       setSelectedVenue(null);
       form.reset();
+    } else if (!selectedVenue) {
+      // Opening dialog for new venue - reset form to blank values
+      form.reset({
+        name: "",
+        address: "",
+        city: "",
+        state: "",
+        zipCode: "",
+        country: "",
+        capacity: "",
+        contactName: "",
+        contactPhone: "",
+        contactEmail: "",
+        website: "",
+        restrictions: "",
+        accessNotes: "",
+        managerName: "",
+        managerPhone: "",
+        managerEmail: "",
+        preferred: false,
+        tags: "",
+        notes: "",
+      });
     }
   };
 

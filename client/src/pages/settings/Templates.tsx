@@ -8,7 +8,6 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
@@ -19,7 +18,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { TokenDropdown } from '@/components/ui/token-dropdown';
-import { insertTokenIntoValue } from '@/utils/cursor-utils';
+import { RichTextEditor, RichTextEditorRef } from '@/components/ui/rich-text-editor';
 import { z } from 'zod';
 
 interface Template {
@@ -88,7 +87,7 @@ export default function TemplatesPage() {
   const [selectedContactId, setSelectedContactId] = useState<string>('');
   const [selectedProjectId, setSelectedProjectId] = useState<string>('');
   const [livePreviewData, setLivePreviewData] = useState<TokenPreviewResult | null>(null);
-  const bodyTextareaRef = useRef<HTMLTextAreaElement>(null);
+  const bodyEditorRef = useRef<RichTextEditorRef>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -514,19 +513,8 @@ export default function TemplatesPage() {
                           <div className="flex items-center gap-2">
                             <TokenDropdown
                               onTokenSelect={(token) => {
-                                if (bodyTextareaRef.current) {
-                                  const textarea = bodyTextareaRef.current;
-                                  const cursorPosition = textarea.selectionStart || 0;
-                                  const currentValue = field.value || '';
-                                  const { newValue, newCursorPosition } = insertTokenIntoValue(currentValue, token, cursorPosition);
-                                  field.onChange(newValue);
-                                  // Restore cursor position after React updates the DOM
-                                  setTimeout(() => {
-                                    if (textarea) {
-                                      textarea.setSelectionRange(newCursorPosition, newCursorPosition);
-                                      textarea.focus();
-                                    }
-                                  }, 0);
+                                if (bodyEditorRef.current) {
+                                  bodyEditorRef.current.insertToken(token);
                                 }
                               }}
                               size="sm"
@@ -561,20 +549,9 @@ export default function TemplatesPage() {
                                     <DropdownMenuItem 
                                       key={signature.id}
                                       onClick={() => {
-                                        if (bodyTextareaRef.current) {
-                                          const textarea = bodyTextareaRef.current;
-                                          const cursorPosition = textarea.selectionStart || textarea.value.length;
-                                          const currentValue = field.value || '';
+                                        if (bodyEditorRef.current) {
                                           const signatureText = `\n\n${signature.content}`;
-                                          const { newValue, newCursorPosition } = insertTokenIntoValue(currentValue, signatureText, cursorPosition);
-                                          field.onChange(newValue);
-                                          // Restore cursor position after React updates the DOM
-                                          setTimeout(() => {
-                                            if (textarea) {
-                                              textarea.setSelectionRange(newCursorPosition, newCursorPosition);
-                                              textarea.focus();
-                                            }
-                                          }, 0);
+                                          bodyEditorRef.current.insertToken(signatureText);
                                         }
                                       }}
                                       data-testid={`dropdown-signature-${signature.id}`}
@@ -594,12 +571,13 @@ export default function TemplatesPage() {
                           <div></div>
                         </div>
                         <FormControl>
-                          <Textarea 
-                            {...field}
-                            ref={bodyTextareaRef}
+                          <RichTextEditor
+                            ref={bodyEditorRef}
+                            content={field.value || ''}
+                            onChange={field.onChange}
                             placeholder="Enter your template content here. Use [Token] for dynamic values."
-                            className="min-h-[300px]"
-                            data-testid="textarea-template-body"
+                            minHeight="300px"
+                            data-testid="editor-template-body"
                           />
                         </FormControl>
                       </div>

@@ -175,7 +175,12 @@ export class TokenResolverService {
       resolve: async (context) => {
         const project = await this.getProject(context.projectId);
         if (!project?.startDate) return '';
-        return project.startDate.toISOString();
+        // Return user-friendly formatted date instead of ISO string
+        return project.startDate.toLocaleDateString('en-US', {
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric'
+        });
       }
     });
 

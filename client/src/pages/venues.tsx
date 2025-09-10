@@ -223,10 +223,12 @@ export default function VenuesPage() {
     setIsDialogOpen(true);
   };
 
-  const handleDialogClose = () => {
-    setIsDialogOpen(false);
-    setSelectedVenue(null);
-    form.reset();
+  const handleDialogClose = (open: boolean) => {
+    setIsDialogOpen(open);
+    if (!open) {
+      setSelectedVenue(null);
+      form.reset();
+    }
   };
 
   if (isLoading) {

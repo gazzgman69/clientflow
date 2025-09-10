@@ -336,6 +336,17 @@ export const venues = pgTable("venues", {
   contactName: text("contact_name"),
   contactPhone: text("contact_phone"),
   contactEmail: text("contact_email"),
+  website: text("website"),
+  restrictions: text("restrictions"), // e.g., "noise limiter 92dB"
+  accessNotes: text("access_notes"), // load-in/parking/wifi/etc.
+  managerName: text("manager_name"),
+  managerPhone: text("manager_phone"),
+  managerEmail: text("manager_email"),
+  preferred: boolean("preferred").default(false),
+  useCount: integer("use_count").default(0), // increments when linked to a project
+  lastUsedAt: timestamp("last_used_at"), // timestamptz equivalent
+  tags: text("tags").array(), // venue tags
+  meta: text("meta"), // JSON string for free-form extras from Google or custom
   notes: text("notes"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),

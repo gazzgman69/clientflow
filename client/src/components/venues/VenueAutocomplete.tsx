@@ -137,6 +137,7 @@ export function VenueAutocomplete({
 
   // Handle venue selection
   const handleVenueSelect = async (prediction: PlacePrediction) => {
+    console.log('🎯 SELECTION HANDLER START - prediction:', prediction.description);
     isSelectingRef.current = true; // Prevent blur from closing menu
     
     // Keep the original description text throughout the process
@@ -324,21 +325,29 @@ export function VenueAutocomplete({
             }
           }}
           onFocus={() => {
+            console.log('🔵 INPUT FOCUS - hasSelectedVenue:', hasSelectedVenue, 'query:', query);
             // Don't auto-open unless query >= 2 and no venue selected
             if (query.length >= 2 && !hasSelectedVenue) {
+              console.log('🔵 FOCUS - showing predictions');
               setShowPredictions(true);
             }
           }}
           onBlur={() => {
+            console.log('🔴 INPUT BLUR - isSelecting:', isSelectingRef.current);
             // Close menu with timeout unless selection in progress
             setTimeout(() => {
               if (!isSelectingRef.current) {
+                console.log('🔴 BLUR TIMEOUT - closing predictions');
                 setShowPredictions(false);
+              } else {
+                console.log('🔴 BLUR TIMEOUT - skipping close (selection in progress)');
               }
             }, 0);
           }}
           onKeyDown={(e) => {
+            console.log('⌨️ INPUT KEYDOWN:', e.key, 'showPredictions:', showPredictions);
             if (e.key === 'Enter' && showPredictions) {
+              console.log('⌨️ ENTER - preventing form submit and selecting first item');
               e.preventDefault(); // Always prevent form submit while menu open
               if (predictions.length > 0) {
                 handleVenueSelect(predictions[0]); // Select first suggestion
@@ -366,8 +375,12 @@ export function VenueAutocomplete({
                   variant="ghost"
                   className="w-full justify-start p-3 h-auto text-left hover:bg-muted/50"
                   onMouseDown={(e) => {
+                    console.log('🖱️ BUTTON MOUSEDOWN - prediction:', prediction.description);
                     e.preventDefault(); // Prevent input blur
                     handleVenueSelect(prediction);
+                  }}
+                  onClick={() => {
+                    console.log('🖱️ BUTTON CLICK - prediction:', prediction.description);
                   }}
                   data-testid={`button-venue-${prediction.place_id}`}
                 >

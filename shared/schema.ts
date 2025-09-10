@@ -318,10 +318,15 @@ export const venues = pgTable("venues", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   name: text("name").notNull(),
   address: text("address"),
+  address2: text("address2"), // For suite/apartment numbers
   city: text("city"),
   state: text("state"),
   zipCode: text("zip_code"),
   country: text("country"),
+  countryCode: text("country_code"), // ISO country code
+  latitude: decimal("latitude", { precision: 10, scale: 8 }),
+  longitude: decimal("longitude", { precision: 11, scale: 8 }),
+  placeId: text("place_id"), // Google Places ID for caching
   capacity: integer("capacity"),
   contactName: text("contact_name"),
   contactPhone: text("contact_phone"),

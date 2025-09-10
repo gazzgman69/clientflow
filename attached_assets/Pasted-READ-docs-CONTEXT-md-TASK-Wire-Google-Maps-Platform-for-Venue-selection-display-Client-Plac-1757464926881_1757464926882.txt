@@ -1,0 +1,61 @@
+READ /docs/CONTEXT.md.
+
+TASK
+Wire Google Maps Platform for Venue selection + display:
+- Client: Places Autocomplete (session-based) UI for Venue.
+- Server: Place Details fetch → normalize components, lat/lng, place_id.
+- Cache venue rows; re-use by place_id; allow manual override of address fields.
+- Show a map on Project (Static Maps image by default; optional interactive toggle).
+- Keep API keys server-side only (no raw key in client).
+
+SCOPE
+Backend:
+  - server/src/services/geocoding.ts            // add google places details fetch (server-side)
+  - server/src/services/venues.ts               // upsert/find by place_id; cache with lat/lng
+  - server/src/routes/venues.ts                 // POST /api/venues/from-google { placeId, sessionToken }, GET /api/venues/:id/map
+  - server/routes.ts
+
+Frontend:
+  - web/src/components/venues/VenueAutocomplete.tsx  // client autocomplete (uses sessionToken; no API key)
+  - web/src/components/project/VenueCard.tsx         // shows venue addr + static map + “Open in Maps”
+  - web/src/pages/public/LeadFormHosted.tsx          // uses VenueAutocomplete
+  - web/src/pages/projects/ProjectDetail.tsx         // render VenueCard in sidebar/top
+
+IMPLEMENTATION NOTES
+Client:
+- Generate a per-search sessionToken (UUID). On select, send { placeId, sessionToken } to server.
+- Do NOT embed API key. All details fetched server-side.
+- If no Google candidate chosen, allow “Use typed text” → create minimal venue (name + manual address).
+
+Server:
+- geocoding.ts: placeDetails(placeId, sessionToken?) → returns {
+    name, address1, address2, city, state, postalCode, countryCode, latitude, longitude, placeId
+  } mapped from Google components.
+- venues.ts:
+  • upsertFromPlace(details) → if placeId exists, update missing fields; else insert.
+  • findOrCreateMinimal(name, addr?) for manual.
+- routes:
+  • POST /api/venues/from-google → placeDetails → upsertFromPlace → return venue JSON.
+  • GET  /api/venues/:id/map → returns Static Maps URL (signed or proxied) with marker at lat,lng.
+    - Prefer server-side proxy that returns an <img> src to avoid exposing key.
+
+Project UI (VenueCard):
+- Show name, formatted address (localized labels already in app).
+- Show Static Maps image (click = open Google Maps link: https://maps.google.com/?q=<lat>,<lng>).
+- Optional toggle “Interactive map” → lazy-load Maps JS only when clicked.
+
+DATA
+- Store: name, address1/2, city, state, postalCode, countryCode, latitude, longitude, placeId.
+- Keep manual edits possible; do not overwrite user edits on re-sync unless field is empty.
+
+BILLING/SAFETY
+- Use session-based autocomplete (client token), server Place Details (field mask minimal).
+- Cache venues; skip re-calling Place Details if placeId unchanged.
+- No API key in client code. Server reads key from existing secure store (reuse current secret mechanism).
+
+ACCEPTANCE
+- Selecting a Google result saves a venue with normalized address + lat/lng + placeId.
+- Subsequent searches hit local cache (no extra bill).
+- Project page shows a map pin (Static Maps image) and “Open in Maps”.
+- Manual venue entry still works; can save without Google.
+- Keys are never exposed client-side.

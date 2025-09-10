@@ -472,7 +472,7 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
                     }
                   }}
                   variant="outline"
-                  size="default"
+                  size="sm"
                 />
 
                 {/* Signature Dropdown - next to token dropdown */}
@@ -480,11 +480,12 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
                   <DropdownMenuTrigger asChild>
                     <Button 
                       variant="outline"
+                      size="sm"
                       data-testid="button-select-signature"
                     >
-                      <Edit3 className="h-4 w-4 mr-2" />
+                      <Edit3 className="h-3 w-3 mr-1" />
                       Signature
-                      <ChevronDown className="h-4 w-4 ml-2" />
+                      <ChevronDown className="h-3 w-3 ml-1" />
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="start" className="w-56">
@@ -518,10 +519,11 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
 
                 <Button 
                   variant="outline" 
+                  size="sm"
                   onClick={() => setShowTemplateModal(true)}
                   data-testid="button-select-template"
                 >
-                  <FileText className="h-4 w-4 mr-2" />
+                  <FileText className="h-3 w-3 mr-1" />
                   Template
                 </Button>
               </div>

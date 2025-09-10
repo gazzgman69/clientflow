@@ -153,13 +153,13 @@ export function TokenDropdown({
         <Button 
           variant={variant}
           size={size}
-          className={`gap-2 ${className}`}
+          className={`gap-1 ${className}`}
           aria-label="Insert token"
           data-testid="button-insert-token"
         >
-          <Hash className="h-4 w-4" />
+          <Hash className={size === "sm" ? "h-3 w-3" : "h-4 w-4"} />
           Insert Token
-          <ChevronDown className="h-4 w-4" />
+          <ChevronDown className={size === "sm" ? "h-3 w-3" : "h-4 w-4"} />
         </Button>
       </DropdownMenuTrigger>
       

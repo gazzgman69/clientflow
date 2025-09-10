@@ -515,7 +515,7 @@ export default function TemplatesPage() {
                         <div>
                           <Label className="text-xs font-medium text-blue-600">Contact</Label>
                           <div className="flex flex-wrap gap-1 mt-1">
-                            {Object.entries(newTokens.tokens.contact).map(([token, description]) => (
+                            {Object.entries(newTokens?.tokens?.contact || {}).map(([token, description]) => (
                               <Button
                                 key={token}
                                 type="button"
@@ -535,7 +535,7 @@ export default function TemplatesPage() {
                         <div>
                           <Label className="text-xs font-medium text-green-600">Project</Label>
                           <div className="flex flex-wrap gap-1 mt-1">
-                            {Object.entries(newTokens.tokens.project).map(([token, description]) => (
+                            {Object.entries(newTokens?.tokens?.project || {}).map(([token, description]) => (
                               <Button
                                 key={token}
                                 type="button"
@@ -555,7 +555,7 @@ export default function TemplatesPage() {
                         <div>
                           <Label className="text-xs font-medium text-purple-600">Business</Label>
                           <div className="flex flex-wrap gap-1 mt-1">
-                            {Object.entries(newTokens.tokens.business).map(([token, description]) => (
+                            {Object.entries(newTokens?.tokens?.business || {}).map(([token, description]) => (
                               <Button
                                 key={token}
                                 type="button"
@@ -584,7 +584,7 @@ export default function TemplatesPage() {
                         <div>
                           <Label className="text-xs font-medium text-muted-foreground">Contact</Label>
                           <div className="flex flex-wrap gap-1 mt-1">
-                            {availableTokens.contact.map((token) => (
+                            {(availableTokens.contact || []).map((token) => (
                               <Button
                                 key={token}
                                 type="button"
@@ -603,7 +603,7 @@ export default function TemplatesPage() {
                         <div>
                           <Label className="text-xs font-medium text-muted-foreground">Project</Label>
                           <div className="flex flex-wrap gap-1 mt-1">
-                            {availableTokens.project.map((token) => (
+                            {(availableTokens.project || []).map((token) => (
                               <Button
                                 key={token}
                                 type="button"
@@ -622,7 +622,7 @@ export default function TemplatesPage() {
                         <div>
                           <Label className="text-xs font-medium text-muted-foreground">Lead</Label>
                           <div className="flex flex-wrap gap-1 mt-1">
-                            {availableTokens.lead.map((token) => (
+                            {(availableTokens.lead || []).map((token) => (
                               <Button
                                 key={token}
                                 type="button"

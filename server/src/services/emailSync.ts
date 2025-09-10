@@ -4,6 +4,40 @@ import { eq, and, or, desc, isNotNull, sql, not } from "drizzle-orm";
 import type { gmail_v1 } from "googleapis";
 import type { EmailThread, Email, InsertEmailThread, InsertEmail, InsertEmailAttachment } from "@shared/schema";
 
+// Database retry wrapper to handle connection issues
+async function withDbRetry<T>(operation: () => Promise<T>, maxRetries = 3, delayMs = 1000): Promise<T> {
+  let lastError: Error | null = null;
+  
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      return await operation();
+    } catch (error) {
+      lastError = error as Error;
+      console.warn(`Database operation failed (attempt ${attempt}/${maxRetries}):`, error);
+      
+      // Check if this is a database connection error
+      if (error instanceof Error && (
+        error.message.includes('terminating connection') ||
+        error.message.includes('connection') ||
+        error.message.includes('FATAL') ||
+        error.message.includes('administrator command')
+      )) {
+        if (attempt < maxRetries) {
+          console.log(`Retrying database operation in ${delayMs}ms...`);
+          await new Promise(resolve => setTimeout(resolve, delayMs));
+          delayMs *= 1.5; // Exponential backoff
+          continue;
+        }
+      }
+      
+      // If it's not a connection error or we've exhausted retries, throw
+      throw error;
+    }
+  }
+  
+  throw lastError;
+}
+
 interface GmailMessage {
   id?: string;
   threadId?: string;
@@ -46,15 +80,17 @@ export class EmailSyncService {
       console.log('🔄 Syncing Gmail threads to database...');
       
       // Get all projects and their contact emails for matching
-      const projectsWithContacts = await db
-        .select({
-          projectId: projects.id,
-          projectName: projects.name,
-          contactEmail: contacts.email,
-        })
-        .from(projects)
-        .leftJoin(contacts, eq(contacts.id, projects.contactId))
-        .where(isNotNull(contacts.email));
+      const projectsWithContacts = await withDbRetry(() => 
+        db
+          .select({
+            projectId: projects.id,
+            projectName: projects.name,
+            contactEmail: contacts.email,
+          })
+          .from(projects)
+          .leftJoin(contacts, eq(contacts.id, projects.contactId))
+          .where(isNotNull(contacts.email))
+      );
 
       const emailToProjectMap = new Map<string, string>();
       projectsWithContacts.forEach(p => {
@@ -129,24 +165,28 @@ export class EmailSyncService {
           let threadId = gmailThread.threadId; // Temporary - will be updated during full message sync
 
           // Check if thread already exists
-          const existingThread = await db
-            .select()
-            .from(emailThreads)
-            .where(eq(emailThreads.id, threadId))
-            .limit(1);
+          const existingThread = await withDbRetry(() =>
+            db
+              .select()
+              .from(emailThreads)
+              .where(eq(emailThreads.id, threadId))
+              .limit(1)
+          );
 
           if (existingThread.length === 0) {
             // Create new thread
-            await db
-              .insert(emailThreads)
-              .values({
-                id: threadId,
-                subject: gmailThread.latest.subject,
-                projectId: matchedProjectId,
-                lastMessageAt: new Date(gmailThread.latest.dateISO),
-                createdAt: new Date(),
-                updatedAt: new Date(),
-              });
+            await withDbRetry(() =>
+              db
+                .insert(emailThreads)
+                .values({
+                  id: threadId,
+                  subject: gmailThread.latest.subject,
+                  projectId: matchedProjectId,
+                  lastMessageAt: new Date(gmailThread.latest.dateISO),
+                  createdAt: new Date(),
+                  updatedAt: new Date(),
+                })
+            );
           } else {
             // Update existing thread, ensuring project association is preserved
             const updateData: any = {
@@ -160,46 +200,50 @@ export class EmailSyncService {
               updateData.projectId = matchedProjectId;
             }
             
-            await db
-              .update(emailThreads)
-              .set(updateData)
-              .where(eq(emailThreads.id, threadId));
+            await withDbRetry(() =>
+              db
+                .update(emailThreads)
+                .set(updateData)
+                .where(eq(emailThreads.id, threadId))
+            );
           }
 
           // Store the latest message details (quick sync)
           const emailId = `email_${gmailThread.latest.id}`;
           
-          await db
-            .insert(emails)
-            .values({
-              id: emailId,
-              threadId,
-              provider: 'gmail',
-              providerMessageId: gmailThread.latest.id,
-              direction: 'inbound',
-              fromEmail: gmailThread.latest.from,
-              toEmails: [gmailThread.latest.to],
-              ccEmails: [],
-              bccEmails: [],
-              subject: gmailThread.latest.subject,
-              bodyText: gmailThread.latest.snippet,
-              bodyHtml: null,
-              sentAt: new Date(gmailThread.latest.dateISO),
-              hasAttachments: false,
-              contactId: null,
-              projectId: matchedProjectId,
-              createdAt: new Date(),
-              updatedAt: new Date(),
-            })
-            .onConflictDoUpdate({
-              target: emails.providerMessageId,
-              set: {
-                updatedAt: new Date(),
-                bodyText: gmailThread.latest.snippet,
+          await withDbRetry(() =>
+            db
+              .insert(emails)
+              .values({
+                id: emailId,
+                threadId,
+                provider: 'gmail',
+                providerMessageId: gmailThread.latest.id,
+                direction: 'inbound',
+                fromEmail: gmailThread.latest.from,
+                toEmails: [gmailThread.latest.to],
+                ccEmails: [],
+                bccEmails: [],
                 subject: gmailThread.latest.subject,
+                bodyText: gmailThread.latest.snippet,
+                bodyHtml: null,
+                sentAt: new Date(gmailThread.latest.dateISO),
+                hasAttachments: false,
+                contactId: null,
                 projectId: matchedProjectId,
-              },
-            });
+                createdAt: new Date(),
+                updatedAt: new Date(),
+              })
+              .onConflictDoUpdate({
+                target: emails.providerMessageId,
+                set: {
+                  updatedAt: new Date(),
+                  bodyText: gmailThread.latest.snippet,
+                  subject: gmailThread.latest.subject,
+                  projectId: matchedProjectId,
+                },
+              })
+          );
 
           if (matchedProjectId) {
             console.log(`📧 Associated thread "${gmailThread.latest.subject}" with project ${matchedProjectId}`);

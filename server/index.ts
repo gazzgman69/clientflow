@@ -80,8 +80,13 @@ app.use((req, res, next) => {
         
         // Run initial sync after 30 seconds
         setTimeout(async () => {
-          console.log('🔄 Running initial Gmail sync...');
-          await emailSyncService.backgroundSync('test-user');
+          try {
+            console.log('🔄 Running initial Gmail sync...');
+            await emailSyncService.backgroundSync('test-user');
+          } catch (error) {
+            console.error('❌ Initial Gmail sync failed:', error);
+            // Don't crash the app on initial sync failure
+          }
         }, 30000);
         
         // Run sync every 3 minutes for continuous email updates
@@ -91,6 +96,11 @@ app.use((req, res, next) => {
             await emailSyncService.backgroundSync('test-user');
           } catch (error) {
             console.error('❌ Scheduled Gmail sync failed:', error);
+            // Log the error but don't let it crash the app
+            if (error instanceof Error) {
+              console.error('Error details:', error.message);
+              console.error('Stack trace:', error.stack);
+            }
           }
         }, 3 * 60 * 1000); // 3 minutes
         

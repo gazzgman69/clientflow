@@ -22,6 +22,7 @@ import {
   Undo,
   Redo,
 } from 'lucide-react';
+import { SlashCommand, getSuggestionItems, renderItems } from './slash-command';
 
 interface RichTextEditorProps {
   content?: string;
@@ -89,6 +90,50 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
         Typography,
         Underline,
         TextStyle,
+        SlashCommand.configure({
+          suggestion: {
+            items: getSuggestionItems,
+            render: renderItems,
+            command: ({ editor, range, props }: any) => {
+              const { title } = props;
+              // Delete the slash and the command text
+              editor.chain().focus().deleteRange(range).run();
+              
+              // Execute the appropriate command
+              switch (title) {
+                case 'Heading 1':
+                  editor.chain().focus().toggleHeading({ level: 1 }).run();
+                  break;
+                case 'Heading 2':
+                  editor.chain().focus().toggleHeading({ level: 2 }).run();
+                  break;
+                case 'Bullet List':
+                  editor.chain().focus().toggleBulletList().run();
+                  break;
+                case 'Numbered List':
+                  editor.chain().focus().toggleOrderedList().run();
+                  break;
+                case 'Quote':
+                  editor.chain().focus().toggleBlockquote().run();
+                  break;
+                case 'Link':
+                  const url = window.prompt('Enter the URL');
+                  if (url) {
+                    const sanitizedUrl = url.toLowerCase().startsWith('javascript:') ? '' : url;
+                    if (sanitizedUrl) {
+                      editor.chain().focus().setLink({ href: sanitizedUrl }).run();
+                    }
+                  }
+                  break;
+                case 'Clear Format':
+                  editor.chain().focus().clearNodes().unsetAllMarks().run();
+                  break;
+                default:
+                  break;
+              }
+            },
+          },
+        }),
       ],
       content,
       editorProps: {
@@ -99,6 +144,84 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
             'focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2',
             disabled && 'cursor-not-allowed opacity-50'
           ),
+        },
+        handleKeyDown: (view, event) => {
+          // Handle keyboard shortcuts
+          const { key, ctrlKey, metaKey, shiftKey } = event;
+          const isCmd = ctrlKey || metaKey;
+
+          // Bold: Ctrl/Cmd + B
+          if (isCmd && key === 'b' && !shiftKey) {
+            event.preventDefault();
+            editor?.chain().focus().toggleBold().run();
+            return true;
+          }
+
+          // Italic: Ctrl/Cmd + I
+          if (isCmd && key === 'i' && !shiftKey) {
+            event.preventDefault();
+            editor?.chain().focus().toggleItalic().run();
+            return true;
+          }
+
+          // Underline: Ctrl/Cmd + U
+          if (isCmd && key === 'u' && !shiftKey) {
+            event.preventDefault();
+            editor?.chain().focus().toggleUnderline().run();
+            return true;
+          }
+
+          // Link: Ctrl/Cmd + K
+          if (isCmd && key === 'k' && !shiftKey) {
+            event.preventDefault();
+            const url = window.prompt('Enter the URL');
+            if (url) {
+              const sanitizedUrl = url.toLowerCase().startsWith('javascript:') ? '' : url;
+              if (sanitizedUrl) {
+                editor?.chain().focus().setLink({ href: sanitizedUrl }).run();
+              }
+            }
+            return true;
+          }
+
+          return false;
+        },
+        handlePaste: (view, event, slice) => {
+          // Handle paste - strip unsafe HTML while keeping basic formatting
+          const { clipboardData } = event;
+          if (!clipboardData) return false;
+
+          const text = clipboardData.getData('text/plain');
+          const html = clipboardData.getData('text/html');
+
+          // If there's HTML content, sanitize it
+          if (html && html !== text) {
+            event.preventDefault();
+            
+            // Create a temporary element to parse HTML
+            const temp = document.createElement('div');
+            temp.innerHTML = html;
+            
+            // Remove potentially dangerous elements and attributes
+            const dangerous = temp.querySelectorAll('script, style, iframe, object, embed');
+            dangerous.forEach(el => el.remove());
+            
+            // Remove all event handlers and javascript: links
+            temp.querySelectorAll('*').forEach(el => {
+              Array.from(el.attributes).forEach(attr => {
+                if (attr.name.startsWith('on') || attr.value.includes('javascript:')) {
+                  el.removeAttribute(attr.name);
+                }
+              });
+            });
+
+            // Insert the sanitized HTML
+            const sanitizedHtml = temp.innerHTML;
+            editor?.commands.insertContent(sanitizedHtml);
+            return true;
+          }
+
+          return false;
         },
       },
       onUpdate: ({ editor }) => {

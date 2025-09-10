@@ -84,13 +84,18 @@ export default function LeadsKanban() {
 
   // Modal handlers
   const handleViewProjectDetails = async (projectId: string) => {
+    console.log('handleViewProjectDetails called with projectId:', projectId);
     // Fetch the project details first
     try {
+      console.log('Fetching project details...');
       const response = await apiRequest("GET", `/api/projects/${projectId}`);
       const project = await response.json();
+      console.log('Project data received:', project);
       setSelectedProject(project);
       setShowDetailModal(true);
+      console.log('Modal state set to true');
     } catch (error) {
+      console.error('Error fetching project:', error);
       toast({
         title: "Error",
         description: "Failed to load project details.",
@@ -369,9 +374,12 @@ export default function LeadsKanban() {
                           onDragStart={handleDragStart}
                           onDelete={handleDeleteLead}
                           onClick={() => {
+                            console.log('Lead card clicked:', lead);
                             if (lead.projectId) {
+                              console.log('Opening modal for project:', lead.projectId);
                               handleViewProjectDetails(lead.projectId);
                             } else {
+                              console.log('No project ID, navigating to new project');
                               // If no project exists, navigate to create a new project for this lead
                               setLocation(`/projects/new?leadId=${lead.id}`);
                             }

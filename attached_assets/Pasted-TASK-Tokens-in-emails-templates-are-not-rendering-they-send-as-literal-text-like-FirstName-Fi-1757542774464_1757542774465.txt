@@ -1,0 +1,57 @@
+TASK
+Tokens in emails/templates are not rendering (they send as literal text like “[FirstName]”). Fix token replacement end-to-end for both Preview and Send.
+
+DO FIRST (AUDIT — NO WRITES)
+- Print the files/functions used to:
+  1) render email/template previews
+  2) send emails
+- Show where the final email body is constructed right before send.
+- Show if any token resolver already exists (regex, service, helper). If none, say “none”.
+
+IMPLEMENT (SMALLEST DIFFS, ADAPT TO REPO)
+Goal: replace tokens like [FirstName], [LastName], [ProjectDate] with data from the selected contact/project.
+
+1) Token resolver (minimal, reusable)
+- Add a small function (or service) `renderTemplate(template, ctx)` that:
+  • Accepts a string and a context `{ contact?, project? }`.
+  • Uses a safe global regex like /\[([A-Za-z0-9_.:|]+)\]/g to find tokens.
+  • Supports these starters first: [FirstName], [LastName], [FullName], [Email], [Phone], [ProjectDate], [ProjectName].
+  • Optional formatter after pipe: [ProjectDate|dd/MM/yyyy].
+  • If a token can’t be resolved, replace with "" (empty) and collect it in `unresolved[]`.
+  • Returns `{ html: string, unresolved: string[] }`.
+  • Escape values unless the app already sanitizes.
+
+2) Wire it in TWO places
+- PREVIEW path: call `renderTemplate` right before returning preview HTML.
+- SEND path: call `renderTemplate` immediately before handing body to the mailer.
+  IMPORTANT: Do NOT rely on the editor to pre-render; resolve server-side at send time.
+
+3) Context detection
+- Wherever preview/send is invoked, pass the appropriate ids:
+  • contactId (from the To/recipient or selected contact)
+  • projectId (if the email is from a project screen)
+- Add tiny helpers to load contact/project by id and map fields the resolver expects.
+  Do NOT change schema; adapt to existing field names.
+
+4) Editor integration
+- Keep the “Insert Token” dropdown as-is; it inserts the literal token text (e.g. [FirstName]).
+- Ensure Preview calls the preview endpoint that uses `renderTemplate`.
+
+VERIFY (LOG — NO PII)
+- Add a temporary debug log in preview/send that prints:
+  • first 120 chars of template BEFORE render
+  • the list of unresolved tokens
+  (Do not log full bodies or PII; trim aggressively.)
+
+ACCEPTANCE
+- In the email composer and templates:
+  Example input:
+    Hi [FirstName] [LastName]
+    Chatting about your date [ProjectDate|dd/MM/yyyy]
+  Preview shows resolved values.
+  Sending the email sends resolved values (no raw “[FirstName]” left).
+- Unresolved tokens render as empty; preview returns `unresolved` list for visibility.
+
+EXTRA (if needed)
+- If your token names differ (e.g., [contact.first_name]), map my tokens to yours so [FirstName] still works.
+- If both HTML and plain text bodies exist, resolve in both.

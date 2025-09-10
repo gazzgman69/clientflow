@@ -73,54 +73,54 @@ router.post('/send', requireAuth, async (req: any, res) => {
     let finalSubject = emailData.subject || '';
     let finalText = emailData.text || '';
     
+    // Build context for token resolution - auto-enrich from email address
+    const context: any = {};
+    
+    // Use provided IDs or try to derive from email address
+    let contactId = emailData.contactId;
+    let projectId = emailData.projectId;
+    
+    // If contactId not provided, try to find contact by email
+    if (!contactId && emailData.to) {
+      try {
+        const [contact] = await db
+          .select({ id: contacts.id })
+          .from(contacts)
+          .where(eq(contacts.email, emailData.to))
+          .limit(1);
+        if (contact) {
+          contactId = contact.id;
+        }
+      } catch (error) {
+        console.log('Could not auto-detect contact from email:', emailData.to);
+      }
+    }
+    
+    // If projectId not provided but we have contactId, try to find project
+    if (!projectId && contactId) {
+      try {
+        const [project] = await db
+          .select({ id: projects.id })
+          .from(projects)
+          .where(eq(projects.contactId, contactId))
+          .limit(1);
+        if (project) {
+          projectId = project.id;
+        }
+      } catch (error) {
+        console.log('Could not auto-detect project from contact:', contactId);
+      }
+    }
+    
+    if (contactId) context.contactId = contactId;
+    if (projectId) context.projectId = projectId;
+    
     // Handle template-based email
     if (emailData.templateId) {
       const template = await templatesService.getTemplate(emailData.templateId);
       if (!template) {
         return res.status(404).json({ ok: false, error: 'Template not found' });
       }
-      
-      // Build context for token resolution - auto-enrich from email address
-      const context: any = {};
-      
-      // Use provided IDs or try to derive from email address
-      let contactId = emailData.contactId;
-      let projectId = emailData.projectId;
-      
-      // If contactId not provided, try to find contact by email
-      if (!contactId && emailData.to) {
-        try {
-          const [contact] = await db
-            .select({ id: contacts.id })
-            .from(contacts)
-            .where(eq(contacts.email, emailData.to))
-            .limit(1);
-          if (contact) {
-            contactId = contact.id;
-          }
-        } catch (error) {
-          console.log('Could not auto-detect contact from email:', emailData.to);
-        }
-      }
-      
-      // If projectId not provided but we have contactId, try to find project
-      if (!projectId && contactId) {
-        try {
-          const [project] = await db
-            .select({ id: projects.id })
-            .from(projects)
-            .where(eq(projects.contactId, contactId))
-            .limit(1);
-          if (project) {
-            projectId = project.id;
-          }
-        } catch (error) {
-          console.log('Could not auto-detect project from contact:', contactId);
-        }
-      }
-      
-      if (contactId) context.contactId = contactId;
-      if (projectId) context.projectId = projectId;
       
       // Render template with tokens
       const rendered = await templatesService.renderTemplate(template, context);
@@ -131,10 +131,31 @@ router.post('/send', requireAuth, async (req: any, res) => {
       if (rendered.unresolved.length > 0) {
         console.log('⚠️ Unresolved tokens:', rendered.unresolved);
       }
+    } else {
+      // Direct email composition - apply token resolution to subject and body
+      const subjectResult = finalSubject ? 
+        await tokenResolverService.resolveTemplate(finalSubject, context) : 
+        { rendered: finalSubject, unresolved: [] };
+      
+      const bodyResult = finalText ? 
+        await tokenResolverService.resolveTemplate(finalText, context) : 
+        { rendered: finalText, unresolved: [] };
+      
+      finalSubject = subjectResult.rendered;
+      finalText = bodyResult.rendered;
+      
+      const unresolved = [...subjectResult.unresolved, ...bodyResult.unresolved];
+      
+      // Debug logging as specified in task (first 120 chars + unresolved tokens)
+      const debugText = (emailData.text || '').substring(0, 120);
+      console.log(`📧 Token resolution DEBUG - Before: "${debugText}${debugText.length >= 120 ? '...' : ''}"`);
+      console.log(`📧 Direct email rendered: ${unresolved.length} unresolved tokens`);
+      if (unresolved.length > 0) {
+        console.log('⚠️ Unresolved tokens:', unresolved);
+      }
     }
     
-    // Determine projectId for context if needed
-    let projectId = emailData.projectId || null;
+    // Use the projectId we already determined above
     if (!projectId && emailData.to) {
       // Try to find project by contact email
       try {

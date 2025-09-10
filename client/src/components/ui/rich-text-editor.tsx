@@ -448,8 +448,17 @@ const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(
                 <p>Inline Code</p>
               </TooltipContent>
             </Tooltip>
+
+            {/* Insert Token, Signature, Template - inline with main formatting buttons */}
+            {onTokenInsert && onTokenInsert((token) => {
+              if (editor) {
+                editor.chain().focus().insertContent(token + ' ').run();
+              }
+            })}
+            {onSignatureSelect && onSignatureSelect()}
+            {onTemplateSelect && onTemplateSelect()}
             
-            {/* Undo/Redo - inline with main formatting buttons */}
+            {/* Undo/Redo - smaller size, inline with main formatting buttons */}
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
@@ -459,8 +468,9 @@ const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(
                   disabled={disabled || !editor.can().undo()}
                   aria-label="Undo"
                   data-testid="rte-undo"
+                  className="h-7 w-7 p-0"
                 >
-                  <Undo className="h-4 w-4" />
+                  <Undo className="h-3 w-3" />
                 </Button>
               </TooltipTrigger>
               <TooltipContent>
@@ -476,8 +486,9 @@ const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(
                   disabled={disabled || !editor.can().redo()}
                   aria-label="Redo"
                   data-testid="rte-redo"
+                  className="h-7 w-7 p-0"
                 >
-                  <Redo className="h-4 w-4" />
+                  <Redo className="h-3 w-3" />
                 </Button>
               </TooltipTrigger>
               <TooltipContent>
@@ -485,21 +496,6 @@ const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(
               </TooltipContent>
             </Tooltip>
           </div>
-
-          <Separator orientation="vertical" className="h-6 hidden sm:block" />
-
-          {/* Additional actions */}
-          {(onTokenInsert || onSignatureSelect || onTemplateSelect) && (
-            <div className="flex items-center gap-1 min-w-0 flex-shrink-0">
-              {onTokenInsert && onTokenInsert((token) => {
-                if (editor) {
-                  editor.chain().focus().insertContent(token + ' ').run();
-                }
-              })}
-              {onSignatureSelect && onSignatureSelect()}
-              {onTemplateSelect && onTemplateSelect()}
-            </div>
-          )}
         </div>
 
         {/* Editor content */}

@@ -563,13 +563,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.delete("/api/contacts/:id", async (req, res) => {
     try {
+      // Check if contact has associated projects
+      const associatedProjects = await storage.getProjectsByContact(req.params.id);
+      if (associatedProjects.length > 0) {
+        return res.status(400).json({ 
+          message: "Cannot delete contact with associated projects", 
+          details: `This contact has ${associatedProjects.length} associated project(s). Please delete or reassign the projects first.`,
+          projectCount: associatedProjects.length
+        });
+      }
+
       const deleted = await storage.deleteContact(req.params.id);
       if (!deleted) {
         return res.status(404).json({ message: "Contact not found" });
       }
       res.status(204).send();
     } catch (error) {
-      res.status(500).json({ message: "Failed to delete contact" });
+      console.error('Error deleting contact:', error);
+      res.status(500).json({ message: "Failed to delete contact", error: error.message });
     }
   });
 

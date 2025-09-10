@@ -462,50 +462,44 @@ const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(
               })}
               {onSignatureSelect && onSignatureSelect()}
               {onTemplateSelect && onTemplateSelect()}
+              
+              {/* Undo/Redo - positioned right after Template */}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => editor.chain().focus().undo().run()}
+                    disabled={disabled || !editor.can().undo()}
+                    aria-label="Undo"
+                    data-testid="rte-undo"
+                  >
+                    <Undo className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Undo (Ctrl+Z)</p>
+                </TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => editor.chain().focus().redo().run()}
+                    disabled={disabled || !editor.can().redo()}
+                    aria-label="Redo"
+                    data-testid="rte-redo"
+                  >
+                    <Redo className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Redo (Ctrl+Y)</p>
+                </TooltipContent>
+              </Tooltip>
             </div>
           )}
-
-          {(onTokenInsert || onSignatureSelect || onTemplateSelect) && (
-            <Separator orientation="vertical" className="h-6 hidden sm:block" />
-          )}
-
-          {/* Undo/Redo */}
-          <div className="flex items-center gap-1 min-w-0 flex-shrink-0">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => editor.chain().focus().undo().run()}
-                  disabled={disabled || !editor.can().undo()}
-                  aria-label="Undo"
-                  data-testid="rte-undo"
-                >
-                  <Undo className="h-4 w-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>Undo (Ctrl+Z)</p>
-              </TooltipContent>
-            </Tooltip>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => editor.chain().focus().redo().run()}
-                  disabled={disabled || !editor.can().redo()}
-                  aria-label="Redo"
-                  data-testid="rte-redo"
-                >
-                  <Redo className="h-4 w-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>Redo (Ctrl+Y)</p>
-              </TooltipContent>
-            </Tooltip>
-          </div>
         </div>
 
         {/* Editor content */}

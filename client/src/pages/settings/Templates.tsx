@@ -431,7 +431,7 @@ export default function TemplatesPage() {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Template Type</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value} disabled={!!editingTemplate}>
+                        <Select onValueChange={field.onChange} value={field.value} disabled={!!editingTemplate}>
                           <FormControl>
                             <SelectTrigger data-testid="select-template-type">
                               <SelectValue placeholder="Select template type" />

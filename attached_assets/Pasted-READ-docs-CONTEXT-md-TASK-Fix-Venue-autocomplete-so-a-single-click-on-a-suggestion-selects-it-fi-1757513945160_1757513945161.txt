@@ -1,0 +1,48 @@
+READ /docs/CONTEXT.md.
+
+TASK
+Fix Venue autocomplete so a single click on a suggestion selects it, fills the field, closes the dropdown, and moves focus to the next field (no second click).
+
+AUDIT (NO WRITES)
+- Print the component(s) handling venue predictions (file path, component name).
+- Show the handlers: onChange, onFocus, onBlur, onKeyDown, onSelect/onClick for suggestion items.
+- State whether BOTH Google Maps Autocomplete AND a custom suggestions list are active; if so, which one reopens the menu.
+
+IMPLEMENT (SMALLEST DIFFS; DIFF-ONLY)
+In the venue autocomplete component:
+1) Selection handler (for a suggestion item):
+   - On mousedown (not click), do:
+     • preventDefault()
+     • setValue(displayAddress)
+     • setInternalQuery(displayAddress)
+     • setIsOpen(false); setSuggestions([])
+     • setSelectedPlace(placeId)
+     • blur the input and focus the next field (if available)
+     • reset sessionToken
+   Rationale: mousedown fires before input blur, ensuring selection persists.
+
+2) Blur/open logic:
+   - onBlur: close menu with a short setTimeout(() => setIsOpen(false), 0) unless a selection is in progress (use a ref like isSelecting.current).
+   - onFocus: do NOT auto-open unless query.length >= 2 and !selectedPlace.
+
+3) Typing logic:
+   - Only open dropdown when query.length >= 2 and input is focused.
+   - After selection, ensure query === displayAddress so the “non-empty” check doesn’t reopen the menu.
+
+4) Enter key:
+   - onKeyDown: if menu is open and a suggestion is highlighted, prevent form submit and select that suggestion.
+   - Always prevent form submit on Enter while menu is open.
+
+5) Single source of truth:
+   - If Google’s native `google.maps.places.Autocomplete` is attached, REMOVE the custom list (or vice versa). Keep exactly one path.
+   - If using Google’s widget, handle `place_changed` → set value, close UI, blur.
+
+6) Z-index/click interception:
+   - Ensure the dropdown has a higher z-index than form containers.
+   - Ensure no outside click handler reopens the menu after selection.
+
+ACCEPTANCE
+- One click (or Enter) on a suggestion populates the field, dropdown closes, focus advances.
+- The menu does not reopen immediately after selection.
+- No form submission occurs when selecting.
+- Works with mouse and keyboard.

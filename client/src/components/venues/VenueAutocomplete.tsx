@@ -53,6 +53,7 @@ export function VenueAutocomplete({
   
   const inputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const isSelectingRef = useRef(false);
   
   // Generate a new session token for Places API billing optimization
   const generateSessionToken = () => {
@@ -94,7 +95,7 @@ export function VenueAutocomplete({
       return;
     }
     
-    if (!input.trim() || input.length < 3) {
+    if (!input.trim() || input.length < 2) {
       setPredictions([]);
       setShowPredictions(false);
       return;
@@ -136,10 +137,13 @@ export function VenueAutocomplete({
 
   // Handle venue selection
   const handleVenueSelect = async (prediction: PlacePrediction) => {
+    isSelectingRef.current = true; // Prevent blur from closing menu
+    
     // Keep the original description text throughout the process
     const originalDescription = prediction.description;
     setQuery(originalDescription);
     setShowPredictions(false);
+    setPredictions([]);
     setIsLoading(true);
 
     try {
@@ -181,13 +185,24 @@ export function VenueAutocomplete({
       setShowPredictions(false);
       setPredictions([]);
       
-      // Remove focus from input to prevent any further events
+      // Focus next field (blur current input)
       if (inputRef.current) {
         inputRef.current.blur();
+        // Try to focus next form field
+        const form = inputRef.current.closest('form');
+        if (form) {
+          const formElements = Array.from(form.querySelectorAll('input, select, textarea, button'));
+          const currentIndex = formElements.indexOf(inputRef.current);
+          const nextElement = formElements[currentIndex + 1] as HTMLElement;
+          if (nextElement && nextElement.focus) {
+            nextElement.focus();
+          }
+        }
       }
       
       // Generate new session token for next search
       setSessionToken(generateSessionToken());
+      isSelectingRef.current = false;
     } catch (error) {
       console.error('Error selecting venue:', error);
       // Fallback: Try to get venue details directly from Google if venue creation failed
@@ -223,10 +238,21 @@ export function VenueAutocomplete({
           setShowPredictions(false);
           setPredictions([]);
           
-          // Remove focus from input to prevent any further events
+          // Focus next field (blur current input)
           if (inputRef.current) {
             inputRef.current.blur();
+            // Try to focus next form field
+            const form = inputRef.current.closest('form');
+            if (form) {
+              const formElements = Array.from(form.querySelectorAll('input, select, textarea, button'));
+              const currentIndex = formElements.indexOf(inputRef.current);
+              const nextElement = formElements[currentIndex + 1] as HTMLElement;
+              if (nextElement && nextElement.focus) {
+                nextElement.focus();
+              }
+            }
           }
+          isSelectingRef.current = false;
         } else {
           throw new Error('Failed to get place details');
         }
@@ -245,10 +271,21 @@ export function VenueAutocomplete({
         setShowPredictions(false);
         setPredictions([]);
         
-        // Remove focus from input to prevent any further events
+        // Focus next field (blur current input)
         if (inputRef.current) {
           inputRef.current.blur();
+          // Try to focus next form field
+          const form = inputRef.current.closest('form');
+          if (form) {
+            const formElements = Array.from(form.querySelectorAll('input, select, textarea, button'));
+            const currentIndex = formElements.indexOf(inputRef.current);
+            const nextElement = formElements[currentIndex + 1] as HTMLElement;
+            if (nextElement && nextElement.focus) {
+              nextElement.focus();
+            }
+          }
         }
+        isSelectingRef.current = false;
       }
     } finally {
       setIsLoading(false);
@@ -287,15 +324,25 @@ export function VenueAutocomplete({
             }
           }}
           onFocus={() => {
-            // Don't auto-show dropdown on focus if venue already selected
-            // User can still edit the field, but dropdown only appears when they type
-            if (hasSelectedVenue || (initialValue && initialValue.trim().length > 0)) {
-              return;
-            }
-            
-            // Only auto-show dropdown for new searches
-            if (query.length >= 3) {
+            // Don't auto-open unless query >= 2 and no venue selected
+            if (query.length >= 2 && !hasSelectedVenue) {
               setShowPredictions(true);
+            }
+          }}
+          onBlur={() => {
+            // Close menu with timeout unless selection in progress
+            setTimeout(() => {
+              if (!isSelectingRef.current) {
+                setShowPredictions(false);
+              }
+            }, 0);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && showPredictions) {
+              e.preventDefault(); // Always prevent form submit while menu open
+              if (predictions.length > 0) {
+                handleVenueSelect(predictions[0]); // Select first suggestion
+              }
             }
           }}
           placeholder={placeholder}
@@ -310,7 +357,7 @@ export function VenueAutocomplete({
       </div>
 
       {showPredictions && predictions.length > 0 && (
-        <Card className="absolute top-full z-50 mt-1 w-full shadow-lg">
+        <Card className="absolute top-full z-[100] mt-1 w-full shadow-lg">
           <CardContent className="p-0">
             <div className="max-h-60 overflow-y-auto">
               {predictions.map((prediction) => (
@@ -318,7 +365,10 @@ export function VenueAutocomplete({
                   key={prediction.place_id}
                   variant="ghost"
                   className="w-full justify-start p-3 h-auto text-left hover:bg-muted/50"
-                  onClick={() => handleVenueSelect(prediction)}
+                  onMouseDown={(e) => {
+                    e.preventDefault(); // Prevent input blur
+                    handleVenueSelect(prediction);
+                  }}
                   data-testid={`button-venue-${prediction.place_id}`}
                 >
                   <MapPin className="mr-3 h-4 w-4 text-muted-foreground shrink-0" />
@@ -335,7 +385,7 @@ export function VenueAutocomplete({
         </Card>
       )}
 
-      {showPredictions && predictions.length === 0 && query.length >= 3 && !isLoading && (
+      {showPredictions && predictions.length === 0 && query.length >= 2 && !isLoading && (
         <Card className="absolute top-full z-50 mt-1 w-full shadow-lg">
           <CardContent className="p-3">
             <div className="text-sm text-muted-foreground text-center">

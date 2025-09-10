@@ -147,8 +147,8 @@ export function VenueAutocomplete({
     setIsLoading(true);
 
     try {
-      // Create venue from Google Place using the same session token
-      const response = await fetch('/api/venues/from-google', {
+      // Get place details from Google WITHOUT creating a venue
+      const response = await fetch('/api/venues/place-details', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -160,22 +160,22 @@ export function VenueAutocomplete({
       });
 
       if (!response.ok) {
-        throw new Error('Failed to create venue from Google Place');
+        throw new Error('Failed to get place details');
       }
 
-      const venue = await response.json();
+      const placeDetails = await response.json();
       
-      // Transform venue data for callback - use properly parsed address fields
+      // Transform place details for form pre-filling
       const selectedVenue: SelectedVenue = {
-        placeId: venue.placeId,
-        name: venue.name,
-        address: venue.address, // Use the properly parsed street address
-        city: venue.city,
-        state: venue.state,
-        zipCode: venue.zipCode,
-        country: venue.country,
-        latitude: venue.latitude,
-        longitude: venue.longitude,
+        placeId: prediction.place_id,
+        name: placeDetails.name || prediction.structured_formatting.main_text,
+        address: placeDetails.address1, // Use the properly parsed street address
+        city: placeDetails.city,
+        state: placeDetails.state,
+        zipCode: placeDetails.postalCode,
+        country: placeDetails.countryCode,
+        latitude: placeDetails.latitude,
+        longitude: placeDetails.longitude,
       };
 
       onVenueSelect(selectedVenue);
@@ -204,89 +204,35 @@ export function VenueAutocomplete({
       setSessionToken(generateSessionToken());
       isSelectingRef.current = false;
     } catch (error) {
-      console.error('Error selecting venue:', error);
-      // Fallback: Try to get venue details directly from Google if venue creation failed
-      try {
-        const directResponse = await fetch('/api/venues/place-details', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            placeId: prediction.place_id,
-            sessionToken
-          }),
-        });
-        
-        if (directResponse.ok) {
-          const placeDetails = await directResponse.json();
-          const detailedVenue: SelectedVenue = {
-            placeId: prediction.place_id,
-            name: placeDetails.name || prediction.structured_formatting.main_text,
-            address: placeDetails.address1, // Use the properly parsed street address
-            city: placeDetails.city,
-            state: placeDetails.state,
-            zipCode: placeDetails.postalCode,
-            country: placeDetails.countryCode,
-            latitude: placeDetails.latitude,
-            longitude: placeDetails.longitude,
-          };
-          onVenueSelect(detailedVenue);
-          
-          // Mark venue as selected and hide predictions immediately
-          setHasSelectedVenue(true);
-          setShowPredictions(false);
-          setPredictions([]);
-          
-          // Focus next field (blur current input)
-          if (inputRef.current) {
-            inputRef.current.blur();
-            // Try to focus next form field
-            const form = inputRef.current.closest('form');
-            if (form) {
-              const formElements = Array.from(form.querySelectorAll('input, select, textarea, button'));
-              const currentIndex = formElements.indexOf(inputRef.current);
-              const nextElement = formElements[currentIndex + 1] as HTMLElement;
-              if (nextElement && nextElement.focus) {
-                nextElement.focus();
-              }
-            }
-          }
-          isSelectingRef.current = false;
-        } else {
-          throw new Error('Failed to get place details');
-        }
-      } catch (fallbackError) {
-        console.error('Fallback venue selection also failed:', fallbackError);
-        // Final fallback to basic venue data
-        const basicVenue: SelectedVenue = {
-          placeId: prediction.place_id,
-          name: prediction.structured_formatting.main_text,
-          address: prediction.structured_formatting.main_text // Use just the venue name as basic address
-        };
-        onVenueSelect(basicVenue);
-        
-        // Mark venue as selected and hide predictions immediately
-        setHasSelectedVenue(true);
-        setShowPredictions(false);
-        setPredictions([]);
-        
-        // Focus next field (blur current input)
-        if (inputRef.current) {
-          inputRef.current.blur();
-          // Try to focus next form field
-          const form = inputRef.current.closest('form');
-          if (form) {
-            const formElements = Array.from(form.querySelectorAll('input, select, textarea, button'));
-            const currentIndex = formElements.indexOf(inputRef.current);
-            const nextElement = formElements[currentIndex + 1] as HTMLElement;
-            if (nextElement && nextElement.focus) {
-              nextElement.focus();
-            }
+      console.error('Error getting place details:', error);
+      // Final fallback to basic venue data from prediction
+      const basicVenue: SelectedVenue = {
+        placeId: prediction.place_id,
+        name: prediction.structured_formatting.main_text,
+        address: prediction.structured_formatting.secondary_text || prediction.structured_formatting.main_text
+      };
+      onVenueSelect(basicVenue);
+      
+      // Mark venue as selected and hide predictions immediately
+      setHasSelectedVenue(true);
+      setShowPredictions(false);
+      setPredictions([]);
+      
+      // Focus next field (blur current input)
+      if (inputRef.current) {
+        inputRef.current.blur();
+        // Try to focus next form field
+        const form = inputRef.current.closest('form');
+        if (form) {
+          const formElements = Array.from(form.querySelectorAll('input, select, textarea, button'));
+          const currentIndex = formElements.indexOf(inputRef.current);
+          const nextElement = formElements[currentIndex + 1] as HTMLElement;
+          if (nextElement && nextElement.focus) {
+            nextElement.focus();
           }
         }
-        isSelectingRef.current = false;
       }
+      isSelectingRef.current = false;
     } finally {
       setIsLoading(false);
     }

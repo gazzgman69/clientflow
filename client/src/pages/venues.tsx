@@ -69,6 +69,10 @@ const venueSchema = z.object({
   preferred: z.boolean().optional(),
   tags: z.string().optional(),
   notes: z.string().optional(),
+  // Google Places fields
+  placeId: z.string().optional(),
+  latitude: z.string().optional(),
+  longitude: z.string().optional(),
 });
 
 type VenueFormData = z.infer<typeof venueSchema>;
@@ -104,6 +108,9 @@ export default function VenuesPage() {
       preferred: false,
       tags: "",
       notes: "",
+      placeId: "",
+      latitude: "",
+      longitude: "",
     },
   });
 
@@ -119,6 +126,10 @@ export default function VenuesPage() {
         managerEmail: data.managerEmail || undefined,
         tags: tags.length > 0 ? tags : undefined,
         preferred: data.preferred || false,
+        // Include Google Places data
+        placeId: data.placeId || undefined,
+        latitude: data.latitude ? parseFloat(data.latitude) : undefined,
+        longitude: data.longitude ? parseFloat(data.longitude) : undefined,
       });
     },
     onSuccess: () => {
@@ -151,6 +162,10 @@ export default function VenuesPage() {
         managerEmail: data.managerEmail || undefined,
         tags: tags.length > 0 ? tags : undefined,
         preferred: data.preferred || false,
+        // Include Google Places data
+        placeId: data.placeId || undefined,
+        latitude: data.latitude ? parseFloat(data.latitude) : undefined,
+        longitude: data.longitude ? parseFloat(data.longitude) : undefined,
       });
     },
     onSuccess: () => {
@@ -251,6 +266,9 @@ export default function VenuesPage() {
         preferred: false,
         tags: "",
         notes: "",
+        placeId: "",
+        latitude: "",
+        longitude: "",
       });
     }
   };
@@ -282,13 +300,10 @@ export default function VenuesPage() {
       form.setValue('country', selectedPlace.country, { shouldDirty: true, shouldValidate: true });
     }
     
-    // Close the dialog immediately since venue was already created by Google Places
-    setIsDialogOpen(false);
-    queryClient.invalidateQueries({ queryKey: ["/api/venues"] });
-    toast({
-      title: "Success",
-      description: "Venue added from Google Places",
-    });
+    // Store Google Places data in hidden form fields for when user clicks Save
+    form.setValue('placeId', selectedPlace.placeId);
+    form.setValue('latitude', selectedPlace.latitude?.toString() || '');
+    form.setValue('longitude', selectedPlace.longitude?.toString() || '');
   };
 
   if (isLoading) {

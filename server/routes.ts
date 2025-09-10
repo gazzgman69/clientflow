@@ -16,6 +16,7 @@ import userPrefsRoutes from "./src/routes/userPrefs";
 import leadFormsRoutes from "./src/routes/lead-forms";
 import leadAutomationSimpleRoutes from "./src/routes/lead-automation-simple";
 import signaturesRoutes from "./src/routes/signatures";
+import venuesRoutes from "./src/routes/venues";
 import { calendarAutoSyncService } from "./services/calendar-auto-sync";
 import { 
   insertLeadSchema, 
@@ -97,6 +98,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Lead Automation routes (simplified version)
   app.use('/api/admin/lead-automation', leadAutomationSimpleRoutes);
+  
+  // Venues routes
+  app.use('/api/venues', venuesRoutes);
   
   // Dashboard metrics
   app.get("/api/dashboard/metrics", async (req, res) => {

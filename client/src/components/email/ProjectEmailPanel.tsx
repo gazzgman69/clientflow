@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Send, Mail, Loader2, AlertCircle, X, Reply, RefreshCw, List, Layers, FileText, Edit3, ChevronDown } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
@@ -15,6 +15,8 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest } from '@/lib/queryClient';
 import { useEmailViewMode } from '@/hooks/useUserPrefs';
+import { TokenDropdown } from '@/components/ui/token-dropdown';
+import { insertTextAtCursor } from '@/utils/cursor-utils';
 
 interface ProjectEmailPanelProps {
   projectId: string;
@@ -52,6 +54,8 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
   const [showSignatureDropdown, setShowSignatureDropdown] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState<any>(null);
   const [updateTemplate, setUpdateTemplate] = useState(false);
+  const messageTextareaRef = useRef<HTMLTextAreaElement>(null);
+  const replyTextareaRef = useRef<HTMLTextAreaElement>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
   
@@ -451,6 +455,7 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
                 <Label htmlFor="email-message">Message</Label>
                 <Textarea
                   id="email-message"
+                  ref={messageTextareaRef}
                   value={message}
                   onChange={(e) => setMessage(e.target.value)}
                   placeholder="Enter your message..."
@@ -520,6 +525,17 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
                     )}
                   </DropdownMenuContent>
                 </DropdownMenu>
+
+                {/* Token Dropdown */}
+                <TokenDropdown
+                  onTokenSelect={(token) => {
+                    if (messageTextareaRef.current) {
+                      insertTextAtCursor(messageTextareaRef.current, token);
+                    }
+                  }}
+                  variant="outline"
+                  size="default"
+                />
                 
                 <Button 
                   variant="outline" 
@@ -921,13 +937,24 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
                         <Label htmlFor="reply-message">Message</Label>
                         <Textarea
                           id="reply-message"
+                          ref={replyTextareaRef}
                           value={replyMessage}
                           onChange={(e) => setReplyMessage(e.target.value)}
                           rows={6}
                           data-testid="textarea-reply-message"
                         />
                       </div>
-                      <div className="flex gap-2 justify-end">
+                      <div className="flex gap-2 justify-between">
+                        <TokenDropdown
+                          onTokenSelect={(token) => {
+                            if (replyTextareaRef.current) {
+                              insertTextAtCursor(replyTextareaRef.current, token);
+                            }
+                          }}
+                          variant="outline"
+                          size="default"
+                        />
+                        <div className="flex gap-2">
                         <Button 
                           variant="outline" 
                           onClick={() => {
@@ -955,6 +982,7 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
                             </>
                           )}
                         </Button>
+                        </div>
                       </div>
                     </CardContent>
                   </Card>

@@ -1,0 +1,78 @@
+READ /docs/CONTEXT.md.
+
+TASK
+Keep a dedicated Venues module. Extend the DB/models minimally (only if fields don’t already exist) to support:
+- Google Places linkage
+- Structured address + geo
+- Business-useful notes & flags
+- Auto-save + usage stats
+
+AUDIT (NO WRITES)
+- Print current venue-related tables/models and field names (id, name, address lines, city, region/state, postal code, country, lat/lng, place_id, notes).
+- Print any join tables (e.g., project_venues) and venue contacts/files if they exist.
+- State which of the fields below are already present.
+
+DB EXTENSIONS (ONLY ADD IF MISSING; ADAPT NAMES/STYLES)
+Table: venues
+- place_id text UNIQUE NULL        -- Google Place ID
+- address1 text NULL
+- address2 text NULL
+- city text NULL
+- region text NULL                 -- state/province/county (use existing name if present)
+- postal_code text NULL
+- country_code text NULL           -- ISO-2 preferred
+- latitude double precision NULL
+- longitude double precision NULL
+- phone text NULL
+- website text NULL
+- email text NULL
+- capacity int NULL
+- restrictions text NULL           -- e.g., “noise limiter 92dB”
+- access_notes text NULL           -- load-in/parking/wifi/etc.
+- manager_name text NULL
+- manager_phone text NULL
+- manager_email text NULL
+- preferred boolean DEFAULT false
+- use_count int DEFAULT 0          -- increments when linked to a project
+- last_used_at timestamptz NULL
+- tags text[] NULL                 -- if arrays supported; else a venue_tags join
+- meta jsonb NULL                  -- free-form extras from Google or custom
+
+(If you already have some/all, do NOT rename; just add what’s missing.)
+
+Join (create only if missing and you support multiple venues per project):
+Table: project_venues
+- id uuid pk
+- project_id fk NOT NULL
+- venue_id fk NOT NULL
+- role text NULL        -- e.g., “ceremony”, “reception”
+- notes text NULL
+UNIQUE(project_id, venue_id, role)
+
+INDEXES
+- venues(place_id) where place_id is not null
+- venues((lower(name)))  -- or your naming equivalent, to help find dupes
+- project_venues(project_id), project_venues(venue_id)
+
+SERVICE/HOOKS
+- When a project is saved with a venue (by place_id or selected venue):
+  • If place_id matches existing row → reuse it; else create venue with normalized address.
+  • Increment use_count and set last_used_at=now().
+- Provide a “Merge Venues” utility (optional): given two venue IDs, move relations to the keeper, then delete the duplicate.
+
+UI NOTES (no schema changes)
+- Venue detail: show structured address, contact card (manager_*), access/restrictions, usage stats (use_count, last_used_at).
+- Add a “Preferred” toggle and “Tags”.
+- In project screens: quick link to open Venue detail.
+- Keep dates in UI as dd/MM/yyyy.
+
+ACCEPTANCE
+- Saving a project with a Google-selected venue creates/reuses a venues row (with place_id, address, lat/lng).
+- use_count increments and last_used_at updates on link.
+- You can mark a venue as Preferred and store internal notes/restrictions.
+- No existing fields are renamed; only missing fields are added.
+
+VERIFY
+- Migration prints which fields were added.
+- Create a project with a new Google place → venues row created.
+- Create another project with the same place → venues row reused; use_count increments.

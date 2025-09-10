@@ -485,7 +485,21 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
                 />
               </div>
               <div>
-                <Label htmlFor="email-subject">Subject</Label>
+                <div className="flex items-center justify-between mb-2">
+                  <Label htmlFor="email-subject">Subject</Label>
+                  <TokenDropdown
+                    onTokenSelect={(token) => {
+                      // Insert token at the end of the subject
+                      setSubject(prev => prev + (prev ? ' ' : '') + `[${token}]`);
+                    }}
+                    variant="link"
+                    size="sm"
+                    className="h-auto p-0 text-primary hover:text-primary/80"
+                    data-testid="link-insert-subject-token"
+                  >
+                    Insert Token
+                  </TokenDropdown>
+                </div>
                 <Input
                   id="email-subject"
                   value={subject}

@@ -115,6 +115,7 @@ export default function Contacts() {
       });
     },
     onError: (error: any) => {
+      console.log('Delete error:', error);
       if (error.requiresCascade) {
         // Show detailed confirmation dialog
         setContactToDelete(error);

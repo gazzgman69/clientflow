@@ -2,6 +2,7 @@ import { google } from 'googleapis';
 import { getUserGoogleTokens } from '../storage/google-tokens';
 import { emailSyncService } from './emailSync';
 import type { gmail_v1 } from 'googleapis';
+import { convert as htmlToText } from 'html-to-text';
 
 interface EmailRequest {
   to: string;
@@ -94,18 +95,43 @@ export class GmailService {
   }
 
   /**
+   * Check if content appears to be HTML
+   */
+  private isHtmlContent(text: string): boolean {
+    // Check for common HTML tags from rich text editor
+    const htmlPattern = /<\/?(?:p|div|br|strong|b|em|i|u|ul|ol|li|code|pre|blockquote|h[1-6]|span)\b[^>]*>/i;
+    return htmlPattern.test(text);
+  }
+
+  /**
    * Send email using Gmail API with database sync
    */
   async sendEmail(userId: string, emailRequest: EmailRequest & { projectId?: string; threadId?: string }): Promise<EmailResponse> {
     try {
       const gmail = await this.getGmailService(userId);
 
+      // Convert HTML content to plain text if needed
+      let plainTextBody = emailRequest.text;
+      if (this.isHtmlContent(emailRequest.text)) {
+        plainTextBody = htmlToText(emailRequest.text, {
+          wordwrap: 80,
+          selectors: [
+            { selector: 'p', options: { leadingLineBreaks: 1, trailingLineBreaks: 1 } },
+            { selector: 'br', format: 'skip' },
+            { selector: 'strong', format: 'inlineTag' },
+            { selector: 'em', format: 'inlineTag' },
+            { selector: 'code', format: 'inlineTag' }
+          ]
+        });
+        console.log(`📧 Converted HTML to plain text: ${emailRequest.text.length} chars -> ${plainTextBody.length} chars`);
+      }
+
       // Create email message in RFC 2822 format
       const emailContent = [
         `To: ${emailRequest.to}`,
         `Subject: ${emailRequest.subject}`,
         '',
-        emailRequest.text
+        plainTextBody
       ].join('\n');
 
       // Proper base64url encoding: + -> -, / -> _, remove padding

@@ -3,6 +3,7 @@ import { gmailService } from '../services/gmail';
 import { attachmentsService } from '../services/attachments';
 import { emailSyncService } from '../services/emailSync';
 import { templatesService } from '../services/templates';
+import { tokenResolverService } from '../services/token-resolver';
 import { z } from 'zod';
 import { storage } from '../../storage';
 import { db } from '../../db';
@@ -675,11 +676,54 @@ router.post('/email-threads/:threadId/reply', upload.array('attachments'), async
     // Use test-user for now (should get from auth)
     const userId = 'test-user';
 
+    // Build context for token resolution
+    let resolvedBody = body;
+    let resolvedSubject = subject || `Re: ${thread.subject}`;
+    
+    // Try to build token resolution context from thread info
+    const context: any = {};
+    if (thread.projectId) {
+      context.projectId = thread.projectId;
+      
+      // Try to get contact ID from project
+      try {
+        const [project] = await db
+          .select({ contactId: projects.contactId })
+          .from(projects)
+          .where(eq(projects.id, thread.projectId))
+          .limit(1);
+        if (project?.contactId) {
+          context.contactId = project.contactId;
+        }
+      } catch (error) {
+        console.log('Could not auto-detect contact for token resolution');
+      }
+    }
+
+    // Resolve tokens in both subject and body if context is available
+    if (Object.keys(context).length > 0) {
+      try {
+        const subjectResolution = await tokenResolverService.resolveTemplate(resolvedSubject, context);
+        const bodyResolution = await tokenResolverService.resolveTemplate(resolvedBody, context);
+        
+        resolvedSubject = subjectResolution.rendered;
+        resolvedBody = bodyResolution.rendered;
+        
+        console.log(`📧 Reply token resolution: ${subjectResolution.unresolved.length + bodyResolution.unresolved.length} unresolved tokens`);
+        if (subjectResolution.unresolved.length > 0 || bodyResolution.unresolved.length > 0) {
+          console.log('⚠️ Unresolved tokens:', [...subjectResolution.unresolved, ...bodyResolution.unresolved]);
+        }
+      } catch (error) {
+        console.error('Token resolution failed for reply:', error);
+        // Continue with unresolved content
+      }
+    }
+
     // Send email via Gmail with sync
     const emailRequest = {
       to: Array.isArray(to) ? to.join(', ') : to,
-      subject: subject || `Re: ${thread.subject}`,
-      text: body,
+      subject: resolvedSubject,
+      text: resolvedBody,
       projectId: thread.projectId || undefined
     };
 
@@ -742,6 +786,28 @@ router.post('/projects/:projectId/compose-email', upload.array('attachments'), a
       finalBody = rendered.body;
       
       console.log(`📧 Project email template rendered: ${rendered.unresolved.length} unresolved tokens`);
+    } else {
+      // No template provided, but check for tokens in subject/body and resolve them
+      const context: any = { projectId: projectId };
+      if (project.projects?.contactId) {
+        context.contactId = project.projects.contactId;
+      }
+      
+      try {
+        const subjectResolution = await tokenResolverService.resolveTemplate(finalSubject, context);
+        const bodyResolution = await tokenResolverService.resolveTemplate(finalBody, context);
+        
+        finalSubject = subjectResolution.rendered;
+        finalBody = bodyResolution.rendered;
+        
+        console.log(`📧 Project email token resolution: ${subjectResolution.unresolved.length + bodyResolution.unresolved.length} unresolved tokens`);
+        if (subjectResolution.unresolved.length > 0 || bodyResolution.unresolved.length > 0) {
+          console.log('⚠️ Unresolved tokens:', [...subjectResolution.unresolved, ...bodyResolution.unresolved]);
+        }
+      } catch (error) {
+        console.error('Token resolution failed for compose email:', error);
+        // Continue with unresolved content
+      }
     }
 
     // Use test-user for now (should get from auth)

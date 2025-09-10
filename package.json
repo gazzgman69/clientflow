@@ -70,6 +70,7 @@
     "framer-motion": "^11.13.1",
     "google-auth-library": "^10.3.0",
     "googleapis": "^159.0.0",
+    "html-to-text": "^9.0.5",
     "imap": "^0.8.19",
     "input-otp": "^1.4.2",
     "lucide-react": "^0.453.0",

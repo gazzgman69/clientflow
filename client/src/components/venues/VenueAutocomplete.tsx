@@ -132,7 +132,9 @@ export function VenueAutocomplete({
 
   // Handle venue selection
   const handleVenueSelect = async (prediction: PlacePrediction) => {
-    setQuery(prediction.description);
+    // Keep the original description text throughout the process
+    const originalDescription = prediction.description;
+    setQuery(originalDescription);
     setShowPredictions(false);
     setIsLoading(true);
 
@@ -155,11 +157,11 @@ export function VenueAutocomplete({
 
       const venue = await response.json();
       
-      // Transform venue data for callback
+      // Transform venue data for callback - always use original dropdown text
       const selectedVenue: SelectedVenue = {
         placeId: venue.placeId,
         name: venue.name,
-        address: venue.formattedAddress || venue.address || prediction.description,
+        address: originalDescription, // Use the exact text from dropdown
         city: venue.city,
         state: venue.state,
         zipCode: venue.zipCode,
@@ -197,7 +199,7 @@ export function VenueAutocomplete({
           const detailedVenue: SelectedVenue = {
             placeId: prediction.place_id,
             name: placeDetails.name || prediction.structured_formatting.main_text,
-            address: placeDetails.address1 || prediction.description,
+            address: originalDescription, // Use the exact text from dropdown
             city: placeDetails.city,
             state: placeDetails.state,
             zipCode: placeDetails.postalCode,
@@ -220,7 +222,7 @@ export function VenueAutocomplete({
         const basicVenue: SelectedVenue = {
           placeId: prediction.place_id,
           name: prediction.structured_formatting.main_text,
-          address: prediction.description
+          address: originalDescription // Use the exact text from dropdown
         };
         onVenueSelect(basicVenue);
         

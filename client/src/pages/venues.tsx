@@ -293,6 +293,19 @@ export default function VenuesPage() {
             </DialogHeader>
             <Form {...form}>
               <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
+                {/* Google Places Search Integration */}
+                <div>
+                  <FormLabel className="text-base font-medium">Search for Venue</FormLabel>
+                  <p className="text-sm text-muted-foreground mb-2">
+                    Search Google Places to automatically fill venue details
+                  </p>
+                  <VenueAutocomplete
+                    onVenueSelect={handleVenueSelect}
+                    placeholder="Search for venues, restaurants, theaters, etc..."
+                    className="w-full"
+                  />
+                </div>
+                
                 <FormField
                   control={form.control}
                   name="name"
@@ -321,19 +334,6 @@ export default function VenuesPage() {
                     </FormItem>
                   )}
                 />
-
-                {/* Google Places Search Integration */}
-                <div>
-                  <FormLabel className="text-base font-medium">Search for Venue</FormLabel>
-                  <p className="text-sm text-muted-foreground mb-2">
-                    Search Google Places to automatically fill venue details
-                  </p>
-                  <VenueAutocomplete
-                    onVenueSelect={handleVenueSelect}
-                    placeholder="Search for venues, restaurants, theaters, etc..."
-                    className="w-full"
-                  />
-                </div>
 
                 {/* City, State, Postal Code, Country */}
                 <div className="grid grid-cols-2 gap-4">

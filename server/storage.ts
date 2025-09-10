@@ -1724,6 +1724,12 @@ export class DrizzleStorage implements IStorage {
     const result = await db.delete(leads).where(eq(leads.id, id));
     return result.rowCount > 0;
   }
+  async getLeadsByProject(projectId: string): Promise<Lead[]> {
+    return await db.select().from(leads).where(eq(leads.projectId, projectId));
+  }
+  async getEmailsByContact(contactId: string): Promise<Email[]> {
+    return await this.db.select().from(emails).where(eq(emails.contactId, contactId));
+  }
   
   // Contacts - Using PostgreSQL
   async getContacts(): Promise<Contact[]> {

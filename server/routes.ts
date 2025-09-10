@@ -615,6 +615,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
             for (const invoice of invoices) {
               await storage.deleteInvoice(invoice.id);
             }
+            
+            // Get and delete leads associated with this project
+            const leads = await storage.getLeadsByProject(project.id);
+            for (const lead of leads) {
+              await storage.deleteLead(lead.id);
+            }
           } catch (error: any) {
             console.log('Error deleting related project data:', error.message);
           }
@@ -622,6 +628,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Now delete the project itself
           await storage.deleteProject(project.id);
         }
+      }
+
+      // Delete emails directly associated with this contact
+      try {
+        const contactEmails = await storage.getEmailsByContact(req.params.id);
+        for (const email of contactEmails) {
+          await storage.deleteEmail(email.id);
+        }
+      } catch (error: any) {
+        console.log('Error deleting contact emails:', error.message);
       }
 
       // Delete the contact

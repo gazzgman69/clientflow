@@ -244,7 +244,7 @@ export default function Contacts() {
                       }}
                     >
                       <TableCell className="font-medium" data-testid={`contact-name-${contact.id}`}>
-                        {contact.firstName} {contact.lastName}
+                        {getDisplayName(contact)}
                       </TableCell>
                       <TableCell data-testid={`contact-company-${contact.id}`}>
                         <div>
@@ -302,7 +302,7 @@ export default function Contacts() {
                             <AlertDialogHeader>
                               <AlertDialogTitle>Delete Contact</AlertDialogTitle>
                               <AlertDialogDescription>
-                                Are you sure you want to delete "{contact.firstName} {contact.lastName}"? This action cannot be undone and will remove all associated data.
+                                Are you sure you want to delete "{getDisplayName(contact)}"? This action cannot be undone and will remove all associated data.
                               </AlertDialogDescription>
                             </AlertDialogHeader>
                             <AlertDialogFooter>

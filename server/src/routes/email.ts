@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { gmailService } from '../services/gmail';
 import { attachmentsService } from '../services/attachments';
 import { emailSyncService } from '../services/emailSync';
+import { templatesService } from '../services/templates';
 import { z } from 'zod';
 import { storage } from '../../storage';
 import { db } from '../../db';
@@ -21,10 +22,17 @@ const upload = multer({
 
 const sendEmailSchema = z.object({
   to: z.string().email('Invalid email address'),
-  subject: z.string().min(1, 'Subject is required'),
-  text: z.string().min(1, 'Email body is required'),
+  subject: z.string().optional(),
+  text: z.string().optional(),
+  templateId: z.string().optional(),
   projectId: z.string().optional(),
+  contactId: z.string().optional(),
   emails: z.array(z.string()).optional()
+}).refine(data => {
+  // Either use template OR provide subject+text directly
+  return (data.templateId) || (data.subject && data.text);
+}, {
+  message: 'Either templateId or both subject and text are required'
 });
 
 // Middleware to check for authenticated user - use hardcoded test-user for now
@@ -54,17 +62,80 @@ async function getUserEmail(userId: string): Promise<string> {
 }
 
 /**
- * Send email via Gmail
+ * Send email via Gmail with template support
  */
 router.post('/send', requireAuth, async (req: any, res) => {
   try {
     const emailData = sendEmailSchema.parse(req.body);
     const userId = req.user.id;
     
+    let finalSubject = emailData.subject || '';
+    let finalText = emailData.text || '';
+    
+    // Handle template-based email
+    if (emailData.templateId) {
+      const template = await templatesService.getTemplate(emailData.templateId);
+      if (!template) {
+        return res.status(404).json({ ok: false, error: 'Template not found' });
+      }
+      
+      // Build context for token resolution - auto-enrich from email address
+      const context: any = {};
+      
+      // Use provided IDs or try to derive from email address
+      let contactId = emailData.contactId;
+      let projectId = emailData.projectId;
+      
+      // If contactId not provided, try to find contact by email
+      if (!contactId && emailData.to) {
+        try {
+          const [contact] = await db
+            .select({ id: contacts.id })
+            .from(contacts)
+            .where(eq(contacts.email, emailData.to))
+            .limit(1);
+          if (contact) {
+            contactId = contact.id;
+          }
+        } catch (error) {
+          console.log('Could not auto-detect contact from email:', emailData.to);
+        }
+      }
+      
+      // If projectId not provided but we have contactId, try to find project
+      if (!projectId && contactId) {
+        try {
+          const [project] = await db
+            .select({ id: projects.id })
+            .from(projects)
+            .where(eq(projects.contactId, contactId))
+            .limit(1);
+          if (project) {
+            projectId = project.id;
+          }
+        } catch (error) {
+          console.log('Could not auto-detect project from contact:', contactId);
+        }
+      }
+      
+      if (contactId) context.contactId = contactId;
+      if (projectId) context.projectId = projectId;
+      
+      // Render template with tokens
+      const rendered = await templatesService.renderTemplate(template, context);
+      finalSubject = rendered.subject || 'No Subject';
+      finalText = rendered.body;
+      
+      console.log(`📧 Template rendered: ${rendered.unresolved.length} unresolved tokens`);
+      if (rendered.unresolved.length > 0) {
+        console.log('⚠️ Unresolved tokens:', rendered.unresolved);
+      }
+    }
+    
     const result = await gmailService.sendEmail(userId, {
       to: emailData.to,
-      subject: emailData.subject,
-      text: emailData.text
+      subject: finalSubject,
+      text: finalText
     });
     
     // If email was sent successfully, save to database immediately
@@ -136,8 +207,8 @@ router.post('/send', requireAuth, async (req: any, res) => {
           threadId: existingThreadId, // Use existing thread if available
           projectId: projectId || undefined,
           to: [emailData.to],
-          subject: emailData.subject,
-          bodyText: emailData.text,
+          subject: finalSubject,
+          bodyText: finalText,
           fromEmail: userEmail, // Pass the user's actual email
         });
         
@@ -627,12 +698,12 @@ router.post('/email-threads/:threadId/reply', upload.array('attachments'), async
 
 /**
  * POST /api/projects/:projectId/compose-email
- * Compose and send a new email for a project with database sync
+ * Compose and send a new email for a project with database sync and template support
  */
 router.post('/projects/:projectId/compose-email', upload.array('attachments'), async (req, res) => {
   try {
     const { projectId } = req.params;
-    const { to, cc = [], bcc = [], subject, body } = req.body;
+    const { to, cc = [], bcc = [], subject, body, templateId } = req.body;
     const files = req.files as Express.Multer.File[];
 
     // Get project info for context
@@ -647,14 +718,40 @@ router.post('/projects/:projectId/compose-email', upload.array('attachments'), a
       return res.status(404).json({ error: 'Project not found' });
     }
 
+    let finalSubject = subject || '';
+    let finalBody = body || '';
+    
+    // Handle template-based email  
+    if (templateId) {
+      const template = await templatesService.getTemplate(templateId);
+      if (!template) {
+        return res.status(404).json({ error: 'Template not found' });
+      }
+      
+      // Build context for token resolution
+      const context: any = {
+        projectId: projectId
+      };
+      if (project.projects?.contactId) {
+        context.contactId = project.projects.contactId;
+      }
+      
+      // Render template with tokens
+      const rendered = await templatesService.renderTemplate(template, context);
+      finalSubject = rendered.subject || 'No Subject';
+      finalBody = rendered.body;
+      
+      console.log(`📧 Project email template rendered: ${rendered.unresolved.length} unresolved tokens`);
+    }
+
     // Use test-user for now (should get from auth)
     const userId = 'test-user';
 
     // Send email via Gmail with sync
     const emailRequest = {
       to: Array.isArray(to) ? to.join(', ') : to,
-      subject: subject,
-      text: body,
+      subject: finalSubject,
+      text: finalBody,
       projectId: projectId
     };
 

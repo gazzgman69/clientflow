@@ -18,7 +18,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { TokenDropdown } from '@/components/ui/token-dropdown';
-import { insertTextAtCursor } from '@/utils/cursor-utils';
+import { insertTokenIntoValue } from '@/utils/cursor-utils';
 import { z } from 'zod';
 
 interface Template {
@@ -497,7 +497,18 @@ export default function TemplatesPage() {
                               <TokenDropdown
                                 onTokenSelect={(token) => {
                                   if (bodyTextareaRef.current) {
-                                    insertTextAtCursor(bodyTextareaRef.current, token);
+                                    const textarea = bodyTextareaRef.current;
+                                    const cursorPosition = textarea.selectionStart || 0;
+                                    const currentValue = field.value || '';
+                                    const { newValue, newCursorPosition } = insertTokenIntoValue(currentValue, token, cursorPosition);
+                                    field.onChange(newValue);
+                                    // Restore cursor position after React updates the DOM
+                                    setTimeout(() => {
+                                      if (textarea) {
+                                        textarea.setSelectionRange(newCursorPosition, newCursorPosition);
+                                        textarea.focus();
+                                      }
+                                    }, 0);
                                   }
                                 }}
                                 size="sm"

@@ -16,7 +16,7 @@ import { useToast } from '@/hooks/use-toast';
 import { apiRequest } from '@/lib/queryClient';
 import { useEmailViewMode } from '@/hooks/useUserPrefs';
 import { TokenDropdown } from '@/components/ui/token-dropdown';
-import { insertTextAtCursor } from '@/utils/cursor-utils';
+import { insertTokenIntoValue } from '@/utils/cursor-utils';
 
 interface ProjectEmailPanelProps {
   projectId: string;
@@ -530,7 +530,17 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
                 <TokenDropdown
                   onTokenSelect={(token) => {
                     if (messageTextareaRef.current) {
-                      insertTextAtCursor(messageTextareaRef.current, token);
+                      const textarea = messageTextareaRef.current;
+                      const cursorPosition = textarea.selectionStart || 0;
+                      const { newValue, newCursorPosition } = insertTokenIntoValue(message, token, cursorPosition);
+                      setMessage(newValue);
+                      // Restore cursor position after React updates the DOM
+                      setTimeout(() => {
+                        if (textarea) {
+                          textarea.setSelectionRange(newCursorPosition, newCursorPosition);
+                          textarea.focus();
+                        }
+                      }, 0);
                     }
                   }}
                   variant="outline"
@@ -948,7 +958,17 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
                         <TokenDropdown
                           onTokenSelect={(token) => {
                             if (replyTextareaRef.current) {
-                              insertTextAtCursor(replyTextareaRef.current, token);
+                              const textarea = replyTextareaRef.current;
+                              const cursorPosition = textarea.selectionStart || 0;
+                              const { newValue, newCursorPosition } = insertTokenIntoValue(replyMessage, token, cursorPosition);
+                              setReplyMessage(newValue);
+                              // Restore cursor position after React updates the DOM
+                              setTimeout(() => {
+                                if (textarea) {
+                                  textarea.setSelectionRange(newCursorPosition, newCursorPosition);
+                                  textarea.focus();
+                                }
+                              }, 0);
                             }
                           }}
                           variant="outline"

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Plus, Edit2, Trash2, Eye, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -17,6 +17,8 @@ import Header from '@/components/layout/header';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { TokenDropdown } from '@/components/ui/token-dropdown';
+import { insertTextAtCursor } from '@/utils/cursor-utils';
 import { z } from 'zod';
 
 interface Template {
@@ -77,6 +79,7 @@ export default function TemplatesPage() {
   const [selectedContactId, setSelectedContactId] = useState<string>('');
   const [selectedProjectId, setSelectedProjectId] = useState<string>('');
   const [livePreviewData, setLivePreviewData] = useState<TokenPreviewResult | null>(null);
+  const bodyTextareaRef = useRef<HTMLTextAreaElement>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -488,14 +491,29 @@ export default function TemplatesPage() {
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel>Template Body</FormLabel>
-                          <FormControl>
-                            <Textarea 
-                              {...field} 
-                              placeholder="Enter your template content here. Use {{token}} for dynamic values."
-                              className="min-h-[300px]"
-                              data-testid="textarea-template-body"
-                            />
-                          </FormControl>
+                          <div className="space-y-2">
+                            <div className="flex items-center justify-between">
+                              <div></div>
+                              <TokenDropdown
+                                onTokenSelect={(token) => {
+                                  if (bodyTextareaRef.current) {
+                                    insertTextAtCursor(bodyTextareaRef.current, token);
+                                  }
+                                }}
+                                size="sm"
+                                className="ml-auto"
+                              />
+                            </div>
+                            <FormControl>
+                              <Textarea 
+                                {...field}
+                                ref={bodyTextareaRef}
+                                placeholder="Enter your template content here. Use [Token] for dynamic values."
+                                className="min-h-[300px]"
+                                data-testid="textarea-template-body"
+                              />
+                            </FormControl>
+                          </div>
                           <FormMessage />
                         </FormItem>
                       )}

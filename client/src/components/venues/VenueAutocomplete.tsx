@@ -59,7 +59,11 @@ export function VenueAutocomplete({
 
   useEffect(() => {
     setSessionToken(generateSessionToken());
-  }, []);
+    // If there's an initial value, consider a venue as already selected
+    if (initialValue && initialValue.trim().length > 0) {
+      setHasSelectedVenue(true);
+    }
+  }, [initialValue]);
 
   // Close predictions when clicking outside
   useEffect(() => {
@@ -217,12 +221,15 @@ export function VenueAutocomplete({
 
   // Debounced search handler
   useEffect(() => {
+    // Don't fetch predictions if a venue has already been selected
+    if (hasSelectedVenue) return;
+    
     const timeoutId = setTimeout(() => {
       fetchPredictions(query);
     }, 300);
 
     return () => clearTimeout(timeoutId);
-  }, [query, sessionToken]);
+  }, [query, sessionToken, hasSelectedVenue]);
 
   return (
     <div ref={containerRef} className={cn("relative", className)}>

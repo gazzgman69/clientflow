@@ -306,6 +306,7 @@ export default function VenuesPage() {
                     </FormItem>
                   )}
                 />
+                
                 {/* Google Places Search Integration */}
                 <div className="space-y-4">
                   <div>
@@ -320,29 +321,30 @@ export default function VenuesPage() {
                     />
                   </div>
                   
-                  <Separator className="my-4" />
-                  
-                  <div>
-                    <FormLabel className="text-base font-medium">Address Details</FormLabel>
-                    <p className="text-sm text-muted-foreground mb-4">
-                      Auto-filled from search or enter manually
-                    </p>
-                    <AddressFields
-                      control={form.control}
-                      countryCode={form.watch('country') || undefined}
-                      onCountryChange={(countryCode) =>
-                        form.setValue('country', countryCode, { shouldDirty: true, shouldValidate: true })
-                      }
-                      fieldNames={{
-                        address1: 'address',
-                        city: 'city',
-                        state: 'state',
-                        postalCode: 'zipCode',
-                        country: 'country'
-                      }}
-                      testIdPrefix="venue"
-                    />
+                  <div className="relative">
+                    <div className="absolute inset-0 flex items-center">
+                      <span className="w-full border-t" />
+                    </div>
+                    <div className="relative flex justify-center text-xs uppercase">
+                      <span className="bg-background px-2 text-muted-foreground">Or enter manually</span>
+                    </div>
                   </div>
+                  
+                  <AddressFields
+                    control={form.control}
+                    countryCode={form.watch('country') || undefined}
+                    onCountryChange={(countryCode) =>
+                      form.setValue('country', countryCode, { shouldDirty: true, shouldValidate: true })
+                    }
+                    fieldNames={{
+                      address1: 'address',
+                      city: 'city',
+                      state: 'state',
+                      postalCode: 'zipCode',
+                      country: 'country'
+                    }}
+                    testIdPrefix="venue"
+                  />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <FormField

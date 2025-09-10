@@ -175,6 +175,28 @@ router.get('/:id/maps-link', async (req, res) => {
   }
 });
 
+// POST /api/venues - Create new venue with full field validation
+router.post('/', async (req, res) => {
+  try {
+    const validatedData = insertVenueSchema.parse(req.body);
+    
+    const venue = await venuesService.createVenue(validatedData);
+    res.status(201).json(venue);
+  } catch (error) {
+    console.error('Error creating venue:', error);
+    if (error instanceof z.ZodError) {
+      res.status(400).json({ 
+        message: 'Validation error', 
+        errors: error.errors 
+      });
+    } else {
+      res.status(500).json({ 
+        message: 'Failed to create venue'
+      });
+    }
+  }
+});
+
 // GET /api/venues - Get all venues
 router.get('/', async (req, res) => {
   try {
@@ -209,11 +231,41 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-// PUT /api/venues/:id - Update venue
-router.put('/:id', async (req, res) => {
+// PATCH /api/venues/:id - Update venue (partial)
+router.patch('/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const validatedData = insertVenueSchema.partial().parse(req.body);
+    
+    const venue = await venuesService.updateVenue(id, validatedData);
+    
+    if (!venue) {
+      return res.status(404).json({ 
+        message: 'Venue not found' 
+      });
+    }
+    
+    res.json(venue);
+  } catch (error) {
+    console.error('Error updating venue:', error);
+    if (error instanceof z.ZodError) {
+      res.status(400).json({ 
+        message: 'Validation error', 
+        errors: error.errors 
+      });
+    } else {
+      res.status(500).json({ 
+        message: 'Failed to update venue'
+      });
+    }
+  }
+});
+
+// PUT /api/venues/:id - Update venue (full replace)
+router.put('/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const validatedData = insertVenueSchema.parse(req.body);
     
     const venue = await venuesService.updateVenue(id, validatedData);
     

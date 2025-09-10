@@ -85,6 +85,13 @@ export class VenuesService {
   }
 
   /**
+   * Create venue with full venue data (general method)
+   */
+  async createVenue(venueData: InsertVenue): Promise<Venue> {
+    return await storage.createVenue(venueData);
+  }
+
+  /**
    * Create minimal venue for manual entry (when user doesn't select a Google result)
    */
   async createMinimal(venueData: CreateMinimalVenueRequest): Promise<Venue> {

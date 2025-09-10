@@ -87,6 +87,13 @@ export function VenueAutocomplete({
 
   // Fetch place predictions from Google Places API
   const fetchPredictions = async (input: string) => {
+    // Never fetch predictions if a venue is already selected
+    if (hasSelectedVenue) {
+      setPredictions([]);
+      setShowPredictions(false);
+      return;
+    }
+    
     if (!input.trim() || input.length < 3) {
       setPredictions([]);
       setShowPredictions(false);
@@ -247,8 +254,14 @@ export function VenueAutocomplete({
           type="text"
           value={query}
           onChange={(e) => {
-            setQuery(e.target.value);
-            setHasSelectedVenue(false);
+            const newValue = e.target.value;
+            setQuery(newValue);
+            
+            // Only reset venue selection if user is actually changing the text
+            // Don't reset if they're just focusing or the value is the same
+            if (newValue !== initialValue) {
+              setHasSelectedVenue(false);
+            }
           }}
           onFocus={() => {
             // Never show predictions if a venue is already selected

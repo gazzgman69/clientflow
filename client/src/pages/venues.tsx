@@ -319,6 +319,30 @@ export default function VenuesPage() {
                       className="w-full"
                     />
                   </div>
+                  
+                  <Separator className="my-4" />
+                  
+                  <div>
+                    <FormLabel className="text-base font-medium">Address Details</FormLabel>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      Auto-filled from search or enter manually
+                    </p>
+                    <AddressFields
+                      control={form.control}
+                      countryCode={form.watch('country') || undefined}
+                      onCountryChange={(countryCode) =>
+                        form.setValue('country', countryCode, { shouldDirty: true, shouldValidate: true })
+                      }
+                      fieldNames={{
+                        address1: 'address',
+                        city: 'city',
+                        state: 'state',
+                        postalCode: 'zipCode',
+                        country: 'country'
+                      }}
+                      testIdPrefix="venue"
+                    />
+                  </div>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <FormField

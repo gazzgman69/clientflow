@@ -148,10 +148,11 @@ const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(
         attributes: {
           class: cn(
             'prose prose-sm dark:prose-invert max-w-none focus:outline-none',
-            'min-h-[' + minHeight + '] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background',
+            'w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background',
             'focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2',
             disabled && 'cursor-not-allowed opacity-50'
           ),
+          style: `min-height: ${minHeight};`,
           role: 'textbox',
           'aria-multiline': 'true',
           'aria-label': placeholder,

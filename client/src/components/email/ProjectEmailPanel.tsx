@@ -490,7 +490,7 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
                   <TokenDropdown
                     onTokenSelect={(token) => {
                       // Insert token at the end of the subject
-                      setSubject(prev => prev + (prev ? ' ' : '') + `[${token}]`);
+                      setSubject(prev => prev + (prev ? ' ' : '') + token);
                     }}
                     variant="link"
                     size="sm"

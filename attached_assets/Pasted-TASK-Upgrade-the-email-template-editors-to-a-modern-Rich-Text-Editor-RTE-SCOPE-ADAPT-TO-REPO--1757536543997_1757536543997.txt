@@ -1,0 +1,51 @@
+TASK
+Upgrade the email + template editors to a modern Rich Text Editor (RTE).
+
+SCOPE (ADAPT TO REPO)
+- Replace current editor in:
+  • Email composer (new/reply)
+  • Templates editor tab
+- Keep existing storage/rendering; do NOT change DB schema.
+
+REQUIREMENTS
+UI/UX
+- Clean toolbar with: Bold, Italic, Underline, Link, Bulleted/Numbered lists, Quote, Code, Undo/Redo.
+- Extras:
+  • Markdown shortcuts (e.g., **bold**, _italic_, -, 1.)
+  • “/” command menu: /h1 /h2 /list /quote /link /clear
+  • Token insert button (reuse existing “Insert Token” you added)
+  • Paste handling: strip unsafe HTML; keep basic formatting
+  • Keyboard: Cmd/Ctrl+B/I/U, Cmd/Ctrl+K for link, Esc closes dialogs
+  • Dark mode support (match app theme)
+  • Mobile-friendly toolbar (wraps into two rows)
+
+Content
+- Store as HTML (or whatever we already use). No schema changes.
+- Render safely (sanitize on input or output—reuse existing sanitizer if present).
+
+Integration
+- Email composer: toolbar sits next to Templates/Signatures buttons; token insert works at caret.
+- Templates editor: same editor component reused.
+- Provide plain-text fallback for older templates (convert HTML → text on send if needed).
+
+Accessibility
+- Toolbar buttons have aria-labels, focus states, and tooltips.
+- Editor area is labeled; supports screen-reader announcements for formatting toggles.
+
+Implementation Notes
+- Use the repo’s preferred RTE library (e.g., TipTap, Quill, Draft, or existing). No heavy new dependencies if a light one is already present.
+- Keep CSS consistent with existing design system.
+- Prevent form submit on Enter when menus are open (links, slash menu).
+- Sanitize links; disallow javascript: URLs.
+
+ACCEPTANCE
+- Editor supports toolbar actions, markdown shortcuts, and “/” command menu.
+- Token insertion works at caret in both composer and templates editor.
+- Content saves/loads with current storage (no schema changes).
+- Works in light/dark mode and on mobile.
+- Passing accessibility check: focusable controls, aria labels present.
+
+VERIFY
+- Create a template with bold/italic/lists/links + tokens → preview renders correctly.
+- Reply to an email; apply formatting; send draft; reload → formatting intact.
+- Keyboard shortcuts function; menus close on Esc; no console errors.

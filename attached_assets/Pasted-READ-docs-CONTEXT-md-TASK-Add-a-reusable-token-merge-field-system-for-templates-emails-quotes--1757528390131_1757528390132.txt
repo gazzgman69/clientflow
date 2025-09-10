@@ -1,0 +1,60 @@
+READ /docs/CONTEXT.md.
+
+TASK
+Add a reusable token/merge-field system for templates (emails, quotes, contracts) with 17hats-style defaults. Let the code adapt to existing models/storage; do NOT invent new tables unless strictly necessary.
+
+SCOPE (ADAPT PATHS)
+- Backend: token resolver service (new), preview endpoint (new), wire into existing template send/render paths.
+- Frontend: small “Preview with tokens” UI in Templates (or wherever templates are edited).
+
+TOKEN REGISTRY (DEFAULTS)
+Contact tokens:
+[FirstName], [LastName], [FullName], [Email], [Phone], [Company],
+[Address1], [Address2], [City], [State], [Province], [Zip], [PostalCode], [Country]
+
+Project tokens:
+[ProjectName], [ProjectType], [ProjectDate], [ProjectLocation], [ProjectAddress],
+[ProjectNotes], [InvoiceLink], [QuoteLink], [ContractLink], [PaymentSchedule], [BalanceDue]
+
+Business/self tokens:
+[BusinessName], [MyFirstName], [MyLastName], [MyFullName], [MyEmail], [MyPhone],
+[CurrentDate], [ClientPortalLink]
+
+REQUIREMENTS
+- Create a token resolver with a registry: token → async resolver({contactId?, projectId?}).
+- Adapt to existing contact/project accessors; do NOT assume schema names.
+- Support basic formatting: e.g. [ProjectDate|dd/MM/yyyy], [BalanceDue|currency], [CurrentDate|dd/MM/yyyy].
+- Default date format = dd/MM/yyyy (24h time where relevant).
+- Safe HTML by default (escape), but allow explicit raw tokens if already supported by app (otherwise skip).
+- Support custom fields if your app has them (e.g., [Contact.Custom:FieldName], [Project.Custom:FieldName])—resolve via existing custom field APIs.
+- Link tokens ([InvoiceLink], [QuoteLink], [ContractLink], [ClientPortalLink]) must return valid existing URLs from the app (adapt to current router).
+- Provide sensible fallbacks: missing token → empty string; missing entity → “”.
+- Log unresolved tokens during preview for debugging (do not leak PII in logs).
+
+ENDPOINTS
+- POST /api/tokens/preview
+  Body: { template: string, contactId?: string, projectId?: string }
+  → { rendered: string, unresolved?: string[] }
+- (Optional) GET /api/tokens/list → returns available token names + short descriptions.
+
+FRONTEND
+- In Templates editor, add “Preview with tokens”:
+  • Select Contact (optional) and Project (optional)
+  • Textarea for template, shows rendered result side-by-side
+  • Show list of unresolved tokens (if any)
+
+INTEGRATION
+- Use the resolver wherever templates are sent/rendered (email send, quote/contract generation).
+- Keep existing storage for templates; do NOT refactor schema, just call the resolver pre-send.
+
+ACCEPTANCE
+- Given a contact+project, placeholders like [FirstName], [ProjectDate], [InvoiceLink] render correctly.
+- Formatting works: [ProjectDate|dd/MM/yyyy], [BalanceDue|currency].
+- Preview endpoint renders and reports unresolved tokens.
+- No new schema required unless an absolute blocker; if added, keep it minimal and consistent with repo.
+- Dates render dd/MM/yyyy; times 24-hour if included.
+
+VERIFY
+- Unit-test the resolver on a sample contact/project.
+- Curl the preview endpoint with a sample template and confirm output + unresolved list.
+- Trigger an email/quote render path and confirm tokens resolve in real flow.

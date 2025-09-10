@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { storage } from '../../storage';
 import { insertLeadCaptureFormSchema } from '@shared/schema';
 import { z } from 'zod';
+import { splitFullName } from '@shared/utils/name-splitter';
 
 const router = Router();
 
@@ -269,10 +270,13 @@ router.post('/leads/public/:slug/submit', async (req, res) => {
       return res.status(404).json({ error: 'Form not found' });
     }
 
-    // Create lead from form submission - map new form fields to lead fields
+    // Create lead from form submission - split name properly
+    const nameParts = splitFullName(formData.leadName || '');
     const leadData = {
-      firstName: formData.leadName || '',  // Full name in firstName field
-      lastName: '',  // We only collect full name now
+      fullName: nameParts.fullName,
+      firstName: nameParts.firstName,
+      middleName: nameParts.middleName,
+      lastName: nameParts.lastName,
       email: formData.leadEmail || '',
       phone: formData.leadPhoneNumber || '',
       company: formData.eventLocation || '',  // Use event location as company for now
@@ -285,10 +289,12 @@ router.post('/leads/public/:slug/submit', async (req, res) => {
 
     const lead = await storage.createLead(leadData);
 
-    // Automatically create contact (client) from lead data
+    // Automatically create contact (client) from lead data - use same name parts
     const contactData = {
-      firstName: formData.leadName || '',
-      lastName: '',
+      fullName: nameParts.fullName,
+      firstName: nameParts.firstName,
+      middleName: nameParts.middleName,
+      lastName: nameParts.lastName,
       email: formData.leadEmail || '',
       phone: formData.leadPhoneNumber || '',
       address: '', // Leave personal address blank 

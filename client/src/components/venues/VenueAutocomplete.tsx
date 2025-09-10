@@ -59,9 +59,15 @@ export function VenueAutocomplete({
 
   useEffect(() => {
     setSessionToken(generateSessionToken());
-    // If there's an initial value, consider a venue as already selected
+  }, []);
+
+  // Update venue selection state when initialValue changes
+  useEffect(() => {
     if (initialValue && initialValue.trim().length > 0) {
       setHasSelectedVenue(true);
+      setQuery(initialValue); // Update the query to show the current value
+    } else {
+      setHasSelectedVenue(false);
     }
   }, [initialValue]);
 

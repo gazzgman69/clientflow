@@ -223,8 +223,11 @@ export default function Contacts() {
                       className="cursor-pointer"
                       onClick={() => {
                         setEditingContact(contact);
+                        // Calculate fullName from existing name parts for editing
+                        const displayName = getDisplayName(contact);
                         form.reset({
                           ...contact,
+                          fullName: displayName,
                           tags: contact.tags || [],
                           jobTitle: contact.jobTitle || "",
                           website: contact.website || "",

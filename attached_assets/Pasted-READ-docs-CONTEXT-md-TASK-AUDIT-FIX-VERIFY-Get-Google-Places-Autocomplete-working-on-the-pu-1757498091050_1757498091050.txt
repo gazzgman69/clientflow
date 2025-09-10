@@ -1,0 +1,78 @@
+READ /docs/CONTEXT.md.
+
+TASK (AUDIT → FIX → VERIFY)
+Get Google Places Autocomplete working on the public Lead Capture form (predicted address text while typing). If a client-side key is missing, use a restricted browser key; otherwise, adapt to current server-proxy pattern.
+
+AUDIT (NO WRITES)
+- Find the current lead form venue/address input component(s).
+- Print where autocomplete is initialized (file + code snippet) OR confirm it is not wired.
+- Print how Google is called today:
+  • Client-side JS (Maps JS / Places library)? Which script tag?
+  • OR server proxy endpoints (e.g., /api/venues/suggest)? Which routes?
+- Print current API key usage (env names only; do NOT print values). Note if there is both a "browser key" and a "server key".
+- Open questions to SELF (answer from code): is session token used per search? Are errors shown in console/network?
+
+FIX (SMALLEST DIFFS — ADAPT TO REPO)
+Preferred approach: Client-side Places Autocomplete (best UX) with a locked-down BROWSER key.
+Fallback if team insists on no client key: keep server-proxy with debounced /api/venues/suggest.
+
+SCOPE (ADAPT PATHS)
+Frontend:
+  - web/src/pages/public/LeadFormHosted.tsx (or current lead form)
+  - web/src/components/venues/VenueAutocomplete.tsx (or current)
+Backend (only if server-proxy is used or missing):
+  - server/src/services/geocoding.ts
+  - server/src/routes/venues.ts
+  - server/routes.ts
+
+IMPLEMENTATION DETAILS
+Client-side mode (preferred):
+- Load the Google Maps JS with Places library lazily when the venue field receives focus.
+- Initialize Autocomplete on the venue input (types=['establishment','geocode']).
+- Use a per-search session token; reset on select/clear.
+- On place_select:
+  • Call server to persist the venue via existing endpoint (from-google/placeId) and get normalized fields (address1, city, postalCode, countryCode, lat, lng, placeId).
+  • Autofill the form fields with returned data.
+- No raw API key in logs; key is a BROWSER key locked by HTTP referrer.
+
+Server-proxy mode (fallback):
+- Debounced input → GET /api/venues/suggest?q=...&countryCode=...&sessionToken=...
+- Show predictions list; on pick → POST /api/venues/from-google { placeId, sessionToken } → normalize & fill.
+- Ensure CORS and caching headers are correct.
+
+ERROR & UX
+- If Google returns ZERO_RESULTS or auth error, show inline helper: “Can’t reach Google — try exact postcode”.
+- Provide “Use typed address anyway” option to save a minimal venue.
+- Make sure z-index on the dropdown sits above modals/forms.
+
+VERIFY
+- Console: no “ApiNotActivatedMapError”, “RefererNotAllowed”, or “This API project is not authorized”.
+- Typing in the venue input shows predictions within 300–500ms.
+- Selecting a prediction persists a venue and autofills address fields.
+- Lead submit includes venueId or the normalized address.
+
+PRINT (for the user) — GOOGLE CONSOLE CHECKLIST
+- Billing: project has billing enabled.
+- APIs enabled (check marks):
+  • Places API (New)
+  • Maps JavaScript API (only if client-side mode)
+  • Place Details API (often under Places)
+- Keys:
+  • BROWSER key (for client): HTTP referrer restrictions → include your lead form domain(s) exactly (both https://yourdomain/* and any preview domains used). API restrictions → Places API + Maps JavaScript API.
+  • SERVER key (optional, for details/proxy): API restrictions → Places/Place Details only. (IP restriction is usually not practical on Replit.)
+- Regenerate if you changed restrictions and still see errors; wait a minute for propagation.
+
+PRINT — TROUBLESHOOTING
+- If predictions don’t show:
+  1) Open browser console → any Google Maps errors?
+  2) Network tab → does the Maps JS script 200 OK?
+  3) Referrer restriction: is your exact domain (and preview subdomain) listed?
+  4) Are you loading the JS with &libraries=places?
+  5) Is Autocomplete initialized after the input is mounted (e.g., onFocus)?
+  6) If server-proxy: does /api/venues/suggest return candidates?
+
+ACCEPTANCE
+- Lead form shows live predicted address text as you type.
+- Selecting a prediction fills address fields and stores a venue (with placeId).
+- No API key is leaked in client logs; browser key is referrer-restricted; server key (if used) is server-only.
+- The printed Google Console checklist appears at the end of output.

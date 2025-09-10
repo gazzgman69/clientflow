@@ -307,43 +307,90 @@ export default function VenuesPage() {
                   )}
                 />
                 
+                {/* Address Line 1 */}
+                <FormField
+                  control={form.control}
+                  name="address"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Address Line 1</FormLabel>
+                      <FormControl>
+                        <Input {...field} data-testid="venue-input-address1" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
                 {/* Google Places Search Integration */}
-                <div className="space-y-4">
-                  <div>
-                    <FormLabel className="text-base font-medium">Search for Venue</FormLabel>
-                    <p className="text-sm text-muted-foreground mb-2">
-                      Search Google Places to automatically fill venue details
-                    </p>
-                    <VenueAutocomplete
-                      onVenueSelect={handleVenueSelect}
-                      placeholder="Search for venues, restaurants, theaters, etc..."
-                      className="w-full"
-                    />
-                  </div>
-                  
-                  <div className="relative">
-                    <div className="absolute inset-0 flex items-center">
-                      <span className="w-full border-t" />
-                    </div>
-                    <div className="relative flex justify-center text-xs uppercase">
-                      <span className="bg-background px-2 text-muted-foreground">Or enter manually</span>
-                    </div>
-                  </div>
-                  
-                  <AddressFields
+                <div>
+                  <FormLabel className="text-base font-medium">Search for Venue</FormLabel>
+                  <p className="text-sm text-muted-foreground mb-2">
+                    Search Google Places to automatically fill venue details
+                  </p>
+                  <VenueAutocomplete
+                    onVenueSelect={handleVenueSelect}
+                    placeholder="Search for venues, restaurants, theaters, etc..."
+                    className="w-full"
+                  />
+                </div>
+
+                {/* City, State, Postal Code, Country */}
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
                     control={form.control}
-                    countryCode={form.watch('country') || undefined}
-                    onCountryChange={(countryCode) =>
-                      form.setValue('country', countryCode, { shouldDirty: true, shouldValidate: true })
-                    }
-                    fieldNames={{
-                      address1: 'address',
-                      city: 'city',
-                      state: 'state',
-                      postalCode: 'zipCode',
-                      country: 'country'
-                    }}
-                    testIdPrefix="venue"
+                    name="city"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>City</FormLabel>
+                        <FormControl>
+                          <Input {...field} data-testid="venue-input-city" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="state"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>County</FormLabel>
+                        <FormControl>
+                          <Input {...field} data-testid="venue-input-state" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="zipCode"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Postcode</FormLabel>
+                        <FormControl>
+                          <Input {...field} data-testid="venue-input-postalCode" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="country"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Country</FormLabel>
+                        <FormControl>
+                          <Input {...field} data-testid="venue-input-country" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
                   />
                 </div>
                 <div className="grid grid-cols-2 gap-4">

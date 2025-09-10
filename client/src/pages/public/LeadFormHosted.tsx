@@ -241,10 +241,8 @@ export default function LeadFormHosted({ slug }: LeadFormHostedProps) {
         return (
           <VenueAutocomplete
             onVenueSelect={(venue) => {
-              // Store the main address with venue name if available
-              const addressValue = venue.name && venue.address 
-                ? `${venue.name}, ${venue.address}`
-                : venue.address || venue.name || '';
+              // Use the address exactly as shown in the dropdown
+              const addressValue = venue.address || venue.name || '';
               handleInputChange(question.mapTo, addressValue);
               
               // Also store the individual address components for backend processing

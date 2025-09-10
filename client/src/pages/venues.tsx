@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Plus, MapPin, Phone, Mail, Users, Edit, Trash, Globe, Star, Calendar, BarChart3, Tag } from "lucide-react";
 import { AddressFields } from "@/components/shared/AddressFields";
+import { VenueAutocomplete } from "@/components/venues/VenueAutocomplete";
 import {
   Card,
   CardContent,
@@ -231,6 +232,34 @@ export default function VenuesPage() {
     }
   };
 
+  const handleVenueSelect = (selectedPlace: {
+    placeId: string;
+    name: string;
+    address: string;
+    city?: string;
+    state?: string;
+    zipCode?: string;
+    country?: string;
+    latitude?: number;
+    longitude?: number;
+  }) => {
+    // Auto-fill all the form fields with Google Places data
+    form.setValue('name', selectedPlace.name, { shouldDirty: true, shouldValidate: true });
+    form.setValue('address', selectedPlace.address, { shouldDirty: true, shouldValidate: true });
+    if (selectedPlace.city) {
+      form.setValue('city', selectedPlace.city, { shouldDirty: true, shouldValidate: true });
+    }
+    if (selectedPlace.state) {
+      form.setValue('state', selectedPlace.state, { shouldDirty: true, shouldValidate: true });
+    }
+    if (selectedPlace.zipCode) {
+      form.setValue('zipCode', selectedPlace.zipCode, { shouldDirty: true, shouldValidate: true });
+    }
+    if (selectedPlace.country) {
+      form.setValue('country', selectedPlace.country, { shouldDirty: true, shouldValidate: true });
+    }
+  };
+
   if (isLoading) {
     return <div>Loading...</div>;
   }
@@ -277,21 +306,44 @@ export default function VenuesPage() {
                     </FormItem>
                   )}
                 />
-                <AddressFields
-                  control={form.control}
-                  countryCode={form.watch('country') || undefined}
-                  onCountryChange={(countryCode) =>
-                    form.setValue('country', countryCode, { shouldDirty: true, shouldValidate: true })
-                  }
-                  fieldNames={{
-                    address1: 'address',
-                    city: 'city',
-                    state: 'state',
-                    postalCode: 'zipCode',
-                    country: 'country'
-                  }}
-                  testIdPrefix="venue"
-                />
+                {/* Google Places Search Integration */}
+                <div className="space-y-4">
+                  <div>
+                    <FormLabel className="text-base font-medium">Search for Venue</FormLabel>
+                    <p className="text-sm text-muted-foreground mb-2">
+                      Search Google Places to automatically fill venue details
+                    </p>
+                    <VenueAutocomplete
+                      onVenueSelect={handleVenueSelect}
+                      placeholder="Search for venues, restaurants, theaters, etc..."
+                      className="w-full"
+                    />
+                  </div>
+                  
+                  <Separator className="my-4" />
+                  
+                  <div>
+                    <FormLabel className="text-base font-medium">Address Details</FormLabel>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      Auto-filled from search or enter manually
+                    </p>
+                    <AddressFields
+                      control={form.control}
+                      countryCode={form.watch('country') || undefined}
+                      onCountryChange={(countryCode) =>
+                        form.setValue('country', countryCode, { shouldDirty: true, shouldValidate: true })
+                      }
+                      fieldNames={{
+                        address1: 'address',
+                        city: 'city',
+                        state: 'state',
+                        postalCode: 'zipCode',
+                        country: 'country'
+                      }}
+                      testIdPrefix="venue"
+                    />
+                  </div>
+                </div>
                 <div className="grid grid-cols-2 gap-4">
                   <FormField
                     control={form.control}
@@ -464,7 +516,7 @@ export default function VenuesPage() {
                   <Button
                     type="button"
                     variant="outline"
-                    onClick={handleDialogClose}
+                    onClick={() => handleDialogClose(false)}
                     data-testid="button-cancel"
                   >
                     Cancel

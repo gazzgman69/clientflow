@@ -298,7 +298,7 @@ export default function ProjectDetailModal({ project, isOpen, onClose }: Project
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-4xl h-screen overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{project.name}</DialogTitle>
         </DialogHeader>

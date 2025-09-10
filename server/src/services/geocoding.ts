@@ -145,9 +145,38 @@ export class GeocodingService {
     const streetNumber = this.getComponent(components, 'street_number')?.long_name || '';
     const route = this.getComponent(components, 'route')?.long_name || '';
     const subpremise = this.getComponent(components, 'subpremise')?.long_name || '';
+    
+    // Enhanced city extraction with comprehensive fallback strategies
     const locality = this.getComponent(components, 'locality')?.long_name || '';
-    const adminLevel1 = this.getComponent(components, 'administrative_area_level_1')?.short_name || '';
-    const postalCode = this.getComponent(components, 'postal_code')?.long_name || '';
+    const sublocality = this.getComponent(components, 'sublocality')?.long_name || '';
+    const sublocalityLevel1 = this.getComponent(components, 'sublocality_level_1')?.long_name || '';
+    const postalTown = this.getComponent(components, 'postal_town')?.long_name || '';
+    const adminLevel2 = this.getComponent(components, 'administrative_area_level_2')?.long_name || '';
+    const adminLevel3 = this.getComponent(components, 'administrative_area_level_3')?.long_name || '';
+    
+    // Try to extract city from formatted address as final fallback
+    let cityFromAddress = '';
+    if (!locality && !sublocality && !sublocalityLevel1 && !postalTown && !adminLevel2) {
+      // Parse formatted address to extract city (usually before postcode in UK)
+      const addressParts = place.formatted_address.split(',').map(part => part.trim());
+      // For UK addresses, city is typically the part before the postcode
+      const postcodePattern = /[A-Z]{1,2}\d[A-Z\d]?\s?\d[A-Z]{2}/i;
+      const postcodePartIndex = addressParts.findIndex(part => postcodePattern.test(part));
+      if (postcodePartIndex > 0) {
+        cityFromAddress = addressParts[postcodePartIndex - 1] || '';
+      }
+    }
+    
+    const city = locality || sublocality || sublocalityLevel1 || postalTown || adminLevel2 || adminLevel3 || cityFromAddress || '';
+    
+    // Enhanced state extraction with fallback
+    const adminLevel1 = this.getComponent(components, 'administrative_area_level_1')?.short_name || 
+                       this.getComponent(components, 'administrative_area_level_1')?.long_name || '';
+    
+    // Enhanced postal code extraction
+    const postalCode = this.getComponent(components, 'postal_code')?.long_name || 
+                      this.getComponent(components, 'postal_code_prefix')?.long_name || '';
+    
     const country = this.getComponent(components, 'country')?.short_name || '';
 
     // Build address lines
@@ -158,7 +187,7 @@ export class GeocodingService {
       name: place.name,
       address1,
       address2,
-      city: locality,
+      city,
       state: adminLevel1,
       postalCode,
       countryCode: country,

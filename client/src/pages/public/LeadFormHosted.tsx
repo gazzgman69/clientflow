@@ -134,6 +134,13 @@ export default function LeadFormHosted({ slug }: LeadFormHostedProps) {
       }
     });
 
+    // Include venue address components even if they're not explicit form questions
+    Object.keys(formValues).forEach(key => {
+      if (key.includes('eventLocation') && !submissionData[key]) {
+        submissionData[key] = formValues[key];
+      }
+    });
+
     submitMutation.mutate(submissionData);
   };
 

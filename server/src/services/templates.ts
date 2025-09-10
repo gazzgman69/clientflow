@@ -1,7 +1,13 @@
 import { storage } from '../../storage';
 import { InsertTemplate, Template } from '@shared/schema';
+import { TokenResolverService, TokenResolutionContext } from './token-resolver';
 
 export class TemplatesService {
+  private tokenResolver: TokenResolverService;
+  
+  constructor() {
+    this.tokenResolver = new TokenResolverService(storage as any);
+  }
   /**
    * Get all templates with optional filtering
    */
@@ -42,7 +48,8 @@ export class TemplatesService {
    * Get a single template by ID
    */
   async getTemplate(id: string): Promise<Template | null> {
-    return await storage.getTemplate(id);
+    const template = await storage.getTemplate(id);
+    return template || null;
   }
 
   /**
@@ -85,7 +92,8 @@ export class TemplatesService {
     if (data.body !== undefined) updateData.body = data.body;
     if (data.isActive !== undefined) updateData.isActive = data.isActive;
 
-    return await storage.updateTemplate(id, updateData);
+    const updated = await storage.updateTemplate(id, updateData);
+    return updated || null;
   }
 
   /**
@@ -102,9 +110,32 @@ export class TemplatesService {
   }
 
   /**
-   * Render template with token replacement
+   * Render template with comprehensive token replacement
+   * Supports both legacy {{token}} and new [Token] formats
    */
-  renderTemplate(template: Template, tokens: Record<string, string>): {
+  async renderTemplate(template: Template, context: TokenResolutionContext = {}): Promise<{
+    subject: string | null;
+    body: string;
+    unresolved: string[];
+  }> {
+    const renderedSubject = template.subject 
+      ? await this.tokenResolver.resolveTemplate(template.subject, context)
+      : { rendered: null, unresolved: [] };
+    
+    const renderedBody = await this.tokenResolver.resolveTemplate(template.body, context);
+
+    return {
+      subject: renderedSubject.rendered,
+      body: renderedBody.rendered,
+      unresolved: [...renderedSubject.unresolved, ...renderedBody.unresolved]
+    };
+  }
+
+  /**
+   * Legacy method for backward compatibility with simple token replacement
+   * @deprecated Use renderTemplate with TokenResolutionContext instead
+   */
+  renderTemplateLegacy(template: Template, tokens: Record<string, string>): {
     subject: string | null;
     body: string;
   } {
@@ -127,17 +158,21 @@ export class TemplatesService {
   }
 
   /**
-   * Get available template tokens for auto-responders
+   * Get available tokens from the comprehensive token registry
+   * Maintains backward compatibility with legacy array format
    */
-  getAvailableTokens(): {
-    contact: string[];
-    project: string[];
-    lead: string[];
-  } {
+  async getAvailableTokens() {
+    const tokens = await this.tokenResolver.getAvailableTokens();
+    
+    // Return both new and legacy formats for compatibility
     return {
-      contact: ['contact.firstName', 'contact.lastName', 'contact.email'],
-      project: ['project.title', 'project.date', 'project.id'],
-      lead: ['lead.service', 'lead.message']
+      // New comprehensive format
+      ...tokens,
+      
+      // Legacy array format for backward compatibility
+      contact: ['contact.firstName', 'contact.lastName', 'contact.email', 'contact.phone', 'contact.company'],
+      project: ['project.title', 'project.description', 'project.id', 'project.status'],
+      lead: ['lead.service', 'lead.message', 'lead.email', 'lead.phone']
     };
   }
 }

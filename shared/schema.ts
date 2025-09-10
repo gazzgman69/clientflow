@@ -462,7 +462,6 @@ export const leadCaptureForms = pgTable("lead_capture_forms", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   name: text("name").notNull(),
   slug: text("slug").notNull().unique(),
-  questions: text("questions"), // JSON array of questions
   autoResponseTemplateId: varchar("auto_response_template_id").references(() => templates.id),
   notification: text("notification").notNull().default('email'), // email, sms
   calendarId: varchar("calendar_id").references(() => calendarIntegrations.id),

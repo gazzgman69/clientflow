@@ -5,6 +5,19 @@ import { z } from 'zod';
 
 const router = Router();
 
+// Helper function for default questions
+function getDefaultQuestionsForForm() {
+  return [
+    { id: '1', type: 'text', label: 'Name', required: true, mapTo: 'leadName', orderIndex: 0 },
+    { id: '2', type: 'email', label: 'Email Address', required: true, mapTo: 'leadEmail', orderIndex: 1 },
+    { id: '3', type: 'tel', label: 'Phone Number', required: true, mapTo: 'leadPhoneNumber', orderIndex: 2 },
+    { id: '4', type: 'select', label: 'Event Type', required: true, mapTo: 'whatKindOfEventIsIt', orderIndex: 3, options: 'Wedding,Private,Corporate,Other' },
+    { id: '5', type: 'venue', label: 'Event Location (Full address if possible please)', required: true, mapTo: 'eventLocation', orderIndex: 4 },
+    { id: '6', type: 'date', label: 'Event Date', required: true, mapTo: 'projectDate', orderIndex: 5 },
+    { id: '7', type: 'textarea', label: 'Message', required: false, mapTo: 'nothing', orderIndex: 6 }
+  ];
+}
+
 const requireAuth = (req: any, res: any, next: any) => {
   if (!req.headers['user-id']) {
     return res.status(401).json({ error: 'Authentication required' });
@@ -97,29 +110,17 @@ router.get('/admin/lead-forms/:id', requireAuth, async (req, res) => {
     }
 
     // Parse questions from form or use default questions
-    let questions;
-    if (form.questions) {
-      try {
+    let questions = getDefaultQuestionsForForm();
+    try {
+      if (form.questions) {
         questions = JSON.parse(form.questions);
-      } catch (e) {
-        console.error('Error parsing questions:', e);
-        questions = getDefaultQuestions();
       }
-    } else {
-      questions = getDefaultQuestions();
+    } catch (e) {
+      console.error('Error parsing questions:', e);
+      // Fall back to default questions
     }
 
-    function getDefaultQuestions() {
-      return [
-        { id: '1', type: 'text', label: 'Name', required: true, mapTo: 'leadName', orderIndex: 0 },
-        { id: '2', type: 'email', label: 'Email Address', required: true, mapTo: 'leadEmail', orderIndex: 1 },
-        { id: '3', type: 'tel', label: 'Phone Number', required: true, mapTo: 'leadPhoneNumber', orderIndex: 2 },
-        { id: '4', type: 'select', label: 'Event Type', required: true, mapTo: 'whatKindOfEventIsIt', orderIndex: 3, options: 'Wedding,Private,Corporate,Other' },
-        { id: '5', type: 'text', label: 'Event Location (Full address if possible please)', required: true, mapTo: 'eventLocation', orderIndex: 4 },
-        { id: '6', type: 'date', label: 'Event Date', required: true, mapTo: 'projectDate', orderIndex: 5 },
-        { id: '7', type: 'textarea', label: 'Message', required: false, mapTo: 'nothing', orderIndex: 6 }
-      ];
-    }
+
 
     res.json({
       form: {
@@ -228,29 +229,17 @@ router.get('/leads/public/:slug', async (req, res) => {
     }
 
     // Parse questions from form or use default questions
-    let questions;
-    if (form.questions) {
-      try {
+    let questions = getDefaultQuestionsForForm();
+    try {
+      if (form.questions) {
         questions = JSON.parse(form.questions);
-      } catch (e) {
-        console.error('Error parsing questions:', e);
-        questions = getDefaultQuestions();
       }
-    } else {
-      questions = getDefaultQuestions();
+    } catch (e) {
+      console.error('Error parsing questions:', e);
+      // Fall back to default questions
     }
 
-    function getDefaultQuestions() {
-      return [
-        { id: '1', type: 'text', label: 'Name', required: true, mapTo: 'leadName', orderIndex: 0 },
-        { id: '2', type: 'email', label: 'Email Address', required: true, mapTo: 'leadEmail', orderIndex: 1 },
-        { id: '3', type: 'tel', label: 'Phone Number', required: true, mapTo: 'leadPhoneNumber', orderIndex: 2 },
-        { id: '4', type: 'select', label: 'Event Type', required: true, mapTo: 'whatKindOfEventIsIt', orderIndex: 3, options: 'Wedding,Private,Corporate,Other' },
-        { id: '5', type: 'text', label: 'Event Location (Full address if possible please)', required: true, mapTo: 'eventLocation', orderIndex: 4 },
-        { id: '6', type: 'date', label: 'Event Date', required: true, mapTo: 'projectDate', orderIndex: 5 },
-        { id: '7', type: 'textarea', label: 'Message', required: false, mapTo: 'nothing', orderIndex: 6 }
-      ];
-    }
+
 
     res.json({
       form: {

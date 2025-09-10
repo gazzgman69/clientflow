@@ -40,6 +40,7 @@ export interface RichTextEditorRef {
   getHTML: () => string;
   focus: () => void;
   setContent: (content: string) => void;
+  insertToken: (token: string) => void;
 }
 
 export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(
@@ -246,6 +247,12 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
       getHTML: () => editor?.getHTML() || '',
       focus: () => editor?.commands.focus(),
       setContent: (content: string) => editor?.commands.setContent(content),
+      insertToken: (token: string) => {
+        if (editor) {
+          // Insert token at current cursor position
+          editor.chain().focus().insertContent(token + ' ').run();
+        }
+      },
     }), [editor]);
 
     if (!editor) {

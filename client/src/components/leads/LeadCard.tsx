@@ -1,6 +1,6 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Mail, ExternalLink, Trash2 } from "lucide-react";
+import { Mail, Trash2 } from "lucide-react";
 import { Link } from "wouter";
 
 interface LeadCardDTO {
@@ -135,21 +135,6 @@ export default function LeadCard({ lead, onClick, draggable = false, onDragStart
           >
             <Mail className="h-3 w-3" />
           </Button>
-          {lead.projectId && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-6 w-6 p-0"
-              onClick={(e) => {
-                e.stopPropagation();
-                // This will now be handled by the parent card's onClick for consistency
-              }}
-              title="View Project"
-              data-testid={`view-project-${lead.id}`}
-            >
-              <ExternalLink className="h-3 w-3" />
-            </Button>
-          )}
         </div>
       </div>
 

@@ -93,10 +93,23 @@ export default function Contacts() {
   const deleteContactMutation = useMutation({
     mutationFn: async ({ contactId, cascade = false }: { contactId: string; cascade?: boolean }) => {
       const url = cascade ? `/api/contacts/${contactId}?cascade=true` : `/api/contacts/${contactId}`;
-      const response = await apiRequest("DELETE", url);
+      
+      const response = await fetch(url, {
+        method: 'DELETE',
+        headers: {
+          'user-id': 'test-user',
+        },
+        credentials: 'include',
+      });
+      
       if (!response.ok) {
         const errorData = await response.json();
         throw errorData;
+      }
+      
+      // For successful deletions, the response might be empty (204) or contain JSON
+      if (response.status === 204) {
+        return { message: 'Contact deleted successfully' };
       }
       return response.json();
     },

@@ -584,20 +584,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         // Perform cascade deletion - delete all related data first
         for (const project of associatedProjects) {
-          // Delete emails associated with this project
+          // Delete related project data in the correct order to avoid foreign key violations
           try {
-            await storage.deleteEmailsByProject(project.id);
-          } catch (error) {
-            console.log('No emails to delete for project:', project.id);
-          }
-          
-          // Delete other related data (quotes, contracts, invoices, tasks)
-          try {
-            await storage.deleteQuotesByProject(project.id);
-            await storage.deleteContractsByProject(project.id);
-            await storage.deleteInvoicesByProject(project.id);
-            await storage.deleteTasksByProject(project.id);
-          } catch (error) {
+            // Get and delete emails for this project
+            const emails = await storage.getEmailsByProject(project.id);
+            for (const email of emails) {
+              await storage.deleteEmail(email.id);
+            }
+            
+            // Get and delete tasks for this project  
+            const tasks = await storage.getTasksByProject(project.id);
+            for (const task of tasks) {
+              await storage.deleteTask(task.id);
+            }
+            
+            // Get and delete quotes for this project
+            const quotes = await storage.getQuotesByProject(project.id);
+            for (const quote of quotes) {
+              await storage.deleteQuote(quote.id);
+            }
+            
+            // Get and delete contracts for this project
+            const contracts = await storage.getContractsByProject(project.id);
+            for (const contract of contracts) {
+              await storage.deleteContract(contract.id);
+            }
+            
+            // Get and delete invoices for this project
+            const invoices = await storage.getInvoicesByProject(project.id);
+            for (const invoice of invoices) {
+              await storage.deleteInvoice(invoice.id);
+            }
+          } catch (error: any) {
             console.log('Error deleting related project data:', error.message);
           }
           

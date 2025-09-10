@@ -76,6 +76,40 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
     }
   };
 
+  // Token resolver function for displaying emails
+  const resolveDisplayTokens = (text: string, project: any, contact: any) => {
+    if (!text) return text;
+    
+    const tokens = {
+      '[FirstName]': contact?.name?.split(' ')[0] || '[FirstName]',
+      '[LastName]': contact?.name?.split(' ').slice(1).join(' ') || '[LastName]',
+      '[Email]': contact?.email || '[Email]',
+      '[Phone]': contact?.phone || '[Phone]',
+      '[Company]': contact?.company || '[Company]',
+      '[ProjectName]': project?.name || '[ProjectName]',
+      '[ProjectDate]': project?.date ? new Date(project.date).toLocaleDateString() : '[ProjectDate]',
+      '{{contact.firstName}}': contact?.name?.split(' ')[0] || 'there',
+      '{{contact.lastName}}': contact?.name?.split(' ').slice(1).join(' ') || '',
+      '{{contact.email}}': contact?.email || '',
+      '{{contact.phone}}': contact?.phone || '',
+      '{{contact.company}}': contact?.company || '',
+      '{{project.name}}': project?.name || '',
+      '{{project.date}}': project?.date ? new Date(project.date).toLocaleDateString() : '',
+    };
+    
+    let resolved = text;
+    Object.entries(tokens).forEach(([token, value]) => {
+      resolved = resolved.replace(new RegExp(escapeRegex(token), 'g'), value || '');
+    });
+    
+    return resolved;
+  };
+
+  // Helper function to escape regex special characters
+  const escapeRegex = (text: string) => {
+    return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  };
+
   // Fetch email templates
   const { data: emailTemplates, isLoading: templatesLoading } = useQuery({
     queryKey: ['/api/templates'],
@@ -790,7 +824,11 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
                       </span>
                     </TableCell>
                     <TableCell className="max-w-xs truncate">
-                      {decodeHtmlEntities(message.snippet || message.bodyText?.substring(0, 100)) || 'No preview'}
+                      {resolveDisplayTokens(
+                        decodeHtmlEntities(message.snippet || message.bodyText?.substring(0, 100)) || 'No preview',
+                        project,
+                        contact
+                      )}
                     </TableCell>
                   </TableRow>
                 ))}
@@ -852,7 +890,11 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
                   <CardContent className="pt-0 py-2">
                     <div className="bg-muted/20 p-2 rounded text-xs">
                       <p className="text-muted-foreground line-clamp-2 leading-relaxed">
-                        {decodeHtmlEntities(message.snippet || message.bodyText?.substring(0, 150)) || 'No preview available'}
+                        {resolveDisplayTokens(
+                          decodeHtmlEntities(message.snippet || message.bodyText?.substring(0, 150)) || 'No preview available',
+                          project,
+                          contact
+                        )}
                       </p>
                     </div>
                   </CardContent>
@@ -905,7 +947,11 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
                     </CardHeader>
                     <CardContent className="pt-0">
                       <div className="whitespace-pre-wrap text-sm bg-muted/30 p-3 rounded max-h-64 overflow-y-auto mb-3">
-                        {decodeHtmlEntities(message.bodyText || message.bodyHtml) || 'No content'}
+                        {resolveDisplayTokens(
+                          decodeHtmlEntities(message.bodyText || message.bodyHtml) || 'No content',
+                          project,
+                          contact
+                        )}
                       </div>
                       <div className="flex justify-end">
                         <Button 

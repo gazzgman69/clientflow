@@ -17,6 +17,7 @@ import { useToast } from '@/hooks/use-toast';
 import { apiRequest } from '@/lib/queryClient';
 import InstallFormMenu from '@/components/leads/InstallFormMenu';
 import QuestionEditor from '@/components/leads/QuestionEditor';
+import { VenueAutocomplete } from '@/components/venues/VenueAutocomplete';
 
 interface LeadForm {
   id: string;
@@ -44,7 +45,7 @@ interface FormDetails {
 }
 
 interface Question {
-  id: string;
+  id?: string;
   type: string;
   label: string;
   required: boolean;
@@ -151,6 +152,19 @@ function FormPreview({ slug, formTitle, onClose }: FormPreviewProps) {
               ))}
             </SelectContent>
           </Select>
+        );
+
+      case 'venue':
+      case 'address':
+        return (
+          <VenueAutocomplete
+            onVenueSelect={(venue: { placeId: string; name: string; address: string; city?: string; state?: string; zipCode?: string; country?: string; latitude?: number; longitude?: number; }) => {
+              const addressValue = venue.address || venue.name;
+              handleInputChange(question.mapTo, addressValue);
+            }}
+            placeholder="Search for an address or venue..."
+            className="w-full"
+          />
         );
 
       default:
@@ -721,7 +735,7 @@ export default function LeadCaptureBuilder() {
                                 <div className="flex items-center gap-3">
                                   <div
                                     draggable
-                                    onDragStart={(e) => handleDragStart(e, question.id)}
+                                    onDragStart={(e) => handleDragStart(e, question.id || '')}
                                     onDragEnd={handleDragEnd}
                                     className="cursor-move p-1 hover:bg-muted rounded transition-colors"
                                     title="Drag to reorder"
@@ -752,7 +766,7 @@ export default function LeadCaptureBuilder() {
                                   <Button
                                     variant="outline"
                                     size="sm"
-                                    onClick={() => handleDeleteQuestion(question.id)}
+                                    onClick={() => handleDeleteQuestion(question.id || '')}
                                     data-testid={`button-delete-question-${question.id}`}
                                   >
                                     <Trash2 className="h-3 w-3" />

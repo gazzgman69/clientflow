@@ -1,8 +1,11 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { getAddressLabels } from "@/lib/i18n/addressLabels";
 import { FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { VenueAutocomplete } from "@/components/venues/VenueAutocomplete";
+import { Button } from "@/components/ui/button";
+import { MapPin, ToggleLeft, ToggleRight } from "lucide-react";
 
 interface AddressFieldsProps {
   control?: any;
@@ -22,6 +25,7 @@ interface AddressFieldsProps {
   className?: string;
   testIdPrefix?: string;
   includeAddress2?: boolean;
+  enableAutocomplete?: boolean;
 }
 
 const COUNTRIES = [
@@ -56,7 +60,9 @@ export function AddressFields({
   className = "",
   testIdPrefix = "address",
   includeAddress2 = false,
+  enableAutocomplete = true,
 }: AddressFieldsProps) {
+  const [useAutocomplete, setUseAutocomplete] = useState(enableAutocomplete);
   // Default field names
   const fields = {
     address1: fieldNames.address1 || "address",
@@ -79,9 +85,51 @@ export function AddressFields({
     onCountryChange?.(newCountryCode);
   };
 
+  // Handle venue autocomplete selection
+  const handleVenueSelect = (venue: { placeId: string; name: string; address: string; city?: string; state?: string; zipCode?: string; country?: string; latitude?: number; longitude?: number; }) => {
+    if (control && control._setValue) {
+      // Fill in the address fields based on venue data
+      control._setValue(fields.address1, venue.address || '', { shouldDirty: true, shouldValidate: true });
+      if (venue.city) control._setValue(fields.city, venue.city, { shouldDirty: true, shouldValidate: true });
+      if (venue.state) control._setValue(fields.state, venue.state, { shouldDirty: true, shouldValidate: true });
+      if (venue.zipCode) control._setValue(fields.postalCode, venue.zipCode, { shouldDirty: true, shouldValidate: true });
+      if (venue.country) {
+        control._setValue(fields.country, venue.country, { shouldDirty: true, shouldValidate: true });
+        onCountryChange?.(venue.country);
+      }
+    }
+  };
+
   return (
     <div className={`space-y-4 ${className}`}>
-      {/* Address Line 1 */}
+      {/* Autocomplete toggle */}
+      {enableAutocomplete && (
+        <div className="flex items-center justify-between">
+          <span className="text-sm font-medium">Address Input Method</span>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => setUseAutocomplete(!useAutocomplete)}
+            className="flex items-center gap-2"
+            data-testid={`${testIdPrefix}-toggle-autocomplete`}
+          >
+            {useAutocomplete ? (
+              <>
+                <ToggleRight className="h-4 w-4" />
+                Smart Search
+              </>
+            ) : (
+              <>
+                <ToggleLeft className="h-4 w-4" />
+                Manual Entry
+              </>
+            )}
+          </Button>
+        </div>
+      )}
+
+      {/* Address Line 1 - with venue autocomplete option */}
       <FormField
         control={control}
         name={fields.address1}
@@ -91,13 +139,22 @@ export function AddressFields({
               {labels.address1}
             </FormLabel>
             <FormControl>
-              <Input 
-                {...field} 
-                value={field.value || ""} 
-                disabled={disabled}
-                placeholder={`Enter your ${labels.address1.toLowerCase()}`}
-                data-testid={`input-${testIdPrefix}-address`} 
-              />
+              {useAutocomplete && enableAutocomplete ? (
+                <VenueAutocomplete
+                  onVenueSelect={handleVenueSelect}
+                  placeholder={`Search for ${labels.address1.toLowerCase()}...`}
+                  initialValue={field.value || ""}
+                  disabled={disabled}
+                />
+              ) : (
+                <Input 
+                  {...field} 
+                  value={field.value || ""} 
+                  disabled={disabled}
+                  placeholder={`Enter your ${labels.address1.toLowerCase()}`}
+                  data-testid={`input-${testIdPrefix}-address`} 
+                />
+              )}
             </FormControl>
             <FormMessage />
           </FormItem>

@@ -34,6 +34,7 @@ const QUESTION_TYPES = [
   { value: 'tel', label: 'Phone Number' },
   { value: 'number', label: 'Number' },
   { value: 'date', label: 'Date' },
+  { value: 'venue', label: 'Venue/Address' },
   { value: 'select', label: 'Dropdown' },
   { value: 'radio', label: 'Multiple Choice' },
   { value: 'checkbox', label: 'Checkboxes' },

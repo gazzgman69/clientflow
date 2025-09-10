@@ -23,11 +23,37 @@ export interface TokenResolutionResult {
 export class TokenResolverService {
   private storage: IStorage;
   private tokenRegistry: Map<string, TokenResolver>;
+  private entityCache = new Map<string, any>(); // Entity-level cache for current request
 
   constructor(storageInstance: IStorage) {
     this.storage = storageInstance;
     this.tokenRegistry = new Map();
     this.initializeTokenRegistry();
+  }
+
+  /**
+   * Get base URL for absolute links
+   */
+  private getBaseUrl(): string {
+    // Prefer APP_BASE_URL if configured
+    if (process.env.APP_BASE_URL) {
+      return process.env.APP_BASE_URL;
+    }
+    
+    // Use Replit environment if both REPL_SLUG and REPL_OWNER exist
+    if (process.env.REPL_SLUG && process.env.REPL_OWNER) {
+      return `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co`;
+    }
+    
+    // Fallback to localhost
+    return 'http://localhost:5000';
+  }
+
+  /**
+   * Clear entity cache (call this at the start of each template resolution)
+   */
+  private clearEntityCache() {
+    this.entityCache.clear();
   }
 
   private initializeTokenRegistry() {
@@ -189,13 +215,13 @@ export class TokenResolverService {
       }
     });
 
-    // Link tokens - these will return URLs based on the app's routing
+    // Link tokens - these will return absolute URLs for use in emails
     this.tokenRegistry.set('InvoiceLink', {
       resolve: async (context) => {
         if (!context.projectId) return '';
         const invoices = await this.getProjectInvoices(context.projectId);
         const latestInvoice = invoices[0]; // Get the most recent
-        return latestInvoice ? `/invoices/${latestInvoice.id}` : '';
+        return latestInvoice ? `${this.getBaseUrl()}/invoices/${latestInvoice.id}` : '';
       }
     });
 
@@ -204,7 +230,7 @@ export class TokenResolverService {
         if (!context.contactId) return '';
         const quotes = await this.getContactQuotes(context.contactId);
         const latestQuote = quotes[0]; // Get the most recent
-        return latestQuote ? `/quotes/${latestQuote.id}` : '';
+        return latestQuote ? `${this.getBaseUrl()}/quotes/${latestQuote.id}` : '';
       }
     });
 
@@ -213,7 +239,7 @@ export class TokenResolverService {
         if (!context.contactId) return '';
         const contracts = await this.getContactContracts(context.contactId);
         const latestContract = contracts[0]; // Get the most recent
-        return latestContract ? `/contracts/${latestContract.id}` : '';
+        return latestContract ? `${this.getBaseUrl()}/contracts/${latestContract.id}` : '';
       }
     });
 
@@ -284,61 +310,160 @@ export class TokenResolverService {
 
     this.tokenRegistry.set('ClientPortalLink', {
       resolve: async (context) => {
-        return context.contactId ? `/client-portal/${context.contactId}` : '/client-portal';
+        const baseUrl = this.getBaseUrl();
+        return context.contactId ? `${baseUrl}/client-portal/${context.contactId}` : `${baseUrl}/client-portal`;
       }
     });
   }
 
   /**
-   * Resolve all tokens in a template string
+   * Resolve all tokens in a template string (supports both [Token] and {{token}} formats)
    */
   async resolveTemplate(template: string, context: TokenResolutionContext): Promise<TokenResolutionResult> {
+    // Clear entity cache for each new template resolution
+    this.clearEntityCache();
+    
     const unresolved: string[] = [];
+    const resolvedCache = new Map<string, string>(); // Cache for resolved values
     
     // Find all tokens in format [TokenName] or [TokenName|format]
-    const tokenRegex = /\[([^\]|]+)(?:\|([^\]]+))?\]/g;
-    let match;
-    const tokens: { full: string; name: string; format?: string }[] = [];
+    const newTokenRegex = /\[([^\]|]+)(?:\|([^\]]+))?\]/g;
+    // Find all legacy tokens in format {{token.name}}
+    const legacyTokenRegex = /\{\{([^}]+)\}\}/g;
     
-    while ((match = tokenRegex.exec(template)) !== null) {
+    let match;
+    const tokens: { full: string; name: string; format?: string; isLegacy: boolean }[] = [];
+    
+    // Parse new format tokens [Token]
+    while ((match = newTokenRegex.exec(template)) !== null) {
       tokens.push({
         full: match[0],
         name: match[1],
-        format: match[2]
+        format: match[2],
+        isLegacy: false
       });
+    }
+    
+    // Reset regex
+    legacyTokenRegex.lastIndex = 0;
+    
+    // Parse legacy format tokens {{token}}
+    while ((match = legacyTokenRegex.exec(template)) !== null) {
+      const legacyToken = match[1];
+      // Map legacy token names to new token names
+      const mappedToken = this.mapLegacyToken(legacyToken);
+      if (mappedToken) {
+        tokens.push({
+          full: match[0],
+          name: mappedToken,
+          format: undefined,
+          isLegacy: true
+        });
+      } else {
+        // Unknown legacy token
+        unresolved.push(legacyToken);
+      }
     }
 
     let rendered = template;
 
-    // Process each unique token
+    // Process each unique token (deduplicated by name+format)
+    const processedTokens = new Set<string>();
+    
     for (const token of tokens) {
+      const cacheKey = `${token.name}:${token.format || ''}`;
+      
+      // Skip if already processed this token+format combination
+      if (processedTokens.has(cacheKey)) {
+        continue;
+      }
+      processedTokens.add(cacheKey);
+      
       try {
-        const resolver = this.tokenRegistry.get(token.name);
-        if (!resolver) {
-          unresolved.push(token.name);
-          // Replace with empty string for missing tokens
-          rendered = rendered.replace(new RegExp(`\\[${this.escapeRegex(token.name)}(?:\\|[^\\]]+)?\\]`, 'g'), '');
-          continue;
+        let resolvedValue: string;
+        
+        // Check cache first
+        if (resolvedCache.has(cacheKey)) {
+          resolvedValue = resolvedCache.get(cacheKey)!;
+        } else {
+          // Resolve the token
+          const resolver = this.tokenRegistry.get(token.name);
+          if (!resolver) {
+            unresolved.push(token.name);
+            resolvedValue = '';
+          } else {
+            const rawValue = await resolver.resolve(context);
+            const formattedValue = this.formatValue(rawValue, token.format);
+            resolvedValue = this.escapeHtml(formattedValue);
+            
+            // Cache the resolved value
+            resolvedCache.set(cacheKey, resolvedValue);
+          }
         }
 
-        const rawValue = await resolver.resolve(context);
-        const formattedValue = this.formatValue(rawValue, token.format);
-        const safeValue = this.escapeHtml(formattedValue);
-
-        // Replace all instances of this token
-        rendered = rendered.replace(
-          new RegExp(`\\[${this.escapeRegex(token.name)}(?:\\|[^\\]]+)?\\]`, 'g'),
-          safeValue
-        );
+        // Replace all instances of this token in both formats
+        if (!token.isLegacy) {
+          // Replace [Token] format
+          rendered = rendered.replace(
+            new RegExp(`\\[${this.escapeRegex(token.name)}(?:\\|[^\\]]+)?\\]`, 'g'),
+            resolvedValue
+          );
+        } else {
+          // Replace {{token}} format - find original legacy token name
+          const originalLegacyToken = this.findOriginalLegacyToken(token.name);
+          if (originalLegacyToken) {
+            rendered = rendered.replace(
+              new RegExp(`\\{\\{${this.escapeRegex(originalLegacyToken)}\\}\\}`, 'g'),
+              resolvedValue
+            );
+          }
+        }
       } catch (error) {
         console.error(`Error resolving token ${token.name}:`, error);
         unresolved.push(token.name);
         // Replace with empty string for errored tokens
-        rendered = rendered.replace(new RegExp(`\\[${this.escapeRegex(token.name)}(?:\\|[^\\]]+)?\\]`, 'g'), '');
+        if (!token.isLegacy) {
+          rendered = rendered.replace(new RegExp(`\\[${this.escapeRegex(token.name)}(?:\\|[^\\]]+)?\\]`, 'g'), '');
+        }
       }
     }
 
     return { rendered, unresolved };
+  }
+
+  /**
+   * Map legacy token names to new token names
+   */
+  private mapLegacyToken(legacyToken: string): string | null {
+    const mapping: Record<string, string> = {
+      'contact.firstName': 'FirstName',
+      'contact.lastName': 'LastName',
+      'contact.email': 'Email',
+      'project.title': 'ProjectName',
+      'project.date': 'ProjectDate',
+      'project.id': 'ProjectName', // Fallback to project name
+      'lead.service': 'ProjectType',
+      'lead.message': 'ProjectNotes'
+    };
+    
+    return mapping[legacyToken] || null;
+  }
+
+  /**
+   * Find the original legacy token name for a mapped token
+   */
+  private findOriginalLegacyToken(newTokenName: string): string | null {
+    const reverseMapping: Record<string, string> = {
+      'FirstName': 'contact.firstName',
+      'LastName': 'contact.lastName',
+      'Email': 'contact.email',
+      'ProjectName': 'project.title',
+      'ProjectDate': 'project.date',
+      'ProjectType': 'lead.service',
+      'ProjectNotes': 'lead.message'
+    };
+    
+    return reverseMapping[newTokenName] || null;
   }
 
   /**
@@ -436,20 +561,43 @@ export class TokenResolverService {
     return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   }
 
-  // Helper methods to get data
+  // Helper methods to get data (with entity-level caching)
   private async getContact(contactId?: string): Promise<Contact | undefined> {
     if (!contactId) return undefined;
-    return await this.storage.getContact(contactId);
+    
+    const cacheKey = `contact:${contactId}`;
+    if (this.entityCache.has(cacheKey)) {
+      return this.entityCache.get(cacheKey);
+    }
+    
+    const contact = await this.storage.getContact(contactId);
+    this.entityCache.set(cacheKey, contact);
+    return contact;
   }
 
   private async getProject(projectId?: string): Promise<Project | undefined> {
     if (!projectId) return undefined;
-    return await this.storage.getProject(projectId);
+    
+    const cacheKey = `project:${projectId}`;
+    if (this.entityCache.has(cacheKey)) {
+      return this.entityCache.get(cacheKey);
+    }
+    
+    const project = await this.storage.getProject(projectId);
+    this.entityCache.set(cacheKey, project);
+    return project;
   }
 
   private async getContactQuotes(contactId: string): Promise<Quote[]> {
     try {
-      return await this.storage.getQuotesByContact(contactId);
+      const cacheKey = `quotes:contact:${contactId}`;
+      if (this.entityCache.has(cacheKey)) {
+        return this.entityCache.get(cacheKey);
+      }
+      
+      const quotes = await this.storage.getQuotesByContact(contactId);
+      this.entityCache.set(cacheKey, quotes);
+      return quotes;
     } catch {
       return [];
     }
@@ -457,7 +605,14 @@ export class TokenResolverService {
 
   private async getContactContracts(contactId: string): Promise<Contract[]> {
     try {
-      return await this.storage.getContractsByClient(contactId);
+      const cacheKey = `contracts:contact:${contactId}`;
+      if (this.entityCache.has(cacheKey)) {
+        return this.entityCache.get(cacheKey);
+      }
+      
+      const contracts = await this.storage.getContractsByClient(contactId);
+      this.entityCache.set(cacheKey, contracts);
+      return contracts;
     } catch {
       return [];
     }
@@ -465,9 +620,16 @@ export class TokenResolverService {
 
   private async getProjectInvoices(projectId: string): Promise<Invoice[]> {
     try {
+      const cacheKey = `invoices:project:${projectId}`;
+      if (this.entityCache.has(cacheKey)) {
+        return this.entityCache.get(cacheKey);
+      }
+      
       // This would need to be implemented - get invoices by project
       const allInvoices = await this.storage.getInvoices();
-      return allInvoices.filter(inv => inv.projectId === projectId);
+      const projectInvoices = allInvoices.filter(inv => inv.projectId === projectId);
+      this.entityCache.set(cacheKey, projectInvoices);
+      return projectInvoices;
     } catch {
       return [];
     }

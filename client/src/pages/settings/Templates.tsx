@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, Edit2, Trash2, Eye } from 'lucide-react';
+import { Plus, Edit2, Trash2, Eye, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -45,12 +45,38 @@ interface TokenGroup {
   lead: string[];
 }
 
+interface NewTokenGroup {
+  contact: { [token: string]: string };
+  project: { [token: string]: string };
+  business: { [token: string]: string };
+}
+
+interface Contact {
+  id: string;
+  fullName: string;
+  email: string;
+}
+
+interface Project {
+  id: string;
+  name: string;
+  contactId: string;
+}
+
+interface TokenPreviewResult {
+  rendered: string;
+  unresolved: string[];
+}
+
 export default function TemplatesPage() {
   const [activeType, setActiveType] = useState<'auto_responder' | 'email' | 'invoice' | 'contract'>('auto_responder');
   const [showEditor, setShowEditor] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<Template | null>(null);
   const [previewTemplate, setPreviewTemplate] = useState<Template | null>(null);
+  const [selectedContactId, setSelectedContactId] = useState<string>('');
+  const [selectedProjectId, setSelectedProjectId] = useState<string>('');
+  const [livePreviewData, setLivePreviewData] = useState<TokenPreviewResult | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -75,11 +101,44 @@ export default function TemplatesPage() {
     },
   });
 
-  // Fetch available tokens
+  // Fetch available tokens (old system)
   const { data: availableTokens } = useQuery<TokenGroup>({
     queryKey: ['/api/templates/tokens'],
     queryFn: async () => {
       const response = await fetch('/api/templates/tokens', {
+        headers: { 'user-id': 'test-user' }
+      });
+      return response.json();
+    },
+  });
+
+  // Fetch new token system
+  const { data: newTokens } = useQuery<{ tokens: NewTokenGroup }>({
+    queryKey: ['/api/tokens/list'],
+    queryFn: async () => {
+      const response = await fetch('/api/tokens/list', {
+        headers: { 'user-id': 'test-user' }
+      });
+      return response.json();
+    },
+  });
+
+  // Fetch contacts for preview selection
+  const { data: contacts = [] } = useQuery<Contact[]>({
+    queryKey: ['/api/contacts'],
+    queryFn: async () => {
+      const response = await fetch('/api/contacts', {
+        headers: { 'user-id': 'test-user' }
+      });
+      return response.json();
+    },
+  });
+
+  // Fetch projects for preview selection
+  const { data: projects = [] } = useQuery<Project[]>({
+    queryKey: ['/api/projects'],
+    queryFn: async () => {
+      const response = await fetch('/api/projects', {
         headers: { 'user-id': 'test-user' }
       });
       return response.json();
@@ -193,6 +252,47 @@ export default function TemplatesPage() {
     const cursorPosition = currentBody.length;
     const newBody = currentBody.slice(0, cursorPosition) + `{{${token}}}` + currentBody.slice(cursorPosition);
     form.setValue('body', newBody);
+  };
+
+  const insertNewToken = (token: string) => {
+    const currentBody = form.getValues('body');
+    const cursorPosition = currentBody.length;
+    const newBody = currentBody.slice(0, cursorPosition) + `[${token}]` + currentBody.slice(cursorPosition);
+    form.setValue('body', newBody);
+  };
+
+  // Live preview mutation
+  const previewMutation = useMutation({
+    mutationFn: async ({ template, contactId, projectId }: { 
+      template: string; 
+      contactId?: string; 
+      projectId?: string; 
+    }) => {
+      const response = await apiRequest('POST', '/api/tokens/preview', {
+        template,
+        contactId,
+        projectId
+      });
+      return response.json();
+    },
+    onSuccess: (data) => {
+      setLivePreviewData(data);
+    },
+  });
+
+  // Generate live preview when template or selections change
+  const generateLivePreview = () => {
+    if (!previewTemplate) return;
+    
+    const templateBody = previewTemplate.subject 
+      ? `${previewTemplate.subject}\n\n${previewTemplate.body}`
+      : previewTemplate.body;
+
+    previewMutation.mutate({
+      template: templateBody,
+      contactId: selectedContactId || undefined,
+      projectId: selectedProjectId || undefined
+    });
   };
 
   const getTypeDisplayName = (type: string) => {
@@ -404,6 +504,81 @@ export default function TemplatesPage() {
 
                   <div className="space-y-4">
                     <Label>Available Tokens</Label>
+                    
+                    {/* New Token System */}
+                    {newTokens && (
+                      <div className="space-y-3">
+                        <div className="text-xs text-muted-foreground border-b pb-2 mb-2">
+                          New Token System - Use [Token] or [Token|format]
+                        </div>
+                        
+                        <div>
+                          <Label className="text-xs font-medium text-blue-600">Contact</Label>
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            {Object.entries(newTokens.tokens.contact).map(([token, description]) => (
+                              <Button
+                                key={token}
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                className="text-xs h-6 border-blue-200 hover:border-blue-400"
+                                onClick={() => insertNewToken(token.replace('[', '').replace(']', ''))}
+                                title={description}
+                                data-testid={`button-new-token-${token.replace(/[^a-zA-Z]/g, '-')}`}
+                              >
+                                {token}
+                              </Button>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div>
+                          <Label className="text-xs font-medium text-green-600">Project</Label>
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            {Object.entries(newTokens.tokens.project).map(([token, description]) => (
+                              <Button
+                                key={token}
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                className="text-xs h-6 border-green-200 hover:border-green-400"
+                                onClick={() => insertNewToken(token.replace('[', '').replace(']', ''))}
+                                title={description}
+                                data-testid={`button-new-token-${token.replace(/[^a-zA-Z]/g, '-')}`}
+                              >
+                                {token}
+                              </Button>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div>
+                          <Label className="text-xs font-medium text-purple-600">Business</Label>
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            {Object.entries(newTokens.tokens.business).map(([token, description]) => (
+                              <Button
+                                key={token}
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                className="text-xs h-6 border-purple-200 hover:border-purple-400"
+                                onClick={() => insertNewToken(token.replace('[', '').replace(']', ''))}
+                                title={description}
+                                data-testid={`button-new-token-${token.replace(/[^a-zA-Z]/g, '-')}`}
+                              >
+                                {token}
+                              </Button>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div className="text-xs text-muted-foreground mt-4 pt-2 border-t">
+                          Legacy Token System - Use {"{{token}}"}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Legacy Token System */}
                     {availableTokens && (
                       <div className="space-y-3">
                         <div>
@@ -490,56 +665,155 @@ export default function TemplatesPage() {
         </Dialog>
 
         {/* Template Preview Dialog */}
-        <Dialog open={showPreview} onOpenChange={setShowPreview}>
-          <DialogContent className="max-w-2xl" data-testid="template-preview-dialog">
+        <Dialog open={showPreview} onOpenChange={(open) => {
+          setShowPreview(open);
+          if (!open) {
+            setSelectedContactId('');
+            setSelectedProjectId('');
+            setLivePreviewData(null);
+          }
+        }}>
+          <DialogContent className="max-w-4xl" data-testid="template-preview-dialog">
             <DialogHeader>
               <DialogTitle>Template Preview</DialogTitle>
               <DialogDescription>
-                Preview of "{previewTemplate?.title}" template with sample data
+                Preview "{previewTemplate?.title}" with real data or sample data
               </DialogDescription>
             </DialogHeader>
 
             {previewTemplate && (
-              <div className="space-y-4">
-                {previewTemplate.subject && (
+              <div className="space-y-6">
+                {/* Preview Controls */}
+                <div className="grid grid-cols-3 gap-4 p-4 bg-muted/50 rounded-lg">
                   <div>
-                    <Label className="text-sm font-medium">Subject:</Label>
-                    <div className="mt-1 p-3 bg-muted rounded border">
-                      {previewTemplate.subject.replace(/\{\{(\w+\.\w+)\}\}/g, (match, token) => {
-                        const sampleData: Record<string, string> = {
-                          'contact.firstName': 'John',
-                          'contact.lastName': 'Doe',
-                          'contact.email': 'john@example.com',
-                          'project.title': 'Website Redesign',
-                          'project.date': '15/09/2025',
-                          'project.id': 'PRJ-001',
-                          'lead.service': 'Web Development',
-                          'lead.message': 'Looking for a modern website redesign'
-                        };
-                        return sampleData[token] || match;
-                      })}
+                    <Label className="text-sm font-medium">Select Contact</Label>
+                    <Select value={selectedContactId} onValueChange={setSelectedContactId}>
+                      <SelectTrigger className="mt-1">
+                        <SelectValue placeholder="Choose contact..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="">Use sample data</SelectItem>
+                        {contacts.map((contact) => (
+                          <SelectItem key={contact.id} value={contact.id}>
+                            {contact.fullName} ({contact.email})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <div>
+                    <Label className="text-sm font-medium">Select Project</Label>
+                    <Select value={selectedProjectId} onValueChange={setSelectedProjectId}>
+                      <SelectTrigger className="mt-1">
+                        <SelectValue placeholder="Choose project..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="">Use sample data</SelectItem>
+                        {projects.map((project) => (
+                          <SelectItem key={project.id} value={project.id}>
+                            {project.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="flex items-end">
+                    <Button 
+                      onClick={generateLivePreview}
+                      disabled={previewMutation.isPending}
+                      data-testid="button-generate-preview"
+                    >
+                      {previewMutation.isPending ? 'Generating...' : 'Generate Preview'}
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Live Preview Results */}
+                {livePreviewData && (
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-2 mb-4">
+                      <h3 className="text-lg font-medium">Live Preview Results</h3>
+                      {livePreviewData.unresolved.length > 0 && (
+                        <Badge variant="destructive" className="gap-1">
+                          <AlertTriangle className="h-3 w-3" />
+                          {livePreviewData.unresolved.length} unresolved
+                        </Badge>
+                      )}
                     </div>
+
+                    <div>
+                      <Label className="text-sm font-medium">Rendered Content:</Label>
+                      <div className="mt-1 p-4 bg-white dark:bg-gray-900 rounded border whitespace-pre-wrap text-sm">
+                        {livePreviewData.rendered}
+                      </div>
+                    </div>
+
+                    {livePreviewData.unresolved.length > 0 && (
+                      <div>
+                        <Label className="text-sm font-medium text-red-600">Unresolved Tokens:</Label>
+                        <div className="mt-1 flex flex-wrap gap-1">
+                          {livePreviewData.unresolved.map((token, index) => (
+                            <Badge key={index} variant="destructive">
+                              [{token}]
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
 
-                <div>
-                  <Label className="text-sm font-medium">Body:</Label>
-                  <div className="mt-1 p-3 bg-muted rounded border whitespace-pre-wrap">
-                    {previewTemplate.body.replace(/\{\{(\w+\.\w+)\}\}/g, (match, token) => {
-                      const sampleData: Record<string, string> = {
-                        'contact.firstName': 'John',
-                        'contact.lastName': 'Doe',
-                        'contact.email': 'john@example.com',
-                        'project.title': 'Website Redesign',
-                        'project.date': '15/09/2025',
-                        'project.id': 'PRJ-001',
-                        'lead.service': 'Web Development',
-                        'lead.message': 'Looking for a modern website redesign'
-                      };
-                      return sampleData[token] || match;
-                    })}
+                {/* Fallback - Legacy Preview */}
+                {!livePreviewData && (
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-2 mb-4">
+                      <h3 className="text-lg font-medium">Legacy Sample Preview</h3>
+                      <Badge variant="secondary">Sample Data</Badge>
+                    </div>
+
+                    {previewTemplate.subject && (
+                      <div>
+                        <Label className="text-sm font-medium">Subject:</Label>
+                        <div className="mt-1 p-3 bg-muted rounded border">
+                          {previewTemplate.subject.replace(/\{\{(\w+\.\w+)\}\}/g, (match, token) => {
+                            const sampleData: Record<string, string> = {
+                              'contact.firstName': 'John',
+                              'contact.lastName': 'Doe',
+                              'contact.email': 'john@example.com',
+                              'project.title': 'Website Redesign',
+                              'project.date': '15/09/2025',
+                              'project.id': 'PRJ-001',
+                              'lead.service': 'Web Development',
+                              'lead.message': 'Looking for a modern website redesign'
+                            };
+                            return sampleData[token] || match;
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    <div>
+                      <Label className="text-sm font-medium">Body:</Label>
+                      <div className="mt-1 p-3 bg-muted rounded border whitespace-pre-wrap">
+                        {previewTemplate.body.replace(/\{\{(\w+\.\w+)\}\}/g, (match, token) => {
+                          const sampleData: Record<string, string> = {
+                            'contact.firstName': 'John',
+                            'contact.lastName': 'Doe',
+                            'contact.email': 'john@example.com',
+                            'project.title': 'Website Redesign',
+                            'project.date': '15/09/2025',
+                            'project.id': 'PRJ-001',
+                            'lead.service': 'Web Development',
+                            'lead.message': 'Looking for a modern website redesign'
+                          };
+                          return sampleData[token] || match;
+                        })}
+                      </div>
+                    </div>
                   </div>
-                </div>
+                )}
 
                 <div className="flex justify-end">
                   <Button

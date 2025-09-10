@@ -577,7 +577,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             details: `This contact has ${associatedProjects.length} associated project(s). Use cascade=true to delete contact and all associated projects.`,
             projectCount: associatedProjects.length,
             projects: associatedProjects.map(p => ({ id: p.id, name: p.name, status: p.status })),
-            requiresCascade: true
+            requiresCascade: true,
+            contactId: req.params.id
           });
         }
         

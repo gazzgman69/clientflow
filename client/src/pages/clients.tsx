@@ -24,6 +24,7 @@ import { z } from "zod";
 export default function Contacts() {
   const [showContactModal, setShowContactModal] = useState(false);
   const [editingContact, setEditingContact] = useState<Contact | null>(null);
+  const [contactToDelete, setContactToDelete] = useState<any>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -90,28 +91,40 @@ export default function Contacts() {
   });
 
   const deleteContactMutation = useMutation({
-    mutationFn: async (contactId: string) => {
-      const response = await apiRequest("DELETE", `/api/contacts/${contactId}`);
+    mutationFn: async ({ contactId, cascade = false }: { contactId: string; cascade?: boolean }) => {
+      const url = cascade ? `/api/contacts/${contactId}?cascade=true` : `/api/contacts/${contactId}`;
+      const response = await apiRequest("DELETE", url);
       if (!response.ok) {
         const errorData = await response.json();
         throw errorData;
       }
-      return response;
+      return response.json();
     },
-    onSuccess: () => {
+    onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ["/api/contacts"] });
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard/metrics"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
+      
+      const message = data.deletedProjects > 0 
+        ? `Contact deleted successfully along with ${data.deletedProjects} associated project(s).`
+        : "Contact deleted successfully.";
+        
       toast({
         title: "Contact deleted",
-        description: "The contact has been successfully deleted.",
+        description: message,
       });
     },
     onError: (error: any) => {
-      toast({
-        title: "Cannot delete contact",
-        description: error.details || error.message || "Failed to delete contact. Please try again.",
-        variant: "destructive",
-      });
+      if (error.requiresCascade) {
+        // Show detailed confirmation dialog
+        setContactToDelete(error);
+      } else {
+        toast({
+          title: "Cannot delete contact",
+          description: error.details || error.message || "Failed to delete contact. Please try again.",
+          variant: "destructive",
+        });
+      }
     },
   });
 
@@ -265,7 +278,7 @@ export default function Contacts() {
                             <AlertDialogFooter>
                               <AlertDialogCancel>Cancel</AlertDialogCancel>
                               <AlertDialogAction
-                                onClick={() => deleteContactMutation.mutate(contact.id)}
+                                onClick={() => deleteContactMutation.mutate({ contactId: contact.id })}
                                 className="bg-red-600 hover:bg-red-700"
                                 data-testid={`confirm-delete-contact-${contact.id}`}
                               >
@@ -568,6 +581,56 @@ export default function Contacts() {
           </Form>
         </DialogContent>
       </Dialog>
+
+      {/* Cascade Delete Confirmation Dialog */}
+      {contactToDelete && (
+        <AlertDialog open={true} onOpenChange={(open) => !open && setContactToDelete(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete Contact and Associated Projects</AlertDialogTitle>
+              <AlertDialogDescription className="space-y-4">
+                <p>
+                  This contact has <strong>{contactToDelete.projectCount} associated project(s)</strong> that will also be deleted:
+                </p>
+                <div className="bg-muted p-4 rounded-md">
+                  <p className="font-semibold mb-2">Projects to be deleted:</p>
+                  <ul className="list-disc list-inside space-y-1">
+                    {contactToDelete.projects?.map((project: any) => (
+                      <li key={project.id} className="text-sm">
+                        <span className="font-medium">{project.name}</span>
+                        <span className="text-muted-foreground"> ({project.status})</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+                <p className="text-red-600 font-medium">
+                  ⚠️ This action cannot be undone. All project data, quotes, contracts, and invoices will be permanently deleted.
+                </p>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={() => setContactToDelete(null)}>
+                Cancel
+              </AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() => {
+                  // We need to find the contactId from the initial deletion attempt
+                  // The contactToDelete error object should include this info
+                  const contactId = contactToDelete.contactId;
+                  if (contactId) {
+                    deleteContactMutation.mutate({ contactId, cascade: true });
+                  }
+                  setContactToDelete(null);
+                }}
+                className="bg-red-600 hover:bg-red-700"
+                data-testid="confirm-cascade-delete"
+              >
+                Delete Contact & {contactToDelete.projectCount} Project{contactToDelete.projectCount !== 1 ? 's' : ''}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
     </>
   );
 }

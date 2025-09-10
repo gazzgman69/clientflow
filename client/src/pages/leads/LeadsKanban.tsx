@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Inbox, RefreshCw, FileText } from "lucide-react";
 import LeadCard from "@/components/leads/LeadCard";
+import ProjectDetailModal from "@/components/modals/project-detail-modal";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useSmartPolling } from "@/lib/useSmartPolling";
@@ -50,6 +51,8 @@ export default function LeadsKanban() {
   const [draggedLeadId, setDraggedLeadId] = useState<string | null>(null);
   const [dragOverColumn, setDragOverColumn] = useState<string | null>(null);
   const [flashIds, setFlashIds] = useState<Set<string>>(new Set());
+  const [selectedProject, setSelectedProject] = useState<any>(null);
+  const [showDetailModal, setShowDetailModal] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const previousDataRef = useRef<KanbanData | null>(null);
@@ -68,6 +71,38 @@ export default function LeadsKanban() {
   useEffect(() => {
     markLeadsViewed.mutate();
   }, []);
+
+  // Fetch project details for modal
+  const { data: projectDetails } = useQuery({
+    queryKey: ["/api/projects", selectedProject?.id],
+    queryFn: async () => {
+      const response = await apiRequest("GET", `/api/projects/${selectedProject.id}`);
+      return response.json();
+    },
+    enabled: !!selectedProject?.id,
+  });
+
+  // Modal handlers
+  const handleViewProjectDetails = async (projectId: string) => {
+    // Fetch the project details first
+    try {
+      const response = await apiRequest("GET", `/api/projects/${projectId}`);
+      const project = await response.json();
+      setSelectedProject(project);
+      setShowDetailModal(true);
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to load project details.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleCloseDetailModal = () => {
+    setShowDetailModal(false);
+    setSelectedProject(null);
+  };
 
   // Fetch kanban data with auto-refresh
   const { data: kanbanData, isLoading, refetch } = useQuery<KanbanData>({
@@ -335,7 +370,7 @@ export default function LeadsKanban() {
                           onDelete={handleDeleteLead}
                           onClick={() => {
                             if (lead.projectId) {
-                              setLocation(`/projects/${lead.projectId}`);
+                              handleViewProjectDetails(lead.projectId);
                             } else {
                               // If no project exists, navigate to create a new project for this lead
                               setLocation(`/projects/new?leadId=${lead.id}`);
@@ -351,6 +386,13 @@ export default function LeadsKanban() {
           })}
         </div>
       </main>
+
+      {/* Project Detail Modal */}
+      <ProjectDetailModal
+        project={selectedProject}
+        isOpen={showDetailModal}
+        onClose={handleCloseDetailModal}
+      />
     </>
   );
 }

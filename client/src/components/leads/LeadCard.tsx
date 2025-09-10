@@ -62,23 +62,12 @@ export default function LeadCard({ lead, onClick, draggable = false, onDragStart
       {/* Header with name and conflict badge */}
       <div className="flex items-start justify-between mb-2">
         <div className="flex-1">
-          {lead.projectId ? (
-            <Link href={`/projects/${lead.projectId}`}>
-              <h3 
-                className="font-medium text-sm hover:text-primary hover:underline cursor-pointer"
-                data-testid={`lead-card-name-${lead.id}`}
-              >
-                {lead.contactName}
-              </h3>
-            </Link>
-          ) : (
-            <h3 
-              className="font-medium text-sm"
-              data-testid={`lead-card-name-${lead.id}`}
-            >
-              {lead.contactName}
-            </h3>
-          )}
+          <h3 
+            className="font-medium text-sm"
+            data-testid={`lead-card-name-${lead.id}`}
+          >
+            {lead.contactName}
+          </h3>
         </div>
         <div className="flex items-center gap-2">
           {lead.hasConflict && (
@@ -153,14 +142,12 @@ export default function LeadCard({ lead, onClick, draggable = false, onDragStart
               className="h-6 w-6 p-0"
               onClick={(e) => {
                 e.stopPropagation();
+                // This will now be handled by the parent card's onClick for consistency
               }}
               title="View Project"
               data-testid={`view-project-${lead.id}`}
-              asChild
             >
-              <Link href={`/projects/${lead.projectId}`}>
-                <ExternalLink className="h-3 w-3" />
-              </Link>
+              <ExternalLink className="h-3 w-3" />
             </Button>
           )}
         </div>

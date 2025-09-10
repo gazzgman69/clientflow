@@ -273,9 +273,9 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
     return (
       <div className={cn('w-full', className)}>
         {/* Toolbar */}
-        <div className="flex flex-wrap items-center gap-1 p-2 border border-input rounded-t-md bg-muted/30">
+        <div className="flex flex-wrap items-center gap-1 p-2 border border-input rounded-t-md bg-muted/30 dark:bg-muted/20 max-w-full overflow-hidden sm:flex-row">
           {/* Text formatting */}
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1 min-w-0 flex-shrink-0">
             <Toggle
               size="sm"
               pressed={editor.isActive('bold')}
@@ -305,24 +305,24 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
             </Toggle>
           </div>
 
-          <Separator orientation="vertical" className="h-6" />
+          <Separator orientation="vertical" className="h-6 hidden sm:block" />
 
           {/* Link */}
           <Button
             size="sm"
             variant="ghost"
             onClick={addLink}
-            className={cn(editor.isActive('link') && 'bg-muted')}
+            className={cn(editor.isActive('link') && 'bg-muted dark:bg-muted/70')}
             aria-label="Add Link"
             data-testid="rte-link"
           >
             <Link2 className="h-4 w-4" />
           </Button>
 
-          <Separator orientation="vertical" className="h-6" />
+          <Separator orientation="vertical" className="h-6 hidden sm:block" />
 
           {/* Lists */}
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1 min-w-0 flex-shrink-0">
             <Toggle
               size="sm"
               pressed={editor.isActive('bulletList')}
@@ -343,10 +343,10 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
             </Toggle>
           </div>
 
-          <Separator orientation="vertical" className="h-6" />
+          <Separator orientation="vertical" className="h-6 hidden sm:block" />
 
           {/* Block elements */}
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1 min-w-0 flex-shrink-0">
             <Toggle
               size="sm"
               pressed={editor.isActive('blockquote')}
@@ -367,10 +367,10 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
             </Toggle>
           </div>
 
-          <Separator orientation="vertical" className="h-6" />
+          <Separator orientation="vertical" className="h-6 hidden sm:block" />
 
           {/* Undo/Redo */}
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1 min-w-0 flex-shrink-0 ml-auto">
             <Button
               size="sm"
               variant="ghost"
@@ -397,7 +397,7 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
         {/* Editor content */}
         <EditorContent
           editor={editor}
-          className="rounded-b-md"
+          className="rounded-b-md border-x border-b border-input dark:border-input"
         />
       </div>
     );

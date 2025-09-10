@@ -169,15 +169,28 @@ export class GeocodingService {
     
     const city = locality || sublocality || sublocalityLevel1 || postalTown || adminLevel2 || adminLevel3 || cityFromAddress || '';
     
-    // Enhanced state extraction with fallback
-    const adminLevel1 = this.getComponent(components, 'administrative_area_level_1')?.short_name || 
-                       this.getComponent(components, 'administrative_area_level_1')?.long_name || '';
-    
     // Enhanced postal code extraction
     const postalCode = this.getComponent(components, 'postal_code')?.long_name || 
                       this.getComponent(components, 'postal_code_prefix')?.long_name || '';
     
     const country = this.getComponent(components, 'country')?.short_name || '';
+
+    // Enhanced state/county extraction based on country
+    const adminLevel1 = this.getComponent(components, 'administrative_area_level_1')?.short_name || 
+                       this.getComponent(components, 'administrative_area_level_1')?.long_name || '';
+    const adminLevel2ForCounty = this.getComponent(components, 'administrative_area_level_2')?.long_name || '';
+    
+    // For UK addresses, administrative_area_level_2 is the county, not administrative_area_level_1
+    // administrative_area_level_1 in UK = "England", "Scotland", "Wales", "Northern Ireland"  
+    // administrative_area_level_2 in UK = "Wiltshire", "Hampshire", "Essex", etc. (actual county)
+    let state = '';
+    if (country === 'GB' || country === 'UK') {
+      // For UK, prioritize administrative_area_level_2 (county) over administrative_area_level_1 (country subdivision)
+      state = adminLevel2ForCounty || adminLevel1;
+    } else {
+      // For other countries, use administrative_area_level_1 (state/province) as usual
+      state = adminLevel1;
+    }
 
     // Build address lines
     const address1 = [streetNumber, route].filter(Boolean).join(' ');
@@ -188,7 +201,7 @@ export class GeocodingService {
       address1,
       address2,
       city,
-      state: adminLevel1,
+      state,
       postalCode,
       countryCode: country,
       latitude: place.geometry.location.lat,

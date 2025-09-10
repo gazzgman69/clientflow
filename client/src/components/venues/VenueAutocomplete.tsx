@@ -289,8 +289,16 @@ export function VenueAutocomplete({
             }
           }}
           onFocus={() => {
-            // Never show predictions if a venue is already selected
-            if (hasSelectedVenue) return;
+            console.log('Input onFocus:', { hasSelectedVenue, initialValue, query });
+            // Never show predictions if a venue is already selected OR if there's an initial value
+            if (hasSelectedVenue || (initialValue && initialValue.trim().length > 0)) {
+              console.log('Preventing focus dropdown - venue already selected');
+              // Immediately blur to prevent any focus state
+              if (inputRef.current) {
+                inputRef.current.blur();
+              }
+              return;
+            }
             
             if (query.length >= 3) {
               setShowPredictions(true);

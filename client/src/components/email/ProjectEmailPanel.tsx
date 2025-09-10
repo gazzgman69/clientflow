@@ -17,6 +17,7 @@ import { apiRequest } from '@/lib/queryClient';
 import { useEmailViewMode } from '@/hooks/useUserPrefs';
 import { TokenDropdown } from '@/components/ui/token-dropdown';
 import { insertTokenIntoValue } from '@/utils/cursor-utils';
+import { RichTextEditor, RichTextEditorRef } from '@/components/ui/rich-text-editor';
 
 interface ProjectEmailPanelProps {
   projectId: string;
@@ -54,8 +55,8 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
   const [showSignatureDropdown, setShowSignatureDropdown] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState<any>(null);
   const [updateTemplate, setUpdateTemplate] = useState(false);
-  const messageTextareaRef = useRef<HTMLTextAreaElement>(null);
-  const replyTextareaRef = useRef<HTMLTextAreaElement>(null);
+  const messageEditorRef = useRef<RichTextEditorRef>(null);
+  const replyEditorRef = useRef<RichTextEditorRef>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
   
@@ -457,18 +458,8 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
                 {/* Token Dropdown - moved to left */}
                 <TokenDropdown
                   onTokenSelect={(token) => {
-                    if (messageTextareaRef.current) {
-                      const textarea = messageTextareaRef.current;
-                      const cursorPosition = textarea.selectionStart || 0;
-                      const { newValue, newCursorPosition } = insertTokenIntoValue(message, token, cursorPosition);
-                      setMessage(newValue);
-                      // Restore cursor position after React updates the DOM
-                      setTimeout(() => {
-                        if (textarea) {
-                          textarea.setSelectionRange(newCursorPosition, newCursorPosition);
-                          textarea.focus();
-                        }
-                      }, 0);
+                    if (messageEditorRef.current) {
+                      messageEditorRef.current.insertToken(token);
                     }
                   }}
                   variant="outline"
@@ -533,14 +524,13 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
 
               <div>
                 <Label htmlFor="email-message">Message</Label>
-                <Textarea
-                  id="email-message"
-                  ref={messageTextareaRef}
-                  value={message}
-                  onChange={(e) => setMessage(e.target.value)}
+                <RichTextEditor
+                  ref={messageEditorRef}
+                  content={message}
+                  onChange={setMessage}
                   placeholder="Enter your message..."
-                  rows={6}
-                  data-testid="textarea-email-message"
+                  minHeight="150px"
+                  data-testid="editor-email-message"
                 />
               </div>
               
@@ -956,13 +946,13 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
                       </div>
                       <div>
                         <Label htmlFor="reply-message">Message</Label>
-                        <Textarea
-                          id="reply-message"
-                          ref={replyTextareaRef}
-                          value={replyMessage}
-                          onChange={(e) => setReplyMessage(e.target.value)}
-                          rows={6}
-                          data-testid="textarea-reply-message"
+                        <RichTextEditor
+                          ref={replyEditorRef}
+                          content={replyMessage}
+                          onChange={setReplyMessage}
+                          placeholder="Enter your reply..."
+                          minHeight="150px"
+                          data-testid="editor-reply-message"
                         />
                       </div>
                       <div className="flex gap-2 justify-between">
@@ -970,18 +960,8 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
                           {/* Token Dropdown - moved to left */}
                           <TokenDropdown
                             onTokenSelect={(token) => {
-                              if (replyTextareaRef.current) {
-                                const textarea = replyTextareaRef.current;
-                                const cursorPosition = textarea.selectionStart || 0;
-                                const { newValue, newCursorPosition } = insertTokenIntoValue(replyMessage, token, cursorPosition);
-                                setReplyMessage(newValue);
-                                // Restore cursor position after React updates the DOM
-                                setTimeout(() => {
-                                  if (textarea) {
-                                    textarea.setSelectionRange(newCursorPosition, newCursorPosition);
-                                    textarea.focus();
-                                  }
-                                }, 0);
+                              if (replyEditorRef.current) {
+                                replyEditorRef.current.insertToken(token);
                               }
                             }}
                             variant="outline"

@@ -34,6 +34,10 @@ interface RichTextEditorProps {
   disabled?: boolean;
   onFocus?: () => void;
   onBlur?: () => void;
+  // Additional toolbar buttons
+  onTokenInsert?: (insertToken: (token: string) => void) => React.ReactNode;
+  onSignatureSelect?: () => React.ReactNode;
+  onTemplateSelect?: () => React.ReactNode;
 }
 
 export interface RichTextEditorRef {
@@ -46,7 +50,7 @@ export interface RichTextEditorRef {
 
 const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(
   (props, ref) => {
-    const { content = '', onChange, placeholder = 'Start typing...', className = '', minHeight = '200px', disabled = false, onFocus, onBlur } = props;
+    const { content = '', onChange, placeholder = 'Start typing...', className = '', minHeight = '200px', disabled = false, onFocus, onBlur, onTokenInsert, onSignatureSelect, onTemplateSelect } = props;
     const contentId = useId();
     const editor = useEditor({
       extensions: [
@@ -447,6 +451,23 @@ const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(
           </div>
 
           <Separator orientation="vertical" className="h-6 hidden sm:block" />
+
+          {/* Additional actions */}
+          {(onTokenInsert || onSignatureSelect || onTemplateSelect) && (
+            <div className="flex items-center gap-1 min-w-0 flex-shrink-0">
+              {onTokenInsert && onTokenInsert((token) => {
+                if (editor) {
+                  editor.chain().focus().insertContent(token + ' ').run();
+                }
+              })}
+              {onSignatureSelect && onSignatureSelect()}
+              {onTemplateSelect && onTemplateSelect()}
+            </div>
+          )}
+
+          {(onTokenInsert || onSignatureSelect || onTemplateSelect) && (
+            <Separator orientation="vertical" className="h-6 hidden sm:block" />
+          )}
 
           {/* Undo/Redo */}
           <div className="flex items-center gap-1 min-w-0 flex-shrink-0 ml-auto">

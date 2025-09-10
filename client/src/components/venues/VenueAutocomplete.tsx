@@ -250,7 +250,14 @@ export function VenueAutocomplete({
             setQuery(e.target.value);
             setHasSelectedVenue(false);
           }}
-          onFocus={() => !hasSelectedVenue && query.length >= 3 && setShowPredictions(true)}
+          onFocus={() => {
+            // Never show predictions if a venue is already selected
+            if (hasSelectedVenue) return;
+            
+            if (query.length >= 3) {
+              setShowPredictions(true);
+            }
+          }}
           placeholder={placeholder}
           disabled={disabled}
           className="pl-10"

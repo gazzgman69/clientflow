@@ -602,24 +602,26 @@ export default function Contacts() {
           <AlertDialogContent>
             <AlertDialogHeader>
               <AlertDialogTitle>Delete Contact and Associated Projects</AlertDialogTitle>
-              <AlertDialogDescription className="space-y-4">
-                <p>
-                  This contact has <strong>{contactToDelete.projectCount} associated project(s)</strong> that will also be deleted:
-                </p>
-                <div className="bg-muted p-4 rounded-md">
-                  <p className="font-semibold mb-2">Projects to be deleted:</p>
-                  <ul className="list-disc list-inside space-y-1">
-                    {contactToDelete.projects?.map((project: any) => (
-                      <li key={project.id} className="text-sm">
-                        <span className="font-medium">{project.name}</span>
-                        <span className="text-muted-foreground"> ({project.status})</span>
-                      </li>
-                    ))}
-                  </ul>
+              <AlertDialogDescription asChild>
+                <div className="space-y-4">
+                  <div>
+                    This contact has <strong>{contactToDelete.projectCount} associated project(s)</strong> that will also be deleted:
+                  </div>
+                  <div className="bg-muted p-4 rounded-md">
+                    <div className="font-semibold mb-2">Projects to be deleted:</div>
+                    <ul className="list-disc list-inside space-y-1">
+                      {contactToDelete.projects?.map((project: any) => (
+                        <li key={project.id} className="text-sm">
+                          <span className="font-medium">{project.name}</span>
+                          <span className="text-muted-foreground"> ({project.status})</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                  <div className="text-red-600 font-medium">
+                    ⚠️ This action cannot be undone. All project data, quotes, contracts, and invoices will be permanently deleted.
+                  </div>
                 </div>
-                <p className="text-red-600 font-medium">
-                  ⚠️ This action cannot be undone. All project data, quotes, contracts, and invoices will be permanently deleted.
-                </p>
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>

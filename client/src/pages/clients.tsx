@@ -20,6 +20,7 @@ import { useToast } from "@/hooks/use-toast";
 import { formatDistanceToNow } from "date-fns";
 import type { Contact } from "@shared/schema";
 import { z } from "zod";
+import { splitFullName, getDisplayName } from "@shared/utils/name-splitter";
 
 export default function Contacts() {
   const [showContactModal, setShowContactModal] = useState(false);
@@ -40,7 +41,9 @@ export default function Contacts() {
   const form = useForm<z.infer<typeof insertContactSchema>>({
     resolver: zodResolver(insertContactSchema),
     defaultValues: {
+      fullName: "",
       firstName: "",
+      middleName: "",
       lastName: "",
       email: "",
       phone: "",
@@ -142,7 +145,18 @@ export default function Contacts() {
   });
 
   const onSubmit = (data: z.infer<typeof insertContactSchema>) => {
-    createContactMutation.mutate(data);
+    // Auto-split the fullName into component parts
+    const nameParts = splitFullName(data.fullName || "");
+    
+    const submissionData = {
+      ...data,
+      fullName: nameParts.fullName,
+      firstName: nameParts.firstName,
+      middleName: nameParts.middleName,
+      lastName: nameParts.lastName,
+    };
+
+    createContactMutation.mutate(submissionData);
   };
 
   const handleAddContact = () => {
@@ -329,35 +343,19 @@ export default function Contacts() {
                   <User className="h-4 w-4" />
                   <h3 className="text-lg font-semibold">Basic Info</h3>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="firstName"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>First Name *</FormLabel>
-                        <FormControl>
-                          <Input {...field} data-testid="input-contact-first-name" />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  
-                  <FormField
-                    control={form.control}
-                    name="lastName"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Last Name *</FormLabel>
-                        <FormControl>
-                          <Input {...field} data-testid="input-contact-last-name" />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
+                <FormField
+                  control={form.control}
+                  name="fullName"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Full Name *</FormLabel>
+                      <FormControl>
+                        <Input {...field} value={field.value || ""} data-testid="input-contact-full-name" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <FormField

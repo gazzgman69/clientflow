@@ -157,9 +157,9 @@ export function TokenDropdown({
           aria-label="Insert token"
           data-testid="button-insert-token"
         >
-          <Hash className={size === "sm" ? "h-3 w-3" : "h-4 w-4"} />
+          <Hash className={className?.includes("h-7") ? "h-2.5 w-2.5" : size === "sm" ? "h-3 w-3" : "h-4 w-4"} />
           Insert Token
-          <ChevronDown className={size === "sm" ? "h-3 w-3" : "h-4 w-4"} />
+          <ChevronDown className={className?.includes("h-7") ? "h-2.5 w-2.5" : size === "sm" ? "h-3 w-3" : "h-4 w-4"} />
         </Button>
       </DropdownMenuTrigger>
       

@@ -530,6 +530,7 @@ export default function TemplatesPage() {
                                 }
                               }}
                               size="sm"
+                              className="h-7 px-2 text-xs"
                             />
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
@@ -537,11 +538,12 @@ export default function TemplatesPage() {
                                   type="button"
                                   variant="outline"
                                   size="sm"
+                                  className="h-7 px-2 text-xs"
                                   data-testid="button-insert-signature"
                                 >
-                                  <PenTool className="h-4 w-4 mr-2" />
+                                  <PenTool className="h-2.5 w-2.5 mr-1" />
                                   Signature
-                                  <ChevronDown className="h-4 w-4 ml-1" />
+                                  <ChevronDown className="h-2.5 w-2.5 ml-1" />
                                 </Button>
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="start" className="w-56">

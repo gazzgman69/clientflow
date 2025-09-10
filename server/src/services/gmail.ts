@@ -141,11 +141,21 @@ export class GmailService {
         .replace(/\//g, '_')
         .replace(/=+$/, ''); // Remove trailing padding
 
-      // Send email
-      const response = await gmail.users.messages.send({
+      // Send email with proper threading support
+      const sendParams: any = {
         userId: 'me',
-        requestBody: { raw: encodedMessage }
-      });
+        requestBody: { 
+          raw: encodedMessage
+        }
+      };
+      
+      // Add threadId for reply threading if provided
+      if (emailRequest.threadId) {
+        sendParams.requestBody.threadId = emailRequest.threadId;
+        console.log(`📧 Sending email in thread: ${emailRequest.threadId}`);
+      }
+      
+      const response = await gmail.users.messages.send(sendParams);
 
       // Sync to database if successful
       if (response.data.id) {
@@ -156,7 +166,7 @@ export class GmailService {
             projectId: emailRequest.projectId,
             to: [emailRequest.to],
             subject: emailRequest.subject,
-            bodyText: emailRequest.text,
+            bodyText: plainTextBody, // Use converted plain text instead of original
             fromEmail: userEmail, // Pass the user's actual email
           });
         } catch (syncError) {

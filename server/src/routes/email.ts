@@ -133,92 +133,40 @@ router.post('/send', requireAuth, async (req: any, res) => {
       }
     }
     
+    // Determine projectId for context if needed
+    let projectId = emailData.projectId || null;
+    if (!projectId && emailData.to) {
+      // Try to find project by contact email
+      try {
+        const [contact] = await db
+          .select({ id: contacts.id })
+          .from(contacts)
+          .where(eq(contacts.email, emailData.to))
+          .limit(1);
+          
+        if (contact) {
+          const [project] = await db
+            .select({ id: projects.id })
+            .from(projects)
+            .where(eq(projects.contactId, contact.id))
+            .limit(1);
+            
+          if (project) {
+            projectId = project.id;
+          }
+        }
+      } catch (error) {
+        console.log('Could not auto-detect project for email sending');
+      }
+    }
+    
+    // Send email via Gmail service (which handles database sync automatically)
     const result = await gmailService.sendEmail(userId, {
       to: emailData.to,
       subject: finalSubject,
-      text: finalText
+      text: finalText,
+      projectId: projectId
     });
-    
-    // If email was sent successfully, save to database immediately
-    if (result.ok) {
-      try {
-        // Use existing service instance
-        
-        // Find project ID if provided, or determine from contact email
-        let projectId = emailData.projectId || null;
-        
-        if (!projectId && emailData.to) {
-          // Try to find project by contact email
-          const [contact] = await db
-            .select({ id: contacts.id })
-            .from(contacts)
-            .where(eq(contacts.email, emailData.to))
-            .limit(1);
-            
-          if (contact) {
-            const [project] = await db
-              .select({ id: projects.id })
-              .from(projects)
-              .where(eq(projects.contactId, contact.id))
-              .limit(1);
-              
-            if (project) {
-              projectId = project.id;
-            }
-          }
-        }
-        
-        // Create outbound email record in database
-        // First, try to find existing thread with emails involving this contact
-        // Extract email address from "Name <email@example.com>" format
-        const cleanToEmail = emailData.to.toLowerCase().includes('<') 
-          ? emailData.to.match(/<([^>]+)>/)?.[1] || emailData.to 
-          : emailData.to;
-        
-        const existingThreads = await db
-          .select({
-            threadId: emails.threadId
-          })
-          .from(emails)
-          .innerJoin(emailThreads, eq(emails.threadId, emailThreads.id))
-          .where(
-            and(
-              eq(emailThreads.projectId, projectId || ''),
-              or(
-                sql`LOWER(${emails.fromEmail}) LIKE LOWER(${'%' + cleanToEmail + '%'})`,
-                sql`LOWER(${emails.toEmails}::text) LIKE LOWER(${'%' + cleanToEmail + '%'})`
-              )
-            )
-          )
-          .orderBy(desc(emails.sentAt))
-          .limit(1);
-
-        const existingThreadId = existingThreads.length > 0 ? existingThreads[0].threadId : undefined;
-        console.log(`🔍 Looking for existing thread with contact: ${emailData.to}`);
-        console.log(`✅ Found existing thread: ${existingThreadId || 'none'}`);
-        
-        if (existingThreadId) {
-          console.log(`🔗 Adding email to existing thread: ${existingThreadId}`);
-        } else {
-          console.log(`🆕 Creating new thread for this email`);
-        }
-        
-        const userEmail = await getUserEmail(userId);
-        await emailSyncService.createOutboundEmail({
-          threadId: existingThreadId, // Use existing thread if available
-          projectId: projectId || undefined,
-          to: [emailData.to],
-          subject: finalSubject,
-          bodyText: finalText,
-          fromEmail: userEmail, // Pass the user's actual email
-        });
-        
-        console.log(`💾 Saved outbound email to database (project: ${projectId})`);
-      } catch (dbError) {
-        console.error('Failed to save sent email to database:', dbError);
-        // Don't fail the request if database save fails
-      }
-    }
     
     res.json(result);
   } catch (error: any) {
@@ -724,7 +672,8 @@ router.post('/email-threads/:threadId/reply', upload.array('attachments'), async
       to: Array.isArray(to) ? to.join(', ') : to,
       subject: resolvedSubject,
       text: resolvedBody,
-      projectId: thread.projectId || undefined
+      projectId: thread.projectId || undefined,
+      threadId: threadId // Pass threadId for proper Gmail threading
     };
 
     const sendResult = await gmailService.sendEmail(userId, emailRequest);

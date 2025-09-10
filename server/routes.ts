@@ -582,8 +582,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
         }
         
-        // Perform cascade deletion - delete projects first
+        // Perform cascade deletion - delete all related data first
         for (const project of associatedProjects) {
+          // Delete emails associated with this project
+          try {
+            await storage.deleteEmailsByProject(project.id);
+          } catch (error) {
+            console.log('No emails to delete for project:', project.id);
+          }
+          
+          // Delete other related data (quotes, contracts, invoices, tasks)
+          try {
+            await storage.deleteQuotesByProject(project.id);
+            await storage.deleteContractsByProject(project.id);
+            await storage.deleteInvoicesByProject(project.id);
+            await storage.deleteTasksByProject(project.id);
+          } catch (error) {
+            console.log('Error deleting related project data:', error.message);
+          }
+          
+          // Now delete the project itself
           await storage.deleteProject(project.id);
         }
       }

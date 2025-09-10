@@ -159,8 +159,23 @@ function FormPreview({ slug, formTitle, onClose }: FormPreviewProps) {
         return (
           <VenueAutocomplete
             onVenueSelect={(venue: { placeId: string; name: string; address: string; city?: string; state?: string; zipCode?: string; country?: string; latitude?: number; longitude?: number; }) => {
-              const addressValue = venue.address || venue.name;
-              handleInputChange(question.mapTo, addressValue);
+              // Build complete address including postcode
+              const addressParts = [];
+              if (venue.address || venue.name) {
+                addressParts.push(venue.address || venue.name);
+              }
+              if (venue.city) {
+                addressParts.push(venue.city);
+              }
+              if (venue.zipCode) {
+                addressParts.push(venue.zipCode);
+              }
+              if (venue.country) {
+                addressParts.push(venue.country);
+              }
+              
+              const fullAddress = addressParts.join(', ');
+              handleInputChange(question.mapTo, fullAddress);
             }}
             placeholder="Search for an address or venue..."
             className="w-full"

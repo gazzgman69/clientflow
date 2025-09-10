@@ -120,7 +120,11 @@ export function VenueAutocomplete({
 
       const data = await response.json();
       setPredictions(data.predictions || []);
-      setShowPredictions(true);
+      
+      // Double-check: Never show predictions if venue already selected  
+      if (!hasSelectedVenue && !(initialValue && initialValue.trim().length > 0)) {
+        setShowPredictions(true);
+      }
     } catch (error) {
       console.error('Error fetching place predictions:', error);
       setPredictions([]);

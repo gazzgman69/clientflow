@@ -93,6 +93,10 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
     }
     if (template.body) {
       setMessage(template.body);
+      // Also update the Rich Text Editor content directly
+      if (messageEditorRef.current) {
+        messageEditorRef.current.setContent(template.body);
+      }
     }
     setSelectedTemplate(template);
     setShowTemplateModal(false);
@@ -127,6 +131,10 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
       `\n\n\n\n${signatureContent}`;
     
     setMessage(newMessage);
+    // Also update the Rich Text Editor content directly
+    if (messageEditorRef.current) {
+      messageEditorRef.current.setContent(newMessage);
+    }
     toast({ 
       title: 'Signature applied', 
       description: `Applied "${signature.name}" signature` 

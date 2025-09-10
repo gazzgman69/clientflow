@@ -90,7 +90,7 @@ export default function VenuesPage() {
 
   const createMutation = useMutation({
     mutationFn: (data: VenueFormData) => 
-      apiRequest("/api/venues", "POST", {
+      apiRequest("POST", "/api/venues", {
         ...data,
         capacity: data.capacity ? parseInt(data.capacity) : undefined,
         contactEmail: data.contactEmail || undefined,
@@ -116,7 +116,7 @@ export default function VenuesPage() {
 
   const updateMutation = useMutation({
     mutationFn: ({ id, data }: { id: string; data: VenueFormData }) =>
-      apiRequest(`/api/venues/${id}`, "PATCH", {
+      apiRequest("PATCH", `/api/venues/${id}`, {
         ...data,
         capacity: data.capacity ? parseInt(data.capacity) : undefined,
         contactEmail: data.contactEmail || undefined,
@@ -142,7 +142,7 @@ export default function VenuesPage() {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id: string) => apiRequest(`/api/venues/${id}`, "DELETE"),
+    mutationFn: (id: string) => apiRequest("DELETE", `/api/venues/${id}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/venues"] });
       toast({

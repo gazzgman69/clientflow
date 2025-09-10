@@ -47,6 +47,7 @@ export function VenueAutocomplete({
   const [isLoading, setIsLoading] = useState(false);
   const [showPredictions, setShowPredictions] = useState(false);
   const [sessionToken, setSessionToken] = useState<string>('');
+  const [hasSelectedVenue, setHasSelectedVenue] = useState(false);
   
   const inputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -150,6 +151,11 @@ export function VenueAutocomplete({
 
       onVenueSelect(selectedVenue);
       
+      // Mark venue as selected and hide predictions
+      setHasSelectedVenue(true);
+      setShowPredictions(false);
+      setPredictions([]);
+      
       // Generate new session token for next search
       setSessionToken(generateSessionToken());
     } catch (error) {
@@ -181,6 +187,11 @@ export function VenueAutocomplete({
             longitude: placeDetails.longitude,
           };
           onVenueSelect(detailedVenue);
+          
+          // Mark venue as selected and hide predictions
+          setHasSelectedVenue(true);
+          setShowPredictions(false);
+          setPredictions([]);
         } else {
           throw new Error('Failed to get place details');
         }
@@ -193,6 +204,11 @@ export function VenueAutocomplete({
           address: prediction.description
         };
         onVenueSelect(basicVenue);
+        
+        // Mark venue as selected and hide predictions
+        setHasSelectedVenue(true);
+        setShowPredictions(false);
+        setPredictions([]);
       }
     } finally {
       setIsLoading(false);
@@ -215,8 +231,11 @@ export function VenueAutocomplete({
           ref={inputRef}
           type="text"
           value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          onFocus={() => query.length >= 3 && setShowPredictions(true)}
+          onChange={(e) => {
+            setQuery(e.target.value);
+            setHasSelectedVenue(false);
+          }}
+          onFocus={() => !hasSelectedVenue && query.length >= 3 && setShowPredictions(true)}
           placeholder={placeholder}
           disabled={disabled}
           className="pl-10"

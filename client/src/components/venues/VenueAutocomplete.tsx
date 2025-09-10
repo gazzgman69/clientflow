@@ -47,7 +47,9 @@ export function VenueAutocomplete({
   const [isLoading, setIsLoading] = useState(false);
   const [showPredictions, setShowPredictions] = useState(false);
   const [sessionToken, setSessionToken] = useState<string>('');
-  const [hasSelectedVenue, setHasSelectedVenue] = useState(false);
+  const [hasSelectedVenue, setHasSelectedVenue] = useState(
+    initialValue && initialValue.trim().length > 0
+  );
   
   const inputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);

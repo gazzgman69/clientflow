@@ -19,6 +19,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { TokenDropdown } from '@/components/ui/token-dropdown';
 import { insertTokenIntoValue } from '@/utils/cursor-utils';
+import { FileText } from 'lucide-react';
 import { z } from 'zod';
 
 interface Template {
@@ -491,27 +492,40 @@ export default function TemplatesPage() {
                       <FormLabel>Template Body</FormLabel>
                       <div className="space-y-2">
                         <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <TokenDropdown
+                              onTokenSelect={(token) => {
+                                if (bodyTextareaRef.current) {
+                                  const textarea = bodyTextareaRef.current;
+                                  const cursorPosition = textarea.selectionStart || 0;
+                                  const currentValue = field.value || '';
+                                  const { newValue, newCursorPosition } = insertTokenIntoValue(currentValue, token, cursorPosition);
+                                  field.onChange(newValue);
+                                  // Restore cursor position after React updates the DOM
+                                  setTimeout(() => {
+                                    if (textarea) {
+                                      textarea.setSelectionRange(newCursorPosition, newCursorPosition);
+                                      textarea.focus();
+                                    }
+                                  }, 0);
+                                }
+                              }}
+                              size="sm"
+                            />
+                            <Button 
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                // Add signature functionality here
+                                console.log('Signature button clicked');
+                              }}
+                              data-testid="button-insert-signature"
+                            >
+                              <FileText className="h-4 w-4 mr-2" />
+                              Signature
+                            </Button>
+                          </div>
                           <div></div>
-                          <TokenDropdown
-                            onTokenSelect={(token) => {
-                              if (bodyTextareaRef.current) {
-                                const textarea = bodyTextareaRef.current;
-                                const cursorPosition = textarea.selectionStart || 0;
-                                const currentValue = field.value || '';
-                                const { newValue, newCursorPosition } = insertTokenIntoValue(currentValue, token, cursorPosition);
-                                field.onChange(newValue);
-                                // Restore cursor position after React updates the DOM
-                                setTimeout(() => {
-                                  if (textarea) {
-                                    textarea.setSelectionRange(newCursorPosition, newCursorPosition);
-                                    textarea.focus();
-                                  }
-                                }, 0);
-                              }
-                            }}
-                            size="sm"
-                            className="ml-auto"
-                          />
                         </div>
                         <FormControl>
                           <Textarea 

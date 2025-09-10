@@ -464,28 +464,28 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
                 />
               </div>
               <div className="flex gap-2 items-center">
-                <Button 
-                  onClick={handleSendEmail} 
-                  disabled={sendEmailMutation.isPending}
-                  data-testid="button-send-email"
-                >
-                  {sendEmailMutation.isPending ? (
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  ) : (
-                    <Send className="h-4 w-4 mr-2" />
-                  )}
-                  Send
-                </Button>
-                <Button 
-                  variant="outline" 
-                  onClick={() => setShowTemplateModal(true)}
-                  data-testid="button-select-template"
-                >
-                  <FileText className="h-4 w-4 mr-2" />
-                  Templates
-                </Button>
-                
-                {/* Signature Dropdown */}
+                {/* Token Dropdown - moved to left */}
+                <TokenDropdown
+                  onTokenSelect={(token) => {
+                    if (messageTextareaRef.current) {
+                      const textarea = messageTextareaRef.current;
+                      const cursorPosition = textarea.selectionStart || 0;
+                      const { newValue, newCursorPosition } = insertTokenIntoValue(message, token, cursorPosition);
+                      setMessage(newValue);
+                      // Restore cursor position after React updates the DOM
+                      setTimeout(() => {
+                        if (textarea) {
+                          textarea.setSelectionRange(newCursorPosition, newCursorPosition);
+                          textarea.focus();
+                        }
+                      }, 0);
+                    }
+                  }}
+                  variant="outline"
+                  size="default"
+                />
+
+                {/* Signature Dropdown - next to token dropdown */}
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button 
@@ -526,26 +526,27 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
                   </DropdownMenuContent>
                 </DropdownMenu>
 
-                {/* Token Dropdown */}
-                <TokenDropdown
-                  onTokenSelect={(token) => {
-                    if (messageTextareaRef.current) {
-                      const textarea = messageTextareaRef.current;
-                      const cursorPosition = textarea.selectionStart || 0;
-                      const { newValue, newCursorPosition } = insertTokenIntoValue(message, token, cursorPosition);
-                      setMessage(newValue);
-                      // Restore cursor position after React updates the DOM
-                      setTimeout(() => {
-                        if (textarea) {
-                          textarea.setSelectionRange(newCursorPosition, newCursorPosition);
-                          textarea.focus();
-                        }
-                      }, 0);
-                    }
-                  }}
-                  variant="outline"
-                  size="default"
-                />
+                <Button 
+                  variant="outline" 
+                  onClick={() => setShowTemplateModal(true)}
+                  data-testid="button-select-template"
+                >
+                  <FileText className="h-4 w-4 mr-2" />
+                  Templates
+                </Button>
+                
+                <Button 
+                  onClick={handleSendEmail} 
+                  disabled={sendEmailMutation.isPending}
+                  data-testid="button-send-email"
+                >
+                  {sendEmailMutation.isPending ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Send className="h-4 w-4 mr-2" />
+                  )}
+                  Send
+                </Button>
                 
                 <Button 
                   variant="outline" 
@@ -955,25 +956,74 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
                         />
                       </div>
                       <div className="flex gap-2 justify-between">
-                        <TokenDropdown
-                          onTokenSelect={(token) => {
-                            if (replyTextareaRef.current) {
-                              const textarea = replyTextareaRef.current;
-                              const cursorPosition = textarea.selectionStart || 0;
-                              const { newValue, newCursorPosition } = insertTokenIntoValue(replyMessage, token, cursorPosition);
-                              setReplyMessage(newValue);
-                              // Restore cursor position after React updates the DOM
-                              setTimeout(() => {
-                                if (textarea) {
-                                  textarea.setSelectionRange(newCursorPosition, newCursorPosition);
-                                  textarea.focus();
-                                }
-                              }, 0);
-                            }
-                          }}
-                          variant="outline"
-                          size="default"
-                        />
+                        <div className="flex gap-2">
+                          {/* Token Dropdown - moved to left */}
+                          <TokenDropdown
+                            onTokenSelect={(token) => {
+                              if (replyTextareaRef.current) {
+                                const textarea = replyTextareaRef.current;
+                                const cursorPosition = textarea.selectionStart || 0;
+                                const { newValue, newCursorPosition } = insertTokenIntoValue(replyMessage, token, cursorPosition);
+                                setReplyMessage(newValue);
+                                // Restore cursor position after React updates the DOM
+                                setTimeout(() => {
+                                  if (textarea) {
+                                    textarea.setSelectionRange(newCursorPosition, newCursorPosition);
+                                    textarea.focus();
+                                  }
+                                }, 0);
+                              }
+                            }}
+                            variant="outline"
+                            size="default"
+                          />
+                          
+                          {/* Signature Dropdown - next to token dropdown */}
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button 
+                                variant="outline"
+                                data-testid="button-reply-signature"
+                              >
+                                <Edit3 className="h-4 w-4 mr-2" />
+                                Signature
+                                <ChevronDown className="h-4 w-4 ml-2" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="start" className="w-56">
+                              {signaturesLoading ? (
+                                <div className="flex items-center justify-center py-2">
+                                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                                  Loading...
+                                </div>
+                              ) : emailSignatures?.length === 0 ? (
+                                <div className="text-center py-2 text-muted-foreground text-sm">
+                                  No signatures found
+                                </div>
+                              ) : (
+                                emailSignatures?.map((signature: any) => (
+                                  <DropdownMenuItem 
+                                    key={signature.id}
+                                    onClick={() => {
+                                      // Apply signature to reply message
+                                      const newSignature = `\n\n${signature.content}`;
+                                      setReplyMessage(replyMessage + newSignature);
+                                    }}
+                                    data-testid={`dropdown-reply-signature-${signature.id}`}
+                                  >
+                                    <div className="flex flex-col">
+                                      <span className="font-medium">{signature.name}</span>
+                                      {signature.isDefault && (
+                                        <span className="text-xs text-muted-foreground">Default</span>
+                                      )}
+                                    </div>
+                                  </DropdownMenuItem>
+                                ))
+                              )}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
+                        
                         <div className="flex gap-2">
                         <Button 
                           variant="outline" 

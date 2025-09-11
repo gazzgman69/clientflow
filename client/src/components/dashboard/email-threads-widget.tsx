@@ -7,6 +7,9 @@ import { useLocation } from 'wouter';
 import { useState } from 'react';
 import ProjectDetailModal from '@/components/modals/project-detail-modal';
 import type { Project } from '@shared/schema';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Badge } from '@/components/ui/badge';
+import { formatDistanceToNow } from 'date-fns';
 
 interface EmailThread {
   threadId: string;
@@ -21,10 +24,29 @@ interface EmailThread {
   count: number;
 }
 
+interface EmailMessage {
+  id: string;
+  from: string;
+  to: string[];
+  subject: string;
+  snippet: string;
+  body: string;
+  date: string;
+}
+
+interface EmailThreadDetails {
+  threadId: string;
+  messages: EmailMessage[];
+  ok: boolean;
+}
+
 export default function EmailThreadsWidget() {
   const [, setLocation] = useLocation();
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
+  const [selectedThread, setSelectedThread] = useState<EmailThreadDetails | null>(null);
+  const [showEmailModal, setShowEmailModal] = useState(false);
+  const [loadingThread, setLoadingThread] = useState(false);
   
   const { data: threadsResponse, isLoading, error } = useQuery({
     queryKey: ['/api/email/threads'],
@@ -86,8 +108,22 @@ export default function EmailThreadsWidget() {
     }
   };
 
-  const handleEmailClick = (threadId: string) => {
-    setLocation(`/email?thread=${threadId}`);
+  const handleEmailClick = async (threadId: string) => {
+    setLoadingThread(true);
+    try {
+      const response = await fetch(`/api/email/thread/${threadId}`, {
+        headers: {
+          'user-id': 'test-user'
+        }
+      });
+      const threadDetails = await response.json();
+      setSelectedThread(threadDetails);
+      setShowEmailModal(true);
+    } catch (error) {
+      console.error('Error fetching thread details:', error);
+    } finally {
+      setLoadingThread(false);
+    }
   };
 
   const handleContactClick = (fromEmail: string) => {
@@ -104,6 +140,11 @@ export default function EmailThreadsWidget() {
   const handleCloseDetailModal = () => {
     setShowDetailModal(false);
     setSelectedProject(null);
+  };
+
+  const handleCloseEmailModal = () => {
+    setShowEmailModal(false);
+    setSelectedThread(null);
   };
 
   return (
@@ -201,6 +242,55 @@ export default function EmailThreadsWidget() {
       isOpen={showDetailModal}
       onClose={handleCloseDetailModal}
     />
+
+    {/* Email Thread Modal */}
+    <Dialog open={showEmailModal} onOpenChange={handleCloseEmailModal}>
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>
+            {selectedThread?.messages?.[0]?.subject || 'Email Thread'}
+          </DialogTitle>
+        </DialogHeader>
+        
+        {loadingThread ? (
+          <div className="flex items-center justify-center py-8">
+            <Loader2 className="h-6 w-6 animate-spin mr-2" />
+            Loading email thread...
+          </div>
+        ) : selectedThread?.messages ? (
+          <div className="space-y-4">
+            {selectedThread.messages.map((message, index) => (
+              <div key={message.id} className="border rounded-lg p-4 space-y-3">
+                <div className="flex items-start justify-between">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium text-sm">{message.from}</span>
+                      <Badge variant="outline">
+                        {formatDistanceToNow(new Date(message.date))} ago
+                      </Badge>
+                    </div>
+                    <div className="text-sm text-muted-foreground">
+                      To: {message.to.join(', ')}
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="prose max-w-none text-sm">
+                  <div className="whitespace-pre-wrap break-words">
+                    {message.body || message.snippet}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-8 text-muted-foreground">
+            <Mail className="h-8 w-8 mx-auto mb-2 opacity-50" />
+            <p>Failed to load email thread</p>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
     </>
   );
 }

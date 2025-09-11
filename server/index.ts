@@ -1,11 +1,71 @@
 import express, { type Request, Response, NextFunction } from "express";
+import helmet from "helmet";
+import rateLimit from "express-rate-limit";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { calendarAutoSyncService } from "./services/calendar-auto-sync";
 
 const app = express();
-app.use(express.json());
-app.use(express.urlencoded({ extended: false }));
+
+// Trust proxy MUST be set before rate limiting for correct client IPs
+app.set('trust proxy', 1);
+
+// Security headers - environment-specific CSP
+// Environment-specific CSP configuration
+const isProduction = process.env.NODE_ENV === 'production';
+const cspConfig = {
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+      fontSrc: ["'self'", "https://fonts.gstatic.com"],
+      scriptSrc: isProduction 
+        ? ["'self'"] 
+        : ["'self'", "'unsafe-inline'", "'unsafe-eval'"], // unsafe-eval only for Vite dev
+      imgSrc: ["'self'", "data:", "https:"],
+      connectSrc: isProduction 
+        ? ["'self'", "wss://your-domain.com", "https://api.stripe.com"] // Restrict in production
+        : ["'self'", "wss:", "https:", "http://localhost:*"], // Allow dev servers
+      frameSrc: ["'none'"],
+      objectSrc: ["'none'"],
+      baseUri: ["'self'"],
+      formAction: ["'self'"],
+    },
+  },
+  crossOriginEmbedderPolicy: false,
+  hsts: {
+    maxAge: 31536000,
+    includeSubDomains: true,
+    preload: true
+  }
+};
+
+app.use(helmet(cspConfig));
+
+// Rate limiting - protect against DDoS and brute force attacks
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 1000, // Limit each IP to 1000 requests per windowMs (general)
+  message: { error: 'Too many requests, please try again later' },
+  standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
+  legacyHeaders: false, // Disable the `X-RateLimit-*` headers
+});
+
+// Stricter rate limiting for auth endpoints
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 50, // Limit auth attempts to 50 per 15 minutes
+  message: { error: 'Too many authentication attempts, please try again later' },
+  skipSuccessfulRequests: true, // Don't count successful requests
+});
+
+app.use(limiter); // Apply general rate limiting to all routes
+
+// Make auth limiter available to routes
+(app as any).authLimiter = authLimiter;
+
+app.use(express.json({ limit: '10mb' })); // Add size limit for security
+app.use(express.urlencoded({ extended: false, limit: '10mb' }));
 
 app.use((req, res, next) => {
   const start = Date.now();

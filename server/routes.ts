@@ -58,8 +58,8 @@ import {
 } from "@shared/schema";
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Trust proxy for secure sessions
-  app.set('trust proxy', 1);
+  // Import auth limiter from main app
+  const authLimiter = (app as any).authLimiter;
   
   // Session configuration with PostgreSQL store
   const PgSession = ConnectPgSimple(session);
@@ -252,7 +252,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Portal authentication endpoints
   // Step 1: Request magic link (with portal enabled check)
-  app.post('/api/portal/auth/request-access', async (req, res) => {
+  app.post('/api/portal/auth/request-access', authLimiter, async (req, res) => {
     try {
       const { email, projectId } = req.body;
       if (!email) {
@@ -311,7 +311,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Step 2: Verify token and login
-  app.post('/api/portal/auth/verify-token', async (req, res) => {
+  app.post('/api/portal/auth/verify-token', authLimiter, async (req, res) => {
     try {
       const { token } = req.body;
       if (!token) {

@@ -25,15 +25,17 @@ const sendEmailSchema = z.object({
   to: z.string().email('Invalid email address'),
   subject: z.string().optional(),
   text: z.string().optional(),
+  html: z.string().optional(),
+  preheader: z.string().optional(),
   templateId: z.string().optional(),
   projectId: z.string().optional(),
   contactId: z.string().optional(),
   emails: z.array(z.string()).optional()
 }).refine(data => {
-  // Either use template OR provide subject+text directly
-  return (data.templateId) || (data.subject && data.text);
+  // Either use template OR provide subject + (text OR html) directly
+  return (data.templateId) || (data.subject && (data.text || data.html));
 }, {
-  message: 'Either templateId or both subject and text are required'
+  message: 'Either templateId or both subject and (text or html) are required'
 });
 
 // Middleware to check for authenticated user - use hardcoded test-user for now
@@ -186,6 +188,8 @@ router.post('/send', requireAuth, async (req: any, res) => {
       to: emailData.to,
       subject: finalSubject,
       text: finalText,
+      html: emailData.html,
+      preheader: emailData.preheader,
       projectId: projectId
     });
     
@@ -641,6 +645,69 @@ router.get('/email-threads/:threadId/messages', async (req, res) => {
   } catch (error) {
     console.error('Error fetching email messages:', error);
     res.status(500).json({ error: 'Failed to fetch email messages' });
+  }
+});
+
+/**
+ * POST /api/dev/send-test-email - Development endpoint for testing email formatting
+ */
+router.post('/dev/send-test-email', requireAuth, async (req, res) => {
+  try {
+    const { to } = req.body;
+    const userId = req.user.id;
+    
+    if (!to) {
+      return res.status(400).json({ error: 'Recipient email address is required' });
+    }
+    
+    // Create test email with various formatting elements
+    const testHtml = `
+      <h1>Test formatting ✓</h1>
+      <p>This is a test email to verify HTML formatting and multipart/alternative rendering.</p>
+      
+      <p>Here are some <strong>bold text</strong> and <em>italic text</em> examples.</p>
+      
+      <h2>List Example</h2>
+      <ul>
+        <li>First item with <strong>bold</strong> text</li>
+        <li>Second item with <em>italic</em> text</li>
+        <li>Third item with <code>inline code</code></li>
+      </ul>
+      
+      <blockquote>
+        This is a blockquote to test email client rendering.
+      </blockquote>
+      
+      <p>
+        <a href="https://example.com" class="btn" style="display: inline-block; padding: 12px 24px; background-color: #007bff; color: #ffffff; text-decoration: none; border-radius: 4px; font-weight: 500;">
+          Button-style Link
+        </a>
+      </p>
+      
+      <p>Here's an image test:</p>
+      <p><img src="https://via.placeholder.com/300x200/007bff/ffffff?text=Email+Test" alt="Test Image" style="max-width: 100%; height: auto;" /></p>
+      
+      <p>Date format test: ${new Date().toLocaleDateString('en-GB')}</p>
+    `;
+    
+    // Send test email
+    const result = await gmailService.sendEmail(userId, {
+      to,
+      subject: 'Test formatting ✓',
+      text: testHtml,
+      preheader: 'This is the preview line.'
+    });
+    
+    res.json({
+      success: result.ok,
+      message: result.ok 
+        ? 'Test email sent successfully. Check Gmail/Outlook/Apple Mail for proper rendering.'
+        : 'Failed to send test email',
+      error: result.error
+    });
+  } catch (error: any) {
+    console.error('Error sending test email:', error);
+    res.status(500).json({ error: 'Failed to send test email' });
   }
 });
 

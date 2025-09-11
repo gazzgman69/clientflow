@@ -161,4 +161,55 @@ router.get('/templates', async (req, res) => {
   }
 });
 
+// POST /api/templates/preview - Preview template with email renderer
+router.post('/templates/preview', requireAuth, async (req, res) => {
+  try {
+    const { templateId, contactId, projectId } = req.body;
+    
+    if (!templateId) {
+      return res.status(400).json({ error: 'Template ID is required' });
+    }
+    
+    // Get template
+    const template = await templatesService.getTemplate(templateId);
+    if (!template) {
+      return res.status(404).json({ error: 'Template not found' });
+    }
+    
+    // Build context for token resolution
+    const context: any = {};
+    if (contactId) context.contactId = contactId;
+    if (projectId) context.projectId = projectId;
+    
+    // Render template with tokens
+    const rendered = await templatesService.renderTemplate(template, context);
+    
+    // Use email renderer for proper preview (same as sending)
+    const { emailRenderer } = await import('../services/emailRenderer');
+    const emailPreview = emailRenderer.render({
+      subject: rendered.subject || template.title,
+      html: rendered.body,
+      preheader: 'Email preview'
+    });
+    
+    res.json({
+      template: {
+        id: template.id,
+        title: template.title,
+        subject: rendered.subject,
+        body: rendered.body
+      },
+      preview: {
+        subject: emailPreview.subject,
+        htmlInlined: emailPreview.htmlInlined,
+        text: emailPreview.text
+      },
+      unresolved: rendered.unresolved
+    });
+  } catch (error) {
+    console.error('Error previewing template:', error);
+    res.status(500).json({ error: 'Failed to preview template' });
+  }
+});
+
 export default router;

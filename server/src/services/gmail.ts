@@ -3,11 +3,14 @@ import { getUserGoogleTokens } from '../storage/google-tokens';
 import { emailSyncService } from './emailSync';
 import type { gmail_v1 } from 'googleapis';
 import { convert as htmlToText } from 'html-to-text';
+import { emailRenderer, type RenderInput } from './emailRenderer';
 
 interface EmailRequest {
   to: string;
   subject: string;
   text: string;
+  html?: string;
+  preheader?: string;
 }
 
 interface EmailResponse {
@@ -104,35 +107,68 @@ export class GmailService {
   }
 
   /**
-   * Send email using Gmail API with database sync
+   * Send email using Gmail API with database sync and proper multipart/alternative format
    */
   async sendEmail(userId: string, emailRequest: EmailRequest & { projectId?: string; threadId?: string }): Promise<EmailResponse> {
     try {
       const gmail = await this.getGmailService(userId);
 
-      // Convert HTML content to plain text if needed
-      let plainTextBody = emailRequest.text;
-      if (this.isHtmlContent(emailRequest.text)) {
-        plainTextBody = htmlToText(emailRequest.text, {
-          wordwrap: 80,
-          selectors: [
-            { selector: 'p', options: { leadingLineBreaks: 1, trailingLineBreaks: 1 } },
-            { selector: 'br', format: 'skip' },
-            { selector: 'strong', format: 'inlineTag' },
-            { selector: 'em', format: 'inlineTag' },
-            { selector: 'code', format: 'inlineTag' }
-          ]
-        });
-        console.log(`📧 Converted HTML to plain text: ${emailRequest.text.length} chars -> ${plainTextBody.length} chars`);
+      // Prepare render input - prioritize provided html, then determine from text content
+      let finalHtml: string;
+      let finalText: string | undefined;
+      
+      if (emailRequest.html) {
+        // HTML provided explicitly - use it
+        finalHtml = emailRequest.html;
+        finalText = emailRequest.text; // Use provided text or undefined
+      } else if (emailRequest.text) {
+        // Only text provided - check if it's HTML content
+        const isHtml = this.isHtmlContent(emailRequest.text);
+        if (isHtml) {
+          finalHtml = emailRequest.text;
+          finalText = undefined; // Will be generated from HTML
+        } else {
+          finalHtml = `<p>${emailRequest.text.replace(/\n/g, '<br>')}</p>`;
+          finalText = emailRequest.text;
+        }
+      } else {
+        // Neither html nor text provided - this should be caught by validation
+        throw new Error('Either html or text content is required');
       }
+      
+      const renderInput: RenderInput = {
+        subject: emailRequest.subject,
+        html: finalHtml,
+        text: finalText,
+        preheader: emailRequest.preheader
+      };
 
-      // Create email message in RFC 2822 format
+      // Render email with proper formatting
+      const rendered = emailRenderer.render(renderInput);
+
+      // Create multipart/alternative email
+      const boundary = `----=_Part_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      
       const emailContent = [
         `To: ${emailRequest.to}`,
-        `Subject: ${emailRequest.subject}`,
+        `Subject: ${rendered.subject}`,
+        `MIME-Version: 1.0`,
+        `Content-Type: multipart/alternative; boundary="${boundary}"`,
         '',
-        plainTextBody
-      ].join('\n');
+        `--${boundary}`,
+        `Content-Type: text/plain; charset=UTF-8`,
+        `Content-Transfer-Encoding: quoted-printable`,
+        '',
+        this.encodeQuotedPrintable(rendered.text),
+        '',
+        `--${boundary}`,
+        `Content-Type: text/html; charset=UTF-8`,
+        `Content-Transfer-Encoding: quoted-printable`,
+        '',
+        this.encodeQuotedPrintable(rendered.htmlInlined),
+        '',
+        `--${boundary}--`
+      ].join('\r\n');
 
       // Proper base64url encoding: + -> -, / -> _, remove padding
       const encodedMessage = Buffer.from(emailContent)
@@ -165,9 +201,10 @@ export class GmailService {
             threadId: emailRequest.threadId,
             projectId: emailRequest.projectId,
             to: [emailRequest.to],
-            subject: emailRequest.subject,
-            bodyText: plainTextBody, // Use converted plain text instead of original
-            fromEmail: userEmail, // Pass the user's actual email
+            subject: rendered.subject,
+            bodyText: rendered.text,
+            bodyHtml: rendered.htmlInlined,
+            fromEmail: userEmail,
           });
         } catch (syncError) {
           console.error('Failed to sync sent email to database:', syncError);
@@ -676,6 +713,60 @@ export class GmailService {
       console.error('Error fetching attachment from Gmail:', error);
       return null;
     }
+  }
+
+  /**
+   * Encode text using quoted-printable encoding per RFC 2045
+   * Handles 76-character soft line breaks and proper special character encoding
+   */
+  private encodeQuotedPrintable(text: string): string {
+    // First, normalize line endings
+    let result = text.replace(/\r?\n/g, '\r\n');
+    
+    // Encode special characters and non-printable ASCII
+    result = result.replace(/[^\x09\x20-\x7E\r\n]/g, (char) => {
+      const hex = char.charCodeAt(0).toString(16).toUpperCase().padStart(2, '0');
+      return `=${hex}`;
+    });
+    
+    // Encode trailing whitespace at end of lines
+    result = result.replace(/[ \t]+(?=\r\n)/g, (match) => {
+      return match.split('').map(char => 
+        char === ' ' ? '=20' : char === '\t' ? '=09' : char
+      ).join('');
+    });
+    
+    // Encode lines starting with dot (to prevent SMTP confusion)
+    result = result.replace(/^\./gm, '=2E');
+    
+    // Handle soft line breaks for lines longer than 76 characters
+    const lines = result.split('\r\n');
+    const wrappedLines = [];
+    
+    for (const line of lines) {
+      if (line.length <= 76) {
+        wrappedLines.push(line);
+      } else {
+        // Split long lines with soft breaks (=\r\n)
+        let remaining = line;
+        while (remaining.length > 76) {
+          // Find a good break point (prefer after = sequences)
+          let breakPoint = 75;
+          if (remaining[breakPoint] === '=' && remaining.length > breakPoint + 2) {
+            // Don't break in the middle of an encoded sequence
+            breakPoint = breakPoint - 1;
+          }
+          
+          wrappedLines.push(remaining.substring(0, breakPoint) + '=');
+          remaining = remaining.substring(breakPoint);
+        }
+        if (remaining.length > 0) {
+          wrappedLines.push(remaining);
+        }
+      }
+    }
+    
+    return wrappedLines.join('\r\n');
   }
 }
 

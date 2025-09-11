@@ -73,6 +73,7 @@
     "html-to-text": "^9.0.5",
     "imap": "^0.8.19",
     "input-otp": "^1.4.2",
+    "juice": "^11.0.1",
     "lucide-react": "^0.453.0",
     "mailparser": "^3.7.4",
     "memorystore": "^1.6.7",

@@ -191,9 +191,11 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
       `${trimmedSignature}`;
     
     setMessage(newMessage);
-    // Also update the Rich Text Editor content directly
+    // Also update the Rich Text Editor content directly by inserting signature at the end
     if (messageEditorRef.current) {
-      messageEditorRef.current.setContent(newMessage);
+      const currentContent = messageEditorRef.current.getHTML();
+      const combinedContent = currentContent + (currentContent ? '<br>' : '') + trimmedSignature;
+      messageEditorRef.current.setContent(combinedContent);
     }
     toast({ 
       title: 'Signature applied', 
@@ -1104,7 +1106,13 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
                                     onClick={() => {
                                       // Apply signature to reply message
                                       const newSignature = signature.content.trim();
-                                      setReplyMessage(replyMessage + newSignature);
+                                      if (replyEditorRef.current) {
+                                        const currentContent = replyEditorRef.current.getHTML();
+                                        const combinedContent = currentContent + (currentContent ? '<br>' : '') + newSignature;
+                                        replyEditorRef.current.setContent(combinedContent);
+                                      } else {
+                                        setReplyMessage(replyMessage + newSignature);
+                                      }
                                     }}
                                     data-testid={`dropdown-reply-signature-${signature.id}`}
                                   >

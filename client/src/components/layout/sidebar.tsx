@@ -22,6 +22,7 @@ const staticNavigationItems = [
   { href: "/venues", icon: MapPin, label: "Venues", badge: null },
   { href: "/documents", icon: FolderOpen, label: "Documents", badge: null },
   { href: "/calendar", icon: Calendar, label: "Calendar", badge: null },
+  { href: "/portal/client", icon: Mail, label: "Client Portal", badge: null },
   { href: "/automations", icon: Bot, label: "Automations", badge: null },
   { href: "/settings", icon: Settings, label: "Settings", badge: null },
 ];

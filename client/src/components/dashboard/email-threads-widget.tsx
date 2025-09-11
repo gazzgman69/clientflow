@@ -33,39 +33,17 @@ export default function EmailThreadsWidget() {
     },
   });
 
-  // Function to find project by contact email
-  const findProjectByEmail = async (email: string) => {
+  // Function to find contact by email and navigate to contacts page
+  const findContactByEmail = async (email: string) => {
     try {
       // Extract email from "Name <email@domain.com>" format
       const emailMatch = email.match(/<(.+)>/);
       const cleanEmail = emailMatch ? emailMatch[1] : email;
       
-      const response = await fetch(`/api/contacts?email=${encodeURIComponent(cleanEmail)}`, {
-        headers: {
-          'user-id': 'test-user'
-        }
-      });
-      const contacts = await response.json();
-      
-      if (contacts && contacts.length > 0) {
-        const contact = contacts[0];
-        if (contact.projectId) {
-          setLocation(`/projects/${contact.projectId}`);
-        } else {
-          // If no direct project, look for projects with this contact
-          const projectsResponse = await fetch(`/api/projects?contactId=${contact.id}`, {
-            headers: {
-              'user-id': 'test-user'
-            }
-          });
-          const projects = await projectsResponse.json();
-          if (projects && projects.length > 0) {
-            setLocation(`/projects/${projects[0].id}`);
-          }
-        }
-      }
+      // Navigate to contacts page with email filter
+      setLocation(`/contacts?email=${encodeURIComponent(cleanEmail)}`);
     } catch (error) {
-      console.error('Error finding project:', error);
+      console.error('Error navigating to contact:', error);
     }
   };
 
@@ -74,7 +52,7 @@ export default function EmailThreadsWidget() {
   };
 
   const handleContactClick = (fromEmail: string) => {
-    findProjectByEmail(fromEmail);
+    findContactByEmail(fromEmail);
   };
 
   const formatDate = (dateISO: string) => {

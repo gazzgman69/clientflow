@@ -105,8 +105,10 @@ export class EmailSyncService {
       // Get contact email addresses to search for
       const contactEmails = Array.from(emailToProjectMap.keys());
       
-      // Search for emails between business email AND contact emails (both directions)
-      const allEmailsToSearch = ['skinnycheck@gmail.com', ...contactEmails];
+      // Search for emails between user's business email AND contact emails (both directions)
+      // TODO: Get user's configured business email from settings instead of hardcoded
+      const userBusinessEmail = 'skinnycheck@gmail.com'; // SECURITY: This should be user-specific
+      const allEmailsToSearch = [userBusinessEmail, ...contactEmails];
       console.log('🔍 Searching for emails involving addresses:', allEmailsToSearch);
       
       const gmailThreads = await this.gmailService.listThreadsForAddresses(userId, { 
@@ -438,22 +440,23 @@ export class EmailSyncService {
   /**
    * Find or create email thread
    */
-  private async findOrCreateThread(providerThreadId: string, projectId?: string, subject?: string) {
+  private async findOrCreateThread(providerThreadId: string, userId: string, projectId?: string, subject?: string) {
     try {
-      // Look for existing thread with this provider thread ID
+      // Look for existing thread with this provider thread ID scoped to user
       const [existingThread] = await db
         .select()
         .from(emailThreads)
-        .where(eq(emailThreads.id, providerThreadId))
+        .where(and(eq(emailThreads.id, providerThreadId), eq(emailThreads.userId, userId)))
         .limit(1);
       
       if (existingThread) return existingThread.id;
       
-      // Create new thread
+      // Create new thread with userId for multi-tenant isolation
       const [newThread] = await db
         .insert(emailThreads)
         .values({
           id: providerThreadId, // Use Gmail thread ID as our thread ID
+          userId, // CRITICAL: Add userId for multi-tenant isolation
           projectId: projectId || null,
           subject: subject || null,
           lastMessageAt: new Date(),
@@ -470,7 +473,7 @@ export class EmailSyncService {
   /**
    * Sync a Gmail thread to our database
    */
-  async syncGmailThread(gmailThread: GmailThread, projectId?: string): Promise<EmailThread | null> {
+  async syncGmailThread(gmailThread: GmailThread, userId: string, projectId?: string): Promise<EmailThread | null> {
     try {
       if (!gmailThread.id || !gmailThread.messages?.length) {
         return null;
@@ -482,11 +485,11 @@ export class EmailSyncService {
       const subject = headers.subject || 'No Subject';
 
       // Find or create thread
-      const threadId = await this.findOrCreateThread(gmailThread.id, projectId, subject);
+      const threadId = await this.findOrCreateThread(gmailThread.id, userId, projectId, subject);
 
       // Sync all messages in the thread
       for (const message of gmailThread.messages) {
-        await this.syncGmailMessage(message, threadId, projectId);
+        await this.syncGmailMessage(message, threadId, userId, projectId);
       }
 
       // Update thread's last message time
@@ -498,14 +501,14 @@ export class EmailSyncService {
             lastMessageAt: new Date(parseInt(lastMessage.internalDate)),
             updatedAt: new Date()
           })
-          .where(eq(emailThreads.id, threadId));
+          .where(and(eq(emailThreads.id, threadId), eq(emailThreads.userId, userId)));
       }
 
       // Return the updated thread
       const [thread] = await db
         .select()
         .from(emailThreads)
-        .where(eq(emailThreads.id, threadId))
+        .where(and(eq(emailThreads.id, threadId), eq(emailThreads.userId, userId)))
         .limit(1);
 
       return thread || null;
@@ -518,7 +521,7 @@ export class EmailSyncService {
   /**
    * Sync a thread message from getThreadMessages format
    */
-  private async syncThreadMessage(message: any, threadId: string, projectId?: string): Promise<any> {
+  private async syncThreadMessage(message: any, threadId: string, userId: string, projectId?: string): Promise<any> {
     try {
       // Check if message already exists
       const [existingMessage] = await db
@@ -543,7 +546,7 @@ export class EmailSyncService {
         : null;
 
       // Determine direction (inbound/outbound) based on user's email
-      const userEmail = await this.gmailService.getUserEmail('test-user');
+      const userEmail = await this.gmailService.getUserEmail(userId);
       const direction = fromEmails.some(email => email.toLowerCase().includes(userEmail.toLowerCase())) 
         ? 'outbound' 
         : 'inbound';
@@ -592,7 +595,7 @@ export class EmailSyncService {
   /**
    * Sync a Gmail message to our database using RFC-compliant threading
    */
-  async syncGmailMessage(gmailMessage: GmailMessage, fallbackThreadId: string, projectId?: string): Promise<Email | null> {
+  async syncGmailMessage(gmailMessage: GmailMessage, fallbackThreadId: string, userId: string, projectId?: string): Promise<Email | null> {
     try {
       if (!gmailMessage.id) return null;
 
@@ -631,7 +634,7 @@ export class EmailSyncService {
         : null;
 
       // Determine direction (inbound/outbound) based on user's email
-      const userEmail = await this.gmailService.getUserEmail('test-user');
+      const userEmail = await this.gmailService.getUserEmail(userId);
       const direction = fromEmails.some(email => email.toLowerCase().includes(userEmail.toLowerCase())) 
         ? 'outbound' 
         : 'inbound';
@@ -678,7 +681,7 @@ export class EmailSyncService {
           projectId: projectId || null,
           updatedAt: new Date(),
         })
-        .where(eq(emailThreads.id, correctThreadId));
+        .where(and(eq(emailThreads.id, correctThreadId), eq(emailThreads.userId, userId)));
 
       // Extract and save attachments if any
       if (hasAttachments) {
@@ -780,7 +783,7 @@ export class EmailSyncService {
   /**
    * Create a new outbound email
    */
-  async createOutboundEmail(data: {
+  async createOutboundEmail(userId: string, data: {
     threadId?: string;
     projectId?: string;
     to: string[];

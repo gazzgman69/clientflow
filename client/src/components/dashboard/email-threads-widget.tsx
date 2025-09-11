@@ -170,14 +170,14 @@ export default function EmailThreadsWidget() {
                       </span>
                     </div>
                     <div 
-                      className="cursor-pointer hover:bg-muted/30 rounded px-1 py-0.5 -mx-1 transition-colors"
+                      className="group cursor-pointer hover:bg-muted/30 rounded px-1 py-0.5 -mx-1 transition-colors"
                       onClick={() => handleEmailClick(thread.threadId)}
                       data-testid={`email-content-${thread.threadId}`}
                     >
-                      <p className="text-sm font-medium mb-1 truncate hover:text-primary transition-colors">
+                      <p className="text-sm font-medium mb-1 truncate group-hover:text-primary transition-colors">
                         {thread.latest.subject}
                       </p>
-                      <p className="text-xs text-muted-foreground truncate hover:text-foreground transition-colors">
+                      <p className="text-xs text-muted-foreground truncate group-hover:text-foreground transition-colors">
                         {thread.latest.snippet}
                       </p>
                     </div>

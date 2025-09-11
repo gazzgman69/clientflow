@@ -76,6 +76,31 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
     }
   };
 
+  // Helper function to extract content from full email HTML template
+  const extractEmailContent = (html: string): string => {
+    if (!html) return '';
+    
+    // Try to extract content from the email-content class
+    const emailContentMatch = html.match(/<td[^>]*class[^>]*email-content[^>]*>(.*?)<\/td>/s);
+    if (emailContentMatch) {
+      return emailContentMatch[1].trim();
+    }
+    
+    // Fallback: extract content from body, removing style and script tags
+    const bodyMatch = html.match(/<body[^>]*>(.*?)<\/body>/s);
+    if (bodyMatch) {
+      return bodyMatch[1]
+        .replace(/<style[^>]*>.*?<\/style>/gs, '')
+        .replace(/<script[^>]*>.*?<\/script>/gs, '')
+        .replace(/^\s*<table[^>]*>.*?<tr>\s*<td[^>]*>/s, '') // Remove opening table/tr/td
+        .replace(/<\/td>\s*<\/tr>.*?<\/table>\s*$/s, '') // Remove closing td/tr/table
+        .trim();
+    }
+    
+    // Final fallback: return as-is (probably plain text)
+    return html;
+  };
+
   // Token resolver function for displaying emails
   const resolveDisplayTokens = (text: string, project: any, contact: any) => {
     if (!text) return text;
@@ -966,7 +991,7 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
                             className="prose prose-sm max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0"
                             dangerouslySetInnerHTML={{
                               __html: resolveDisplayTokens(
-                                decodeHtmlEntities(message.bodyHtml) || 'No content',
+                                extractEmailContent(message.bodyHtml) || 'No content',
                                 project,
                                 contact
                               )

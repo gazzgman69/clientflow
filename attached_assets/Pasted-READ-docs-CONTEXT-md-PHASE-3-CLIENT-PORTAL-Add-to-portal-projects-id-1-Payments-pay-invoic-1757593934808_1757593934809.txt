@@ -1,0 +1,102 @@
+READ /docs/CONTEXT.md.
+
+PHASE 3 — CLIENT PORTAL
+Add to /portal/projects/:id:
+1) Payments (pay invoices + see payment history)
+2) Forms / Questionnaires (fill + submit; prefill known data)
+3) Appointment Booking (pick a slot; reschedule/cancel)
+
+RULES
+- ADAPT to existing services/models (invoices, payments, forms, calendar). Do NOT invent schema if equivalents exist.
+- Use existing payment providers (Stripe/PayPal/etc.) and existing Google Calendar sync where possible.
+- Server-side only for secrets; portal is read-only where appropriate.
+- All dates dd/MM/yyyy; times 24h.
+
+A) AUDIT (NO WRITES)
+Print:
+- Invoices/Payments: tables/services/routes; how pay links are generated; refund/receipt flows.
+- Forms: existing form builder/templates? storage for responses? routes?
+- Calendar/Booking: current Google Calendar integration; event creation path; availability source if any.
+- Portal auth/session mapping to contact/project (from Phase 1/2).
+- Any rate limits, webhooks (Stripe/PayPal), and email templates already available.
+
+B) PLAN (BRIEF)
+Propose minimal diffs per area (routes + UI + tiny DB additions only if missing).
+Pause for self-confirmation, then proceed.
+
+C) IMPLEMENT (SMALLEST DIFFS; ADAPT NAMES)
+
+1) PAYMENTS (Portal)
+Backend:
+- GET  /api/portal/projects/:id/invoices
+  → list client-visible invoices: id, number, status, total, balance, dueDate (dd/MM/yyyy), currency.
+- GET  /api/portal/invoices/:invoiceId
+  → invoice summary + line items (client-facing only).
+- POST /api/portal/invoices/:invoiceId/pay
+  → creates/returns secure pay session/link using existing provider (Stripe Checkout link / PayPal link).
+- Webhooks: ensure existing provider webhooks mark invoice paid; no new secret exposure.
+
+Frontend:
+- “Payments” tab (or under Documents):
+  • Table: Invoice #, Due, Total, Status, Action (Pay / View)
+  • “Pay” opens provider checkout in new tab; on return, portal refreshes status.
+  • “View” shows invoice detail with totals and terms.
+- Receipt link: after success, show “Download receipt” if available (reuse existing route).
+
+2) FORMS / QUESTIONNAIRES (Portal)
+Backend:
+- GET  /api/portal/projects/:id/forms
+  → list forms assigned to this project/contact: id, title, status (Not Started / In Progress / Submitted), lastUpdated.
+- GET  /api/portal/forms/:formId
+  → returns renderable JSON schema or existing form definition; include prefill data (contact/project fields).
+- POST /api/portal/forms/:formId/save
+  → save progress (draft) without submit; update lastUpdated.
+- POST /api/portal/forms/:formId/submit
+  → validate; mark submitted; store immutable snapshot; notify internal via existing email; optional PDF export if renderer exists.
+
+Frontend:
+- “Forms” tab:
+  • List of forms with statuses; click → open form
+  • Form renderer:
+     – Prefill with contact/project values where mapping exists
+     – Save Draft, Submit buttons
+     – Client-side validation messages
+  • After submit: confirmation + timestamp (dd/MM/yyyy HH:mm)
+
+3) APPOINTMENT BOOKING (Portal)
+Backend:
+- GET  /api/portal/projects/:id/availability?from=YYYY-MM-DD&to=YYYY-MM-DD
+  → returns bookable slots (date/time) based on existing availability source:
+     • Prefer your Google Calendar integration (free/busy) + your business hours/rules.
+- POST /api/portal/projects/:id/appointments
+  Body: { start, end, type? }
+  → create event in your system AND, if configured, insert into Google Calendar with correct calendarId; link to project/contact; return confirmation.
+- PATCH /api/portal/appointments/:id  (reschedule)
+  Body: { start, end }
+- DELETE /api/portal/appointments/:id (cancel)
+- Notifications: on create/reschedule/cancel, email both client + internal with ICS attachment (reuse ical service).
+
+Frontend:
+- “Appointments” tab:
+  • Month/Week picker + list of available slots (localised dd/MM/yyyy HH:mm)
+  • Book button → confirm modal (type, notes optional)
+  • Show existing booking(s) with buttons: Reschedule, Cancel
+  • After action: success toast + updated list
+
+D) SAFETY / LIMITS
+- Payments: enforce ownership (contact must own invoice); never expose raw provider keys; CSRF-safe posts.
+- Forms: rate limit submits; sanitize text answers; file uploads reuse portal file limits from Phase 2.
+- Booking: prevent double-book by checking free/busy right before create; handle timezone correctly; clamp slot size to allowed durations.
+- All endpoints scope by tenant/contact/project; log minimally (ids only).
+
+E) VERIFY
+- Payments: open a test invoice → Pay → return → status reflects PAID; receipt available; date formats dd/MM/yyyy.
+- Forms: prefill works (e.g., FirstName, ProjectDate); Save Draft then Submit; snapshot stored; internal notified.
+- Booking: view slots → book one → event appears internally/Google; reschedule → updates; cancel → removed; emails with ICS sent.
+- No secrets in client; portal auth protects all routes.
+
+F) ACCEPTANCE
+- Clients can pay invoices, see payment status/history.
+- Clients can complete assigned forms; drafts and submissions persist.
+- Clients can book/reschedule/cancel appointments against your real availability.
+- All UI dates dd/MM/yyyy and 24h times; branding intact; no admin data leaks.

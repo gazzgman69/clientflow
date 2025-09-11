@@ -177,11 +177,6 @@ export class EmailRenderer {
               ${content}
             </td>
           </tr>
-          ${this.config.businessName ? `<tr>
-            <td class="email-footer">
-              © ${this.config.businessName}
-            </td>
-          </tr>` : ''}
         </table>
       </td>
     </tr>

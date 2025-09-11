@@ -18,6 +18,9 @@ import leadAutomationSimpleRoutes from "./src/routes/lead-automation-simple";
 import signaturesRoutes from "./src/routes/signatures";
 import venuesRoutes from "./src/routes/venues";
 import tokensRoutes from "./src/routes/tokens";
+import portalPaymentsRoutes from "./src/routes/portal-payments";
+import portalFormsRoutes from "./src/routes/portal-forms";
+import portalAppointmentsRoutes from "./src/routes/portal-appointments";
 import { calendarAutoSyncService } from "./services/calendar-auto-sync";
 import { 
   insertLeadSchema, 
@@ -105,6 +108,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Venues routes
   app.use('/api/venues', venuesRoutes);
+
+  // Portal routes (client portal features)
+  app.use('/api/portal/payments', portalPaymentsRoutes);
+  app.use('/api/portal/forms', portalFormsRoutes);
+  app.use('/api/portal/appointments', portalAppointmentsRoutes);
   
   // Dashboard metrics
   app.get("/api/dashboard/metrics", async (req, res) => {

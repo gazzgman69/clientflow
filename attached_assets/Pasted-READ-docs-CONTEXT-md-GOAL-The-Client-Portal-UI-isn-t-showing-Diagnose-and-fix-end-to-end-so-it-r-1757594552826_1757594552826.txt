@@ -1,0 +1,83 @@
+READ /docs/CONTEXT.md.
+
+GOAL
+The Client Portal UI isn’t showing. Diagnose and fix end-to-end so it renders reliably before exposing it in the app nav.
+
+PHASE A — AUDIT (NO WRITES)
+Print concise findings:
+1) FRONTEND
+   - Which route(s) exist for the portal? e.g. /portal, /portal/projects/:id
+   - Which component files are mapped to those routes?
+   - Do lazy/async imports or feature flags guard these pages?
+   - Any console errors at runtime (exact messages + stack)?
+2) BACKEND
+   - Which /api/portal/* routes are registered? (list verb+path+file)
+   - Auth/session middleware for portal? Cookie/JWT name and guard?
+   - CORS/CSRF blockers that could hide data?
+3) BUILD/DEPLOY
+   - Any Vite build errors or 404s for the portal chunk?
+   - Base path / assets path OK?
+4) ENV/CONFIG
+   - Feature flags or .env required to show portal?
+   - Branding/settings lookups that could throw on first render?
+
+PHASE B — PLAN (BRIEF)
+Propose minimal diffs to:
+- Register/mount missing routes (FE+BE)
+- Add a small fallback/skeleton UI
+- Gate with a feature flag until smoke test passes
+Wait for self-confirmation (self-approve), then implement.
+
+PHASE C — IMPLEMENT (SMALLEST DIFFS; ADAPT NAMES)
+Frontend
+- Ensure router has:
+  • /portal (Dashboard)
+  • /portal/auth (token landing)
+  • /portal/projects/:id (Project view with tabs: Overview | Documents | Calendar | Messages | Files if implemented)
+- Add defensive UI:
+  • Loading skeletons + empty states (no data ≠ blank page)
+  • ErrorBoundary around portal subtree (show friendly message, not white screen)
+- Feature flag:
+  • Use existing flag system; if none, add simple config `PORTAL_ENABLED`.
+  • Default: hidden from main nav; direct URL still works for dev.
+- Ensure date formatting is dd/MM/yyyy (and 24h) in all portal components.
+
+Backend
+- Mount /api/portal/* routes (auth verify, me, projects/:id/*).
+- Return 401 JSON on unauthenticated; FE should redirect to /portal/auth.
+- Make sure CORS/CSRF allow portal fetches (same origin where possible).
+
+Auth Flow
+- /portal/auth verifies magic link token → sets portal session cookie → redirects /portal.
+- If session missing on any portal page, redirect to /portal/auth.
+
+PHASE D — SMOKE TEST (AUTO)
+Create a temporary dev command or script that:
+1) Seeds a test contact+project with one invoice + one document (if fixtures exist).
+2) Generates a magic-link token and prints the full URL.
+3) Opens /portal via that token (headless fetch) to confirm:
+   - 302/200 chain OK
+   - /api/portal/me returns { projects: [...] }
+   - /portal HTML contains portal root div and at least one visible section label (e.g., “Documents”)
+
+PHASE E — VERIFY (MANUAL)
+- Run locally:
+  1) Open /portal/auth?token=TEST → lands at /portal with dashboard visible.
+  2) Click into a project → Overview loads, Documents + Calendar tabs render without errors.
+  3) Network tab: /api/portal/* calls return 200 (no CORS/CSRF errors).
+  4) Console: no red errors. If warnings exist, print them and fix.
+- Only after pass → expose “Client Portal” to nav (behind `PORTAL_ENABLED=true`).
+
+PHASE F — ACCEPTANCE
+- Direct URL /portal renders for an authenticated client (no white screen).
+- Unauthed access redirects to /portal/auth.
+- All portal pages show loading states instead of blank UI.
+- Dates render dd/MM/yyyy and 24h times where applicable.
+- No secrets in client logs; no 404 chunks; no silent runtime errors.
+
+EXTRA (DEBUG CARD — NO WRITES)
+If the page is still blank, immediately print:
+- Router config for /portal*
+- Exact console errors/warnings
+- Failed network requests (method, URL, status)
+- Which feature flag or condition is preventing render (boolean dump)

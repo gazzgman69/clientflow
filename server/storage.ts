@@ -26,10 +26,12 @@ import {
   type LeadCaptureForm, type InsertLeadCaptureForm,
   type LeadStatusHistory, type InsertLeadStatusHistory,
   type EmailSignature, type InsertEmailSignature,
+  type PortalForm, type InsertPortalForm,
+  type PaymentSession, type InsertPaymentSession,
   users, leads, contacts, projects, quotes, contracts, invoices, tasks, emails, activities, automations, 
   members, venues, projectMembers, memberAvailability, projectFiles, projectNotes, smsMessages, 
   messageTemplates, messageThreads, events, calendarIntegrations, calendarSyncLog, templates, leadCaptureForms,
-  leadStatusHistory, emailSignatures
+  leadStatusHistory, emailSignatures, portalForms, paymentSessions
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { drizzle } from 'drizzle-orm/neon-http';
@@ -250,6 +252,31 @@ export interface IStorage {
   createLeadCaptureForm(form: InsertLeadCaptureForm): Promise<LeadCaptureForm>;
   updateLeadCaptureForm(id: string, form: Partial<InsertLeadCaptureForm>): Promise<LeadCaptureForm | undefined>;
   deleteLeadCaptureForm(id: string): Promise<boolean>;
+
+  // Portal Forms - Project-specific questionnaires
+  getPortalFormsByContact(contactId: string): Promise<PortalForm[]>;
+  getPortalFormsByProjectAndContact(projectId: string, contactId: string): Promise<PortalForm[]>;
+  getPortalFormById(id: string): Promise<PortalForm | undefined>;
+  createPortalForm(form: InsertPortalForm): Promise<PortalForm>;
+  updatePortalForm(id: string, form: Partial<InsertPortalForm>): Promise<PortalForm | undefined>;
+  deletePortalForm(id: string): Promise<boolean>;
+
+  // Payment Sessions - Track payment attempts
+  getPaymentSessionsByContactId(contactId: string): Promise<PaymentSession[]>;
+  getPaymentSessionById(id: string): Promise<PaymentSession | undefined>;
+  createPaymentSession(session: InsertPaymentSession): Promise<PaymentSession>;
+  updatePaymentSession(sessionId: string, session: Partial<InsertPaymentSession>): Promise<PaymentSession | undefined>;
+
+  // Additional invoice methods for portal
+  getInvoiceById(id: string): Promise<Invoice | undefined>;
+  getInvoicesByContactId(contactId: string): Promise<Invoice[]>;
+
+  // Additional contact methods for portal
+  getContactById(id: string): Promise<Contact | undefined>;
+
+  // Additional event methods for appointment booking
+  getEventById(id: string): Promise<Event | undefined>;
+  getEventsByContactEmail(email: string): Promise<Event[]>;
 }
 
 export class MemStorage implements IStorage {
@@ -2476,6 +2503,108 @@ export class DrizzleStorage implements IStorage {
   async deleteLeadCaptureForm(id: string): Promise<boolean> {
     const result = await this.db.delete(leadCaptureForms).where(eq(leadCaptureForms.id, id));
     return result.rowCount > 0;
+  }
+
+  // Portal Forms - PostgreSQL implementation
+  async getPortalFormsByContact(contactId: string): Promise<PortalForm[]> {
+    return await this.db.select().from(portalForms)
+      .where(eq(portalForms.contactId, contactId))
+      .orderBy(desc(portalForms.createdAt));
+  }
+
+  async getPortalFormsByProjectAndContact(projectId: string, contactId: string): Promise<PortalForm[]> {
+    return await this.db.select().from(portalForms)
+      .where(and(eq(portalForms.projectId, projectId), eq(portalForms.contactId, contactId)))
+      .orderBy(desc(portalForms.createdAt));
+  }
+
+  async getPortalFormById(id: string): Promise<PortalForm | undefined> {
+    const result = await this.db.select().from(portalForms).where(eq(portalForms.id, id));
+    return result[0];
+  }
+
+  async createPortalForm(form: InsertPortalForm): Promise<PortalForm> {
+    const result = await this.db.insert(portalForms).values({
+      ...form,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    }).returning();
+    return result[0];
+  }
+
+  async updatePortalForm(id: string, form: Partial<InsertPortalForm>): Promise<PortalForm | undefined> {
+    const result = await this.db.update(portalForms).set({
+      ...form,
+      updatedAt: new Date(),
+    }).where(eq(portalForms.id, id)).returning();
+    return result[0];
+  }
+
+  async deletePortalForm(id: string): Promise<boolean> {
+    const result = await this.db.delete(portalForms).where(eq(portalForms.id, id));
+    return result.rowCount > 0;
+  }
+
+  // Payment Sessions - PostgreSQL implementation
+  async getPaymentSessionsByContactId(contactId: string): Promise<PaymentSession[]> {
+    return await this.db.select().from(paymentSessions)
+      .where(eq(paymentSessions.contactId, contactId))
+      .orderBy(desc(paymentSessions.createdAt));
+  }
+
+  async getPaymentSessionById(id: string): Promise<PaymentSession | undefined> {
+    const result = await this.db.select().from(paymentSessions).where(eq(paymentSessions.id, id));
+    return result[0];
+  }
+
+  async createPaymentSession(session: InsertPaymentSession): Promise<PaymentSession> {
+    const result = await this.db.insert(paymentSessions).values({
+      ...session,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    }).returning();
+    return result[0];
+  }
+
+  async updatePaymentSession(sessionId: string, session: Partial<InsertPaymentSession>): Promise<PaymentSession | undefined> {
+    const result = await this.db.update(paymentSessions).set({
+      ...session,
+      updatedAt: new Date(),
+    }).where(eq(paymentSessions.sessionId, sessionId)).returning();
+    return result[0];
+  }
+
+  // Additional invoice methods for portal
+  async getInvoiceById(id: string): Promise<Invoice | undefined> {
+    const result = await this.db.select().from(invoices).where(eq(invoices.id, id));
+    return result[0];
+  }
+
+  async getInvoicesByContactId(contactId: string): Promise<Invoice[]> {
+    return await this.db.select().from(invoices)
+      .where(eq(invoices.clientId, contactId))
+      .orderBy(desc(invoices.createdAt));
+  }
+
+  // Additional contact methods for portal
+  async getContactById(id: string): Promise<Contact | undefined> {
+    const result = await this.db.select().from(contacts).where(eq(contacts.id, id));
+    return result[0];
+  }
+
+  // Additional event methods for appointment booking
+  async getEventById(id: string): Promise<Event | undefined> {
+    const result = await this.db.select().from(events).where(eq(events.id, id));
+    return result[0];
+  }
+
+  async getEventsByContactEmail(email: string): Promise<Event[]> {
+    return await this.db.select().from(events)
+      .where(or(
+        eq(events.organizer, email),
+        eq(events.attendees, [email]) // This may need adjustment based on how attendees are stored
+      ))
+      .orderBy(desc(events.startDate));
   }
 }
 

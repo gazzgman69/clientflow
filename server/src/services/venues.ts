@@ -116,6 +116,126 @@ export class VenuesService {
   }
 
   /**
+   * Normalize address for cache matching
+   */
+  private normalizeAddress(address: string): string {
+    return address.toLowerCase()
+      .replace(/[^\w\s]/g, ' ') // Remove special chars
+      .replace(/\s+/g, ' ') // Collapse whitespace
+      .trim();
+  }
+
+  /**
+   * Find venues by normalized address matching
+   */
+  async findByAddress(searchInput: string): Promise<Venue[]> {
+    const venues = await storage.getVenues();
+    const normalizedInput = this.normalizeAddress(searchInput);
+    
+    return venues.filter(venue => {
+      if (!venue.name && !venue.address) return false;
+      
+      const normalizedName = venue.name ? this.normalizeAddress(venue.name) : '';
+      const normalizedAddress = venue.address ? this.normalizeAddress(venue.address) : '';
+      const normalizedFull = `${normalizedName} ${normalizedAddress}`.trim();
+      
+      return normalizedName.includes(normalizedInput) || 
+             normalizedAddress.includes(normalizedInput) ||
+             normalizedFull.includes(normalizedInput);
+    }).sort((a, b) => {
+      // Sort by use count descending, then by last used date
+      const aUseCount = a.useCount || 0;
+      const bUseCount = b.useCount || 0;
+      if (aUseCount !== bUseCount) return bUseCount - aUseCount;
+      
+      const aLastUsed = a.lastUsedAt ? new Date(a.lastUsedAt).getTime() : 0;
+      const bLastUsed = b.lastUsedAt ? new Date(b.lastUsedAt).getTime() : 0;
+      return bLastUsed - aLastUsed;
+    });
+  }
+
+  /**
+   * Convert venue to prediction format for consistency with Google Places API
+   */
+  private venueToSuggestion(venue: Venue) {
+    const address = [venue.address, venue.city, venue.state, venue.country]
+      .filter(Boolean)
+      .join(', ');
+    
+    return {
+      description: venue.name + (address ? ` - ${address}` : ''),
+      place_id: venue.placeId || `venue:${venue.id}`, // Use internal ID if no place_id
+      structured_formatting: {
+        main_text: venue.name,
+        secondary_text: address || 'Cached venue'
+      },
+      types: ['establishment'],
+      cached: true, // Flag to indicate this is from cache
+      venueId: venue.id // Include venue ID for direct cache lookup
+    };
+  }
+
+  /**
+   * Get venue suggestions from cache first, then Google Places API
+   */
+  async getSuggestions(input: string, options?: {
+    sessionToken?: string;
+    types?: string[];
+  }) {
+    const cacheResults: any[] = [];
+    const maxCacheResults = 3;
+    
+    // First, search cache by address/name matching
+    if (input.length >= 2) {
+      const cachedVenues = await this.findByAddress(input);
+      const limitedCached = cachedVenues.slice(0, maxCacheResults);
+      
+      for (const venue of limitedCached) {
+        cacheResults.push(this.venueToSuggestion(venue));
+      }
+    }
+    
+    // If we have some cache results, limit Google results
+    // Otherwise, get full results from Google
+    const googleResultsLimit = cacheResults.length > 0 ? 5 - cacheResults.length : 8;
+    
+    let googleResults: any[] = [];
+    try {
+      if (googleResultsLimit > 0) {
+        const googleResponse = await geocodingService.getPlacePredictions(input, options);
+        googleResults = googleResponse.slice(0, googleResultsLimit).map(prediction => ({
+          ...prediction,
+          cached: false // Flag to indicate this is from Google
+        }));
+      }
+    } catch (error) {
+      console.warn('Google Places API error, using cache only:', error);
+    }
+    
+    // Combine cache and Google results, with cache results first
+    return [...cacheResults, ...googleResults];
+  }
+
+  /**
+   * Update venue usage tracking (increment use count and update last used)
+   */
+  async trackVenueUsage(venueId: string): Promise<void> {
+    try {
+      const venue = await storage.getVenue(venueId);
+      if (venue) {
+        const updates = {
+          useCount: (venue.useCount || 0) + 1,
+          lastUsedAt: new Date()
+        };
+        await storage.updateVenue(venueId, updates);
+      }
+    } catch (error) {
+      console.warn('Failed to track venue usage:', error);
+      // Don't throw error - usage tracking is not critical
+    }
+  }
+
+  /**
    * Generate static map URL for venue
    */
   async getStaticMapUrl(venueId: string, options?: {

@@ -35,6 +35,35 @@ router.post('/autocomplete', async (req, res) => {
   }
 });
 
+// POST /api/venues/suggest - Get venue suggestions from cache first, then Google Places API
+router.post('/suggest', async (req, res) => {
+  try {
+    const validatedData = autocompleteSchema.parse(req.body);
+    
+    const suggestions = await venuesService.getSuggestions(
+      validatedData.input,
+      {
+        sessionToken: validatedData.sessionToken,
+        types: validatedData.types
+      }
+    );
+    
+    res.json({ predictions: suggestions });
+  } catch (error) {
+    console.error('Error getting venue suggestions:', error);
+    if (error instanceof z.ZodError) {
+      res.status(400).json({ 
+        message: 'Validation error', 
+        errors: error.errors 
+      });
+    } else {
+      res.status(500).json({ 
+        message: error instanceof Error ? error.message : 'Failed to get venue suggestions'
+      });
+    }
+  }
+});
+
 // Schema for Google Places venue creation
 const createFromGoogleSchema = z.object({
   placeId: z.string().min(1, 'Place ID is required'),
@@ -64,6 +93,9 @@ router.post('/from-google', async (req, res) => {
     const validatedData = createFromGoogleSchema.parse(req.body);
     
     const venue = await venuesService.createFromGoogle(validatedData);
+    
+    // Track usage for caching
+    await venuesService.trackVenueUsage(venue.id);
     
     res.status(201).json(venue);
   } catch (error) {

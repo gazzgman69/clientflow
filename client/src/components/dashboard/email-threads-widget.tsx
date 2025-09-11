@@ -1,20 +1,24 @@
 import { useQuery } from '@tanstack/react-query';
-import { Mail, AlertCircle, Loader2 } from 'lucide-react';
+import { Mail, AlertCircle, Loader2, ChevronDown } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useLocation } from 'wouter';
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import ProjectDetailModal from '@/components/modals/project-detail-modal';
 import type { Project } from '@shared/schema';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { formatDistanceToNow } from 'date-fns';
 import { Button } from '@/components/ui/button';
-import { Reply, Send } from 'lucide-react';
-import { Textarea } from '@/components/ui/textarea';
+import { Reply, Send, Plus } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
+import { RichTextEditor, RichTextEditorRef } from '@/components/ui/rich-text-editor';
+import { TokenDropdown } from '@/components/ui/token-dropdown';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 
 interface EmailThread {
   threadId: string;
@@ -57,9 +61,15 @@ export default function EmailThreadsWidget() {
   const [showEmailModal, setShowEmailModal] = useState(false);
   const [loadingThread, setLoadingThread] = useState(false);
   const [showReplyForm, setShowReplyForm] = useState(false);
-  const [replyText, setReplyText] = useState('');
+  const [replySubject, setReplySubject] = useState('');
+  const [replyMessage, setReplyMessage] = useState('');
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const replyEditorRef = useRef<RichTextEditorRef>(null);
+  
+  // Email composition state
+  const [showSignatureDropdown, setShowSignatureDropdown] = useState(false);
+  const [showTemplateDropdown, setShowTemplateDropdown] = useState(false);
   
   const { data: threadsResponse, isLoading, error } = useQuery({
     queryKey: ['/api/email/threads'],
@@ -72,6 +82,54 @@ export default function EmailThreadsWidget() {
       return response.json();
     },
   });
+
+  // Fetch signatures for email composition
+  const { data: signatures = [] } = useQuery({
+    queryKey: ['/api/signatures'],
+    queryFn: async () => {
+      const response = await fetch('/api/signatures', {
+        headers: {
+          'user-id': 'test-user'
+        }
+      });
+      if (!response.ok) throw new Error('Failed to fetch signatures');
+      return response.json();
+    }
+  });
+
+  // Fetch email templates
+  const { data: templates = [] } = useQuery({
+    queryKey: ['/api/templates'],
+    queryFn: async () => {
+      const response = await fetch('/api/templates?type=email', {
+        headers: {
+          'user-id': 'test-user'
+        }
+      });
+      if (!response.ok) throw new Error('Failed to fetch templates');
+      return response.json();
+    }
+  });
+
+  // Helper functions for email composition
+  const applySignature = (signature: any) => {
+    if (replyEditorRef.current && signature.content) {
+      const currentContent = replyEditorRef.current.getHTML();
+      const signatureHtml = `<br><br>${signature.content}`;
+      replyEditorRef.current.setContent(currentContent + signatureHtml);
+    }
+    setShowSignatureDropdown(false);
+  };
+
+  const applyTemplate = (template: any) => {
+    if (template.subject) {
+      setReplySubject(template.subject);
+    }
+    if (template.body && replyEditorRef.current) {
+      replyEditorRef.current.setContent(template.body);
+    }
+    setShowTemplateDropdown(false);
+  };
 
   // Function to find project by contact email and open modal
   const findProjectByEmail = async (email: string) => {
@@ -123,6 +181,9 @@ export default function EmailThreadsWidget() {
 
   const handleEmailClick = async (threadId: string) => {
     setLoadingThread(true);
+    setShowReplyForm(false);
+    setReplySubject('');
+    setReplyMessage('');
     try {
       const response = await fetch(`/api/email/thread/${threadId}`, {
         headers: {
@@ -132,6 +193,13 @@ export default function EmailThreadsWidget() {
       const threadDetails = await response.json();
       setSelectedThread(threadDetails);
       setShowEmailModal(true);
+      
+      // Set default reply subject with Re: prefix
+      if (threadDetails?.thread?.subject) {
+        const subject = threadDetails.thread.subject;
+        const replySubject = subject.startsWith('Re:') ? subject : `Re: ${subject}`;
+        setReplySubject(replySubject);
+      }
     } catch (error) {
       console.error('Error fetching thread details:', error);
     } finally {
@@ -159,11 +227,15 @@ export default function EmailThreadsWidget() {
     setShowEmailModal(false);
     setSelectedThread(null);
     setShowReplyForm(false);
-    setReplyText('');
+    setReplySubject('');
+    setReplyMessage('');
+    if (replyEditorRef.current) {
+      replyEditorRef.current.setContent('');
+    }
   };
 
   const sendReplyMutation = useMutation({
-    mutationFn: async (data: { to: string; subject: string; text: string; threadId: string }) => {
+    mutationFn: async (data: { to: string; subject: string; text: string; html: string; threadId: string }) => {
       const response = await apiRequest('POST', '/api/email/send', data);
       return response.json();
     },
@@ -172,7 +244,11 @@ export default function EmailThreadsWidget() {
         title: 'Success',
         description: 'Reply sent successfully!',
       });
-      setReplyText('');
+      setReplyMessage('');
+      setReplySubject('');
+      if (replyEditorRef.current) {
+        replyEditorRef.current.setContent('');
+      }
       setShowReplyForm(false);
     },
     onError: () => {
@@ -185,12 +261,10 @@ export default function EmailThreadsWidget() {
   });
 
   const handleSendReply = () => {
-    if (!selectedThread?.thread?.messages || !replyText.trim()) return;
-
-    const originalMessage = selectedThread.thread.messages[0];
-    const replySubject = originalMessage.subject.startsWith('Re:') 
-      ? originalMessage.subject 
-      : `Re: ${originalMessage.subject}`;
+    if (!selectedThread?.thread?.messages || !replySubject.trim()) return;
+    
+    const htmlContent = replyEditorRef.current?.getHTML() || '';
+    if (!htmlContent.trim()) return;
 
     // Extract sender email from the latest message
     const latestMessage = selectedThread.thread.messages[selectedThread.thread.messages.length - 1];
@@ -202,10 +276,16 @@ export default function EmailThreadsWidget() {
       replyToEmail = emailMatch[1] || emailMatch[0];
     }
 
+    // Convert HTML to plain text for text field
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = htmlContent;
+    const plainText = tempDiv.textContent || tempDiv.innerText || '';
+
     sendReplyMutation.mutate({
       to: replyToEmail,
       subject: replySubject,
-      text: replyText,
+      text: plainText,
+      html: htmlContent,
       threadId: selectedThread.thread.threadId
     });
   };
@@ -361,20 +441,115 @@ export default function EmailThreadsWidget() {
                   Reply
                 </Button>
               ) : (
-                <div className="space-y-3">
-                  <Textarea
-                    placeholder="Type your reply..."
-                    value={replyText}
-                    onChange={(e) => setReplyText(e.target.value)}
-                    rows={4}
-                    data-testid="textarea-reply"
-                  />
-                  <div className="flex gap-2 justify-end">
+                <div className="space-y-4">
+                  {/* Subject Line */}
+                  <div className="space-y-2">
+                    <Label htmlFor="reply-subject">Subject</Label>
+                    <Input
+                      id="reply-subject"
+                      value={replySubject}
+                      onChange={(e) => setReplySubject(e.target.value)}
+                      placeholder="Reply subject..."
+                      data-testid="input-reply-subject"
+                    />
+                  </div>
+
+                  {/* Rich Text Editor with Toolbar */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label>Message</Label>
+                      <div className="flex gap-2">
+                        {/* Token Insertion */}
+                        <TokenDropdown
+                          onTokenSelect={(token) => {
+                            if (replyEditorRef.current) {
+                              replyEditorRef.current.insertToken(token);
+                            }
+                          }}
+                          variant="outline"
+                          size="sm"
+                        />
+                        
+                        {/* Template Selection */}
+                        <DropdownMenu open={showTemplateDropdown} onOpenChange={setShowTemplateDropdown}>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="outline" size="sm" data-testid="button-templates">
+                              <Plus className="h-4 w-4 mr-1" />
+                              Template
+                              <ChevronDown className="h-3 w-3 ml-1" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-56">
+                            {templates.length > 0 ? (
+                              templates.map((template: any) => (
+                                <DropdownMenuItem
+                                  key={template.id}
+                                  onClick={() => applyTemplate(template)}
+                                  data-testid={`template-${template.id}`}
+                                >
+                                  {template.title}
+                                </DropdownMenuItem>
+                              ))
+                            ) : (
+                              <DropdownMenuItem disabled>
+                                No templates available
+                              </DropdownMenuItem>
+                            )}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+
+                        {/* Signature Selection */}
+                        <DropdownMenu open={showSignatureDropdown} onOpenChange={setShowSignatureDropdown}>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="outline" size="sm" data-testid="button-signatures">
+                              <Plus className="h-4 w-4 mr-1" />
+                              Signature
+                              <ChevronDown className="h-3 w-3 ml-1" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-56">
+                            {signatures.length > 0 ? (
+                              signatures.map((signature: any) => (
+                                <DropdownMenuItem
+                                  key={signature.id}
+                                  onClick={() => applySignature(signature)}
+                                  data-testid={`signature-${signature.id}`}
+                                >
+                                  {signature.name}
+                                  {signature.isDefault && <Badge variant="secondary" className="ml-2">Default</Badge>}
+                                </DropdownMenuItem>
+                              ))
+                            ) : (
+                              <DropdownMenuItem disabled>
+                                No signatures available
+                              </DropdownMenuItem>
+                            )}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                    </div>
+                    
+                    <RichTextEditor
+                      ref={replyEditorRef}
+                      content={replyMessage}
+                      onChange={setReplyMessage}
+                      placeholder="Type your reply..."
+                      minHeight="200px"
+                      data-testid="editor-reply"
+                    />
+                  </div>
+
+                  {/* Action Buttons */}
+                  <div className="flex gap-2 justify-end pt-2">
                     <Button 
                       variant="outline" 
                       onClick={() => {
                         setShowReplyForm(false);
-                        setReplyText('');
+                        setReplySubject('');
+                        setReplyMessage('');
+                        if (replyEditorRef.current) {
+                          replyEditorRef.current.setContent('');
+                        }
                       }}
                       data-testid="button-cancel-reply"
                     >
@@ -382,7 +557,7 @@ export default function EmailThreadsWidget() {
                     </Button>
                     <Button 
                       onClick={handleSendReply}
-                      disabled={!replyText.trim() || sendReplyMutation.isPending}
+                      disabled={!replySubject.trim() || sendReplyMutation.isPending}
                       data-testid="button-send-reply"
                     >
                       <Send className="h-4 w-4 mr-2" />

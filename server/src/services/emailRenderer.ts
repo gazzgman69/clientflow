@@ -27,7 +27,7 @@ export class EmailRenderer {
 
   constructor(config: EmailConfig = {}) {
     this.config = {
-      businessName: 'BusinessCRM',
+      businessName: '',
       ...config
     };
   }
@@ -177,11 +177,11 @@ export class EmailRenderer {
               ${content}
             </td>
           </tr>
-          <tr>
+          ${this.config.businessName ? `<tr>
             <td class="email-footer">
               © ${this.config.businessName}
             </td>
-          </tr>
+          </tr>` : ''}
         </table>
       </td>
     </tr>

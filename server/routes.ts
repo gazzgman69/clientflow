@@ -122,6 +122,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use('/api/portal/forms', ensurePortalAuth, portalFormsRoutes);
   app.use('/api/portal/appointments', ensurePortalAuth, portalAppointmentsRoutes);
   
+  // Security helper functions for portal authentication
+  async function verifyProjectAccess(contactId: string, projectId: string): Promise<boolean> {
+    try {
+      // Get all projects owned by this contact
+      const contactProjects = await storage.getProjectsByContact(contactId);
+      
+      // Check if the requested project is owned by this contact
+      const hasAccess = contactProjects.some(project => project.id === projectId);
+      
+      if (!hasAccess) {
+        console.log(`🔒 SECURITY: Contact ${contactId} denied access to project ${projectId} - not in owned projects [${contactProjects.map(p => p.id).join(', ')}]`);
+      }
+      
+      return hasAccess;
+    } catch (error) {
+      console.error('❌ SECURITY: Error verifying project access - DENYING ACCESS:', error);
+      return false; // FAIL-CLOSED: Default to no access on error
+    }
+  }
+
+  async function resolveTenantId(contactId: string, projectId?: string): Promise<string> {
+    try {
+      // For now, use a consistent system-wide tenant ID since we don't have multi-tenancy yet
+      // In the future, this could resolve the tenant based on:
+      // - Contact's organization/company 
+      // - Project's assigned user/owner
+      // - Environment-specific tenant mapping
+      
+      if (projectId) {
+        // Get project to find the assigned user (potential tenant)
+        const project = await storage.getProject(projectId);
+        if (project?.assignedTo) {
+          return project.assignedTo; // Use project owner as tenant
+        }
+      }
+      
+      // Fallback to system default tenant
+      return 'system-default';
+    } catch (error) {
+      console.error('❌ SECURITY: Error resolving tenant ID - using fallback:', error);
+      return 'system-default'; // Fallback to known safe value
+    }
+  }
+
   // Portal enabled helper function
   async function isPortalEnabled(tenantId: string, projectId?: string): Promise<boolean> {
     try {
@@ -147,24 +191,64 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       return tenantDefault;
     } catch (error) {
-      console.error('Error checking portal enabled status:', error);
-      return true; // Default to enabled on error for backward compatibility
+      console.error('❌ SECURITY: Error checking portal enabled status - DENYING ACCESS:', error);
+      return false; // FAIL-CLOSED: Default to disabled on error for security
     }
   }
 
-  // Portal authentication middleware
-  function ensurePortalAuth(req: any, res: any, next: any) {
+  // Enhanced portal authentication middleware with portal enabled check
+  async function ensurePortalAuth(req: any, res: any, next: any) {
     if (!req.session.portalContactId) {
       return res.status(401).json({ error: 'Portal authentication required' });
     }
-    next();
+
+    try {
+      // Get contact to find associated projects and tenant
+      const contact = await storage.getContact(req.session.portalContactId);
+      if (!contact) {
+        return res.status(401).json({ error: 'Invalid portal session' });
+      }
+
+      // Resolve tenant ID from project ownership or fallback to system default
+      const tenantId = await resolveTenantId(contact.id, projectId);
+      
+      // Get project ID from route params if available
+      const projectId = req.params.projectId || req.query.projectId || req.body.projectId;
+      
+      // SECURITY: Verify project ownership if projectId is provided
+      if (projectId) {
+        const hasAccess = await verifyProjectAccess(contact.id, projectId);
+        if (!hasAccess) {
+          console.log(`🚫 SECURITY: Contact ${contact.email} denied access to project ${projectId} - not owner`);
+          return res.status(403).json({ 
+            error: 'Access denied', 
+            message: 'You do not have access to this project.' 
+          });
+        }
+      }
+      
+      // Check if portal is enabled for this tenant/project
+      const portalEnabled = await isPortalEnabled(tenantId, projectId);
+      if (!portalEnabled) {
+        console.log(`🚫 Portal access blocked for contact ${contact.email} - portal disabled for tenant ${tenantId}, project ${projectId || 'none'}`);
+        return res.status(403).json({ 
+          error: 'Client portal access is currently disabled',
+          message: 'The client portal has been temporarily disabled. Please contact your service provider for assistance.'
+        });
+      }
+
+      next();
+    } catch (error) {
+      console.error('Portal auth middleware error:', error);
+      return res.status(500).json({ error: 'Portal authentication failed' });
+    }
   }
 
   // Portal authentication endpoints
-  // Step 1: Request magic link
+  // Step 1: Request magic link (with portal enabled check)
   app.post('/api/portal/auth/request-access', async (req, res) => {
     try {
-      const { email } = req.body;
+      const { email, projectId } = req.body;
       if (!email) {
         return res.status(400).json({ error: 'Email address required' });
       }
@@ -174,6 +258,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!contact) {
         // Don't reveal if email exists or not for security
         return res.json({ success: true, message: 'If an account exists with this email, you will receive an access link' });
+      }
+
+      // SECURITY: Verify project ownership before checking portal access
+      if (projectId) {
+        const hasAccess = await verifyProjectAccess(contact.id, projectId);
+        if (!hasAccess) {
+          console.log(`🚫 SECURITY: Contact ${email} denied portal access request for project ${projectId} - not owner`);
+          // Don't reveal why access was denied for security
+          return res.json({ success: true, message: 'If an account exists with this email, you will receive an access link' });
+        }
+      }
+      
+      // Check if portal is enabled for this tenant/project before generating magic link
+      const tenantId = await resolveTenantId(contact.id, projectId);
+      const portalEnabled = await isPortalEnabled(tenantId, projectId);
+      if (!portalEnabled) {
+        console.log(`🚫 Portal access request blocked for ${email} - portal disabled for tenant ${tenantId}, project ${projectId || 'none'}`);
+        return res.status(403).json({ 
+          error: 'Client portal access is currently disabled',
+          message: 'The client portal has been temporarily disabled. Please contact your service provider for assistance.'
+        });
       }
       
       // Generate cryptographically secure access token (expires in 15 minutes)

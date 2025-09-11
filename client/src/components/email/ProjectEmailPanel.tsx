@@ -184,10 +184,11 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
     const currentMessage = message;
     const signatureContent = signature.content;
     
-    // Add signature at the end of the message with proper formatting
+    // Add signature at the end of the message with proper formatting - trim any leading/trailing whitespace
+    const trimmedSignature = signatureContent.trim();
     const newMessage = currentMessage ? 
-      `${currentMessage}\n${signatureContent}` : 
-      `${signatureContent}`;
+      `${currentMessage}\n${trimmedSignature}` : 
+      `${trimmedSignature}`;
     
     setMessage(newMessage);
     // Also update the Rich Text Editor content directly
@@ -1102,7 +1103,7 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
                                     key={signature.id}
                                     onClick={() => {
                                       // Apply signature to reply message
-                                      const newSignature = signature.content;
+                                      const newSignature = signature.content.trim();
                                       setReplyMessage(replyMessage + newSignature);
                                     }}
                                     data-testid={`dropdown-reply-signature-${signature.id}`}

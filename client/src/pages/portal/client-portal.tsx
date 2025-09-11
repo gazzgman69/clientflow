@@ -55,9 +55,11 @@ export default function ClientPortal() {
   const { data: myProjects = [] } = useQuery<Project[]>({
     queryKey: ["/api/portal/client/projects"],
     queryFn: async () => {
-      // This would filter projects for the current client
-      const projects = await apiRequest("/api/projects", "GET");
-      return projects.filter((p: Project) => p.contactId === currentContactId);
+      const response = await fetch("/api/portal/client/projects", {
+        headers: { "contactid": currentContactId }
+      });
+      if (!response.ok) throw new Error("Failed to fetch projects");
+      return response.json();
     }
   });
 
@@ -100,18 +102,22 @@ export default function ClientPortal() {
   const { data: myContracts = [] } = useQuery<Contract[]>({
     queryKey: ["/api/portal/client/contracts"],
     queryFn: async () => {
-      // This would filter contracts for the current client
-      const contracts = await apiRequest("/api/contracts", "GET");
-      return contracts.filter((c: Contract) => c.clientId === currentContactId);
+      const response = await fetch("/api/portal/client/contracts", {
+        headers: { "contactid": currentContactId }
+      });
+      if (!response.ok) throw new Error("Failed to fetch contracts");
+      return response.json();
     }
   });
 
   const { data: myQuotes = [] } = useQuery<Quote[]>({
     queryKey: ["/api/portal/client/quotes"],
     queryFn: async () => {
-      // This would filter quotes for the current client
-      const quotes = await apiRequest("/api/quotes", "GET");
-      return quotes.filter((q: Quote) => q.clientId === currentContactId);
+      const response = await fetch("/api/portal/client/quotes", {
+        headers: { "contactid": currentContactId }
+      });
+      if (!response.ok) throw new Error("Failed to fetch quotes");
+      return response.json();
     }
   });
 
@@ -585,7 +591,9 @@ export default function ClientPortal() {
                           {format(new Date(appointment.startDate), "dd/MM/yyyy HH:mm")}
                         </TableCell>
                         <TableCell>
-                          {appointment.duration || "60"} minutes
+                          {appointment.endDate && appointment.startDate 
+                            ? Math.round((new Date(appointment.endDate).getTime() - new Date(appointment.startDate).getTime()) / (1000 * 60))
+                            : "60"} minutes
                         </TableCell>
                         <TableCell>
                           <Badge className={getStatusColor(appointment.status || "confirmed")}>

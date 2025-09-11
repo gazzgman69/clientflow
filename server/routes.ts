@@ -114,6 +114,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use('/api/portal/forms', portalFormsRoutes);
   app.use('/api/portal/appointments', portalAppointmentsRoutes);
   
+  // Portal client routes - secure endpoints for authenticated clients
+  app.get('/api/portal/client/projects', async (req, res) => {
+    try {
+      const contactId = req.headers.contactid as string;
+      if (!contactId) {
+        return res.status(401).json({ error: 'Contact authentication required' });
+      }
+      
+      const projects = await storage.getProjectsByContact(contactId);
+      res.json(projects);
+    } catch (error: any) {
+      console.error('Error fetching portal projects:', error);
+      res.status(500).json({ error: 'Failed to fetch projects' });
+    }
+  });
+  
+  app.get('/api/portal/client/contracts', async (req, res) => {
+    try {
+      const contactId = req.headers.contactid as string;
+      if (!contactId) {
+        return res.status(401).json({ error: 'Contact authentication required' });
+      }
+      
+      const contracts = await storage.getContractsByClient(contactId);
+      res.json(contracts);
+    } catch (error: any) {
+      console.error('Error fetching portal contracts:', error);
+      res.status(500).json({ error: 'Failed to fetch contracts' });
+    }
+  });
+  
+  app.get('/api/portal/client/quotes', async (req, res) => {
+    try {
+      const contactId = req.headers.contactid as string;
+      if (!contactId) {
+        return res.status(401).json({ error: 'Contact authentication required' });
+      }
+      
+      const quotes = await storage.getQuotesByContact(contactId);
+      res.json(quotes);
+    } catch (error: any) {
+      console.error('Error fetching portal quotes:', error);
+      res.status(500).json({ error: 'Failed to fetch quotes' });
+    }
+  });
+  
   // Dashboard metrics
   app.get("/api/dashboard/metrics", async (req, res) => {
     try {

@@ -960,11 +960,26 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
                       </div>
                     </CardHeader>
                     <CardContent className="pt-0">
-                      <div className="whitespace-pre-wrap text-sm bg-muted/30 p-3 rounded max-h-64 overflow-y-auto mb-3">
-                        {resolveDisplayTokens(
-                          decodeHtmlEntities(message.bodyText || message.bodyHtml) || 'No content',
-                          project,
-                          contact
+                      <div className="text-sm bg-muted/30 p-3 rounded max-h-64 overflow-y-auto mb-3">
+                        {message.bodyHtml ? (
+                          <div 
+                            className="prose prose-sm max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0"
+                            dangerouslySetInnerHTML={{
+                              __html: resolveDisplayTokens(
+                                decodeHtmlEntities(message.bodyHtml) || 'No content',
+                                project,
+                                contact
+                              )
+                            }}
+                          />
+                        ) : (
+                          <div className="whitespace-pre-wrap">
+                            {resolveDisplayTokens(
+                              decodeHtmlEntities(message.bodyText) || 'No content',
+                              project,
+                              contact
+                            )}
+                          </div>
                         )}
                       </div>
                       <div className="flex justify-end">

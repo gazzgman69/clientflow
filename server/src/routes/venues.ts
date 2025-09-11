@@ -207,6 +207,22 @@ router.get('/:id/maps-link', async (req, res) => {
   }
 });
 
+// POST /api/venues/:id/track-usage - Track venue usage for caching
+router.post('/:id/track-usage', async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    await venuesService.trackVenueUsage(id);
+    
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error tracking venue usage:', error);
+    res.status(500).json({ 
+      message: 'Failed to track venue usage' 
+    });
+  }
+});
+
 // POST /api/venues - Create new venue with full field validation
 router.post('/', async (req, res) => {
   try {

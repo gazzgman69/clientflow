@@ -13,6 +13,8 @@ interface PlacePrediction {
     secondary_text: string;
   };
   types: string[];
+  cached?: boolean; // Flag to indicate if this is from cache
+  venueId?: string; // For cached venues, includes the venue ID
 }
 
 interface SelectedVenue {
@@ -103,7 +105,7 @@ export function VenueAutocomplete({
 
     setIsLoading(true);
     try {
-      const response = await fetch('/api/venues/autocomplete', {
+      const response = await fetch('/api/venues/suggest', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -147,36 +149,75 @@ export function VenueAutocomplete({
     setIsLoading(true);
 
     try {
-      // Get place details from Google WITHOUT creating a venue
-      const response = await fetch('/api/venues/place-details', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
+      let selectedVenue: SelectedVenue;
+
+      // Handle cached venues differently
+      if (prediction.cached && prediction.venueId) {
+        // For cached venues, fetch the venue directly from our database
+        const response = await fetch(`/api/venues/${prediction.venueId}`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to get cached venue details');
+        }
+
+        const venue = await response.json();
+        
+        // Transform cached venue data for form pre-filling
+        selectedVenue = {
+          placeId: venue.placeId || prediction.place_id,
+          name: venue.name || prediction.structured_formatting.main_text,
+          address: venue.address,
+          city: venue.city,
+          state: venue.state,
+          zipCode: venue.zipCode,
+          country: venue.country,
+          latitude: venue.latitude ? parseFloat(venue.latitude) : undefined,
+          longitude: venue.longitude ? parseFloat(venue.longitude) : undefined,
+        };
+
+        // Track usage for cached venue (fire and forget)
+        fetch(`/api/venues/${prediction.venueId}/track-usage`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+        }).catch(err => console.warn('Failed to track venue usage:', err));
+
+      } else {
+        // For Google Places venues, get place details from Google
+        const response = await fetch('/api/venues/place-details', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            placeId: prediction.place_id,
+            sessionToken
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to get place details');
+        }
+
+        const placeDetails = await response.json();
+        
+        // Transform place details for form pre-filling
+        selectedVenue = {
           placeId: prediction.place_id,
-          sessionToken
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to get place details');
+          name: placeDetails.name || prediction.structured_formatting.main_text,
+          address: placeDetails.address1, // Use the properly parsed street address
+          city: placeDetails.city,
+          state: placeDetails.state,
+          zipCode: placeDetails.postalCode,
+          country: placeDetails.countryCode,
+          latitude: placeDetails.latitude,
+          longitude: placeDetails.longitude,
+        };
       }
-
-      const placeDetails = await response.json();
-      
-      // Transform place details for form pre-filling
-      const selectedVenue: SelectedVenue = {
-        placeId: prediction.place_id,
-        name: placeDetails.name || prediction.structured_formatting.main_text,
-        address: placeDetails.address1, // Use the properly parsed street address
-        city: placeDetails.city,
-        state: placeDetails.state,
-        zipCode: placeDetails.postalCode,
-        country: placeDetails.countryCode,
-        latitude: placeDetails.latitude,
-        longitude: placeDetails.longitude,
-      };
 
       onVenueSelect(selectedVenue);
       

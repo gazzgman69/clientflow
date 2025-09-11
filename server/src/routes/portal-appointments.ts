@@ -8,16 +8,12 @@ const router = express.Router();
 // Get available appointment slots
 router.get("/availability", async (req, res) => {
   try {
-    const contactId = req.headers.contactid as string;
+    const contactId = (req as any).session.portalContactId!; // ensurePortalAuth middleware guarantees this exists
     const { startDate, endDate, duration = '60' } = req.query as {
       startDate?: string;
       endDate?: string;
       duration?: string;
     };
-
-    if (!contactId) {
-      return res.status(401).json({ error: 'Contact authentication required' });
-    }
     if (!startDate || !endDate) {
       return res.status(400).json({ error: 'Start date and end date required' });
     }
@@ -73,11 +69,7 @@ router.get("/availability", async (req, res) => {
 // Get appointments for a contact
 router.get("/appointments", async (req, res) => {
   try {
-    const contactId = req.headers.contactid as string;
-    
-    if (!contactId) {
-      return res.status(401).json({ error: 'Contact authentication required' });
-    }
+    const contactId = (req as any).session.portalContactId!; // ensurePortalAuth middleware guarantees this exists
 
     const contact = await storage.getContactById(contactId);
     if (!contact || !contact.email) {
@@ -107,12 +99,8 @@ router.get("/appointments", async (req, res) => {
 // Book new appointment
 router.post("/appointments", async (req, res) => {
   try {
-    const contactId = req.headers.contactid as string;
+    const contactId = (req as any).session.portalContactId!; // ensurePortalAuth middleware guarantees this exists
     const { title, description, startDate, endDate, location } = req.body;
-
-    if (!contactId) {
-      return res.status(401).json({ error: 'Contact authentication required' });
-    }
     if (!title || !startDate || !endDate) {
       return res.status(400).json({ error: 'Title, start date, and end date required' });
     }
@@ -173,12 +161,8 @@ router.post("/appointments", async (req, res) => {
 router.put("/appointments/:eventId/reschedule", async (req, res) => {
   try {
     const { eventId } = req.params;
-    const contactId = req.headers.contactid as string;
+    const contactId = (req as any).session.portalContactId!; // ensurePortalAuth middleware guarantees this exists
     const { startDate, endDate } = req.body;
-
-    if (!contactId) {
-      return res.status(401).json({ error: 'Contact authentication required' });
-    }
     if (!startDate || !endDate) {
       return res.status(400).json({ error: 'Start date and end date required' });
     }
@@ -241,11 +225,7 @@ router.put("/appointments/:eventId/reschedule", async (req, res) => {
 router.delete("/appointments/:eventId", async (req, res) => {
   try {
     const { eventId } = req.params;
-    const contactId = req.headers.contactid as string;
-
-    if (!contactId) {
-      return res.status(401).json({ error: 'Contact authentication required' });
-    }
+    const contactId = (req as any).session.portalContactId!; // ensurePortalAuth middleware guarantees this exists
 
     const event = await storage.getEventById(eventId);
     if (!event) {

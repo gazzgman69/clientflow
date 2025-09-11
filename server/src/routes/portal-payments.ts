@@ -23,10 +23,7 @@ const router = express.Router();
 // Get invoices for a contact in portal view
 router.get("/invoices", async (req, res) => {
   try {
-    const contactId = req.headers.contactid as string;
-    if (!contactId) {
-      return res.status(401).json({ error: 'Contact authentication required' });
-    }
+    const contactId = (req as any).session.portalContactId!; // ensurePortalAuth middleware guarantees this exists
 
     const invoices = await storage.getInvoicesByContactId(contactId);
     const formatted = invoices.map(invoice => ({
@@ -47,10 +44,7 @@ router.get("/invoices", async (req, res) => {
 // Get payment history for a contact
 router.get("/payment-history", async (req, res) => {
   try {
-    const contactId = req.headers.contactid as string;
-    if (!contactId) {
-      return res.status(401).json({ error: 'Contact authentication required' });
-    }
+    const contactId = (req as any).session.portalContactId!; // ensurePortalAuth middleware guarantees this exists
 
     const paymentSessions = await storage.getPaymentSessionsByContactId(contactId);
     const formatted = paymentSessions.map(session => ({
@@ -69,12 +63,8 @@ router.get("/payment-history", async (req, res) => {
 // Create payment intent for invoice
 router.post("/create-payment-intent", async (req, res) => {
   try {
-    const contactId = req.headers.contactid as string;
+    const contactId = (req as any).session.portalContactId!; // ensurePortalAuth middleware guarantees this exists
     const { invoiceId } = req.body;
-    
-    if (!contactId) {
-      return res.status(401).json({ error: 'Contact authentication required' });
-    }
     if (!invoiceId) {
       return res.status(400).json({ error: 'Invoice ID required' });
     }
@@ -139,12 +129,8 @@ router.post("/create-payment-intent", async (req, res) => {
 // Confirm payment completion
 router.post("/confirm-payment", async (req, res) => {
   try {
-    const contactId = req.headers.contactid as string;
+    const contactId = (req as any).session.portalContactId!; // ensurePortalAuth middleware guarantees this exists
     const { sessionId } = req.body;
-    
-    if (!contactId) {
-      return res.status(401).json({ error: 'Contact authentication required' });
-    }
     if (!sessionId) {
       return res.status(400).json({ error: 'Session ID required' });
     }

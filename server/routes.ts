@@ -4,6 +4,13 @@ import { createServer, type Server } from "http";
 import session from "express-session";
 import ConnectPgSimple from "connect-pg-simple";
 import { storage } from "./storage";
+
+// Extend session to include portal authentication
+declare module 'express-session' {
+  interface SessionData {
+    portalContactId?: string;
+  }
+}
 import { twilioService } from "./services/twilio";
 import { googleCalendarService } from "./services/google-calendar";
 import { googleOAuthService } from "./services/google-oauth";
@@ -109,19 +116,65 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Venues routes
   app.use('/api/venues', venuesRoutes);
 
-  // Portal routes (client portal features)
-  app.use('/api/portal/payments', portalPaymentsRoutes);
-  app.use('/api/portal/forms', portalFormsRoutes);
-  app.use('/api/portal/appointments', portalAppointmentsRoutes);
+  // Portal routes (client portal features) - all secured with session auth
+  app.use('/api/portal/payments', ensurePortalAuth, portalPaymentsRoutes);
+  app.use('/api/portal/forms', ensurePortalAuth, portalFormsRoutes);
+  app.use('/api/portal/appointments', ensurePortalAuth, portalAppointmentsRoutes);
   
-  // Portal client routes - secure endpoints for authenticated clients
-  app.get('/api/portal/client/projects', async (req, res) => {
+  // Portal authentication middleware
+  function ensurePortalAuth(req: any, res: any, next: any) {
+    if (!req.session.portalContactId) {
+      return res.status(401).json({ error: 'Portal authentication required' });
+    }
+    next();
+  }
+
+  // Portal authentication endpoints
+  app.post('/api/portal/auth/login', async (req, res) => {
     try {
-      const contactId = req.headers.contactid as string;
+      const { contactId } = req.body;
       if (!contactId) {
-        return res.status(401).json({ error: 'Contact authentication required' });
+        return res.status(400).json({ error: 'Contact ID required' });
       }
       
+      // Verify contact exists
+      const contact = await storage.getContact(contactId);
+      if (!contact) {
+        return res.status(404).json({ error: 'Contact not found' });
+      }
+      
+      // Store contactId in session
+      req.session.portalContactId = contactId;
+      res.json({ success: true, contact: { id: contact.id, name: contact.fullName || contact.firstName, email: contact.email } });
+    } catch (error: any) {
+      console.error('Portal authentication error:', error);
+      res.status(500).json({ error: 'Authentication failed' });
+    }
+  });
+
+  app.post('/api/portal/auth/logout', (req, res) => {
+    delete req.session.portalContactId;
+    res.json({ success: true });
+  });
+
+  app.get('/api/portal/auth/me', ensurePortalAuth, async (req, res) => {
+    try {
+      const contactId = req.session.portalContactId!; // ensurePortalAuth guarantees this exists
+      const contact = await storage.getContact(contactId);
+      if (!contact) {
+        return res.status(404).json({ error: 'Contact not found' });
+      }
+      res.json({ contact: { id: contact.id, name: contact.fullName || contact.firstName, email: contact.email } });
+    } catch (error: any) {
+      console.error('Error fetching contact info:', error);
+      res.status(500).json({ error: 'Failed to get contact info' });
+    }
+  });
+
+  // Portal client routes - secure endpoints for authenticated clients
+  app.get('/api/portal/client/projects', ensurePortalAuth, async (req, res) => {
+    try {
+      const contactId = req.session.portalContactId!; // ensurePortalAuth guarantees this exists
       const projects = await storage.getProjectsByContact(contactId);
       res.json(projects);
     } catch (error: any) {
@@ -130,13 +183,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  app.get('/api/portal/client/contracts', async (req, res) => {
+  app.get('/api/portal/client/contracts', ensurePortalAuth, async (req, res) => {
     try {
-      const contactId = req.headers.contactid as string;
-      if (!contactId) {
-        return res.status(401).json({ error: 'Contact authentication required' });
-      }
-      
+      const contactId = req.session.portalContactId!; // ensurePortalAuth guarantees this exists
       const contracts = await storage.getContractsByClient(contactId);
       res.json(contracts);
     } catch (error: any) {
@@ -145,13 +194,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  app.get('/api/portal/client/quotes', async (req, res) => {
+  app.get('/api/portal/client/quotes', ensurePortalAuth, async (req, res) => {
     try {
-      const contactId = req.headers.contactid as string;
-      if (!contactId) {
-        return res.status(401).json({ error: 'Contact authentication required' });
-      }
-      
+      const contactId = req.session.portalContactId!; // ensurePortalAuth guarantees this exists
       const quotes = await storage.getQuotesByContact(contactId);
       res.json(quotes);
     } catch (error: any) {

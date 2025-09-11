@@ -7,12 +7,8 @@ const router = express.Router();
 // Get forms for a contact and project
 router.get("/forms", async (req, res) => {
   try {
-    const contactId = req.headers.contactid as string;
+    const contactId = (req as any).session.portalContactId!; // ensurePortalAuth middleware guarantees this exists
     const projectId = req.query.projectId as string;
-    
-    if (!contactId) {
-      return res.status(401).json({ error: 'Contact authentication required' });
-    }
 
     let forms;
     if (projectId) {
@@ -40,11 +36,7 @@ router.get("/forms", async (req, res) => {
 router.get("/forms/:formId", async (req, res) => {
   try {
     const { formId } = req.params;
-    const contactId = req.headers.contactid as string;
-
-    if (!contactId) {
-      return res.status(401).json({ error: 'Contact authentication required' });
-    }
+    const contactId = (req as any).session.portalContactId!; // ensurePortalAuth middleware guarantees this exists
 
     const form = await storage.getPortalFormById(formId);
     if (!form) {
@@ -78,12 +70,8 @@ router.get("/forms/:formId", async (req, res) => {
 router.put("/forms/:formId/draft", async (req, res) => {
   try {
     const { formId } = req.params;
-    const contactId = req.headers.contactid as string;
+    const contactId = (req as any).session.portalContactId!; // ensurePortalAuth middleware guarantees this exists
     const { draftData } = req.body;
-
-    if (!contactId) {
-      return res.status(401).json({ error: 'Contact authentication required' });
-    }
 
     // Verify contact has access to this form
     const form = await storage.getPortalFormById(formId);
@@ -112,12 +100,8 @@ router.put("/forms/:formId/draft", async (req, res) => {
 router.post("/forms/:formId/submit", async (req, res) => {
   try {
     const { formId } = req.params;
-    const contactId = req.headers.contactid as string;
+    const contactId = (req as any).session.portalContactId!; // ensurePortalAuth middleware guarantees this exists
     const { submittedData } = req.body;
-
-    if (!contactId) {
-      return res.status(401).json({ error: 'Contact authentication required' });
-    }
 
     // Verify contact has access to this form
     const form = await storage.getPortalFormById(formId);

@@ -215,35 +215,31 @@ export class EmailRenderer {
    * Generate plaintext version from HTML
    */
   private generatePlaintext(html: string): string {
-    return htmlToText(html, {
-      wordwrap: 80,
-      selectors: [
-        { selector: 'p', options: { leadingLineBreaks: 1, trailingLineBreaks: 1 } },
-        { selector: 'br', format: 'skip' },
-        { selector: 'strong', format: 'inlineTag' },
-        { selector: 'em', format: 'inlineTag' },
-        { selector: 'code', format: 'inlineTag' },
-        { selector: 'h1', options: { leadingLineBreaks: 2, trailingLineBreaks: 1, uppercase: false } },
-        { selector: 'h2', options: { leadingLineBreaks: 2, trailingLineBreaks: 1, uppercase: false } },
-        { selector: 'h3', options: { leadingLineBreaks: 1, trailingLineBreaks: 1, uppercase: false } },
-        { selector: 'blockquote', options: { leadingLineBreaks: 1, trailingLineBreaks: 1 } },
-        { selector: 'ul', options: { leadingLineBreaks: 1, trailingLineBreaks: 1 } },
-        { selector: 'ol', options: { leadingLineBreaks: 1, trailingLineBreaks: 1 } },
-        { selector: 'li', options: { leadingLineBreaks: 0, trailingLineBreaks: 0 } },
-        { selector: 'a', options: { linkBrackets: false } }
-      ],
-      formatters: {
-        'linkFormatter': function(elem, walk, builder) {
-          const href = elem.attribs?.href;
-          if (href && href.startsWith('http')) {
-            walk(elem.children, builder);
-            builder.addInline(` (${href})`);
-          } else {
-            walk(elem.children, builder);
-          }
-        }
-      }
-    });
+    // Use simple regex-based HTML stripping for reliability
+    console.log('📧 Converting HTML to plaintext using fallback method');
+    return html
+      .replace(/<style[^>]*>.*?<\/style>/gis, '')
+      .replace(/<script[^>]*>.*?<\/script>/gis, '')
+      .replace(/<h[1-6][^>]*>/gi, '\n\n')
+      .replace(/<\/h[1-6]>/gi, '\n')
+      .replace(/<p[^>]*>/gi, '\n')
+      .replace(/<\/p>/gi, '\n')
+      .replace(/<br[^>]*>/gi, '\n')
+      .replace(/<li[^>]*>/gi, '\n• ')
+      .replace(/<\/li>/gi, '')
+      .replace(/<ul[^>]*>|<\/ul>/gi, '\n')
+      .replace(/<ol[^>]*>|<\/ol>/gi, '\n')
+      .replace(/<blockquote[^>]*>/gi, '\n> ')
+      .replace(/<\/blockquote>/gi, '\n')
+      .replace(/<[^>]*>/g, '')
+      .replace(/&nbsp;/g, ' ')
+      .replace(/&amp;/g, '&')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&quot;/g, '"')
+      .replace(/\n\s*\n/g, '\n\n')
+      .replace(/^\s+|\s+$/g, '')
+      .trim();
   }
 
   /**

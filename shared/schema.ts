@@ -746,3 +746,65 @@ export const insertUserPrefSchema = createInsertSchema(userPrefs).omit({
 });
 export type InsertUserPref = z.infer<typeof insertUserPrefSchema>;
 export type UserPref = typeof userPrefs.$inferSelect;
+
+// Portal Forms - Project-specific questionnaires for clients
+export const portalForms = pgTable("portal_forms", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  projectId: varchar("project_id").references(() => projects.id).notNull(),
+  contactId: varchar("contact_id").references(() => contacts.id).notNull(),
+  title: text("title").notNull(),
+  description: text("description"),
+  formDefinition: text("form_definition").notNull(), // JSON schema
+  status: text("status").notNull().default('not_started'), // not_started, in_progress, submitted
+  draftData: text("draft_data"), // JSON saved progress
+  submittedData: text("submitted_data"), // JSON final submission
+  submittedAt: timestamp("submitted_at"),
+  createdBy: varchar("created_by").references(() => users.id).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  projectIdIdx: index("portal_forms_project_id_idx").on(table.projectId),
+  contactIdIdx: index("portal_forms_contact_id_idx").on(table.contactId),
+}));
+
+// Payment Sessions - Track payment attempts for invoices
+export const paymentSessions = pgTable("payment_sessions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  invoiceId: varchar("invoice_id").references(() => invoices.id).notNull(),
+  contactId: varchar("contact_id").references(() => contacts.id).notNull(),
+  provider: text("provider").notNull(), // 'stripe', 'paypal'
+  sessionId: text("session_id"), // provider session ID
+  paymentIntentId: text("payment_intent_id"), // Stripe payment intent ID
+  status: text("status").notNull().default('pending'), // pending, completed, failed, cancelled
+  amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
+  currency: text("currency").notNull().default('usd'),
+  metadata: text("metadata"), // JSON provider-specific data
+  expiresAt: timestamp("expires_at"),
+  completedAt: timestamp("completed_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  invoiceIdIdx: index("payment_sessions_invoice_id_idx").on(table.invoiceId),
+  contactIdIdx: index("payment_sessions_contact_id_idx").on(table.contactId),
+  sessionIdIdx: index("payment_sessions_session_id_idx").on(table.sessionId),
+}));
+
+// Insert schemas and types for portal forms
+export const insertPortalFormSchema = createInsertSchema(portalForms).omit({ 
+  id: true, 
+  createdAt: true, 
+  updatedAt: true 
+});
+
+export type PortalForm = typeof portalForms.$inferSelect;
+export type InsertPortalForm = z.infer<typeof insertPortalFormSchema>;
+
+// Insert schemas and types for payment sessions
+export const insertPaymentSessionSchema = createInsertSchema(paymentSessions).omit({ 
+  id: true, 
+  createdAt: true, 
+  updatedAt: true 
+});
+
+export type PaymentSession = typeof paymentSessions.$inferSelect;
+export type InsertPaymentSession = z.infer<typeof insertPaymentSessionSchema>;

@@ -217,6 +217,7 @@ export class EmailSyncService {
               .values({
                 id: emailId,
                 threadId,
+                userId, // Add userId for multi-tenant support
                 provider: 'gmail',
                 providerMessageId: gmailThread.latest.id,
                 direction: 'inbound',
@@ -557,6 +558,7 @@ export class EmailSyncService {
         .insert(emails)
         .values({
           threadId,
+          userId, // Add userId for multi-tenant support
           provider: 'gmail',
           providerMessageId: message.id,
           providerThreadId: message.threadId || '',
@@ -642,6 +644,7 @@ export class EmailSyncService {
         .insert(emails)
         .values({
           threadId: correctThreadId, // Use RFC-determined thread, not Gmail thread ID
+          userId, // Add userId for multi-tenant support
           provider: 'gmail',
           providerMessageId: gmailMessage.id,
           providerThreadId: gmailMessage.threadId || '',
@@ -811,6 +814,7 @@ export class EmailSyncService {
         .insert(emails)
         .values({
           threadId: correctThreadId, // Use RFC-determined thread
+          userId, // Add userId for multi-tenant support
           provider: 'gmail',
           direction: 'outbound',
           messageId, // Store the generated Message-ID

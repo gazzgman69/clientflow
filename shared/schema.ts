@@ -29,6 +29,7 @@ export const userPrefs = pgTable("user_prefs", {
 
 export const contacts = pgTable("contacts", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
   fullName: text("full_name"),
   firstName: text("first_name").notNull(),
   middleName: text("middle_name"),
@@ -61,6 +62,7 @@ export const contacts = pgTable("contacts", {
 
 export const projects = pgTable("projects", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
   name: text("name").notNull(),
   description: text("description"),
   contactId: varchar("contact_id").references(() => contacts.id).notNull(),
@@ -79,6 +81,7 @@ export const projects = pgTable("projects", {
 
 export const leads = pgTable("leads", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
   fullName: text("full_name"),
   firstName: text("first_name").notNull(),
   middleName: text("middle_name"),
@@ -102,6 +105,7 @@ export const leads = pgTable("leads", {
 
 export const quotes = pgTable("quotes", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
   quoteNumber: text("quote_number").notNull().unique(),
   contactId: varchar("contact_id").references(() => contacts.id),
   leadId: varchar("lead_id").references(() => leads.id),
@@ -121,6 +125,7 @@ export const quotes = pgTable("quotes", {
 
 export const contracts = pgTable("contracts", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
   contractNumber: text("contract_number").notNull().unique(),
   contactId: varchar("contact_id").references(() => contacts.id).notNull(),
   projectId: varchar("project_id").references(() => projects.id),
@@ -139,6 +144,7 @@ export const contracts = pgTable("contracts", {
 
 export const invoices = pgTable("invoices", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
   invoiceNumber: text("invoice_number").notNull().unique(),
   contactId: varchar("contact_id").references(() => contacts.id).notNull(),
   projectId: varchar("project_id").references(() => projects.id),
@@ -159,6 +165,7 @@ export const invoices = pgTable("invoices", {
 
 export const tasks = pgTable("tasks", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
   title: text("title").notNull(),
   description: text("description"),
   priority: text("priority").notNull().default('medium'), // low, medium, high, urgent
@@ -177,6 +184,7 @@ export const tasks = pgTable("tasks", {
 // Email Threading System - replaces existing emails table with proper threading
 export const emailThreads = pgTable("email_threads", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
   projectId: varchar("project_id").references(() => projects.id),
   subject: text("subject"),
   lastMessageAt: timestamp("last_message_at"),
@@ -188,6 +196,7 @@ export const emailThreads = pgTable("email_threads", {
 
 export const emails = pgTable("emails", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
   threadId: varchar("thread_id").references(() => emailThreads.id).notNull(),
   provider: text("provider"), // 'gmail'
   providerMessageId: text("provider_message_id"),
@@ -311,6 +320,7 @@ export const automations = pgTable("automations", {
 // Members (Musicians) Management
 export const members = pgTable("members", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
   firstName: text("first_name").notNull(),
   lastName: text("last_name").notNull(),
   email: text("email").notNull().unique(),
@@ -330,6 +340,7 @@ export const members = pgTable("members", {
 // Venues Management
 export const venues = pgTable("venues", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
   name: text("name").notNull(),
   address: text("address"),
   address2: text("address2"), // For suite/apartment numbers

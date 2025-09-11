@@ -200,18 +200,41 @@ router.post('/send', requireAuth, async (req: any, res) => {
 });
 
 /**
- * Get email threads (all recent)
+ * Get email threads (from contacts only)
  */
 router.get('/threads', requireAuth, async (req: any, res) => {
   try {
     const limit = parseInt(req.query.limit as string) || 20;
-    const q = req.query.q as string || '';
     const userId = req.user.id;
     
-    const result = await gmailService.listThreads(userId, { limit, q });
+    // Get all contact emails from CRM to filter threads
+    const contactEmails = await db
+      .select({ email: contacts.email })
+      .from(contacts)
+      .where(sql`${contacts.email} IS NOT NULL AND ${contacts.email} != ''`);
+    
+    const emailAddresses = contactEmails
+      .map(c => c.email)
+      .filter(email => email && email.trim().length > 0);
+    
+    // If no contact emails, return empty result
+    if (emailAddresses.length === 0) {
+      return res.json({
+        threads: [],
+        ok: true,
+        needsReconnect: false
+      });
+    }
+    
+    // Get threads involving contact emails only
+    const result = await gmailService.listThreadsForAddresses(userId, { 
+      limit, 
+      addresses: emailAddresses 
+    });
     
     res.json(result);
   } catch (error: any) {
+    console.error('Error fetching contact email threads:', error);
     res.status(500).json({ ok: false, error: 'Internal server error' });
   }
 });

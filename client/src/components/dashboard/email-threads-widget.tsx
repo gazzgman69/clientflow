@@ -27,7 +27,7 @@ interface EmailThread {
 interface EmailMessage {
   id: string;
   from: string;
-  to: string[];
+  to: string;
   subject: string;
   snippet: string;
   body: string;
@@ -274,7 +274,7 @@ export default function EmailThreadsWidget() {
                       </Badge>
                     </div>
                     <div className="text-sm text-muted-foreground">
-                      To: {message.to.join(', ')}
+                      To: {message.to}
                     </div>
                   </div>
                 </div>

@@ -186,7 +186,7 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
     
     // Add signature at the end of the message with proper formatting
     const newMessage = currentMessage ? 
-      `${currentMessage}\n\n${signatureContent}` : 
+      `${currentMessage}\n${signatureContent}` : 
       `${signatureContent}`;
     
     setMessage(newMessage);
@@ -1102,7 +1102,7 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
                                     key={signature.id}
                                     onClick={() => {
                                       // Apply signature to reply message
-                                      const newSignature = `\n${signature.content}`;
+                                      const newSignature = signature.content;
                                       setReplyMessage(replyMessage + newSignature);
                                     }}
                                     data-testid={`dropdown-reply-signature-${signature.id}`}

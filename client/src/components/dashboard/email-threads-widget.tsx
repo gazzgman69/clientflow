@@ -177,7 +177,7 @@ export default function EmailThreadsWidget() {
                       <p className="text-sm font-medium mb-1 truncate group-hover:text-primary transition-colors">
                         {thread.latest.subject}
                       </p>
-                      <p className="text-xs text-muted-foreground truncate group-hover:text-foreground transition-colors">
+                      <p className="text-xs text-muted-foreground truncate group-hover:text-primary transition-colors">
                         {thread.latest.snippet}
                       </p>
                     </div>

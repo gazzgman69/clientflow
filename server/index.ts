@@ -176,8 +176,8 @@ app.use((req, res, next) => {
       }
     };
 
-    // Start Gmail sync service
-    startGmailAutoSync();
+    // Start Gmail sync service - TEMPORARILY DISABLED FOR REPAIRS
+    // startGmailAutoSync();
 
     // Start lead automation service
     const startLeadAutomation = async () => {

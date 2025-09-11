@@ -55,23 +55,26 @@ export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
+  updateUser(id: string, user: Partial<InsertUser>): Promise<User | undefined>;
   
   // Leads
-  getLeads(): Promise<Lead[]>;
+  getLeads(userId?: string): Promise<Lead[]>;
   getLead(id: string): Promise<Lead | undefined>;
   createLead(lead: InsertLead): Promise<Lead>;
   updateLead(id: string, lead: Partial<InsertLead>): Promise<Lead | undefined>;
   deleteLead(id: string): Promise<boolean>;
   
   // Contacts
-  getContacts(): Promise<Contact[]>;
+  getContacts(userId?: string): Promise<Contact[]>;
   getContact(id: string): Promise<Contact | undefined>;
+  getContactByEmail(email: string): Promise<Contact | undefined>;
+  getContactById(id: string): Promise<Contact | undefined>;
   createContact(contact: InsertContact): Promise<Contact>;
   updateContact(id: string, contact: Partial<InsertContact>): Promise<Contact | undefined>;
   deleteContact(id: string): Promise<boolean>;
   
   // Projects
-  getProjects(): Promise<Project[]>;
+  getProjects(userId?: string): Promise<Project[]>;
   getProject(id: string): Promise<Project | undefined>;
   getProjectsByContact(contactId: string): Promise<Project[]>;
   createProject(project: InsertProject): Promise<Project>;
@@ -103,7 +106,7 @@ export interface IStorage {
   deleteInvoice(id: string): Promise<boolean>;
   
   // Tasks
-  getTasks(): Promise<Task[]>;
+  getTasks(userId?: string): Promise<Task[]>;
   getTask(id: string): Promise<Task | undefined>;
   getTasksByAssignee(userId: string): Promise<Task[]>;
   getTodayTasks(userId: string): Promise<Task[]>;
@@ -222,7 +225,7 @@ export interface IStorage {
   updateCalendarSyncLog(id: string, log: Partial<InsertCalendarSyncLog>): Promise<CalendarSyncLog | undefined>;
 
   // Dashboard metrics
-  getDashboardMetrics(): Promise<{
+  getDashboardMetrics(userId?: string): Promise<{
     totalLeads: number;
     activeProjects: number;
     revenue: number;
@@ -350,8 +353,12 @@ export class MemStorage implements IStorage {
   }
 
   // Leads
-  async getLeads(): Promise<Lead[]> {
-    return Array.from(this.leads.values()).sort((a, b) => 
+  async getLeads(userId?: string): Promise<Lead[]> {
+    let leads = Array.from(this.leads.values());
+    if (userId) {
+      leads = leads.filter(lead => lead.userId === userId);
+    }
+    return leads.sort((a, b) => 
       new Date(b.createdAt!).getTime() - new Date(a.createdAt!).getTime()
     );
   }
@@ -414,8 +421,12 @@ export class MemStorage implements IStorage {
   }
 
   // Contacts
-  async getContacts(): Promise<Contact[]> {
-    return Array.from(this.contacts.values()).sort((a, b) => 
+  async getContacts(userId?: string): Promise<Contact[]> {
+    let contacts = Array.from(this.contacts.values());
+    if (userId) {
+      contacts = contacts.filter(contact => contact.userId === userId);
+    }
+    return contacts.sort((a, b) => 
       new Date(b.createdAt!).getTime() - new Date(a.createdAt!).getTime()
     );
   }
@@ -478,9 +489,17 @@ export class MemStorage implements IStorage {
     return Array.from(this.contacts.values()).find(contact => contact.email === email);
   }
 
+  async getContactById(id: string): Promise<Contact | undefined> {
+    return this.contacts.get(id);
+  }
+
   // Projects
-  async getProjects(): Promise<Project[]> {
-    return Array.from(this.projects.values()).sort((a, b) => 
+  async getProjects(userId?: string): Promise<Project[]> {
+    let projects = Array.from(this.projects.values());
+    if (userId) {
+      projects = projects.filter(project => project.userId === userId || project.assignedTo === userId);
+    }
+    return projects.sort((a, b) => 
       new Date(b.createdAt!).getTime() - new Date(a.createdAt!).getTime()
     );
   }
@@ -693,8 +712,12 @@ export class MemStorage implements IStorage {
   }
 
   // Tasks
-  async getTasks(): Promise<Task[]> {
-    return Array.from(this.tasks.values()).sort((a, b) => 
+  async getTasks(userId?: string): Promise<Task[]> {
+    let tasks = Array.from(this.tasks.values());
+    if (userId) {
+      tasks = tasks.filter(task => task.assignedTo === userId || task.createdBy === userId);
+    }
+    return tasks.sort((a, b) => 
       new Date(b.createdAt!).getTime() - new Date(a.createdAt!).getTime()
     );
   }
@@ -1517,14 +1540,14 @@ export class MemStorage implements IStorage {
   }
 
   // Dashboard metrics
-  async getDashboardMetrics(): Promise<{
+  async getDashboardMetrics(userId?: string): Promise<{
     totalLeads: number;
     activeProjects: number;
     revenue: number;
     pendingInvoices: number;
   }> {
-    const leads = await this.getLeads();
-    const projects = await this.getProjects();
+    const leads = await this.getLeads(userId);
+    const projects = await this.getProjects(userId);
     const invoices = await this.getInvoices();
     
     const activeProjects = projects.filter(p => p.status === 'active').length;
@@ -1700,6 +1723,109 @@ export class MemStorage implements IStorage {
   async deleteLeadCaptureForm(id: string): Promise<boolean> {
     return this.leadCaptureForms.delete(id);
   }
+
+  // Portal Forms - MemStorage implementation
+  private portalForms: Map<string, PortalForm> = new Map();
+  
+  async getPortalFormsByContact(contactId: string): Promise<PortalForm[]> {
+    return Array.from(this.portalForms.values()).filter(form => form.contactId === contactId);
+  }
+  
+  async getPortalFormsByProjectAndContact(projectId: string, contactId: string): Promise<PortalForm[]> {
+    return Array.from(this.portalForms.values()).filter(
+      form => form.projectId === projectId && form.contactId === contactId
+    );
+  }
+  
+  async getPortalFormById(id: string): Promise<PortalForm | undefined> {
+    return this.portalForms.get(id);
+  }
+  
+  async createPortalForm(form: InsertPortalForm): Promise<PortalForm> {
+    const id = randomUUID();
+    const portalForm: PortalForm = {
+      ...form,
+      id,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    this.portalForms.set(id, portalForm);
+    return portalForm;
+  }
+  
+  async updatePortalForm(id: string, form: Partial<InsertPortalForm>): Promise<PortalForm | undefined> {
+    const existing = this.portalForms.get(id);
+    if (!existing) return undefined;
+    
+    const updated: PortalForm = {
+      ...existing,
+      ...form,
+      updatedAt: new Date(),
+    };
+    this.portalForms.set(id, updated);
+    return updated;
+  }
+  
+  async deletePortalForm(id: string): Promise<boolean> {
+    return this.portalForms.delete(id);
+  }
+
+  // Payment Sessions - MemStorage implementation
+  private paymentSessions: Map<string, PaymentSession> = new Map();
+  
+  async getPaymentSessionsByContactId(contactId: string): Promise<PaymentSession[]> {
+    return Array.from(this.paymentSessions.values()).filter(session => session.contactId === contactId);
+  }
+  
+  async getPaymentSessionById(id: string): Promise<PaymentSession | undefined> {
+    return this.paymentSessions.get(id);
+  }
+  
+  async createPaymentSession(session: InsertPaymentSession): Promise<PaymentSession> {
+    const id = randomUUID();
+    const paymentSession: PaymentSession = {
+      ...session,
+      id,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    this.paymentSessions.set(id, paymentSession);
+    return paymentSession;
+  }
+  
+  async updatePaymentSession(sessionId: string, session: Partial<InsertPaymentSession>): Promise<PaymentSession | undefined> {
+    const existing = this.paymentSessions.get(sessionId);
+    if (!existing) return undefined;
+    
+    const updated: PaymentSession = {
+      ...existing,
+      ...session,
+      updatedAt: new Date(),
+    };
+    this.paymentSessions.set(sessionId, updated);
+    return updated;
+  }
+
+  // Additional invoice methods
+  async getInvoiceById(id: string): Promise<Invoice | undefined> {
+    return this.invoices.get(id);
+  }
+  
+  async getInvoicesByContactId(contactId: string): Promise<Invoice[]> {
+    return Array.from(this.invoices.values()).filter(invoice => invoice.contactId === contactId);
+  }
+
+  // Additional event methods
+  async getEventById(id: string): Promise<Event | undefined> {
+    return this.events.get(id);
+  }
+  
+  async getEventsByContactEmail(email: string): Promise<Event[]> {
+    // Find contact by email first, then get events
+    const contact = await this.getContactByEmail(email);
+    if (!contact) return [];
+    return Array.from(this.events.values()).filter(event => event.contactId === contact.id);
+  }
 }
 
 // Database connection
@@ -1796,9 +1922,18 @@ export class DrizzleStorage implements IStorage {
     const result = await this.db.insert(users).values(user).returning();
     return result[0];
   }
+  async updateUser(id: string, user: Partial<InsertUser>): Promise<User | undefined> {
+    const result = await this.db.update(users).set(user).where(eq(users.id, id)).returning();
+    return result[0];
+  }
   
-  async getLeads(): Promise<Lead[]> {
-    return await db.select().from(leads).orderBy(desc(leads.createdAt));
+  async getLeads(userId?: string): Promise<Lead[]> {
+    if (userId) {
+      return await this.db.select().from(leads)
+        .where(eq(leads.userId, userId))
+        .orderBy(desc(leads.createdAt));
+    }
+    return await this.db.select().from(leads).orderBy(desc(leads.createdAt));
   }
   async getLead(id: string): Promise<Lead | undefined> {
     const result = await db.select().from(leads).where(eq(leads.id, id));
@@ -1832,8 +1967,17 @@ export class DrizzleStorage implements IStorage {
   }
   
   // Contacts - Using PostgreSQL
-  async getContacts(): Promise<Contact[]> {
+  async getContacts(userId?: string): Promise<Contact[]> {
+    if (userId) {
+      return await this.db.select().from(contacts)
+        .where(eq(contacts.userId, userId))
+        .orderBy(desc(contacts.createdAt));
+    }
     return await this.db.select().from(contacts).orderBy(desc(contacts.createdAt));
+  }
+  async getContactById(id: string): Promise<Contact | undefined> {
+    const result = await this.db.select().from(contacts).where(eq(contacts.id, id));
+    return result[0];
   }
   async getContact(id: string): Promise<Contact | undefined> {
     const result = await this.db.select().from(contacts).where(eq(contacts.id, id));
@@ -1865,7 +2009,12 @@ export class DrizzleStorage implements IStorage {
   }
   
   // Projects - Using PostgreSQL
-  async getProjects(): Promise<Project[]> {
+  async getProjects(userId?: string): Promise<Project[]> {
+    if (userId) {
+      return await this.db.select().from(projects)
+        .where(or(eq(projects.userId, userId), eq(projects.assignedTo, userId)))
+        .orderBy(desc(projects.createdAt));
+    }
     return await this.db.select().from(projects).orderBy(desc(projects.createdAt));
   }
   async getProject(id: string): Promise<Project | undefined> {
@@ -1996,10 +2145,31 @@ export class DrizzleStorage implements IStorage {
   async getInvoicesByProject(projectId: string) { 
     return await this.db.select().from(invoices).where(eq(invoices.projectId, projectId));
   }
+  async getInvoiceById(id: string): Promise<Invoice | undefined> {
+    const result = await this.db.select().from(invoices).where(eq(invoices.id, id));
+    return result[0];
+  }
+  async getInvoicesByContactId(contactId: string): Promise<Invoice[]> {
+    return await this.db.select().from(invoices).where(eq(invoices.contactId, contactId));
+  }
   
   // Tasks - PostgreSQL implementation
-  async getTasks() { 
-    return await this.db.select().from(tasks).orderBy(desc(tasks.createdAt));
+  async getTasks(userId?: string): Promise<Task[]> { 
+    try {
+      if (userId) {
+        return await this.db.select().from(tasks)
+          .where(or(eq(tasks.assignedTo, userId), eq(tasks.createdBy, userId)))
+          .orderBy(desc(tasks.createdAt));
+      }
+      return await this.db.select().from(tasks).orderBy(desc(tasks.createdAt));
+    } catch (error: any) {
+      // If any column doesn't exist, fallback to all tasks
+      if (error.code === '42703') { // column does not exist
+        console.warn('Column not found in tasks table, returning all tasks without filtering');
+        return await this.db.select().from(tasks).orderBy(desc(tasks.createdAt));
+      }
+      throw error;
+    }
   }
   async getTask(id: string) { 
     const result = await this.db.select().from(tasks).where(eq(tasks.id, id));
@@ -2350,15 +2520,15 @@ export class DrizzleStorage implements IStorage {
   }
   
   // Dashboard Metrics - PostgreSQL implementation
-  async getDashboardMetrics(): Promise<{
+  async getDashboardMetrics(userId?: string): Promise<{
     totalLeads: number;
     activeProjects: number;
     revenue: number;
     pendingInvoices: number;
   }> { 
     // Calculate metrics from PostgreSQL data
-    const leads = await this.getLeads();
-    const projects = await this.getProjects();
+    const leads = await this.getLeads(userId);
+    const projects = await this.getProjects(userId);
     const invoices = await this.getInvoices();
     
     const activeProjects = projects.filter(p => p.status === 'active').length;

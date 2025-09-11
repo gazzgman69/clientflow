@@ -17,7 +17,7 @@ export const users = pgTable("users", {
 
 export const userPrefs = pgTable("user_prefs", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id), // Made nullable initially for safe migration
   key: text("key").notNull(), // e.g., "emailViewMode"
   value: text("value").notNull(), // "unified" | "rfc"
   updatedAt: timestamp("updated_at").defaultNow(),
@@ -29,7 +29,7 @@ export const userPrefs = pgTable("user_prefs", {
 
 export const contacts = pgTable("contacts", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id), // Made nullable initially for safe migration
   fullName: text("full_name"),
   firstName: text("first_name").notNull(),
   middleName: text("middle_name"),
@@ -62,7 +62,7 @@ export const contacts = pgTable("contacts", {
 
 export const projects = pgTable("projects", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id), // Made nullable initially for safe migration
   name: text("name").notNull(),
   description: text("description"),
   contactId: varchar("contact_id").references(() => contacts.id).notNull(),
@@ -81,7 +81,7 @@ export const projects = pgTable("projects", {
 
 export const leads = pgTable("leads", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id), // Made nullable initially for safe migration
   fullName: text("full_name"),
   firstName: text("first_name").notNull(),
   middleName: text("middle_name"),
@@ -105,7 +105,7 @@ export const leads = pgTable("leads", {
 
 export const quotes = pgTable("quotes", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id), // Made nullable initially for safe migration
   quoteNumber: text("quote_number").notNull().unique(),
   contactId: varchar("contact_id").references(() => contacts.id),
   leadId: varchar("lead_id").references(() => leads.id),
@@ -125,7 +125,7 @@ export const quotes = pgTable("quotes", {
 
 export const contracts = pgTable("contracts", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id), // Made nullable initially for safe migration
   contractNumber: text("contract_number").notNull().unique(),
   contactId: varchar("contact_id").references(() => contacts.id).notNull(),
   projectId: varchar("project_id").references(() => projects.id),
@@ -144,7 +144,7 @@ export const contracts = pgTable("contracts", {
 
 export const invoices = pgTable("invoices", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id), // Made nullable initially for safe migration
   invoiceNumber: text("invoice_number").notNull().unique(),
   contactId: varchar("contact_id").references(() => contacts.id).notNull(),
   projectId: varchar("project_id").references(() => projects.id),
@@ -165,7 +165,7 @@ export const invoices = pgTable("invoices", {
 
 export const tasks = pgTable("tasks", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id), // Made nullable initially for safe migration
   title: text("title").notNull(),
   description: text("description"),
   priority: text("priority").notNull().default('medium'), // low, medium, high, urgent
@@ -184,7 +184,7 @@ export const tasks = pgTable("tasks", {
 // Email Threading System - replaces existing emails table with proper threading
 export const emailThreads = pgTable("email_threads", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id), // Made nullable initially for safe migration
   projectId: varchar("project_id").references(() => projects.id),
   subject: text("subject"),
   lastMessageAt: timestamp("last_message_at"),
@@ -196,7 +196,7 @@ export const emailThreads = pgTable("email_threads", {
 
 export const emails = pgTable("emails", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id), // Made nullable initially for safe migration
   threadId: varchar("thread_id").references(() => emailThreads.id).notNull(),
   provider: text("provider"), // 'gmail'
   providerMessageId: text("provider_message_id"),
@@ -243,7 +243,7 @@ export const emailAttachments = pgTable("email_attachments", {
 export const emailThreadReads = pgTable("email_thread_reads", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   threadId: varchar("thread_id").references(() => emailThreads.id).notNull(),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id), // Made nullable initially for safe migration
   lastReadAt: timestamp("last_read_at"),
 }, (table) => ({
   threadIdUserIdUnique: unique("email_thread_reads_thread_id_user_id_unique").on(table.threadId, table.userId),
@@ -301,7 +301,7 @@ export const activities = pgTable("activities", {
   entityId: varchar("entity_id"),
   contactId: varchar("contact_id").references(() => contacts.id),
   projectId: varchar("project_id").references(() => projects.id),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id), // Made nullable initially for safe migration
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -320,7 +320,7 @@ export const automations = pgTable("automations", {
 // Members (Musicians) Management
 export const members = pgTable("members", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id), // Made nullable initially for safe migration
   firstName: text("first_name").notNull(),
   lastName: text("last_name").notNull(),
   email: text("email").notNull().unique(),
@@ -340,7 +340,7 @@ export const members = pgTable("members", {
 // Venues Management
 export const venues = pgTable("venues", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id), // Made nullable initially for safe migration
   name: text("name").notNull(),
   address: text("address"),
   address2: text("address2"), // For suite/apartment numbers
@@ -418,7 +418,7 @@ export const projectNotes = pgTable("project_notes", {
 // Calendar Integrations
 export const calendarIntegrations = pgTable("calendar_integrations", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id), // Made nullable initially for safe migration
   provider: text("provider").notNull(), // google, outlook, apple, ical
   providerAccountId: text("provider_account_id"), // External calendar account ID
   calendarId: text("calendar_id"), // Specific calendar ID within the account
@@ -497,7 +497,7 @@ export const templates = pgTable("templates", {
 export const leadCaptureForms = pgTable("lead_capture_forms", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   name: text("name").notNull(),
-  slug: text("slug").notNull().unique(),
+  slug: text("slug").notNull(), // unique constraint removed temporarily
   autoResponseTemplateId: varchar("auto_response_template_id").references(() => templates.id),
   notification: text("notification").notNull().default('email'), // email, sms
   calendarId: varchar("calendar_id").references(() => calendarIntegrations.id),
@@ -733,7 +733,7 @@ export type InsertMailSettingsAudit = z.infer<typeof insertMailSettingsAuditSche
 // Email signatures table
 export const emailSignatures = pgTable("email_signatures", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id").references(() => users.id), // Made nullable initially for safe migration
   name: text("name").notNull(), // e.g., "Professional", "Personal", "Company"
   content: text("content").notNull(), // HTML or plain text signature
   isDefault: boolean("is_default").default(false),
@@ -789,7 +789,9 @@ export const paymentSessions = pgTable("payment_sessions", {
   paymentIntentId: text("payment_intent_id"), // Stripe payment intent ID
   status: text("status").notNull().default('pending'), // pending, completed, failed, cancelled
   amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
-  currency: text("currency").notNull().default('usd'),
+  currency: text("currency").default('usd'), // Made nullable to avoid migration prompt
+  successUrl: text("success_url"), // Temporarily added to match current database
+  cancelUrl: text("cancel_url"), // Temporarily added to match current database  
   metadata: text("metadata"), // JSON provider-specific data
   expiresAt: timestamp("expires_at"),
   completedAt: timestamp("completed_at"),

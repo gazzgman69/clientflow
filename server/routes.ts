@@ -418,9 +418,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Dashboard metrics
   app.get("/api/dashboard/metrics", async (req, res) => {
     try {
-      const metrics = await storage.getDashboardMetrics();
+      const userId = req.headers['user-id'] as string || 'test-user';
+      const metrics = await storage.getDashboardMetrics(userId);
       res.json(metrics);
     } catch (error) {
+      console.error('Error fetching dashboard metrics:', error);
       res.status(500).json({ message: "Failed to fetch dashboard metrics" });
     }
   });
@@ -428,9 +430,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Business metrics for analytics
   app.get("/api/business/metrics", async (req, res) => {
     try {
-      const leads = await storage.getLeads();
-      const clients = await storage.getContacts();
-      const projects = await storage.getProjects();
+      const userId = req.headers['user-id'] as string || 'test-user';
+      const leads = await storage.getLeads(userId);
+      const clients = await storage.getContacts(userId);
+      const projects = await storage.getProjects(userId);
       const quotes = await storage.getQuotes();
       const invoices = await storage.getInvoices();
       const contracts = await storage.getContracts();
@@ -1405,6 +1408,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/tasks", async (req, res) => {
     try {
       const { assignedTo, today } = req.query;
+      const userId = req.headers['user-id'] as string || 'test-user';
       let tasks;
       
       if (today && assignedTo) {
@@ -1422,11 +1426,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } else if (assignedTo) {
         tasks = await storage.getTasksByAssignee(assignedTo as string);
       } else {
-        tasks = await storage.getTasks();
+        // Use userId context for filtering tasks
+        tasks = await storage.getTasks(userId);
       }
       
       res.json(tasks);
     } catch (error) {
+      console.error('Error fetching tasks:', error);
       res.status(500).json({ message: "Failed to fetch tasks" });
     }
   });

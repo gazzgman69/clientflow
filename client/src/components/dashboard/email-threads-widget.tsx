@@ -4,7 +4,6 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useLocation } from 'wouter';
-import { apiRequest } from '@/lib/queryClient';
 
 interface EmailThread {
   threadId: string;
@@ -41,16 +40,27 @@ export default function EmailThreadsWidget() {
       const emailMatch = email.match(/<(.+)>/);
       const cleanEmail = emailMatch ? emailMatch[1] : email;
       
-      const response = await apiRequest('GET', `/api/contacts?email=${encodeURIComponent(cleanEmail)}`);
-      if (response && response.length > 0) {
-        const contact = response[0];
+      const response = await fetch(`/api/contacts?email=${encodeURIComponent(cleanEmail)}`, {
+        headers: {
+          'user-id': 'test-user'
+        }
+      });
+      const contacts = await response.json();
+      
+      if (contacts && contacts.length > 0) {
+        const contact = contacts[0];
         if (contact.projectId) {
           setLocation(`/projects/${contact.projectId}`);
         } else {
           // If no direct project, look for projects with this contact
-          const projectsResponse = await apiRequest('GET', `/api/projects?contactId=${contact.id}`);
-          if (projectsResponse && projectsResponse.length > 0) {
-            setLocation(`/projects/${projectsResponse[0].id}`);
+          const projectsResponse = await fetch(`/api/projects?contactId=${contact.id}`, {
+            headers: {
+              'user-id': 'test-user'
+            }
+          });
+          const projects = await projectsResponse.json();
+          if (projects && projects.length > 0) {
+            setLocation(`/projects/${projects[0].id}`);
           }
         }
       }
@@ -124,7 +134,10 @@ export default function EmailThreadsWidget() {
                     <div className="flex items-center gap-2 mb-1">
                       <span 
                         className="text-sm font-medium truncate hover:text-primary cursor-pointer transition-colors"
-                        onClick={() => handleContactClick(thread.latest.from)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleContactClick(thread.latest.from);
+                        }}
                         data-testid={`contact-${thread.threadId}`}
                       >
                         {thread.latest.from}
@@ -133,20 +146,18 @@ export default function EmailThreadsWidget() {
                         {formatDate(thread.latest.dateISO)}
                       </span>
                     </div>
-                    <p 
-                      className="text-sm font-medium mb-1 truncate hover:text-primary cursor-pointer transition-colors"
+                    <div 
+                      className="cursor-pointer hover:bg-muted/30 rounded px-1 py-0.5 -mx-1 transition-colors"
                       onClick={() => handleEmailClick(thread.threadId)}
-                      data-testid={`subject-${thread.threadId}`}
+                      data-testid={`email-content-${thread.threadId}`}
                     >
-                      {thread.latest.subject}
-                    </p>
-                    <p 
-                      className="text-xs text-muted-foreground truncate hover:text-foreground cursor-pointer transition-colors"
-                      onClick={() => handleEmailClick(thread.threadId)}
-                      data-testid={`snippet-${thread.threadId}`}
-                    >
-                      {thread.latest.snippet}
-                    </p>
+                      <p className="text-sm font-medium mb-1 truncate">
+                        {thread.latest.subject}
+                      </p>
+                      <p className="text-xs text-muted-foreground truncate">
+                        {thread.latest.snippet}
+                      </p>
+                    </div>
                   </div>
                   {thread.count > 1 && (
                     <span className="text-xs bg-muted px-2 py-1 rounded-full ml-2 flex-shrink-0">

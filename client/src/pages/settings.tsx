@@ -16,12 +16,14 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { 
   User, Bell, Shield, Palette, Database, Mail, 
   Calendar, Key, Globe, Save, Upload, AlertTriangle, 
-  CheckCircle, XCircle, Loader2, FileText
+  CheckCircle, XCircle, Loader2, FileText, ExternalLink
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { useUserPrefs } from "@/hooks/useUserPrefs";
 import EmailSettings from "@/pages/settings/EmailSettings";
 import TemplatesPage from "@/pages/settings/Templates";
+import PortalSettingsComponent from "@/components/settings/PortalSettings";
 
 export default function Settings() {
   const [activeTab, setActiveTab] = useState("profile");
@@ -81,7 +83,7 @@ export default function Settings() {
       
       <main className="flex-1 overflow-auto p-6">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-8" data-testid="settings-tabs">
+          <TabsList className="grid w-full grid-cols-9" data-testid="settings-tabs">
             <TabsTrigger value="profile" data-testid="tab-profile">
               <User className="h-4 w-4 mr-2" />
               Profile
@@ -93,6 +95,10 @@ export default function Settings() {
             <TabsTrigger value="security" data-testid="tab-security">
               <Shield className="h-4 w-4 mr-2" />
               Security
+            </TabsTrigger>
+            <TabsTrigger value="portal" data-testid="tab-portal">
+              <ExternalLink className="h-4 w-4 mr-2" />
+              Client Portal
             </TabsTrigger>
             <TabsTrigger value="integrations" data-testid="tab-integrations">
               <Globe className="h-4 w-4 mr-2" />
@@ -345,6 +351,18 @@ export default function Settings() {
                   <Save className="h-4 w-4 mr-2" />
                   {isLoading ? "Saving..." : "Save Changes"}
                 </Button>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Client Portal Settings */}
+          <TabsContent value="portal" className="space-y-6">
+            <Card data-testid="portal-settings-card">
+              <CardHeader>
+                <CardTitle>Client Portal Settings</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <PortalSettingsComponent />
               </CardContent>
             </Card>
           </TabsContent>

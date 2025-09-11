@@ -654,7 +654,7 @@ router.get('/email-threads/:threadId/messages', async (req, res) => {
 router.post('/dev/send-test-email', requireAuth, async (req, res) => {
   try {
     const { to } = req.body;
-    const userId = req.user.id;
+    const userId = 'test-user'; // Use same pattern as other endpoints
     
     if (!to) {
       return res.status(400).json({ error: 'Recipient email address is required' });

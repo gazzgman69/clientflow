@@ -34,7 +34,6 @@ function Router() {
     <Switch>
       {/* Portal Routes - No Sidebar */}
       <Route path="/portal/musician" component={MusicianPortal} />
-      <Route path="/portal/client" component={ClientPortal} />
       
       {/* Public Form Routes - No Sidebar */}
       <Route path="/f/:slug">
@@ -66,6 +65,8 @@ function Router() {
                 <Route path="/invoices" component={Invoices} />
                 <Route path="/calendar" component={Calendar} />
                 <Route path="/automations" component={Automations} />
+                <Route path="/portal/client" component={ClientPortal} />
+                <Route path="/portal" component={ClientPortal} />
                 <Route path="/settings/email" component={EmailSettings} />
                 <Route path="/settings/templates" component={Templates} />
                 <Route path="/settings/automations" component={LeadAutomations} />

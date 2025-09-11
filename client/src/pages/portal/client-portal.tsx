@@ -2,7 +2,8 @@ import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { 
   Briefcase, Receipt, FileText, Mail, Calendar, 
-  Download, Eye, MessageSquare, CreditCard, Clock 
+  Download, Eye, MessageSquare, CreditCard, Clock,
+  FormInput, Users, CheckCircle, XCircle, AlertCircle
 } from "lucide-react";
 import {
   Card,
@@ -30,9 +31,9 @@ import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { formatDistanceToNow } from "date-fns";
+import { formatDistanceToNow, format } from "date-fns";
 import type { 
-  Project, Invoice, Contract, Quote, Email 
+  Project, Invoice, Contract, Quote, Email, PortalForm, Event 
 } from "@shared/schema";
 
 const messageSchema = z.object({
@@ -48,24 +49,51 @@ export default function ClientPortal() {
   const [showMessageForm, setShowMessageForm] = useState(false);
   const { toast } = useToast();
 
-  // Mock current client ID - in real app, this would come from auth context
-  const currentClientId = "client-1";
+  // Mock current contact ID - in real app, this would come from portal auth context
+  const currentContactId = "f47ac10b-58cc-4372-a567-0e02b2c3d479"; // Mock contact ID
 
   const { data: myProjects = [] } = useQuery<Project[]>({
     queryKey: ["/api/portal/client/projects"],
     queryFn: async () => {
       // This would filter projects for the current client
       const projects = await apiRequest("/api/projects", "GET");
-      return projects.filter((p: Project) => p.clientId === currentClientId);
+      return projects.filter((p: Project) => p.contactId === currentContactId);
     }
   });
 
+  // Portal Payments - using secure portal endpoints
   const { data: myInvoices = [] } = useQuery<Invoice[]>({
-    queryKey: ["/api/portal/client/invoices"],
+    queryKey: ["/api/portal/payments/invoices"],
     queryFn: async () => {
-      // This would filter invoices for the current client
-      const invoices = await apiRequest("/api/invoices", "GET");
-      return invoices.filter((i: Invoice) => i.clientId === currentClientId);
+      const response = await fetch("/api/portal/payments/invoices", {
+        headers: { "contactid": currentContactId }
+      });
+      if (!response.ok) throw new Error("Failed to fetch invoices");
+      return response.json();
+    }
+  });
+
+  // Portal Forms
+  const { data: myForms = [] } = useQuery<PortalForm[]>({
+    queryKey: ["/api/portal/forms"],
+    queryFn: async () => {
+      const response = await fetch("/api/portal/forms", {
+        headers: { "contactid": currentContactId }
+      });
+      if (!response.ok) throw new Error("Failed to fetch forms");
+      return response.json();
+    }
+  });
+
+  // Portal Appointments  
+  const { data: myAppointments = [] } = useQuery<Event[]>({
+    queryKey: ["/api/portal/appointments"],
+    queryFn: async () => {
+      const response = await fetch("/api/portal/appointments", {
+        headers: { "contactid": currentContactId }
+      });
+      if (!response.ok) throw new Error("Failed to fetch appointments");
+      return response.json();
     }
   });
 
@@ -74,7 +102,7 @@ export default function ClientPortal() {
     queryFn: async () => {
       // This would filter contracts for the current client
       const contracts = await apiRequest("/api/contracts", "GET");
-      return contracts.filter((c: Contract) => c.clientId === currentClientId);
+      return contracts.filter((c: Contract) => c.clientId === currentContactId);
     }
   });
 
@@ -83,14 +111,14 @@ export default function ClientPortal() {
     queryFn: async () => {
       // This would filter quotes for the current client
       const quotes = await apiRequest("/api/quotes", "GET");
-      return quotes.filter((q: Quote) => q.clientId === currentClientId);
+      return quotes.filter((q: Quote) => q.clientId === currentContactId);
     }
   });
 
-  const { data: recentMessages = [] } = useQuery<Email[]>({
+  const { data: recentMessages = [] } = useQuery({
     queryKey: ["/api/portal/client/messages"],
     queryFn: async () => {
-      // Mock recent messages
+      // Mock recent messages for portal - would be replaced with proper portal endpoint
       return [
         {
           id: "1",
@@ -116,7 +144,12 @@ export default function ClientPortal() {
     }
   });
 
-  const { data: accountSummary = {} } = useQuery({
+  const { data: accountSummary = {
+    activeProjects: 0,
+    totalInvoiced: 0,
+    pendingPayments: 0,
+    upcomingEvents: 0
+  } } = useQuery({
     queryKey: ["/api/portal/client/summary"],
     queryFn: async () => {
       return {
@@ -136,6 +169,41 @@ export default function ClientPortal() {
     },
   });
 
+  // Payment mutation - fixed to use correct endpoint
+  const createPaymentMutation = useMutation({
+    mutationFn: async (invoiceId: string) => {
+      const response = await fetch("/api/portal/payments/create-payment-intent", {
+        method: "POST",
+        headers: { 
+          "Content-Type": "application/json",
+          "contactid": currentContactId 
+        },
+        body: JSON.stringify({ invoiceId })
+      });
+      if (!response.ok) throw new Error("Failed to create payment");
+      return response.json();
+    },
+    onSuccess: (data) => {
+      // Handle Stripe PaymentIntent - would need Stripe.js integration
+      if (data.clientSecret) {
+        toast({
+          title: "Payment Ready",
+          description: "Payment processing will be integrated with Stripe Elements",
+        });
+        // TODO: Integrate with Stripe Elements using clientSecret
+        // For now, show success message
+      }
+      queryClient.invalidateQueries({ queryKey: ["/api/portal/payments/invoices"] });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to process payment",
+        variant: "destructive",
+      });
+    },
+  });
+
   const sendMessageMutation = useMutation({
     mutationFn: (data: MessageFormData) =>
       apiRequest("/api/emails", "POST", {
@@ -143,7 +211,7 @@ export default function ClientPortal() {
         fromEmail: "client@example.com", // Would come from auth context
         toEmail: "events@company.com",
         body: data.message,
-        clientId: currentClientId,
+        contactId: currentContactId,
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/portal/client/messages"] });
@@ -253,9 +321,11 @@ export default function ClientPortal() {
       </div>
 
       <Tabs defaultValue="projects" className="w-full">
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className="grid w-full grid-cols-7">
           <TabsTrigger value="projects">Projects</TabsTrigger>
-          <TabsTrigger value="invoices">Invoices</TabsTrigger>
+          <TabsTrigger value="invoices">Payments</TabsTrigger>
+          <TabsTrigger value="forms">Forms</TabsTrigger>
+          <TabsTrigger value="appointments">Appointments</TabsTrigger>
           <TabsTrigger value="contracts">Contracts</TabsTrigger>
           <TabsTrigger value="quotes">Quotes</TabsTrigger>
           <TabsTrigger value="messages">Messages</TabsTrigger>
@@ -335,16 +405,16 @@ export default function ClientPortal() {
           </Card>
         </TabsContent>
 
-        {/* Invoices Tab */}
+        {/* Payments Tab */}
         <TabsContent value="invoices" className="space-y-6">
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Receipt className="h-5 w-5" />
-                My Invoices
+                Payments & Invoices
               </CardTitle>
               <CardDescription>
-                View and pay your invoices
+                View and pay your invoices securely with Stripe
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -366,7 +436,7 @@ export default function ClientPortal() {
                           {invoice.invoiceNumber}
                         </TableCell>
                         <TableCell>
-                          {new Date(invoice.createdAt!).toLocaleDateString()}
+                          {invoice.createdAt ? format(new Date(invoice.createdAt), "dd/MM/yyyy") : "N/A"}
                         </TableCell>
                         <TableCell>
                           ${invoice.total}
@@ -382,10 +452,15 @@ export default function ClientPortal() {
                               <Eye className="h-4 w-4 mr-1" />
                               View
                             </Button>
-                            {invoice.status === 'sent' && (
-                              <Button size="sm" data-testid={`button-pay-invoice-${invoice.id}`}>
+                            {(invoice.status === 'sent' || invoice.status === 'overdue') && (
+                              <Button 
+                                size="sm" 
+                                data-testid={`button-pay-invoice-${invoice.id}`}
+                                onClick={() => createPaymentMutation.mutate(invoice.id)}
+                                disabled={createPaymentMutation.isPending}
+                              >
                                 <CreditCard className="h-4 w-4 mr-1" />
-                                Pay
+                                {createPaymentMutation.isPending ? "Processing..." : "Pay Now"}
                               </Button>
                             )}
                           </div>
@@ -398,6 +473,155 @@ export default function ClientPortal() {
                 <div className="text-center py-8">
                   <Receipt className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
                   <p className="text-muted-foreground">No invoices found</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Forms Tab */}
+        <TabsContent value="forms" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <FormInput className="h-5 w-5" />
+                Project Forms & Questionnaires
+              </CardTitle>
+              <CardDescription>
+                Complete required forms for your projects
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {myForms.length > 0 ? (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Form Title</TableHead>
+                      <TableHead>Project</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Updated</TableHead>
+                      <TableHead>Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {myForms.map((form) => (
+                      <TableRow key={form.id}>
+                        <TableCell className="font-medium">
+                          {form.title}
+                        </TableCell>
+                        <TableCell>
+                          {myProjects.find(p => p.id === form.projectId)?.name || "Unknown Project"}
+                        </TableCell>
+                        <TableCell>
+                          <Badge className={getStatusColor(form.status)}>
+                            {form.status === 'draft' && <AlertCircle className="h-3 w-3 mr-1" />}
+                            {form.status === 'submitted' && <CheckCircle className="h-3 w-3 mr-1" />}
+                            {form.status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          {form.updatedAt ? format(new Date(form.updatedAt), "dd/MM/yyyy HH:mm") : "N/A"}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex gap-2">
+                            {form.status === 'draft' ? (
+                              <Button size="sm" data-testid={`button-complete-form-${form.id}`}>
+                                <FormInput className="h-4 w-4 mr-1" />
+                                Complete
+                              </Button>
+                            ) : (
+                              <Button size="sm" variant="ghost" data-testid={`button-view-form-${form.id}`}>
+                                <Eye className="h-4 w-4 mr-1" />
+                                View
+                              </Button>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              ) : (
+                <div className="text-center py-8">
+                  <FormInput className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                  <p className="text-muted-foreground">No forms available</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Appointments Tab */}
+        <TabsContent value="appointments" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Calendar className="h-5 w-5" />
+                Appointments & Meetings
+              </CardTitle>
+              <CardDescription>
+                Schedule, view and manage your appointments
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {myAppointments.length > 0 ? (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Meeting Title</TableHead>
+                      <TableHead>Date & Time</TableHead>
+                      <TableHead>Duration</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {myAppointments.map((appointment) => (
+                      <TableRow key={appointment.id}>
+                        <TableCell className="font-medium">
+                          {appointment.title}
+                        </TableCell>
+                        <TableCell>
+                          {format(new Date(appointment.startDate), "dd/MM/yyyy HH:mm")}
+                        </TableCell>
+                        <TableCell>
+                          {appointment.duration || "60"} minutes
+                        </TableCell>
+                        <TableCell>
+                          <Badge className={getStatusColor(appointment.status || "confirmed")}>
+                            {appointment.status || "confirmed"}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex gap-2">
+                            <Button size="sm" variant="ghost" data-testid={`button-view-appointment-${appointment.id}`}>
+                              <Eye className="h-4 w-4 mr-1" />
+                              View
+                            </Button>
+                            {new Date(appointment.startDate) > new Date() && (
+                              <Button 
+                                size="sm" 
+                                variant="outline" 
+                                data-testid={`button-reschedule-appointment-${appointment.id}`}
+                              >
+                                <Clock className="h-4 w-4 mr-1" />
+                                Reschedule
+                              </Button>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              ) : (
+                <div className="text-center py-8">
+                  <Calendar className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                  <p className="text-muted-foreground mb-4">No appointments scheduled</p>
+                  <Button data-testid="button-book-appointment">
+                    <Calendar className="h-4 w-4 mr-2" />
+                    Book New Appointment
+                  </Button>
                 </div>
               )}
             </CardContent>

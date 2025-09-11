@@ -1,0 +1,104 @@
+READ /docs/CONTEXT.md.
+
+GOAL
+Build Client Portal v1 (public-facing) with:
+- Client login (email magic-link preferred; fallback password if already present)
+- Client Dashboard (per contact/project)
+- Documents: view Contracts, Quotes, Invoices (+ pay links)
+- Calendar: read-only key dates for the client
+- Branding (logo/name/colour from existing settings)
+- Dates shown as dd/MM/yyyy (24h time)
+
+RULES
+- ADAPT to existing models, routes, and auth. Do not invent schema if equivalents exist.
+- If a field/table/route is missing, add minimal, consistent pieces only.
+- Keep secrets server-side; no client exposure.
+- Multi-tenant safe (scoped by tenant/account if present).
+
+PHASE A — AUDIT (NO WRITES)
+Print:
+1) Where contacts, projects, contracts, quotes, invoices, payments live (files/models).
+2) Existing auth: do we have users vs clients? any “public” auth already? any email sending helper?
+3) Calendar source: can we read project dates / Google Calendar events tied to a project?
+4) Branding source (business name/logo/colour).
+5) Existing router/layout components that can host a public “/portal” area.
+
+PHASE B — PLAN (BRIEF)
+Propose minimal diffs:
+- Backend routes for portal auth + data (list them)
+- Frontend pages/components
+- Any tiny DB additions (only if truly missing)
+Wait for self-confirmation, then proceed.
+
+PHASE C — IMPLEMENT (SMALLEST DIFFS)
+
+Backend (adapt names/paths):
+- Routes (NEW): /api/portal/*
+  • POST /api/portal/auth/request-magic-link   { email, projectId? } → sends sign-in link
+  • POST /api/portal/auth/verify               { token } → returns session cookie/JWT for portal
+  • GET  /api/portal/me                        → current client profile + accessible projects
+  • GET  /api/portal/projects/:id/summary      → name, date(s), venue/location (if any)
+  • GET  /api/portal/projects/:id/documents    → contracts, quotes, invoices (ids, titles, status, totals)
+  • GET  /api/portal/projects/:id/calendar     → key dates (project date, meetings, payment due), format dd/MM/yyyy HH:mm
+  • GET  /api/portal/invoices/:id/link         → returns secure pay URL already used in app (Stripe/PayPal/etc.)
+- Auth:
+  • Magic-link tokens table (if none): id, email, projectId?, tenantId?, token, expiresAt, usedAt
+  • Email sending uses existing mailer; subject “Your client portal link”; link → /portal/auth?token=...
+  • Sessions scoped to client (NOT admin). Use separate cookie/namespace, short TTL (e.g., 7 days).
+- Security:
+  • Lock each portal route to the authenticated client; only return resources belonging to that contact/tenant.
+  • No admin fields leak.
+
+Frontend (public area):
+- Routes (NEW): /portal/*
+  • /portal/auth (token landing) → verifies token, sets session, redirects to /portal
+  • /portal (Dashboard): list client’s project(s) with quick status chips (date, unpaid invoice count)
+  • /portal/projects/:id
+     – Tabs: Overview | Documents | Calendar
+     – Overview: Project name, date, location, notes-for-client (if field exists)
+     – Documents: table of Contracts/Quotes/Invoices with status + “View”/“Pay”
+     – Calendar: read-only list of dates (dd/MM/yyyy HH:mm)
+- Branding:
+  • Header shows business logo/name/colour from settings; fallback to text if missing
+  • Light/dark support if app has it
+- Dates:
+  • Always format dd/MM/yyyy and 24h in the portal
+
+Minimal DB (ONLY IF MISSING)
+- portal_magic_links (or reuse your auth_tokens)
+  • id uuid pk
+  • tenantId?, contactId?, projectId?, email
+  • token (secure random), expiresAt, usedAt
+  • createdAt
+  INDEX(token), INDEX(contactId, projectId)
+
+Integration details:
+- Contact ↔ Project lookup: adapt to existing relations
+- Documents:
+  • Contracts/Quotes/Invoices lookups from current services
+  • For invoices, reuse existing payment link generator (do not invent a new flow)
+- Calendar:
+  • Use project’s own dates first; optionally include linked Google events where project/contact matches
+  • Do NOT expose internal calendars; filter to client-relevant events only
+
+PHASE D — VERIFY
+- Add a dev command/route to create a test magic link for a known contact.
+- Manual test:
+  1) Request link → receive email → click → lands at /portal authenticated
+  2) See project(s) on dashboard
+  3) Open a project → Overview/Docs/Calendar render
+  4) Click an Invoice → “Pay” opens existing pay page
+  5) Dates appear as dd/MM/yyyy (24h)
+- Log (server): portal auth success, project access checks (no PII content)
+
+PHASE E — ACCEPTANCE
+- Client can sign in via magic link and see ONLY their projects.
+- Documents load with correct statuses; invoices have working pay links.
+- Calendar shows only client-facing dates, formatted dd/MM/yyyy HH:mm.
+- Branding appears in header.
+- No admin-only data leaks; no schema churn beyond minimal additions.
+
+NICE-TO-HAVE (DON’T BLOCK v1)
+- Setting to switch magic-link or password mode later
+- Remember last project opened (local storage)
+- i18n later; for now, UK labels (“postcode”, dd/MM/yyyy)

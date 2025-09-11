@@ -28,6 +28,7 @@ import tokensRoutes from "./src/routes/tokens";
 import portalPaymentsRoutes from "./src/routes/portal-payments";
 import portalFormsRoutes from "./src/routes/portal-forms";
 import portalAppointmentsRoutes from "./src/routes/portal-appointments";
+import { userPrefsService } from "./src/services/userPrefs";
 import { calendarAutoSyncService } from "./services/calendar-auto-sync";
 import { 
   insertLeadSchema, 
@@ -121,6 +122,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use('/api/portal/forms', ensurePortalAuth, portalFormsRoutes);
   app.use('/api/portal/appointments', ensurePortalAuth, portalAppointmentsRoutes);
   
+  // Portal enabled helper function
+  async function isPortalEnabled(tenantId: string, projectId?: string): Promise<boolean> {
+    try {
+      // 1. Read tenant.portalEnabled (default true if missing)
+      const tenantPortalEnabled = await userPrefsService.getUserPref(tenantId, 'portalEnabled');
+      const tenantDefault = tenantPortalEnabled !== null ? tenantPortalEnabled === 'true' : true;
+      
+      // 2. If no projectId provided, return tenant default
+      if (!projectId) {
+        return tenantDefault;
+      }
+      
+      // 3. Check project.portalEnabledOverride
+      const project = await storage.getProject(projectId);
+      if (!project) {
+        return tenantDefault; // Project not found, use tenant default
+      }
+      
+      // 4. If project.portalEnabledOverride is boolean, return that; else return tenant default
+      if (project.portalEnabledOverride !== null && project.portalEnabledOverride !== undefined) {
+        return project.portalEnabledOverride;
+      }
+      
+      return tenantDefault;
+    } catch (error) {
+      console.error('Error checking portal enabled status:', error);
+      return true; // Default to enabled on error for backward compatibility
+    }
+  }
+
   // Portal authentication middleware
   function ensurePortalAuth(req: any, res: any, next: any) {
     if (!req.session.portalContactId) {

@@ -1839,6 +1839,11 @@ export class DrizzleStorage implements IStorage {
     const result = await this.db.select().from(contacts).where(eq(contacts.id, id));
     return result[0];
   }
+
+  async getContactByEmail(email: string): Promise<Contact | undefined> {
+    const result = await this.db.select().from(contacts).where(eq(contacts.email, email));
+    return result[0];
+  }
   async createContact(contact: InsertContact): Promise<Contact> {
     const result = await this.db.insert(contacts).values({
       ...contact,

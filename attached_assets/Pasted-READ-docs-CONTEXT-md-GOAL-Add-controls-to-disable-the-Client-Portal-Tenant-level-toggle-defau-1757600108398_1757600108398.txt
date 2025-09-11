@@ -1,0 +1,75 @@
+READ /docs/CONTEXT.md.
+
+GOAL
+Add controls to disable the Client Portal:
+- Tenant-level toggle (default for all projects)
+- Per-project override (enable/disable per project)
+- Respect these in auth + UI (no access when disabled)
+
+RULES
+- ADAPT to existing settings/models; do not rename existing fields. Only add minimal fields if missing.
+- Dates in UI = dd/MM/yyyy (24h).
+
+PHASE A — AUDIT (NO WRITES)
+Print:
+1) Where tenant/account settings are stored (table/file/JSON). Any existing portal flags?
+2) Where project settings live (project table/JSON). Any portal-related fields?
+3) The portal auth route and guards (e.g., /api/portal/auth/verify, middleware).
+4) Where Project page actions/buttons are rendered (so we can hide/disable).
+
+PHASE B — IMPLEMENT (SMALLEST DIFFS)
+
+DB / SETTINGS (ADD ONLY IF MISSING; ADAPT NAMES)
+- Tenant settings: add boolean `portalEnabled` (default true).
+- Project: add nullable boolean `portalEnabledOverride`:
+  • null → follow tenant default
+  • true/false → override for this project only
+
+BACKEND
+- Helper: `isPortalEnabled({ tenantId, projectId })`:
+  1) Read tenant.portalEnabled (default true if missing).
+  2) If project.portalEnabledOverride is boolean, return that.
+  3) Else return tenant.portalEnabled.
+- Auth guard (portal session + all /api/portal/* routes):
+  • Before issuing/accepting a magic link or serving portal data, call `isPortalEnabled`.
+  • If disabled → HTTP 403 { error: "Portal disabled for this project." }.
+- Magic-link issuer (/api/portal/auth/request-magic-link):
+  • If disabled, return 403 and do NOT generate a token.
+
+FRONTEND (ADMIN)
+- Tenant Settings → “Client Portal” section:
+  • Toggle: “Enable Client Portal for all projects” (binds to tenant.portalEnabled).
+  • Helper text: “Projects can override this individually.”
+- Project page → “Client Portal” card/section:
+  • Toggle: “Enable Portal for this project” (three-state UI if possible):
+     – Follow account default (show current effective state)
+     – Force Enable
+     – Force Disable
+  • Show effective status chip (Enabled/Disabled) derived from helper.
+  • If disabled → grey out “Open Client Portal” + “Copy Client Link” with tooltip “Portal disabled”.
+
+FRONTEND (PORTAL)
+- When hitting /portal or /portal/auth and backend returns 403 → show friendly page:
+  “The client portal is not available for this project.” (no infinite redirects)
+
+NAV & ACTIONS
+- On Project page toolbar:
+  • “Open Client Portal” button should:
+     – If enabled: call magic-link endpoint then open new tab
+     – If disabled: disabled state + tooltip
+  • “Copy Client Link” similarly disabled if portal disabled.
+
+LOGGING
+- Log when a blocked access occurs (projectId, tenantId, reason='disabled') — no PII.
+
+VERIFY
+- Toggle tenant off → all projects (with no override) block portal auth + API with 403; buttons disabled in UI.
+- Toggle project override to Enable while tenant is Off → this project works; buttons active.
+- Toggle project override to Disable while tenant is On → this project blocked; buttons disabled.
+- Hitting an existing magic link after disabling → 403 with friendly message.
+- Dates remain dd/MM/yyyy where shown.
+
+ACCEPTANCE
+- Effective portal availability follows: project override (if set) else tenant default.
+- Backend consistently enforces; frontend reflects status (enabled/disabled) and prevents actions when disabled.
+- No schema churn beyond minimal fields above; adapt names to match repo style.

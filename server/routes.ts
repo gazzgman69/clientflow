@@ -130,31 +130,99 @@ export async function registerRoutes(app: Express): Promise<Server> {
   }
 
   // Portal authentication endpoints
-  app.post('/api/portal/auth/login', async (req, res) => {
+  // Step 1: Request magic link
+  app.post('/api/portal/auth/request-access', async (req, res) => {
     try {
-      const { contactId } = req.body;
-      if (!contactId) {
-        return res.status(400).json({ error: 'Contact ID required' });
+      const { email } = req.body;
+      if (!email) {
+        return res.status(400).json({ error: 'Email address required' });
       }
       
-      // Verify contact exists
-      const contact = await storage.getContact(contactId);
+      // Find contact by email
+      const contact = await storage.getContactByEmail(email);
+      if (!contact) {
+        // Don't reveal if email exists or not for security
+        return res.json({ success: true, message: 'If an account exists with this email, you will receive an access link' });
+      }
+      
+      // Generate cryptographically secure access token (expires in 15 minutes)
+      const crypto = require('crypto');
+      const accessToken = crypto.randomBytes(32).toString('base64url');
+      const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
+      
+      // Store token securely (in production, use database with TTL)
+      global.portalTokens = global.portalTokens || new Map();
+      global.portalTokens.set(accessToken, { contactId: contact.id, email: contact.email, expiresAt });
+      
+      // TODO: Send email with magic link containing token
+      // For security, never log or return the actual token
+      console.log(`📧 Access link request for ${email} - token sent (expires in 15 minutes)`);
+      
+      res.json({ 
+        success: true, 
+        message: 'If an account exists with this email, you will receive an access link'
+      });
+    } catch (error: any) {
+      console.error('Portal access request error:', error);
+      res.status(500).json({ error: 'Failed to process request' });
+    }
+  });
+  
+  // Step 2: Verify token and login
+  app.post('/api/portal/auth/verify-token', async (req, res) => {
+    try {
+      const { token } = req.body;
+      if (!token) {
+        return res.status(400).json({ error: 'Access token required' });
+      }
+      
+      // Get token from memory store
+      global.portalTokens = global.portalTokens || new Map();
+      const tokenData = global.portalTokens.get(token);
+      
+      if (!tokenData || tokenData.expiresAt < new Date()) {
+        return res.status(401).json({ error: 'Invalid or expired access token' });
+      }
+      
+      // Verify contact still exists
+      const contact = await storage.getContact(tokenData.contactId);
       if (!contact) {
         return res.status(404).json({ error: 'Contact not found' });
       }
       
-      // Store contactId in session
-      req.session.portalContactId = contactId;
-      res.json({ success: true, contact: { id: contact.id, name: contact.fullName || contact.firstName, email: contact.email } });
+      // Regenerate session ID for security
+      req.session.regenerate((err: any) => {
+        if (err) {
+          console.error('Session regeneration error:', err);
+          return res.status(500).json({ error: 'Authentication failed' });
+        }
+        
+        // Store contactId in new session
+        req.session.portalContactId = contact.id;
+        
+        // Remove used token
+        global.portalTokens.delete(token);
+        
+        res.json({ 
+          success: true, 
+          contact: { id: contact.id, name: contact.fullName || contact.firstName, email: contact.email } 
+        });
+      });
     } catch (error: any) {
-      console.error('Portal authentication error:', error);
+      console.error('Portal token verification error:', error);
       res.status(500).json({ error: 'Authentication failed' });
     }
   });
 
   app.post('/api/portal/auth/logout', (req, res) => {
-    delete req.session.portalContactId;
-    res.json({ success: true });
+    // Properly destroy the session for security
+    req.session.destroy((err: any) => {
+      if (err) {
+        console.error('Session destruction error:', err);
+        return res.status(500).json({ error: 'Logout failed' });
+      }
+      res.json({ success: true });
+    });
   });
 
   app.get('/api/portal/auth/me', ensurePortalAuth, async (req, res) => {

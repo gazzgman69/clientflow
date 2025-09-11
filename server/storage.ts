@@ -474,6 +474,10 @@ export class MemStorage implements IStorage {
     return this.contacts.delete(id);
   }
 
+  async getContactByEmail(email: string): Promise<Contact | undefined> {
+    return Array.from(this.contacts.values()).find(contact => contact.email === email);
+  }
+
   // Projects
   async getProjects(): Promise<Project[]> {
     return Array.from(this.projects.values()).sort((a, b) => 

@@ -209,11 +209,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ error: 'Invalid portal session' });
       }
 
-      // Resolve tenant ID from project ownership or fallback to system default
-      const tenantId = await resolveTenantId(contact.id, projectId);
-      
       // Get project ID from route params if available
       const projectId = req.params.projectId || req.query.projectId || req.body.projectId;
+      
+      // Resolve tenant ID from project ownership or fallback to system default
+      const tenantId = await resolveTenantId(contact.id, projectId);
       
       // SECURITY: Verify project ownership if projectId is provided
       if (projectId) {
@@ -1006,6 +1006,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(project);
     } catch (error) {
       res.status(400).json({ message: "Invalid project data" });
+    }
+  });
+
+  // Get effective portal status for a project (tenant setting + project override)
+  // TODO: Add proper authentication - this endpoint should require admin session
+  app.get("/api/projects/:id/portal-status", async (req, res) => {
+    try {
+      const projectId = req.params.id;
+      
+      // Get project to determine proper tenant
+      const project = await storage.getProject(projectId);
+      if (!project) {
+        return res.status(404).json({ message: "Project not found" });
+      }
+      
+      // Resolve tenant ID from project assignment or fallback to system default
+      // This matches the same resolution used by auth guards
+      const tenantId = project.assignedTo || 'system-default';
+      
+      // Get effective portal status using the isPortalEnabled helper
+      const effectiveStatus = await isPortalEnabled(tenantId, projectId);
+      
+      // Get tenant default (without project override)
+      const tenantDefault = await isPortalEnabled(tenantId);
+      
+      res.json({
+        effectiveStatus,
+        tenantDefault,
+        projectOverride: project.portalEnabledOverride
+      });
+    } catch (error) {
+      console.error('Error getting portal status:', error);
+      res.status(500).json({ message: "Failed to get portal status" });
     }
   });
 

@@ -1,0 +1,79 @@
+READ /docs/CONTEXT.md.
+
+TASK (AUDIT → FIX → VERIFY)
+Emails are rendering “off” in some clients. Implement a robust HTML-email pipeline with a plaintext fallback.
+
+AUDIT (NO WRITES)
+- Print the exact send path(s): files/functions that assemble the email body and call Gmail API / SMTP (e.g., gmail.ts, smtp.ts, emailService.ts).
+- Show how we currently set:
+  • Content-Type (text/html vs multipart/alternative)
+  • Plain-text fallback (present or missing)
+  • CSS inlining (present or missing)
+  • Image handling (cid attachments vs absolute URLs)
+  • Subject / preheader handling
+
+IMPLEMENT (SMALLEST DIFFS, ADAPT TO REPO)
+Create a tiny renderer and wire it into BOTH preview and send:
+
+1) Email renderer (server/src/services/emailRenderer.ts)
+export type RenderInput = { subject: string; html: string; text?: string; preheader?: string; };
+export type RenderOutput = { subject: string; htmlInlined: string; text: string; headers?: Record<string,string> };
+
+- Wrap content in an email-safe base template (table layout, 600px container).
+- Include a hidden preheader span at the top if provided.
+- Use system fonts (e.g., -apple-system, Segoe UI, Roboto) and inline minimal CSS.
+- Inline CSS (use existing inliner; if none available, add 'juice' and use juice(html)).
+- Ensure all <img> src are either cid: (for attachments we include) or absolute https URLs.
+- Generate a decent plain-text fallback:
+  • If text not provided, derive from HTML (strip tags, preserve links as "text (URL)").
+- Return { subject, htmlInlined, text }.
+
+2) Sending (gmail/smtp)
+- Send as multipart/alternative:
+  • text/plain part = renderer.text
+  • text/html part  = renderer.htmlInlined
+- Set UTF-8 charset. Let the transport handle quoted-printable/base64.
+- If using attachments with inline images, map <img src="cid:..."> to nodemailer attachments with matching cid.
+
+3) Preview path
+- Ensure template previews call the same renderer so preview ≈ send.
+
+4) Base template (keep simple & safe)
+- Email-safe table structure:
+  <!doctype html>
+  <html><head>
+    <meta name="viewport" content="width=device-width, initial-scale=1"/>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <style>/* minimal styles; will be inlined */</style>
+  </head>
+  <body> 
+    <span style="display:none;opacity:0;...">{{preheader}}</span>
+    <table role="presentation" width="100%"><tr><td align="center">
+      <table role="presentation" width="600">
+        <tr><td><!-- {{content}} --></td></tr>
+        <tr><td style="font-size:12px;color:#888;text-align:center;padding:24px">© {{businessName}}</td></tr>
+      </table>
+    </td></tr></table>
+  </body></html>
+- The renderer should inject your editor HTML into {{content}}, then inline CSS.
+
+5) Safety/compat
+- Avoid relying on external CSS; everything inlined.
+- Don’t use CSS grid/flex for layout—stick to tables for core structure.
+- Links sanitized (no javascript:).
+- Dates remain dd/MM/yyyy in any dynamic content we render.
+
+VERIFY
+- Add a dev endpoint POST /api/dev/send-test-email that sends a sample:
+  Subject: "Test formatting ✓"
+  Preheader: "This is the preview line."
+  Body: H1, paragraph, bold/italic, a list, a button-style link, and an image (cid or absolute URL).
+- Send to my address; confirm display in Gmail/Outlook/Apple Mail:
+  • HTML renders correctly
+  • Plain-text part is readable if HTML is disabled
+- Log (server): BEFORE length, AFTER length (inlined), and whether plaintext was generated (no PII).
+
+ACCEPTANCE
+- All outbound emails are multipart/alternative with proper text + HTML.
+- CSS is inlined; layout uses tables; images show correctly (cid or absolute).
+- Preview uses the same renderer as send, so what I see is what gets sent.

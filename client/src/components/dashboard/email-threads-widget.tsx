@@ -1,7 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { Mail, AlertCircle, Loader2 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useLocation } from 'wouter';
 import { useState } from 'react';
@@ -10,6 +9,12 @@ import type { Project } from '@shared/schema';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { formatDistanceToNow } from 'date-fns';
+import { Button } from '@/components/ui/button';
+import { Reply, Send } from 'lucide-react';
+import { Textarea } from '@/components/ui/textarea';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { apiRequest } from '@/lib/queryClient';
+import { useToast } from '@/hooks/use-toast';
 
 interface EmailThread {
   threadId: string;
@@ -51,6 +56,10 @@ export default function EmailThreadsWidget() {
   const [selectedThread, setSelectedThread] = useState<EmailThreadDetails | null>(null);
   const [showEmailModal, setShowEmailModal] = useState(false);
   const [loadingThread, setLoadingThread] = useState(false);
+  const [showReplyForm, setShowReplyForm] = useState(false);
+  const [replyText, setReplyText] = useState('');
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
   
   const { data: threadsResponse, isLoading, error } = useQuery({
     queryKey: ['/api/email/threads'],
@@ -149,6 +158,56 @@ export default function EmailThreadsWidget() {
   const handleCloseEmailModal = () => {
     setShowEmailModal(false);
     setSelectedThread(null);
+    setShowReplyForm(false);
+    setReplyText('');
+  };
+
+  const sendReplyMutation = useMutation({
+    mutationFn: async (data: { to: string; subject: string; text: string; threadId: string }) => {
+      const response = await apiRequest('POST', '/api/email/send', data);
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: 'Success',
+        description: 'Reply sent successfully!',
+      });
+      setReplyText('');
+      setShowReplyForm(false);
+    },
+    onError: () => {
+      toast({
+        title: 'Error',
+        description: 'Failed to send reply. Please try again.',
+        variant: 'destructive',
+      });
+    },
+  });
+
+  const handleSendReply = () => {
+    if (!selectedThread?.thread?.messages || !replyText.trim()) return;
+
+    const originalMessage = selectedThread.thread.messages[0];
+    const replySubject = originalMessage.subject.startsWith('Re:') 
+      ? originalMessage.subject 
+      : `Re: ${originalMessage.subject}`;
+
+    // Extract sender email from the latest message
+    const latestMessage = selectedThread.thread.messages[selectedThread.thread.messages.length - 1];
+    let replyToEmail = latestMessage.from;
+    
+    // Clean up email format (remove display name if present)
+    const emailMatch = replyToEmail.match(/<(.+?)>/) || replyToEmail.match(/(\S+@\S+)/);
+    if (emailMatch) {
+      replyToEmail = emailMatch[1] || emailMatch[0];
+    }
+
+    sendReplyMutation.mutate({
+      to: replyToEmail,
+      subject: replySubject,
+      text: replyText,
+      threadId: selectedThread.thread.threadId
+    });
   };
 
   return (
@@ -286,6 +345,50 @@ export default function EmailThreadsWidget() {
                 </div>
               </div>
             ))}
+            
+            {/* Reply Section */}
+            <div className="border-t pt-4">
+              {!showReplyForm ? (
+                <Button 
+                  onClick={() => setShowReplyForm(true)}
+                  className="w-full"
+                  data-testid="button-reply"
+                >
+                  <Reply className="h-4 w-4 mr-2" />
+                  Reply
+                </Button>
+              ) : (
+                <div className="space-y-3">
+                  <Textarea
+                    placeholder="Type your reply..."
+                    value={replyText}
+                    onChange={(e) => setReplyText(e.target.value)}
+                    rows={4}
+                    data-testid="textarea-reply"
+                  />
+                  <div className="flex gap-2 justify-end">
+                    <Button 
+                      variant="outline" 
+                      onClick={() => {
+                        setShowReplyForm(false);
+                        setReplyText('');
+                      }}
+                      data-testid="button-cancel-reply"
+                    >
+                      Cancel
+                    </Button>
+                    <Button 
+                      onClick={handleSendReply}
+                      disabled={!replyText.trim() || sendReplyMutation.isPending}
+                      data-testid="button-send-reply"
+                    >
+                      <Send className="h-4 w-4 mr-2" />
+                      {sendReplyMutation.isPending ? 'Sending...' : 'Send Reply'}
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         ) : (
           <div className="text-center py-8 text-muted-foreground">

@@ -69,10 +69,6 @@ const venueSchema = z.object({
   preferred: z.boolean().optional(),
   tags: z.string().optional(),
   notes: z.string().optional(),
-  // Google Places fields
-  placeId: z.string().optional(),
-  latitude: z.string().optional(),
-  longitude: z.string().optional(),
 });
 
 type VenueFormData = z.infer<typeof venueSchema>;
@@ -108,9 +104,6 @@ export default function VenuesPage() {
       preferred: false,
       tags: "",
       notes: "",
-      placeId: "",
-      latitude: "",
-      longitude: "",
     },
   });
 
@@ -118,20 +111,27 @@ export default function VenuesPage() {
     mutationFn: (data: VenueFormData) => {
       const tags = data.tags ? data.tags.split(',').map(t => t.trim()).filter(Boolean) : [];
       
-      // Convert string values to proper types for API
+      // Convert string values to proper types for minimal API (no coordinates required)
       const payload = {
-        ...data,
-        capacity: data.capacity ? parseInt(data.capacity) : undefined,
-        contactEmail: data.contactEmail || undefined,
+        name: data.name,
+        address: data.address || undefined,
+        city: data.city || undefined,
+        state: data.state || undefined,
+        zipCode: data.zipCode || undefined,
         country: data.country || undefined,
+        capacity: data.capacity ? parseInt(data.capacity) : undefined,
+        contactName: data.contactName || undefined,
+        contactPhone: data.contactPhone || undefined,
+        contactEmail: data.contactEmail || undefined,
         website: data.website || undefined,
+        restrictions: data.restrictions || undefined,
+        accessNotes: data.accessNotes || undefined,
+        managerName: data.managerName || undefined,
+        managerPhone: data.managerPhone || undefined,
         managerEmail: data.managerEmail || undefined,
-        tags: tags.length > 0 ? tags : undefined,
         preferred: data.preferred || false,
-        // Include Google Places data - ensure coordinates are numbers
-        placeId: data.placeId || undefined,
-        latitude: data.latitude && data.latitude.trim() ? parseFloat(data.latitude) : undefined,
-        longitude: data.longitude && data.longitude.trim() ? parseFloat(data.longitude) : undefined,
+        tags: tags.length > 0 ? tags : undefined,
+        notes: data.notes || undefined,
       };
       
       // Remove empty string values to avoid validation issues
@@ -141,7 +141,7 @@ export default function VenuesPage() {
         }
       });
       
-      return apiRequest("POST", "/api/venues", payload);
+      return apiRequest("POST", "/api/venues/minimal", payload);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/venues"] });
@@ -165,20 +165,27 @@ export default function VenuesPage() {
     mutationFn: ({ id, data }: { id: string; data: VenueFormData }) => {
       const tags = data.tags ? data.tags.split(',').map(t => t.trim()).filter(Boolean) : [];
       
-      // Convert string values to proper types for API
+      // Convert string values to proper types for API (no coordinates)
       const payload = {
-        ...data,
-        capacity: data.capacity ? parseInt(data.capacity) : undefined,
-        contactEmail: data.contactEmail || undefined,
+        name: data.name,
+        address: data.address || undefined,
+        city: data.city || undefined,
+        state: data.state || undefined,
+        zipCode: data.zipCode || undefined,
         country: data.country || undefined,
+        capacity: data.capacity ? parseInt(data.capacity) : undefined,
+        contactName: data.contactName || undefined,
+        contactPhone: data.contactPhone || undefined,
+        contactEmail: data.contactEmail || undefined,
         website: data.website || undefined,
+        restrictions: data.restrictions || undefined,
+        accessNotes: data.accessNotes || undefined,
+        managerName: data.managerName || undefined,
+        managerPhone: data.managerPhone || undefined,
         managerEmail: data.managerEmail || undefined,
-        tags: tags.length > 0 ? tags : undefined,
         preferred: data.preferred || false,
-        // Include Google Places data - ensure coordinates are numbers
-        placeId: data.placeId || undefined,
-        latitude: data.latitude && data.latitude.trim() ? parseFloat(data.latitude) : undefined,
-        longitude: data.longitude && data.longitude.trim() ? parseFloat(data.longitude) : undefined,
+        tags: tags.length > 0 ? tags : undefined,
+        notes: data.notes || undefined,
       };
       
       // Remove empty string values to avoid validation issues

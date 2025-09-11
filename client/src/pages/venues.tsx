@@ -117,7 +117,9 @@ export default function VenuesPage() {
   const createMutation = useMutation({
     mutationFn: (data: VenueFormData) => {
       const tags = data.tags ? data.tags.split(',').map(t => t.trim()).filter(Boolean) : [];
-      return apiRequest("POST", "/api/venues", {
+      
+      // Convert string values to proper types for API
+      const payload = {
         ...data,
         capacity: data.capacity ? parseInt(data.capacity) : undefined,
         contactEmail: data.contactEmail || undefined,
@@ -126,11 +128,20 @@ export default function VenuesPage() {
         managerEmail: data.managerEmail || undefined,
         tags: tags.length > 0 ? tags : undefined,
         preferred: data.preferred || false,
-        // Include Google Places data
+        // Include Google Places data - ensure coordinates are numbers
         placeId: data.placeId || undefined,
-        latitude: data.latitude ? parseFloat(data.latitude) : undefined,
-        longitude: data.longitude ? parseFloat(data.longitude) : undefined,
+        latitude: data.latitude && data.latitude.trim() ? parseFloat(data.latitude) : undefined,
+        longitude: data.longitude && data.longitude.trim() ? parseFloat(data.longitude) : undefined,
+      };
+      
+      // Remove empty string values to avoid validation issues
+      Object.keys(payload).forEach(key => {
+        if (payload[key] === '' || payload[key] === null) {
+          delete payload[key];
+        }
       });
+      
+      return apiRequest("POST", "/api/venues", payload);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/venues"] });
@@ -141,8 +152,7 @@ export default function VenuesPage() {
         description: "Venue added successfully",
       });
     },
-    onError: (error) => {
-      console.error('Create venue mutation error:', error);
+    onError: () => {
       toast({
         title: "Error",
         description: "Failed to add venue",
@@ -154,7 +164,9 @@ export default function VenuesPage() {
   const updateMutation = useMutation({
     mutationFn: ({ id, data }: { id: string; data: VenueFormData }) => {
       const tags = data.tags ? data.tags.split(',').map(t => t.trim()).filter(Boolean) : [];
-      return apiRequest("PATCH", `/api/venues/${id}`, {
+      
+      // Convert string values to proper types for API
+      const payload = {
         ...data,
         capacity: data.capacity ? parseInt(data.capacity) : undefined,
         contactEmail: data.contactEmail || undefined,
@@ -163,11 +175,20 @@ export default function VenuesPage() {
         managerEmail: data.managerEmail || undefined,
         tags: tags.length > 0 ? tags : undefined,
         preferred: data.preferred || false,
-        // Include Google Places data
+        // Include Google Places data - ensure coordinates are numbers
         placeId: data.placeId || undefined,
-        latitude: data.latitude ? parseFloat(data.latitude) : undefined,
-        longitude: data.longitude ? parseFloat(data.longitude) : undefined,
+        latitude: data.latitude && data.latitude.trim() ? parseFloat(data.latitude) : undefined,
+        longitude: data.longitude && data.longitude.trim() ? parseFloat(data.longitude) : undefined,
+      };
+      
+      // Remove empty string values to avoid validation issues
+      Object.keys(payload).forEach(key => {
+        if (payload[key] === '' || payload[key] === null) {
+          delete payload[key];
+        }
       });
+      
+      return apiRequest("PATCH", `/api/venues/${id}`, payload);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/venues"] });
@@ -207,15 +228,9 @@ export default function VenuesPage() {
   });
 
   const handleSubmit = (data: VenueFormData) => {
-    console.log('Form submitted with data:', data);
-    console.log('Form errors:', form.formState.errors);
-    console.log('Form is valid:', form.formState.isValid);
-    
     if (selectedVenue) {
-      console.log('Updating venue:', selectedVenue.id);
       updateMutation.mutate({ id: selectedVenue.id, data });
     } else {
-      console.log('Creating new venue');
       createMutation.mutate(data);
     }
   };
@@ -345,10 +360,7 @@ export default function VenuesPage() {
               </DialogDescription>
             </DialogHeader>
             <Form {...form}>
-              <form onSubmit={(e) => {
-                console.log('Form submit event triggered');
-                form.handleSubmit(handleSubmit)(e);
-              }} className="space-y-4">
+              <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
                 {/* Google Places Search Integration */}
                 <div>
                   <FormLabel className="text-base font-medium">Search for Venue</FormLabel>

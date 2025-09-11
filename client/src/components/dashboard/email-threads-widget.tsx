@@ -390,9 +390,21 @@ export default function EmailThreadsWidget() {
     <Dialog open={showEmailModal} onOpenChange={handleCloseEmailModal}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>
-            {selectedThread?.thread?.subject || 'Email Thread'}
-          </DialogTitle>
+          <div className="flex items-center justify-between">
+            <DialogTitle>
+              {selectedThread?.thread?.subject || 'Email Thread'}
+            </DialogTitle>
+            {!showReplyForm && (
+              <Button 
+                onClick={() => setShowReplyForm(true)}
+                size="sm"
+                data-testid="button-reply"
+              >
+                <Reply className="h-4 w-4 mr-2" />
+                Reply
+              </Button>
+            )}
+          </div>
         </DialogHeader>
         
         {loadingThread ? (
@@ -430,17 +442,8 @@ export default function EmailThreadsWidget() {
             ))}
             
             {/* Reply Section */}
-            <div className="border-t pt-4">
-              {!showReplyForm ? (
-                <Button 
-                  onClick={() => setShowReplyForm(true)}
-                  className="w-full"
-                  data-testid="button-reply"
-                >
-                  <Reply className="h-4 w-4 mr-2" />
-                  Reply
-                </Button>
-              ) : (
+            {showReplyForm && (
+              <div className="border-t pt-4">
                 <div className="space-y-4">
                   {/* Subject Line */}
                   <div className="space-y-2">
@@ -565,8 +568,8 @@ export default function EmailThreadsWidget() {
                     </Button>
                   </div>
                 </div>
-              )}
-            </div>
+              </div>
+            )}
           </div>
         ) : (
           <div className="text-center py-8 text-muted-foreground">

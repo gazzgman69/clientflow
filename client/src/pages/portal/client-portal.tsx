@@ -49,76 +49,44 @@ export default function ClientPortal() {
   const [showMessageForm, setShowMessageForm] = useState(false);
   const { toast } = useToast();
 
-  // Mock current contact ID - in real app, this would come from portal auth context
-  const currentContactId = "f47ac10b-58cc-4372-a567-0e02b2c3d479"; // Mock contact ID
+  // Authentication state - using secure session-based auth
+  const { data: currentUser, isLoading: isAuthLoading } = useQuery({
+    queryKey: ["/api/portal/auth/me"],
+    retry: false,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  });
 
   const { data: myProjects = [] } = useQuery<Project[]>({
     queryKey: ["/api/portal/client/projects"],
-    queryFn: async () => {
-      const response = await fetch("/api/portal/client/projects", {
-        headers: { "contactid": currentContactId }
-      });
-      if (!response.ok) throw new Error("Failed to fetch projects");
-      return response.json();
-    }
+    enabled: !!currentUser, // Only fetch when authenticated
   });
 
-  // Portal Payments - using secure portal endpoints
+  // Portal Payments - using secure session-based endpoints
   const { data: myInvoices = [] } = useQuery<Invoice[]>({
     queryKey: ["/api/portal/payments/invoices"],
-    queryFn: async () => {
-      const response = await fetch("/api/portal/payments/invoices", {
-        headers: { "contactid": currentContactId }
-      });
-      if (!response.ok) throw new Error("Failed to fetch invoices");
-      return response.json();
-    }
+    enabled: !!currentUser, // Only fetch when authenticated
   });
 
   // Portal Forms
   const { data: myForms = [] } = useQuery<PortalForm[]>({
     queryKey: ["/api/portal/forms"],
-    queryFn: async () => {
-      const response = await fetch("/api/portal/forms", {
-        headers: { "contactid": currentContactId }
-      });
-      if (!response.ok) throw new Error("Failed to fetch forms");
-      return response.json();
-    }
+    enabled: !!currentUser, // Only fetch when authenticated
   });
 
   // Portal Appointments  
   const { data: myAppointments = [] } = useQuery<Event[]>({
     queryKey: ["/api/portal/appointments"],
-    queryFn: async () => {
-      const response = await fetch("/api/portal/appointments", {
-        headers: { "contactid": currentContactId }
-      });
-      if (!response.ok) throw new Error("Failed to fetch appointments");
-      return response.json();
-    }
+    enabled: !!currentUser, // Only fetch when authenticated
   });
 
   const { data: myContracts = [] } = useQuery<Contract[]>({
     queryKey: ["/api/portal/client/contracts"],
-    queryFn: async () => {
-      const response = await fetch("/api/portal/client/contracts", {
-        headers: { "contactid": currentContactId }
-      });
-      if (!response.ok) throw new Error("Failed to fetch contracts");
-      return response.json();
-    }
+    enabled: !!currentUser, // Only fetch when authenticated
   });
 
   const { data: myQuotes = [] } = useQuery<Quote[]>({
     queryKey: ["/api/portal/client/quotes"],
-    queryFn: async () => {
-      const response = await fetch("/api/portal/client/quotes", {
-        headers: { "contactid": currentContactId }
-      });
-      if (!response.ok) throw new Error("Failed to fetch quotes");
-      return response.json();
-    }
+    enabled: !!currentUser, // Only fetch when authenticated
   });
 
   const { data: recentMessages = [] } = useQuery({
@@ -178,14 +146,7 @@ export default function ClientPortal() {
   // Payment mutation - fixed to use correct endpoint
   const createPaymentMutation = useMutation({
     mutationFn: async (invoiceId: string) => {
-      const response = await fetch("/api/portal/payments/create-payment-intent", {
-        method: "POST",
-        headers: { 
-          "Content-Type": "application/json",
-          "contactid": currentContactId 
-        },
-        body: JSON.stringify({ invoiceId })
-      });
+      return apiRequest("/api/portal/payments/create-payment-intent", "POST", { invoiceId });
       if (!response.ok) throw new Error("Failed to create payment");
       return response.json();
     },
@@ -214,10 +175,9 @@ export default function ClientPortal() {
     mutationFn: (data: MessageFormData) =>
       apiRequest("/api/emails", "POST", {
         ...data,
-        fromEmail: "client@example.com", // Would come from auth context
+        fromEmail: currentUser?.contact?.email || "client@example.com",
         toEmail: "events@company.com",
         body: data.message,
-        contactId: currentContactId,
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/portal/client/messages"] });

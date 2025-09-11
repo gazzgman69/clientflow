@@ -130,9 +130,10 @@ router.post("/forms/:formId/submit", async (req, res) => {
 // Create new form for project (admin function called from portal)
 router.post("/forms", async (req, res) => {
   try {
-    const { projectId, contactId, title, description, formDefinition, createdBy } = req.body;
+    const contactId = (req as any).session.portalContactId!; // ensurePortalAuth middleware guarantees this exists
+    const { projectId, title, description, formDefinition, createdBy } = req.body;
 
-    if (!projectId || !contactId || !title || !formDefinition || !createdBy) {
+    if (!projectId || !title || !formDefinition || !createdBy) {
       return res.status(400).json({ error: 'Missing required fields' });
     }
 

@@ -4,6 +4,9 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useLocation } from 'wouter';
+import { useState } from 'react';
+import ProjectDetailModal from '@/components/modals/project-detail-modal';
+import type { Project } from '@shared/schema';
 
 interface EmailThread {
   threadId: string;
@@ -20,6 +23,8 @@ interface EmailThread {
 
 export default function EmailThreadsWidget() {
   const [, setLocation] = useLocation();
+  const [selectedProject, setSelectedProject] = useState<Project | null>(null);
+  const [showDetailModal, setShowDetailModal] = useState(false);
   
   const { data: threadsResponse, isLoading, error } = useQuery({
     queryKey: ['/api/email/threads'],
@@ -33,7 +38,7 @@ export default function EmailThreadsWidget() {
     },
   });
 
-  // Function to find project by contact email
+  // Function to find project by contact email and open modal
   const findProjectByEmail = async (email: string) => {
     try {
       // Extract email from "Name <email@domain.com>" format
@@ -49,10 +54,10 @@ export default function EmailThreadsWidget() {
       
       if (contacts && contacts.length > 0) {
         const contact = contacts[0];
-        if (contact.projectId) {
-          setLocation(`/projects/${contact.projectId}`);
-        } else {
-          // If no direct project, look for projects with this contact
+        let projectId = contact.projectId;
+        
+        // If no direct project, look for projects with this contact
+        if (!projectId) {
           const projectsResponse = await fetch(`/api/projects?contactId=${contact.id}`, {
             headers: {
               'user-id': 'test-user'
@@ -60,8 +65,20 @@ export default function EmailThreadsWidget() {
           });
           const projects = await projectsResponse.json();
           if (projects && projects.length > 0) {
-            setLocation(`/projects/${projects[0].id}`);
+            projectId = projects[0].id;
           }
+        }
+        
+        // Fetch the full project data and open modal
+        if (projectId) {
+          const projectResponse = await fetch(`/api/projects/${projectId}`, {
+            headers: {
+              'user-id': 'test-user'
+            }
+          });
+          const project = await projectResponse.json();
+          setSelectedProject(project);
+          setShowDetailModal(true);
         }
       }
     } catch (error) {
@@ -84,7 +101,13 @@ export default function EmailThreadsWidget() {
   const threads = threadsResponse?.threads || [];
   const needsReconnect = error || threadsResponse?.error?.includes?.('insufficientPermissions');
 
+  const handleCloseDetailModal = () => {
+    setShowDetailModal(false);
+    setSelectedProject(null);
+  };
+
   return (
+    <>
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
@@ -171,5 +194,13 @@ export default function EmailThreadsWidget() {
         )}
       </CardContent>
     </Card>
+
+    {/* Project Detail Modal */}
+    <ProjectDetailModal
+      project={selectedProject}
+      isOpen={showDetailModal}
+      onClose={handleCloseDetailModal}
+    />
+    </>
   );
 }

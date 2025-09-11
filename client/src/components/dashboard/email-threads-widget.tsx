@@ -3,6 +3,8 @@ import { Mail, AlertCircle, Loader2 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { useLocation } from 'wouter';
+import { apiRequest } from '@/lib/queryClient';
 
 interface EmailThread {
   threadId: string;
@@ -18,6 +20,8 @@ interface EmailThread {
 }
 
 export default function EmailThreadsWidget() {
+  const [, setLocation] = useLocation();
+  
   const { data: threadsResponse, isLoading, error } = useQuery({
     queryKey: ['/api/email/threads'],
     queryFn: async () => {
@@ -29,6 +33,39 @@ export default function EmailThreadsWidget() {
       return response.json();
     },
   });
+
+  // Function to find project by contact email
+  const findProjectByEmail = async (email: string) => {
+    try {
+      // Extract email from "Name <email@domain.com>" format
+      const emailMatch = email.match(/<(.+)>/);
+      const cleanEmail = emailMatch ? emailMatch[1] : email;
+      
+      const response = await apiRequest('GET', `/api/contacts?email=${encodeURIComponent(cleanEmail)}`);
+      if (response && response.length > 0) {
+        const contact = response[0];
+        if (contact.projectId) {
+          setLocation(`/projects/${contact.projectId}`);
+        } else {
+          // If no direct project, look for projects with this contact
+          const projectsResponse = await apiRequest('GET', `/api/projects?contactId=${contact.id}`);
+          if (projectsResponse && projectsResponse.length > 0) {
+            setLocation(`/projects/${projectsResponse[0].id}`);
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error finding project:', error);
+    }
+  };
+
+  const handleEmailClick = (threadId: string) => {
+    setLocation(`/email?thread=${threadId}`);
+  };
+
+  const handleContactClick = (fromEmail: string) => {
+    findProjectByEmail(fromEmail);
+  };
 
   const formatDate = (dateISO: string) => {
     return new Date(dateISO).toLocaleDateString('en-GB');
@@ -76,7 +113,7 @@ export default function EmailThreadsWidget() {
           </div>
         ) : (
           <div className="space-y-3">
-            {threads.map((thread) => (
+            {threads.map((thread: EmailThread) => (
               <div 
                 key={thread.threadId}
                 className="border rounded-lg p-3 hover:bg-muted/50 cursor-pointer transition-colors"
@@ -85,17 +122,29 @@ export default function EmailThreadsWidget() {
                 <div className="flex items-start justify-between">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
-                      <span className="text-sm font-medium truncate">
+                      <span 
+                        className="text-sm font-medium truncate hover:text-primary cursor-pointer transition-colors"
+                        onClick={() => handleContactClick(thread.latest.from)}
+                        data-testid={`contact-${thread.threadId}`}
+                      >
                         {thread.latest.from}
                       </span>
                       <span className="text-xs text-muted-foreground">
                         {formatDate(thread.latest.dateISO)}
                       </span>
                     </div>
-                    <p className="text-sm font-medium mb-1 truncate">
+                    <p 
+                      className="text-sm font-medium mb-1 truncate hover:text-primary cursor-pointer transition-colors"
+                      onClick={() => handleEmailClick(thread.threadId)}
+                      data-testid={`subject-${thread.threadId}`}
+                    >
                       {thread.latest.subject}
                     </p>
-                    <p className="text-xs text-muted-foreground truncate">
+                    <p 
+                      className="text-xs text-muted-foreground truncate hover:text-foreground cursor-pointer transition-colors"
+                      onClick={() => handleEmailClick(thread.threadId)}
+                      data-testid={`snippet-${thread.threadId}`}
+                    >
                       {thread.latest.snippet}
                     </p>
                   </div>

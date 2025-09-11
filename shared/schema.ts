@@ -72,6 +72,7 @@ export const projects = pgTable("projects", {
   estimatedValue: decimal("estimated_value", { precision: 10, scale: 2 }),
   actualValue: decimal("actual_value", { precision: 10, scale: 2 }),
   assignedTo: varchar("assigned_to").references(() => users.id),
+  portalEnabledOverride: boolean("portal_enabled_override"), // null = follow tenant default, true/false = override
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });

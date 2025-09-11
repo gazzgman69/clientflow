@@ -398,6 +398,7 @@ export default function EmailThreadsWidget() {
               <Button 
                 onClick={() => setShowReplyForm(true)}
                 size="sm"
+                className="mr-8"
                 data-testid="button-reply"
               >
                 <Reply className="h-4 w-4 mr-2" />

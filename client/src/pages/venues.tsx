@@ -141,7 +141,8 @@ export default function VenuesPage() {
         description: "Venue added successfully",
       });
     },
-    onError: () => {
+    onError: (error) => {
+      console.error('Create venue mutation error:', error);
       toast({
         title: "Error",
         description: "Failed to add venue",
@@ -206,9 +207,15 @@ export default function VenuesPage() {
   });
 
   const handleSubmit = (data: VenueFormData) => {
+    console.log('Form submitted with data:', data);
+    console.log('Form errors:', form.formState.errors);
+    console.log('Form is valid:', form.formState.isValid);
+    
     if (selectedVenue) {
+      console.log('Updating venue:', selectedVenue.id);
       updateMutation.mutate({ id: selectedVenue.id, data });
     } else {
+      console.log('Creating new venue');
       createMutation.mutate(data);
     }
   };
@@ -338,7 +345,10 @@ export default function VenuesPage() {
               </DialogDescription>
             </DialogHeader>
             <Form {...form}>
-              <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
+              <form onSubmit={(e) => {
+                console.log('Form submit event triggered');
+                form.handleSubmit(handleSubmit)(e);
+              }} className="space-y-4">
                 {/* Google Places Search Integration */}
                 <div>
                   <FormLabel className="text-base font-medium">Search for Venue</FormLabel>

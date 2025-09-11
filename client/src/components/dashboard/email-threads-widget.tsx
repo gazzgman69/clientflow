@@ -415,7 +415,8 @@ export default function EmailThreadsWidget() {
           </div>
         ) : selectedThread?.thread?.messages ? (
           <div className="space-y-4">
-            {selectedThread.thread.messages.map((message, index) => (
+            {/* Show email messages only when not in reply mode */}
+            {!showReplyForm && selectedThread.thread.messages.map((message, index) => (
               <div key={message.id} className="border rounded-lg p-4 space-y-3">
                 <div className="flex items-start justify-between">
                   <div className="space-y-1">

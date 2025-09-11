@@ -1,0 +1,103 @@
+READ /docs/CONTEXT.md.
+
+PHASE 2 — CLIENT PORTAL FEATURES
+Add three things inside /portal/projects/:id:
+1) Messages (client ↔ you) synced with CRM email thread
+2) File uploads/downloads (per project)
+3) Contract accept (soft signature)
+
+RULES
+- ADAPT to existing models/services; do not invent schema if equivalents exist.
+- Minimal changes; extend only where truly missing.
+- All dates shown as dd/MM/yyyy (24h times).
+- Multi-tenant safe; no admin data leaks.
+
+A) AUDIT (NO WRITES)
+Print:
+- Where project messages/emails live (tables + services + routes). How replies are sent today.
+- Where project files live (table/storage) and current upload limits/policy.
+- Where contracts/quotes live; how contract links are generated; current acceptance method, if any.
+- Current auth used by the portal (cookie/JWT) and how portal user maps to contact.
+
+B) PLAN (BRIEF)
+Propose minimal diffs for:
+- Portal routes/endpoints
+- UI components/tabs
+- Any tiny DB additions (only if truly missing)
+Then proceed.
+
+C) IMPLEMENT (SMALLEST DIFFS; ADAPT NAMES)
+
+1) Portal Messages
+Backend:
+- GET  /api/portal/projects/:id/messages
+  → return chronological feed of messages (inbound/outbound) limited + paginated.
+  Fields: id, direction ('inbound'|'outbound'), fromName/fromEmail, subject, snippet/body (safe), sentAt, hasAttachments.
+- POST /api/portal/projects/:id/messages
+  Body: { text, attachments?[] }
+  → Create an outbound message in CRM linked to project/contact (do NOT send yet if you require moderation; otherwise send via existing mailer). Return saved message meta.
+- Optional: POST /api/portal/projects/:id/messages/preview → runs token resolver on text.
+- Rate limit portal posts (e.g., 10/min per contact) to avoid abuse.
+
+Notifications:
+- On portal POST, notify internal user via existing notify path (email) with link back to project.
+- On internal reply, optionally email the client and also show it in portal feed.
+
+Frontend:
+- Portal “Messages” tab:
+  • Feed list (newest → oldest), each row shows from → to, subject (optional), first lines, sentAt (dd/MM/yyyy HH:mm)
+  • Composer at bottom: textarea + “Attach file” (re-use file component)
+  • Send button; show progress/errors; clear on success
+  • Infinite scroll / “Load more” button
+- Keep the unified “project timeline” look (no RFC threading here).
+
+2) Portal Files
+Backend:
+- GET  /api/portal/projects/:id/files  → list files client is allowed to see (name, size, uploadedAt)
+- POST /api/portal/projects/:id/files  → upload file (client → you); store under the project’s existing file storage.
+- GET  /api/portal/files/:fileId      → secure download (ownership check)
+- Enforce limits: size (e.g., <= 10MB default), types (pdf, docx, xls, png, jpg, zip); configurable.
+- Optional: simple server-side antivirus hook if available; otherwise skip.
+
+Frontend:
+- “Files” tab (or section under Documents):
+  • Upload area (drag & drop + button), list existing files with size/date
+  • On upload complete, list refreshes
+  • Show friendly errors for size/type limits
+
+3) Contract Accept (Soft Signature)
+Backend:
+- GET  /api/portal/contracts/:id              → returns contract HTML/title/status for this client
+- POST /api/portal/contracts/:id/accept
+  Body: { fullName, agree: boolean }
+  Steps:
+   • Validate portal session owns the contract (via contact/project).
+   • Record acceptance: acceptedAt (UTC), ipAddress, userAgent, fullName, portalUserId/contactId.
+   • Generate finalised PDF/HTML snapshot (reuse existing renderer if present).
+   • Email confirmation to client + internal (attach or link to the snapshot).
+   • Update contract status.
+
+- Store a tamper-evident hash of the accepted content (e.g., sha256 of rendered HTML/PDF bytes).
+
+Frontend:
+- “Documents” → Contract view:
+  • Read-only render
+  • Acceptance panel: Full Name input + checkbox “I agree to the terms” + Accept button
+  • On success: show confirmation, link to download final PDF, and display acceptedAt dd/MM/yyyy HH:mm
+
+Security & Privacy
+- All portal endpoints verify contact ownership for the given project/document/file.
+- Sanitize message HTML; disallow scripts. For uploads, strip EXIF if images (optional).
+
+D) VERIFY
+- Create a test portal session; open project:
+  1) Messages tab loads feed; send a message with a small attachment → appears in CRM, optional email notification fires.
+  2) Files tab: upload a file (<= 10MB) → appears in list; download works.
+  3) Documents → Contract: accept with name → status updates, confirmation email sent, snapshot stored; acceptedAt shows in dd/MM/yyyy HH:mm.
+- Logs (server): minimal—endpoint hit, ids, success/failure; no PII/contents.
+
+E) ACCEPTANCE
+- Messages: two-way visibility (client sees replies, you see client posts), rate-limited, attachments supported.
+- Files: client can upload and download project files within configured limits.
+- Contract: soft-signature recorded with metadata + snapshot; confirm email sent; status updated.
+- All dates/times rendered dd/MM/yyyy (24h).

@@ -151,10 +151,10 @@ export default function EmailThreadsWidget() {
                       onClick={() => handleEmailClick(thread.threadId)}
                       data-testid={`email-content-${thread.threadId}`}
                     >
-                      <p className="text-sm font-medium mb-1 truncate">
+                      <p className="text-sm font-medium mb-1 truncate hover:text-primary transition-colors">
                         {thread.latest.subject}
                       </p>
-                      <p className="text-xs text-muted-foreground truncate">
+                      <p className="text-xs text-muted-foreground truncate hover:text-foreground transition-colors">
                         {thread.latest.snippet}
                       </p>
                     </div>

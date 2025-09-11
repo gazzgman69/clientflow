@@ -35,9 +35,13 @@ interface EmailMessage {
 }
 
 interface EmailThreadDetails {
-  threadId: string;
-  messages: EmailMessage[];
   ok: boolean;
+  thread: {
+    threadId: string;
+    messages: EmailMessage[];
+    count: number;
+    subject: string;
+  };
 }
 
 export default function EmailThreadsWidget() {
@@ -248,7 +252,7 @@ export default function EmailThreadsWidget() {
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
-            {selectedThread?.messages?.[0]?.subject || 'Email Thread'}
+            {selectedThread?.thread?.subject || 'Email Thread'}
           </DialogTitle>
         </DialogHeader>
         
@@ -257,9 +261,9 @@ export default function EmailThreadsWidget() {
             <Loader2 className="h-6 w-6 animate-spin mr-2" />
             Loading email thread...
           </div>
-        ) : selectedThread?.messages ? (
+        ) : selectedThread?.thread?.messages ? (
           <div className="space-y-4">
-            {selectedThread.messages.map((message, index) => (
+            {selectedThread.thread.messages.map((message, index) => (
               <div key={message.id} className="border rounded-lg p-4 space-y-3">
                 <div className="flex items-start justify-between">
                   <div className="space-y-1">

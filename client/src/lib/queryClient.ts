@@ -7,6 +7,32 @@ async function throwIfResNotOk(res: Response) {
   }
 }
 
+// Simple in-memory cache for CSRF token
+let csrfTokenCache: string | null = null;
+
+async function getCsrfToken(): Promise<string> {
+  if (csrfTokenCache) {
+    return csrfTokenCache;
+  }
+  
+  try {
+    const response = await fetch('/api/csrf-token', {
+      credentials: 'include',
+    });
+    
+    if (!response.ok) {
+      throw new Error('Failed to fetch CSRF token');
+    }
+    
+    const data = await response.json();
+    csrfTokenCache = data.csrfToken;
+    return csrfTokenCache;
+  } catch (error) {
+    console.error('Error fetching CSRF token:', error);
+    throw error;
+  }
+}
+
 export async function apiRequest(
   method: string,
   url: string,
@@ -20,12 +46,51 @@ export async function apiRequest(
     headers['Content-Type'] = 'application/json';
   }
   
+  // For state-changing methods, include CSRF token
+  const needsCsrfToken = ['POST', 'PATCH', 'PUT', 'DELETE'].includes(method.toUpperCase());
+  if (needsCsrfToken) {
+    try {
+      const csrfToken = await getCsrfToken();
+      headers['X-CSRF-Token'] = csrfToken;
+    } catch (error) {
+      console.error('Failed to get CSRF token, continuing without it:', error);
+      // Continue the request - let the server reject it if needed
+    }
+  }
+  
   const res = await fetch(url, {
     method,
     headers,
     body: data ? JSON.stringify(data) : undefined,
     credentials: "include",
   });
+
+  // If we get a CSRF error, clear the cache and retry once
+  if (res.status === 403 && needsCsrfToken) {
+    const errorText = await res.text();
+    if (errorText.includes('csrf token')) {
+      console.log('CSRF token expired, refreshing and retrying...');
+      csrfTokenCache = null; // Clear cache
+      
+      try {
+        const freshCsrfToken = await getCsrfToken();
+        headers['X-CSRF-Token'] = freshCsrfToken;
+        
+        const retryRes = await fetch(url, {
+          method,
+          headers,
+          body: data ? JSON.stringify(data) : undefined,
+          credentials: "include",
+        });
+        
+        await throwIfResNotOk(retryRes);
+        return retryRes;
+      } catch (retryError) {
+        console.error('Retry with fresh CSRF token failed:', retryError);
+        throw retryError;
+      }
+    }
+  }
 
   await throwIfResNotOk(res);
   return res;

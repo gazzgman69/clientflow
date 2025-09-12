@@ -113,4 +113,44 @@
   .glow-accent {
     box-shadow: 0 0 20px rgba(140, 100, 255, 0.3);
   }
+
+  /* Email Content Dark Mode Styling */
+  .email-content {
+    @apply text-foreground;
+  }
+  
+  .dark .email-content {
+    color: hsl(var(--foreground)) !important;
+  }
+  
+  .dark .email-content * {
+    color: hsl(var(--foreground)) !important;
+  }
+  
+  .dark .email-content p {
+    color: hsl(var(--foreground)) !important;
+  }
+  
+  .dark .email-content div {
+    color: hsl(var(--foreground)) !important;
+  }
+  
+  .dark .prose-invert {
+    --tw-prose-body: hsl(var(--foreground)) !important;
+    --tw-prose-headings: hsl(var(--foreground)) !important;
+    --tw-prose-lead: hsl(var(--muted-foreground)) !important;
+    --tw-prose-links: hsl(var(--primary)) !important;
+    --tw-prose-bold: hsl(var(--foreground)) !important;
+    --tw-prose-counters: hsl(var(--muted-foreground)) !important;
+    --tw-prose-bullets: hsl(var(--muted-foreground)) !important;
+    --tw-prose-hr: hsl(var(--border)) !important;
+    --tw-prose-quotes: hsl(var(--foreground)) !important;
+    --tw-prose-quote-borders: hsl(var(--border)) !important;
+    --tw-prose-captions: hsl(var(--muted-foreground)) !important;
+    --tw-prose-code: hsl(var(--foreground)) !important;
+    --tw-prose-pre-code: hsl(var(--foreground)) !important;
+    --tw-prose-pre-bg: hsl(var(--muted)) !important;
+    --tw-prose-th-borders: hsl(var(--border)) !important;
+    --tw-prose-td-borders: hsl(var(--border)) !important;
+  }
 }

@@ -267,18 +267,25 @@ router.get('/threads/by-project/:projectId', requireAuth, async (req: any, res) 
     const userId = req.user.id;
     const projectId = req.params.projectId;
     
-    let addresses: string[] = [];
-    
+    // SECURITY FIX: Verify user owns the project before accessing threads
+    let project;
     try {
-      // Try to get project and client emails
-      const project = await storage.getProject(projectId);
-      if (project) {
-        // For now, we'll use the fallback approach
-        // In the future, we can add contactEmails field to project schema
+      project = await storage.getProject(projectId);
+      if (!project) {
+        return res.status(404).json({ error: 'Project not found' });
+      }
+      
+      // Verify project ownership/access
+      if (project.assignedTo !== userId && project.userId !== userId) {
+        console.log(`🔒 SECURITY: User ${userId} denied access to project ${projectId} - owned by ${project.assignedTo || project.userId}`);
+        return res.status(403).json({ error: 'Access denied - project not owned by user' });
       }
     } catch (error) {
-      // If project doesn't exist or fails, continue with fallback
+      console.error('Error verifying project ownership:', error);
+      return res.status(500).json({ error: 'Failed to verify project access' });
     }
+    
+    let addresses: string[] = [];
     
     // Fallback: accept ?emails=a@x.com,b@y.com query parameter
     if (addresses.length === 0 && req.query.emails) {
@@ -297,6 +304,7 @@ router.get('/threads/by-project/:projectId', requireAuth, async (req: any, res) 
     // Load email threads from database for instant response
     try {
       // Get threads with proper counts
+      // SECURITY FIX: Filter threads by both project AND user ownership
       const threadsData = await db
         .select({
           threadId: emailThreads.id,
@@ -306,7 +314,7 @@ router.get('/threads/by-project/:projectId', requireAuth, async (req: any, res) 
         })
         .from(emailThreads)
         .leftJoin(emails, eq(emails.threadId, emailThreads.id))
-        .where(eq(emailThreads.projectId, projectId))
+        .where(and(eq(emailThreads.projectId, projectId), eq(emailThreads.userId, userId)))
         .groupBy(emailThreads.id, emailThreads.subject, emailThreads.lastMessageAt)
         .orderBy(desc(emailThreads.lastMessageAt))
         .limit(limit);
@@ -555,7 +563,26 @@ router.get('/projects/:projectId/email-messages', requireAuth, async (req: any, 
     const { projectId } = req.params;
     const { limit = 100 } = req.query;
 
-    // Get all individual email messages for the project
+    const userId = req.user.id;
+    
+    // SECURITY FIX: Verify user owns the project before accessing messages
+    try {
+      const project = await storage.getProject(projectId);
+      if (!project) {
+        return res.status(404).json({ error: 'Project not found' });
+      }
+      
+      // Verify project ownership/access
+      if (project.assignedTo !== userId && project.userId !== userId) {
+        console.log(`🔒 SECURITY: User ${userId} denied access to project ${projectId} - owned by ${project.assignedTo || project.userId}`);
+        return res.status(403).json({ error: 'Access denied - project not owned by user' });
+      }
+    } catch (error) {
+      console.error('Error verifying project ownership:', error);
+      return res.status(500).json({ error: 'Failed to verify project access' });
+    }
+    
+    // Get all individual email messages for the project with user filtering
     const messages = await db
       .select({
         id: emails.id,
@@ -578,7 +605,7 @@ router.get('/projects/:projectId/email-messages', requireAuth, async (req: any, 
         snippet: emails.snippet
       })
       .from(emails)
-      .where(eq(emails.projectId, projectId))
+      .where(and(eq(emails.projectId, projectId), eq(emails.userId, userId)))
       .orderBy(desc(emails.sentAt))
       .limit(Number(limit));
 

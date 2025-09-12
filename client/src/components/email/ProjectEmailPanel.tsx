@@ -930,8 +930,8 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
                     </div>
                   </CardHeader>
                   <CardContent className="pt-0 py-2">
-                    <div className="bg-muted/20 p-2 rounded text-xs">
-                      <p className="text-muted-foreground line-clamp-2 leading-relaxed">
+                    <div className="bg-muted/20 dark:bg-muted/10 p-2 rounded text-xs border border-border/20 dark:border-border/10">
+                      <p className="text-muted-foreground dark:text-muted-foreground line-clamp-2 leading-relaxed">
                         {resolveDisplayTokens(
                           decodeHtmlEntities(message.snippet || message.bodyText?.substring(0, 150)) || 'No preview available',
                           project,
@@ -988,10 +988,10 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
                       </div>
                     </CardHeader>
                     <CardContent className="pt-0">
-                      <div className="text-sm bg-muted/30 p-3 rounded max-h-64 overflow-y-auto mb-3">
+                      <div className="text-sm bg-muted/30 dark:bg-muted/10 p-3 rounded max-h-64 overflow-y-auto mb-3 border border-border/20 dark:border-border/10">
                         {message.bodyHtml ? (
                           <div 
-                            className="prose prose-sm max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0"
+                            className="prose prose-sm dark:prose-invert max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 text-foreground dark:text-foreground"
                             dangerouslySetInnerHTML={{
                               __html: resolveDisplayTokens(
                                 extractEmailContent(message.bodyHtml) || 'No content',
@@ -1001,7 +1001,7 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
                             }}
                           />
                         ) : (
-                          <div className="whitespace-pre-wrap">
+                          <div className="whitespace-pre-wrap text-foreground dark:text-foreground">
                             {resolveDisplayTokens(
                               decodeHtmlEntities(message.bodyText) || 'No content',
                               project,
@@ -1225,8 +1225,8 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
                       </div>
                     </CardHeader>
                     <CardContent className="pt-0">
-                      <div className="bg-muted/30 p-3 rounded text-sm">
-                        <p className="text-muted-foreground line-clamp-3 leading-relaxed">
+                      <div className="bg-muted/30 dark:bg-muted/10 p-3 rounded text-sm border border-border/20 dark:border-border/10">
+                        <p className="text-muted-foreground dark:text-muted-foreground line-clamp-3 leading-relaxed">
                           {template.body?.substring(0, 200) || 'No preview available'}...
                         </p>
                       </div>

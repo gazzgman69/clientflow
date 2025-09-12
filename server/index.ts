@@ -2,6 +2,7 @@ import express, { type Request, Response, NextFunction } from "express";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
 import csrf from "csurf";
+import cookieParser from "cookie-parser";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { calendarAutoSyncService } from "./services/calendar-auto-sync";
@@ -65,8 +66,23 @@ app.use(limiter); // Apply general rate limiting to all routes
 // Make auth limiter available to routes
 (app as any).authLimiter = authLimiter;
 
+app.use(cookieParser()); // Required for CSRF
 app.use(express.json({ limit: '10mb' })); // Add size limit for security
 app.use(express.urlencoded({ extended: false, limit: '10mb' }));
+
+// CSRF Protection - applied after sessions are configured
+const csrfProtection = csrf({
+  cookie: {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax'
+  }
+});
+
+// CSRF token endpoint - apply CSRF middleware to generate token and cookie
+app.get('/api/csrf-token', csrfProtection, (req, res) => {
+  res.json({ csrfToken: req.csrfToken() });
+});
 
 app.use((req, res, next) => {
   const start = Date.now();
@@ -101,7 +117,7 @@ app.use((req, res, next) => {
 });
 
 (async () => {
-  const server = await registerRoutes(app);
+  const server = await registerRoutes(app, csrfProtection);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
@@ -149,7 +165,9 @@ app.use((req, res, next) => {
         setTimeout(async () => {
           try {
             console.log('🔄 Running initial Gmail sync...');
-            await emailSyncService.backgroundSync('test-user');
+            // TODO: Implement proper multi-user background sync
+            // For now, skip background sync until user-specific sync is implemented
+            console.log('⚠️ Background sync skipped - requires user-specific implementation');
           } catch (error) {
             console.error('❌ Initial Gmail sync failed:', error);
             // Don't crash the app on initial sync failure
@@ -160,7 +178,9 @@ app.use((req, res, next) => {
         setInterval(async () => {
           try {
             console.log('🔄 Running scheduled Gmail sync...');
-            await emailSyncService.backgroundSync('test-user');
+            // TODO: Implement proper multi-user background sync
+            // For now, skip background sync until user-specific sync is implemented
+            console.log('⚠️ Background sync skipped - requires user-specific implementation');
           } catch (error) {
             console.error('❌ Scheduled Gmail sync failed:', error);
             // Log the error but don't let it crash the app

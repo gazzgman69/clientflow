@@ -106,8 +106,8 @@ export class EmailSyncService {
       const contactEmails = Array.from(emailToProjectMap.keys());
       
       // Search for emails between user's business email AND contact emails (both directions)
-      // TODO: Get user's configured business email from settings instead of hardcoded
-      const userBusinessEmail = 'skinnycheck@gmail.com'; // SECURITY: This should be user-specific
+      // SECURITY FIX: Get user's actual business email, not hardcoded
+      const userBusinessEmail = await this.getUserBusinessEmail(userId);
       const allEmailsToSearch = [userBusinessEmail, ...contactEmails];
       console.log('🔍 Searching for emails involving addresses:', allEmailsToSearch);
       
@@ -176,12 +176,13 @@ export class EmailSyncService {
           );
 
           if (existingThread.length === 0) {
-            // Create new thread
+            // Create new thread with userId for multi-tenant isolation
             await withDbRetry(() =>
               db
                 .insert(emailThreads)
                 .values({
                   id: threadId,
+                  userId, // CRITICAL: Add userId for multi-tenant isolation
                   subject: gmailThread.latest.subject,
                   projectId: matchedProjectId,
                   lastMessageAt: new Date(gmailThread.latest.dateISO),
@@ -747,12 +748,12 @@ export class EmailSyncService {
   /**
    * Get email threads for a project
    */
-  async getProjectThreads(projectId: string): Promise<EmailThread[]> {
+  async getProjectThreads(projectId: string, userId: string): Promise<EmailThread[]> {
     try {
       const threads = await db
         .select()
         .from(emailThreads)
-        .where(eq(emailThreads.projectId, projectId))
+        .where(and(eq(emailThreads.projectId, projectId), eq(emailThreads.userId, userId)))
         .orderBy(desc(emailThreads.lastMessageAt));
       
       return threads;
@@ -765,12 +766,12 @@ export class EmailSyncService {
   /**
    * Get messages for a thread
    */
-  async getThreadMessages(threadId: string): Promise<Email[]> {
+  async getThreadMessages(threadId: string, userId: string): Promise<Email[]> {
     try {
       const messages = await db
         .select()
         .from(emails)
-        .where(eq(emails.threadId, threadId))
+        .where(and(eq(emails.threadId, threadId), eq(emails.userId, userId)))
         .orderBy(emails.sentAt);
       
       return messages;
@@ -925,6 +926,23 @@ export class EmailSyncService {
     const totalSynced = gmailResult.synced + imapResult.synced;
     const totalSkipped = gmailResult.skipped + imapResult.skipped;
     console.log(`📧 Background sync complete: ${totalSynced} synced, ${totalSkipped} skipped`);
+  }
+
+  /**
+   * Get user's configured business email (security fix for hardcoded emails)
+   */
+  private async getUserBusinessEmail(userId: string): Promise<string> {
+    // Prefer settings if present; fallback to Gmail profile
+    try {
+      const { mailSettingsService } = await import('./mailSettings');
+      const settings = await mailSettingsService.getSettings(userId);
+      const fromEmail = settings?.fromEmail || settings?.businessEmail;
+      if (fromEmail && /.+@.+\..+/.test(fromEmail)) return fromEmail.trim().toLowerCase();
+    } catch (_) {}
+    this.gmailService = await this.initializeGmailService();
+    const gmailEmail = await this.gmailService.getUserEmail(userId);
+    if (gmailEmail && /.+@.+\..+/.test(gmailEmail)) return gmailEmail.trim().toLowerCase();
+    throw new Error('No business email configured for user');
   }
 }
 

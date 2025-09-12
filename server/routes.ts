@@ -57,7 +57,7 @@ import {
   insertCalendarSyncLogSchema
 } from "@shared/schema";
 
-export async function registerRoutes(app: Express): Promise<Server> {
+export async function registerRoutes(app: Express, csrfProtection?: any): Promise<Server> {
   // Import auth limiter from main app
   const authLimiter = (app as any).authLimiter;
   
@@ -92,41 +92,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // JSON parsing middleware
   app.use(express.json());
   
-  // OAuth routes (must be after session middleware)
+  // OAuth routes (must be after session middleware) - no CSRF for OAuth flows
   app.use(oauthRoutes);
   
-  // Email routes  
-  app.use('/api/email', emailRoutes);
-  app.use('/api', emailRoutes); // Direct mounting for /api/email-threads routes
+  // Email routes - apply CSRF to state-changing requests
+  app.use('/api/email', csrf, emailRoutes);
+  app.use('/api', csrf, emailRoutes); // Direct mounting for /api/email-threads routes
   
-  // Mail settings routes
-  app.use('/api/settings/mail', mailSettingsRoutes);
+  // Apply CSRF protection to state-changing routes if provided
+  const csrf = csrfProtection || ((req: any, res: any, next: any) => next());
   
-  // User preferences routes
-  app.use('/api/user', userPrefsRoutes);
+  // Mail settings routes - apply CSRF to state-changing requests
+  app.use('/api/settings/mail', csrf, mailSettingsRoutes);
   
-  // Templates routes
-  app.use('/api', templatesRoutes);
+  // User preferences routes - apply CSRF to state-changing requests
+  app.use('/api/user', csrf, userPrefsRoutes);
   
-  // Token routes
-  app.use('/api/tokens', tokensRoutes);
+  // Templates routes - apply CSRF to state-changing requests
+  app.use('/api', csrf, templatesRoutes);
   
-  // Signatures routes
-  app.use('/api/signatures', signaturesRoutes);
+  // Token routes - apply CSRF to state-changing requests
+  app.use('/api/tokens', csrf, tokensRoutes);
   
-  // Lead Forms routes
-  app.use('/api', leadFormsRoutes);
+  // Signatures routes - apply CSRF to state-changing requests
+  app.use('/api/signatures', csrf, signaturesRoutes);
   
-  // Lead Automation routes (simplified version)
-  app.use('/api/admin/lead-automation', leadAutomationSimpleRoutes);
+  // Lead Forms routes - apply CSRF to state-changing requests
+  app.use('/api', csrf, leadFormsRoutes);
   
-  // Venues routes
-  app.use('/api/venues', venuesRoutes);
+  // Lead Automation routes (simplified version) - apply CSRF to state-changing requests
+  app.use('/api/admin/lead-automation', csrf, leadAutomationSimpleRoutes);
+  
+  // Venues routes - apply CSRF to state-changing requests
+  app.use('/api/venues', csrf, venuesRoutes);
 
-  // Portal routes (client portal features) - all secured with session auth
-  app.use('/api/portal/payments', ensurePortalAuth, portalPaymentsRoutes);
-  app.use('/api/portal/forms', ensurePortalAuth, portalFormsRoutes);
-  app.use('/api/portal/appointments', ensurePortalAuth, portalAppointmentsRoutes);
+  // Portal routes (client portal features) - all secured with session auth + CSRF
+  app.use('/api/portal/payments', ensurePortalAuth, csrf, portalPaymentsRoutes);
+  app.use('/api/portal/forms', ensurePortalAuth, csrf, portalFormsRoutes);
+  app.use('/api/portal/appointments', ensurePortalAuth, csrf, portalAppointmentsRoutes);
   
   // Security helper functions for portal authentication
   async function verifyProjectAccess(contactId: string, projectId: string): Promise<boolean> {
@@ -746,7 +749,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/leads", async (req, res) => {
+  app.post("/api/leads", csrf, async (req, res) => {
     try {
       const leadData = insertLeadSchema.parse(req.body);
       const lead = await storage.createLead(leadData);
@@ -756,7 +759,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/leads/:id", async (req, res) => {
+  app.patch("/api/leads/:id", csrf, async (req, res) => {
     try {
       const leadData = insertLeadSchema.partial().parse(req.body);
       const lead = await storage.updateLead(req.params.id, leadData);
@@ -770,7 +773,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // PATCH /api/leads/:id/status
-  app.patch("/api/leads/:id/status", async (req, res) => {
+  app.patch("/api/leads/:id/status", csrf, async (req, res) => {
     try {
       const { status } = req.body;
       
@@ -820,7 +823,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/leads/:id", async (req, res) => {
+  app.delete("/api/leads/:id", csrf, async (req, res) => {
     try {
       const deleted = await storage.deleteLead(req.params.id);
       if (!deleted) {
@@ -854,7 +857,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/contacts", async (req, res) => {
+  app.post("/api/contacts", csrf, async (req, res) => {
     try {
       const contactData = insertContactSchema.parse(req.body);
       const contact = await storage.createContact(contactData);
@@ -864,7 +867,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/contacts/:id", async (req, res) => {
+  app.patch("/api/contacts/:id", csrf, async (req, res) => {
     try {
       const contactData = insertContactSchema.partial().parse(req.body);
       const contact = await storage.updateContact(req.params.id, contactData);
@@ -877,7 +880,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/contacts/:id", async (req, res) => {
+  app.delete("/api/contacts/:id", csrf, async (req, res) => {
     try {
       // Check if contact has associated projects and get their details
       const associatedProjects = await storage.getProjectsByContact(req.params.id);
@@ -995,7 +998,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/projects", async (req, res) => {
+  app.post("/api/projects", csrf, async (req, res) => {
     try {
       const projectData = insertProjectSchema.parse(req.body);
       const project = await storage.createProject(projectData);
@@ -1005,7 +1008,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/projects/:id", async (req, res) => {
+  app.patch("/api/projects/:id", csrf, async (req, res) => {
     try {
       const projectData = insertProjectSchema.partial().parse(req.body);
       const project = await storage.updateProject(req.params.id, projectData);
@@ -1051,7 +1054,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/projects/:id", async (req, res) => {
+  app.delete("/api/projects/:id", csrf, async (req, res) => {
     try {
       const deleted = await storage.deleteProject(req.params.id);
       if (!deleted) {
@@ -1073,7 +1076,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/quotes", async (req, res) => {
+  app.post("/api/quotes", csrf, async (req, res) => {
     try {
       const quoteData = insertQuoteSchema.parse(req.body);
       const quote = await storage.createQuote(quoteData);
@@ -1093,7 +1096,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/contracts", async (req, res) => {
+  app.post("/api/contracts", csrf, async (req, res) => {
     try {
       const contractData = insertContractSchema.parse(req.body);
       const contract = await storage.createContract(contractData);
@@ -1138,7 +1141,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/quotes/:id", async (req, res) => {
+  app.patch("/api/quotes/:id", csrf, async (req, res) => {
     try {
       const quoteData = insertQuoteSchema.partial().parse(req.body);
       const quote = await storage.updateQuote(req.params.id, quoteData);
@@ -1151,7 +1154,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/quotes/:id", async (req, res) => {
+  app.delete("/api/quotes/:id", csrf, async (req, res) => {
     try {
       const deleted = await storage.deleteQuote(req.params.id);
       if (!deleted) {
@@ -1176,7 +1179,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/contracts/:id", async (req, res) => {
+  app.patch("/api/contracts/:id", csrf, async (req, res) => {
     try {
       const contractData = insertContractSchema.partial().parse(req.body);
       const contract = await storage.updateContract(req.params.id, contractData);
@@ -1189,7 +1192,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/contracts/:id", async (req, res) => {
+  app.delete("/api/contracts/:id", csrf, async (req, res) => {
     try {
       const deleted = await storage.deleteContract(req.params.id);
       if (!deleted) {

@@ -41,7 +41,7 @@ const sendEmailSchema = z.object({
 // Middleware to check for authenticated user - use hardcoded test-user for now
 const requireAuth = (req: any, res: any, next: any) => {
   const userIdHeader = req.headers['user-id'];
-  const userId = typeof userIdHeader === 'string' ? userIdHeader : 'test-user'; // In production, get from session
+  const userId = typeof userIdHeader === 'string' ? userIdHeader : 'anonymous-user'; // TODO: Get from authenticated session
   
   // Set user on request for compatibility
   req.user = { id: userId };

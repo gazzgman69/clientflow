@@ -65,9 +65,11 @@ const requireAuth = (req: any, res: any, next: any) => {
     const userId = typeof userIdHeader === 'string' ? userIdHeader : null;
     
     if (userId) {
-      console.log(`⚠️  DEV MODE: Using header-based auth for user ${userId}`);
+      // Use the actual user ID that owns the test data
+      const developmentUserId = '00000000-0000-0000-0000-000000000001';
+      console.log(`⚠️  DEV MODE: Using header-based auth for user ${userId}, mapped to ${developmentUserId}`);
       req.user = { 
-        id: userId, 
+        id: developmentUserId, 
         email: `${userId}@example.com` // Development fallback email
       };
       return next();

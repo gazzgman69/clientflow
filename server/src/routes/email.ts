@@ -43,28 +43,41 @@ const requireAuth = (req: any, res: any, next: any) => {
   // SECURITY FIX: Use session-based authentication instead of spoofable headers
   const sessionUser = req.session?.user;
   
-  if (!sessionUser || !sessionUser.id) {
-    return res.status(401).json({ 
-      error: 'Authentication required', 
-      message: 'Please log in to access this endpoint'
-    });
+  if (sessionUser && sessionUser.id) {
+    // Session-based authentication (preferred)
+    if (!sessionUser.email) {
+      return res.status(401).json({ 
+        error: 'Invalid session', 
+        message: 'Session missing required user data'
+      });
+    }
+    
+    req.user = { 
+      id: sessionUser.id, 
+      email: sessionUser.email
+    };
+    return next();
   }
   
-  // Validate session user has required fields
-  if (!sessionUser.email) {
-    return res.status(401).json({ 
-      error: 'Invalid session', 
-      message: 'Session missing required user data'
-    });
+  // DEVELOPMENT FALLBACK: Allow header-based auth for dev mode only
+  if (process.env.NODE_ENV === 'development') {
+    const userIdHeader = req.headers['user-id'];
+    const userId = typeof userIdHeader === 'string' ? userIdHeader : null;
+    
+    if (userId) {
+      console.log(`⚠️  DEV MODE: Using header-based auth for user ${userId}`);
+      req.user = { 
+        id: userId, 
+        email: `${userId}@example.com` // Development fallback email
+      };
+      return next();
+    }
   }
   
-  // Set authenticated user on request
-  req.user = { 
-    id: sessionUser.id, 
-    email: sessionUser.email
-  };
-  
-  next();
+  return res.status(401).json({ 
+    error: 'Authentication required', 
+    message: 'Please log in to access this endpoint'
+  });
 };
 
 // Helper function to get user's email address from authenticated session

@@ -686,7 +686,7 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
                   </ToggleGroupItem>
                   <ToggleGroupItem value="rfc" size="sm" data-testid="toggle-rfc-view">
                     <Layers className="h-4 w-4 mr-1" />
-                    Full Thread
+                    Thread
                   </ToggleGroupItem>
                 </ToggleGroup>
               </div>

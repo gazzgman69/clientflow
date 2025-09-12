@@ -42,20 +42,13 @@ export function useUserPrefs(keys?: string[]) {
 
   const setPreferenceMutation = useMutation({
     mutationFn: async ({ key, value }: { key: string; value: string }) => {
-      const response = await fetch('/api/user/prefs', {
+      return apiRequest('/api/user/prefs', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
           'user-id': 'test-user' // TODO: Get from actual auth context
         },
         body: JSON.stringify({ key, value })
       });
-      
-      if (!response.ok) {
-        throw new Error('Failed to set preference');
-      }
-      
-      return response.json();
     },
     onSuccess: () => {
       // Invalidate user preferences queries
@@ -65,18 +58,12 @@ export function useUserPrefs(keys?: string[]) {
 
   const deletePreferenceMutation = useMutation({
     mutationFn: async (key: string) => {
-      const response = await fetch(`/api/user/prefs/${key}`, {
+      return apiRequest(`/api/user/prefs/${key}`, {
         method: 'DELETE',
         headers: {
           'user-id': 'test-user' // TODO: Get from actual auth context
         }
       });
-      
-      if (!response.ok) {
-        throw new Error('Failed to delete preference');
-      }
-      
-      return response.json();
     },
     onSuccess: () => {
       // Invalidate user preferences queries

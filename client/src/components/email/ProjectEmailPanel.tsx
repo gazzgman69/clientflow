@@ -991,7 +991,7 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
                       <div className="text-sm bg-muted/30 dark:bg-muted/10 p-3 rounded max-h-64 overflow-y-auto mb-3 border border-border/20 dark:border-border/10">
                         {message.bodyHtml ? (
                           <div 
-                            className="prose prose-sm dark:prose-invert max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 email-content text-foreground dark:text-foreground"
+                            className="email-body text-foreground max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0"
                             dangerouslySetInnerHTML={{
                               __html: resolveDisplayTokens(
                                 extractEmailContent(message.bodyHtml) || 'No content',
@@ -1001,7 +1001,7 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
                             }}
                           />
                         ) : (
-                          <div className="whitespace-pre-wrap email-content text-foreground dark:text-foreground">
+                          <div className="email-body plain text-foreground">
                             {resolveDisplayTokens(
                               decodeHtmlEntities(message.bodyText) || 'No content',
                               project,

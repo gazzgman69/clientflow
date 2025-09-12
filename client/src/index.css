@@ -5,50 +5,50 @@
 
 :root {
   /* Modern Dark Theme - Sleek & Professional */
-  --background: hsl(240 10% 8%);
-  --foreground: hsl(0 0% 95%);
-  --card: hsl(240 10% 12%);
-  --card-foreground: hsl(0 0% 92%);
-  --popover: hsl(240 10% 10%);
-  --popover-foreground: hsl(0 0% 95%);
-  --primary: hsl(200 100% 60%);
-  --primary-foreground: hsl(240 10% 8%);
-  --secondary: hsl(240 10% 16%);
-  --secondary-foreground: hsl(0 0% 85%);
-  --muted: hsl(240 10% 14%);
-  --muted-foreground: hsl(0 0% 65%);
-  --accent: hsl(270 95% 65%);
-  --accent-foreground: hsl(240 10% 8%);
-  --destructive: hsl(0 85% 55%);
-  --destructive-foreground: hsl(0 0% 95%);
-  --border: hsl(240 10% 18%);
-  --input: hsl(240 10% 16%);
-  --ring: hsl(200 100% 60%);
+  --background: 240 10% 8%;
+  --foreground: 0 0% 95%;
+  --card: 240 10% 12%;
+  --card-foreground: 0 0% 92%;
+  --popover: 240 10% 10%;
+  --popover-foreground: 0 0% 95%;
+  --primary: 200 100% 60%;
+  --primary-foreground: 240 10% 8%;
+  --secondary: 240 10% 16%;
+  --secondary-foreground: 0 0% 85%;
+  --muted: 240 10% 14%;
+  --muted-foreground: 0 0% 65%;
+  --accent: 270 95% 65%;
+  --accent-foreground: 240 10% 8%;
+  --destructive: 0 85% 55%;
+  --destructive-foreground: 0 0% 95%;
+  --border: 240 10% 18%;
+  --input: 240 10% 16%;
+  --ring: 200 100% 60%;
   --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --radius: 0.75rem;
 }
 
 .dark {
   /* Enhanced Dark Mode - Even Sleeker */
-  --background: hsl(240 15% 6%);
-  --foreground: hsl(0 0% 97%);
-  --card: hsl(240 15% 9%);
-  --card-foreground: hsl(0 0% 94%);
-  --popover: hsl(240 15% 7%);
-  --popover-foreground: hsl(0 0% 97%);
-  --primary: hsl(190 100% 55%);
-  --primary-foreground: hsl(240 15% 6%);
-  --secondary: hsl(240 15% 12%);
-  --secondary-foreground: hsl(0 0% 88%);
-  --muted: hsl(240 15% 11%);
-  --muted-foreground: hsl(0 0% 68%);
-  --accent: hsl(280 100% 70%);
-  --accent-foreground: hsl(240 15% 6%);
-  --destructive: hsl(0 90% 58%);
-  --destructive-foreground: hsl(0 0% 97%);
-  --border: hsl(240 15% 15%);
-  --input: hsl(240 15% 13%);
-  --ring: hsl(190 100% 55%);
+  --background: 240 15% 6%;
+  --foreground: 0 0% 97%;
+  --card: 240 15% 9%;
+  --card-foreground: 0 0% 94%;
+  --popover: 240 15% 7%;
+  --popover-foreground: 0 0% 97%;
+  --primary: 190 100% 55%;
+  --primary-foreground: 240 15% 6%;
+  --secondary: 240 15% 12%;
+  --secondary-foreground: 0 0% 88%;
+  --muted: 240 15% 11%;
+  --muted-foreground: 0 0% 68%;
+  --accent: 280 100% 70%;
+  --accent-foreground: 240 15% 6%;
+  --destructive: 0 90% 58%;
+  --destructive-foreground: 0 0% 97%;
+  --border: 240 15% 15%;
+  --input: 240 15% 13%;
+  --ring: 190 100% 55%;
 }
 
 @layer base {
@@ -114,43 +114,24 @@
     box-shadow: 0 0 20px rgba(140, 100, 255, 0.3);
   }
 
-  /* Email Content Dark Mode Styling */
-  .email-content {
-    @apply text-foreground;
+  /* Email Content Styling - Force Theme Colors */
+  .email-body, 
+  .email-body * {
+    color: inherit !important;
+    background: transparent !important;
   }
   
-  .dark .email-content {
-    color: hsl(var(--foreground)) !important;
+  .email-body a {
+    color: hsl(var(--primary)) !important;
   }
   
-  .dark .email-content * {
-    color: hsl(var(--foreground)) !important;
+  .email-body [style*="color"], 
+  .email-body [style*="background"] {
+    color: inherit !important;
+    background: transparent !important;
   }
   
-  .dark .email-content p {
-    color: hsl(var(--foreground)) !important;
-  }
-  
-  .dark .email-content div {
-    color: hsl(var(--foreground)) !important;
-  }
-  
-  .dark .prose-invert {
-    --tw-prose-body: hsl(var(--foreground)) !important;
-    --tw-prose-headings: hsl(var(--foreground)) !important;
-    --tw-prose-lead: hsl(var(--muted-foreground)) !important;
-    --tw-prose-links: hsl(var(--primary)) !important;
-    --tw-prose-bold: hsl(var(--foreground)) !important;
-    --tw-prose-counters: hsl(var(--muted-foreground)) !important;
-    --tw-prose-bullets: hsl(var(--muted-foreground)) !important;
-    --tw-prose-hr: hsl(var(--border)) !important;
-    --tw-prose-quotes: hsl(var(--foreground)) !important;
-    --tw-prose-quote-borders: hsl(var(--border)) !important;
-    --tw-prose-captions: hsl(var(--muted-foreground)) !important;
-    --tw-prose-code: hsl(var(--foreground)) !important;
-    --tw-prose-pre-code: hsl(var(--foreground)) !important;
-    --tw-prose-pre-bg: hsl(var(--muted)) !important;
-    --tw-prose-th-borders: hsl(var(--border)) !important;
-    --tw-prose-td-borders: hsl(var(--border)) !important;
+  .email-body.plain {
+    white-space: pre-wrap;
   }
 }

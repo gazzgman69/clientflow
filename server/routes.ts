@@ -95,12 +95,12 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   // OAuth routes (must be after session middleware) - no CSRF for OAuth flows
   app.use(oauthRoutes);
   
+  // Apply CSRF protection to state-changing routes if provided
+  const csrf = csrfProtection || ((req: any, res: any, next: any) => next());
+  
   // Email routes - apply CSRF to state-changing requests
   app.use('/api/email', csrf, emailRoutes);
   app.use('/api', csrf, emailRoutes); // Direct mounting for /api/email-threads routes
-  
-  // Apply CSRF protection to state-changing routes if provided
-  const csrf = csrfProtection || ((req: any, res: any, next: any) => next());
   
   // Mail settings routes - apply CSRF to state-changing requests
   app.use('/api/settings/mail', csrf, mailSettingsRoutes);

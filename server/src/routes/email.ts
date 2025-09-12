@@ -38,30 +38,44 @@ const sendEmailSchema = z.object({
   message: 'Either templateId or both subject and (text or html) are required'
 });
 
-// Middleware to check for authenticated user - use hardcoded test-user for now
+// Middleware to require proper authentication - NO HEADER SPOOFING ALLOWED
 const requireAuth = (req: any, res: any, next: any) => {
-  const userIdHeader = req.headers['user-id'];
-  const userId = typeof userIdHeader === 'string' ? userIdHeader : 'anonymous-user'; // TODO: Get from authenticated session
+  // SECURITY FIX: Use session-based authentication instead of spoofable headers
+  const sessionUser = req.session?.user;
   
-  // Set user on request for compatibility
-  req.user = { id: userId };
+  if (!sessionUser || !sessionUser.id) {
+    return res.status(401).json({ 
+      error: 'Authentication required', 
+      message: 'Please log in to access this endpoint'
+    });
+  }
+  
+  // Validate session user has required fields
+  if (!sessionUser.email) {
+    return res.status(401).json({ 
+      error: 'Invalid session', 
+      message: 'Session missing required user data'
+    });
+  }
+  
+  // Set authenticated user on request
+  req.user = { 
+    id: sessionUser.id, 
+    email: sessionUser.email
+  };
   
   next();
 };
 
-// Helper function to get user's email address
-async function getUserEmail(userId: string): Promise<string> {
-  try {
-    // This is a simplified version - in production, you'd get this from user profile
-    // For now, we'll use the known email addresses from the system
-    if (userId === 'test-user') {
-      return 'skinnycheck@gmail.com'; // Known user email for testing
-    }
-    return 'user@example.com'; // Fallback
-  } catch (error) {
-    console.error('Failed to get user email:', error);
-    return 'user@example.com'; // Fallback
+// Helper function to get user's email address from authenticated session
+async function getUserEmail(userId: string, userEmail?: string): Promise<string> {
+  // SECURITY FIX: Use authenticated user's email, no hardcoded fallbacks
+  if (userEmail && /.+@.+\..+/.test(userEmail)) {
+    return userEmail.trim().toLowerCase();
   }
+  
+  // If no session email, this is a security issue
+  throw new Error(`No authenticated email found for user ${userId}. Session may be invalid.`);
 }
 
 /**
@@ -587,12 +601,30 @@ router.get('/projects/:projectId/email-messages', requireAuth, async (req: any, 
 
 /**
  * GET /api/email-threads/:threadId/messages
- * Get all messages in an email thread from database
+ * Get all messages in an email thread from database - REQUIRES AUTH + OWNERSHIP
  */
-router.get('/email-threads/:threadId/messages', async (req, res) => {
+router.get('/email-threads/:threadId/messages', requireAuth, async (req: any, res) => {
   try {
     const { threadId } = req.params;
 
+    const userId = req.user.id;
+    
+    // SECURITY FIX: Verify user owns the thread before accessing messages
+    const threadOwnership = await db
+      .select({ userId: emailThreads.userId })
+      .from(emailThreads)
+      .where(eq(emailThreads.id, threadId))
+      .limit(1);
+    
+    if (threadOwnership.length === 0) {
+      return res.status(404).json({ error: 'Email thread not found' });
+    }
+    
+    if (threadOwnership[0].userId !== userId) {
+      console.log(`🔒 SECURITY: User ${userId} denied access to thread ${threadId} - owned by ${threadOwnership[0].userId}`);
+      return res.status(403).json({ error: 'Access denied - thread not owned by user' });
+    }
+    
     const messages = await db
       .select({
         id: emails.id,
@@ -611,7 +643,7 @@ router.get('/email-threads/:threadId/messages', async (req, res) => {
       })
       .from(emails)
       .leftJoin(emailAttachments, eq(emailAttachments.emailId, emails.id))
-      .where(eq(emails.threadId, threadId))
+      .where(and(eq(emails.threadId, threadId), eq(emails.userId, userId)))
       .orderBy(asc(emails.sentAt));
 
     // Group attachments by email ID

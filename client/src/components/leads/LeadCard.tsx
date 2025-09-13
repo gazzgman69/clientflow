@@ -35,11 +35,11 @@ export default function LeadCard({ lead, onClick, draggable = false, onDragStart
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'new': return 'bg-blue-100 text-blue-800';
-      case 'contacted': return 'bg-yellow-100 text-yellow-800';
-      case 'qualified': return 'bg-green-100 text-green-800';
-      case 'archived': return 'bg-gray-100 text-gray-800';
-      default: return 'bg-gray-100 text-gray-800';
+      case 'new': return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200';
+      case 'contacted': return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200';
+      case 'qualified': return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200';
+      case 'archived': return 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200';
+      default: return 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200';
     }
   };
 
@@ -49,8 +49,8 @@ export default function LeadCard({ lead, onClick, draggable = false, onDragStart
 
   return (
     <div
-      className={`bg-white p-3 rounded-lg border shadow-sm hover:shadow-md transition-shadow cursor-pointer ${
-        highlightFlash ? 'animate-[pulse_1.5s_ease-out_1] bg-amber-50' : ''
+      className={`bg-white dark:bg-gray-800 p-3 rounded-lg border dark:border-gray-700 shadow-sm hover:shadow-md transition-shadow cursor-pointer ${
+        highlightFlash ? 'animate-[pulse_1.5s_ease-out_1] bg-amber-50 dark:bg-amber-900' : ''
       }`}
       onClick={onClick}
       draggable={draggable}
@@ -63,7 +63,7 @@ export default function LeadCard({ lead, onClick, draggable = false, onDragStart
       <div className="flex items-start justify-between mb-2">
         <div className="flex-1">
           <h3 
-            className="font-medium text-sm"
+            className="font-medium text-sm text-gray-900 dark:text-white"
             data-testid={`lead-card-name-${lead.id}`}
           >
             {lead.contactName}

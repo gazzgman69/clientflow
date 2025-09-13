@@ -158,40 +158,8 @@ app.use((req, res, next) => {
     // Start Gmail auto-sync service after server is ready
     const startGmailAutoSync = async () => {
       try {
-        console.log('🚀 Starting Gmail auto-sync service (every 3 minutes)');
-        const { emailSyncService } = await import('./src/services/emailSync');
-        
-        // Run initial sync after 30 seconds
-        setTimeout(async () => {
-          try {
-            console.log('🔄 Running initial Gmail sync...');
-            // TODO: Implement proper multi-user background sync
-            // For now, skip background sync until user-specific sync is implemented
-            console.log('⚠️ Background sync skipped - requires user-specific implementation');
-          } catch (error) {
-            console.error('❌ Initial Gmail sync failed:', error);
-            // Don't crash the app on initial sync failure
-          }
-        }, 30000);
-        
-        // Run sync every 3 minutes for continuous email updates
-        setInterval(async () => {
-          try {
-            console.log('🔄 Running scheduled Gmail sync...');
-            // TODO: Implement proper multi-user background sync
-            // For now, skip background sync until user-specific sync is implemented
-            console.log('⚠️ Background sync skipped - requires user-specific implementation');
-          } catch (error) {
-            console.error('❌ Scheduled Gmail sync failed:', error);
-            // Log the error but don't let it crash the app
-            if (error instanceof Error) {
-              console.error('Error details:', error.message);
-              console.error('Stack trace:', error.stack);
-            }
-          }
-        }, 3 * 60 * 1000); // 3 minutes
-        
-        console.log('✅ Gmail auto-sync service started successfully');
+        const { emailAutoSyncService } = await import('./src/services/email-auto-sync');
+        emailAutoSyncService.start();
       } catch (error) {
         console.error('❌ Failed to start Gmail auto-sync service:', error);
       }

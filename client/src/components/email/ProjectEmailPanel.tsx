@@ -703,14 +703,16 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
                   apiRequest('POST', '/api/email/sync', {})
                     .then(response => response.json())
                     .then(result => {
-                      if (result.ok !== false) {
+                      console.log('Email sync result:', result);
+                      if (result.success !== false && result.ok !== false) {
                         // Refresh again after sync completes
                         queryClient.invalidateQueries({ queryKey: [`/api/email/projects/${projectId}/email-messages`] });
                         toast({ title: 'Email sync complete', description: 'All latest emails synced' });
                       } else {
+                        const errorMessage = result.error || result.message || 'Recent emails shown, but sync may need retry';
                         toast({ 
                           title: 'Background sync had issues', 
-                          description: 'Recent emails shown, but sync may need retry',
+                          description: errorMessage,
                           variant: 'destructive' 
                         });
                       }

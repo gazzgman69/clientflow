@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Plus, Edit, Trash2, Building, User, Home, Briefcase, Tag, FileText, MapPin } from "lucide-react";
 import { AddressFields } from "@/components/shared/AddressFields";
+import { VenueAutocomplete } from "@/components/venues/VenueAutocomplete";
 import { Separator } from "@/components/ui/separator";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -419,29 +420,78 @@ export default function Contacts() {
 
               <Separator />
 
-              {/* 📍 Venue Address Section */}
+              {/* 📍 Venue Selection Section */}
               <div className="space-y-4">
                 <div className="flex items-center gap-2">
                   <MapPin className="h-4 w-4" />
-                  <h3 className="text-lg font-semibold">Venue Address</h3>
+                  <h3 className="text-lg font-semibold">Venue</h3>
                   <span className="text-sm text-muted-foreground">(linked to venues tab)</span>
                 </div>
                 
-                <AddressFields
+                <FormField
                   control={form.control}
-                  countryCode={form.watch('venueCountry') || undefined}
-                  onCountryChange={(countryCode) =>
-                    form.setValue('venueCountry', countryCode, { shouldDirty: true, shouldValidate: true })
-                  }
-                  fieldNames={{
-                    address1: 'venueAddress',
-                    city: 'venueCity',
-                    state: 'venueState',
-                    postalCode: 'venueZipCode',
-                    country: 'venueCountry'
-                  }}
-                  testIdPrefix="contact-venue"
+                  name="venueId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Select Venue</FormLabel>
+                      <FormControl>
+                        <VenueAutocomplete
+                          onVenueSelect={(venue) => {
+                            // Set the venue ID and address fields
+                            form.setValue('venueId', venue.placeId, { shouldDirty: true, shouldValidate: true });
+                            form.setValue('venueAddress', venue.address || '', { shouldDirty: true, shouldValidate: true });
+                            form.setValue('venueCity', venue.city || '', { shouldDirty: true, shouldValidate: true });
+                            form.setValue('venueState', venue.state || '', { shouldDirty: true, shouldValidate: true });
+                            form.setValue('venueZipCode', venue.zipCode || '', { shouldDirty: true, shouldValidate: true });
+                            form.setValue('venueCountry', venue.country || '', { shouldDirty: true, shouldValidate: true });
+                          }}
+                          placeholder="Search for a venue..."
+                          initialValue={
+                            form.watch('venueAddress') || form.watch('venueCity') 
+                              ? `${form.watch('venueAddress') || ''}, ${form.watch('venueCity') || ''}`.trim().replace(/^,\s*/, '')
+                              : ''
+                          }
+                          className="w-full"
+                          data-testid="venue-autocomplete"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
                 />
+                
+                {/* Display selected venue details */}
+                {(form.watch('venueAddress') || form.watch('venueCity')) && (
+                  <div className="p-3 bg-muted/50 dark:bg-muted/20 rounded-md border">
+                    <div className="text-sm font-medium mb-1">Selected Venue:</div>
+                    <div className="text-sm text-muted-foreground">
+                      {[
+                        form.watch('venueAddress'),
+                        form.watch('venueCity'),
+                        form.watch('venueState'),
+                        form.watch('venueZipCode'),
+                        form.watch('venueCountry')
+                      ].filter(Boolean).join(', ')}
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="mt-2 h-6 px-2 text-xs"
+                      onClick={() => {
+                        form.setValue('venueId', null, { shouldDirty: true, shouldValidate: true });
+                        form.setValue('venueAddress', '', { shouldDirty: true, shouldValidate: true });
+                        form.setValue('venueCity', '', { shouldDirty: true, shouldValidate: true });
+                        form.setValue('venueState', '', { shouldDirty: true, shouldValidate: true });
+                        form.setValue('venueZipCode', '', { shouldDirty: true, shouldValidate: true });
+                        form.setValue('venueCountry', '', { shouldDirty: true, shouldValidate: true });
+                      }}
+                      data-testid="clear-venue"
+                    >
+                      Clear Venue
+                    </Button>
+                  </div>
+                )}
               </div>
 
               <Separator />

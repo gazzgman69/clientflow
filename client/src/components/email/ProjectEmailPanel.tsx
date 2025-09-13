@@ -81,19 +81,19 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
     if (!html) return '';
     
     // Try to extract content from the email-content class
-    const emailContentMatch = html.match(/<td[^>]*class[^>]*email-content[^>]*>(.*?)<\/td>/s);
+    const emailContentMatch = html.match(/<td[^>]*class[^>]*email-content[^>]*>([\s\S]*?)<\/td>/);
     if (emailContentMatch) {
       return emailContentMatch[1].trim();
     }
     
     // Fallback: extract content from body, removing style and script tags
-    const bodyMatch = html.match(/<body[^>]*>(.*?)<\/body>/s);
+    const bodyMatch = html.match(/<body[^>]*>([\s\S]*?)<\/body>/);
     if (bodyMatch) {
       return bodyMatch[1]
-        .replace(/<style[^>]*>.*?<\/style>/gs, '')
-        .replace(/<script[^>]*>.*?<\/script>/gs, '')
-        .replace(/^\s*<table[^>]*>.*?<tr>\s*<td[^>]*>/s, '') // Remove opening table/tr/td
-        .replace(/<\/td>\s*<\/tr>.*?<\/table>\s*$/s, '') // Remove closing td/tr/table
+        .replace(/<style[^>]*>[\s\S]*?<\/style>/g, '')
+        .replace(/<script[^>]*>[\s\S]*?<\/script>/g, '')
+        .replace(/^\s*<table[^>]*>[\s\S]*?<tr>\s*<td[^>]*>/, '') // Remove opening table/tr/td
+        .replace(/<\/td>\s*<\/tr>[\s\S]*?<\/table>\s*$/, '') // Remove closing td/tr/table
         .trim();
     }
     
@@ -524,9 +524,7 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
                     size="sm"
                     className="h-auto p-0 text-primary hover:text-primary/80"
                     data-testid="link-insert-subject-token"
-                  >
-                    Insert Token
-                  </TokenDropdown>
+                  />
                 </div>
                 <Input
                   id="email-subject"

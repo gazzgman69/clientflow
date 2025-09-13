@@ -1105,16 +1105,21 @@ router.post('/sync', requireAuth, async (req: any, res) => {
       }
     }
 
-    // Sync IMAP if configured
+    // Sync IMAP if configured (for each user)
     let imapResult = { synced: 0, skipped: 0, errors: [] };
-    try {
-      if (imapService.isImapConfigured()) {
-        console.log('🔄 Manual IMAP sync starting...');
-        imapResult = await imapService.fetchNewMessages(userId);
+    if (imapService.isImapConfigured()) {
+      for (const userId of uniqueUserIds) {
+        try {
+          console.log(`🔄 Manual IMAP sync starting for user: ${userId}...`);
+          const userImapResult = await imapService.fetchNewMessages(userId);
+          imapResult.synced += userImapResult.synced;
+          imapResult.skipped += userImapResult.skipped;
+          imapResult.errors.push(...userImapResult.errors);
+        } catch (error) {
+          console.error(`❌ Manual IMAP sync failed for user ${userId}:`, error);
+          imapResult.errors.push(`User ${userId}: ${error}`);
+        }
       }
-    } catch (error) {
-      console.error('❌ Manual IMAP sync failed:', error);
-      imapResult.errors.push(error);
     }
 
     const totalSynced = gmailResult.synced + imapResult.synced;

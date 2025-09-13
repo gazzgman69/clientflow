@@ -1059,77 +1059,78 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
                           placeholder="Enter your reply..."
                           minHeight="300px"
                           data-testid="editor-reply-message"
+                          onTokenInsert={(insertToken) => (
+                            <TokenDropdown
+                              onTokenSelect={insertToken}
+                              variant="outline"
+                              size="sm"
+                              className="h-7 px-2 text-xs"
+                            />
+                          )}
+                          onSignatureSelect={() => (
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button 
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-7 px-2 text-xs"
+                                  data-testid="button-signature-toolbar"
+                                >
+                                  <Edit3 className="h-2.5 w-2.5 mr-1" />
+                                  Signature
+                                  <ChevronDown className="h-2.5 w-2.5 ml-1" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="start" className="w-56">
+                                {signaturesLoading ? (
+                                  <div className="flex items-center justify-center py-2">
+                                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                                    Loading...
+                                  </div>
+                                ) : emailSignatures?.length === 0 ? (
+                                  <div className="text-center py-2 text-muted-foreground text-sm">
+                                    No signatures found
+                                  </div>
+                                ) : (
+                                  emailSignatures?.map((signature: any) => (
+                                    <DropdownMenuItem 
+                                      key={signature.id}
+                                      onClick={() => {
+                                        if (replyEditorRef.current) {
+                                          const currentContent = replyEditorRef.current.getHTML();
+                                          const combinedContent = currentContent + (currentContent ? '<br>' : '') + signature.content.trim();
+                                          replyEditorRef.current.setContent(combinedContent);
+                                        }
+                                      }}
+                                      data-testid={`dropdown-signature-toolbar-${signature.id}`}
+                                    >
+                                      <div className="flex flex-col">
+                                        <span className="font-medium">{signature.name}</span>
+                                        {signature.isDefault && (
+                                          <span className="text-xs text-muted-foreground">Default</span>
+                                        )}
+                                      </div>
+                                    </DropdownMenuItem>
+                                  ))
+                                )}
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          )}
+                          onTemplateSelect={() => (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-7 px-2 text-xs"
+                              onClick={() => setShowTemplateModal(true)}
+                              data-testid="button-template-toolbar"
+                            >
+                              <FileText className="h-2.5 w-2.5 mr-1" />
+                              Template
+                            </Button>
+                          )}
                         />
                       </div>
-                      <div className="flex gap-2 justify-between">
-                        <div className="flex gap-2">
-                          {/* Token Dropdown - moved to left */}
-                          <TokenDropdown
-                            onTokenSelect={(token) => {
-                              if (replyEditorRef.current) {
-                                replyEditorRef.current.insertToken(token);
-                              }
-                            }}
-                            variant="outline"
-                            size="sm"
-                            className="h-7 px-2 text-xs"
-                          />
-                          
-                          {/* Signature Dropdown - next to token dropdown */}
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button 
-                                variant="outline"
-                                size="sm"
-                                className="h-7 px-2 text-xs"
-                                data-testid="button-reply-signature"
-                              >
-                                <Edit3 className="h-2.5 w-2.5 mr-1" />
-                                Signature
-                                <ChevronDown className="h-2.5 w-2.5 ml-1" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="start" className="w-56">
-                              {signaturesLoading ? (
-                                <div className="flex items-center justify-center py-2">
-                                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                                  Loading...
-                                </div>
-                              ) : emailSignatures?.length === 0 ? (
-                                <div className="text-center py-2 text-muted-foreground text-sm">
-                                  No signatures found
-                                </div>
-                              ) : (
-                                emailSignatures?.map((signature: any) => (
-                                  <DropdownMenuItem 
-                                    key={signature.id}
-                                    onClick={() => {
-                                      // Apply signature to reply message
-                                      const newSignature = signature.content.trim();
-                                      if (replyEditorRef.current) {
-                                        const currentContent = replyEditorRef.current.getHTML();
-                                        const combinedContent = currentContent + (currentContent ? '<br>' : '') + newSignature;
-                                        replyEditorRef.current.setContent(combinedContent);
-                                      } else {
-                                        setReplyMessage(replyMessage + newSignature);
-                                      }
-                                    }}
-                                    data-testid={`dropdown-reply-signature-${signature.id}`}
-                                  >
-                                    <div className="flex flex-col">
-                                      <span className="font-medium">{signature.name}</span>
-                                      {signature.isDefault && (
-                                        <span className="text-xs text-muted-foreground">Default</span>
-                                      )}
-                                    </div>
-                                  </DropdownMenuItem>
-                                ))
-                              )}
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </div>
-                        
-                        <div className="flex gap-2">
+                      <div className="flex gap-2 justify-end">
                         <Button 
                           variant="outline" 
                           onClick={() => {
@@ -1157,7 +1158,6 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
                             </>
                           )}
                         </Button>
-                        </div>
                       </div>
                     </CardContent>
                   </Card>

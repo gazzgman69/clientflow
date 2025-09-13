@@ -1083,15 +1083,17 @@ router.post('/sync', requireAuth, async (req: any, res) => {
       integration.userId // Ensure userId is present
     );
 
-    // Get unique user IDs to sync (same as background sync)
+    // Get unique user IDs to sync (same as background sync) 
     const uniqueUserIds = Array.from(new Set(
-      activeGoogleIntegrations.map(integration => integration.userId)
+      activeGoogleIntegrations
+        .map(integration => integration.userId)
+        .filter((userId): userId is string => userId !== null)
     ));
 
     console.log(`🎯 Found ${uniqueUserIds.length} users with Google integrations for manual sync`);
     
     // Sync Gmail for each user with Google integration
-    let gmailResult = { synced: 0, skipped: 0, errors: [] };
+    let gmailResult: { synced: number; skipped: number; errors: string[] } = { synced: 0, skipped: 0, errors: [] };
     for (const userId of uniqueUserIds) {
       try {
         console.log(`🔄 Manual sync for user: ${userId}`);
@@ -1101,12 +1103,12 @@ router.post('/sync', requireAuth, async (req: any, res) => {
         gmailResult.errors.push(...userResult.errors);
       } catch (error) {
         console.error(`❌ Manual Gmail sync failed for user ${userId}:`, error);
-        gmailResult.errors.push(`User ${userId}: ${error}`);
+        gmailResult.errors.push(`User ${userId}: ${String(error)}`);
       }
     }
 
     // Sync IMAP if configured (for each user)
-    let imapResult = { synced: 0, skipped: 0, errors: [] };
+    let imapResult: { synced: number; skipped: number; errors: string[] } = { synced: 0, skipped: 0, errors: [] };
     if (imapService.isImapConfigured()) {
       for (const userId of uniqueUserIds) {
         try {
@@ -1117,7 +1119,7 @@ router.post('/sync', requireAuth, async (req: any, res) => {
           imapResult.errors.push(...userImapResult.errors);
         } catch (error) {
           console.error(`❌ Manual IMAP sync failed for user ${userId}:`, error);
-          imapResult.errors.push(`User ${userId}: ${error}`);
+          imapResult.errors.push(`User ${userId}: ${String(error)}`);
         }
       }
     }

@@ -233,42 +233,70 @@ router.post('/send', requireAuth, async (req: any, res) => {
 });
 
 /**
- * Get email threads (from contacts only)
+ * Get email threads (from synced database)
  */
 router.get('/threads', requireAuth, async (req: any, res) => {
   try {
     const limit = parseInt(req.query.limit as string) || 20;
     const userId = req.user.id;
     
-    // Get all contact emails from CRM to filter threads
-    const contactEmails = await db
-      .select({ email: contacts.email })
-      .from(contacts)
-      .where(sql`${contacts.email} IS NOT NULL AND ${contacts.email} != ''`);
+    // Get email threads from the database with latest message details
+    const threadsWithLatest = await db
+      .select({
+        threadId: emailThreads.id,
+        subject: emailThreads.subject,
+        lastMessageAt: emailThreads.lastMessageAt,
+        projectId: emailThreads.projectId,
+        latestMessageId: sql`(
+          SELECT e.id FROM emails e 
+          WHERE e.thread_id = ${emailThreads.id} 
+          ORDER BY e.date DESC 
+          LIMIT 1
+        )`.as('latest_message_id'),
+        latestFrom: sql`(
+          SELECT e.from_address FROM emails e 
+          WHERE e.thread_id = ${emailThreads.id} 
+          ORDER BY e.date DESC 
+          LIMIT 1
+        )`.as('latest_from'),
+        latestSnippet: sql`(
+          SELECT COALESCE(e.snippet, LEFT(e.body, 100)) FROM emails e 
+          WHERE e.thread_id = ${emailThreads.id} 
+          ORDER BY e.date DESC 
+          LIMIT 1
+        )`.as('latest_snippet'),
+        messageCount: sql`(
+          SELECT COUNT(*) FROM emails e 
+          WHERE e.thread_id = ${emailThreads.id}
+        )`.as('message_count')
+      })
+      .from(emailThreads)
+      .where(eq(emailThreads.userId, userId))
+      .orderBy(desc(emailThreads.lastMessageAt))
+      .limit(limit);
+
+    // Format the response to match the frontend expectations
+    const formattedThreads = threadsWithLatest.map(thread => ({
+      threadId: thread.threadId,
+      subject: thread.subject || 'No Subject',
+      count: parseInt(thread.messageCount as string) || 1,
+      latest: {
+        from: thread.latestFrom || 'Unknown Sender',
+        snippet: thread.latestSnippet || '',
+        dateISO: thread.lastMessageAt?.toISOString() || new Date().toISOString(),
+        subject: thread.subject || 'No Subject'
+      },
+      projectId: thread.projectId
+    }));
     
-    const emailAddresses = contactEmails
-      .map(c => c.email)
-      .filter(email => email && email.trim().length > 0);
-    
-    // If no contact emails, return empty result
-    if (emailAddresses.length === 0) {
-      return res.json({
-        threads: [],
-        ok: true,
-        needsReconnect: false
-      });
-    }
-    
-    // Get threads involving contact emails only
-    const result = await gmailService.listThreadsForAddresses(userId, { 
-      limit, 
-      addresses: emailAddresses 
+    res.json({
+      ok: true,
+      threads: formattedThreads,
+      needsReconnect: false
     });
-    
-    res.json(result);
   } catch (error: any) {
-    console.error('Error fetching contact email threads:', error);
-    res.status(500).json({ ok: false, error: 'Internal server error' });
+    console.error('Error fetching email threads from database:', error);
+    res.status(500).json({ ok: false, error: 'Failed to retrieve email threads from database' });
   }
 });
 

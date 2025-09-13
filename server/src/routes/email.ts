@@ -1068,19 +1068,41 @@ router.post('/email-threads/:threadId/mark-read', async (req, res) => {
 // Manual Gmail + IMAP sync endpoint
 router.post('/sync', requireAuth, async (req: any, res) => {
   try {
-    const userId = req.user.id;
     const { emailSyncService } = await import('../services/emailSync');
     const { imapService } = await import('../services/imap');
+    const { storage } = await import('../../storage');
     
     console.log('🔄 Manual email sync requested (Gmail + IMAP)');
     
-    // Sync Gmail
+    // Use the same logic as background sync: find active Google integrations
+    const integrations = await storage.getCalendarIntegrations();
+    const activeGoogleIntegrations = integrations.filter(integration => 
+      integration.provider === 'google' && 
+      integration.isActive && 
+      integration.accessToken &&
+      integration.userId // Ensure userId is present
+    );
+
+    // Get unique user IDs to sync (same as background sync)
+    const uniqueUserIds = Array.from(new Set(
+      activeGoogleIntegrations.map(integration => integration.userId)
+    ));
+
+    console.log(`🎯 Found ${uniqueUserIds.length} users with Google integrations for manual sync`);
+    
+    // Sync Gmail for each user with Google integration
     let gmailResult = { synced: 0, skipped: 0, errors: [] };
-    try {
-      gmailResult = await emailSyncService.syncGmailThreadsToDatabase(userId);
-    } catch (error) {
-      console.error('❌ Manual Gmail sync failed:', error);
-      gmailResult.errors.push(error);
+    for (const userId of uniqueUserIds) {
+      try {
+        console.log(`🔄 Manual sync for user: ${userId}`);
+        const userResult = await emailSyncService.syncGmailThreadsToDatabase(userId);
+        gmailResult.synced += userResult.synced;
+        gmailResult.skipped += userResult.skipped;
+        gmailResult.errors.push(...userResult.errors);
+      } catch (error) {
+        console.error(`❌ Manual Gmail sync failed for user ${userId}:`, error);
+        gmailResult.errors.push(`User ${userId}: ${error}`);
+      }
     }
 
     // Sync IMAP if configured

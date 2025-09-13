@@ -454,6 +454,21 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
       }
     });
 
+    // Sort function to order by date (newest first)
+    const sortByDate = (a: any, b: any) => new Date(b.sentAt).getTime() - new Date(a.sentAt).getTime();
+
+    // Recursively sort children within each thread
+    const sortChildren = (thread: any) => {
+      if (thread.children && thread.children.length > 0) {
+        thread.children.sort(sortByDate);
+        thread.children.forEach(sortChildren);
+      }
+    };
+
+    // Sort root messages and their children
+    rootMessages.sort(sortByDate);
+    rootMessages.forEach(sortChildren);
+
     return rootMessages;
   };
 

@@ -699,10 +699,11 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
                   queryClient.invalidateQueries({ queryKey: [`/api/email/projects/${projectId}/email-messages`] });
                   toast({ title: 'Refreshing emails...', description: 'Getting latest data and syncing new emails' });
                   
-                  // Start background sync without waiting for it
-                  fetch('/api/email/sync', { method: 'POST' })
-                    .then(response => {
-                      if (response.ok) {
+                  // Start background sync using apiRequest to handle CSRF tokens
+                  apiRequest('POST', '/api/email/sync', {})
+                    .then(response => response.json())
+                    .then(result => {
+                      if (result.ok !== false) {
                         // Refresh again after sync completes
                         queryClient.invalidateQueries({ queryKey: [`/api/email/projects/${projectId}/email-messages`] });
                         toast({ title: 'Email sync complete', description: 'All latest emails synced' });

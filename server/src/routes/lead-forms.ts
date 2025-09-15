@@ -284,7 +284,8 @@ router.post('/public/:slug/submit', async (req, res) => {
       notes: formData.nothing || '',  // Message field maps to notes
       projectDate: formData.projectDate ? new Date(formData.projectDate) : null,  // Convert string to Date object
       status: 'new' as const,
-      estimatedValue: null
+      estimatedValue: null,
+      userId: '00000000-0000-0000-0000-000000000001'  // Default user ID for public form submissions
     };
 
     const lead = await storage.createLead(leadData);

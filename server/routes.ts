@@ -98,18 +98,34 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   // Apply CSRF protection to state-changing routes if provided
   const csrf = csrfProtection || ((req: any, res: any, next: any) => next());
 
-  // CSRF-free venue suggestion endpoint for public lead capture forms
+  // CSRF-free public venue endpoints for lead capture forms (must be before general venue mount)
   app.post('/api/venues/suggest', (req, res, next) => {
-    // This directly calls the suggest endpoint from the venues router
-    venuesRoutes.handle(req, res, next);
+    console.log('✅ Direct venue suggest route hit');
+    venuesRoutes(req, res, next);
   });
 
-  // All other venue routes with CSRF protection
+  app.post('/api/venues/place-details', (req, res, next) => {
+    console.log('✅ Direct venue place-details route hit');
+    venuesRoutes(req, res, next);
+  });
+
+  app.post('/api/venues/:id/track-usage', (req, res, next) => {
+    console.log('✅ Direct venue track-usage route hit');
+    venuesRoutes(req, res, next);
+  });
+
+  // Venue routes with CSRF protection (except for public endpoints used by lead capture forms)
   app.use('/api/venues', (req, res, next) => {
-    // Skip the suggest endpoint since it's handled above
-    if (req.path === '/suggest' && req.method === 'POST') {
-      return res.status(404).json({ message: 'Not found' });
+    console.log(`🔍 VENUES DEBUG: path="${req.path}", method="${req.method}"`);
+    // Skip CSRF for public endpoints used by lead capture forms
+    const publicEndpoints = ['/suggest', '/place-details'];
+    const isTrackUsage = req.method === 'POST' && req.path.includes('/track-usage');
+    
+    if (req.method === 'POST' && (publicEndpoints.includes(req.path) || isTrackUsage)) {
+      console.log('✅ VENUES: Skipping CSRF for public endpoint');
+      return next();
     }
+    console.log('🛡️ VENUES: Applying CSRF protection');
     return csrf(req, res, next);
   }, venuesRoutes);
 
@@ -135,10 +151,13 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   
   // Lead Forms routes - apply CSRF to state-changing requests (but exclude public routes)  
   app.use('/api/leads', (req, res, next) => {
+    console.log(`🔍 LEADS DEBUG: path="${req.path}", method="${req.method}"`);
     // Skip CSRF for public lead form routes (used by public lead capture forms)
     if (req.path.startsWith('/public/')) {
+      console.log('✅ LEADS: Skipping CSRF for public route');
       return next();
     }
+    console.log('🛡️ LEADS: Applying CSRF protection');
     // Apply CSRF to all other lead form routes
     return csrf(req, res, next);
   }, leadFormsRoutes);
@@ -150,7 +169,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   app.use('/api/admin/lead-automation', csrf, leadAutomationSimpleRoutes);
   
   // Admin Lead Forms routes - apply CSRF to admin management endpoints  
-  app.use('/api', csrf, leadFormsRoutes);
+  app.use('/api/admin/lead-forms', csrf, leadFormsRoutes);
 
   // Portal routes (client portal features) - all secured with session auth + CSRF
   app.use('/api/portal/payments', ensurePortalAuth, csrf, portalPaymentsRoutes);

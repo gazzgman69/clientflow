@@ -68,7 +68,9 @@ export async function apiRequest(
   // If we get a CSRF error, clear the cache and retry once
   if (res.status === 403 && needsCsrfToken) {
     const errorText = await res.text();
-    if (errorText.includes('csrf token')) {
+    const errorData = errorText.startsWith('{') ? JSON.parse(errorText) : { message: errorText };
+    
+    if (errorData.message && errorData.message.toLowerCase().includes('csrf')) {
       console.log('CSRF token expired, refreshing and retrying...');
       csrfTokenCache = null; // Clear cache
       

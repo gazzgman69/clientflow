@@ -134,6 +134,9 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   // Lead Automation routes (simplified version) - apply CSRF to state-changing requests
   app.use('/api/admin/lead-automation', csrf, leadAutomationSimpleRoutes);
   
+  // Admin Lead Forms routes - apply CSRF to admin management endpoints  
+  app.use('/api', csrf, leadFormsRoutes);
+  
   // Venues routes - apply CSRF to state-changing requests, but exclude public /suggest endpoint
   app.use('/api/venues', (req, res, next) => {
     // Skip CSRF for public venue suggestion endpoint (used by public lead forms)

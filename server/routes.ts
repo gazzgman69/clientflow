@@ -831,6 +831,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
       }
       res.status(204).send();
     } catch (error) {
+      console.error('Error deleting lead:', error);
       res.status(500).json({ message: "Failed to delete lead" });
     }
   });

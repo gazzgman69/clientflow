@@ -1956,7 +1956,11 @@ export class DrizzleStorage implements IStorage {
     return result[0];
   }
   async deleteLead(id: string): Promise<boolean> {
-    const result = await db.delete(leads).where(eq(leads.id, id));
+    // First delete any lead status history records to avoid foreign key constraint
+    await this.db.delete(leadStatusHistory).where(eq(leadStatusHistory.leadId, id));
+    
+    // Then delete the lead itself
+    const result = await this.db.delete(leads).where(eq(leads.id, id));
     return result.rowCount > 0;
   }
   async getLeadsByProject(projectId: string): Promise<Lead[]> {

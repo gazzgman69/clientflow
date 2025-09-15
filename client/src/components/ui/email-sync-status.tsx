@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { Mail, CheckCircle, XCircle, AlertTriangle, Loader2 } from 'lucide-react';
+import { Link } from 'wouter';
 import { cn } from '@/lib/utils';
 
 interface MailSettings {
@@ -54,10 +55,12 @@ export function EmailSyncStatus() {
 
   if (!settings && !gmailStatus?.connected) {
     return (
-      <div className="flex items-center space-x-1" data-testid="email-sync-not-configured">
-        <Mail className="h-4 w-4 text-muted-foreground" />
-        <span className="text-xs text-muted-foreground">No email</span>
-      </div>
+      <Link href="/settings/email">
+        <div className="flex items-center space-x-1 hover:text-blue-600 cursor-pointer transition-colors" data-testid="email-sync-not-configured">
+          <Mail className="h-4 w-4 text-muted-foreground hover:text-blue-600" />
+          <span className="text-xs text-muted-foreground hover:text-blue-600">No email</span>
+        </div>
+      </Link>
     );
   }
 

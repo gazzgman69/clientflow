@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { randomUUID } from 'crypto';
 import { googleOAuthService, getGoogleAuthUrl } from '../services/google-oauth';
 import { storage } from '../storage';
+import { google } from 'googleapis';
 
 // Extend session type to include oauth_state and oauth_return_to
 declare module 'express-session' {
@@ -323,7 +324,7 @@ router.delete('/calendar-integrations/:id', async (req, res) => {
 });
 
 /**
- * Google Auth Status - Check if user has connected Google account
+ * Google Auth Status - Check if user has connected Google account and validate token
  */
 router.get('/api/auth/google/status', async (req, res) => {
   try {
@@ -338,22 +339,66 @@ router.get('/api/auth/google/status', async (req, res) => {
       return res.json({ ok: true, connected: false, scopes: [] });
     }
     
-    // Extract scopes from stored integration or default list
-    const scopes = [
-      'https://www.googleapis.com/auth/userinfo.email',
-      'https://www.googleapis.com/auth/calendar.readonly', 
-      'https://www.googleapis.com/auth/calendar.events',
-      'https://www.googleapis.com/auth/gmail.send',
-      'https://www.googleapis.com/auth/gmail.readonly'
-    ];
+    // Test token validity by making a simple API call
+    try {
+      const oauth2Client = new google.auth.OAuth2(
+        process.env.GOOGLE_CLIENT_ID,
+        process.env.GOOGLE_CLIENT_SECRET,
+        process.env.GOOGLE_REDIRECT_URI
+      );
+      
+      oauth2Client.setCredentials({
+        access_token: googleIntegration.accessToken,
+        refresh_token: googleIntegration.refreshToken,
+      });
+      
+      // Test the token with a simple API call
+      const oauth2 = google.oauth2({ version: 'v2', auth: oauth2Client });
+      await oauth2.userinfo.get();
+      
+      // If we get here, token is valid
+      const scopes = [
+        'https://www.googleapis.com/auth/userinfo.email',
+        'https://www.googleapis.com/auth/calendar.readonly', 
+        'https://www.googleapis.com/auth/calendar.events',
+        'https://www.googleapis.com/auth/gmail.send',
+        'https://www.googleapis.com/auth/gmail.readonly'
+      ];
+      
+      res.json({ 
+        ok: true, 
+        connected: true, 
+        scopes,
+        email: googleIntegration.providerAccountId,
+        lastSyncAt: googleIntegration.lastSyncAt
+      });
+      
+    } catch (tokenError: any) {
+      // Token is invalid or expired
+      console.log(`🔒 Google token validation failed for user ${userId}:`, tokenError.message);
+      
+      // If it's an invalid_grant or similar, the user needs to reconnect
+      if (tokenError.message && (tokenError.message.includes('invalid_grant') || 
+                                  tokenError.message.includes('invalid_token') ||
+                                  tokenError.message.includes('expired'))) {
+        return res.json({ 
+          ok: true, 
+          connected: false, 
+          needsReconnect: true,
+          error: 'Token expired or revoked',
+          scopes: [] 
+        });
+      }
+      
+      // For other errors, still report as disconnected
+      return res.json({ 
+        ok: true, 
+        connected: false, 
+        error: 'Token validation failed',
+        scopes: [] 
+      });
+    }
     
-    res.json({ 
-      ok: true, 
-      connected: true, 
-      scopes,
-      email: googleIntegration.providerAccountId,
-      lastSyncAt: googleIntegration.lastSyncAt
-    });
   } catch (error: any) {
     console.error('Error checking Google auth status:', error);
     res.status(500).json({ ok: false, error: 'Internal server error' });

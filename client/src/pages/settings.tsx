@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 import Header from "@/components/layout/header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -26,9 +27,19 @@ import TemplatesPage from "@/pages/settings/Templates";
 import PortalSettingsComponent from "@/components/settings/PortalSettings";
 
 export default function Settings() {
+  const [location] = useLocation();
   const [activeTab, setActiveTab] = useState("profile");
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
+
+  // Check for tab parameter in URL and set active tab
+  useEffect(() => {
+    const searchParams = new URLSearchParams(window.location.search);
+    const tabParam = searchParams.get('tab');
+    if (tabParam && ['profile', 'notifications', 'security', 'portal', 'integrations', 'email', 'templates', 'appearance', 'data'].includes(tabParam)) {
+      setActiveTab(tabParam);
+    }
+  }, [location]);
 
   // Google auth status query
   const { data: googleStatus, isLoading: statusLoading, refetch: refetchStatus } = useQuery({

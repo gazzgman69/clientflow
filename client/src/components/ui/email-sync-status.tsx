@@ -55,7 +55,7 @@ export function EmailSyncStatus() {
 
   if (!settings && !gmailStatus?.connected) {
     return (
-      <Link href="/settings/email">
+      <Link href="/settings">
         <div className="flex items-center space-x-1 hover:text-blue-600 cursor-pointer transition-colors" data-testid="email-sync-not-configured">
           <Mail className="h-4 w-4 text-muted-foreground hover:text-blue-600" />
           <span className="text-xs text-muted-foreground hover:text-blue-600">No email</span>

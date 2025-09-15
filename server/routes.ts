@@ -97,10 +97,11 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   
   // Apply CSRF protection to state-changing routes if provided
   const csrf = csrfProtection || ((req: any, res: any, next: any) => next());
+
   
   // Email routes - apply CSRF to state-changing requests
   app.use('/api/email', csrf, emailRoutes);
-  app.use('/api', csrf, emailRoutes); // Direct mounting for /api/email-threads routes
+  app.use('/api/email-threads', csrf, emailRoutes); // Direct mounting for /api/email-threads routes
   
   // Mail settings routes - apply CSRF to state-changing requests
   app.use('/api/settings/mail', csrf, mailSettingsRoutes);
@@ -109,7 +110,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   app.use('/api/user', csrf, userPrefsRoutes);
   
   // Templates routes - apply CSRF to state-changing requests
-  app.use('/api', csrf, templatesRoutes);
+  app.use('/api/templates', csrf, templatesRoutes);
   
   // Token routes - apply CSRF to state-changing requests
   app.use('/api/tokens', csrf, tokensRoutes);
@@ -117,14 +118,31 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   // Signatures routes - apply CSRF to state-changing requests
   app.use('/api/signatures', csrf, signaturesRoutes);
   
-  // Lead Forms routes - apply CSRF to state-changing requests
-  app.use('/api', csrf, leadFormsRoutes);
+  // Lead Forms routes - apply CSRF to state-changing requests (but exclude public routes)  
+  app.use('/api/leads', (req, res, next) => {
+    // Skip CSRF for public lead form routes (used by public lead capture forms)
+    if (req.path.startsWith('/public/')) {
+      return next();
+    }
+    // Apply CSRF to all other lead form routes
+    return csrf(req, res, next);
+  }, leadFormsRoutes);
+  
+  // Lead-forms admin routes
+  app.use('/api/lead-forms', csrf, leadFormsRoutes);
   
   // Lead Automation routes (simplified version) - apply CSRF to state-changing requests
   app.use('/api/admin/lead-automation', csrf, leadAutomationSimpleRoutes);
   
-  // Venues routes - apply CSRF to state-changing requests
-  app.use('/api/venues', csrf, venuesRoutes);
+  // Venues routes - apply CSRF to state-changing requests, but exclude public /suggest endpoint
+  app.use('/api/venues', (req, res, next) => {
+    // Skip CSRF for public venue suggestion endpoint (used by public lead forms)
+    if (req.path === '/suggest' && req.method === 'POST') {
+      return next();
+    }
+    // Apply CSRF to all other venue routes
+    return csrf(req, res, next);
+  }, venuesRoutes);
 
   // Portal routes (client portal features) - all secured with session auth + CSRF
   app.use('/api/portal/payments', ensurePortalAuth, csrf, portalPaymentsRoutes);
@@ -1923,50 +1941,6 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
 
-  // Venues
-  app.get("/api/venues", async (req, res) => {
-    try {
-      const venues = await storage.getVenues();
-      res.json(venues);
-    } catch (error) {
-      res.status(500).json({ message: "Failed to fetch venues" });
-    }
-  });
-
-  app.get("/api/venues/:id", async (req, res) => {
-    try {
-      const venue = await storage.getVenue(req.params.id);
-      if (!venue) {
-        return res.status(404).json({ message: "Venue not found" });
-      }
-      res.json(venue);
-    } catch (error) {
-      res.status(500).json({ message: "Failed to fetch venue" });
-    }
-  });
-
-  app.post("/api/venues", async (req, res) => {
-    try {
-      const venueData = insertVenueSchema.parse(req.body);
-      const venue = await storage.createVenue(venueData);
-      res.status(201).json(venue);
-    } catch (error) {
-      res.status(400).json({ message: "Invalid venue data" });
-    }
-  });
-
-  app.patch("/api/venues/:id", async (req, res) => {
-    try {
-      const venueData = insertVenueSchema.partial().parse(req.body);
-      const venue = await storage.updateVenue(req.params.id, venueData);
-      if (!venue) {
-        return res.status(404).json({ message: "Venue not found" });
-      }
-      res.json(venue);
-    } catch (error) {
-      res.status(400).json({ message: "Invalid venue data" });
-    }
-  });
 
   // Project Members
   app.get("/api/projects/:id/members", async (req, res) => {

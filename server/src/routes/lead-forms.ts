@@ -306,7 +306,8 @@ router.post('/public/:slug/submit', async (req, res) => {
       venueState: formData.eventLocationState || null,
       venueZipCode: formData.eventLocationZipCode || null,
       venueCountry: formData.eventLocationCountry || null,
-      notes: `Auto-created from lead form: ${formData.nothing || ''}`
+      notes: `Auto-created from lead form: ${formData.nothing || ''}`,
+      userId: '00000000-0000-0000-0000-000000000001'  // Default user ID for public form submissions
     };
 
     const contact = await storage.createContact(contactData);
@@ -320,7 +321,8 @@ router.post('/public/:slug/submit', async (req, res) => {
       startDate: formData.projectDate ? new Date(formData.projectDate) : null,
       endDate: null,
       estimatedValue: null,
-      progress: 0
+      progress: 0,
+      userId: '00000000-0000-0000-0000-000000000001'  // Default user ID for public form submissions
     };
 
     const project = await storage.createProject(projectData);

@@ -2031,6 +2031,7 @@ export class DrizzleStorage implements IStorage {
   async createProject(project: InsertProject): Promise<Project> {
     const result = await this.db.insert(projects).values({
       ...project,
+      userId: project.userId,  // Explicitly ensure userId is included
       createdAt: new Date(),
       updatedAt: new Date(),
     }).returning();

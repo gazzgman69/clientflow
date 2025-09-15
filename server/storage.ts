@@ -28,7 +28,7 @@ import {
   type EmailSignature, type InsertEmailSignature,
   type PortalForm, type InsertPortalForm,
   type PaymentSession, type InsertPaymentSession,
-  users, leads, contacts, projects, quotes, contracts, invoices, tasks, emails, activities, automations, 
+  users, leads, contacts, projects, quotes, contracts, invoices, tasks, emails, emailThreads, activities, automations, 
   members, venues, projectMembers, memberAvailability, projectFiles, projectNotes, smsMessages, 
   messageTemplates, messageThreads, events, calendarIntegrations, calendarSyncLog, templates, leadCaptureForms,
   leadStatusHistory, emailSignatures, portalForms, paymentSessions
@@ -2045,8 +2045,23 @@ export class DrizzleStorage implements IStorage {
     return result[0];
   }
   async deleteProject(id: string): Promise<boolean> {
-    const result = await this.db.delete(projects).where(eq(projects.id, id));
-    return result.rowCount > 0;
+    try {
+      // First, remove project references from related tables to avoid foreign key constraint violations
+      await this.db.update(emails).set({ projectId: null }).where(eq(emails.projectId, id));
+      await this.db.update(emailThreads).set({ projectId: null }).where(eq(emailThreads.projectId, id));
+      await this.db.update(leads).set({ projectId: null }).where(eq(leads.projectId, id));
+      await this.db.update(messageThreads).set({ projectId: null }).where(eq(messageThreads.projectId, id));
+      
+      // Delete contracts entirely since they're project-specific
+      await this.db.delete(contracts).where(eq(contracts.projectId, id));
+      
+      // Finally delete the project itself
+      const result = await this.db.delete(projects).where(eq(projects.id, id));
+      return result.rowCount > 0;
+    } catch (error) {
+      console.error('Error deleting project:', error);
+      throw error;
+    }
   }
   
   // Quotes - PostgreSQL implementation

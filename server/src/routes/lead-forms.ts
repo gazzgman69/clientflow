@@ -220,7 +220,7 @@ router.delete('/admin/lead-forms/:id', requireAuth, async (req, res) => {
 // Public routes for form submission
 
 // GET /api/leads/public/:slug
-router.get('/leads/public/:slug', async (req, res) => {
+router.get('/public/:slug', async (req, res) => {
   try {
     const { slug } = req.params;
     const form = await storage.getLeadCaptureFormBySlug(slug);
@@ -259,7 +259,7 @@ router.get('/leads/public/:slug', async (req, res) => {
 });
 
 // POST /api/leads/public/:slug/submit
-router.post('/leads/public/:slug/submit', async (req, res) => {
+router.post('/public/:slug/submit', async (req, res) => {
   try {
     const { slug } = req.params;
     const formData = req.body;

@@ -131,6 +131,11 @@ app.use((req, res, next) => {
     }
   });
 
+  // API 404 handler - ensure API requests get JSON responses, not HTML
+  app.use('/api', (_req, res) => {
+    res.status(404).json({ message: 'API endpoint not found' });
+  });
+
   // importantly only setup vite in development and after
   // setting up all the other routes so the catch-all route
   // doesn't interfere with the other routes

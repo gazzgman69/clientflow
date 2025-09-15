@@ -65,11 +65,10 @@ const requireAuth = (req: any, res: any, next: any) => {
     const userId = typeof userIdHeader === 'string' ? userIdHeader : null;
     
     if (userId) {
-      // Use the actual user ID that owns the test data
-      const developmentUserId = '00000000-0000-0000-0000-000000000001';
-      console.log(`⚠️  DEV MODE: Using header-based auth for user ${userId}, mapped to ${developmentUserId}`);
+      // Use the actual user ID from header to maintain Google integration context
+      console.log(`⚠️  DEV MODE: Using header-based auth for user ${userId}`);
       req.user = { 
-        id: developmentUserId, 
+        id: userId, // Use real user ID instead of hardcoded mapping
         email: `${userId}@example.com` // Development fallback email
       };
       return next();
@@ -250,19 +249,19 @@ router.get('/threads', requireAuth, async (req: any, res) => {
         latestMessageId: sql`(
           SELECT e.id FROM emails e 
           WHERE e.thread_id = ${emailThreads.id} 
-          ORDER BY e.date DESC 
+          ORDER BY e.sent_at DESC 
           LIMIT 1
         )`.as('latest_message_id'),
         latestFrom: sql`(
-          SELECT e.from_address FROM emails e 
+          SELECT e.from_email FROM emails e 
           WHERE e.thread_id = ${emailThreads.id} 
-          ORDER BY e.date DESC 
+          ORDER BY e.sent_at DESC 
           LIMIT 1
         )`.as('latest_from'),
         latestSnippet: sql`(
-          SELECT COALESCE(e.snippet, LEFT(e.body, 100)) FROM emails e 
+          SELECT COALESCE(e.snippet, LEFT(e.body_text, 100)) FROM emails e 
           WHERE e.thread_id = ${emailThreads.id} 
-          ORDER BY e.date DESC 
+          ORDER BY e.sent_at DESC 
           LIMIT 1
         )`.as('latest_snippet'),
         messageCount: sql`(

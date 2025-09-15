@@ -197,7 +197,7 @@ export class GmailService {
       if (response.data.id) {
         try {
           const userEmail = await this.getUserEmail(userId);
-          await emailSyncService.createOutboundEmail({
+          await emailSyncService.createOutboundEmail(userId, {
             threadId: emailRequest.threadId,
             projectId: emailRequest.projectId,
             to: [emailRequest.to],

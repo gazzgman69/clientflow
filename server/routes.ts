@@ -98,6 +98,21 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   // Apply CSRF protection to state-changing routes if provided
   const csrf = csrfProtection || ((req: any, res: any, next: any) => next());
 
+  // CSRF-free venue suggestion endpoint for public lead capture forms
+  app.post('/api/venues/suggest', (req, res, next) => {
+    // This directly calls the suggest endpoint from the venues router
+    venuesRoutes.handle(req, res, next);
+  });
+
+  // All other venue routes with CSRF protection
+  app.use('/api/venues', (req, res, next) => {
+    // Skip the suggest endpoint since it's handled above
+    if (req.path === '/suggest' && req.method === 'POST') {
+      return res.status(404).json({ message: 'Not found' });
+    }
+    return csrf(req, res, next);
+  }, venuesRoutes);
+
   
   // Email routes - apply CSRF to state-changing requests
   app.use('/api/email', csrf, emailRoutes);
@@ -136,16 +151,6 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   
   // Admin Lead Forms routes - apply CSRF to admin management endpoints  
   app.use('/api', csrf, leadFormsRoutes);
-  
-  // Venues routes - apply CSRF to state-changing requests, but exclude public /suggest endpoint
-  app.use('/api/venues', (req, res, next) => {
-    // Skip CSRF for public venue suggestion endpoint (used by public lead forms)
-    if (req.path === '/suggest' && req.method === 'POST') {
-      return next();
-    }
-    // Apply CSRF to all other venue routes
-    return csrf(req, res, next);
-  }, venuesRoutes);
 
   // Portal routes (client portal features) - all secured with session auth + CSRF
   app.use('/api/portal/payments', ensurePortalAuth, csrf, portalPaymentsRoutes);

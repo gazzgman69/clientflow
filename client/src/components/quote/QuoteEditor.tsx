@@ -15,13 +15,14 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Calendar, CalendarIcon, Package, Plus, Save, Send, Trash2, AlertCircle, AlertTriangle } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Calendar, CalendarIcon, Package, Plus, Save, Send, Trash2, AlertCircle, AlertTriangle, Settings, FileText } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import type { Quote, QuotePackage, QuoteAddon, Contact, Client } from "@shared/schema";
+import type { Quote, QuotePackage, QuoteAddon, Contact, Client, QuoteExtraInfoField, QuoteExtraInfoConfig } from "@shared/schema";
 import { z } from "zod";
 
 // Enhanced form schema for the quote editor
@@ -54,6 +55,12 @@ interface SelectedItems {
   addonIds: Set<string>;
 }
 
+interface ExtraInfoConfig {
+  isEnabled: boolean;
+  enabledFields: string[];
+  fieldRequiredOverrides: Record<string, boolean>;
+}
+
 export default function QuoteEditor({ 
   isOpen, 
   onClose, 
@@ -69,6 +76,11 @@ export default function QuoteEditor({
   });
   const [contactInfo, setContactInfo] = useState({ id: initialContactId || "", name: initialContactName || "" });
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [extraInfoConfig, setExtraInfoConfig] = useState<ExtraInfoConfig>({
+    isEnabled: false,
+    enabledFields: [],
+    fieldRequiredOverrides: {}
+  });
 
   // Update contactInfo when props change
   useEffect(() => {
@@ -117,6 +129,21 @@ export default function QuoteEditor({
     refetchOnWindowFocus: false,
   });
 
+  // Fetch available Extra Info fields
+  const { data: extraInfoFields } = useQuery<QuoteExtraInfoField[]>({
+    queryKey: ["/api/admin/extra-info-fields"],
+    retry: 1,
+    refetchOnWindowFocus: false,
+  });
+
+  // Fetch existing Extra Info configuration for this quote (when editing)
+  const { data: existingExtraInfoConfig } = useQuery<QuoteExtraInfoConfig>({
+    queryKey: ["/api/admin/quotes", editingQuote?.id, "extra-info-config"],
+    enabled: !!editingQuote?.id,
+    retry: 1,
+    refetchOnWindowFocus: false,
+  });
+
   // Populate form when editing or when contactInfo changes
   useEffect(() => {
     if (editingQuote) {
@@ -147,8 +174,36 @@ export default function QuoteEditor({
         validUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days from now
       });
       setSelectedItems({ packageId: null, addonIds: new Set() });
+      setExtraInfoConfig({
+        isEnabled: false,
+        enabledFields: [],
+        fieldRequiredOverrides: {}
+      });
     }
   }, [editingQuote, contactInfo.id, form]);
+
+  // Update Extra Info config when editing existing quote
+  useEffect(() => {
+    if (existingExtraInfoConfig) {
+      let fieldRequiredOverrides = {};
+      
+      // Safely parse JSON with fallback
+      if (existingExtraInfoConfig.fieldRequiredOverrides) {
+        try {
+          fieldRequiredOverrides = JSON.parse(existingExtraInfoConfig.fieldRequiredOverrides);
+        } catch (error) {
+          console.warn("Failed to parse fieldRequiredOverrides JSON, using empty object:", error);
+          fieldRequiredOverrides = {};
+        }
+      }
+
+      setExtraInfoConfig({
+        isEnabled: existingExtraInfoConfig.isEnabled || false,
+        enabledFields: existingExtraInfoConfig.enabledFields || [],
+        fieldRequiredOverrides
+      });
+    }
+  }, [existingExtraInfoConfig]);
 
   // Calculate live totals
   const calculateTotals = () => {
@@ -248,10 +303,35 @@ export default function QuoteEditor({
       const response = await apiRequest(method, url, quoteData);
       return response.json();
     },
-    onSuccess: (data, variables) => {
+    onSuccess: async (data, variables) => {
       const { formData } = variables;
       queryClient.invalidateQueries({ queryKey: ["/api/quotes"] });
       queryClient.invalidateQueries({ queryKey: ["/api/contacts", formData.contactId, "quotes"] });
+      
+      // If this was a new quote and Extra Info is configured, save the config
+      if (!editingQuote && data.quote && extraInfoConfig.isEnabled && extraInfoConfig.enabledFields.length > 0) {
+        try {
+          const configData = {
+            isEnabled: extraInfoConfig.isEnabled,
+            enabledFields: extraInfoConfig.enabledFields,
+            fieldRequiredOverrides: JSON.stringify(extraInfoConfig.fieldRequiredOverrides),
+          };
+
+          await apiRequest("POST", `/api/admin/quotes/${data.quote.id}/extra-info-config`, configData);
+          
+          // Invalidate the query cache for the new quote's config
+          queryClient.invalidateQueries({ 
+            queryKey: ["/api/admin/quotes", data.quote.id, "extra-info-config"] 
+          });
+        } catch (error) {
+          console.warn("Failed to save Extra Info configuration for new quote:", error);
+          toast({
+            title: "Warning", 
+            description: "Quote saved but failed to save contract details configuration.",
+            variant: "default",
+          });
+        }
+      }
       
       toast({
         title: "Success",
@@ -292,6 +372,78 @@ export default function QuoteEditor({
       });
     },
   });
+
+  // Extra Info configuration mutation
+  const saveExtraInfoConfigMutation = useMutation({
+    mutationFn: async (data: { quoteId: string; config: ExtraInfoConfig }) => {
+      const { quoteId, config } = data;
+      
+      const configData = {
+        isEnabled: config.isEnabled,
+        enabledFields: config.enabledFields,
+        fieldRequiredOverrides: JSON.stringify(config.fieldRequiredOverrides),
+      };
+
+      const method = existingExtraInfoConfig ? "PATCH" : "POST";
+      const url = `/api/admin/quotes/${quoteId}/extra-info-config`;
+      
+      const response = await apiRequest(method, url, configData);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ 
+        queryKey: ["/api/admin/quotes", editingQuote?.id, "extra-info-config"] 
+      });
+      toast({
+        title: "Success",
+        description: "Contract details configuration saved successfully!",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to save contract details configuration.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Extra Info configuration handlers
+  const handleExtraInfoToggle = (enabled: boolean) => {
+    setExtraInfoConfig(prev => ({
+      ...prev,
+      isEnabled: enabled,
+      enabledFields: enabled ? prev.enabledFields : [],
+    }));
+  };
+
+  const handleFieldToggle = (fieldKey: string) => {
+    setExtraInfoConfig(prev => ({
+      ...prev,
+      enabledFields: prev.enabledFields.includes(fieldKey)
+        ? prev.enabledFields.filter(key => key !== fieldKey)
+        : [...prev.enabledFields, fieldKey],
+    }));
+  };
+
+  const handleRequiredOverride = (fieldKey: string, isRequired: boolean) => {
+    setExtraInfoConfig(prev => ({
+      ...prev,
+      fieldRequiredOverrides: {
+        ...prev.fieldRequiredOverrides,
+        [fieldKey]: isRequired,
+      },
+    }));
+  };
+
+  const handleSaveExtraInfoConfig = async () => {
+    if (editingQuote?.id) {
+      saveExtraInfoConfigMutation.mutate({
+        quoteId: editingQuote.id,
+        config: extraInfoConfig,
+      });
+    }
+  };
 
   // Form submission handlers
   const handleSaveDraft = (data: QuoteEditorForm) => {
@@ -727,6 +879,130 @@ export default function QuoteEditor({
                   </div>
                 </CardContent>
               </Card>
+
+              {/* Contract Details Configuration */}
+              <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-sm flex items-center justify-between">
+                      Contract Details Configuration
+                      <div className="flex items-center space-x-2">
+                        <Switch
+                          id="extra-info-enabled"
+                          checked={extraInfoConfig.isEnabled}
+                          onCheckedChange={handleExtraInfoToggle}
+                          data-testid="switch-extra-info-enabled"
+                        />
+                        <Label htmlFor="extra-info-enabled" className="text-sm font-normal">
+                          Collect additional information
+                        </Label>
+                      </div>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {extraInfoConfig.isEnabled ? (
+                      <div className="space-y-4">
+                        <div className="text-sm text-muted-foreground">
+                          Select which fields to collect from the client when they accept this quote:
+                        </div>
+                        
+                        {extraInfoFields && extraInfoFields.length > 0 ? (
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {extraInfoFields.map((field) => {
+                              const isFieldEnabled = extraInfoConfig.enabledFields.includes(field.key);
+                              const isFieldRequired = extraInfoConfig.fieldRequiredOverrides[field.key] !== undefined 
+                                ? extraInfoConfig.fieldRequiredOverrides[field.key] 
+                                : field.isRequired;
+
+                              return (
+                                <div 
+                                  key={field.key} 
+                                  className="border rounded-lg p-3 space-y-2"
+                                >
+                                  <div className="flex items-start space-x-2">
+                                    <Checkbox
+                                      id={`field-${field.key}`}
+                                      checked={isFieldEnabled}
+                                      onCheckedChange={() => handleFieldToggle(field.key)}
+                                      data-testid={`checkbox-field-${field.key}`}
+                                    />
+                                    <div className="flex-1 space-y-1">
+                                      <Label 
+                                        htmlFor={`field-${field.key}`}
+                                        className="font-medium cursor-pointer"
+                                      >
+                                        {field.label}
+                                      </Label>
+                                      {field.description && (
+                                        <p className="text-xs text-muted-foreground">
+                                          {field.description}
+                                        </p>
+                                      )}
+                                      <div className="flex items-center gap-2 text-xs">
+                                        <Badge variant="outline" className="text-xs">
+                                          {field.fieldType}
+                                        </Badge>
+                                        {isFieldEnabled && (
+                                          <div className="flex items-center space-x-2">
+                                            <Checkbox
+                                              id={`required-${field.key}`}
+                                              checked={isFieldRequired}
+                                              onCheckedChange={(checked) => 
+                                                handleRequiredOverride(field.key, !!checked)
+                                              }
+                                              size="sm"
+                                              data-testid={`checkbox-required-${field.key}`}
+                                            />
+                                            <Label 
+                                              htmlFor={`required-${field.key}`}
+                                              className="text-xs cursor-pointer"
+                                            >
+                                              Required
+                                            </Label>
+                                          </div>
+                                        )}
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        ) : (
+                          <div className="text-center py-4 text-muted-foreground">
+                            <FileText className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                            <p className="text-sm">No extra info fields available</p>
+                          </div>
+                        )}
+                        
+                        <div className="pt-2 border-t">
+                          {editingQuote ? (
+                            <Button
+                              variant="outline"
+                              onClick={handleSaveExtraInfoConfig}
+                              disabled={saveExtraInfoConfigMutation.isPending}
+                              data-testid="button-save-extra-info-config"
+                            >
+                              <Save className="h-4 w-4 mr-2" />
+                              {saveExtraInfoConfigMutation.isPending ? "Saving..." : "Save Configuration"}
+                            </Button>
+                          ) : (
+                            <div className="text-sm text-muted-foreground">
+                              <p>Configuration will be saved automatically when you create the quote.</p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-center py-6 text-muted-foreground">
+                        <FileText className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                        <p className="text-sm">Enable to configure additional information collection</p>
+                        <p className="text-xs mt-1">
+                          When enabled, clients will be asked to provide extra details when accepting this quote
+                        </p>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
             </form>
           </Form>
         </div>

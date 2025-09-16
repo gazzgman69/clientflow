@@ -1,0 +1,64 @@
+Build a fully working **Quotes** feature for my CRM. 
+IMPORTANT: **You (the AI) must choose the database, schema, backend stack, and frontend framework** based on what is most native and reliable inside Replit right now. 
+Do NOT hardcode me into any specific DB/ORM unless you judge it best for Replit. 
+Explain choices briefly in the README.
+
+### Product goal (client-facing “mini-microsite” quote):
+- Public quote page (link with unguesable token).
+- **Choose-one package** (e.g., Bronze/Silver/Gold).
+- **Choose-any add-ons** (uplights, sax, percussion, booth style).
+- Live totals with **VAT line** (support inclusive/exclusive modes).
+- **Valid until** date shown and enforced.
+- **Contract viewer** with soft signature (typed name + checkbox).
+- **Accept** flow that locks selection, records signature, creates an invoice, and returns a payment placeholder (wire Stripe/PayPal later).
+- Basic **client portal confirmation** view after acceptance.
+
+### Admin features:
+- Minimal admin UI to create/edit quotes, packages, add-ons, VAT mode, and contract text.
+- Status: draft, sent, accepted, rejected, expired.
+- Button to send (sets status=sent, generates portal token, ensures valid_until).
+- Search/list by status and/or client.
+
+### YOU CHOOSE THE TECH:
+- Select a persistence option native to Replit (e.g., Replit DB, or an embedded relational option if available). 
+  - If you choose a KV store, design a sensible data model & “indexing” approach.
+  - If you choose SQL, provide migrations/seed steps.
+- Choose server framework, build tooling, and frontend framework (React optional; pick what’s fastest to ship & easy to extend in Replit).
+- Keep the design clean and accessible; Tailwind optional (your call).
+
+### Data & behavior (you design exact schema):
+- Entities you must support (names and fields are up to you): Quote, QuoteItem, Contract, Invoice, Payment (stub), and any indexes you need.
+- Must support: groupings for choose-one vs choose-any, dependencies (e.g., add-on depends on a package), VAT rate per line, VAT mode per quote.
+- Date format for all user-visible dates: **dd/mm/yyyy** (e.g., 16/09/2025). Validate and reject past valid_until on send.
+- Totals: precise currency rounding (2 dp), show net, VAT, and gross.
+- Expiry: quote becomes expired automatically after valid_until.
+
+### API surface (you decide exact routes, but include):
+- Public: load quote by token, post selection, accept.
+- Admin: create/update quote, send quote, list quotes, get one.
+- Webhook placeholder for payments.
+
+### Security:
+- Public access only via token; admin routes require simple auth middleware.
+- Rate-limit public endpoints reasonably.
+
+### DevEx & Docs:
+- **README** that explains:
+  - Why you chose the DB and stack (Replit-native reasoning).
+  - How to run locally/in Replit.
+  - Environment variables (keep defaults sensible).
+  - Seeding: create one sample quote (3 packages + a few add-ons) valid for +14 days from now.
+  - How to change VAT mode; where to plug in Stripe/PayPal later.
+- Provide a minimal test or two for pricing/VAT and group validation.
+
+### UI requirements (keep lightweight, but functional):
+- Client page shows package cards, add-on toggles, contract tab, price summary (net, VAT, gross), valid-until badge.
+- Admin page(s) to compose a quote and items with grouping & dependencies.
+- Accessibility: keyboard-friendly toggles; screen-reader total summary.
+
+### Acceptance criteria:
+- I can open the seeded quote via a public link, pick a package, add add-ons, see live totals with VAT, soft-sign, accept, and see a confirmation portal.
+- Admin can create/edit a quote, mark as sent, and get the public link.
+- All user-visible dates display as **dd/mm/yyyy** consistently.
+
+Deliver the code now.

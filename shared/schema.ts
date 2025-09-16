@@ -118,6 +118,12 @@ export const quotes = pgTable("quotes", {
   validUntil: timestamp("valid_until"),
   sentAt: timestamp("sent_at"),
   approvedAt: timestamp("approved_at"),
+  // Enhanced fields for package-based quotes
+  vatMode: text("vat_mode").default('exclusive'), // 'inclusive' or 'exclusive' 
+  contractText: text("contract_text"), // Custom contract text for this quote
+  requiresSignature: boolean("requires_signature").default(true),
+  acceptedAt: timestamp("accepted_at"), // When quote was accepted by client
+  invoiceGenerated: boolean("invoice_generated").default(false),
   createdBy: varchar("created_by").references(() => users.id).notNull(),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
@@ -512,6 +518,68 @@ export const leadCaptureForms = pgTable("lead_capture_forms", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// Enhanced Quotes System - Package-based quoting with public access
+export const quotePackages = pgTable("quote_packages", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(), // Bronze, Silver, Gold, etc.
+  description: text("description"),
+  basePrice: decimal("base_price", { precision: 10, scale: 2 }).notNull(),
+  vatRate: decimal("vat_rate", { precision: 5, scale: 4 }).default('0.20'), // 20% = 0.20
+  isActive: boolean("is_active").default(true),
+  sortOrder: integer("sort_order").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const quoteAddons = pgTable("quote_addons", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(), // Uplights, Saxophone, Percussion, etc.
+  description: text("description"),
+  price: decimal("price", { precision: 10, scale: 2 }).notNull(),
+  vatRate: decimal("vat_rate", { precision: 5, scale: 4 }).default('0.20'),
+  category: text("category"), // lighting, music, extras
+  dependsOnPackage: boolean("depends_on_package").default(false), // Some add-ons only available with certain packages
+  isActive: boolean("is_active").default(true),
+  sortOrder: integer("sort_order").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const quoteItems = pgTable("quote_items", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  quoteId: varchar("quote_id").references(() => quotes.id).notNull(),
+  type: text("type").notNull(), // 'package' or 'addon'
+  packageId: varchar("package_id").references(() => quotePackages.id),
+  addonId: varchar("addon_id").references(() => quoteAddons.id),
+  name: text("name").notNull(), // Store name at time of quote creation
+  description: text("description"),
+  quantity: integer("quantity").default(1),
+  unitPrice: decimal("unit_price", { precision: 10, scale: 2 }).notNull(),
+  vatRate: decimal("vat_rate", { precision: 5, scale: 4 }).notNull(),
+  lineTotal: decimal("line_total", { precision: 10, scale: 2 }).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const quoteTokens = pgTable("quote_tokens", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  quoteId: varchar("quote_id").references(() => quotes.id).notNull(),
+  token: text("token").notNull().unique(), // Random unguesable token for public access
+  isActive: boolean("is_active").default(true),
+  expiresAt: timestamp("expires_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const quoteSignatures = pgTable("quote_signatures", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  quoteId: varchar("quote_id").references(() => quotes.id).notNull(),
+  signerName: text("signer_name").notNull(),
+  signerEmail: text("signer_email"),
+  agreementAccepted: boolean("agreement_accepted").default(false),
+  signedAt: timestamp("signed_at").defaultNow(),
+  ipAddress: text("ip_address"),
+  userAgent: text("user_agent"),
+});
+
 // Insert schemas
 export const insertUserSchema = createInsertSchema(users).omit({ id: true, createdAt: true });
 export const insertLeadSchema = createInsertSchema(leads).omit({ id: true, createdAt: true, updatedAt: true });
@@ -550,6 +618,13 @@ export const insertCalendarIntegrationSchema = createInsertSchema(calendarIntegr
 export const insertCalendarSyncLogSchema = createInsertSchema(calendarSyncLog).omit({ id: true, startedAt: true });
 export const insertTemplateSchema = createInsertSchema(templates).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertLeadCaptureFormSchema = createInsertSchema(leadCaptureForms).omit({ id: true, createdAt: true, updatedAt: true });
+
+// Enhanced Quotes System schemas
+export const insertQuotePackageSchema = createInsertSchema(quotePackages).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertQuoteAddonSchema = createInsertSchema(quoteAddons).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertQuoteItemSchema = createInsertSchema(quoteItems).omit({ id: true, createdAt: true });
+export const insertQuoteTokenSchema = createInsertSchema(quoteTokens).omit({ id: true, createdAt: true });
+export const insertQuoteSignatureSchema = createInsertSchema(quoteSignatures).omit({ id: true, signedAt: true });
 
 // Types
 export type User = typeof users.$inferSelect;
@@ -606,6 +681,18 @@ export type CalendarSyncLog = typeof calendarSyncLog.$inferSelect;
 export type InsertCalendarSyncLog = z.infer<typeof insertCalendarSyncLogSchema>;
 export type Template = typeof templates.$inferSelect;
 export type InsertTemplate = z.infer<typeof insertTemplateSchema>;
+
+// Enhanced Quotes System types
+export type QuotePackage = typeof quotePackages.$inferSelect;
+export type InsertQuotePackage = z.infer<typeof insertQuotePackageSchema>;
+export type QuoteAddon = typeof quoteAddons.$inferSelect;
+export type InsertQuoteAddon = z.infer<typeof insertQuoteAddonSchema>;
+export type QuoteItem = typeof quoteItems.$inferSelect;
+export type InsertQuoteItem = z.infer<typeof insertQuoteItemSchema>;
+export type QuoteToken = typeof quoteTokens.$inferSelect;
+export type InsertQuoteToken = z.infer<typeof insertQuoteTokenSchema>;
+export type QuoteSignature = typeof quoteSignatures.$inferSelect;
+export type InsertQuoteSignature = z.infer<typeof insertQuoteSignatureSchema>;
 export const leadStatusHistory = pgTable("lead_status_history", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   leadId: varchar("lead_id").references(() => leads.id).notNull(),

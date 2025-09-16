@@ -1316,6 +1316,34 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
 
+  // Documents by contact (frontend expects these routes)
+  app.get("/api/contacts/:contactId/quotes", async (req, res) => {
+    try {
+      const quotes = await storage.getQuotesByContact(req.params.contactId);
+      res.json(quotes);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch quotes for contact" });
+    }
+  });
+
+  app.get("/api/contacts/:contactId/contracts", async (req, res) => {
+    try {
+      const contracts = await storage.getContractsByClient(req.params.contactId);
+      res.json(contracts);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch contracts for contact" });
+    }
+  });
+
+  app.get("/api/contacts/:contactId/invoices", async (req, res) => {
+    try {
+      const invoices = await storage.getInvoicesByContactId(req.params.contactId);
+      res.json(invoices);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch invoices for contact" });
+    }
+  });
+
   // Combined documents endpoint for Documents page
   app.get("/api/documents", async (req, res) => {
     try {

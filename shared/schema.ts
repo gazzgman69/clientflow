@@ -111,6 +111,9 @@ export const quotes = pgTable("quotes", {
   leadId: varchar("lead_id").references(() => leads.id),
   title: text("title").notNull(),
   description: text("description"),
+  eventDate: timestamp("event_date"), // Event/project date for quote
+  venue: text("venue"), // Venue/location for the event
+  currency: text("currency").default('GBP'), // Currency code (GBP, USD, EUR, etc.)
   subtotal: decimal("subtotal", { precision: 10, scale: 2 }).notNull(),
   taxAmount: decimal("tax_amount", { precision: 10, scale: 2 }).default('0'),
   total: decimal("total", { precision: 10, scale: 2 }).notNull(),

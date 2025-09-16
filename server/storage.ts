@@ -2097,6 +2097,9 @@ export class DrizzleStorage implements IStorage {
   async getQuotesByProject(projectId: string) { 
     return await this.db.select().from(quotes).where(eq(quotes.leadId, projectId));
   }
+  async getQuotesByContact(contactId: string) { 
+    return await this.db.select().from(quotes).where(eq(quotes.contactId, contactId));
+  }
   
   // Contracts - PostgreSQL implementation  
   async getContracts() { 

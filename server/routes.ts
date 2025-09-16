@@ -1322,6 +1322,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
       const quotes = await storage.getQuotesByContact(req.params.contactId);
       res.json(quotes);
     } catch (error) {
+      console.error("Error fetching quotes for contact:", error);
       res.status(500).json({ message: "Failed to fetch quotes for contact" });
     }
   });
@@ -1331,15 +1332,17 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
       const contracts = await storage.getContractsByClient(req.params.contactId);
       res.json(contracts);
     } catch (error) {
+      console.error("Error fetching contracts for contact:", error);
       res.status(500).json({ message: "Failed to fetch contracts for contact" });
     }
   });
 
   app.get("/api/contacts/:contactId/invoices", async (req, res) => {
     try {
-      const invoices = await storage.getInvoicesByContactId(req.params.contactId);
+      const invoices = await storage.getInvoicesByClient(req.params.contactId);
       res.json(invoices);
     } catch (error) {
+      console.error("Error fetching invoices for contact:", error);
       res.status(500).json({ message: "Failed to fetch invoices for contact" });
     }
   });

@@ -58,7 +58,10 @@ import {
   insertQuotePackageSchema,
   insertQuoteAddonSchema,
   insertQuoteItemSchema,
-  insertQuoteSignatureSchema
+  insertQuoteSignatureSchema,
+  insertQuoteExtraInfoFieldSchema,
+  insertQuoteExtraInfoConfigSchema,
+  insertQuoteExtraInfoResponseSchema
 } from "@shared/schema";
 
 export async function registerRoutes(app: Express, csrfProtection?: any): Promise<Server> {
@@ -103,17 +106,17 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   const csrf = csrfProtection || ((req: any, res: any, next: any) => next());
 
   // CSRF-free public venue endpoints for lead capture forms (must be before general venue mount)
-  app.post('/api/venues/suggest', (req, res, next) => {
+  app.post('/api/venues/suggest', ensureUserAuth, (req, res, next) => {
     console.log('✅ Direct venue suggest route hit');
     venuesRoutes(req, res, next);
   });
 
-  app.post('/api/venues/place-details', (req, res, next) => {
+  app.post('/api/venues/place-details', ensureUserAuth, (req, res, next) => {
     console.log('✅ Direct venue place-details route hit');
     venuesRoutes(req, res, next);
   });
 
-  app.post('/api/venues/:id/track-usage', (req, res, next) => {
+  app.post('/api/venues/:id/track-usage', ensureUserAuth, (req, res, next) => {
     console.log('✅ Direct venue track-usage route hit');
     venuesRoutes(req, res, next);
   });
@@ -222,6 +225,51 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
       console.error('❌ SECURITY: Error resolving tenant ID - using fallback:', error);
       return 'system-default'; // Fallback to known safe value
     }
+  }
+
+  // SECURITY: Helper function to get authenticated user ID from session or proper auth
+  async function getAuthenticatedUserId(req: any): Promise<string | null> {
+    // In development, allow fallback to test user for backwards compatibility
+    // In production, this should be replaced with proper session-based authentication
+    if (process.env.NODE_ENV === 'development') {
+      console.warn('⚠️  DEV MODE: Using header-based auth for user test-user');
+      return req.headers['user-id'] as string || 'test-user';
+    }
+    
+    // TODO: Implement proper session-based authentication
+    // This should check for valid session token, JWT, or other secure auth method
+    // For now, returning null to prevent unauthorized access in production
+    console.error('❌ SECURITY: Production mode requires proper authentication implementation');
+    return null;
+  }
+
+  // SECURITY: Middleware to ensure admin authentication
+  async function ensureAdminAuth(req: any, res: any, next: any) {
+    const userId = await getAuthenticatedUserId(req);
+    if (!userId) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
+    
+    // TODO: Add proper admin role check here
+    // For now, any authenticated user is considered admin (development only)
+    if (process.env.NODE_ENV !== 'development') {
+      console.error('❌ SECURITY: Admin role verification not implemented for production');
+      return res.status(403).json({ error: 'Admin access required' });
+    }
+    
+    req.authenticatedUserId = userId;
+    next();
+  }
+
+  // SECURITY: Middleware to ensure authenticated user access
+  async function ensureUserAuth(req: any, res: any, next: any) {
+    const userId = await getAuthenticatedUserId(req);
+    if (!userId) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
+    
+    req.authenticatedUserId = userId;
+    next();
   }
 
   // Portal enabled helper function
@@ -468,9 +516,9 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   });
   
   // Dashboard metrics
-  app.get("/api/dashboard/metrics", async (req, res) => {
+  app.get("/api/dashboard/metrics", ensureUserAuth, async (req, res) => {
     try {
-      const userId = req.headers['user-id'] as string || 'test-user';
+      const userId = req.authenticatedUserId;
       const metrics = await storage.getDashboardMetrics(userId);
       res.json(metrics);
     } catch (error) {
@@ -480,9 +528,9 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   });
 
   // Business metrics for analytics
-  app.get("/api/business/metrics", async (req, res) => {
+  app.get("/api/business/metrics", ensureUserAuth, async (req, res) => {
     try {
-      const userId = req.headers['user-id'] as string || 'test-user';
+      const userId = req.authenticatedUserId;
       const leads = await storage.getLeads(userId);
       const clients = await storage.getContacts(userId);
       const projects = await storage.getProjects(userId);
@@ -1558,7 +1606,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
 
   // Enhanced Quotes System - Admin Routes (Authentication Required)
   // Quote Packages CRUD
-  app.get("/api/admin/quote-packages", csrf, async (req, res) => {
+  app.get("/api/admin/quote-packages", ensureAdminAuth, csrf, async (req, res) => {
     try {
       const packages = await storage.getQuotePackages();
       res.json(packages);
@@ -1568,7 +1616,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
 
-  app.get("/api/admin/quote-packages/:id", csrf, async (req, res) => {
+  app.get("/api/admin/quote-packages/:id", ensureAdminAuth, csrf, async (req, res) => {
     try {
       const pkg = await storage.getQuotePackage(req.params.id);
       if (!pkg) {
@@ -1581,7 +1629,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
 
-  app.post("/api/admin/quote-packages", csrf, async (req, res) => {
+  app.post("/api/admin/quote-packages", ensureAdminAuth, csrf, async (req, res) => {
     try {
       const packageData = insertQuotePackageSchema.parse(req.body);
       const pkg = await storage.createQuotePackage(packageData);
@@ -1592,7 +1640,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
 
-  app.patch("/api/admin/quote-packages/:id", csrf, async (req, res) => {
+  app.patch("/api/admin/quote-packages/:id", ensureAdminAuth, csrf, async (req, res) => {
     try {
       const packageData = insertQuotePackageSchema.partial().parse(req.body);
       const pkg = await storage.updateQuotePackage(req.params.id, packageData);
@@ -1606,7 +1654,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
 
-  app.delete("/api/admin/quote-packages/:id", csrf, async (req, res) => {
+  app.delete("/api/admin/quote-packages/:id", ensureAdminAuth, csrf, async (req, res) => {
     try {
       const success = await storage.deleteQuotePackage(req.params.id);
       if (!success) {
@@ -1620,7 +1668,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   });
 
   // Quote Add-ons CRUD
-  app.get("/api/admin/quote-addons", csrf, async (req, res) => {
+  app.get("/api/admin/quote-addons", ensureAdminAuth, csrf, async (req, res) => {
     try {
       const addons = await storage.getQuoteAddons();
       res.json(addons);
@@ -1630,7 +1678,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
 
-  app.get("/api/admin/quote-addons/:id", csrf, async (req, res) => {
+  app.get("/api/admin/quote-addons/:id", ensureAdminAuth, csrf, async (req, res) => {
     try {
       const addon = await storage.getQuoteAddon(req.params.id);
       if (!addon) {
@@ -1643,7 +1691,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
 
-  app.post("/api/admin/quote-addons", csrf, async (req, res) => {
+  app.post("/api/admin/quote-addons", ensureAdminAuth, csrf, async (req, res) => {
     try {
       const addonData = insertQuoteAddonSchema.parse(req.body);
       const addon = await storage.createQuoteAddon(addonData);
@@ -1654,7 +1702,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
 
-  app.patch("/api/admin/quote-addons/:id", csrf, async (req, res) => {
+  app.patch("/api/admin/quote-addons/:id", ensureAdminAuth, csrf, async (req, res) => {
     try {
       const addonData = insertQuoteAddonSchema.partial().parse(req.body);
       const addon = await storage.updateQuoteAddon(req.params.id, addonData);
@@ -1668,7 +1716,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
 
-  app.delete("/api/admin/quote-addons/:id", csrf, async (req, res) => {
+  app.delete("/api/admin/quote-addons/:id", ensureAdminAuth, csrf, async (req, res) => {
     try {
       const success = await storage.deleteQuoteAddon(req.params.id);
       if (!success) {
@@ -1682,7 +1730,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   });
 
   // Quote Items CRUD (line items for quotes)
-  app.get("/api/admin/quotes/:quoteId/items", csrf, async (req, res) => {
+  app.get("/api/admin/quotes/:quoteId/items", ensureAdminAuth, csrf, async (req, res) => {
     try {
       const items = await storage.getQuoteItems(req.params.quoteId);
       res.json(items);
@@ -1692,7 +1740,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
 
-  app.post("/api/admin/quotes/:quoteId/items", csrf, async (req, res) => {
+  app.post("/api/admin/quotes/:quoteId/items", ensureAdminAuth, csrf, async (req, res) => {
     try {
       const itemData = insertQuoteItemSchema.parse({
         ...req.body,
@@ -1706,7 +1754,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
 
-  app.patch("/api/admin/quote-items/:id", csrf, async (req, res) => {
+  app.patch("/api/admin/quote-items/:id", ensureAdminAuth, csrf, async (req, res) => {
     try {
       const itemData = insertQuoteItemSchema.partial().parse(req.body);
       const item = await storage.updateQuoteItem(req.params.id, itemData);
@@ -1720,7 +1768,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
 
-  app.delete("/api/admin/quote-items/:id", csrf, async (req, res) => {
+  app.delete("/api/admin/quote-items/:id", ensureAdminAuth, csrf, async (req, res) => {
     try {
       const success = await storage.deleteQuoteItem(req.params.id);
       if (!success) {
@@ -1734,7 +1782,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   });
 
   // Quote Token Management
-  app.post("/api/admin/quotes/:id/token", csrf, async (req, res) => {
+  app.post("/api/admin/quotes/:id/token", ensureAdminAuth, csrf, async (req, res) => {
     try {
       const { expiresAt } = req.body;
       const token = await storage.createQuoteToken(
@@ -1748,7 +1796,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
 
-  app.delete("/api/admin/quote-tokens/:token", csrf, async (req, res) => {
+  app.delete("/api/admin/quote-tokens/:token", ensureAdminAuth, csrf, async (req, res) => {
     try {
       const success = await storage.deactivateQuoteToken(req.params.token);
       if (!success) {
@@ -1762,13 +1810,262 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   });
 
   // Quote Signatures (Admin view)
-  app.get("/api/admin/quotes/:id/signatures", csrf, async (req, res) => {
+  app.get("/api/admin/quotes/:id/signatures", ensureAdminAuth, csrf, async (req, res) => {
     try {
       const signatures = await storage.getQuoteSignatures(req.params.id);
       res.json(signatures);
     } catch (error) {
       console.error("Error fetching quote signatures:", error);
       res.status(500).json({ message: "Failed to fetch quote signatures" });
+    }
+  });
+
+  // ================================
+  // EXTRA INFO FOR CONTRACT SYSTEM
+  // ================================
+  
+  // Admin: Extra Info Field Definitions (Standard + Custom Fields)
+  app.get("/api/admin/extra-info-fields", ensureAdminAuth, csrf, async (req, res) => {
+    try {
+      const userId = req.authenticatedUserId;
+      const fields = await storage.getQuoteExtraInfoFields(userId);
+      res.json(fields);
+    } catch (error) {
+      console.error("Error fetching extra info fields:", error);
+      res.status(500).json({ message: "Failed to fetch extra info fields" });
+    }
+  });
+
+  app.get("/api/admin/extra-info-fields/:id", ensureAdminAuth, csrf, async (req, res) => {
+    try {
+      const field = await storage.getQuoteExtraInfoField(req.params.id);
+      if (!field) {
+        return res.status(404).json({ message: "Extra info field not found" });
+      }
+      res.json(field);
+    } catch (error) {
+      console.error("Error fetching extra info field:", error);
+      res.status(500).json({ message: "Failed to fetch extra info field" });
+    }
+  });
+
+  app.post("/api/admin/extra-info-fields", ensureAdminAuth, csrf, async (req, res) => {
+    try {
+      const userId = req.authenticatedUserId;
+      
+      // SECURITY: Prevent modification of standard fields by non-super-admin users
+      if (req.body.isStandard && process.env.NODE_ENV === 'production') {
+        return res.status(403).json({ message: "Cannot create standard fields in production" });
+      }
+      
+      const fieldData = insertQuoteExtraInfoFieldSchema.parse({
+        ...req.body,
+        userId: req.body.isStandard ? null : userId, // Standard fields have null userId
+      });
+      const field = await storage.createQuoteExtraInfoField(fieldData);
+      res.status(201).json(field);
+    } catch (error) {
+      console.error("Error creating extra info field:", error);
+      res.status(400).json({ message: "Failed to create extra info field" });
+    }
+  });
+
+  app.patch("/api/admin/extra-info-fields/:id", ensureAdminAuth, csrf, async (req, res) => {
+    try {
+      // SECURITY: First check if this is a standard field before allowing modification
+      const existingField = await storage.getQuoteExtraInfoField(req.params.id);
+      if (!existingField) {
+        return res.status(404).json({ message: "Extra info field not found" });
+      }
+      
+      // SECURITY: Prevent modification of standard fields in production
+      if (existingField.isStandard && process.env.NODE_ENV === 'production') {
+        return res.status(403).json({ message: "Cannot modify standard fields in production" });
+      }
+      
+      const fieldData = insertQuoteExtraInfoFieldSchema.partial().parse(req.body);
+      const field = await storage.updateQuoteExtraInfoField(req.params.id, fieldData);
+      if (!field) {
+        return res.status(404).json({ message: "Extra info field not found" });
+      }
+      res.json(field);
+    } catch (error) {
+      console.error("Error updating extra info field:", error);
+      res.status(400).json({ message: "Failed to update extra info field" });
+    }
+  });
+
+  app.delete("/api/admin/extra-info-fields/:id", ensureAdminAuth, csrf, async (req, res) => {
+    try {
+      // SECURITY: First check if this is a standard field before allowing deletion
+      const existingField = await storage.getQuoteExtraInfoField(req.params.id);
+      if (!existingField) {
+        return res.status(404).json({ message: "Extra info field not found" });
+      }
+      
+      // SECURITY: Prevent deletion of standard fields in production
+      if (existingField.isStandard && process.env.NODE_ENV === 'production') {
+        return res.status(403).json({ message: "Cannot delete standard fields in production" });
+      }
+      
+      const success = await storage.deleteQuoteExtraInfoField(req.params.id);
+      if (!success) {
+        return res.status(404).json({ message: "Extra info field not found" });
+      }
+      res.json({ message: "Extra info field deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting extra info field:", error);
+      res.status(500).json({ message: "Failed to delete extra info field" });
+    }
+  });
+
+  // Admin: Per-Quote Extra Info Configuration
+  app.get("/api/admin/quotes/:id/extra-info-config", ensureAdminAuth, csrf, async (req, res) => {
+    try {
+      const config = await storage.getQuoteExtraInfoConfig(req.params.id);
+      res.json(config || null);
+    } catch (error) {
+      console.error("Error fetching quote extra info config:", error);
+      res.status(500).json({ message: "Failed to fetch quote extra info config" });
+    }
+  });
+
+  app.post("/api/admin/quotes/:id/extra-info-config", ensureAdminAuth, csrf, async (req, res) => {
+    try {
+      const configData = insertQuoteExtraInfoConfigSchema.parse({
+        ...req.body,
+        quoteId: req.params.id,
+      });
+      const config = await storage.createQuoteExtraInfoConfig(configData);
+      res.status(201).json(config);
+    } catch (error) {
+      console.error("Error creating quote extra info config:", error);
+      res.status(400).json({ message: "Failed to create quote extra info config" });
+    }
+  });
+
+  app.patch("/api/admin/quotes/:id/extra-info-config", ensureAdminAuth, csrf, async (req, res) => {
+    try {
+      const configData = insertQuoteExtraInfoConfigSchema.partial().parse(req.body);
+      const config = await storage.updateQuoteExtraInfoConfig(req.params.id, configData);
+      if (!config) {
+        return res.status(404).json({ message: "Quote extra info config not found" });
+      }
+      res.json(config);
+    } catch (error) {
+      console.error("Error updating quote extra info config:", error);
+      res.status(400).json({ message: "Failed to update quote extra info config" });
+    }
+  });
+
+  app.delete("/api/admin/quotes/:id/extra-info-config", ensureAdminAuth, csrf, async (req, res) => {
+    try {
+      const success = await storage.deleteQuoteExtraInfoConfig(req.params.id);
+      if (!success) {
+        return res.status(404).json({ message: "Quote extra info config not found" });
+      }
+      res.json({ message: "Quote extra info config deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting quote extra info config:", error);
+      res.status(500).json({ message: "Failed to delete quote extra info config" });
+    }
+  });
+
+  // Public: Extra Info Responses (Client Data Collection)
+  app.get("/api/public/quotes/:token/extra-info", authLimiter, async (req, res) => {
+    try {
+      // Verify token and get quote data
+      const tokenData = await storage.getQuoteToken(req.params.token);
+      if (!tokenData || !tokenData.isActive) {
+        return res.status(404).json({ message: "Invalid or expired token" });
+      }
+      
+      // Check token expiration
+      if (tokenData.expiresAt && new Date() > new Date(tokenData.expiresAt)) {
+        return res.status(404).json({ message: "Token has expired" });
+      }
+
+      // Get extra info configuration for this quote
+      const config = await storage.getQuoteExtraInfoConfig(tokenData.quoteId);
+      if (!config || !config.isEnabled) {
+        return res.status(404).json({ message: "Extra info not enabled for this quote" });
+      }
+
+      // Get available fields (standard + any custom fields for this tenant)
+      const userId = config.userId || undefined; // Get tenant context from config
+      const allFields = await storage.getQuoteExtraInfoFields(userId);
+      
+      // Filter to only enabled fields based on configuration
+      const enabledFieldKeys = JSON.parse(config.enabledFields || '[]');
+      const enabledFields = allFields.filter(field => enabledFieldKeys.includes(field.key));
+
+      // Get existing responses
+      const responses = await storage.getQuoteExtraInfoResponses(tokenData.quoteId);
+
+      res.json({
+        config,
+        fields: enabledFields,
+        responses,
+      });
+    } catch (error) {
+      console.error("Error fetching public extra info:", error);
+      res.status(500).json({ message: "Failed to fetch extra info" });
+    }
+  });
+
+  app.post("/api/public/quotes/:token/extra-info", authLimiter, async (req, res) => {
+    try {
+      // Verify token and get quote data
+      const tokenData = await storage.getQuoteToken(req.params.token);
+      if (!tokenData || !tokenData.isActive) {
+        return res.status(404).json({ message: "Invalid or expired token" });
+      }
+      
+      // Check token expiration
+      if (tokenData.expiresAt && new Date() > new Date(tokenData.expiresAt)) {
+        return res.status(404).json({ message: "Token has expired" });
+      }
+
+      // Get extra info configuration
+      const config = await storage.getQuoteExtraInfoConfig(tokenData.quoteId);
+      if (!config || !config.isEnabled) {
+        return res.status(404).json({ message: "Extra info not enabled for this quote" });
+      }
+
+      // Validate the response data
+      const responseData = insertQuoteExtraInfoResponseSchema.parse({
+        ...req.body,
+        quoteId: tokenData.quoteId,
+      });
+
+      // Check if field is enabled for this quote
+      const enabledFieldKeys = JSON.parse(config.enabledFields || '[]');
+      if (!enabledFieldKeys.includes(responseData.fieldKey)) {
+        return res.status(400).json({ message: "Field not enabled for this quote" });
+      }
+
+      // Use upsert to handle updates to existing responses
+      const response = await storage.upsertQuoteExtraInfoResponse(
+        tokenData.quoteId,
+        responseData.fieldKey,
+        responseData
+      );
+
+      res.status(200).json(response);
+    } catch (error) {
+      console.error("Error saving extra info response:", error);
+      res.status(400).json({ message: "Failed to save extra info response" });
+    }
+  });
+
+  // Admin: View Extra Info Responses for a Quote
+  app.get("/api/admin/quotes/:id/extra-info-responses", ensureAdminAuth, csrf, async (req, res) => {
+    try {
+      const responses = await storage.getQuoteExtraInfoResponses(req.params.id);
+      res.json(responses);
+    } catch (error) {
+      console.error("Error fetching quote extra info responses:", error);
+      res.status(500).json({ message: "Failed to fetch quote extra info responses" });
     }
   });
 
@@ -1832,10 +2129,10 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   });
 
   // Tasks
-  app.get("/api/tasks", async (req, res) => {
+  app.get("/api/tasks", ensureUserAuth, async (req, res) => {
     try {
       const { assignedTo, today } = req.query;
-      const userId = req.headers['user-id'] as string || 'test-user';
+      const userId = req.authenticatedUserId;
       let tasks;
       
       if (today && assignedTo) {

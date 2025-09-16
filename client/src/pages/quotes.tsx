@@ -6,11 +6,12 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Edit, Trash2, FileText, Send } from "lucide-react";
+import { Plus, Edit, Trash2, FileText, Send, AlertTriangle } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertQuoteSchema } from "@shared/schema";
@@ -29,6 +30,8 @@ const quoteFormSchema = insertQuoteSchema.extend({
 export default function Quotes() {
   const [showQuoteModal, setShowQuoteModal] = useState(false);
   const [editingQuote, setEditingQuote] = useState<Quote | null>(null);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [quoteToDelete, setQuoteToDelete] = useState<Quote | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -87,6 +90,33 @@ export default function Quotes() {
     },
   });
 
+  const deleteQuoteMutation = useMutation({
+    mutationFn: async (quoteId: string) => {
+      const response = await apiRequest("DELETE", `/api/quotes/${quoteId}`);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/quotes"] });
+      // Also invalidate contact-specific quotes cache
+      if (quoteToDelete?.contactId) {
+        queryClient.invalidateQueries({ queryKey: ["/api/contacts", quoteToDelete.contactId, "quotes"] });
+      }
+      toast({
+        title: "Success",
+        description: "Quote deleted successfully!",
+      });
+      setDeleteConfirmOpen(false);
+      setQuoteToDelete(null);
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to delete quote. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
   const onSubmit = (data: z.infer<typeof quoteFormSchema>) => {
     createQuoteMutation.mutate(data);
   };
@@ -112,6 +142,17 @@ export default function Quotes() {
     setEditingQuote(null);
     form.reset();
     setShowQuoteModal(true);
+  };
+
+  const handleDeleteQuote = (quote: Quote) => {
+    setQuoteToDelete(quote);
+    setDeleteConfirmOpen(true);
+  };
+
+  const confirmDeleteQuote = () => {
+    if (quoteToDelete) {
+      deleteQuoteMutation.mutate(quoteToDelete.id);
+    }
   };
 
   // Auto-calculate total when subtotal or tax changes
@@ -205,7 +246,12 @@ export default function Quotes() {
                           <Button variant="ghost" size="sm" data-testid={`edit-quote-${quote.id}`}>
                             <Edit className="h-4 w-4" />
                           </Button>
-                          <Button variant="ghost" size="sm" data-testid={`delete-quote-${quote.id}`}>
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            onClick={() => handleDeleteQuote(quote)}
+                            data-testid={`delete-quote-${quote.id}`}
+                          >
                             <Trash2 className="h-4 w-4" />
                           </Button>
                         </div>
@@ -379,6 +425,48 @@ export default function Quotes() {
           </Form>
         </DialogContent>
       </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-red-500" />
+              Delete Quote
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this quote? This action cannot be undone.
+              {quoteToDelete && (
+                <div className="mt-2 p-3 bg-muted rounded-lg">
+                  <p className="font-medium">{quoteToDelete.title}</p>
+                  <p className="text-sm text-muted-foreground">
+                    Quote #{quoteToDelete.quoteNumber} • ${parseFloat(quoteToDelete.total).toLocaleString()}
+                  </p>
+                </div>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel 
+              onClick={() => {
+                setDeleteConfirmOpen(false);
+                setQuoteToDelete(null);
+              }}
+              data-testid="button-cancel-delete"
+            >
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDeleteQuote}
+              disabled={deleteQuoteMutation.isPending}
+              className="bg-red-600 hover:bg-red-700"
+              data-testid="button-confirm-delete"
+            >
+              {deleteQuoteMutation.isPending ? "Deleting..." : "Delete Quote"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }

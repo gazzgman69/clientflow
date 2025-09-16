@@ -4,6 +4,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { format, parse, isPast } from "date-fns";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,7 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Calendar, CalendarIcon, Package, Plus, Save, Send, Trash2, AlertCircle } from "lucide-react";
+import { Calendar, CalendarIcon, Package, Plus, Save, Send, Trash2, AlertCircle, AlertTriangle } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
@@ -65,6 +66,7 @@ export default function QuoteEditor({
     addonIds: new Set()
   });
   const [contactInfo, setContactInfo] = useState({ id: initialContactId || "", name: initialContactName || "" });
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
   // Update contactInfo when props change
   useEffect(() => {
@@ -259,6 +261,31 @@ export default function QuoteEditor({
     },
   });
 
+  // Delete quote mutation
+  const deleteQuoteMutation = useMutation({
+    mutationFn: async (quoteId: string) => {
+      const response = await apiRequest("DELETE", `/api/quotes/${quoteId}`);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/quotes"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/contacts", contactInfo.id, "quotes"] });
+      
+      toast({
+        title: "Success",
+        description: "Quote deleted successfully!",
+      });
+      onClose();
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to delete quote. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
   // Form submission handlers
   const handleSaveDraft = (data: QuoteEditorForm) => {
     saveQuoteMutation.mutate({ formData: data, isDraft: true });
@@ -276,6 +303,18 @@ export default function QuoteEditor({
     }
     
     saveQuoteMutation.mutate({ formData: data, isDraft: false });
+  };
+
+  const handleDeleteQuote = () => {
+    if (editingQuote) {
+      setShowDeleteDialog(true);
+    }
+  };
+
+  const confirmDeleteQuote = () => {
+    if (editingQuote) {
+      deleteQuoteMutation.mutate(editingQuote.id);
+    }
   };
 
   // Format date for display (dd/mm/yyyy)
@@ -687,13 +726,28 @@ export default function QuoteEditor({
 
         {/* Footer Actions */}
         <div className="flex justify-between items-center pt-4 border-t">
-          <Button 
-            variant="outline" 
-            onClick={onClose}
-            data-testid="button-cancel-quote-editor"
-          >
-            Cancel
-          </Button>
+          <div className="flex gap-2">
+            <Button 
+              variant="outline" 
+              onClick={onClose}
+              data-testid="button-cancel-quote-editor"
+            >
+              Cancel
+            </Button>
+            
+            {editingQuote && (
+              <Button
+                variant="outline"
+                onClick={handleDeleteQuote}
+                disabled={deleteQuoteMutation.isPending}
+                className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                data-testid="button-delete-quote-editor"
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                {deleteQuoteMutation.isPending ? "Deleting..." : "Delete"}
+              </Button>
+            )}
+          </div>
           
           <div className="flex gap-2">
             <Button
@@ -717,6 +771,38 @@ export default function QuoteEditor({
           </div>
         </div>
       </DialogContent>
+      
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent data-testid="dialog-delete-quote-confirmation">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-red-600" />
+              Delete Quote
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this quote? This action cannot be undone.
+              {editingQuote && (
+                <>
+                  <br />
+                  <strong>Quote: {editingQuote.quoteNumber}</strong> for {contactInfo.name}
+                </>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancel-delete-quote">
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDeleteQuote}
+              className="bg-red-600 hover:bg-red-700 focus:ring-red-600"
+              data-testid="button-confirm-delete-quote"
+            >
+              Delete Quote
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Dialog>
   );
 }

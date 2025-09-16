@@ -72,6 +72,10 @@ type MemberAssignmentData = z.infer<typeof memberAssignmentSchema>;
 
 export default function ProjectDetailModal({ project, isOpen, onClose }: ProjectDetailModalProps) {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [selectedDocument, setSelectedDocument] = useState<{
+    type: 'quote' | 'contract' | 'invoice';
+    data: Quote | Contract | Invoice;
+  } | null>(null);
   const { toast } = useToast();
 
   const { data: members = [] } = useQuery<Member[]>({
@@ -390,6 +394,7 @@ export default function ProjectDetailModal({ project, isOpen, onClose }: Project
   if (!project) return null;
 
   return (
+    <>
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-4xl h-screen overflow-y-auto">
         <DialogHeader>
@@ -725,7 +730,9 @@ export default function ProjectDetailModal({ project, isOpen, onClose }: Project
                         {projectQuotes.map((quote) => (
                           <div
                             key={quote.id}
-                            className="flex items-center justify-between p-3 border rounded-lg"
+                            className="flex items-center justify-between p-3 border rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                            onClick={() => setSelectedDocument({ type: 'quote', data: quote })}
+                            data-testid={`document-quote-${quote.id}`}
                           >
                             <div className="flex items-center gap-3">
                               <FileText className="h-4 w-4 text-blue-500" />
@@ -783,7 +790,9 @@ export default function ProjectDetailModal({ project, isOpen, onClose }: Project
                         {projectContracts.map((contract) => (
                           <div
                             key={contract.id}
-                            className="flex items-center justify-between p-3 border rounded-lg"
+                            className="flex items-center justify-between p-3 border rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                            onClick={() => setSelectedDocument({ type: 'contract', data: contract })}
+                            data-testid={`document-contract-${contract.id}`}
                           >
                             <div className="flex items-center gap-3">
                               <File className="h-4 w-4 text-green-500" />
@@ -841,7 +850,9 @@ export default function ProjectDetailModal({ project, isOpen, onClose }: Project
                         {projectInvoices.map((invoice) => (
                           <div
                             key={invoice.id}
-                            className="flex items-center justify-between p-3 border rounded-lg"
+                            className="flex items-center justify-between p-3 border rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                            onClick={() => setSelectedDocument({ type: 'invoice', data: invoice })}
+                            data-testid={`document-invoice-${invoice.id}`}
                           >
                             <div className="flex items-center gap-3">
                               <Receipt className="h-4 w-4 text-orange-500" />
@@ -1008,5 +1019,181 @@ export default function ProjectDetailModal({ project, isOpen, onClose }: Project
         </div>
       </DialogContent>
     </Dialog>
+
+    {/* Document Detail Modal */}
+    <Dialog open={!!selectedDocument} onOpenChange={() => setSelectedDocument(null)}>
+      <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            {selectedDocument?.type === 'quote' && <FileText className="h-5 w-5 text-blue-500" />}
+            {selectedDocument?.type === 'contract' && <File className="h-5 w-5 text-green-500" />}
+            {selectedDocument?.type === 'invoice' && <Receipt className="h-5 w-5 text-orange-500" />}
+            {selectedDocument?.data.title}
+          </DialogTitle>
+        </DialogHeader>
+        
+        {selectedDocument && (
+          <div className="space-y-6">
+            {/* Document Header */}
+            <div className="grid grid-cols-2 gap-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+              <div>
+                <Label className="text-sm font-medium">Document Number</Label>
+                <p className="font-mono text-sm">
+                  {selectedDocument.type === 'quote' && (selectedDocument.data as Quote).quoteNumber}
+                  {selectedDocument.type === 'contract' && (selectedDocument.data as Contract).contractNumber}
+                  {selectedDocument.type === 'invoice' && (selectedDocument.data as Invoice).invoiceNumber}
+                </p>
+              </div>
+              <div>
+                <Label className="text-sm font-medium">Status</Label>
+                <Badge variant={selectedDocument.data.status === 'draft' ? 'secondary' : 'default'}>
+                  {selectedDocument.data.status}
+                </Badge>
+              </div>
+              <div>
+                <Label className="text-sm font-medium">Total Amount</Label>
+                <p className="text-lg font-semibold">
+                  ${selectedDocument.type === 'quote' ? (selectedDocument.data as Quote).total : 
+                    selectedDocument.type === 'contract' ? (selectedDocument.data as Contract).amount :
+                    (selectedDocument.data as Invoice).total}
+                </p>
+              </div>
+              <div>
+                <Label className="text-sm font-medium">Created</Label>
+                <p className="text-sm">
+                  {formatDistanceToNow(new Date(selectedDocument.data.createdAt!))} ago
+                </p>
+              </div>
+            </div>
+
+            {/* Document Details */}
+            <div className="space-y-4">
+              <div>
+                <Label className="text-sm font-medium">Description</Label>
+                <p className="text-sm text-muted-foreground mt-1">
+                  {selectedDocument.data.description || 'No description provided'}
+                </p>
+              </div>
+
+              {/* Quote specific fields */}
+              {selectedDocument.type === 'quote' && (
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-sm font-medium">Subtotal</Label>
+                    <p className="text-sm">${(selectedDocument.data as Quote).subtotal}</p>
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium">Tax</Label>
+                    <p className="text-sm">${(selectedDocument.data as Quote).taxAmount || '0.00'}</p>
+                  </div>
+                  {(selectedDocument.data as Quote).validUntil && (
+                    <div className="col-span-2">
+                      <Label className="text-sm font-medium">Valid Until</Label>
+                      <p className="text-sm">
+                        {new Date((selectedDocument.data as Quote).validUntil!).toLocaleDateString()}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Contract specific fields */}
+              {selectedDocument.type === 'contract' && (
+                <div className="space-y-4">
+                  {(selectedDocument.data as Contract).terms && (
+                    <div>
+                      <Label className="text-sm font-medium">Terms</Label>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        {(selectedDocument.data as Contract).terms}
+                      </p>
+                    </div>
+                  )}
+                  {(selectedDocument.data as Contract).expiresAt && (
+                    <div>
+                      <Label className="text-sm font-medium">Expires</Label>
+                      <p className="text-sm">
+                        {new Date((selectedDocument.data as Contract).expiresAt!).toLocaleDateString()}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Invoice specific fields */}
+              {selectedDocument.type === 'invoice' && (
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-sm font-medium">Subtotal</Label>
+                    <p className="text-sm">${(selectedDocument.data as Invoice).subtotal}</p>
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium">Tax</Label>
+                    <p className="text-sm">${(selectedDocument.data as Invoice).taxAmount || '0.00'}</p>
+                  </div>
+                  {(selectedDocument.data as Invoice).dueDate && (
+                    <div>
+                      <Label className="text-sm font-medium">Due Date</Label>
+                      <p className="text-sm">
+                        {new Date((selectedDocument.data as Invoice).dueDate!).toLocaleDateString()}
+                      </p>
+                    </div>
+                  )}
+                  {(selectedDocument.data as Invoice).paidAt && (
+                    <div>
+                      <Label className="text-sm font-medium">Paid Date</Label>
+                      <p className="text-sm">
+                        {new Date((selectedDocument.data as Invoice).paidAt!).toLocaleDateString()}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex gap-2 pt-4 border-t">
+              {selectedDocument.data.status === 'draft' && (
+                <Button
+                  onClick={() => {
+                    sendDocumentMutation.mutate({ 
+                      id: selectedDocument.data.id, 
+                      type: selectedDocument.type 
+                    });
+                    setSelectedDocument(null);
+                  }}
+                  disabled={sendDocumentMutation.isPending}
+                  data-testid={`button-send-${selectedDocument.type}-modal`}
+                >
+                  <Send className="h-4 w-4 mr-2" />
+                  Send {selectedDocument.type.charAt(0).toUpperCase() + selectedDocument.type.slice(1)}
+                </Button>
+              )}
+              {selectedDocument.data.status === 'sent' && (
+                <Button
+                  onClick={() => {
+                    approveDocumentMutation.mutate({ 
+                      id: selectedDocument.data.id, 
+                      type: selectedDocument.type 
+                    });
+                    setSelectedDocument(null);
+                  }}
+                  disabled={approveDocumentMutation.isPending}
+                  data-testid={`button-approve-${selectedDocument.type}-modal`}
+                >
+                  <Check className="h-4 w-4 mr-2" />
+                  {selectedDocument.type === 'quote' && 'Approve Quote'}
+                  {selectedDocument.type === 'contract' && 'Sign Contract'}
+                  {selectedDocument.type === 'invoice' && 'Mark as Paid'}
+                </Button>
+              )}
+              <Button variant="outline" onClick={() => setSelectedDocument(null)}>
+                Close
+              </Button>
+            </div>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+    </>
   );
 }

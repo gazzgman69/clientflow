@@ -4,6 +4,7 @@ import { emailSyncService } from './emailSync';
 import type { gmail_v1 } from 'googleapis';
 import { convert as htmlToText } from 'html-to-text';
 import { emailRenderer, type RenderInput } from './emailRenderer';
+import quotedPrintable from 'quoted-printable';
 
 interface EmailRequest {
   to: string;
@@ -159,13 +160,13 @@ export class GmailService {
         `Content-Type: text/plain; charset=UTF-8`,
         `Content-Transfer-Encoding: quoted-printable`,
         '',
-        this.encodeQuotedPrintable(rendered.text),
+        quotedPrintable.encode(rendered.text),
         '',
         `--${boundary}`,
         `Content-Type: text/html; charset=UTF-8`,
         `Content-Transfer-Encoding: quoted-printable`,
         '',
-        this.encodeQuotedPrintable(rendered.htmlInlined),
+        quotedPrintable.encode(rendered.htmlInlined),
         '',
         `--${boundary}--`
       ].join('\r\n');
@@ -715,59 +716,6 @@ export class GmailService {
     }
   }
 
-  /**
-   * Encode text using quoted-printable encoding per RFC 2045
-   * Handles 76-character soft line breaks and proper special character encoding
-   */
-  private encodeQuotedPrintable(text: string): string {
-    // First, normalize line endings
-    let result = text.replace(/\r?\n/g, '\r\n');
-    
-    // Encode special characters and non-printable ASCII
-    result = result.replace(/[^\x09\x20-\x7E\r\n]/g, (char) => {
-      const hex = char.charCodeAt(0).toString(16).toUpperCase().padStart(2, '0');
-      return `=${hex}`;
-    });
-    
-    // Encode trailing whitespace at end of lines
-    result = result.replace(/[ \t]+(?=\r\n)/g, (match) => {
-      return match.split('').map(char => 
-        char === ' ' ? '=20' : char === '\t' ? '=09' : char
-      ).join('');
-    });
-    
-    // Encode lines starting with dot (to prevent SMTP confusion)
-    result = result.replace(/^\./gm, '=2E');
-    
-    // Handle soft line breaks for lines longer than 76 characters
-    const lines = result.split('\r\n');
-    const wrappedLines = [];
-    
-    for (const line of lines) {
-      if (line.length <= 76) {
-        wrappedLines.push(line);
-      } else {
-        // Split long lines with soft breaks (=\r\n)
-        let remaining = line;
-        while (remaining.length > 76) {
-          // Find a good break point (prefer after = sequences)
-          let breakPoint = 75;
-          if (remaining[breakPoint] === '=' && remaining.length > breakPoint + 2) {
-            // Don't break in the middle of an encoded sequence
-            breakPoint = breakPoint - 1;
-          }
-          
-          wrappedLines.push(remaining.substring(0, breakPoint) + '=');
-          remaining = remaining.substring(breakPoint);
-        }
-        if (remaining.length > 0) {
-          wrappedLines.push(remaining);
-        }
-      }
-    }
-    
-    return wrappedLines.join('\r\n');
-  }
 }
 
 // Singleton with proper token lookup function

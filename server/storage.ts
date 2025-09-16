@@ -50,7 +50,7 @@ import {
 import { randomUUID } from "crypto";
 import { drizzle } from 'drizzle-orm/neon-http';
 import { neon } from '@neondatabase/serverless';
-import { eq, and, desc, or } from 'drizzle-orm';
+import { eq, and, desc, or, isNull } from 'drizzle-orm';
 
 // Helper function to omit undefined values to prevent overwriting required fields
 function omitUndefined<T extends Record<string, any>>(obj: T): Partial<T> {
@@ -3065,13 +3065,13 @@ export class DrizzleStorage implements IStorage {
       return await this.db.select().from(quoteExtraInfoFields)
         .where(or(
           eq(quoteExtraInfoFields.userId, userId),
-          and(eq(quoteExtraInfoFields.isStandard, true), sql`${quoteExtraInfoFields.userId} IS NULL`)
+          and(eq(quoteExtraInfoFields.isStandard, true), isNull(quoteExtraInfoFields.userId))
         ))
         .orderBy(quoteExtraInfoFields.displayOrder, quoteExtraInfoFields.createdAt);
     }
     // Return only standard fields if no userId provided
     return await this.db.select().from(quoteExtraInfoFields)
-      .where(and(eq(quoteExtraInfoFields.isStandard, true), sql`${quoteExtraInfoFields.userId} IS NULL`))
+      .where(and(eq(quoteExtraInfoFields.isStandard, true), isNull(quoteExtraInfoFields.userId)))
       .orderBy(quoteExtraInfoFields.displayOrder);
   }
 
@@ -3087,7 +3087,7 @@ export class DrizzleStorage implements IStorage {
           eq(quoteExtraInfoFields.key, key),
           or(
             eq(quoteExtraInfoFields.userId, userId),
-            and(eq(quoteExtraInfoFields.isStandard, true), sql`${quoteExtraInfoFields.userId} IS NULL`)
+            and(eq(quoteExtraInfoFields.isStandard, true), isNull(quoteExtraInfoFields.userId))
           )
         ));
       return result[0];
@@ -3096,7 +3096,7 @@ export class DrizzleStorage implements IStorage {
     const result = await this.db.select().from(quoteExtraInfoFields)
       .where(and(
         eq(quoteExtraInfoFields.key, key),
-        and(eq(quoteExtraInfoFields.isStandard, true), sql`${quoteExtraInfoFields.userId} IS NULL`)
+        and(eq(quoteExtraInfoFields.isStandard, true), isNull(quoteExtraInfoFields.userId))
       ));
     return result[0];
   }

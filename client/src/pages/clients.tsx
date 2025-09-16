@@ -98,24 +98,7 @@ export default function Contacts() {
     mutationFn: async ({ contactId, cascade = false }: { contactId: string; cascade?: boolean }) => {
       const url = cascade ? `/api/contacts/${contactId}?cascade=true` : `/api/contacts/${contactId}`;
       
-      const response = await fetch(url, {
-        method: 'DELETE',
-        headers: {
-          'user-id': 'test-user',
-        },
-        credentials: 'include',
-      });
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw errorData;
-      }
-      
-      // For successful deletions, the response might be empty (204) or contain JSON
-      if (response.status === 204) {
-        return { message: 'Contact deleted successfully' };
-      }
-      return response.json();
+      return await apiRequest("DELETE", url);
     },
     onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ["/api/contacts"] });

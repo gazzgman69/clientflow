@@ -47,7 +47,7 @@ import { useToast } from "@/hooks/use-toast";
 import { formatDistanceToNow } from "date-fns";
 import type { 
   Project, Member, Venue, ProjectFile, 
-  ProjectNote, ProjectMember, Quote, Contract, Invoice
+  ProjectNote, ProjectMember, Quote, Contract, Invoice, Contact
 } from "@shared/schema";
 import ProjectEmailPanel from "@/components/email/ProjectEmailPanel";
 import ContactPicker from "@/components/quote/ContactPicker";
@@ -132,6 +132,12 @@ export default function ProjectDetailModal({ project, isOpen, onClose }: Project
   const { data: projectVenue } = useQuery<Venue>({
     queryKey: ["/api/venues", project?.venueId],
     enabled: isOpen && !!project && !!project.venueId,
+  });
+
+  // Fetch contact information for the project
+  const { data: projectContact } = useQuery<Contact>({
+    queryKey: ["/api/contacts", project?.contactId],
+    enabled: isOpen && !!project && !!project.contactId,
   });
 
   const noteForm = useForm<NoteFormData>({
@@ -294,7 +300,19 @@ export default function ProjectDetailModal({ project, isOpen, onClose }: Project
   // Document creation mutations
   // Handler functions for new quote creation flow
   const handleCreateQuote = () => {
-    setShowContactPicker(true);
+    // If project has a contact ID, use it automatically and skip the ContactPicker
+    if (project?.contactId) {
+      setSelectedContactId(project.contactId);
+      // Use a placeholder name if contact isn't loaded yet, QuoteEditor will display the proper name
+      const contactName = projectContact 
+        ? `${projectContact.firstName} ${projectContact.lastName}`
+        : "Loading contact...";
+      setSelectedContactName(contactName);
+      setShowQuoteEditor(true);
+    } else {
+      // Fallback to ContactPicker if project has no contact assigned
+      setShowContactPicker(true);
+    }
   };
 
   const handleContactSelected = (contactId: string, contactName: string, contactType?: 'contact' | 'client') => {

@@ -278,6 +278,99 @@ export default function ProjectDetailModal({ project, isOpen, onClose }: Project
     },
   });
 
+  // Document creation mutations
+  const createQuoteMutation = useMutation({
+    mutationFn: async () => {
+      const quoteData = {
+        contactId: project?.contactId,
+        projectId: project?.id,
+        title: `Quote for ${project?.name}`,
+        description: `Quote for project: ${project?.name}`,
+        subtotal: "0.00",
+        total: "0.00",
+        quoteNumber: `Q-${Date.now()}`,
+        createdBy: "test-user" // TODO: Get from auth context
+      };
+      const response = await apiRequest("POST", "/api/quotes", quoteData);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/contacts", project?.contactId, "quotes"] });
+      toast({
+        title: "Success",
+        description: "Quote created successfully!",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to create quote. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const createContractMutation = useMutation({
+    mutationFn: async () => {
+      const contractData = {
+        contactId: project?.contactId,
+        projectId: project?.id,
+        title: `Contract for ${project?.name}`,
+        description: `Contract for project: ${project?.name}`,
+        amount: "0.00",
+        contractNumber: `C-${Date.now()}`,
+        createdBy: "test-user" // TODO: Get from auth context
+      };
+      const response = await apiRequest("POST", "/api/contracts", contractData);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/contacts", project?.contactId, "contracts"] });
+      toast({
+        title: "Success",
+        description: "Contract created successfully!",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to create contract. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const createInvoiceMutation = useMutation({
+    mutationFn: async () => {
+      const invoiceData = {
+        contactId: project?.contactId,
+        projectId: project?.id,
+        title: `Invoice for ${project?.name}`,
+        description: `Invoice for project: ${project?.name}`,
+        subtotal: "0.00",
+        total: "0.00",
+        invoiceNumber: `I-${Date.now()}`,
+        createdBy: "test-user" // TODO: Get from auth context
+      };
+      const response = await apiRequest("POST", "/api/invoices", invoiceData);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/contacts", project?.contactId, "invoices"] });
+      toast({
+        title: "Success",
+        description: "Invoice created successfully!",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to create invoice. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
   const handleFileUpload = () => {
     if (selectedFile) {
       uploadFileMutation.mutate(selectedFile);
@@ -592,26 +685,32 @@ export default function ProjectDetailModal({ project, isOpen, onClose }: Project
                     <Button 
                       variant="outline" 
                       className="flex-1"
+                      onClick={() => createQuoteMutation.mutate()}
+                      disabled={createQuoteMutation.isPending}
                       data-testid="button-create-quote"
                     >
                       <FileText className="h-4 w-4 mr-2" />
-                      Create Quote
+                      {createQuoteMutation.isPending ? "Creating..." : "Create Quote"}
                     </Button>
                     <Button 
                       variant="outline" 
                       className="flex-1"
+                      onClick={() => createContractMutation.mutate()}
+                      disabled={createContractMutation.isPending}
                       data-testid="button-create-contract"
                     >
                       <File className="h-4 w-4 mr-2" />
-                      Create Contract
+                      {createContractMutation.isPending ? "Creating..." : "Create Contract"}
                     </Button>
                     <Button 
                       variant="outline" 
                       className="flex-1"
+                      onClick={() => createInvoiceMutation.mutate()}
+                      disabled={createInvoiceMutation.isPending}
                       data-testid="button-create-invoice"
                     >
                       <Receipt className="h-4 w-4 mr-2" />
-                      Create Invoice
+                      {createInvoiceMutation.isPending ? "Creating..." : "Create Invoice"}
                     </Button>
                   </div>
 

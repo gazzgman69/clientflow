@@ -54,7 +54,11 @@ import {
   insertMessageThreadSchema,
   insertEventSchema,
   insertCalendarIntegrationSchema,
-  insertCalendarSyncLogSchema
+  insertCalendarSyncLogSchema,
+  insertQuotePackageSchema,
+  insertQuoteAddonSchema,
+  insertQuoteItemSchema,
+  insertQuoteSignatureSchema
 } from "@shared/schema";
 
 export async function registerRoutes(app: Express, csrfProtection?: any): Promise<Server> {
@@ -1422,6 +1426,349 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
       res.json(quote);
     } catch (error) {
       res.status(500).json({ message: "Failed to approve quote" });
+    }
+  });
+
+  // Enhanced Quotes System - Public Routes (Rate Limited for Security)
+  // Public quote access by token - RATE LIMITED
+  app.get("/api/public/quotes/:token", authLimiter, async (req, res) => {
+    try {
+      const quoteData = await storage.getQuoteByToken(req.params.token);
+      if (!quoteData) {
+        return res.status(404).json({ message: "Quote not found or expired" });
+      }
+      res.json(quoteData);
+    } catch (error) {
+      console.error("Error fetching public quote:", error);
+      res.status(500).json({ message: "Failed to fetch quote" });
+    }
+  });
+
+  // Submit quote signature (public endpoint) - RATE LIMITED & SECURE
+  app.post("/api/public/quotes/:token/signature", authLimiter, async (req, res) => {
+    try {
+      // SECURITY: Only accept safe fields from client, capture IP/UserAgent server-side
+      const clientData = {
+        signerName: req.body.signerName,
+        signerEmail: req.body.signerEmail,
+        agreementAccepted: req.body.agreementAccepted,
+        selectedPackage: req.body.selectedPackage, // For validation
+        selectedAddons: req.body.selectedAddons || [], // For validation
+      };
+
+      // Validate required fields
+      if (!clientData.signerName || !clientData.signerEmail || !clientData.agreementAccepted) {
+        return res.status(400).json({ message: "Missing required signature fields" });
+      }
+
+      // SECURITY: Server-side IP and UserAgent capture
+      const ipAddress = req.ip || req.headers['x-forwarded-for'] || req.connection.remoteAddress || 'unknown';
+      const userAgent = req.headers['user-agent'] || 'unknown';
+      
+      // Verify the token exists and get the quote ID
+      const tokenData = await storage.getQuoteToken(req.params.token);
+      if (!tokenData || !tokenData.isActive) {
+        return res.status(404).json({ message: "Invalid or expired token" });
+      }
+      
+      // Check if token is expired
+      if (tokenData.expiresAt && new Date() > new Date(tokenData.expiresAt)) {
+        return res.status(404).json({ message: "Token has expired" });
+      }
+
+      // SECURITY: Server-side validation and price calculation
+      // Get the full quote data with packages and addons
+      const quoteData = await storage.getQuoteByToken(req.params.token);
+      if (!quoteData) {
+        return res.status(404).json({ message: "Quote not found" });
+      }
+
+      // Validate selected package exists and is active
+      let selectedPackage = null;
+      if (clientData.selectedPackage) {
+        selectedPackage = quoteData.packages.find(pkg => 
+          pkg.id === clientData.selectedPackage && pkg.isActive
+        );
+        if (!selectedPackage) {
+          return res.status(400).json({ message: "Invalid package selection" });
+        }
+      }
+
+      // Validate selected addons exist and are active
+      const validatedAddons = [];
+      if (clientData.selectedAddons && clientData.selectedAddons.length > 0) {
+        for (const addonId of clientData.selectedAddons) {
+          const addon = quoteData.addons.find(addon => 
+            addon.id === addonId && addon.isActive
+          );
+          if (!addon) {
+            return res.status(400).json({ message: `Invalid addon selection: ${addonId}` });
+          }
+          validatedAddons.push(addon);
+        }
+      }
+
+      // SECURITY: Server-side price calculation (source of truth)
+      let subtotal = 0;
+      if (selectedPackage) {
+        subtotal += parseFloat(selectedPackage.basePrice);
+      }
+      for (const addon of validatedAddons) {
+        subtotal += parseFloat(addon.price);
+      }
+
+      // Calculate VAT (using package VAT rate or default 20%)
+      const vatRate = selectedPackage ? parseFloat(selectedPackage.vatRate) : 0.20;
+      const vatAmount = subtotal * vatRate;
+      const total = subtotal + vatAmount;
+
+      // Update quote with server-calculated totals
+      await storage.updateQuote(tokenData.quoteId, {
+        subtotal: subtotal.toFixed(2),
+        taxAmount: vatAmount.toFixed(2),
+        total: total.toFixed(2),
+        status: 'signed',
+        approvedAt: new Date(),
+        acceptedAt: new Date()
+      });
+
+      // Create the signature with server-side captured metadata
+      const signature = await storage.createQuoteSignature({
+        quoteId: tokenData.quoteId,
+        signerName: clientData.signerName,
+        signerEmail: clientData.signerEmail,
+        agreementAccepted: clientData.agreementAccepted,
+        ipAddress: Array.isArray(ipAddress) ? ipAddress[0] : ipAddress,
+        userAgent: userAgent
+      });
+      
+      res.status(201).json({
+        signature,
+        calculatedTotals: {
+          subtotal: subtotal.toFixed(2),
+          vatAmount: vatAmount.toFixed(2),
+          total: total.toFixed(2)
+        }
+      });
+    } catch (error) {
+      console.error("Error creating quote signature:", error);
+      res.status(400).json({ message: "Failed to create signature" });
+    }
+  });
+
+  // Enhanced Quotes System - Admin Routes (Authentication Required)
+  // Quote Packages CRUD
+  app.get("/api/admin/quote-packages", csrf, async (req, res) => {
+    try {
+      const packages = await storage.getQuotePackages();
+      res.json(packages);
+    } catch (error) {
+      console.error("Error fetching quote packages:", error);
+      res.status(500).json({ message: "Failed to fetch quote packages" });
+    }
+  });
+
+  app.get("/api/admin/quote-packages/:id", csrf, async (req, res) => {
+    try {
+      const pkg = await storage.getQuotePackage(req.params.id);
+      if (!pkg) {
+        return res.status(404).json({ message: "Quote package not found" });
+      }
+      res.json(pkg);
+    } catch (error) {
+      console.error("Error fetching quote package:", error);
+      res.status(500).json({ message: "Failed to fetch quote package" });
+    }
+  });
+
+  app.post("/api/admin/quote-packages", csrf, async (req, res) => {
+    try {
+      const packageData = insertQuotePackageSchema.parse(req.body);
+      const pkg = await storage.createQuotePackage(packageData);
+      res.status(201).json(pkg);
+    } catch (error) {
+      console.error("Error creating quote package:", error);
+      res.status(400).json({ message: "Failed to create quote package" });
+    }
+  });
+
+  app.patch("/api/admin/quote-packages/:id", csrf, async (req, res) => {
+    try {
+      const packageData = insertQuotePackageSchema.partial().parse(req.body);
+      const pkg = await storage.updateQuotePackage(req.params.id, packageData);
+      if (!pkg) {
+        return res.status(404).json({ message: "Quote package not found" });
+      }
+      res.json(pkg);
+    } catch (error) {
+      console.error("Error updating quote package:", error);
+      res.status(400).json({ message: "Failed to update quote package" });
+    }
+  });
+
+  app.delete("/api/admin/quote-packages/:id", csrf, async (req, res) => {
+    try {
+      const success = await storage.deleteQuotePackage(req.params.id);
+      if (!success) {
+        return res.status(404).json({ message: "Quote package not found" });
+      }
+      res.json({ message: "Quote package deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting quote package:", error);
+      res.status(500).json({ message: "Failed to delete quote package" });
+    }
+  });
+
+  // Quote Add-ons CRUD
+  app.get("/api/admin/quote-addons", csrf, async (req, res) => {
+    try {
+      const addons = await storage.getQuoteAddons();
+      res.json(addons);
+    } catch (error) {
+      console.error("Error fetching quote addons:", error);
+      res.status(500).json({ message: "Failed to fetch quote addons" });
+    }
+  });
+
+  app.get("/api/admin/quote-addons/:id", csrf, async (req, res) => {
+    try {
+      const addon = await storage.getQuoteAddon(req.params.id);
+      if (!addon) {
+        return res.status(404).json({ message: "Quote addon not found" });
+      }
+      res.json(addon);
+    } catch (error) {
+      console.error("Error fetching quote addon:", error);
+      res.status(500).json({ message: "Failed to fetch quote addon" });
+    }
+  });
+
+  app.post("/api/admin/quote-addons", csrf, async (req, res) => {
+    try {
+      const addonData = insertQuoteAddonSchema.parse(req.body);
+      const addon = await storage.createQuoteAddon(addonData);
+      res.status(201).json(addon);
+    } catch (error) {
+      console.error("Error creating quote addon:", error);
+      res.status(400).json({ message: "Failed to create quote addon" });
+    }
+  });
+
+  app.patch("/api/admin/quote-addons/:id", csrf, async (req, res) => {
+    try {
+      const addonData = insertQuoteAddonSchema.partial().parse(req.body);
+      const addon = await storage.updateQuoteAddon(req.params.id, addonData);
+      if (!addon) {
+        return res.status(404).json({ message: "Quote addon not found" });
+      }
+      res.json(addon);
+    } catch (error) {
+      console.error("Error updating quote addon:", error);
+      res.status(400).json({ message: "Failed to update quote addon" });
+    }
+  });
+
+  app.delete("/api/admin/quote-addons/:id", csrf, async (req, res) => {
+    try {
+      const success = await storage.deleteQuoteAddon(req.params.id);
+      if (!success) {
+        return res.status(404).json({ message: "Quote addon not found" });
+      }
+      res.json({ message: "Quote addon deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting quote addon:", error);
+      res.status(500).json({ message: "Failed to delete quote addon" });
+    }
+  });
+
+  // Quote Items CRUD (line items for quotes)
+  app.get("/api/admin/quotes/:quoteId/items", csrf, async (req, res) => {
+    try {
+      const items = await storage.getQuoteItems(req.params.quoteId);
+      res.json(items);
+    } catch (error) {
+      console.error("Error fetching quote items:", error);
+      res.status(500).json({ message: "Failed to fetch quote items" });
+    }
+  });
+
+  app.post("/api/admin/quotes/:quoteId/items", csrf, async (req, res) => {
+    try {
+      const itemData = insertQuoteItemSchema.parse({
+        ...req.body,
+        quoteId: req.params.quoteId
+      });
+      const item = await storage.createQuoteItem(itemData);
+      res.status(201).json(item);
+    } catch (error) {
+      console.error("Error creating quote item:", error);
+      res.status(400).json({ message: "Failed to create quote item" });
+    }
+  });
+
+  app.patch("/api/admin/quote-items/:id", csrf, async (req, res) => {
+    try {
+      const itemData = insertQuoteItemSchema.partial().parse(req.body);
+      const item = await storage.updateQuoteItem(req.params.id, itemData);
+      if (!item) {
+        return res.status(404).json({ message: "Quote item not found" });
+      }
+      res.json(item);
+    } catch (error) {
+      console.error("Error updating quote item:", error);
+      res.status(400).json({ message: "Failed to update quote item" });
+    }
+  });
+
+  app.delete("/api/admin/quote-items/:id", csrf, async (req, res) => {
+    try {
+      const success = await storage.deleteQuoteItem(req.params.id);
+      if (!success) {
+        return res.status(404).json({ message: "Quote item not found" });
+      }
+      res.json({ message: "Quote item deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting quote item:", error);
+      res.status(500).json({ message: "Failed to delete quote item" });
+    }
+  });
+
+  // Quote Token Management
+  app.post("/api/admin/quotes/:id/token", csrf, async (req, res) => {
+    try {
+      const { expiresAt } = req.body;
+      const token = await storage.createQuoteToken(
+        req.params.id, 
+        expiresAt ? new Date(expiresAt) : undefined
+      );
+      res.status(201).json(token);
+    } catch (error) {
+      console.error("Error creating quote token:", error);
+      res.status(500).json({ message: "Failed to create quote token" });
+    }
+  });
+
+  app.delete("/api/admin/quote-tokens/:token", csrf, async (req, res) => {
+    try {
+      const success = await storage.deactivateQuoteToken(req.params.token);
+      if (!success) {
+        return res.status(404).json({ message: "Quote token not found" });
+      }
+      res.json({ message: "Quote token deactivated successfully" });
+    } catch (error) {
+      console.error("Error deactivating quote token:", error);
+      res.status(500).json({ message: "Failed to deactivate quote token" });
+    }
+  });
+
+  // Quote Signatures (Admin view)
+  app.get("/api/admin/quotes/:id/signatures", csrf, async (req, res) => {
+    try {
+      const signatures = await storage.getQuoteSignatures(req.params.id);
+      res.json(signatures);
+    } catch (error) {
+      console.error("Error fetching quote signatures:", error);
+      res.status(500).json({ message: "Failed to fetch quote signatures" });
     }
   });
 

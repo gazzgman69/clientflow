@@ -22,6 +22,7 @@ import LeadCaptureBuilder from "@/pages/leads/LeadCaptureBuilder";
 import LeadsKanban from "@/pages/leads/LeadsKanban";
 import LeadsInbox from "@/pages/leads/LeadsInbox";
 import LeadFormHosted from "@/pages/public/LeadFormHosted";
+import PublicQuote from "@/pages/public/PublicQuote";
 import ProjectDetail from "@/pages/ProjectDetail";
 import Members from "@/pages/members";
 import Venues from "@/pages/venues";
@@ -38,6 +39,11 @@ function Router() {
       {/* Public Form Routes - No Sidebar */}
       <Route path="/f/:slug">
         {(params) => <LeadFormHosted slug={params.slug} />}
+      </Route>
+      
+      {/* Public Quote Routes - No Sidebar */}
+      <Route path="/q/:token">
+        {(params) => <PublicQuote token={params.token} />}
       </Route>
       
       {/* Admin Routes - With Sidebar */}

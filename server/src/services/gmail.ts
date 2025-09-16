@@ -310,12 +310,14 @@ export class GmailService {
       const addressQueries = addresses.map(addr => `(from:${addr} OR to:${addr})`);
       const q = addressQueries.join(' OR ');
 
-      // Get message list with address filter
+      // Get message list with address filter - search both INBOX and SENT
+      // Use OR query instead of labelIds to avoid AND filtering issues
+      const enhancedQuery = `(${q}) AND (in:inbox OR in:sent)`;
       const listResponse = await gmail.users.messages.list({
         userId: 'me',
         maxResults: limit * 3, // Get more messages to account for threading
-        q,
-        labelIds: ['INBOX']
+        q: enhancedQuery
+        // Remove labelIds to avoid AND filtering issues
       });
 
       const messages = listResponse.data.messages || [];

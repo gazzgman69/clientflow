@@ -214,6 +214,12 @@ export class EmailSyncService {
           // Store the latest message details (quick sync)
           const emailId = `email_${gmailThread.latest.id}`;
           
+          // Determine direction based on user's email
+          const userEmail = await this.gmailService.getUserEmail(userId);
+          const fromEmailParsed = this.extractEmails(gmailThread.latest.from)[0] || '';
+          const direction = fromEmailParsed.toLowerCase().includes(userEmail.toLowerCase()) ? 'outbound' : 'inbound';
+          console.log(`📧 THREAD DIRECTION: "${gmailThread.latest.from}" → ${direction} (user: ${userEmail})`);
+          
           await withDbRetry(() =>
             db
               .insert(emails)
@@ -223,7 +229,7 @@ export class EmailSyncService {
                 userId, // Add userId for multi-tenant support
                 provider: 'gmail',
                 providerMessageId: gmailThread.latest.id,
-                direction: 'inbound',
+                direction,
                 fromEmail: gmailThread.latest.from,
                 toEmails: [gmailThread.latest.to],
                 ccEmails: [],
@@ -245,6 +251,7 @@ export class EmailSyncService {
                   bodyText: gmailThread.latest.snippet,
                   subject: gmailThread.latest.subject,
                   projectId: matchedProjectId,
+                  // Don't overwrite direction to preserve manual fixes
                 },
               })
           );
@@ -636,9 +643,17 @@ export class EmailSyncService {
 
       // Determine direction (inbound/outbound) based on user's email
       const userEmail = await this.gmailService.getUserEmail(userId);
-      const direction = fromEmails.some(email => email.toLowerCase().includes(userEmail.toLowerCase())) 
-        ? 'outbound' 
-        : 'inbound';
+      console.log(`🔍 DEBUG: userEmail="${userEmail}", fromEmails=[${fromEmails.join(', ')}], subject="${headers.subject || 'N/A'}"`);
+      
+      // Test each fromEmail individually for debugging
+      const matches = fromEmails.map(email => {
+        const match = email.toLowerCase().includes(userEmail.toLowerCase());
+        console.log(`   - "${email}" includes "${userEmail}"? ${match}`);
+        return match;
+      });
+      
+      const direction = matches.some(match => match) ? 'outbound' : 'inbound';
+      console.log(`📧 FINAL DIRECTION: ${direction} (${fromEmails[0]} → ${direction})`);
 
       // Check for attachments
       const hasAttachments = this.hasAttachments(gmailMessage.payload);

@@ -5,6 +5,7 @@ import type { Contact, Project, Quote, Contract, Invoice } from '@shared/schema'
 export interface TokenResolutionContext {
   contactId?: string;
   projectId?: string;
+  quoteId?: string;
 }
 
 export interface TokenFormatOptions {
@@ -319,6 +320,50 @@ export class TokenResolverService {
         return context.contactId ? `${baseUrl}/client-portal/${context.contactId}` : `${baseUrl}/client-portal`;
       }
     });
+
+    // Extra Info tokens - dynamically registered for standard + custom fields
+    this.initializeExtraInfoTokens();
+  }
+
+  /**
+   * Initialize Extra Info tokens dynamically based on field definitions
+   * These tokens allow access to user-submitted extra info data in contracts
+   */
+  private async initializeExtraInfoTokens() {
+    // Register a general resolver for any Extra.* token
+    // This handles both standard and custom fields dynamically
+    const extraInfoResolver = {
+      resolve: async (context: TokenResolutionContext) => {
+        if (!context.quoteId) return '';
+        return await this.getExtraInfoResponse(context.quoteId, '');
+      }
+    };
+
+    // Since we can't predict all possible field keys, we'll use a pattern-based approach
+    // The actual token resolution will be handled in the resolveTemplate method
+    // where we can parse the full token name like [Extra.company_name]
+  }
+
+  /**
+   * Get Extra Info response value for a specific quote and field key
+   */
+  private async getExtraInfoResponse(quoteId: string, fieldKey: string): Promise<string> {
+    try {
+      const cacheKey = `extra_info:${quoteId}:${fieldKey}`;
+      if (this.entityCache.has(cacheKey)) {
+        return this.entityCache.get(cacheKey);
+      }
+
+      const responses = await this.storage.getQuoteExtraInfoResponses(quoteId);
+      const response = responses.find(r => r.fieldKey === fieldKey);
+      const value = response?.value || '';
+
+      this.entityCache.set(cacheKey, value);
+      return value;
+    } catch (error) {
+      console.error(`Error getting extra info response for ${fieldKey}:`, error);
+      return '';
+    }
   }
 
   /**
@@ -391,18 +436,29 @@ export class TokenResolverService {
         if (resolvedCache.has(cacheKey)) {
           resolvedValue = resolvedCache.get(cacheKey)!;
         } else {
-          // Resolve the token
-          const resolver = this.tokenRegistry.get(token.name);
-          if (!resolver) {
-            unresolved.push(token.name);
-            resolvedValue = '';
-          } else {
-            const rawValue = await resolver.resolve(context);
+          // Check if this is an Extra Info token [Extra.field_key]
+          if (token.name.startsWith('Extra.') && context.quoteId) {
+            const fieldKey = token.name.substring(6); // Remove 'Extra.' prefix
+            const rawValue = await this.getExtraInfoResponse(context.quoteId, fieldKey);
             const formattedValue = this.formatValue(rawValue, token.format);
             resolvedValue = this.escapeHtml(formattedValue);
             
             // Cache the resolved value
             resolvedCache.set(cacheKey, resolvedValue);
+          } else {
+            // Resolve regular tokens from registry
+            const resolver = this.tokenRegistry.get(token.name);
+            if (!resolver) {
+              unresolved.push(token.name);
+              resolvedValue = '';
+            } else {
+              const rawValue = await resolver.resolve(context);
+              const formattedValue = this.formatValue(rawValue, token.format);
+              resolvedValue = this.escapeHtml(formattedValue);
+              
+              // Cache the resolved value
+              resolvedCache.set(cacheKey, resolvedValue);
+            }
           }
         }
 
@@ -514,6 +570,25 @@ export class TokenResolverService {
         '[MyPhone]': "Your business phone",
         '[CurrentDate]': "Current date",
         '[ClientPortalLink]': "Link to client portal"
+      },
+      extraInfo: {
+        '[Extra.company_name]': "Company or business name from Extra Info",
+        '[Extra.primary_contact]': "Primary contact person from Extra Info",
+        '[Extra.job_title]': "Job title or position from Extra Info", 
+        '[Extra.business_address]': "Business address from Extra Info",
+        '[Extra.phone_number]': "Phone number from Extra Info",
+        '[Extra.email_address]': "Email address from Extra Info",
+        '[Extra.project_start_date]': "Project start date from Extra Info (use |dd/MM/yyyy format)",
+        '[Extra.project_completion_date]': "Project completion date from Extra Info (use |dd/MM/yyyy format)",
+        '[Extra.budget_range]': "Budget range from Extra Info",
+        '[Extra.project_requirements]': "Project requirements and scope from Extra Info",
+        '[Extra.terms_conditions]': "Terms and conditions acceptance status from Extra Info",
+        '[Extra.privacy_policy]': "Privacy policy agreement status from Extra Info",
+        '[Extra.data_protection_consent]': "Data protection consent status from Extra Info",
+        '[Extra.special_instructions]': "Special instructions from Extra Info",
+        '[Extra.preferred_communication]': "Preferred communication method from Extra Info",
+        '[Extra.emergency_contact]': "Emergency contact details from Extra Info",
+        '[Extra.{custom_field_key}]': "Custom field values - replace {custom_field_key} with the actual field key"
       }
     };
   }

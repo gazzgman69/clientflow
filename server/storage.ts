@@ -28,10 +28,18 @@ import {
   type EmailSignature, type InsertEmailSignature,
   type PortalForm, type InsertPortalForm,
   type PaymentSession, type InsertPaymentSession,
+  // Enhanced Quotes System types
+  type QuotePackage, type InsertQuotePackage,
+  type QuoteAddon, type InsertQuoteAddon,
+  type QuoteItem, type InsertQuoteItem,
+  type QuoteToken, type InsertQuoteToken,
+  type QuoteSignature, type InsertQuoteSignature,
   users, leads, contacts, projects, quotes, contracts, invoices, tasks, emails, emailThreads, activities, automations, 
   members, venues, projectMembers, memberAvailability, projectFiles, projectNotes, smsMessages, 
   messageTemplates, messageThreads, events, calendarIntegrations, calendarSyncLog, templates, leadCaptureForms,
-  leadStatusHistory, emailSignatures, portalForms, paymentSessions
+  leadStatusHistory, emailSignatures, portalForms, paymentSessions,
+  // Enhanced Quotes System tables
+  quotePackages, quoteAddons, quoteItems, quoteTokens, quoteSignatures
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { drizzle } from 'drizzle-orm/neon-http';
@@ -88,6 +96,38 @@ export interface IStorage {
   createQuote(quote: InsertQuote): Promise<Quote>;
   updateQuote(id: string, quote: Partial<InsertQuote>): Promise<Quote | undefined>;
   deleteQuote(id: string): Promise<boolean>;
+
+  // Enhanced Quotes System
+  // Quote Packages
+  getQuotePackages(): Promise<QuotePackage[]>;
+  getQuotePackage(id: string): Promise<QuotePackage | undefined>;
+  createQuotePackage(pkg: InsertQuotePackage): Promise<QuotePackage>;
+  updateQuotePackage(id: string, pkg: Partial<InsertQuotePackage>): Promise<QuotePackage | undefined>;
+  deleteQuotePackage(id: string): Promise<boolean>;
+
+  // Quote Add-ons
+  getQuoteAddons(): Promise<QuoteAddon[]>;
+  getQuoteAddon(id: string): Promise<QuoteAddon | undefined>;
+  createQuoteAddon(addon: InsertQuoteAddon): Promise<QuoteAddon>;
+  updateQuoteAddon(id: string, addon: Partial<InsertQuoteAddon>): Promise<QuoteAddon | undefined>;
+  deleteQuoteAddon(id: string): Promise<boolean>;
+
+  // Quote Items (line items for quotes)
+  getQuoteItems(quoteId: string): Promise<QuoteItem[]>;
+  createQuoteItem(item: InsertQuoteItem): Promise<QuoteItem>;
+  updateQuoteItem(id: string, item: Partial<InsertQuoteItem>): Promise<QuoteItem | undefined>;
+  deleteQuoteItem(id: string): Promise<boolean>;
+
+  // Quote Tokens (for public access)
+  getQuoteByToken(token: string): Promise<{ quote: Quote; items: QuoteItem[]; packages: QuotePackage[]; addons: QuoteAddon[] } | undefined>;
+  createQuoteToken(quoteId: string, expiresAt?: Date): Promise<QuoteToken>;
+  getQuoteToken(token: string): Promise<QuoteToken | undefined>;
+  deactivateQuoteToken(token: string): Promise<boolean>;
+
+  // Quote Signatures
+  getQuoteSignatures(quoteId: string): Promise<QuoteSignature[]>;
+  createQuoteSignature(signature: InsertQuoteSignature): Promise<QuoteSignature>;
+  getQuoteSignature(quoteId: string): Promise<QuoteSignature | undefined>;
   
   // Contracts
   getContracts(): Promise<Contract[]>;
@@ -2803,10 +2843,189 @@ export class DrizzleStorage implements IStorage {
   async getEventsByContactEmail(email: string): Promise<Event[]> {
     return await this.db.select().from(events)
       .where(or(
-        eq(events.organizer, email),
         eq(events.attendees, [email]) // This may need adjustment based on how attendees are stored
       ))
       .orderBy(desc(events.startDate));
+  }
+
+  // Enhanced Quotes System - PostgreSQL implementation
+  // Quote Packages
+  async getQuotePackages(): Promise<QuotePackage[]> {
+    return await this.db.select().from(quotePackages)
+      .where(eq(quotePackages.isActive, true))
+      .orderBy(quotePackages.sortOrder);
+  }
+
+  async getQuotePackage(id: string): Promise<QuotePackage | undefined> {
+    const result = await this.db.select().from(quotePackages).where(eq(quotePackages.id, id));
+    return result[0];
+  }
+
+  async createQuotePackage(pkg: InsertQuotePackage): Promise<QuotePackage> {
+    const result = await this.db.insert(quotePackages).values({
+      ...pkg,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    }).returning();
+    return result[0];
+  }
+
+  async updateQuotePackage(id: string, pkg: Partial<InsertQuotePackage>): Promise<QuotePackage | undefined> {
+    const result = await this.db.update(quotePackages).set({
+      ...pkg,
+      updatedAt: new Date(),
+    }).where(eq(quotePackages.id, id)).returning();
+    return result[0];
+  }
+
+  async deleteQuotePackage(id: string): Promise<boolean> {
+    const result = await this.db.update(quotePackages).set({
+      isActive: false,
+      updatedAt: new Date(),
+    }).where(eq(quotePackages.id, id));
+    return result.rowCount > 0;
+  }
+
+  // Quote Add-ons
+  async getQuoteAddons(): Promise<QuoteAddon[]> {
+    return await this.db.select().from(quoteAddons)
+      .where(eq(quoteAddons.isActive, true))
+      .orderBy(quoteAddons.sortOrder);
+  }
+
+  async getQuoteAddon(id: string): Promise<QuoteAddon | undefined> {
+    const result = await this.db.select().from(quoteAddons).where(eq(quoteAddons.id, id));
+    return result[0];
+  }
+
+  async createQuoteAddon(addon: InsertQuoteAddon): Promise<QuoteAddon> {
+    const result = await this.db.insert(quoteAddons).values({
+      ...addon,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    }).returning();
+    return result[0];
+  }
+
+  async updateQuoteAddon(id: string, addon: Partial<InsertQuoteAddon>): Promise<QuoteAddon | undefined> {
+    const result = await this.db.update(quoteAddons).set({
+      ...addon,
+      updatedAt: new Date(),
+    }).where(eq(quoteAddons.id, id)).returning();
+    return result[0];
+  }
+
+  async deleteQuoteAddon(id: string): Promise<boolean> {
+    const result = await this.db.update(quoteAddons).set({
+      isActive: false,
+      updatedAt: new Date(),
+    }).where(eq(quoteAddons.id, id));
+    return result.rowCount > 0;
+  }
+
+  // Quote Items (line items for quotes)
+  async getQuoteItems(quoteId: string): Promise<QuoteItem[]> {
+    return await this.db.select().from(quoteItems)
+      .where(eq(quoteItems.quoteId, quoteId))
+      .orderBy(quoteItems.createdAt);
+  }
+
+  async createQuoteItem(item: InsertQuoteItem): Promise<QuoteItem> {
+    const result = await this.db.insert(quoteItems).values({
+      ...item,
+      createdAt: new Date(),
+    }).returning();
+    return result[0];
+  }
+
+  async updateQuoteItem(id: string, item: Partial<InsertQuoteItem>): Promise<QuoteItem | undefined> {
+    const result = await this.db.update(quoteItems).set(item).where(eq(quoteItems.id, id)).returning();
+    return result[0];
+  }
+
+  async deleteQuoteItem(id: string): Promise<boolean> {
+    const result = await this.db.delete(quoteItems).where(eq(quoteItems.id, id));
+    return result.rowCount > 0;
+  }
+
+  // Quote Tokens (for public access)
+  async getQuoteByToken(token: string): Promise<{ quote: Quote; items: QuoteItem[]; packages: QuotePackage[]; addons: QuoteAddon[] } | undefined> {
+    // First, get the token and verify it's active and not expired
+    const tokenResult = await this.db.select().from(quoteTokens)
+      .where(and(
+        eq(quoteTokens.token, token),
+        eq(quoteTokens.isActive, true)
+      ));
+    
+    if (!tokenResult[0]) return undefined;
+    
+    const tokenData = tokenResult[0];
+    
+    // Check if token is expired
+    if (tokenData.expiresAt && new Date() > new Date(tokenData.expiresAt)) {
+      return undefined;
+    }
+    
+    // Get the quote
+    const quoteResult = await this.db.select().from(quotes).where(eq(quotes.id, tokenData.quoteId));
+    if (!quoteResult[0]) return undefined;
+    
+    const quote = quoteResult[0];
+    
+    // Get quote items, packages, and addons
+    const [items, packages, addons] = await Promise.all([
+      this.getQuoteItems(quote.id),
+      this.getQuotePackages(),
+      this.getQuoteAddons()
+    ]);
+    
+    return { quote, items, packages, addons };
+  }
+
+  async createQuoteToken(quoteId: string, expiresAt?: Date): Promise<QuoteToken> {
+    const token = Math.random().toString(36).substring(2) + Math.random().toString(36).substring(2);
+    const result = await this.db.insert(quoteTokens).values({
+      quoteId,
+      token,
+      expiresAt,
+      isActive: true,
+      createdAt: new Date(),
+    }).returning();
+    return result[0];
+  }
+
+  async getQuoteToken(token: string): Promise<QuoteToken | undefined> {
+    const result = await this.db.select().from(quoteTokens).where(eq(quoteTokens.token, token));
+    return result[0];
+  }
+
+  async deactivateQuoteToken(token: string): Promise<boolean> {
+    const result = await this.db.update(quoteTokens).set({
+      isActive: false,
+    }).where(eq(quoteTokens.token, token));
+    return result.rowCount > 0;
+  }
+
+  // Quote Signatures
+  async getQuoteSignatures(quoteId: string): Promise<QuoteSignature[]> {
+    return await this.db.select().from(quoteSignatures)
+      .where(eq(quoteSignatures.quoteId, quoteId))
+      .orderBy(desc(quoteSignatures.signedAt));
+  }
+
+  async createQuoteSignature(signature: InsertQuoteSignature): Promise<QuoteSignature> {
+    const result = await this.db.insert(quoteSignatures).values({
+      ...signature,
+      signedAt: new Date(),
+    }).returning();
+    return result[0];
+  }
+
+  async getQuoteSignature(quoteId: string): Promise<QuoteSignature | undefined> {
+    const result = await this.db.select().from(quoteSignatures)
+      .where(eq(quoteSignatures.quoteId, quoteId))
+      .orderBy(desc(quoteSignatures.signedAt));
+    return result[0];
   }
 }
 

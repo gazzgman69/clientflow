@@ -1,0 +1,163 @@
+Add a configurable **Extra Info for Contract** step to the Quotes feature.
+IMPORTANT: You (the AI) must choose the database, schema, and stack that fit Replit best. 
+Do NOT hardcode me to any specific DB/ORM unless you judge it best. Explain choices in the README.
+
+## Product Goals
+- Allow admins to **toggle** extra-info requirement ON/OFF per quote (and per quote template if templates exist).
+- Provide a library of **standard questions** (see list below).
+- Allow admins to add **custom fields** (label + type + key/slug) and mark them **required** or optional.
+- On the portal, if Extra Info is ON, clients must complete all **required** fields before they can Accept.
+- Answers must **link to the relevant CRM field** (e.g., contact_name → Contact.name) where applicable, and be available as **{{tokens}}** for contract rendering.
+- All user-visible dates must display and validate as **dd/mm/yyyy**.
+
+## Standard Questions Library (predefined)
+Each of these should be available for admins to select quickly:
+
+1. **Contact full name**  
+   - key: `contact_full_name`  
+   - type: text  
+   - required: true by default  
+   - maps to Contact.name  
+   - token: `{{contact_full_name}}`
+
+2. **Contact email**  
+   - key: `contact_email`  
+   - type: email  
+   - required: true by default  
+   - maps to Contact.email  
+   - token: `{{contact_email}}`
+
+3. **Contact phone**  
+   - key: `contact_phone`  
+   - type: phone  
+   - required: optional by default  
+   - maps to Contact.phone  
+   - token: `{{contact_phone}}`
+
+4. **Contact address**  
+   - key: `contact_address`  
+   - type: address (street, city, postcode, country)  
+   - required: optional  
+   - maps to Contact.address  
+   - token: `{{contact_address}}`
+
+5. **Event date**  
+   - key: `event_date`  
+   - type: date (dd/mm/yyyy)  
+   - required: true by default  
+   - maps to Event.date  
+   - token: `{{event_date}}`
+
+6. **Event start time**  
+   - key: `event_start_time`  
+   - type: time (HH:mm)  
+   - required: optional  
+   - maps to Event.start_time  
+   - token: `{{event_start_time}}`
+
+7. **Event end time**  
+   - key: `event_end_time`  
+   - type: time (HH:mm)  
+   - required: optional  
+   - maps to Event.end_time  
+   - token: `{{event_end_time}}`
+
+8. **Venue name**  
+   - key: `venue_name`  
+   - type: text  
+   - required: optional  
+   - maps to Event.venue_name  
+   - token: `{{venue_name}}`
+
+9. **Venue address**  
+   - key: `venue_address`  
+   - type: address  
+   - required: optional  
+   - maps to Event.venue_address  
+   - token: `{{venue_address}}`
+
+10. **Access / setup notes**  
+    - key: `access_notes`  
+    - type: textarea  
+    - required: optional  
+    - maps to Event.access_notes  
+    - token: `{{access_notes}}`
+
+11. **Planner name**  
+    - key: `planner_name`  
+    - type: text  
+    - required: optional  
+    - maps to Event.planner_name  
+    - token: `{{planner_name}}`
+
+12. **Planner email**  
+    - key: `planner_email`  
+    - type: email  
+    - required: optional  
+    - maps to Event.planner_email  
+    - token: `{{planner_email}}`
+
+13. **Planner phone**  
+    - key: `planner_phone`  
+    - type: phone  
+    - required: optional  
+    - maps to Event.planner_phone  
+    - token: `{{planner_phone}}`
+
+14. **First dance song**  
+    - key: `first_dance_song`  
+    - type: text  
+    - required: optional  
+    - no CRM mapping by default  
+    - token: `{{first_dance_song}}`
+
+15. **Must-play songs**  
+    - key: `must_play_songs`  
+    - type: textarea  
+    - required: optional  
+    - no CRM mapping by default  
+    - token: `{{must_play_songs}}`
+
+16. **Do-not-play songs**  
+    - key: `do_not_play_songs`  
+    - type: textarea  
+    - required: optional  
+    - no CRM mapping by default  
+    - token: `{{do_not_play_songs}}`
+
+Admins can select any of these, toggle required ON/OFF, and add custom fields.
+
+## Behavior
+- Public flow (portal):
+  - Steps: Selection → **Details (Extra Info)** → Review & Sign → Pay.
+  - Show only the questions configured for that quote (standard + custom).
+  - Validate types (email, phone, date dd/mm/yyyy, time HH:mm, select, checkbox, textarea, file, address).
+  - **Autosave** as user types; Show progress and inline errors.
+  - “Accept” is disabled until: one package selected, all required fields valid, typed-name + checkbox ticked.
+
+- Admin flow:
+  - In Quote Editor, add a **“Contract Details”** panel with:
+    - Master toggle: “Require extra info for this quote”.
+    - **Standard questions selector** (multi-select).
+    - **Custom fields builder** (label, key, type, required, help_text, options).
+    - Show mapping + token for each field.
+    - Prefill fields from Contact/Event where possible.
+
+- Contract rendering:
+  - On acceptance, generate **contract_snapshot** by replacing tokens with collected answers and quote/contact/event values.
+
+- Data syncing:
+  - If a field is mapped to a CRM entity, update that entity on acceptance (and optionally earlier if configured).
+  - Custom fields persist with the Quote.
+
+- Degraded mode:
+  - If “Require extra info” is OFF, skip the Details step.
+
+## YOU CHOOSE THE TECH
+- Pick the DB + stack best for Replit. If KV, use sensible namespacing + indexes; if SQL, include migrations/seed.
+- Provide README: why you chose it; how to run; how to seed; how to enable/disable per quote.
+
+## API, UI, Validation, Tokens, Seeding, Tests, Acceptance Criteria
+(keep the same as in the previous prompt).
+
+Deliver the code and README now.

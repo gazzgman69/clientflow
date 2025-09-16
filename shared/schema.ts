@@ -583,6 +583,62 @@ export const quoteSignatures = pgTable("quote_signatures", {
   userAgent: text("user_agent"),
 });
 
+// Quote Extra Info System - for configurable contract details collection
+export const quoteExtraInfoFields = pgTable("quote_extra_info_fields", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id), // Owner of this custom field, NULL for global standard fields
+  key: text("key").notNull(), // Unique key for this field (e.g., 'contact_full_name', 'custom_music_style')
+  label: text("label").notNull(), // Display label for the field
+  type: text("type").notNull(), // text, email, phone, date, time, textarea, select, checkbox, file, address
+  helpText: text("help_text"), // Optional help text shown to user
+  placeholder: text("placeholder"), // Placeholder text for inputs
+  options: text("options").array(), // For select/checkbox types - array of option values
+  isRequired: boolean("is_required").default(false), // Whether this field is required
+  isStandard: boolean("is_standard").default(false), // true for predefined standard questions
+  crmMapping: text("crm_mapping"), // Maps to CRM field like 'Contact.name', 'Event.date'
+  validationRules: text("validation_rules"), // JSON string for additional validation rules
+  displayOrder: integer("display_order").default(0), // Order to display fields
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => {
+  return {
+    // Multi-tenant uniqueness constraints
+    userKeyUnique: unique("quote_extra_info_fields_user_key_unique").on(table.userId, table.key),
+    keyUnique: unique("quote_extra_info_fields_key_unique").on(table.key)
+  };
+});
+
+export const quoteExtraInfoConfig = pgTable("quote_extra_info_config", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  quoteId: varchar("quote_id").references(() => quotes.id).notNull(),
+  isEnabled: boolean("is_enabled").default(false), // Master toggle for this quote
+  enabledFields: text("enabled_fields").array().notNull().default([]), // Array of field keys enabled for this quote
+  fieldRequiredOverrides: text("field_required_overrides"), // JSON object with field key -> boolean overrides
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => {
+  return {
+    quoteIdUnique: unique().on(table.quoteId) // One config per quote
+  };
+});
+
+export const quoteExtraInfoResponses = pgTable("quote_extra_info_responses", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  quoteId: varchar("quote_id").references(() => quotes.id).notNull(),
+  fieldKey: text("field_key").notNull(), // References quoteExtraInfoFields.key
+  value: text("value"), // The user's response value
+  fileName: text("file_name"), // For file type fields
+  fileSize: integer("file_size"), // For file type fields  
+  mimeType: text("mime_type"), // For file type fields
+  submittedAt: timestamp("submitted_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => {
+  return {
+    quoteFieldUnique: unique().on(table.quoteId, table.fieldKey) // One response per field per quote
+  };
+});
+
+
 // Insert schemas
 export const insertUserSchema = createInsertSchema(users).omit({ id: true, createdAt: true });
 export const insertLeadSchema = createInsertSchema(leads).omit({ id: true, createdAt: true, updatedAt: true });
@@ -628,6 +684,11 @@ export const insertQuoteAddonSchema = createInsertSchema(quoteAddons).omit({ id:
 export const insertQuoteItemSchema = createInsertSchema(quoteItems).omit({ id: true, createdAt: true });
 export const insertQuoteTokenSchema = createInsertSchema(quoteTokens).omit({ id: true, createdAt: true });
 export const insertQuoteSignatureSchema = createInsertSchema(quoteSignatures).omit({ id: true, signedAt: true });
+
+// Quote Extra Info System schemas  
+export const insertQuoteExtraInfoFieldSchema = createInsertSchema(quoteExtraInfoFields).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertQuoteExtraInfoConfigSchema = createInsertSchema(quoteExtraInfoConfig).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertQuoteExtraInfoResponseSchema = createInsertSchema(quoteExtraInfoResponses).omit({ id: true, submittedAt: true, updatedAt: true });
 
 // Types
 export type User = typeof users.$inferSelect;
@@ -696,6 +757,14 @@ export type QuoteToken = typeof quoteTokens.$inferSelect;
 export type InsertQuoteToken = z.infer<typeof insertQuoteTokenSchema>;
 export type QuoteSignature = typeof quoteSignatures.$inferSelect;
 export type InsertQuoteSignature = z.infer<typeof insertQuoteSignatureSchema>;
+
+// Quote Extra Info System types
+export type QuoteExtraInfoField = typeof quoteExtraInfoFields.$inferSelect;
+export type InsertQuoteExtraInfoField = z.infer<typeof insertQuoteExtraInfoFieldSchema>;
+export type QuoteExtraInfoConfig = typeof quoteExtraInfoConfig.$inferSelect;
+export type InsertQuoteExtraInfoConfig = z.infer<typeof insertQuoteExtraInfoConfigSchema>;
+export type QuoteExtraInfoResponse = typeof quoteExtraInfoResponses.$inferSelect;
+export type InsertQuoteExtraInfoResponse = z.infer<typeof insertQuoteExtraInfoResponseSchema>;
 export const leadStatusHistory = pgTable("lead_status_history", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   leadId: varchar("lead_id").references(() => leads.id).notNull(),
@@ -912,3 +981,4 @@ export const insertPaymentSessionSchema = createInsertSchema(paymentSessions).om
 
 export type PaymentSession = typeof paymentSessions.$inferSelect;
 export type InsertPaymentSession = z.infer<typeof insertPaymentSessionSchema>;
+

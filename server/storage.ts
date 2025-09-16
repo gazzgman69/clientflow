@@ -34,12 +34,18 @@ import {
   type QuoteItem, type InsertQuoteItem,
   type QuoteToken, type InsertQuoteToken,
   type QuoteSignature, type InsertQuoteSignature,
+  // Quote Extra Info System types
+  type QuoteExtraInfoField, type InsertQuoteExtraInfoField,
+  type QuoteExtraInfoConfig, type InsertQuoteExtraInfoConfig,
+  type QuoteExtraInfoResponse, type InsertQuoteExtraInfoResponse,
   users, leads, contacts, projects, quotes, contracts, invoices, tasks, emails, emailThreads, activities, automations, 
   members, venues, projectMembers, memberAvailability, projectFiles, projectNotes, smsMessages, 
   messageTemplates, messageThreads, events, calendarIntegrations, calendarSyncLog, templates, leadCaptureForms,
   leadStatusHistory, emailSignatures, portalForms, paymentSessions,
   // Enhanced Quotes System tables
-  quotePackages, quoteAddons, quoteItems, quoteTokens, quoteSignatures
+  quotePackages, quoteAddons, quoteItems, quoteTokens, quoteSignatures,
+  // Quote Extra Info System tables
+  quoteExtraInfoFields, quoteExtraInfoConfig, quoteExtraInfoResponses
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { drizzle } from 'drizzle-orm/neon-http';
@@ -128,6 +134,29 @@ export interface IStorage {
   getQuoteSignatures(quoteId: string): Promise<QuoteSignature[]>;
   createQuoteSignature(signature: InsertQuoteSignature): Promise<QuoteSignature>;
   getQuoteSignature(quoteId: string): Promise<QuoteSignature | undefined>;
+  
+  // Quote Extra Info System
+  // Extra Info Fields (standard + custom field definitions)
+  getQuoteExtraInfoFields(userId?: string): Promise<QuoteExtraInfoField[]>;
+  getQuoteExtraInfoField(id: string): Promise<QuoteExtraInfoField | undefined>;
+  getQuoteExtraInfoFieldByKey(key: string, userId?: string): Promise<QuoteExtraInfoField | undefined>;
+  createQuoteExtraInfoField(field: InsertQuoteExtraInfoField): Promise<QuoteExtraInfoField>;
+  updateQuoteExtraInfoField(id: string, field: Partial<InsertQuoteExtraInfoField>): Promise<QuoteExtraInfoField | undefined>;
+  deleteQuoteExtraInfoField(id: string): Promise<boolean>;
+  
+  // Extra Info Configuration (per-quote settings)
+  getQuoteExtraInfoConfig(quoteId: string): Promise<QuoteExtraInfoConfig | undefined>;
+  createQuoteExtraInfoConfig(config: InsertQuoteExtraInfoConfig): Promise<QuoteExtraInfoConfig>;
+  updateQuoteExtraInfoConfig(quoteId: string, config: Partial<InsertQuoteExtraInfoConfig>): Promise<QuoteExtraInfoConfig | undefined>;
+  deleteQuoteExtraInfoConfig(quoteId: string): Promise<boolean>;
+  
+  // Extra Info Responses (user-submitted values)
+  getQuoteExtraInfoResponses(quoteId: string): Promise<QuoteExtraInfoResponse[]>;
+  getQuoteExtraInfoResponse(quoteId: string, fieldKey: string): Promise<QuoteExtraInfoResponse | undefined>;
+  createQuoteExtraInfoResponse(response: InsertQuoteExtraInfoResponse): Promise<QuoteExtraInfoResponse>;
+  updateQuoteExtraInfoResponse(quoteId: string, fieldKey: string, response: Partial<InsertQuoteExtraInfoResponse>): Promise<QuoteExtraInfoResponse | undefined>;
+  upsertQuoteExtraInfoResponse(response: InsertQuoteExtraInfoResponse): Promise<QuoteExtraInfoResponse>;
+  deleteQuoteExtraInfoResponse(quoteId: string, fieldKey: string): Promise<boolean>;
   
   // Contracts
   getContracts(): Promise<Contract[]>;
@@ -3026,6 +3055,145 @@ export class DrizzleStorage implements IStorage {
       .where(eq(quoteSignatures.quoteId, quoteId))
       .orderBy(desc(quoteSignatures.signedAt));
     return result[0];
+  }
+
+  // Quote Extra Info System Implementation
+  
+  // Extra Info Fields (standard + custom field definitions)
+  async getQuoteExtraInfoFields(userId?: string): Promise<QuoteExtraInfoField[]> {
+    if (userId) {
+      return await this.db.select().from(quoteExtraInfoFields)
+        .where(or(
+          eq(quoteExtraInfoFields.userId, userId),
+          and(eq(quoteExtraInfoFields.isStandard, true), sql`${quoteExtraInfoFields.userId} IS NULL`)
+        ))
+        .orderBy(quoteExtraInfoFields.displayOrder, quoteExtraInfoFields.createdAt);
+    }
+    // Return only standard fields if no userId provided
+    return await this.db.select().from(quoteExtraInfoFields)
+      .where(and(eq(quoteExtraInfoFields.isStandard, true), sql`${quoteExtraInfoFields.userId} IS NULL`))
+      .orderBy(quoteExtraInfoFields.displayOrder);
+  }
+
+  async getQuoteExtraInfoField(id: string): Promise<QuoteExtraInfoField | undefined> {
+    const result = await this.db.select().from(quoteExtraInfoFields).where(eq(quoteExtraInfoFields.id, id));
+    return result[0];
+  }
+
+  async getQuoteExtraInfoFieldByKey(key: string, userId?: string): Promise<QuoteExtraInfoField | undefined> {
+    if (userId) {
+      const result = await this.db.select().from(quoteExtraInfoFields)
+        .where(and(
+          eq(quoteExtraInfoFields.key, key),
+          or(
+            eq(quoteExtraInfoFields.userId, userId),
+            and(eq(quoteExtraInfoFields.isStandard, true), sql`${quoteExtraInfoFields.userId} IS NULL`)
+          )
+        ));
+      return result[0];
+    }
+    // Return only standard fields if no userId provided
+    const result = await this.db.select().from(quoteExtraInfoFields)
+      .where(and(
+        eq(quoteExtraInfoFields.key, key),
+        and(eq(quoteExtraInfoFields.isStandard, true), sql`${quoteExtraInfoFields.userId} IS NULL`)
+      ));
+    return result[0];
+  }
+
+  async createQuoteExtraInfoField(field: InsertQuoteExtraInfoField): Promise<QuoteExtraInfoField> {
+    const result = await this.db.insert(quoteExtraInfoFields).values({
+      ...field,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    }).returning();
+    return result[0];
+  }
+
+  async updateQuoteExtraInfoField(id: string, field: Partial<InsertQuoteExtraInfoField>): Promise<QuoteExtraInfoField | undefined> {
+    const result = await this.db.update(quoteExtraInfoFields).set({
+      ...field,
+      updatedAt: new Date(),
+    }).where(eq(quoteExtraInfoFields.id, id)).returning();
+    return result[0];
+  }
+
+  async deleteQuoteExtraInfoField(id: string): Promise<boolean> {
+    const result = await this.db.delete(quoteExtraInfoFields).where(eq(quoteExtraInfoFields.id, id));
+    return result.rowCount > 0;
+  }
+
+  // Extra Info Configuration (per-quote settings)
+  async getQuoteExtraInfoConfig(quoteId: string): Promise<QuoteExtraInfoConfig | undefined> {
+    const result = await this.db.select().from(quoteExtraInfoConfig).where(eq(quoteExtraInfoConfig.quoteId, quoteId));
+    return result[0];
+  }
+
+  async createQuoteExtraInfoConfig(config: InsertQuoteExtraInfoConfig): Promise<QuoteExtraInfoConfig> {
+    const result = await this.db.insert(quoteExtraInfoConfig).values({
+      ...config,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    }).returning();
+    return result[0];
+  }
+
+  async updateQuoteExtraInfoConfig(quoteId: string, config: Partial<InsertQuoteExtraInfoConfig>): Promise<QuoteExtraInfoConfig | undefined> {
+    const result = await this.db.update(quoteExtraInfoConfig).set({
+      ...config,
+      updatedAt: new Date(),
+    }).where(eq(quoteExtraInfoConfig.quoteId, quoteId)).returning();
+    return result[0];
+  }
+
+  async deleteQuoteExtraInfoConfig(quoteId: string): Promise<boolean> {
+    const result = await this.db.delete(quoteExtraInfoConfig).where(eq(quoteExtraInfoConfig.quoteId, quoteId));
+    return result.rowCount > 0;
+  }
+
+  // Extra Info Responses (user-submitted values)
+  async getQuoteExtraInfoResponses(quoteId: string): Promise<QuoteExtraInfoResponse[]> {
+    return await this.db.select().from(quoteExtraInfoResponses)
+      .where(eq(quoteExtraInfoResponses.quoteId, quoteId))
+      .orderBy(quoteExtraInfoResponses.submittedAt);
+  }
+
+  async getQuoteExtraInfoResponse(quoteId: string, fieldKey: string): Promise<QuoteExtraInfoResponse | undefined> {
+    const result = await this.db.select().from(quoteExtraInfoResponses)
+      .where(and(eq(quoteExtraInfoResponses.quoteId, quoteId), eq(quoteExtraInfoResponses.fieldKey, fieldKey)));
+    return result[0];
+  }
+
+  async createQuoteExtraInfoResponse(response: InsertQuoteExtraInfoResponse): Promise<QuoteExtraInfoResponse> {
+    const result = await this.db.insert(quoteExtraInfoResponses).values({
+      ...response,
+      submittedAt: new Date(),
+      updatedAt: new Date(),
+    }).returning();
+    return result[0];
+  }
+
+  async updateQuoteExtraInfoResponse(quoteId: string, fieldKey: string, response: Partial<InsertQuoteExtraInfoResponse>): Promise<QuoteExtraInfoResponse | undefined> {
+    const result = await this.db.update(quoteExtraInfoResponses).set({
+      ...response,
+      updatedAt: new Date(),
+    }).where(and(eq(quoteExtraInfoResponses.quoteId, quoteId), eq(quoteExtraInfoResponses.fieldKey, fieldKey))).returning();
+    return result[0];
+  }
+
+  async upsertQuoteExtraInfoResponse(response: InsertQuoteExtraInfoResponse): Promise<QuoteExtraInfoResponse> {
+    const existing = await this.getQuoteExtraInfoResponse(response.quoteId, response.fieldKey);
+    if (existing) {
+      return await this.updateQuoteExtraInfoResponse(response.quoteId, response.fieldKey, response) || existing;
+    } else {
+      return await this.createQuoteExtraInfoResponse(response);
+    }
+  }
+
+  async deleteQuoteExtraInfoResponse(quoteId: string, fieldKey: string): Promise<boolean> {
+    const result = await this.db.delete(quoteExtraInfoResponses)
+      .where(and(eq(quoteExtraInfoResponses.quoteId, quoteId), eq(quoteExtraInfoResponses.fieldKey, fieldKey)));
+    return result.rowCount > 0;
   }
 }
 

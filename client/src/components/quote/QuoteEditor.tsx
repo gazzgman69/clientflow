@@ -45,6 +45,7 @@ interface QuoteEditorProps {
   contactId?: string;
   contactName?: string;
   editingQuote?: Quote | null;
+  projectId?: string;
   onContactSelect?: (contactId: string, contactName: string) => void;
 }
 
@@ -59,6 +60,7 @@ export default function QuoteEditor({
   contactId: initialContactId, 
   contactName: initialContactName,
   editingQuote,
+  projectId,
   onContactSelect
 }: QuoteEditorProps) {
   const [selectedItems, setSelectedItems] = useState<SelectedItems>({
@@ -221,6 +223,9 @@ export default function QuoteEditor({
     mutationFn: async (data: { formData: QuoteEditorForm; isDraft: boolean }) => {
       const { formData, isDraft } = data;
       
+      // Resolve project ID: use provided prop, fallback to existing quote's project, avoid null
+      const resolvedProjectId = projectId ?? editingQuote?.projectId;
+      
       const quoteData = {
         ...formData,
         eventDate: formData.eventDate?.toISOString(),
@@ -233,6 +238,8 @@ export default function QuoteEditor({
         createdBy: "test-user", // TODO: Get from auth context
         selectedPackageId: selectedItems.packageId,
         selectedAddonIds: Array.from(selectedItems.addonIds),
+        // Only include projectId if we have a value, preserving existing associations
+        ...(resolvedProjectId !== undefined ? { projectId: resolvedProjectId } : {}),
       };
 
       const url = editingQuote ? `/api/quotes/${editingQuote.id}` : "/api/quotes";

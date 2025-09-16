@@ -1203,6 +1203,7 @@ export default function ProjectDetailModal({ project, isOpen, onClose }: Project
       onClose={handleQuoteEditorClose}
       contactId={selectedContactId}
       contactName={selectedContactName}
+      projectId={project?.id}
     />
     </>
   );

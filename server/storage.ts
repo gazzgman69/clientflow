@@ -2784,7 +2784,7 @@ export class DrizzleStorage implements IStorage {
 
   async getInvoicesByContactId(contactId: string): Promise<Invoice[]> {
     return await this.db.select().from(invoices)
-      .where(eq(invoices.clientId, contactId))
+      .where(eq(invoices.contactId, contactId))
       .orderBy(desc(invoices.createdAt));
   }
 

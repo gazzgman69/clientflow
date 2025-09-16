@@ -1339,7 +1339,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
 
   app.get("/api/contacts/:contactId/invoices", async (req, res) => {
     try {
-      const invoices = await storage.getInvoicesByClient(req.params.contactId);
+      const invoices = await storage.getInvoicesByContactId(req.params.contactId);
       res.json(invoices);
     } catch (error) {
       console.error("Error fetching invoices for contact:", error);

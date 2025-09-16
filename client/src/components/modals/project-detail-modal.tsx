@@ -50,6 +50,8 @@ import type {
   ProjectNote, ProjectMember, Quote, Contract, Invoice
 } from "@shared/schema";
 import ProjectEmailPanel from "@/components/email/ProjectEmailPanel";
+import ContactPicker from "@/components/quote/ContactPicker";
+import QuoteEditor from "@/components/quote/QuoteEditor";
 
 interface ProjectDetailModalProps {
   project: Project | null;
@@ -76,6 +78,13 @@ export default function ProjectDetailModal({ project, isOpen, onClose }: Project
     type: 'quote' | 'contract' | 'invoice';
     data: Quote | Contract | Invoice;
   } | null>(null);
+  
+  // Quote creation flow state
+  const [showContactPicker, setShowContactPicker] = useState(false);
+  const [showQuoteEditor, setShowQuoteEditor] = useState(false);
+  const [selectedContactId, setSelectedContactId] = useState<string>("");
+  const [selectedContactName, setSelectedContactName] = useState<string>("");
+  
   const { toast } = useToast();
 
   const { data: members = [] } = useQuery<Member[]>({
@@ -283,36 +292,23 @@ export default function ProjectDetailModal({ project, isOpen, onClose }: Project
   });
 
   // Document creation mutations
-  const createQuoteMutation = useMutation({
-    mutationFn: async () => {
-      const quoteData = {
-        contactId: project?.contactId,
-        projectId: project?.id,
-        title: `Quote for ${project?.name}`,
-        description: `Quote for project: ${project?.name}`,
-        subtotal: "0.00",
-        total: "0.00",
-        quoteNumber: `Q-${Date.now()}`,
-        createdBy: "test-user" // TODO: Get from auth context
-      };
-      const response = await apiRequest("POST", "/api/quotes", quoteData);
-      return response.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/contacts", project?.contactId, "quotes"] });
-      toast({
-        title: "Success",
-        description: "Quote created successfully!",
-      });
-    },
-    onError: () => {
-      toast({
-        title: "Error",
-        description: "Failed to create quote. Please try again.",
-        variant: "destructive",
-      });
-    },
-  });
+  // Handler functions for new quote creation flow
+  const handleCreateQuote = () => {
+    setShowContactPicker(true);
+  };
+
+  const handleContactSelected = (contactId: string, contactName: string, contactType?: 'contact' | 'client') => {
+    setSelectedContactId(contactId);
+    setSelectedContactName(contactName);
+    setShowContactPicker(false);
+    setShowQuoteEditor(true);
+  };
+
+  const handleQuoteEditorClose = () => {
+    setShowQuoteEditor(false);
+    setSelectedContactId("");
+    setSelectedContactName("");
+  };
 
   const createContractMutation = useMutation({
     mutationFn: async () => {
@@ -690,12 +686,11 @@ export default function ProjectDetailModal({ project, isOpen, onClose }: Project
                     <Button 
                       variant="outline" 
                       className="flex-1"
-                      onClick={() => createQuoteMutation.mutate()}
-                      disabled={createQuoteMutation.isPending}
+                      onClick={handleCreateQuote}
                       data-testid="button-create-quote"
                     >
                       <FileText className="h-4 w-4 mr-2" />
-                      {createQuoteMutation.isPending ? "Creating..." : "Create Quote"}
+                      Create Quote
                     </Button>
                     <Button 
                       variant="outline" 
@@ -1194,6 +1189,21 @@ export default function ProjectDetailModal({ project, isOpen, onClose }: Project
         )}
       </DialogContent>
     </Dialog>
+    
+    {/* Contact Picker Modal */}
+    <ContactPicker
+      isOpen={showContactPicker}
+      onClose={() => setShowContactPicker(false)}
+      onContactSelect={handleContactSelected}
+    />
+    
+    {/* Quote Editor Modal */}
+    <QuoteEditor
+      isOpen={showQuoteEditor}
+      onClose={handleQuoteEditorClose}
+      contactId={selectedContactId}
+      contactName={selectedContactName}
+    />
     </>
   );
 }

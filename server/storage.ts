@@ -380,19 +380,22 @@ export class MemStorage implements IStorage {
   private emailSignatures: Map<string, EmailSignature> = new Map();
 
   constructor() {
-    // Initialize with default admin user
-    const defaultUser: User = {
-      id: randomUUID(),
-      username: "admin",
-      password: "$2b$12$SM67YK8RyHHkIISwIXS/OOjT5FQiKCOrMBRXzBljj4JlIqD6e/mhi", // bcrypt hashed "password"
-      email: "john@company.com",
-      role: "admin",
-      firstName: "John",
-      lastName: "Smith",
-      avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=100&h=100",
-      createdAt: new Date(),
-    };
-    this.users.set(defaultUser.id, defaultUser);
+    // Initialize with default admin user (DEVELOPMENT ONLY)
+    // TODO: In production, remove this default user or require strong random credentials via environment variables
+    if (process.env.NODE_ENV !== 'production') {
+      const defaultUser: User = {
+        id: randomUUID(),
+        username: "admin",
+        password: "$2b$12$SM67YK8RyHHkIISwIXS/OOjT5FQiKCOrMBRXzBljj4JlIqD6e/mhi", // bcrypt hashed "password" - CHANGE IN PRODUCTION
+        email: "admin@localhost.dev",
+        role: "admin",
+        firstName: "Admin",
+        lastName: "User",
+        avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=100&h=100",
+        createdAt: new Date(),
+      };
+      this.users.set(defaultUser.id, defaultUser);
+    }
   }
 
   // Users

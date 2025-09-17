@@ -14,11 +14,25 @@ declare module 'express-session' {
 }
 import { twilioService } from "./services/twilio";
 import bcrypt from "bcrypt";
+import crypto from "crypto";
 
 // Password hashing utility
 const SALT_ROUNDS = 12;
 export const hashPassword = async (password: string): Promise<string> => {
   return await bcrypt.hash(password, SALT_ROUNDS);
+};
+
+// Secure reset token storage (in production, use Redis or database with TTL)
+const resetTokens = new Map<string, { userId: string, expiresAt: Date }>();
+
+// Generate secure reset token
+const generateResetToken = (): string => {
+  return crypto.randomBytes(32).toString('hex');
+};
+
+// Hash token for secure storage
+const hashToken = (token: string): string => {
+  return crypto.createHash('sha256').update(token).digest('hex');
 };
 import { googleCalendarService } from "./services/google-calendar";
 import { googleOAuthService } from "./services/google-oauth";
@@ -604,6 +618,103 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     } catch (error: any) {
       console.error('Error fetching user info:', error);
       res.status(500).json({ error: 'Failed to get user info' });
+    }
+  });
+
+  // Password reset endpoints
+  app.post('/api/auth/request-reset', authLimiter, async (req, res) => {
+    try {
+      const { email } = req.body;
+      
+      if (!email) {
+        return res.status(400).json({ error: 'Email is required' });
+      }
+      
+      // Find user by email
+      const users = await storage.getUsers();
+      const user = users.find(u => u.email === email);
+      
+      // Always return success to prevent email enumeration attacks
+      if (!user) {
+        return res.json({ success: true, message: 'If the email exists, a reset link has been sent' });
+      }
+      
+      // Generate secure reset token using crypto.randomBytes
+      const resetToken = generateResetToken();
+      const hashedToken = hashToken(resetToken);
+      
+      // Store token with expiry (15 minutes)
+      const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
+      resetTokens.set(hashedToken, { userId: user.id, expiresAt });
+      
+      // Clean up expired tokens
+      for (const [hash, data] of resetTokens.entries()) {
+        if (data.expiresAt < new Date()) {
+          resetTokens.delete(hash);
+        }
+      }
+      
+      // In production, send email with reset link containing the token
+      // SECURITY: Never log the token - this would be a serious secret exposure
+      console.log(`🔐 Password reset requested for ${email}`);
+      
+      res.json({ 
+        success: true, 
+        message: 'If the email exists, a reset link has been sent'
+        // SECURITY: Never return the token in the response
+      });
+    } catch (error: any) {
+      console.error('Password reset request error:', error);
+      res.status(500).json({ error: 'Failed to process reset request' });
+    }
+  });
+
+  app.post('/api/auth/reset-password', authLimiter, async (req, res) => {
+    try {
+      const { token, newPassword } = req.body;
+      
+      if (!token || !newPassword) {
+        return res.status(400).json({ error: 'Token and new password are required' });
+      }
+      
+      if (newPassword.length < 8) {
+        return res.status(400).json({ error: 'Password must be at least 8 characters' });
+      }
+      
+      // Hash the provided token and look it up
+      const hashedToken = hashToken(token);
+      const tokenData = resetTokens.get(hashedToken);
+      
+      if (!tokenData) {
+        return res.status(400).json({ error: 'Invalid or expired reset token' });
+      }
+      
+      // Check if token has expired
+      if (tokenData.expiresAt < new Date()) {
+        resetTokens.delete(hashedToken);
+        return res.status(400).json({ error: 'Invalid or expired reset token' });
+      }
+      
+      // Get the user
+      const user = await storage.getUser(tokenData.userId);
+      if (!user) {
+        resetTokens.delete(hashedToken);
+        return res.status(400).json({ error: 'Invalid or expired reset token' });
+      }
+      
+      // Hash the new password and update user
+      const hashedPassword = await hashPassword(newPassword);
+      await storage.updateUser(user.id, { password: hashedPassword });
+      
+      // Delete the used token (single-use)
+      resetTokens.delete(hashedToken);
+      
+      console.log(`🔐 Password reset completed for user: ${user.email}`);
+      
+      res.json({ success: true, message: 'Password reset successful' });
+    } catch (error: any) {
+      console.error('Password reset error:', error);
+      res.status(500).json({ error: 'Failed to reset password' });
     }
   });
   

@@ -7,7 +7,7 @@ class LeadAutomationService {
   private worker: NodeJS.Timeout | null = null;
   
   constructor() {
-    this.start();
+    // Don't auto-start to prevent duplicate timers when imported by job handlers
   }
 
   start() {

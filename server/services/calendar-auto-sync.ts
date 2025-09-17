@@ -48,8 +48,9 @@ export class CalendarAutoSyncService {
 
   /**
    * Perform auto-sync for all active integrations
+   * This method is now public so job handlers can call it safely
    */
-  private async performAutoSync(): Promise<void> {
+  async performAutoSync(): Promise<void> {
     if (this.isRunning) {
       console.log('⚠️  Auto-sync already in progress, skipping...');
       return;

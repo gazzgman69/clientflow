@@ -176,36 +176,43 @@ app.use((req, res, next) => {
     } catch (error) {
       console.error('❌ File storage initialization error:', error);
     }
-    
-    // Start calendar auto-sync service after server is ready
-    calendarAutoSyncService.start();
 
-    // Start Gmail auto-sync service after server is ready
-    const startGmailAutoSync = async () => {
-      try {
-        const { emailAutoSyncService } = await import('./src/services/email-auto-sync');
-        emailAutoSyncService.start();
-      } catch (error) {
-        console.error('❌ Failed to start Gmail auto-sync service:', error);
-      }
-    };
-
-    // Start Gmail sync service
-    startGmailAutoSync();
-
-    // Start lead automation service
-    const startLeadAutomation = async () => {
-      try {
-        console.log('🚀 Starting lead automation service (every 5 minutes)');
-        const { leadAutomationService } = await import('./src/services/lead-automation');
-        // Service auto-starts in constructor, but let's ensure it's running
-        console.log('✅ Lead automation service started successfully');
-      } catch (error) {
-        console.error('❌ Failed to start lead automation service:', error);
-      }
-    };
-
-    // Start lead automation service
-    startLeadAutomation();
+    // Initialize jobs service for background task management
+    try {
+      console.log('📋 Initializing centralized job processing system...');
+      const { jobs } = await import('./src/services/jobsService');
+      await jobs.initialize();
+      
+      // Schedule recurring background jobs using the job queue
+      console.log('📅 Scheduling recurring background jobs...');
+      
+      // Calendar auto-sync: every 5 minutes (300000ms)
+      await jobs.enqueueRecurring('calendar-sync', {}, 5 * 60 * 1000);
+      console.log('✅ Calendar auto-sync job scheduled (every 5 minutes)');
+      
+      // Email auto-sync: every 3 minutes (180000ms)
+      await jobs.enqueueRecurring('email-sync', {}, 3 * 60 * 1000);
+      console.log('✅ Email auto-sync job scheduled (every 3 minutes)');
+      
+      // Lead automation: every 5 minutes (300000ms)
+      await jobs.enqueueRecurring('lead-automation', {}, 5 * 60 * 1000);
+      console.log('✅ Lead automation job scheduled (every 5 minutes)');
+      
+      console.log('🎉 All background jobs successfully scheduled via job queue');
+      
+    } catch (error) {
+      console.error('❌ Failed to initialize jobs service:', error);
+      console.log('⚠️ Falling back to direct background service startup');
+      
+      // Fallback to old direct service startup if jobs service fails
+      calendarAutoSyncService.start();
+      
+      const { emailAutoSyncService } = await import('./src/services/email-auto-sync');
+      emailAutoSyncService.start();
+      
+      const { leadAutomationService } = await import('./src/services/lead-automation');
+      console.log('🚀 Starting lead automation service (every 5 minutes)');
+      console.log('✅ Lead automation service started successfully');
+    }
   });
 })();

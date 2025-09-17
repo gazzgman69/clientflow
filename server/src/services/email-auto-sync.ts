@@ -51,8 +51,9 @@ export class EmailAutoSyncService {
 
   /**
    * Perform auto-sync for all users with active Google integrations
+   * This method is now public so job handlers can call it safely
    */
-  private async performAutoSync(): Promise<void> {
+  async performAutoSync(): Promise<void> {
     if (this.isRunning) {
       console.log('⚠️  Email auto-sync already in progress, skipping...');
       return;
@@ -148,6 +149,26 @@ export class EmailAutoSyncService {
       console.error('❌ Email auto-sync service encountered an error:', error);
     } finally {
       this.isRunning = false;
+    }
+  }
+
+  /**
+   * Sync emails for a specific user (safe for job handlers)
+   */
+  async syncEmailsForUser(userId: string): Promise<{ synced: number; skipped: number; errors: string[] }> {
+    if (this.inProgressByUser.has(userId)) {
+      throw new Error(`Email sync already in progress for user ${userId}`);
+    }
+
+    try {
+      this.inProgressByUser.add(userId);
+      console.log(`🔄 Job-triggered email sync for user: ${userId}`);
+      
+      const { emailSyncService } = await import('./emailSync');
+      return await emailSyncService.syncGmailThreadsToDatabase(userId);
+      
+    } finally {
+      this.inProgressByUser.delete(userId);
     }
   }
 }

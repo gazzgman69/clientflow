@@ -179,13 +179,13 @@ export interface IStorage {
   deleteInvoice(id: string): Promise<boolean>;
   
   // Tasks
-  getTasks(userId?: string): Promise<Task[]>;
-  getTask(id: string): Promise<Task | undefined>;
-  getTasksByAssignee(userId: string): Promise<Task[]>;
-  getTodayTasks(userId: string): Promise<Task[]>;
+  getTasks(userId?: string, tenantId?: string): Promise<Task[]>;
+  getTask(id: string, tenantId?: string): Promise<Task | undefined>;
+  getTasksByAssignee(userId: string, tenantId?: string): Promise<Task[]>;
+  getTodayTasks(userId: string, tenantId?: string): Promise<Task[]>;
   createTask(task: InsertTask): Promise<Task>;
-  updateTask(id: string, task: Partial<InsertTask>): Promise<Task | undefined>;
-  deleteTask(id: string): Promise<boolean>;
+  updateTask(id: string, task: Partial<InsertTask>, tenantId?: string): Promise<Task | undefined>;
+  deleteTask(id: string, tenantId?: string): Promise<boolean>;
   
   // Emails
   getEmails(): Promise<Email[]>;
@@ -2311,14 +2311,38 @@ export class DrizzleStorage implements IStorage {
   }
   
   // Tasks - PostgreSQL implementation
-  async getTasks(userId?: string): Promise<Task[]> { 
+  async getTasks(userId?: string, tenantId?: string): Promise<Task[]> { 
+    const { withTenant, withTenantAnd } = await import('./utils/tenantQueries');
+    
     try {
-      if (userId) {
-        return await this.db.select().from(tasks)
-          .where(or(eq(tasks.assignedTo, userId), eq(tasks.createdBy, userId)))
-          .orderBy(desc(tasks.createdAt));
+      let whereCondition;
+      
+      if (tenantId && userId) {
+        // Filter by both tenant and user
+        whereCondition = withTenantAnd(
+          tasks.tenantId, 
+          tenantId, 
+          or(eq(tasks.assignedTo, userId), eq(tasks.createdBy, userId))
+        );
+      } else if (tenantId) {
+        // Filter by tenant only
+        whereCondition = withTenant(tasks.tenantId, tenantId);
+      } else if (userId) {
+        // Filter by user only (legacy mode)
+        whereCondition = or(eq(tasks.assignedTo, userId), eq(tasks.createdBy, userId));
+      } else {
+        // SECURITY: In production multitenant mode, require tenantId for data isolation
+        if (process.env.NODE_ENV === 'production') {
+          throw new Error('SECURITY: tenantId required for data isolation in production');
+        }
+        // Development fallback only - avoid in production
+        console.warn('⚠️  SECURITY: getTasks called without tenant filtering - development mode only');
+        return await this.db.select().from(tasks).orderBy(desc(tasks.createdAt));
       }
-      return await this.db.select().from(tasks).orderBy(desc(tasks.createdAt));
+      
+      return await this.db.select().from(tasks)
+        .where(whereCondition)
+        .orderBy(desc(tasks.createdAt));
     } catch (error: any) {
       // If any column doesn't exist, fallback to all tasks
       if (error.code === '42703') { // column does not exist
@@ -2328,8 +2352,15 @@ export class DrizzleStorage implements IStorage {
       throw error;
     }
   }
-  async getTask(id: string) { 
-    const result = await this.db.select().from(tasks).where(eq(tasks.id, id));
+  async getTask(id: string, tenantId?: string) { 
+    const { withTenantAnd } = await import('./utils/tenantQueries');
+    
+    // Build tenant-aware where condition
+    const whereCondition = tenantId 
+      ? withTenantAnd(tasks.tenantId, tenantId, eq(tasks.id, id))
+      : eq(tasks.id, id);
+    
+    const result = await this.db.select().from(tasks).where(whereCondition);
     return result[0];
   }
   async getTasksByClient(clientId: string) { 
@@ -2349,15 +2380,31 @@ export class DrizzleStorage implements IStorage {
     }).returning();
     return result[0];
   }
-  async updateTask(id: string, task: Partial<InsertTask>) { 
+  async updateTask(id: string, task: Partial<InsertTask>, tenantId?: string) { 
+    const { withTenantAnd } = await import('./utils/tenantQueries');
+    
+    // Build tenant-aware where condition
+    const whereCondition = tenantId 
+      ? withTenantAnd(tasks.tenantId, tenantId, eq(tasks.id, id))
+      : eq(tasks.id, id);
+    
     const result = await this.db.update(tasks).set({
       ...task,
       updatedAt: new Date(),
-    }).where(eq(tasks.id, id)).returning();
-    return result[0];
+    }).where(whereCondition).returning();
+    
+    // Return undefined if no rows were updated (task not found or wrong tenant)
+    return result[0] || undefined;
   }
-  async deleteTask(id: string) { 
-    const result = await this.db.delete(tasks).where(eq(tasks.id, id));
+  async deleteTask(id: string, tenantId?: string) { 
+    const { withTenantAnd } = await import('./utils/tenantQueries');
+    
+    // Build tenant-aware where condition
+    const whereCondition = tenantId 
+      ? withTenantAnd(tasks.tenantId, tenantId, eq(tasks.id, id))
+      : eq(tasks.id, id);
+    
+    const result = await this.db.delete(tasks).where(whereCondition);
     return result.rowCount > 0;
   }
   
@@ -2710,7 +2757,21 @@ export class DrizzleStorage implements IStorage {
     return activities.slice(0, limit);
   }
   async getTodayTasks() { return []; }
-  async getTasksByAssignee(userId: string) { return this.getTasksByUser(userId); }
+  async getTasksByAssignee(userId: string, tenantId?: string): Promise<Task[]> { 
+    const { withTenantAnd } = await import('./utils/tenantQueries');
+    
+    // SECURITY: In production multitenant mode, require tenantId for data isolation
+    if (!tenantId && process.env.NODE_ENV === 'production') {
+      throw new Error('SECURITY: tenantId required for getTasksByAssignee in production');
+    }
+    
+    // Build tenant-aware where condition
+    const whereCondition = tenantId 
+      ? withTenantAnd(tasks.tenantId, tenantId, eq(tasks.assignedTo, userId))
+      : eq(tasks.assignedTo, userId);
+    
+    return await this.db.select().from(tasks).where(whereCondition);
+  }
   async getEmailsByThread(threadId: string) { return []; }
   async getSmsMessagesByThread(threadId: string) { return []; }
   async getSmsMessagesByClient(clientId: string) { return []; }

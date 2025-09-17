@@ -2348,15 +2348,16 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   });
 
   // Tasks
-  app.get("/api/tasks", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
+  app.get("/api/tasks", ensureUserAuth, tenantResolver, requireTenant, async (req: TenantRequest, res) => {
     try {
       const { assignedTo, today } = req.query;
       const userId = req.authenticatedUserId;
+      const tenantId = req.tenantId; // Get resolved tenant ID
       let tasks;
       
       if (today && assignedTo) {
-        // Filter today's tasks for specific assignee
-        const allTasks = await storage.getTasksByAssignee(assignedTo as string);
+        // Filter today's tasks for specific assignee with tenant isolation
+        const allTasks = await storage.getTasksByAssignee(assignedTo as string, tenantId);
         const today = new Date();
         today.setHours(0, 0, 0, 0);
         const tomorrow = new Date(today);
@@ -2367,10 +2368,11 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
           return dueDate >= today && dueDate < tomorrow;
         });
       } else if (assignedTo) {
-        tasks = await storage.getTasksByAssignee(assignedTo as string);
+        // Pass tenantId for proper tenant isolation
+        tasks = await storage.getTasksByAssignee(assignedTo as string, tenantId);
       } else {
-        // Use userId context for filtering tasks
-        tasks = await storage.getTasks(userId);
+        // Use userId and tenantId context for filtering tasks with proper tenant isolation
+        tasks = await storage.getTasks(userId, tenantId);
       }
       
       res.json(tasks);
@@ -2380,9 +2382,11 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
 
-  app.post("/api/tasks", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
+  app.post("/api/tasks", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req: TenantRequest, res) => {
     try {
       const taskData = insertTaskSchema.parse(req.body);
+      // SECURITY: Override any client-provided tenantId with the authenticated tenant
+      taskData.tenantId = req.tenantId;
       const task = await storage.createTask(taskData);
       res.status(201).json(task);
     } catch (error) {
@@ -2390,10 +2394,11 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
 
-  app.patch("/api/tasks/:id", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
+  app.patch("/api/tasks/:id", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req: TenantRequest, res) => {
     try {
       const taskData = insertTaskSchema.partial().parse(req.body);
-      const task = await storage.updateTask(req.params.id, taskData);
+      const tenantId = req.tenantId; // Get resolved tenant ID for secure tenant isolation
+      const task = await storage.updateTask(req.params.id, taskData, tenantId);
       if (!task) {
         return res.status(404).json({ message: "Task not found" });
       }

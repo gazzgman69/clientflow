@@ -239,7 +239,7 @@ const SignaturePad = forwardRef<SignaturePadRef, SignaturePadProps>(
               <canvas
                 ref={canvasRef}
                 className={cn(
-                  'w-full h-32 border border-input rounded-md bg-background cursor-crosshair',
+                  'w-full h-20 border border-input rounded-md bg-background cursor-crosshair',
                   disabled && 'opacity-50 cursor-not-allowed'
                 )}
                 style={{ touchAction: 'none' }}

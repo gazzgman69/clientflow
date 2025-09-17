@@ -1082,3 +1082,57 @@ export const insertWebhookEventSchema = createInsertSchema(webhookEvents).omit({
 export type WebhookEvent = typeof webhookEvents.$inferSelect;
 export type InsertWebhookEvent = z.infer<typeof insertWebhookEventSchema>;
 
+// Background Jobs Tables for Persistent Job Queue
+export const jobs = pgTable("jobs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  type: text("type").notNull(), // Job type (e.g., 'email-sync', 'calendar-sync')
+  payload: text("payload").notNull(), // JSON payload
+  priority: text("priority").notNull().default('normal'), // 'low', 'normal', 'high', 'critical'
+  maxRetries: integer("max_retries").notNull().default(3),
+  delay: integer("delay"), // Delay in milliseconds before execution
+  schedule: text("schedule"), // JSON for recurring jobs
+  status: text("status").notNull().default('pending'), // 'pending', 'running', 'completed', 'failed', 'retrying', 'cancelled'
+  nextRunAt: timestamp("next_run_at"), // When the job should be executed
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  statusIdx: index("jobs_status_idx").on(table.status),
+  typeIdx: index("jobs_type_idx").on(table.type),
+  nextRunAtIdx: index("jobs_next_run_at_idx").on(table.nextRunAt),
+  priorityIdx: index("jobs_priority_idx").on(table.priority),
+}));
+
+export const jobExecutions = pgTable("job_executions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  jobId: varchar("job_id").references(() => jobs.id).notNull(),
+  status: text("status").notNull(), // 'running', 'completed', 'failed', 'retrying', 'cancelled'
+  startedAt: timestamp("started_at").defaultNow(),
+  completedAt: timestamp("completed_at"),
+  error: text("error"), // Error message if failed
+  result: text("result"), // JSON result if successful
+  attempt: integer("attempt").notNull().default(1),
+}, (table) => ({
+  jobIdIdx: index("job_executions_job_id_idx").on(table.jobId),
+  statusIdx: index("job_executions_status_idx").on(table.status),
+  startedAtIdx: index("job_executions_started_at_idx").on(table.startedAt),
+}));
+
+// Insert schemas and types for jobs
+export const insertJobSchema = createInsertSchema(jobs).omit({ 
+  id: true, 
+  createdAt: true, 
+  updatedAt: true 
+});
+
+export type Job = typeof jobs.$inferSelect;
+export type InsertJob = z.infer<typeof insertJobSchema>;
+
+// Insert schemas and types for job executions
+export const insertJobExecutionSchema = createInsertSchema(jobExecutions).omit({ 
+  id: true,
+  startedAt: true
+});
+
+export type JobExecution = typeof jobExecutions.$inferSelect;
+export type InsertJobExecution = z.infer<typeof insertJobExecutionSchema>;
+

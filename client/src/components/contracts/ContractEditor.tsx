@@ -449,8 +449,8 @@ export default function ContractEditor({
           </div>
 
           {/* Right Panel - Contract Content */}
-          <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
-            <div className="flex-1 min-h-0 flex flex-col border rounded-lg overflow-hidden">
+          <div className="flex-1 min-h-0 flex flex-col overflow-visible p-2">
+            <div className="flex-1 min-h-0 flex flex-col border rounded-lg overflow-visible">
               <div className="border-b p-2 flex items-center gap-2">
                 <span className="text-sm font-medium">Contract Content</span>
                 <div className="flex-1" />
@@ -484,7 +484,7 @@ export default function ContractEditor({
                   />
                 )}
               </div>
-              <div className="flex-1 min-h-0 overflow-hidden">
+              <div className="flex-1 min-h-0 overflow-visible p-2">
                 <RichTextEditor
                   ref={editorRef}
                   content=""

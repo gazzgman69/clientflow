@@ -55,6 +55,7 @@ import stripeWebhooksRoutes from "./src/routes/stripe-webhooks";
 import { userPrefsService } from "./src/services/userPrefs";
 import { calendarAutoSyncService } from "./services/calendar-auto-sync";
 import { tenantResolver, requireTenant, type TenantRequest } from "./middleware/tenantResolver";
+import { ensureUserAuth, ensurePortalAuth, ensureAdminAuth, withUserAuth, withPortalAuth } from "./middleware/auth";
 import { tokenResolverService } from "./src/services/token-resolver";
 import { 
   insertLeadSchema, 
@@ -139,23 +140,23 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   const csrf = csrfProtection || ((req: any, res: any, next: any) => next());
 
   // CSRF-free public venue endpoints for lead capture forms (must be before general venue mount)
-  app.post('/api/venues/suggest', ensureUserAuth, (req, res, next) => {
+  app.post('/api/venues/suggest', (req, res, next) => {
     console.log('✅ Direct venue suggest route hit');
     venuesRoutes(req, res, next);
   });
 
-  app.post('/api/venues/place-details', ensureUserAuth, (req, res, next) => {
+  app.post('/api/venues/place-details', (req, res, next) => {
     console.log('✅ Direct venue place-details route hit');
     venuesRoutes(req, res, next);
   });
 
-  app.post('/api/venues/:id/track-usage', ensureUserAuth, (req, res, next) => {
+  app.post('/api/venues/:id/track-usage', (req, res, next) => {
     console.log('✅ Direct venue track-usage route hit');
     venuesRoutes(req, res, next);
   });
 
-  // Venue routes with tenant resolution and CSRF protection (except for public endpoints used by lead capture forms)
-  app.use('/api/venues', tenantResolver, requireTenant, (req, res, next) => {
+  // Venue routes with authentication, tenant resolution and CSRF protection (except for public endpoints used by lead capture forms)
+  app.use('/api/venues', ensureUserAuth, tenantResolver, requireTenant, (req, res, next) => {
     console.log(`🔍 VENUES DEBUG: path="${req.path}", method="${req.method}"`);
     // Skip CSRF for public endpoints used by lead capture forms
     const publicEndpoints = ['/suggest', '/place-details'];
@@ -170,24 +171,24 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   }, venuesRoutes);
 
   
-  // Email routes - apply tenant resolution, CSRF to state-changing requests
-  app.use('/api/email', tenantResolver, requireTenant, csrf, emailRoutes);
-  app.use('/api/email-threads', tenantResolver, requireTenant, csrf, emailRoutes); // Direct mounting for /api/email-threads routes
+  // Email routes - apply authentication, tenant resolution, CSRF to state-changing requests
+  app.use('/api/email', ensureUserAuth, tenantResolver, requireTenant, csrf, emailRoutes);
+  app.use('/api/email-threads', ensureUserAuth, tenantResolver, requireTenant, csrf, emailRoutes); // Direct mounting for /api/email-threads routes
   
-  // Mail settings routes - apply tenant resolution, CSRF to state-changing requests
-  app.use('/api/settings/mail', tenantResolver, requireTenant, csrf, mailSettingsRoutes);
+  // Mail settings routes - apply authentication, tenant resolution, CSRF to state-changing requests
+  app.use('/api/settings/mail', ensureUserAuth, tenantResolver, requireTenant, csrf, mailSettingsRoutes);
   
-  // User preferences routes - apply tenant resolution, CSRF to state-changing requests
-  app.use('/api/user', tenantResolver, requireTenant, csrf, userPrefsRoutes);
+  // User preferences routes - apply authentication, tenant resolution, CSRF to state-changing requests
+  app.use('/api/user', ensureUserAuth, tenantResolver, requireTenant, csrf, userPrefsRoutes);
   
-  // Templates routes - apply tenant resolution, CSRF to state-changing requests
-  app.use('/api/templates', tenantResolver, requireTenant, csrf, templatesRoutes);
+  // Templates routes - apply authentication, tenant resolution, CSRF to state-changing requests
+  app.use('/api/templates', ensureUserAuth, tenantResolver, requireTenant, csrf, templatesRoutes);
   
-  // Token routes - apply tenant resolution, CSRF to state-changing requests
-  app.use('/api/tokens', tenantResolver, requireTenant, csrf, tokensRoutes);
+  // Token routes - apply authentication, tenant resolution, CSRF to state-changing requests
+  app.use('/api/tokens', ensureUserAuth, tenantResolver, requireTenant, csrf, tokensRoutes);
   
-  // Signatures routes - apply tenant resolution, CSRF to state-changing requests
-  app.use('/api/signatures', tenantResolver, requireTenant, csrf, signaturesRoutes);
+  // Signatures routes - apply authentication, tenant resolution, CSRF to state-changing requests
+  app.use('/api/signatures', ensureUserAuth, tenantResolver, requireTenant, csrf, signaturesRoutes);
   
   // Specific leads endpoints (must be before general /api/leads router mount)
   // GET /api/leads/summary
@@ -325,28 +326,28 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
   
-  // Lead Forms routes - apply tenant resolution, CSRF to state-changing requests (but exclude public routes)  
+  // Lead Forms routes - public routes (no auth), non-public routes need auth
   // NOTE: This is for lead capture forms only, not general leads endpoints
   app.use('/api/leads', tenantResolver, requireTenant, (req, res, next) => {
     console.log(`🔍 LEADS DEBUG: path="${req.path}", method="${req.method}"`);
-    // Skip CSRF for public lead form routes (used by public lead capture forms)
+    // Public lead form routes (used by public lead capture forms) - no auth required
     if (req.path.startsWith('/public/')) {
-      console.log('✅ LEADS: Skipping CSRF for public route');
+      console.log('✅ LEADS: Public route - skipping auth and CSRF');
       return next();
     }
-    console.log('🛡️ LEADS: Applying CSRF protection');
-    // Apply CSRF to all other lead form routes
-    return csrf(req, res, next);
+    // All other lead form routes need authentication
+    console.log('🛡️ LEADS: Private route - applying auth and CSRF');
+    return ensureUserAuth(req, res, () => csrf(req, res, next));
   }, leadFormsRoutes);
   
   // Lead-forms admin routes
-  app.use('/api/lead-forms', tenantResolver, requireTenant, csrf, leadFormsRoutes);
+  app.use('/api/lead-forms', ensureUserAuth, tenantResolver, requireTenant, csrf, leadFormsRoutes);
   
-  // Lead Automation routes (simplified version) - apply tenant resolution, CSRF to state-changing requests
-  app.use('/api/admin/lead-automation', tenantResolver, requireTenant, csrf, leadAutomationSimpleRoutes);
+  // Lead Automation routes (simplified version) - apply admin auth, tenant resolution, CSRF to state-changing requests
+  app.use('/api/admin/lead-automation', ensureAdminAuth, tenantResolver, requireTenant, csrf, leadAutomationSimpleRoutes);
   
-  // Admin Lead Forms routes - apply tenant resolution, CSRF to admin management endpoints  
-  app.use('/api/admin/lead-forms', tenantResolver, requireTenant, csrf, leadFormsRoutes);
+  // Admin Lead Forms routes - apply admin auth, tenant resolution, CSRF to admin management endpoints  
+  app.use('/api/admin/lead-forms', ensureAdminAuth, tenantResolver, requireTenant, csrf, leadFormsRoutes);
 
   // Portal routes (client portal features) - all secured with session auth + CSRF
   app.use('/api/portal/payments', ensurePortalAuth, csrf, portalPaymentsRoutes);
@@ -411,35 +412,6 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     return null;
   }
 
-  // SECURITY: Middleware to ensure admin authentication
-  async function ensureAdminAuth(req: any, res: any, next: any) {
-    const userId = await getAuthenticatedUserId(req);
-    if (!userId) {
-      return res.status(401).json({ error: 'Authentication required' });
-    }
-    
-    // TODO: Add proper admin role check here
-    // For now, any authenticated user is considered admin (development only)
-    if (process.env.NODE_ENV !== 'development') {
-      console.error('❌ SECURITY: Admin role verification not implemented for production');
-      return res.status(403).json({ error: 'Admin access required' });
-    }
-    
-    req.authenticatedUserId = userId;
-    next();
-  }
-
-  // SECURITY: Middleware to ensure authenticated user access
-  async function ensureUserAuth(req: any, res: any, next: any) {
-    const userId = await getAuthenticatedUserId(req);
-    if (!userId) {
-      return res.status(401).json({ error: 'Authentication required' });
-    }
-    
-    req.authenticatedUserId = userId;
-    next();
-  }
-
   // Portal enabled helper function
   async function isPortalEnabled(tenantId: string, projectId?: string): Promise<boolean> {
     try {
@@ -470,53 +442,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   }
 
-  // Enhanced portal authentication middleware with portal enabled check
-  async function ensurePortalAuth(req: any, res: any, next: any) {
-    if (!req.session.portalContactId) {
-      return res.status(401).json({ error: 'Portal authentication required' });
-    }
-
-    try {
-      // Get contact to find associated projects and tenant
-      const contact = await storage.getContact(req.session.portalContactId);
-      if (!contact) {
-        return res.status(401).json({ error: 'Invalid portal session' });
-      }
-
-      // Get project ID from route params if available
-      const projectId = req.params.projectId || req.query.projectId || req.body.projectId;
-      
-      // Resolve tenant ID from project ownership or fallback to system default
-      const tenantId = await resolveTenantId(contact.id, projectId);
-      
-      // SECURITY: Verify project ownership if projectId is provided
-      if (projectId) {
-        const hasAccess = await verifyProjectAccess(contact.id, projectId);
-        if (!hasAccess) {
-          console.log(`🚫 SECURITY: Contact ${contact.email} denied access to project ${projectId} - not owner`);
-          return res.status(403).json({ 
-            error: 'Access denied', 
-            message: 'You do not have access to this project.' 
-          });
-        }
-      }
-      
-      // Check if portal is enabled for this tenant/project
-      const portalEnabled = await isPortalEnabled(tenantId, projectId);
-      if (!portalEnabled) {
-        console.log(`🚫 Portal access blocked for contact ${contact.email} - portal disabled for tenant ${tenantId}, project ${projectId || 'none'}`);
-        return res.status(403).json({ 
-          error: 'Client portal access is currently disabled',
-          message: 'The client portal has been temporarily disabled. Please contact your service provider for assistance.'
-        });
-      }
-
-      next();
-    } catch (error) {
-      console.error('Portal auth middleware error:', error);
-      return res.status(500).json({ error: 'Portal authentication failed' });
-    }
-  }
+  // Portal authentication logic moved to middleware/auth.ts
 
   // Portal authentication endpoints
   // Step 1: Request magic link (with portal enabled check)
@@ -1018,8 +944,8 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
 
-  // Recent activities
-  app.get("/api/activities/recent", async (req, res) => {
+  // Recent activities - requires authentication
+  app.get("/api/activities/recent", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
     try {
       const activities = await storage.getRecentActivities(10);
       res.json(activities);
@@ -1028,8 +954,8 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
 
-  // Calendar auto-sync status endpoint
-  app.get("/api/calendar-sync/status", async (req, res) => {
+  // Calendar auto-sync status endpoint - requires authentication
+  app.get("/api/calendar-sync/status", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
     try {
       const status = calendarAutoSyncService.getStatus();
       const activeIntegrations = await storage.getCalendarIntegrations();
@@ -2422,7 +2348,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   });
 
   // Tasks
-  app.get("/api/tasks", ensureUserAuth, async (req, res) => {
+  app.get("/api/tasks", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
     try {
       const { assignedTo, today } = req.query;
       const userId = req.authenticatedUserId;
@@ -2454,7 +2380,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
 
-  app.post("/api/tasks", async (req, res) => {
+  app.post("/api/tasks", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
     try {
       const taskData = insertTaskSchema.parse(req.body);
       const task = await storage.createTask(taskData);
@@ -3201,7 +3127,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   });
 
   // Events/Calendar API
-  app.get("/api/events", async (req, res) => {
+  app.get("/api/events", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
     try {
       const { userId, startDate, endDate, clientId } = req.query;
       
@@ -3222,7 +3148,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
 
-  app.get("/api/events/:id", async (req, res) => {
+  app.get("/api/events/:id", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
     try {
       const event = await storage.getEvent(req.params.id);
       if (!event) {
@@ -3234,7 +3160,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
 
-  app.post("/api/events", async (req, res) => {
+  app.post("/api/events", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
     try {
       const validatedData = insertEventSchema.parse(req.body);
       const event = await storage.createEvent(validatedData);

@@ -1,0 +1,40 @@
+The above error occurred in the <ProjectDetailModal> component:
+
+    at ProjectDetailModal (https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/src/components/modals/project-detail-modal.tsx:87:46)
+    at Projects (https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/src/pages/projects.tsx:47:51)
+    at Route (https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=4c4c21b9:191:16)
+    at Switch (https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=4c4c21b9:247:17)
+    at div
+    at div
+    at Route (https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=4c4c21b9:191:16)
+    at Switch (https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=4c4c21b9:247:17)
+    at Router
+    at Provider (https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-OXZDJRWN.js?v=4c4c21b9:38:15)
+    at TooltipProvider (https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-tooltip.js?v=4c4c21b9:65:5)
+    at QueryClientProvider (https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@tanstack_react-query.js?v=4c4c21b9:2805:3)
+    at App
+
+Consider adding an error boundary to your tree to customize error handling behavior.
+Visit https://reactjs.org/link/error-boundaries to learn more about error boundaries.
+
+at ProjectDetailModal (https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/src/components/modals/project-detail-modal.tsx:87:46)
+at Projects (https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/src/pages/projects.tsx:47:51)
+at Route (https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=4c4c21b9:191:16)
+at Switch (https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=4c4c21b9:247:17)
+at div
+at div
+at Route (https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=4c4c21b9:191:16)
+at Switch (https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=4c4c21b9:247:17)
+at Router
+at Provider (https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-OXZDJRWN.js?v=4c4c21b9:38:15)
+at TooltipProvider (https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-tooltip.js?v=4c4c21b9:65:5)
+at QueryClientProvider (https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@tanstack_react-query.js?v=4c4c21b9:2805:3)
+at App
+
+Consider adding an error boundary to your tree to customize error handling behavior.
+Visit https://reactjs.org/link/error-boundaries to learn more about error boundaries.
+at t.value (https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/__replco/static/devtools/eruda/3.2.3/eruda.js:2:17465)
+at new t (https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/__replco/static/devtools/eruda/3.2.3/eruda.js:2:12630)
+at t.value (https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/__replco/static/devtools/eruda/3.2.3/eruda.js:2:32766)
+at https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/__replco/static/devtools/eruda/3.2.3/eruda.js:2:34400
+Trash2 is not defined

@@ -3,7 +3,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { 
   FileText, Upload, Users, MessageSquare, Plus, 
   Download, Trash, Clock, DollarSign, MapPin, Briefcase,
-  Receipt, File, Send, Check, Edit 
+  Receipt, File, Send, Check, Edit, Trash2 
 } from "lucide-react";
 import {
   Dialog,

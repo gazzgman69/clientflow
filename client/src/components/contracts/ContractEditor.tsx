@@ -311,9 +311,9 @@ export default function ContractEditor({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex-1 flex gap-6 overflow-visible">
+        <div className="flex-1 flex gap-6 overflow-hidden min-h-0">
           {/* Left Panel - Contract Settings */}
-          <div className="w-80 flex-shrink-0 space-y-4 overflow-y-auto p-2">
+          <div className="w-80 flex-shrink-0 space-y-4 overflow-y-auto p-2 max-h-full">
             {/* Contact Selection */}
             <div className="space-y-2">
               <Label>Contact</Label>

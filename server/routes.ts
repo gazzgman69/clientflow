@@ -1204,6 +1204,30 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
 
+  // Contract preview endpoint for live token rendering
+  app.post("/api/contracts/preview", csrf, async (req, res) => {
+    try {
+      const { bodyHtml, contactId, projectId } = req.body;
+      
+      if (!bodyHtml) {
+        return res.status(400).json({ message: "bodyHtml is required" });
+      }
+
+      // Use token resolver to render the HTML with actual data
+      const tokenResolver = new TokenResolverService();
+      const renderedHtml = await tokenResolver.resolveTokens(bodyHtml, {
+        contactId,
+        projectId,
+        userId: req.headers['user-id'] as string
+      });
+      
+      res.json({ renderedHtml });
+    } catch (error) {
+      console.error('Contract preview error:', error);
+      res.status(500).json({ message: "Failed to generate preview" });
+    }
+  });
+
   // Invoices
   app.get("/api/invoices", async (req, res) => {
     try {

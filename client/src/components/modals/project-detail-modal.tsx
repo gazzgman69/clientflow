@@ -1,4 +1,5 @@
 import { useState } from "react";
+import ContractEditor from "../contracts/ContractEditor";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { 
   FileText, Upload, Users, MessageSquare, Plus, 
@@ -114,6 +115,10 @@ export default function ProjectDetailModal({ project, isOpen, onClose }: Project
   const [showQuoteEditor, setShowQuoteEditor] = useState(false);
   const [selectedContactId, setSelectedContactId] = useState<string>("");
   const [selectedContactName, setSelectedContactName] = useState<string>("");
+  
+  // Contract creation flow state
+  const [showContractEditor, setShowContractEditor] = useState(false);
+  const [editingContract, setEditingContract] = useState<Contract | null>(null);
   
   const { toast } = useToast();
 
@@ -359,6 +364,34 @@ export default function ProjectDetailModal({ project, isOpen, onClose }: Project
     setSelectedContactName("");
   };
 
+  // Handler functions for new contract creation flow
+  const handleCreateContract = () => {
+    // If project has a contact ID, use it automatically
+    if (project?.contactId) {
+      setSelectedContactId(project.contactId);
+      const contactName = projectContact 
+        ? `${projectContact.firstName} ${projectContact.lastName}`
+        : "Loading contact...";
+      setSelectedContactName(contactName);
+      setEditingContract(null); // Clear any editing contract
+      setShowContractEditor(true);
+    } else {
+      // Fallback: show message that a contact is required
+      toast({
+        title: "Contact Required",
+        description: "Please assign a contact to this project before creating a contract.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleContractEditorClose = () => {
+    setEditingContract(null);
+    setShowContractEditor(false);
+    setSelectedContactId("");
+    setSelectedContactName("");
+  };
+
   const createContractMutation = useMutation({
     mutationFn: async () => {
       const contractData = {
@@ -542,14 +575,15 @@ export default function ProjectDetailModal({ project, isOpen, onClose }: Project
     setShowQuoteEditor(true);
   };
 
-  const handleEditContract = (contract: any) => {
-    contractEditForm.reset({
-      title: contract.title,
-      description: contract.description || '',
-      amount: contract.amount.toString(),
-      terms: contract.terms || '',
-    });
-    setSelectedDocument({ type: 'contract', data: contract, mode: 'edit' });
+  const handleEditContract = (contract: Contract) => {
+    setEditingContract(contract);
+    setSelectedContactId(contract.contactId);
+    // Get contact name from projectContact if available
+    const contactName = projectContact 
+      ? `${projectContact.firstName} ${projectContact.lastName}`
+      : "Loading contact...";
+    setSelectedContactName(contactName);
+    setShowContractEditor(true);
   };
 
   const handleEditInvoice = (invoice: any) => {
@@ -908,12 +942,11 @@ export default function ProjectDetailModal({ project, isOpen, onClose }: Project
                     <Button 
                       variant="outline" 
                       className="flex-1"
-                      onClick={() => createContractMutation.mutate()}
-                      disabled={createContractMutation.isPending}
+                      onClick={handleCreateContract}
                       data-testid="button-create-contract"
                     >
                       <File className="h-4 w-4 mr-2" />
-                      {createContractMutation.isPending ? "Creating..." : "Create Contract"}
+                      Create Contract
                     </Button>
                     <Button 
                       variant="outline" 
@@ -1690,6 +1723,16 @@ export default function ProjectDetailModal({ project, isOpen, onClose }: Project
       contactName={selectedContactName}
       projectId={project?.id}
       editingQuote={editingQuote}
+    />
+
+    {/* Contract Editor Modal */}
+    <ContractEditor
+      isOpen={showContractEditor}
+      onClose={handleContractEditorClose}
+      contactId={selectedContactId}
+      contactName={selectedContactName}
+      projectId={project?.id}
+      editingContract={editingContract}
     />
     </>
   );

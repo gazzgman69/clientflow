@@ -272,7 +272,9 @@ export default function ContractEditor({
 
   const handleTokenInsert = (token: string) => {
     if (editorRef.current) {
-      editorRef.current.insertText(`{{${token}}}`);
+      // Token already comes in format [TokenName] from TokenDropdown
+      // Just insert it as-is since the server expects [TokenName] format
+      editorRef.current.insertText(token);
     }
   };
 

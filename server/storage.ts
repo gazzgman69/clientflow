@@ -384,7 +384,7 @@ export class MemStorage implements IStorage {
     const defaultUser: User = {
       id: randomUUID(),
       username: "admin",
-      password: "password",
+      password: "$2b$12$SM67YK8RyHHkIISwIXS/OOjT5FQiKCOrMBRXzBljj4JlIqD6e/mhi", // bcrypt hashed "password"
       email: "john@company.com",
       role: "admin",
       firstName: "John",

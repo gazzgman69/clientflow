@@ -38,9 +38,7 @@ export async function apiRequest(
   url: string,
   data?: unknown | undefined,
 ): Promise<Response> {
-  const headers: Record<string, string> = {
-    'user-id': 'test-user', // Required for backend authentication
-  };
+  const headers: Record<string, string> = {};
   
   if (data) {
     headers['Content-Type'] = 'application/json';

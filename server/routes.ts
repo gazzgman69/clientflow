@@ -5,13 +5,21 @@ import session from "express-session";
 import ConnectPgSimple from "connect-pg-simple";
 import { storage } from "./storage";
 
-// Extend session to include portal authentication
+// Extend session to include portal and user authentication
 declare module 'express-session' {
   interface SessionData {
     portalContactId?: string;
+    userId?: string;
   }
 }
 import { twilioService } from "./services/twilio";
+import bcrypt from "bcrypt";
+
+// Password hashing utility
+const SALT_ROUNDS = 12;
+export const hashPassword = async (password: string): Promise<string> => {
+  return await bcrypt.hash(password, SALT_ROUNDS);
+};
 import { googleCalendarService } from "./services/google-calendar";
 import { googleOAuthService } from "./services/google-oauth";
 import { icalService } from "./services/ical";
@@ -227,19 +235,20 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   }
 
-  // SECURITY: Helper function to get authenticated user ID from session or proper auth
+  // SECURITY: Helper function to get authenticated user ID from session
   async function getAuthenticatedUserId(req: any): Promise<string | null> {
-    // In development, allow fallback to test user for backwards compatibility
-    // In production, this should be replaced with proper session-based authentication
-    if (process.env.NODE_ENV === 'development') {
-      console.warn('⚠️  DEV MODE: Using header-based auth for user test-user');
-      return req.headers['user-id'] as string || 'test-user';
+    // Check for authenticated user ID in session
+    if (req.session && req.session.userId) {
+      return req.session.userId;
     }
     
-    // TODO: Implement proper session-based authentication
-    // This should check for valid session token, JWT, or other secure auth method
-    // For now, returning null to prevent unauthorized access in production
-    console.error('❌ SECURITY: Production mode requires proper authentication implementation');
+    // In development, allow fallback to test user for backwards compatibility
+    if (process.env.NODE_ENV === 'development') {
+      console.warn('⚠️  DEV MODE: Using fallback test-user - please login properly');
+      return 'test-user';
+    }
+    
+    // No session found - user must login
     return null;
   }
 
@@ -512,6 +521,89 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     } catch (error: any) {
       console.error('Error fetching portal quotes:', error);
       res.status(500).json({ error: 'Failed to fetch quotes' });
+    }
+  });
+  
+  // Main user authentication endpoints  
+  app.post('/api/auth/login', authLimiter, async (req, res) => {
+    try {
+      const { username, password } = req.body;
+      
+      if (!username || !password) {
+        return res.status(400).json({ error: 'Username and password required' });
+      }
+      
+      // Get user from database
+      const user = await storage.getUserByUsername(username);
+      if (!user) {
+        return res.status(401).json({ error: 'Invalid credentials' });
+      }
+      
+      // Use bcrypt to compare hashed passwords
+      const passwordMatch = await bcrypt.compare(password, user.password);
+      if (!passwordMatch) {
+        return res.status(401).json({ error: 'Invalid credentials' });
+      }
+      
+      // Regenerate session ID for security
+      req.session.regenerate((err: any) => {
+        if (err) {
+          console.error('Session regeneration error:', err);
+          return res.status(500).json({ error: 'Login failed' });
+        }
+        
+        // Store user ID in session
+        req.session.userId = user.id;
+        
+        res.json({ 
+          success: true, 
+          user: { 
+            id: user.id, 
+            username: user.username, 
+            email: user.email, 
+            firstName: user.firstName,
+            lastName: user.lastName,
+            role: user.role
+          } 
+        });
+      });
+    } catch (error: any) {
+      console.error('Login error:', error);
+      res.status(500).json({ error: 'Authentication failed' });
+    }
+  });
+
+  app.post('/api/auth/logout', (req, res) => {
+    // Destroy the session for security
+    req.session.destroy((err: any) => {
+      if (err) {
+        console.error('Session destruction error:', err);
+        return res.status(500).json({ error: 'Logout failed' });
+      }
+      res.json({ success: true });
+    });
+  });
+
+  app.get('/api/auth/me', ensureUserAuth, async (req, res) => {
+    try {
+      const userId = req.authenticatedUserId;
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+      res.json({ 
+        user: { 
+          id: user.id, 
+          username: user.username, 
+          email: user.email, 
+          firstName: user.firstName,
+          lastName: user.lastName,
+          role: user.role
+        } 
+      });
+    } catch (error: any) {
+      console.error('Error fetching user info:', error);
+      res.status(500).json({ error: 'Failed to get user info' });
     }
   });
   

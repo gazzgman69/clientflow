@@ -43,6 +43,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { formatDistanceToNow } from "date-fns";
@@ -72,6 +80,26 @@ const memberAssignmentSchema = z.object({
 
 type NoteFormData = z.infer<typeof noteSchema>;
 type MemberAssignmentData = z.infer<typeof memberAssignmentSchema>;
+
+// Contract edit schema
+const contractEditSchema = z.object({
+  title: z.string().min(1, "Title is required"),
+  description: z.string().optional(),
+  amount: z.string().min(1, "Amount is required"),
+  terms: z.string().optional(),
+});
+
+// Invoice edit schema  
+const invoiceEditSchema = z.object({
+  title: z.string().min(1, "Title is required"),
+  description: z.string().optional(),
+  subtotal: z.string().min(1, "Subtotal is required"),
+  taxAmount: z.string().optional(),
+  total: z.string().min(1, "Total is required"),
+});
+
+type ContractEditData = z.infer<typeof contractEditSchema>;
+type InvoiceEditData = z.infer<typeof invoiceEditSchema>;
 
 export default function ProjectDetailModal({ project, isOpen, onClose }: ProjectDetailModalProps) {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -446,9 +474,67 @@ export default function ProjectDetailModal({ project, isOpen, onClose }: Project
       });
     },
   });
+  
+  // Update mutations
+  const updateContractMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: ContractEditData }) => 
+      apiRequest("PATCH", `/api/contracts/${id}`, {
+        ...data,
+        amount: parseFloat(data.amount),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/contacts", project?.contactId, "contracts"] });
+      setSelectedDocument(null);
+      toast({
+        title: "Success",
+        description: "Contract updated successfully!",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to update contract. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+  
+  const updateInvoiceMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: InvoiceEditData }) => 
+      apiRequest("PATCH", `/api/invoices/${id}`, {
+        ...data,
+        subtotal: parseFloat(data.subtotal),
+        taxAmount: data.taxAmount ? parseFloat(data.taxAmount) : 0,
+        total: parseFloat(data.total),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/contacts", project?.contactId, "invoices"] });
+      setSelectedDocument(null);
+      toast({
+        title: "Success",
+        description: "Invoice updated successfully!",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to update invoice. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
 
   // State for editing quotes
   const [editingQuote, setEditingQuote] = useState<Quote | null>(null);
+  
+  // Forms for editing
+  const contractEditForm = useForm<ContractEditData>({
+    resolver: zodResolver(contractEditSchema),
+  });
+  
+  const invoiceEditForm = useForm<InvoiceEditData>({
+    resolver: zodResolver(invoiceEditSchema),
+  });
 
   // Handle edit operations
   const handleEditQuote = (quote: Quote) => {
@@ -457,10 +543,23 @@ export default function ProjectDetailModal({ project, isOpen, onClose }: Project
   };
 
   const handleEditContract = (contract: any) => {
+    contractEditForm.reset({
+      title: contract.title,
+      description: contract.description || '',
+      amount: contract.amount.toString(),
+      terms: contract.terms || '',
+    });
     setSelectedDocument({ type: 'contract', data: contract, mode: 'edit' });
   };
 
   const handleEditInvoice = (invoice: any) => {
+    invoiceEditForm.reset({
+      title: invoice.title,
+      description: invoice.description || '',
+      subtotal: invoice.subtotal.toString(),
+      taxAmount: invoice.taxAmount ? invoice.taxAmount.toString() : '0',
+      total: invoice.total.toString(),
+    });
     setSelectedDocument({ type: 'invoice', data: invoice, mode: 'edit' });
   };
 
@@ -1273,12 +1372,153 @@ export default function ProjectDetailModal({ project, isOpen, onClose }: Project
 
             {/* Document Details */}
             <div className="space-y-4">
-              <div>
-                <Label className="text-sm font-medium">Description</Label>
-                <p className="text-sm text-muted-foreground mt-1">
-                  {selectedDocument.data.description || 'No description provided'}
-                </p>
-              </div>
+              {selectedDocument.mode === 'edit' ? (
+                // Edit mode forms
+                <div>
+                  {selectedDocument.type === 'contract' && (
+                    <Form {...contractEditForm}>
+                      <form onSubmit={contractEditForm.handleSubmit((data) => {
+                        updateContractMutation.mutate({ id: selectedDocument.data.id, data });
+                      })} className="space-y-4">
+                        <FormField
+                          control={contractEditForm.control}
+                          name="title"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Title</FormLabel>
+                              <FormControl>
+                                <Input {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={contractEditForm.control}
+                          name="description"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Description</FormLabel>
+                              <FormControl>
+                                <Textarea {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={contractEditForm.control}
+                          name="amount"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Amount</FormLabel>
+                              <FormControl>
+                                <Input type="number" step="0.01" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={contractEditForm.control}
+                          name="terms"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Terms</FormLabel>
+                              <FormControl>
+                                <Textarea {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </form>
+                    </Form>
+                  )}
+                  
+                  {selectedDocument.type === 'invoice' && (
+                    <Form {...invoiceEditForm}>
+                      <form onSubmit={invoiceEditForm.handleSubmit((data) => {
+                        updateInvoiceMutation.mutate({ id: selectedDocument.data.id, data });
+                      })} className="space-y-4">
+                        <FormField
+                          control={invoiceEditForm.control}
+                          name="title"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Title</FormLabel>
+                              <FormControl>
+                                <Input {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={invoiceEditForm.control}
+                          name="description"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Description</FormLabel>
+                              <FormControl>
+                                <Textarea {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={invoiceEditForm.control}
+                          name="subtotal"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Subtotal</FormLabel>
+                              <FormControl>
+                                <Input type="number" step="0.01" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={invoiceEditForm.control}
+                          name="taxAmount"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Tax Amount</FormLabel>
+                              <FormControl>
+                                <Input type="number" step="0.01" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={invoiceEditForm.control}
+                          name="total"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Total</FormLabel>
+                              <FormControl>
+                                <Input type="number" step="0.01" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </form>
+                    </Form>
+                  )}
+                </div>
+              ) : (
+                // View mode
+                <div>
+                  <Label className="text-sm font-medium">Description</Label>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    {selectedDocument.data.description || 'No description provided'}
+                  </p>
+                </div>
+              )}
 
               {/* Quote specific fields */}
               {selectedDocument.type === 'quote' && (
@@ -1357,43 +1597,78 @@ export default function ProjectDetailModal({ project, isOpen, onClose }: Project
 
             {/* Action Buttons */}
             <div className="flex gap-2 pt-4 border-t">
-              {selectedDocument.data.status === 'draft' && (
-                <Button
-                  onClick={() => {
-                    sendDocumentMutation.mutate({ 
-                      id: selectedDocument.data.id, 
-                      type: selectedDocument.type 
-                    });
-                    setSelectedDocument(null);
-                  }}
-                  disabled={sendDocumentMutation.isPending}
-                  data-testid={`button-send-${selectedDocument.type}-modal`}
-                >
-                  <Send className="h-4 w-4 mr-2" />
-                  Send {selectedDocument.type.charAt(0).toUpperCase() + selectedDocument.type.slice(1)}
-                </Button>
+              {selectedDocument.mode === 'edit' ? (
+                // Edit mode buttons
+                <>
+                  <Button
+                    type="submit"
+                    onClick={() => {
+                      if (selectedDocument.type === 'contract') {
+                        contractEditForm.handleSubmit((data) => {
+                          updateContractMutation.mutate({ id: selectedDocument.data.id, data });
+                        })();
+                      } else if (selectedDocument.type === 'invoice') {
+                        invoiceEditForm.handleSubmit((data) => {
+                          updateInvoiceMutation.mutate({ id: selectedDocument.data.id, data });
+                        })();
+                      }
+                    }}
+                    disabled={updateContractMutation.isPending || updateInvoiceMutation.isPending}
+                    data-testid={`button-save-${selectedDocument.type}-modal`}
+                  >
+                    <Check className="h-4 w-4 mr-2" />
+                    {updateContractMutation.isPending || updateInvoiceMutation.isPending ? "Saving..." : "Save Changes"}
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    onClick={() => setSelectedDocument(null)}
+                    data-testid={`button-cancel-${selectedDocument.type}-modal`}
+                  >
+                    Cancel
+                  </Button>
+                </>
+              ) : (
+                // View mode buttons
+                <>
+                  {selectedDocument.data.status === 'draft' && (
+                    <Button
+                      onClick={() => {
+                        sendDocumentMutation.mutate({ 
+                          id: selectedDocument.data.id, 
+                          type: selectedDocument.type 
+                        });
+                        setSelectedDocument(null);
+                      }}
+                      disabled={sendDocumentMutation.isPending}
+                      data-testid={`button-send-${selectedDocument.type}-modal`}
+                    >
+                      <Send className="h-4 w-4 mr-2" />
+                      Send {selectedDocument.type.charAt(0).toUpperCase() + selectedDocument.type.slice(1)}
+                    </Button>
+                  )}
+                  {selectedDocument.data.status === 'sent' && (
+                    <Button
+                      onClick={() => {
+                        approveDocumentMutation.mutate({ 
+                          id: selectedDocument.data.id, 
+                          type: selectedDocument.type 
+                        });
+                        setSelectedDocument(null);
+                      }}
+                      disabled={approveDocumentMutation.isPending}
+                      data-testid={`button-approve-${selectedDocument.type}-modal`}
+                    >
+                      <Check className="h-4 w-4 mr-2" />
+                      {selectedDocument.type === 'quote' && 'Approve Quote'}
+                      {selectedDocument.type === 'contract' && 'Sign Contract'}
+                      {selectedDocument.type === 'invoice' && 'Mark as Paid'}
+                    </Button>
+                  )}
+                  <Button variant="outline" onClick={() => setSelectedDocument(null)}>
+                    Close
+                  </Button>
+                </>
               )}
-              {selectedDocument.data.status === 'sent' && (
-                <Button
-                  onClick={() => {
-                    approveDocumentMutation.mutate({ 
-                      id: selectedDocument.data.id, 
-                      type: selectedDocument.type 
-                    });
-                    setSelectedDocument(null);
-                  }}
-                  disabled={approveDocumentMutation.isPending}
-                  data-testid={`button-approve-${selectedDocument.type}-modal`}
-                >
-                  <Check className="h-4 w-4 mr-2" />
-                  {selectedDocument.type === 'quote' && 'Approve Quote'}
-                  {selectedDocument.type === 'contract' && 'Sign Contract'}
-                  {selectedDocument.type === 'invoice' && 'Mark as Paid'}
-                </Button>
-              )}
-              <Button variant="outline" onClick={() => setSelectedDocument(null)}>
-                Close
-              </Button>
             </div>
           </div>
         )}

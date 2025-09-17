@@ -32,7 +32,7 @@ import {
 import { randomUUID } from 'crypto';
 import { db } from '../../../db';
 import { jobs, jobExecutions } from '@shared/schema';
-import { eq, and, or, sql, lt, desc, asc } from 'drizzle-orm';
+import { eq, and, or, sql, lt, desc, asc, isNotNull } from 'drizzle-orm';
 
 export class PostgreSQLJobQueue implements IJobQueue {
   private handlers = new Map<string, JobHandler>();
@@ -493,7 +493,7 @@ export class PostgreSQLJobQueue implements IJobQueue {
       .select()
       .from(jobs)
       .where(and(
-        eq(jobs.schedule, sql`IS NOT NULL`),
+        isNotNull(jobs.schedule),
         eq(jobs.status, 'pending')
       ));
 

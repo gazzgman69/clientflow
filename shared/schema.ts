@@ -145,7 +145,8 @@ export const contracts = pgTable("contracts", {
   status: text("status").notNull().default('draft'), // draft, sent, signed, cancelled
   signedAt: timestamp("signed_at"),
   expiresAt: timestamp("expires_at"),
-  // Signature fields
+  // Signature workflow and fields
+  signatureWorkflow: text("signature_workflow").default('counter_sign_after_client'), // not_required, sign_upon_creation, counter_sign_after_client
   businessSignature: text("business_signature"), // Base64 encoded signature or typed name
   clientSignature: text("client_signature"), // Base64 encoded signature or typed name
   businessSignedAt: timestamp("business_signed_at"),

@@ -33,6 +33,7 @@ const contractEditorSchema = z.object({
   terms: z.string().min(1, "Contract content is required"),
   dueDate: z.date().optional(),
   status: z.enum(["draft", "sent", "signed", "completed", "cancelled"]).default("draft"),
+  signatureWorkflow: z.enum(["not_required", "sign_upon_creation", "counter_sign_after_client"]).default("counter_sign_after_client"),
   businessSignature: z.string().optional(),
   clientSignature: z.string().optional(),
 });
@@ -81,6 +82,7 @@ export default function ContractEditor({
       description: "",
       terms: "",
       status: "draft",
+      signatureWorkflow: "counter_sign_after_client",
       businessSignature: "",
       clientSignature: "",
     },
@@ -96,7 +98,8 @@ export default function ContractEditor({
         description: editingContract.description || "",
         terms: editingContract.terms || "",
         dueDate: editingContract.expiresAt ? new Date(editingContract.expiresAt) : undefined,
-        status: editingContract.status,
+        status: editingContract.status as "draft" | "sent" | "signed" | "completed" | "cancelled",
+        signatureWorkflow: (editingContract as any).signatureWorkflow || "counter_sign_after_client",
         businessSignature: editingContract.businessSignature || "",
         clientSignature: editingContract.clientSignature || "",
       });
@@ -111,6 +114,7 @@ export default function ContractEditor({
         description: "",
         terms: "",
         status: "draft",
+        signatureWorkflow: "counter_sign_after_client",
         businessSignature: "",
         clientSignature: "",
       });
@@ -167,6 +171,7 @@ export default function ContractEditor({
         projectId: projectId || null,
         contractNumber: `CON-${Date.now()}`,
         dueDate: data.dueDate?.toISOString(),
+        signatureWorkflow: data.signatureWorkflow,
         businessSignature: data.businessSignature,
         clientSignature: data.clientSignature,
       };
@@ -202,6 +207,7 @@ export default function ContractEditor({
         ...data,
         projectId: editingContract.projectId,
         dueDate: data.dueDate?.toISOString(),
+        signatureWorkflow: data.signatureWorkflow,
         businessSignature: data.businessSignature,
         clientSignature: data.clientSignature,
       };
@@ -315,16 +321,30 @@ export default function ContractEditor({
           {/* Left Panel - Contract Settings */}
           <div className="w-80 flex-shrink-0 space-y-4 overflow-y-auto p-2 max-h-full">
             {/* Contact Selection */}
-            <div className="space-y-2">
-              <Label>Contact</Label>
-              <ContactPicker
-                contacts={contacts}
-                selectedContactId={selectedContactId}
-                selectedContactName={selectedContactName}
-                onContactSelect={handleContactSelect}
-                data-testid="contact-picker-contract"
-              />
-            </div>
+            <FormField
+              control={form.control}
+              name="contactId"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Contact</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value}>
+                    <FormControl>
+                      <SelectTrigger data-testid="select-contact">
+                        <SelectValue placeholder="Select a contact" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {contacts.map((contact) => (
+                        <SelectItem key={contact.id} value={contact.id}>
+                          {contact.firstName} {contact.lastName} ({contact.email})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
             {/* Basic Fields */}
             <Form {...form}>
@@ -402,6 +422,30 @@ export default function ContractEditor({
                 <div className="space-y-4 border-t pt-4">
                   <h3 className="text-sm font-medium">Digital Signatures</h3>
                   
+                  {/* Signature Workflow */}
+                  <FormField
+                    control={form.control}
+                    name="signatureWorkflow"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Signature Workflow</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value}>
+                          <FormControl>
+                            <SelectTrigger data-testid="select-signature-workflow">
+                              <SelectValue placeholder="Select signature workflow" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="not_required">Not required</SelectItem>
+                            <SelectItem value="sign_upon_creation">Sign upon creation</SelectItem>
+                            <SelectItem value="counter_sign_after_client">Counter-sign after client(s)</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
                   {/* Business Signature */}
                   <FormField
                     control={form.control}
@@ -451,7 +495,7 @@ export default function ContractEditor({
                     <Checkbox
                       id="save-as-template"
                       checked={saveAsTemplate}
-                      onCheckedChange={setSaveAsTemplate}
+                      onCheckedChange={(checked) => setSaveAsTemplate(checked === true)}
                       data-testid="checkbox-save-as-template"
                     />
                     <Label htmlFor="save-as-template" className="text-sm">Save as template</Label>
@@ -514,7 +558,6 @@ export default function ContractEditor({
                 )}
                 {availableTokens && (
                   <TokenDropdown
-                    tokens={availableTokens.tokens}
                     onTokenSelect={handleTokenInsert}
                     data-testid="token-dropdown-contract"
                   />

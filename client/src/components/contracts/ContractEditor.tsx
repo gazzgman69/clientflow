@@ -461,7 +461,7 @@ export default function ContractEditor({
               <TabsContent value="template" className="flex-1 flex flex-col overflow-hidden">
                 <div className="space-y-4 flex-1 flex flex-col">
                   {/* Template List */}
-                  <div className="border rounded-lg p-4 h-32 overflow-y-auto">
+                  <div className="border rounded-lg p-3 h-20 overflow-y-auto">
                     <h4 className="text-sm font-medium mb-2">Available Templates</h4>
                     {templates.length > 0 ? (
                       <div className="space-y-2">

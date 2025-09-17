@@ -18,13 +18,38 @@ interface TwilioResponse {
 }
 
 export class TwilioService {
-  private config: TwilioConfig;
+  private config: TwilioConfig | null = null;
 
   constructor() {
+    // No validation at construction time - use lazy initialization
+  }
+
+  /**
+   * Validate and initialize Twilio credentials (lazy initialization)
+   */
+  private validateCredentials(): void {
+    if (this.config) return; // Already initialized
+
+    const accountSid = process.env.TWILIO_ACCOUNT_SID;
+    const authToken = process.env.TWILIO_AUTH_TOKEN;
+    const phoneNumber = process.env.TWILIO_PHONE_NUMBER;
+    
+    if (!accountSid) {
+      throw new Error('TWILIO_ACCOUNT_SID environment variable is required for Twilio SMS. Please configure your Twilio credentials.');
+    }
+    
+    if (!authToken) {
+      throw new Error('TWILIO_AUTH_TOKEN environment variable is required for Twilio SMS. Please configure your Twilio credentials.');
+    }
+    
+    if (!phoneNumber) {
+      throw new Error('TWILIO_PHONE_NUMBER environment variable is required for Twilio SMS. Please configure your Twilio credentials.');
+    }
+    
     this.config = {
-      accountSid: process.env.TWILIO_ACCOUNT_SID || '',
-      authToken: process.env.TWILIO_AUTH_TOKEN || '',
-      phoneNumber: process.env.TWILIO_PHONE_NUMBER || '',
+      accountSid,
+      authToken,
+      phoneNumber,
     };
   }
 
@@ -32,12 +57,11 @@ export class TwilioService {
    * Send an SMS message via Twilio
    */
   async sendSMS(message: TwilioMessage): Promise<TwilioResponse> {
+    // Validate credentials on first use
+    this.validateCredentials();
+    
     // In a real implementation, this would use the Twilio SDK
     // For development purposes, we'll simulate the Twilio API response
-    
-    if (!this.config.accountSid || !this.config.authToken) {
-      throw new Error('Twilio credentials not configured');
-    }
 
     try {
       // Simulate Twilio API call
@@ -68,12 +92,11 @@ export class TwilioService {
    * Get SMS delivery status from Twilio
    */
   async getMessageStatus(messageSid: string): Promise<string> {
+    // Validate credentials on first use
+    this.validateCredentials();
+    
     // In production, this would query Twilio for message status
     // For development, return a mock status
-    
-    if (!this.config.accountSid || !this.config.authToken) {
-      throw new Error('Twilio credentials not configured');
-    }
 
     try {
       // Mock status check
@@ -137,7 +160,12 @@ export class TwilioService {
    * Check if Twilio is properly configured
    */
   isConfigured(): boolean {
-    return !!(this.config.accountSid && this.config.authToken && this.config.phoneNumber);
+    try {
+      this.validateCredentials();
+      return true;
+    } catch {
+      return false;
+    }
   }
 }
 

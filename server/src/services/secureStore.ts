@@ -13,12 +13,24 @@ export class SecureStore {
   private encryptionKey: Buffer | null = null;
 
   constructor() {
-    this.initializeKey();
+    // No validation at construction time - use lazy initialization
   }
 
+  /**
+   * Initialize encryption key (lazy initialization)
+   */
   private initializeKey() {
-    // Use a master key from environment, or generate a default for development
-    const masterKey = process.env.ENCRYPTION_MASTER_KEY || 'default-dev-key-change-in-production-please-2024';
+    if (this.encryptionKey) return; // Already initialized
+    // Require ENCRYPTION_MASTER_KEY from environment
+    const masterKey = process.env.ENCRYPTION_MASTER_KEY;
+    
+    if (!masterKey) {
+      throw new Error('ENCRYPTION_MASTER_KEY environment variable is required for secure data encryption. Please configure your encryption key.');
+    }
+    
+    if (masterKey.length < 32) {
+      throw new Error('ENCRYPTION_MASTER_KEY must be at least 32 characters long. Please use a secure encryption key.');
+    }
     
     // Derive a proper encryption key using PBKDF2
     this.encryptionKey = crypto.pbkdf2Sync(
@@ -35,9 +47,8 @@ export class SecureStore {
    * Returns: base64-encoded encrypted data with IV and auth tag
    */
   encrypt(plaintext: string): string {
-    if (!this.encryptionKey) {
-      throw new Error('Encryption key not initialized');
-    }
+    // Initialize key on first use
+    this.initializeKey();
 
     if (!plaintext || plaintext.trim() === '') {
       return ''; // Don't encrypt empty values
@@ -73,9 +84,8 @@ export class SecureStore {
    * Returns: plaintext string
    */
   decrypt(encryptedData: string): string {
-    if (!this.encryptionKey) {
-      throw new Error('Encryption key not initialized');
-    }
+    // Initialize key on first use
+    this.initializeKey();
 
     if (!encryptedData || encryptedData.trim() === '') {
       return ''; // Return empty for empty encrypted values

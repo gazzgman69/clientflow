@@ -91,10 +91,15 @@ export class GmailService {
     try {
       const gmail = await this.getGmailService(userId);
       const profile = await gmail.users.getProfile({ userId: 'me' });
-      return profile.data.emailAddress || 'user@example.com';
+      
+      if (!profile.data.emailAddress) {
+        throw new Error('Gmail profile does not contain email address');
+      }
+      
+      return profile.data.emailAddress;
     } catch (error) {
       console.error('Failed to get user email:', error);
-      return 'user@example.com'; // Fallback
+      throw new Error('Unable to retrieve user email from Gmail profile');
     }
   }
 

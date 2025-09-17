@@ -11,11 +11,41 @@ function getRedirectUri(): string {
   return 'http://localhost:5000/auth/google/callback';
 }
 
-const oauth2Client = new google.auth.OAuth2(
-  process.env.GOOGLE_CLIENT_ID || 'YOUR_CLIENT_ID',
-  process.env.GOOGLE_CLIENT_SECRET || 'YOUR_CLIENT_SECRET',
-  getRedirectUri()
-);
+// Google OAuth credentials - lazy initialization
+let oauth2Client: google.auth.OAuth2 | null = null;
+
+/**
+ * Validate and initialize Google OAuth credentials (lazy initialization)
+ */
+function validateGoogleCredentials(): { clientId: string; clientSecret: string } {
+  const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
+  const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
+
+  if (!GOOGLE_CLIENT_ID) {
+    throw new Error('GOOGLE_CLIENT_ID environment variable is required for Google OAuth. Please configure your Google credentials.');
+  }
+
+  if (!GOOGLE_CLIENT_SECRET) {
+    throw new Error('GOOGLE_CLIENT_SECRET environment variable is required for Google OAuth. Please configure your Google credentials.');
+  }
+
+  return { clientId: GOOGLE_CLIENT_ID, clientSecret: GOOGLE_CLIENT_SECRET };
+}
+
+/**
+ * Get OAuth2 client with lazy initialization
+ */
+function getOAuth2Client(): google.auth.OAuth2 {
+  if (!oauth2Client) {
+    const { clientId, clientSecret } = validateGoogleCredentials();
+    oauth2Client = new google.auth.OAuth2(
+      clientId,
+      clientSecret,
+      getRedirectUri()
+    );
+  }
+  return oauth2Client;
+}
 
 const SCOPES = [
   'https://www.googleapis.com/auth/userinfo.email',
@@ -34,7 +64,7 @@ export class GoogleOAuthService {
   generateAuthUrl(email: string, userId: string): string {
     const state = Buffer.from(JSON.stringify({ email, userId })).toString('base64');
     
-    const authUrl = oauth2Client.generateAuthUrl({
+    const authUrl = getOAuth2Client().generateAuthUrl({
       access_type: 'offline',
       scope: SCOPES,
       prompt: 'consent',
@@ -54,14 +84,15 @@ export class GoogleOAuthService {
     refresh_token: string | null;
     email: string;
   }> {
-    const { tokens } = await oauth2Client.getToken(code);
-    oauth2Client.setCredentials(tokens);
+    const client = getOAuth2Client();
+    const { tokens } = await client.getToken(code);
+    client.setCredentials(tokens);
     
     // Log scopes for verification
     console.log("Granted scopes:", tokens.scope);
     
     // Get user's email
-    const oauth2 = google.oauth2({ version: 'v2', auth: oauth2Client });
+    const oauth2 = google.oauth2({ version: 'v2', auth: client });
     const { data } = await oauth2.userinfo.get();
     
     return {
@@ -80,9 +111,10 @@ export class GoogleOAuthService {
       refresh_token: integration.refreshToken
     };
     
+    const { clientId, clientSecret } = validateGoogleCredentials();
     const userOAuth2Client = new google.auth.OAuth2(
-      process.env.GOOGLE_CLIENT_ID || 'YOUR_CLIENT_ID',
-      process.env.GOOGLE_CLIENT_SECRET || 'YOUR_CLIENT_SECRET',
+      clientId,
+      clientSecret,
       getRedirectUri()
     );
     
@@ -449,7 +481,7 @@ export class GoogleOAuthService {
  * Simple function to get Google auth URL with force consent and Gmail scopes
  */
 export function getGoogleAuthUrl({ state }: { state: string }): string {
-  return oauth2Client.generateAuthUrl({
+  return getOAuth2Client().generateAuthUrl({
     access_type: 'offline',
     prompt: 'consent',
     response_type: 'code',

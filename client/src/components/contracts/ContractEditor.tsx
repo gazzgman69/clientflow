@@ -320,35 +320,33 @@ export default function ContractEditor({
         <div className="flex-1 flex gap-6 overflow-hidden min-h-0">
           {/* Left Panel - Contract Settings */}
           <div className="w-80 flex-shrink-0 space-y-4 overflow-y-auto p-2 max-h-full">
-            {/* Contact Selection */}
-            <FormField
-              control={form.control}
-              name="contactId"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Contact</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
-                    <FormControl>
-                      <SelectTrigger data-testid="select-contact">
-                        <SelectValue placeholder="Select a contact" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {contacts.map((contact) => (
-                        <SelectItem key={contact.id} value={contact.id}>
-                          {contact.firstName} {contact.lastName} ({contact.email})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            {/* Basic Fields */}
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                {/* Contact Selection */}
+                <FormField
+                  control={form.control}
+                  name="contactId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Contact</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger data-testid="select-contact">
+                            <SelectValue placeholder="Select a contact" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {contacts.map((contact) => (
+                            <SelectItem key={contact.id} value={contact.id}>
+                              {contact.firstName} {contact.lastName} ({contact.email})
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
                 <FormField
                   control={form.control}
                   name="title"

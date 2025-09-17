@@ -722,6 +722,14 @@ export const insertQuoteExtraInfoResponseSchema = createInsertSchema(quoteExtraI
 export const insertTenantSchema = createInsertSchema(tenants).omit({ id: true, createdAt: true, updatedAt: true });
 
 // Authentication validation schemas
+export const signupSchema = z.object({
+  username: z.string().min(3, 'Username must be at least 3 characters').max(20, 'Username must be less than 20 characters'),
+  email: z.string().email('Please enter a valid email address'),
+  password: z.string().min(8, 'Password must be at least 8 characters').max(128, 'Password too long'),
+  firstName: z.string().min(1, 'First name is required').max(50, 'First name too long'),
+  lastName: z.string().min(1, 'Last name is required').max(50, 'Last name too long'),
+});
+
 export const loginSchema = z.object({
   username: z.string().min(1, 'Username is required'),
   password: z.string().min(1, 'Password is required'),

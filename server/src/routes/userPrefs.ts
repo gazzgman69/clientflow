@@ -18,11 +18,16 @@ const setUserPrefSchema = z.object({
   value: z.string().min(0, 'Value is required')
 });
 
-// Middleware for authentication (using existing pattern)
+// Middleware for authentication using session
 const requireAuth = (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
-  // Get user ID from header (same pattern as other routes)
-  const userId = req.headers['user-id'] || 'test-user';
-  req.user = { id: userId as string };
+  if (!req.session?.userId) {
+    return res.status(401).json({
+      success: false,
+      error: 'Authentication required',
+      message: 'Please log in to access this endpoint'
+    });
+  }
+  req.user = { id: req.session.userId };
   next();
 };
 

@@ -7,7 +7,7 @@ import { tokenResolverService } from '../services/token-resolver';
 import { z } from 'zod';
 import { storage } from '../../storage';
 import { db } from '../../db';
-import { emailThreads, emails, emailAttachments, projects, contacts, emailThreadReads } from '@shared/schema';
+import { emailThreads, emails, emailAttachments, projects, contacts, emailThreadReads, users } from '@shared/schema';
 import { eq, and, or, sql, desc, asc } from 'drizzle-orm';
 import multer from 'multer';
 import path from 'path';
@@ -38,58 +38,58 @@ const sendEmailSchema = z.object({
   message: 'Either templateId or both subject and (text or html) are required'
 });
 
-// Middleware to require proper authentication - NO HEADER SPOOFING ALLOWED
-const requireAuth = (req: any, res: any, next: any) => {
-  // SECURITY FIX: Use session-based authentication instead of spoofable headers
-  const sessionUser = req.session?.user;
-  
-  if (sessionUser && sessionUser.id) {
-    // Session-based authentication (preferred)
-    if (!sessionUser.email) {
+// Middleware to require proper authentication - SESSION ONLY
+const requireAuth = async (req: any, res: any, next: any) => {
+  try {
+    // Get user ID from session (enforces proper auth)
+    const userId = req.session?.userId;
+    
+    if (!userId) {
       return res.status(401).json({ 
-        error: 'Invalid session', 
-        message: 'Session missing required user data'
+        error: 'Authentication required', 
+        message: 'Please log in to access this endpoint'
       });
     }
     
-    req.user = { 
-      id: sessionUser.id, 
-      email: sessionUser.email
-    };
-    return next();
-  }
-  
-  // DEVELOPMENT FALLBACK: Allow header-based auth for dev mode only
-  if (process.env.NODE_ENV === 'development') {
-    const userIdHeader = req.headers['user-id'];
-    const userId = typeof userIdHeader === 'string' ? userIdHeader : null;
+    // Fetch user email from database using session userId
+    const [user] = await db
+      .select({ id: users.id, email: users.email })
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1);
     
-    if (userId) {
-      // Use the actual user ID from header to maintain Google integration context
-      console.log(`⚠️  DEV MODE: Using header-based auth for user ${userId}`);
-      req.user = { 
-        id: userId, // Use real user ID instead of hardcoded mapping
-        email: `${userId}@example.com` // Development fallback email
-      };
-      return next();
+    if (!user || !user.email) {
+      return res.status(401).json({ 
+        error: 'User not found', 
+        message: 'Invalid user session. Please log in again.'
+      });
     }
+    
+    // Set authenticated user info with real email from database
+    req.user = { 
+      id: userId,
+      email: user.email.trim().toLowerCase()
+    };
+    
+    return next();
+  } catch (error) {
+    console.error('Authentication error:', error);
+    return res.status(500).json({ 
+      error: 'Authentication failed', 
+      message: 'Unable to verify user identity'
+    });
   }
-  
-  return res.status(401).json({ 
-    error: 'Authentication required', 
-    message: 'Please log in to access this endpoint'
-  });
 };
 
 // Helper function to get user's email address from authenticated session
 async function getUserEmail(userId: string, userEmail?: string): Promise<string> {
-  // SECURITY FIX: Use authenticated user's email, no hardcoded fallbacks
+  // SECURITY FIX: Only use authenticated email that was fetched from database
   if (userEmail && /.+@.+\..+/.test(userEmail)) {
     return userEmail.trim().toLowerCase();
   }
   
-  // If no session email, this is a security issue
-  throw new Error(`No authenticated email found for user ${userId}. Session may be invalid.`);
+  // If no session email provided, this is a security issue - should not happen with fixed requireAuth
+  throw new Error(`No authenticated email found for user ${userId}. Authentication middleware should have verified this.`);
 }
 
 /**
@@ -752,10 +752,10 @@ router.get('/email-threads/:threadId/messages', requireAuth, async (req: any, re
 /**
  * POST /api/dev/send-test-email - Development endpoint for testing email formatting
  */
-router.post('/dev/send-test-email', requireAuth, async (req, res) => {
+router.post('/dev/send-test-email', requireAuth, async (req: any, res) => {
   try {
     const { to } = req.body;
-    const userId = 'test-user'; // Use same pattern as other endpoints
+    const userId = req.user.id;
     
     if (!to) {
       return res.status(400).json({ error: 'Recipient email address is required' });
@@ -816,7 +816,7 @@ router.post('/dev/send-test-email', requireAuth, async (req, res) => {
  * POST /api/email-threads/:threadId/reply
  * Send a reply in an email thread with database sync
  */
-router.post('/email-threads/:threadId/reply', upload.array('attachments'), async (req, res) => {
+router.post('/email-threads/:threadId/reply', requireAuth, upload.array('attachments'), async (req: any, res) => {
   try {
     const { threadId } = req.params;
     const { to, cc = [], bcc = [], subject, body } = req.body;
@@ -833,8 +833,8 @@ router.post('/email-threads/:threadId/reply', upload.array('attachments'), async
       return res.status(404).json({ error: 'Thread not found' });
     }
 
-    // Use test-user for now (should get from auth)
-    const userId = 'test-user';
+    // Get user from authenticated session
+    const userId = req.user.id;
 
     // Build context for token resolution
     let resolvedBody = body;
@@ -971,8 +971,8 @@ router.post('/projects/:projectId/compose-email', upload.array('attachments'), a
       }
     }
 
-    // Use test-user for now (should get from auth)
-    const userId = 'test-user';
+    // Get user from authenticated session
+    const userId = req.user.id;
 
     // Send email via Gmail with sync
     const emailRequest = {
@@ -999,7 +999,7 @@ router.post('/projects/:projectId/compose-email', upload.array('attachments'), a
  * POST /api/projects/:projectId/sync-emails
  * Sync Gmail emails for project addresses
  */
-router.post('/projects/:projectId/sync-emails', async (req, res) => {
+router.post('/projects/:projectId/sync-emails', requireAuth, async (req: any, res) => {
   try {
     const { projectId } = req.params;
     const { addresses } = req.body;
@@ -1008,8 +1008,8 @@ router.post('/projects/:projectId/sync-emails', async (req, res) => {
       return res.status(400).json({ error: 'addresses array is required' });
     }
 
-    // Use test-user for now (should get from auth)
-    const userId = 'test-user';
+    // Get user from authenticated session
+    const userId = req.user.id;
 
     // Sync Gmail threads for project
     const syncResult = await gmailService.syncProjectThreads(userId, projectId, addresses);
@@ -1034,12 +1034,12 @@ router.post('/projects/:projectId/sync-emails', async (req, res) => {
  * GET /api/attachments/:attachmentId/download
  * Download email attachment
  */
-router.get('/attachments/:attachmentId/download', async (req, res) => {
+router.get('/attachments/:attachmentId/download', requireAuth, async (req: any, res) => {
   try {
     const { attachmentId } = req.params;
 
-    // Use test-user for now (should get from auth)
-    const userId = 'test-user';
+    // Get user from authenticated session
+    const userId = req.user.id;
 
     // Get attachment stream
     const result = await attachmentsService.getAttachmentStream(attachmentId, userId);
@@ -1065,12 +1065,12 @@ router.get('/attachments/:attachmentId/download', async (req, res) => {
  * POST /api/email-threads/:threadId/mark-read
  * Mark thread as read for user
  */
-router.post('/email-threads/:threadId/mark-read', async (req, res) => {
+router.post('/email-threads/:threadId/mark-read', requireAuth, async (req: any, res) => {
   try {
     const { threadId } = req.params;
 
-    // Use test-user for now (should get from auth)
-    const userId = 'test-user';
+    // Get user from authenticated session
+    const userId = req.user.id;
 
     // Mark thread as read - insert or update in emailThreadReads table
     await db

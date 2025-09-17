@@ -46,14 +46,25 @@ router.get('/auth/google', (req, res) => {
   }
 });
 
+// Authentication middleware for OAuth routes
+const requireAuth = async (req: any, res: any, next: any) => {
+  if (!req.session?.userId) {
+    return res.status(401).json({ 
+      error: 'Authentication required', 
+      message: 'Please log in to access this endpoint'
+    });
+  }
+  req.authenticatedUserId = req.session.userId;
+  next();
+};
+
 /**
  * Start OAuth flow - Generate auth URL
  */
-router.post('/auth/google/start', async (req, res) => {
+router.post('/auth/google/start', requireAuth, async (req: any, res) => {
   try {
     const { email } = req.body;
-    const userIdHeader = req.headers['user-id'];
-    const userId = typeof userIdHeader === 'string' ? userIdHeader : 'test-user'; // In production, get from session
+    const userId = req.authenticatedUserId;
     
     if (!email) {
       return res.status(400).json({ error: 'Email is required' });
@@ -116,8 +127,11 @@ router.get('/auth/google/callback', async (req, res) => {
     delete req.session.oauth_popup;
     delete req.session.oauth_origin;
     
-    // Use test-user for now (TODO: Get from actual auth context)
-    const userId = 'test-user';
+    // Get user from authenticated session
+    if (!req.session?.userId) {
+      return res.status(401).send('Authentication required');
+    }
+    const userId = req.session.userId;
     
     // Exchange code for tokens
     const tokens = await googleOAuthService.exchangeCodeForTokens(code as string);
@@ -326,10 +340,9 @@ router.delete('/calendar-integrations/:id', async (req, res) => {
 /**
  * Google Auth Status - Check if user has connected Google account and validate token
  */
-router.get('/api/auth/google/status', async (req, res) => {
+router.get('/api/auth/google/status', requireAuth, async (req: any, res) => {
   try {
-    const userIdHeader = req.headers['user-id'];
-    const userId = typeof userIdHeader === 'string' ? userIdHeader : 'test-user';
+    const userId = req.authenticatedUserId;
     
     // Check if user has any active Google integrations
     const integrations = await storage.getCalendarIntegrationsByUser(userId);
@@ -408,10 +421,9 @@ router.get('/api/auth/google/status', async (req, res) => {
 /**
  * Google Auth Disconnect - Remove Google tokens for user  
  */
-router.post('/api/auth/google/disconnect', async (req, res) => {
+router.post('/api/auth/google/disconnect', requireAuth, async (req: any, res) => {
   try {
-    const userIdHeader = req.headers['user-id'];
-    const userId = typeof userIdHeader === 'string' ? userIdHeader : 'test-user';
+    const userId = req.authenticatedUserId;
     
     // Find and delete all Google integrations for this user
     const integrations = await storage.getCalendarIntegrationsByUser(userId);

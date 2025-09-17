@@ -85,6 +85,7 @@ import {
   insertQuoteExtraInfoFieldSchema,
   insertQuoteExtraInfoConfigSchema,
   insertQuoteExtraInfoResponseSchema,
+  signupSchema,
   loginSchema,
   requestPasswordResetSchema,
   resetPasswordSchema,
@@ -264,12 +265,6 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     // Check for authenticated user ID in session
     if (req.session && req.session.userId) {
       return req.session.userId;
-    }
-    
-    // In development, allow fallback to test user for backwards compatibility
-    if (process.env.NODE_ENV === 'development') {
-      console.warn('⚠️  DEV MODE: Using fallback test-user - please login properly');
-      return 'test-user';
     }
     
     // No session found - user must login
@@ -543,6 +538,77 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   });
   
   // Main user authentication endpoints  
+  // User signup endpoint
+  app.post('/api/auth/signup', authLimiter, async (req, res) => {
+    try {
+      const { username, email, password, firstName, lastName } = signupSchema.parse(req.body);
+      
+      // Check if user already exists
+      const existingUser = await storage.getUserByUsername(username);
+      if (existingUser) {
+        return res.status(409).json({ error: 'Username already taken' });
+      }
+      
+      const users = await storage.getUsers();
+      const existingEmail = users.find(u => u.email === email);
+      if (existingEmail) {
+        return res.status(409).json({ error: 'Email already registered' });
+      }
+      
+      // Hash password with bcrypt
+      const hashedPassword = await hashPassword(password);
+      
+      // Create new user
+      const newUser = await storage.createUser({
+        username,
+        email,
+        password: hashedPassword,
+        firstName,
+        lastName,
+        role: 'user' // Default role
+      });
+      
+      // Regenerate session ID for security
+      req.session.regenerate((err: any) => {
+        if (err) {
+          console.error('Session regeneration error:', err);
+          return res.status(500).json({ error: 'Signup failed' });
+        }
+        
+        // Store user ID in session (auto-login after signup)
+        req.session.userId = newUser.id;
+        
+        res.json({ 
+          success: true, 
+          user: { 
+            id: newUser.id, 
+            username: newUser.username, 
+            email: newUser.email, 
+            firstName: newUser.firstName,
+            lastName: newUser.lastName,
+            role: newUser.role
+          } 
+        });
+      });
+    } catch (error: any) {
+      console.error('Signup error:', error);
+      
+      // Handle validation errors specifically with 400 status
+      if (error.name === 'ZodError' || error.issues) {
+        return res.status(400).json({ 
+          error: 'Validation failed', 
+          issues: error.issues?.map((issue: any) => ({
+            field: issue.path.join('.'),
+            message: issue.message
+          })) || []
+        });
+      }
+      
+      // Handle other errors with 500 status
+      res.status(500).json({ error: 'Registration failed' });
+    }
+  });
+
   app.post('/api/auth/login', authLimiter, async (req, res) => {
     try {
       const { username, password } = loginSchema.parse(req.body);
@@ -583,6 +649,19 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
       });
     } catch (error: any) {
       console.error('Login error:', error);
+      
+      // Handle validation errors specifically with 400 status
+      if (error.name === 'ZodError' || error.issues) {
+        return res.status(400).json({ 
+          error: 'Validation failed', 
+          issues: error.issues?.map((issue: any) => ({
+            field: issue.path.join('.'),
+            message: issue.message
+          })) || []
+        });
+      }
+      
+      // Handle other errors with 500 status
       res.status(500).json({ error: 'Authentication failed' });
     }
   });

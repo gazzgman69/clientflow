@@ -38,11 +38,16 @@ const detectSettingsSchema = z.object({
   email: z.string().email('Invalid email address')
 });
 
-// Middleware for authentication (placeholder - should integrate with your auth system)
+// Middleware for authentication using session
 const requireAuth = (req: any, res: any, next: any) => {
-  // In production, validate JWT token or session
-  // For now, we'll assume user is authenticated
-  req.user = { id: 'test-user' }; // Placeholder user ID
+  if (!req.session?.userId) {
+    return res.status(401).json({
+      success: false,
+      error: 'Authentication required',
+      message: 'Please log in to access this endpoint'
+    });
+  }
+  req.user = { id: req.session.userId };
   next();
 };
 

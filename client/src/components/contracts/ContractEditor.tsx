@@ -30,7 +30,6 @@ const contractEditorSchema = z.object({
   title: z.string().min(1, "Title is required"),
   description: z.string().optional(),
   terms: z.string().min(1, "Contract content is required"),
-  amount: z.number().min(0).optional(),
   dueDate: z.date().optional(),
   status: z.enum(["draft", "sent", "signed", "completed", "cancelled"]).default("draft"),
 });
@@ -349,26 +348,6 @@ export default function ContractEditor({
                       <FormLabel>Description</FormLabel>
                       <FormControl>
                         <Input {...field} placeholder="Brief description" data-testid="input-contract-description" />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="amount"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Contract Value (Optional)</FormLabel>
-                      <FormControl>
-                        <Input 
-                          type="number" 
-                          {...field}
-                          onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
-                          placeholder="0.00" 
-                          data-testid="input-contract-amount" 
-                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>

@@ -294,7 +294,7 @@ export default function ContractEditor({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-6xl max-h-[90vh] overflow-hidden flex flex-col dialog-content">
+      <DialogContent className="max-w-6xl max-h-[90vh] flex flex-col dialog-content">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <FileText className="h-5 w-5" />
@@ -302,9 +302,9 @@ export default function ContractEditor({
           </DialogTitle>
         </DialogHeader>
 
-        <div className="flex-1 overflow-hidden flex gap-6">
+        <div className="flex-1 flex gap-6 overflow-visible">
           {/* Left Panel - Contract Settings */}
-          <div className="w-80 flex-shrink-0 space-y-4 overflow-y-auto">
+          <div className="w-80 flex-shrink-0 space-y-4 overflow-y-auto p-2">
             {/* Contact Selection */}
             <div className="space-y-2">
               <Label>Contact</Label>

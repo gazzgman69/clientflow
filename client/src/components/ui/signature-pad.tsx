@@ -71,7 +71,7 @@ const SignaturePad = forwardRef<SignaturePadRef, SignaturePadProps>(
         ctx.lineCap = 'round';
         ctx.lineJoin = 'round';
         ctx.strokeStyle = '#000000';
-        ctx.lineWidth = 1;
+        ctx.lineWidth = 0.5;
       }
     };
 

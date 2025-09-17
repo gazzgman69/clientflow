@@ -489,7 +489,7 @@ export default function ContractEditor({
               <div className="flex-1 min-h-0 overflow-visible p-2">
                 <RichTextEditor
                   ref={editorRef}
-                  content=""
+                  content={form.watch('terms') || ""}
                   onChange={handleEditorChange}
                   className="h-full"
                   data-testid="editor-contract-content"

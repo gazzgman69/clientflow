@@ -168,7 +168,7 @@ export default function TemplatesPage() {
   });
 
   // Filter templates by active type
-  const filteredTemplates = templates.filter(template => template.type === activeType);
+  const filteredTemplates = (templates || []).filter(template => template.type === activeType);
 
   // Create template mutation
   const createMutation = useMutation({

@@ -1588,7 +1588,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   });
 
   // Documents by contact (frontend expects these routes)
-  app.get("/api/contacts/:contactId/quotes", async (req, res) => {
+  app.get("/api/contacts/:contactId/quotes", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
     try {
       const quotes = await storage.getQuotesByContact(req.params.contactId);
       res.json(quotes);
@@ -1598,7 +1598,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
 
-  app.get("/api/contacts/:contactId/contracts", async (req, res) => {
+  app.get("/api/contacts/:contactId/contracts", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
     try {
       const contracts = await storage.getContractsByClient(req.params.contactId);
       res.json(contracts);
@@ -1608,7 +1608,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
 
-  app.get("/api/contacts/:contactId/invoices", async (req, res) => {
+  app.get("/api/contacts/:contactId/invoices", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
     try {
       const invoices = await storage.getInvoicesByContactId(req.params.contactId);
       res.json(invoices);
@@ -1619,7 +1619,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   });
 
   // Combined documents endpoint for Documents page
-  app.get("/api/documents", async (req, res) => {
+  app.get("/api/documents", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
     try {
       const { clientId, projectId, status, type } = req.query;
       
@@ -1666,7 +1666,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   });
 
   // Status workflow actions
-  app.post("/api/quotes/:id/send", async (req, res) => {
+  app.post("/api/quotes/:id/send", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
     try {
       const quote = await storage.updateQuote(req.params.id, {
         status: 'sent',
@@ -1681,7 +1681,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
 
-  app.post("/api/quotes/:id/approve", async (req, res) => {
+  app.post("/api/quotes/:id/approve", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
     try {
       const quote = await storage.updateQuote(req.params.id, {
         status: 'approved',
@@ -2288,7 +2288,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
 
-  app.post("/api/contracts/:id/send", async (req, res) => {
+  app.post("/api/contracts/:id/send", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
     try {
       const contract = await storage.updateContract(req.params.id, {
         status: 'sent'
@@ -2302,7 +2302,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
 
-  app.post("/api/contracts/:id/sign", async (req, res) => {
+  app.post("/api/contracts/:id/sign", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
     try {
       const contract = await storage.updateContract(req.params.id, {
         status: 'signed',
@@ -2317,7 +2317,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
 
-  app.post("/api/invoices/:id/send", async (req, res) => {
+  app.post("/api/invoices/:id/send", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
     try {
       const invoice = await storage.updateInvoice(req.params.id, {
         status: 'sent',
@@ -2332,7 +2332,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
 
-  app.post("/api/invoices/:id/pay", async (req, res) => {
+  app.post("/api/invoices/:id/pay", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
     try {
       const invoice = await storage.updateInvoice(req.params.id, {
         status: 'paid',
@@ -2409,7 +2409,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   });
 
   // Emails
-  app.get("/api/emails", async (req, res) => {
+  app.get("/api/emails", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
     try {
       const { threadId, clientId } = req.query;
       let emails;
@@ -2428,7 +2428,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
 
-  app.post("/api/emails", async (req, res) => {
+  app.post("/api/emails", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
     try {
       const emailData = insertEmailSchema.parse(req.body);
       const email = await storage.createEmail({
@@ -2443,7 +2443,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   });
 
   // SMS Messages
-  app.get("/api/sms", async (req, res) => {
+  app.get("/api/sms", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
     try {
       const { threadId, clientId, phone } = req.query;
       let smsMessages;
@@ -2464,7 +2464,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
 
-  app.post("/api/sms", async (req, res) => {
+  app.post("/api/sms", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
     try {
       const smsData = insertSmsMessageSchema.parse(req.body);
       
@@ -2516,7 +2516,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
 
-  app.patch("/api/sms/:id", async (req, res) => {
+  app.patch("/api/sms/:id", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
     try {
       const { id } = req.params;
       const updateData = req.body;
@@ -2532,9 +2532,38 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
 
-  // SMS Webhook for incoming messages from Twilio
-  app.post("/api/sms/webhook", async (req, res) => {
+  // SMS Webhook for incoming messages from Twilio (SECURE: with signature validation)
+  app.post("/api/sms/webhook", express.urlencoded({ extended: false }), async (req, res) => {
     try {
+      // SECURITY: Validate Twilio webhook signature
+      const twilioSignature = req.headers['x-twilio-signature'];
+      const webhookUrl = `${req.protocol}://${req.get('host')}${req.originalUrl}`;
+      
+      if (!twilioSignature) {
+        console.error('❌ Missing Twilio signature header');
+        return res.status(403).send('Missing X-Twilio-Signature header');
+      }
+      
+      // Convert request body to the format expected by Twilio signature validation
+      const params = req.body as Record<string, string>;
+      
+      // Verify webhook authenticity using Twilio signature validation
+      const isValid = await twilioService.validateWebhookSignature(
+        twilioSignature as string,
+        webhookUrl,
+        params
+      );
+      
+      if (!isValid) {
+        console.error('❌ Twilio webhook signature verification failed');
+        console.error('URL:', webhookUrl);
+        console.error('Signature:', twilioSignature);
+        console.error('Params:', params);
+        return res.status(403).send('Invalid webhook signature');
+      }
+      
+      console.log('✅ Twilio webhook signature verified');
+      
       // Parse incoming Twilio webhook
       const incomingMessage = await twilioService.handleIncomingWebhook(req.body);
       
@@ -2559,7 +2588,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   });
 
   // SMS Status callback for delivery updates
-  app.post("/api/sms/status/:id", async (req, res) => {
+  app.post("/api/sms/status/:id", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
     try {
       const { id } = req.params;
       const { MessageStatus, ErrorCode } = req.body; // Twilio status webhook data
@@ -2584,7 +2613,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   });
 
   // Check SMS delivery status
-  app.get("/api/sms/:id/status", async (req, res) => {
+  app.get("/api/sms/:id/status", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
     try {
       const { id } = req.params;
       const sms = await storage.getSmsMessage(id);
@@ -2621,7 +2650,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   });
 
   // Message Templates
-  app.get("/api/message-templates", async (req, res) => {
+  app.get("/api/message-templates", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
     try {
       const { type } = req.query;
       let templates;
@@ -2638,7 +2667,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
 
-  app.post("/api/message-templates", async (req, res) => {
+  app.post("/api/message-templates", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
     try {
       const templateData = insertMessageTemplateSchema.parse(req.body);
       const template = await storage.createMessageTemplate(templateData);
@@ -2648,7 +2677,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
 
-  app.patch("/api/message-templates/:id", async (req, res) => {
+  app.patch("/api/message-templates/:id", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
     try {
       const { id } = req.params;
       const updateData = req.body;
@@ -2664,7 +2693,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
 
-  app.delete("/api/message-templates/:id", async (req, res) => {
+  app.delete("/api/message-templates/:id", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
     try {
       const { id } = req.params;
       const deleted = await storage.deleteMessageTemplate(id);
@@ -2680,7 +2709,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   });
 
   // Message Threads
-  app.get("/api/message-threads", async (req, res) => {
+  app.get("/api/message-threads", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
     try {
       const { clientId } = req.query;
       let threads;
@@ -2697,7 +2726,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
 
-  app.post("/api/message-threads", async (req, res) => {
+  app.post("/api/message-threads", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
     try {
       const threadData = insertMessageThreadSchema.parse(req.body);
       const thread = await storage.createMessageThread(threadData);
@@ -2707,7 +2736,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
 
-  app.patch("/api/message-threads/:id", async (req, res) => {
+  app.patch("/api/message-threads/:id", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
     try {
       const { id } = req.params;
       const updateData = req.body;
@@ -2724,7 +2753,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   });
 
   // Automations
-  app.get("/api/automations", async (req, res) => {
+  app.get("/api/automations", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
     try {
       const automations = await storage.getAutomations();
       res.json(automations);
@@ -2733,7 +2762,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
 
-  app.post("/api/automations", async (req, res) => {
+  app.post("/api/automations", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
     try {
       const automationData = insertAutomationSchema.parse(req.body);
       const automation = await storage.createAutomation(automationData);
@@ -2788,7 +2817,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   });
 
   // Members (Musicians)
-  app.get("/api/members", async (req, res) => {
+  app.get("/api/members", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
     try {
       const members = await storage.getMembers();
       res.json(members);
@@ -2797,7 +2826,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
 
-  app.get("/api/members/:id", async (req, res) => {
+  app.get("/api/members/:id", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
     try {
       const member = await storage.getMember(req.params.id);
       if (!member) {
@@ -2809,7 +2838,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
 
-  app.post("/api/members", async (req, res) => {
+  app.post("/api/members", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
     try {
       const memberData = insertMemberSchema.parse(req.body);
       const member = await storage.createMember(memberData);
@@ -2819,7 +2848,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
 
-  app.patch("/api/members/:id", async (req, res) => {
+  app.patch("/api/members/:id", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
     try {
       const memberData = insertMemberSchema.partial().parse(req.body);
       const member = await storage.updateMember(req.params.id, memberData);
@@ -2832,7 +2861,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
 
-  app.delete("/api/members/:id", async (req, res) => {
+  app.delete("/api/members/:id", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
     try {
       const deleted = await storage.deleteMember(req.params.id);
       if (!deleted) {
@@ -2845,7 +2874,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   });
 
   // Member Availability
-  app.get("/api/members/:id/availability", async (req, res) => {
+  app.get("/api/members/:id/availability", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
     try {
       const availability = await storage.getMemberAvailability(req.params.id);
       res.json(availability);
@@ -2854,7 +2883,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
 
-  app.post("/api/members/:id/availability", async (req, res) => {
+  app.post("/api/members/:id/availability", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
     try {
       const availabilityData = insertMemberAvailabilitySchema.parse({
         ...req.body,
@@ -2869,7 +2898,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
 
 
   // Project Members
-  app.get("/api/projects/:id/members", async (req, res) => {
+  app.get("/api/projects/:id/members", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
     try {
       const members = await storage.getProjectMembers(req.params.id);
       res.json(members);
@@ -2878,7 +2907,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
 
-  app.post("/api/projects/:id/members", async (req, res) => {
+  app.post("/api/projects/:id/members", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
     try {
       const memberData = insertProjectMemberSchema.parse({
         ...req.body,
@@ -2891,7 +2920,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
 
-  app.delete("/api/projects/:projectId/members/:memberId", async (req, res) => {
+  app.delete("/api/projects/:projectId/members/:memberId", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
     try {
       const deleted = await storage.removeProjectMember(req.params.projectId, req.params.memberId);
       if (!deleted) {
@@ -2904,7 +2933,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   });
 
   // Project Files
-  app.get("/api/projects/:id/files", async (req, res) => {
+  app.get("/api/projects/:id/files", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
     try {
       const files = await storage.getProjectFiles(req.params.id);
       res.json(files);
@@ -2913,7 +2942,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
 
-  app.post("/api/projects/:id/files", async (req, res) => {
+  app.post("/api/projects/:id/files", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
     try {
       const fileData = insertProjectFileSchema.parse({
         ...req.body,
@@ -2926,7 +2955,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
 
-  app.delete("/api/files/:id", async (req, res) => {
+  app.delete("/api/files/:id", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
     try {
       const deleted = await storage.deleteProjectFile(req.params.id);
       if (!deleted) {
@@ -2939,7 +2968,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   });
 
   // Project Notes
-  app.get("/api/projects/:id/notes", async (req, res) => {
+  app.get("/api/projects/:id/notes", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
     try {
       const notes = await storage.getProjectNotes(req.params.id);
       res.json(notes);
@@ -2948,7 +2977,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
 
-  app.post("/api/projects/:id/notes", async (req, res) => {
+  app.post("/api/projects/:id/notes", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
     try {
       const noteData = insertProjectNoteSchema.parse({
         ...req.body,
@@ -2961,7 +2990,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
 
-  app.delete("/api/notes/:id", async (req, res) => {
+  app.delete("/api/notes/:id", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
     try {
       const deleted = await storage.deleteProjectNote(req.params.id);
       if (!deleted) {
@@ -2974,7 +3003,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   });
 
   // Enhanced Dashboard APIs
-  app.get("/api/dashboard/client-activity", async (req, res) => {
+  app.get("/api/dashboard/client-activity", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
     try {
       // Mock client activity data - in real implementation, would aggregate from multiple sources
       const activities = [
@@ -3007,7 +3036,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
 
-  app.get("/api/dashboard/pending-items", async (req, res) => {
+  app.get("/api/dashboard/pending-items", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
     try {
       // Get pending quotes, contracts, invoices from database
       const quotes = await storage.getQuotes();
@@ -3062,7 +3091,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
 
-  app.get("/api/dashboard/business-priorities", async (req, res) => {
+  app.get("/api/dashboard/business-priorities", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
     try {
       // Get leads that need attention
       const leads = await storage.getLeads();
@@ -3100,7 +3129,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
 
-  app.get("/api/dashboard/recent-emails", async (req, res) => {
+  app.get("/api/dashboard/recent-emails", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
     try {
       const emails = await storage.getEmails();
       const recentEmails = emails
@@ -3195,7 +3224,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
 
-  app.patch("/api/events/:id", async (req, res) => {
+  app.patch("/api/events/:id", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
     try {
       const validatedData = insertEventSchema.partial().parse(req.body);
       const event = await storage.updateEvent(req.params.id, validatedData);
@@ -3222,7 +3251,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
 
-  app.delete("/api/events/:id", async (req, res) => {
+  app.delete("/api/events/:id", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
     try {
       // Get event before deletion for Google sync
       const event = await storage.getEvent(req.params.id);
@@ -3263,7 +3292,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   });
 
   // Calendar Integrations API
-  app.get("/api/calendar-integrations", async (req, res) => {
+  app.get("/api/calendar-integrations", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
     try {
       const { userId } = req.query;
       let integrations;
@@ -3278,7 +3307,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
 
-  app.get("/api/calendar-integrations/:id", async (req, res) => {
+  app.get("/api/calendar-integrations/:id", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
     try {
       const integration = await storage.getCalendarIntegration(req.params.id);
       if (!integration) {
@@ -3290,7 +3319,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
 
-  app.post("/api/calendar-integrations", async (req, res) => {
+  app.post("/api/calendar-integrations", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
     try {
       const validatedData = insertCalendarIntegrationSchema.parse(req.body);
       const integration = await storage.createCalendarIntegration(validatedData);
@@ -3300,7 +3329,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
 
-  app.patch("/api/calendar-integrations/:id", async (req, res) => {
+  app.patch("/api/calendar-integrations/:id", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
     try {
       const validatedData = insertCalendarIntegrationSchema.partial().parse(req.body);
       const integration = await storage.updateCalendarIntegration(req.params.id, validatedData);
@@ -3313,7 +3342,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
 
-  app.delete("/api/calendar-integrations/:id", async (req, res) => {
+  app.delete("/api/calendar-integrations/:id", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
     try {
       const deleted = await storage.deleteCalendarIntegration(req.params.id);
       if (!deleted) {
@@ -3326,7 +3355,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   });
 
   // Calendar Sync API - Enhanced with bidirectional Google sync
-  app.post("/api/calendar-integrations/:id/sync", async (req, res) => {
+  app.post("/api/calendar-integrations/:id/sync", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
     try {
       console.log('🚀 Sync endpoint called for integration:', req.params.id);
       const integrationId = req.params.id;
@@ -3376,7 +3405,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   });
 
   // Calendar Sync Logs API
-  app.get("/api/calendar-sync-logs", async (req, res) => {
+  app.get("/api/calendar-sync-logs", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
     try {
       const { integrationId } = req.query;
       const logs = await storage.getCalendarSyncLogs(integrationId as string || undefined);
@@ -3386,7 +3415,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
 
-  app.post("/api/calendar-sync-logs", async (req, res) => {
+  app.post("/api/calendar-sync-logs", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
     try {
       const validatedData = insertCalendarSyncLogSchema.parse(req.body);
       const log = await storage.createCalendarSyncLog(validatedData);
@@ -3396,7 +3425,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
 
-  app.patch("/api/calendar-sync-logs/:id", async (req, res) => {
+  app.patch("/api/calendar-sync-logs/:id", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
     try {
       const validatedData = insertCalendarSyncLogSchema.partial().parse(req.body);
       const log = await storage.updateCalendarSyncLog(req.params.id, validatedData);
@@ -3467,7 +3496,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   });
 
   // Enhanced sync endpoint with Google Calendar integration
-  app.post("/api/calendar-integrations/:id/sync", async (req, res) => {
+  app.post("/api/calendar-integrations/:id/sync", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
     try {
       const integrationId = req.params.id;
       const integration = await storage.getCalendarIntegration(integrationId);
@@ -3561,7 +3590,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   });
 
   // Cleanup orphaned Google Calendar events
-  app.post("/api/calendar-integrations/:id/cleanup", async (req, res) => {
+  app.post("/api/calendar-integrations/:id/cleanup", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
     try {
       const integration = await storage.getCalendarIntegration(req.params.id);
       if (!integration) {
@@ -3585,7 +3614,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   });
 
   // iCal Routes
-  app.post("/api/calendar-integrations/ical", async (req, res) => {
+  app.post("/api/calendar-integrations/ical", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
     try {
       const { icalUrl, calendarName, userId } = req.body;
       
@@ -3621,7 +3650,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   });
 
   // Export CRM events as iCal feed
-  app.get("/api/calendar/ical/:integrationId", async (req, res) => {
+  app.get("/api/calendar/ical/:integrationId", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
     try {
       const integrationId = req.params.integrationId;
       
@@ -3655,7 +3684,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   });
 
   // Export all CRM events as iCal feed
-  app.get("/api/calendar/ical", async (req, res) => {
+  app.get("/api/calendar/ical", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
     try {
       const events = await storage.getEvents();
       const icalFeed = await icalService.generateICalFeed(events, 'CRM Calendar');

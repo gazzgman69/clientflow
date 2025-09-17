@@ -54,6 +54,48 @@ export class TwilioService {
   }
 
   /**
+   * Validate Twilio webhook signature for security
+   * Implements Twilio's exact signature validation algorithm
+   */
+  async validateWebhookSignature(signature: string, url: string, params: Record<string, string>): Promise<boolean> {
+    try {
+      this.validateCredentials();
+      
+      if (!this.config) {
+        throw new Error('Twilio credentials not configured');
+      }
+      
+      const crypto = require('crypto');
+      const authToken = this.config.authToken;
+      
+      // SECURITY: Implement Twilio's exact signature validation algorithm
+      // 1. Start with the full URL (including query string if any)
+      let baseString = url;
+      
+      // 2. Sort parameters alphabetically by key and append to URL
+      const sortedKeys = Object.keys(params).sort();
+      for (const key of sortedKeys) {
+        baseString += key + params[key];
+      }
+      
+      // 3. Create HMAC-SHA1 with auth token and base64 encode
+      const expectedSignature = crypto
+        .createHmac('sha1', authToken)
+        .update(baseString)
+        .digest('base64');
+      
+      // 4. Compare signatures using timing-safe comparison
+      return crypto.timingSafeEqual(
+        Buffer.from(signature, 'base64'),
+        Buffer.from(expectedSignature, 'base64')
+      );
+    } catch (error) {
+      console.error('Error validating Twilio webhook signature:', error);
+      return false;
+    }
+  }
+
+  /**
    * Send an SMS message via Twilio
    */
   async sendSMS(message: TwilioMessage): Promise<TwilioResponse> {

@@ -51,6 +51,7 @@ import {
   quoteExtraInfoFields, quoteExtraInfoConfig, quoteExtraInfoResponses
 } from "@shared/schema";
 import { randomUUID } from "crypto";
+import { TenantScopedStorage } from './utils/tenantScopedStorage';
 import { drizzle } from 'drizzle-orm/neon-http';
 import { neon } from '@neondatabase/serverless';
 import { eq, and, desc, or, isNull } from 'drizzle-orm';
@@ -74,237 +75,236 @@ export interface IStorage {
   getTenant(id: string): Promise<Tenant | undefined>;
   
   // Users
-  getUsers(): Promise<User[]>;
-  getUser(id: string): Promise<User | undefined>;
-  getUserByUsername(username: string): Promise<User | undefined>;
-  createUser(user: InsertUser): Promise<User>;
-  updateUser(id: string, user: Partial<InsertUser>): Promise<User | undefined>;
+  getUsers(tenantId: string): Promise<User[]>;
+  getUser(id: string, tenantId: string): Promise<User | undefined>;
+  getUserByUsername(username: string, tenantId: string): Promise<User | undefined>;
+  createUser(user: InsertUser, tenantId: string): Promise<User>;
+  updateUser(id: string, user: Partial<InsertUser>, tenantId: string): Promise<User | undefined>;
   
   // Leads
-  getLeads(userId?: string): Promise<Lead[]>;
-  getLead(id: string): Promise<Lead | undefined>;
-  createLead(lead: InsertLead): Promise<Lead>;
-  updateLead(id: string, lead: Partial<InsertLead>): Promise<Lead | undefined>;
-  deleteLead(id: string): Promise<boolean>;
+  getLeads(tenantId: string, userId?: string): Promise<Lead[]>;
+  getLead(id: string, tenantId: string): Promise<Lead | undefined>;
+  createLead(lead: InsertLead, tenantId: string): Promise<Lead>;
+  updateLead(id: string, lead: Partial<InsertLead>, tenantId: string): Promise<Lead | undefined>;
+  deleteLead(id: string, tenantId: string): Promise<boolean>;
   
   // Contacts
-  getContacts(userId?: string): Promise<Contact[]>;
-  getContact(id: string): Promise<Contact | undefined>;
-  getContactByEmail(email: string): Promise<Contact | undefined>;
-  getContactById(id: string): Promise<Contact | undefined>;
-  createContact(contact: InsertContact): Promise<Contact>;
-  updateContact(id: string, contact: Partial<InsertContact>): Promise<Contact | undefined>;
-  deleteContact(id: string): Promise<boolean>;
+  getContacts(tenantId: string, userId?: string): Promise<Contact[]>;
+  getContact(id: string, tenantId: string): Promise<Contact | undefined>;
+  getContactByEmail(email: string, tenantId: string): Promise<Contact | undefined>;
+  getContactById(id: string, tenantId: string): Promise<Contact | undefined>;
+  createContact(contact: InsertContact, tenantId: string): Promise<Contact>;
+  updateContact(id: string, contact: Partial<InsertContact>, tenantId: string): Promise<Contact | undefined>;
+  deleteContact(id: string, tenantId: string): Promise<boolean>;
   
   // Projects
-  getProjects(userId?: string): Promise<Project[]>;
-  getProject(id: string): Promise<Project | undefined>;
-  getProjectsByContact(contactId: string): Promise<Project[]>;
-  createProject(project: InsertProject): Promise<Project>;
-  updateProject(id: string, project: Partial<InsertProject>): Promise<Project | undefined>;
-  deleteProject(id: string): Promise<boolean>;
+  getProjects(tenantId: string, userId?: string): Promise<Project[]>;
+  getProject(id: string, tenantId: string): Promise<Project | undefined>;
+  getProjectsByContact(contactId: string, tenantId: string): Promise<Project[]>;
+  createProject(project: InsertProject, tenantId: string): Promise<Project>;
+  updateProject(id: string, project: Partial<InsertProject>, tenantId: string): Promise<Project | undefined>;
+  deleteProject(id: string, tenantId: string): Promise<boolean>;
   
   // Quotes
-  getQuotes(): Promise<Quote[]>;
-  getQuote(id: string): Promise<Quote | undefined>;
-  getQuotesByContact(contactId: string): Promise<Quote[]>;
-  createQuote(quote: InsertQuote): Promise<Quote>;
-  updateQuote(id: string, quote: Partial<InsertQuote>): Promise<Quote | undefined>;
-  deleteQuote(id: string): Promise<boolean>;
+  getQuotes(tenantId: string): Promise<Quote[]>;
+  getQuote(id: string, tenantId: string): Promise<Quote | undefined>;
+  getQuotesByContact(contactId: string, tenantId: string): Promise<Quote[]>;
+  createQuote(quote: InsertQuote, tenantId: string): Promise<Quote>;
+  updateQuote(id: string, quote: Partial<InsertQuote>, tenantId: string): Promise<Quote | undefined>;
+  deleteQuote(id: string, tenantId: string): Promise<boolean>;
 
   // Enhanced Quotes System
   // Quote Packages
-  getQuotePackages(): Promise<QuotePackage[]>;
-  getQuotePackage(id: string): Promise<QuotePackage | undefined>;
-  createQuotePackage(pkg: InsertQuotePackage): Promise<QuotePackage>;
-  updateQuotePackage(id: string, pkg: Partial<InsertQuotePackage>): Promise<QuotePackage | undefined>;
-  deleteQuotePackage(id: string): Promise<boolean>;
+  getQuotePackages(tenantId: string): Promise<QuotePackage[]>;
+  getQuotePackage(id: string, tenantId: string): Promise<QuotePackage | undefined>;
+  createQuotePackage(pkg: InsertQuotePackage, tenantId: string): Promise<QuotePackage>;
+  updateQuotePackage(id: string, pkg: Partial<InsertQuotePackage>, tenantId: string): Promise<QuotePackage | undefined>;
+  deleteQuotePackage(id: string, tenantId: string): Promise<boolean>;
 
   // Quote Add-ons
-  getQuoteAddons(): Promise<QuoteAddon[]>;
-  getQuoteAddon(id: string): Promise<QuoteAddon | undefined>;
-  createQuoteAddon(addon: InsertQuoteAddon): Promise<QuoteAddon>;
-  updateQuoteAddon(id: string, addon: Partial<InsertQuoteAddon>): Promise<QuoteAddon | undefined>;
-  deleteQuoteAddon(id: string): Promise<boolean>;
+  getQuoteAddons(tenantId: string): Promise<QuoteAddon[]>;
+  getQuoteAddon(id: string, tenantId: string): Promise<QuoteAddon | undefined>;
+  createQuoteAddon(addon: InsertQuoteAddon, tenantId: string): Promise<QuoteAddon>;
+  updateQuoteAddon(id: string, addon: Partial<InsertQuoteAddon>, tenantId: string): Promise<QuoteAddon | undefined>;
+  deleteQuoteAddon(id: string, tenantId: string): Promise<boolean>;
 
   // Quote Items (line items for quotes)
-  getQuoteItems(quoteId: string): Promise<QuoteItem[]>;
-  createQuoteItem(item: InsertQuoteItem): Promise<QuoteItem>;
-  updateQuoteItem(id: string, item: Partial<InsertQuoteItem>): Promise<QuoteItem | undefined>;
-  deleteQuoteItem(id: string): Promise<boolean>;
+  getQuoteItems(quoteId: string, tenantId: string): Promise<QuoteItem[]>;
+  createQuoteItem(item: InsertQuoteItem, tenantId: string): Promise<QuoteItem>;
+  updateQuoteItem(id: string, item: Partial<InsertQuoteItem>, tenantId: string): Promise<QuoteItem | undefined>;
+  deleteQuoteItem(id: string, tenantId: string): Promise<boolean>;
 
   // Quote Tokens (for public access)
-  getQuoteByToken(token: string): Promise<{ quote: Quote; items: QuoteItem[]; packages: QuotePackage[]; addons: QuoteAddon[] } | undefined>;
-  createQuoteToken(quoteId: string, expiresAt?: Date): Promise<QuoteToken>;
-  getQuoteToken(token: string): Promise<QuoteToken | undefined>;
-  deactivateQuoteToken(token: string): Promise<boolean>;
+  getQuoteByToken(token: string, tenantId: string): Promise<{ quote: Quote; items: QuoteItem[]; packages: QuotePackage[]; addons: QuoteAddon[] } | undefined>;
+  createQuoteToken(quoteId: string, tenantId: string, expiresAt?: Date): Promise<QuoteToken>;
+  getQuoteToken(token: string, tenantId: string): Promise<QuoteToken | undefined>;
+  deactivateQuoteToken(token: string, tenantId: string): Promise<boolean>;
 
   // Quote Signatures
-  getQuoteSignatures(quoteId: string): Promise<QuoteSignature[]>;
-  createQuoteSignature(signature: InsertQuoteSignature): Promise<QuoteSignature>;
-  getQuoteSignature(quoteId: string): Promise<QuoteSignature | undefined>;
+  getQuoteSignatures(quoteId: string, tenantId: string): Promise<QuoteSignature[]>;
+  createQuoteSignature(signature: InsertQuoteSignature, tenantId: string): Promise<QuoteSignature>;
+  getQuoteSignature(quoteId: string, tenantId: string): Promise<QuoteSignature | undefined>;
   
   // Quote Extra Info System
   // Extra Info Fields (standard + custom field definitions)
-  getQuoteExtraInfoFields(userId?: string): Promise<QuoteExtraInfoField[]>;
-  getQuoteExtraInfoField(id: string): Promise<QuoteExtraInfoField | undefined>;
-  getQuoteExtraInfoFieldByKey(key: string, userId?: string): Promise<QuoteExtraInfoField | undefined>;
-  createQuoteExtraInfoField(field: InsertQuoteExtraInfoField): Promise<QuoteExtraInfoField>;
-  updateQuoteExtraInfoField(id: string, field: Partial<InsertQuoteExtraInfoField>): Promise<QuoteExtraInfoField | undefined>;
-  deleteQuoteExtraInfoField(id: string): Promise<boolean>;
+  getQuoteExtraInfoFields(tenantId: string, userId?: string): Promise<QuoteExtraInfoField[]>;
+  getQuoteExtraInfoField(id: string, tenantId: string): Promise<QuoteExtraInfoField | undefined>;
+  getQuoteExtraInfoFieldByKey(key: string, tenantId: string, userId?: string): Promise<QuoteExtraInfoField | undefined>;
+  createQuoteExtraInfoField(field: InsertQuoteExtraInfoField, tenantId: string): Promise<QuoteExtraInfoField>;
+  updateQuoteExtraInfoField(id: string, field: Partial<InsertQuoteExtraInfoField>, tenantId: string): Promise<QuoteExtraInfoField | undefined>;
+  deleteQuoteExtraInfoField(id: string, tenantId: string): Promise<boolean>;
   
   // Extra Info Configuration (per-quote settings)
-  getQuoteExtraInfoConfig(quoteId: string): Promise<QuoteExtraInfoConfig | undefined>;
-  createQuoteExtraInfoConfig(config: InsertQuoteExtraInfoConfig): Promise<QuoteExtraInfoConfig>;
-  updateQuoteExtraInfoConfig(quoteId: string, config: Partial<InsertQuoteExtraInfoConfig>): Promise<QuoteExtraInfoConfig | undefined>;
-  deleteQuoteExtraInfoConfig(quoteId: string): Promise<boolean>;
+  getQuoteExtraInfoConfig(quoteId: string, tenantId: string): Promise<QuoteExtraInfoConfig | undefined>;
+  createQuoteExtraInfoConfig(config: InsertQuoteExtraInfoConfig, tenantId: string): Promise<QuoteExtraInfoConfig>;
+  updateQuoteExtraInfoConfig(quoteId: string, config: Partial<InsertQuoteExtraInfoConfig>, tenantId: string): Promise<QuoteExtraInfoConfig | undefined>;
+  deleteQuoteExtraInfoConfig(quoteId: string, tenantId: string): Promise<boolean>;
   
   // Extra Info Responses (user-submitted values)
-  getQuoteExtraInfoResponses(quoteId: string): Promise<QuoteExtraInfoResponse[]>;
-  getQuoteExtraInfoResponse(quoteId: string, fieldKey: string): Promise<QuoteExtraInfoResponse | undefined>;
-  createQuoteExtraInfoResponse(response: InsertQuoteExtraInfoResponse): Promise<QuoteExtraInfoResponse>;
-  updateQuoteExtraInfoResponse(quoteId: string, fieldKey: string, response: Partial<InsertQuoteExtraInfoResponse>): Promise<QuoteExtraInfoResponse | undefined>;
-  upsertQuoteExtraInfoResponse(response: InsertQuoteExtraInfoResponse): Promise<QuoteExtraInfoResponse>;
-  deleteQuoteExtraInfoResponse(quoteId: string, fieldKey: string): Promise<boolean>;
+  getQuoteExtraInfoResponses(quoteId: string, tenantId: string): Promise<QuoteExtraInfoResponse[]>;
+  getQuoteExtraInfoResponse(quoteId: string, fieldKey: string, tenantId: string): Promise<QuoteExtraInfoResponse | undefined>;
+  createQuoteExtraInfoResponse(response: InsertQuoteExtraInfoResponse, tenantId: string): Promise<QuoteExtraInfoResponse>;
+  updateQuoteExtraInfoResponse(quoteId: string, fieldKey: string, response: Partial<InsertQuoteExtraInfoResponse>, tenantId: string): Promise<QuoteExtraInfoResponse | undefined>;
+  upsertQuoteExtraInfoResponse(response: InsertQuoteExtraInfoResponse, tenantId: string): Promise<QuoteExtraInfoResponse>;
+  deleteQuoteExtraInfoResponse(quoteId: string, fieldKey: string, tenantId: string): Promise<boolean>;
   
   // Contracts
-  getContracts(): Promise<Contract[]>;
-  getContract(id: string): Promise<Contract | undefined>;
-  getContractsByClient(clientId: string): Promise<Contract[]>;
-  createContract(contract: InsertContract): Promise<Contract>;
-  updateContract(id: string, contract: Partial<InsertContract>): Promise<Contract | undefined>;
-  deleteContract(id: string): Promise<boolean>;
+  getContracts(tenantId: string): Promise<Contract[]>;
+  getContract(id: string, tenantId: string): Promise<Contract | undefined>;
+  getContractsByClient(clientId: string, tenantId: string): Promise<Contract[]>;
+  createContract(contract: InsertContract, tenantId: string): Promise<Contract>;
+  updateContract(id: string, contract: Partial<InsertContract>, tenantId: string): Promise<Contract | undefined>;
+  deleteContract(id: string, tenantId: string): Promise<boolean>;
   
   // Invoices
-  getInvoices(): Promise<Invoice[]>;
-  getInvoice(id: string): Promise<Invoice | undefined>;
-  getInvoicesByClient(clientId: string): Promise<Invoice[]>;
-  createInvoice(invoice: InsertInvoice): Promise<Invoice>;
-  updateInvoice(id: string, invoice: Partial<InsertInvoice>): Promise<Invoice | undefined>;
-  deleteInvoice(id: string): Promise<boolean>;
+  getInvoices(tenantId: string): Promise<Invoice[]>;
+  getInvoice(id: string, tenantId: string): Promise<Invoice | undefined>;
+  getInvoicesByClient(clientId: string, tenantId: string): Promise<Invoice[]>;
+  createInvoice(invoice: InsertInvoice, tenantId: string): Promise<Invoice>;
+  updateInvoice(id: string, invoice: Partial<InsertInvoice>, tenantId: string): Promise<Invoice | undefined>;
+  deleteInvoice(id: string, tenantId: string): Promise<boolean>;
   
-  // Tasks
-  getTasks(userId?: string, tenantId?: string): Promise<Task[]>;
-  getTask(id: string, tenantId?: string): Promise<Task | undefined>;
-  getTasksByAssignee(userId: string, tenantId?: string): Promise<Task[]>;
-  getTodayTasks(userId: string, tenantId?: string): Promise<Task[]>;
-  createTask(task: InsertTask): Promise<Task>;
-  updateTask(id: string, task: Partial<InsertTask>, tenantId?: string): Promise<Task | undefined>;
-  deleteTask(id: string, tenantId?: string): Promise<boolean>;
+  // Tasks  
+  getTasks(tenantId: string, userId?: string): Promise<Task[]>;
+  getTask(id: string, tenantId: string): Promise<Task | undefined>;
+  getTasksByAssignee(userId: string, tenantId: string): Promise<Task[]>;
+  getTodayTasks(userId: string, tenantId: string): Promise<Task[]>;
+  createTask(task: InsertTask, tenantId: string): Promise<Task>;
+  updateTask(id: string, task: Partial<InsertTask>, tenantId: string): Promise<Task | undefined>;
+  deleteTask(id: string, tenantId: string): Promise<boolean>;
   
   // Emails
-  getEmails(): Promise<Email[]>;
-  getEmail(id: string): Promise<Email | undefined>;
-  getEmailsByThread(threadId: string): Promise<Email[]>;
-  getEmailsByClient(clientId: string): Promise<Email[]>;
-  createEmail(email: InsertEmail): Promise<Email>;
-  updateEmail(id: string, email: Partial<InsertEmail>): Promise<Email | undefined>;
+  getEmails(tenantId: string): Promise<Email[]>;
+  getEmail(id: string, tenantId: string): Promise<Email | undefined>;
+  getEmailsByThread(threadId: string, tenantId: string): Promise<Email[]>;
+  getEmailsByClient(clientId: string, tenantId: string): Promise<Email[]>;
+  createEmail(email: InsertEmail, tenantId: string): Promise<Email>;
+  updateEmail(id: string, email: Partial<InsertEmail>, tenantId: string): Promise<Email | undefined>;
   
   // SMS Messages
-  getSmsMessages(): Promise<SmsMessage[]>;
-  getSmsMessage(id: string): Promise<SmsMessage | undefined>;
-  getSmsMessagesByThread(threadId: string): Promise<SmsMessage[]>;
-  getSmsMessagesByClient(clientId: string): Promise<SmsMessage[]>;
-  getSmsMessagesByPhone(phoneNumber: string): Promise<SmsMessage[]>;
-  createSmsMessage(sms: InsertSmsMessage): Promise<SmsMessage>;
-  updateSmsMessage(id: string, sms: Partial<InsertSmsMessage>): Promise<SmsMessage | undefined>;
+  getSmsMessages(tenantId: string): Promise<SmsMessage[]>;
+  getSmsMessage(id: string, tenantId: string): Promise<SmsMessage | undefined>;
+  getSmsMessagesByThread(threadId: string, tenantId: string): Promise<SmsMessage[]>;
+  getSmsMessagesByClient(clientId: string, tenantId: string): Promise<SmsMessage[]>;
+  getSmsMessagesByPhone(phoneNumber: string, tenantId: string): Promise<SmsMessage[]>;
+  createSmsMessage(sms: InsertSmsMessage, tenantId: string): Promise<SmsMessage>;
+  updateSmsMessage(id: string, sms: Partial<InsertSmsMessage>, tenantId: string): Promise<SmsMessage | undefined>;
   
   // Message Templates
-  getMessageTemplates(): Promise<MessageTemplate[]>;
-  getMessageTemplate(id: string): Promise<MessageTemplate | undefined>;
-  getMessageTemplatesByType(type: string): Promise<MessageTemplate[]>;
-  createMessageTemplate(template: InsertMessageTemplate): Promise<MessageTemplate>;
-  updateMessageTemplate(id: string, template: Partial<InsertMessageTemplate>): Promise<MessageTemplate | undefined>;
-  deleteMessageTemplate(id: string): Promise<boolean>;
+  getMessageTemplates(tenantId: string): Promise<MessageTemplate[]>;
+  getMessageTemplate(id: string, tenantId: string): Promise<MessageTemplate | undefined>;
+  getMessageTemplatesByType(type: string, tenantId: string): Promise<MessageTemplate[]>;
+  createMessageTemplate(template: InsertMessageTemplate, tenantId: string): Promise<MessageTemplate>;
+  updateMessageTemplate(id: string, template: Partial<InsertMessageTemplate>, tenantId: string): Promise<MessageTemplate | undefined>;
+  deleteMessageTemplate(id: string, tenantId: string): Promise<boolean>;
   
   // Message Threads
-  getMessageThreads(): Promise<MessageThread[]>;
-  getMessageThread(id: string): Promise<MessageThread | undefined>;
-  getMessageThreadsByClient(clientId: string): Promise<MessageThread[]>;
-  createMessageThread(thread: InsertMessageThread): Promise<MessageThread>;
-  updateMessageThread(id: string, thread: Partial<InsertMessageThread>): Promise<MessageThread | undefined>;
+  getMessageThreads(tenantId: string): Promise<MessageThread[]>;
+  getMessageThread(id: string, tenantId: string): Promise<MessageThread | undefined>;
+  getMessageThreadsByClient(clientId: string, tenantId: string): Promise<MessageThread[]>;
+  createMessageThread(thread: InsertMessageThread, tenantId: string): Promise<MessageThread>;
+  updateMessageThread(id: string, thread: Partial<InsertMessageThread>, tenantId: string): Promise<MessageThread | undefined>;
   
   // Activities
-  getActivities(): Promise<Activity[]>;
-  getRecentActivities(limit?: number): Promise<Activity[]>;
-  createActivity(activity: InsertActivity): Promise<Activity>;
+  getActivities(tenantId: string): Promise<Activity[]>;
+  getRecentActivities(tenantId: string, limit?: number): Promise<Activity[]>;
+  createActivity(activity: InsertActivity, tenantId: string): Promise<Activity>;
   
   // Automations
-  getAutomations(): Promise<Automation[]>;
-  getAutomation(id: string): Promise<Automation | undefined>;
-  createAutomation(automation: InsertAutomation): Promise<Automation>;
-  updateAutomation(id: string, automation: Partial<InsertAutomation>): Promise<Automation | undefined>;
-  deleteAutomation(id: string): Promise<boolean>;
+  getAutomations(tenantId: string): Promise<Automation[]>;
+  getAutomation(id: string, tenantId: string): Promise<Automation | undefined>;
+  createAutomation(automation: InsertAutomation, tenantId: string): Promise<Automation>;
+  updateAutomation(id: string, automation: Partial<InsertAutomation>, tenantId: string): Promise<Automation | undefined>;
+  deleteAutomation(id: string, tenantId: string): Promise<boolean>;
   
   // Members (Musicians)
-  getMembers(): Promise<Member[]>;
-  getMember(id: string): Promise<Member | undefined>;
-  createMember(member: InsertMember): Promise<Member>;
-  updateMember(id: string, member: Partial<InsertMember>): Promise<Member | undefined>;
-  deleteMember(id: string): Promise<boolean>;
+  getMembers(tenantId: string): Promise<Member[]>;
+  getMember(id: string, tenantId: string): Promise<Member | undefined>;
+  createMember(member: InsertMember, tenantId: string): Promise<Member>;
+  updateMember(id: string, member: Partial<InsertMember>, tenantId: string): Promise<Member | undefined>;
+  deleteMember(id: string, tenantId: string): Promise<boolean>;
   
   // Venues
-  getVenues(): Promise<Venue[]>;
-  getVenue(id: string): Promise<Venue | undefined>;
-  createVenue(venue: InsertVenue): Promise<Venue>;
-  updateVenue(id: string, venue: Partial<InsertVenue>): Promise<Venue | undefined>;
-  deleteVenue(id: string): Promise<boolean>;
+  getVenues(tenantId: string): Promise<Venue[]>;
+  getVenue(id: string, tenantId: string): Promise<Venue | undefined>;
+  createVenue(venue: InsertVenue, tenantId: string): Promise<Venue>;
+  updateVenue(id: string, venue: Partial<InsertVenue>, tenantId: string): Promise<Venue | undefined>;
+  deleteVenue(id: string, tenantId: string): Promise<boolean>;
   
   // Project Members
-  getProjectMembers(projectId: string): Promise<ProjectMember[]>;
-  addProjectMember(projectMember: InsertProjectMember): Promise<ProjectMember>;
-  updateProjectMember(projectId: string, memberId: string, data: Partial<InsertProjectMember>): Promise<ProjectMember | undefined>;
-  removeProjectMember(projectId: string, memberId: string): Promise<boolean>;
+  getProjectMembers(projectId: string, tenantId: string): Promise<ProjectMember[]>;
+  addProjectMember(projectMember: InsertProjectMember, tenantId: string): Promise<ProjectMember>;
+  updateProjectMember(projectId: string, memberId: string, data: Partial<InsertProjectMember>, tenantId: string): Promise<ProjectMember | undefined>;
+  removeProjectMember(projectId: string, memberId: string, tenantId: string): Promise<boolean>;
   
   // Member Availability
-  getMemberAvailability(memberId: string, startDate?: Date, endDate?: Date): Promise<MemberAvailability[]>;
-  setMemberAvailability(availability: InsertMemberAvailability): Promise<MemberAvailability>;
+  getMemberAvailability(memberId: string, tenantId: string, startDate?: Date, endDate?: Date): Promise<MemberAvailability[]>;
+  setMemberAvailability(availability: InsertMemberAvailability, tenantId: string): Promise<MemberAvailability>;
   
   // Project Files
-  getProjectFiles(projectId: string): Promise<ProjectFile[]>;
-  addProjectFile(file: InsertProjectFile): Promise<ProjectFile>;
-  deleteProjectFile(id: string): Promise<boolean>;
+  getProjectFiles(projectId: string, tenantId: string): Promise<ProjectFile[]>;
+  addProjectFile(file: InsertProjectFile, tenantId: string): Promise<ProjectFile>;
+  deleteProjectFile(id: string, tenantId: string): Promise<boolean>;
   
   // Project Notes
-  getProjectNotes(projectId: string): Promise<ProjectNote[]>;
-  addProjectNote(note: InsertProjectNote): Promise<ProjectNote>;
-  deleteProjectNote(id: string): Promise<boolean>;
+  getProjectNotes(projectId: string, tenantId: string): Promise<ProjectNote[]>;
+  addProjectNote(note: InsertProjectNote, tenantId: string): Promise<ProjectNote>;
+  deleteProjectNote(id: string, tenantId: string): Promise<boolean>;
   
   // Authentication
-  validateUser(username: string, password: string): Promise<User | undefined>;
-  updateUser(id: string, user: Partial<InsertUser>): Promise<User | undefined>;
+  validateUser(username: string, password: string, tenantId: string): Promise<User | undefined>;
   
   // Events
-  getEvents(): Promise<Event[]>;
-  getEvent(id: string): Promise<Event | undefined>;
-  getEventsByUser(userId: string): Promise<Event[]>;
-  getEventsByDateRange(startDate: Date, endDate: Date): Promise<Event[]>;
-  getEventsByClient(clientId: string): Promise<Event[]>;
-  getEventsByIntegration(integrationId: string): Promise<Event[]>;
-  createEvent(event: InsertEvent): Promise<Event>;
-  updateEvent(id: string, event: Partial<InsertEvent>): Promise<Event | undefined>;
-  deleteEvent(id: string): Promise<boolean>;
+  getEvents(tenantId: string): Promise<Event[]>;
+  getEvent(id: string, tenantId: string): Promise<Event | undefined>;
+  getEventsByUser(userId: string, tenantId: string): Promise<Event[]>;
+  getEventsByDateRange(startDate: Date, endDate: Date, tenantId: string): Promise<Event[]>;
+  getEventsByClient(clientId: string, tenantId: string): Promise<Event[]>;
+  getEventsByIntegration(integrationId: string, tenantId: string): Promise<Event[]>;
+  createEvent(event: InsertEvent, tenantId: string): Promise<Event>;
+  updateEvent(id: string, event: Partial<InsertEvent>, tenantId: string): Promise<Event | undefined>;
+  deleteEvent(id: string, tenantId: string): Promise<boolean>;
   
   // Calendar Integrations
-  getCalendarIntegrations(): Promise<CalendarIntegration[]>;
+  getCalendarIntegrations(tenantId: string): Promise<CalendarIntegration[]>;
   getCalendarIntegrationsByTenant(tenantId: string): Promise<CalendarIntegration[]>;
-  getCalendarIntegration(id: string): Promise<CalendarIntegration | undefined>;
-  getCalendarIntegrationsByUser(userId: string): Promise<CalendarIntegration[]>;
-  getCalendarIntegrationByEmail(email: string, userId: string): Promise<CalendarIntegration | undefined>;
-  createCalendarIntegration(integration: InsertCalendarIntegration): Promise<CalendarIntegration>;
-  updateCalendarIntegration(id: string, integration: Partial<InsertCalendarIntegration>): Promise<CalendarIntegration | undefined>;
-  deleteCalendarIntegration(id: string): Promise<boolean>;
+  getCalendarIntegration(id: string, tenantId: string): Promise<CalendarIntegration | undefined>;
+  getCalendarIntegrationsByUser(userId: string, tenantId: string): Promise<CalendarIntegration[]>;
+  getCalendarIntegrationByEmail(email: string, userId: string, tenantId: string): Promise<CalendarIntegration | undefined>;
+  createCalendarIntegration(integration: InsertCalendarIntegration, tenantId: string): Promise<CalendarIntegration>;
+  updateCalendarIntegration(id: string, integration: Partial<InsertCalendarIntegration>, tenantId: string): Promise<CalendarIntegration | undefined>;
+  deleteCalendarIntegration(id: string, tenantId: string): Promise<boolean>;
   
   // Event sync helpers
-  getEventByExternalId(externalId: string): Promise<Event | undefined>;
+  getEventByExternalId(externalId: string, tenantId: string): Promise<Event | undefined>;
   
   // Calendar Sync Logs
-  getCalendarSyncLogs(integrationId?: string): Promise<CalendarSyncLog[]>;
-  createCalendarSyncLog(log: InsertCalendarSyncLog): Promise<CalendarSyncLog>;
-  updateCalendarSyncLog(id: string, log: Partial<InsertCalendarSyncLog>): Promise<CalendarSyncLog | undefined>;
+  getCalendarSyncLogs(tenantId: string, integrationId?: string): Promise<CalendarSyncLog[]>;
+  createCalendarSyncLog(log: InsertCalendarSyncLog, tenantId: string): Promise<CalendarSyncLog>;
+  updateCalendarSyncLog(id: string, log: Partial<InsertCalendarSyncLog>, tenantId: string): Promise<CalendarSyncLog | undefined>;
 
   // Dashboard metrics
-  getDashboardMetrics(userId?: string): Promise<{
+  getDashboardMetrics(tenantId: string, userId?: string): Promise<{
     totalLeads: number;
     activeProjects: number;
     revenue: number;
@@ -312,58 +312,61 @@ export interface IStorage {
   }>;
 
   // Templates
-  getTemplates(): Promise<Template[]>;
-  getTemplate(id: string): Promise<Template | undefined>;
-  createTemplate(template: InsertTemplate): Promise<Template>;
-  updateTemplate(id: string, template: Partial<InsertTemplate>): Promise<Template | undefined>;
-  deleteTemplate(id: string): Promise<boolean>;
+  getTemplates(tenantId: string): Promise<Template[]>;
+  getTemplate(id: string, tenantId: string): Promise<Template | undefined>;
+  createTemplate(template: InsertTemplate, tenantId: string): Promise<Template>;
+  updateTemplate(id: string, template: Partial<InsertTemplate>, tenantId: string): Promise<Template | undefined>;
+  deleteTemplate(id: string, tenantId: string): Promise<boolean>;
 
   // Email Signatures
-  getUserSignatures(userId: string): Promise<EmailSignature[]>;
-  getSignature(id: string, userId: string): Promise<EmailSignature | null>;
-  getDefaultSignature(userId: string): Promise<EmailSignature | null>;
-  createSignature(signature: InsertEmailSignature): Promise<EmailSignature>;
-  updateSignature(id: string, userId: string, signature: Partial<InsertEmailSignature>): Promise<EmailSignature | null>;
-  deleteSignature(id: string, userId: string): Promise<boolean>;
-  clearDefaultSignatures(userId: string): Promise<void>;
+  getUserSignatures(userId: string, tenantId: string): Promise<EmailSignature[]>;
+  getSignature(id: string, userId: string, tenantId: string): Promise<EmailSignature | null>;
+  getDefaultSignature(userId: string, tenantId: string): Promise<EmailSignature | null>;
+  createSignature(signature: InsertEmailSignature, tenantId: string): Promise<EmailSignature>;
+  updateSignature(id: string, userId: string, signature: Partial<InsertEmailSignature>, tenantId: string): Promise<EmailSignature | null>;
+  deleteSignature(id: string, userId: string, tenantId: string): Promise<boolean>;
+  clearDefaultSignatures(userId: string, tenantId: string): Promise<void>;
 
   // Lead Capture Forms
-  getLeadCaptureForms(): Promise<LeadCaptureForm[]>;
-  getLeadCaptureForm(id: string): Promise<LeadCaptureForm | undefined>;
-  getLeadCaptureFormBySlug(slug: string): Promise<LeadCaptureForm | undefined>;
-  createLeadCaptureForm(form: InsertLeadCaptureForm): Promise<LeadCaptureForm>;
-  updateLeadCaptureForm(id: string, form: Partial<InsertLeadCaptureForm>): Promise<LeadCaptureForm | undefined>;
-  deleteLeadCaptureForm(id: string): Promise<boolean>;
+  getLeadCaptureForms(tenantId: string): Promise<LeadCaptureForm[]>;
+  getLeadCaptureForm(id: string, tenantId: string): Promise<LeadCaptureForm | undefined>;
+  getLeadCaptureFormBySlug(slug: string, tenantId: string): Promise<LeadCaptureForm | undefined>;
+  createLeadCaptureForm(form: InsertLeadCaptureForm, tenantId: string): Promise<LeadCaptureForm>;
+  updateLeadCaptureForm(id: string, form: Partial<InsertLeadCaptureForm>, tenantId: string): Promise<LeadCaptureForm | undefined>;
+  deleteLeadCaptureForm(id: string, tenantId: string): Promise<boolean>;
 
   // Portal Forms - Project-specific questionnaires
-  getPortalFormsByContact(contactId: string): Promise<PortalForm[]>;
-  getPortalFormsByProjectAndContact(projectId: string, contactId: string): Promise<PortalForm[]>;
-  getPortalFormById(id: string): Promise<PortalForm | undefined>;
-  createPortalForm(form: InsertPortalForm): Promise<PortalForm>;
-  updatePortalForm(id: string, form: Partial<InsertPortalForm>): Promise<PortalForm | undefined>;
-  deletePortalForm(id: string): Promise<boolean>;
+  getPortalFormsByContact(contactId: string, tenantId: string): Promise<PortalForm[]>;
+  getPortalFormsByProjectAndContact(projectId: string, contactId: string, tenantId: string): Promise<PortalForm[]>;
+  getPortalFormById(id: string, tenantId: string): Promise<PortalForm | undefined>;
+  createPortalForm(form: InsertPortalForm, tenantId: string): Promise<PortalForm>;
+  updatePortalForm(id: string, form: Partial<InsertPortalForm>, tenantId: string): Promise<PortalForm | undefined>;
+  deletePortalForm(id: string, tenantId: string): Promise<boolean>;
 
   // Payment Sessions - Track payment attempts
-  getPaymentSessionsByContactId(contactId: string): Promise<PaymentSession[]>;
-  getPaymentSessionById(id: string): Promise<PaymentSession | undefined>;
-  createPaymentSession(session: InsertPaymentSession): Promise<PaymentSession>;
-  updatePaymentSession(sessionId: string, session: Partial<InsertPaymentSession>): Promise<PaymentSession | undefined>;
+  getPaymentSessionsByContactId(contactId: string, tenantId: string): Promise<PaymentSession[]>;
+  getPaymentSessionById(id: string, tenantId: string): Promise<PaymentSession | undefined>;
+  createPaymentSession(session: InsertPaymentSession, tenantId: string): Promise<PaymentSession>;
+  updatePaymentSession(sessionId: string, session: Partial<InsertPaymentSession>, tenantId: string): Promise<PaymentSession | undefined>;
 
   // Webhook Events - Track processed webhooks for idempotency
-  getWebhookEventByProviderAndEventId(provider: string, eventId: string): Promise<WebhookEvent | undefined>;
-  createWebhookEvent(event: InsertWebhookEvent): Promise<WebhookEvent>;
-  updateWebhookEvent(eventId: string, event: Partial<InsertWebhookEvent>): Promise<WebhookEvent | undefined>;
+  getWebhookEventByProviderAndEventId(provider: string, eventId: string, tenantId: string): Promise<WebhookEvent | undefined>;
+  createWebhookEvent(event: InsertWebhookEvent, tenantId: string): Promise<WebhookEvent>;
+  updateWebhookEvent(eventId: string, event: Partial<InsertWebhookEvent>, tenantId: string): Promise<WebhookEvent | undefined>;
 
   // Additional invoice methods for portal
-  getInvoiceById(id: string): Promise<Invoice | undefined>;
-  getInvoicesByContactId(contactId: string): Promise<Invoice[]>;
+  getInvoiceById(id: string, tenantId: string): Promise<Invoice | undefined>;
+  getInvoicesByContactId(contactId: string, tenantId: string): Promise<Invoice[]>;
 
   // Additional contact methods for portal
-  getContactById(id: string): Promise<Contact | undefined>;
+  // getContactById already declared above in Contacts section
 
   // Additional event methods for appointment booking
-  getEventById(id: string): Promise<Event | undefined>;
-  getEventsByContactEmail(email: string): Promise<Event[]>;
+  getEventById(id: string, tenantId: string): Promise<Event | undefined>;
+  getEventsByContactEmail(email: string, tenantId: string): Promise<Event[]>;
+
+  // Tenant-scoped storage wrapper
+  withTenant(tenantId: string): TenantScopedStorage;
 }
 
 export class MemStorage implements IStorage {
@@ -414,24 +417,28 @@ export class MemStorage implements IStorage {
   }
 
   // Users
-  async getUsers(): Promise<User[]> {
-    return Array.from(this.users.values());
+  async getUsers(tenantId: string): Promise<User[]> {
+    return Array.from(this.users.values()).filter(user => user.tenantId === tenantId || !user.tenantId);
   }
 
-  async getUser(id: string): Promise<User | undefined> {
-    return this.users.get(id);
+  async getUser(id: string, tenantId: string): Promise<User | undefined> {
+    const user = this.users.get(id);
+    return (user && (user.tenantId === tenantId || !user.tenantId)) ? user : undefined;
   }
 
-  async getUserByUsername(username: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(user => user.username === username);
+  async getUserByUsername(username: string, tenantId: string): Promise<User | undefined> {
+    return Array.from(this.users.values()).find(user => 
+      user.username === username && (user.tenantId === tenantId || !user.tenantId)
+    );
   }
 
-  async createUser(insertUser: InsertUser): Promise<User> {
+  async createUser(insertUser: InsertUser, tenantId: string): Promise<User> {
     const id = randomUUID();
     const user: User = { 
       ...insertUser, 
       avatar: insertUser.avatar ?? null,
       role: insertUser.role ?? 'client',
+      tenantId,
       id, 
       createdAt: new Date()
     };
@@ -440,8 +447,10 @@ export class MemStorage implements IStorage {
   }
 
   // Leads
-  async getLeads(userId?: string): Promise<Lead[]> {
-    let leads = Array.from(this.leads.values());
+  async getLeads(tenantId: string, userId?: string): Promise<Lead[]> {
+    let leads = Array.from(this.leads.values()).filter(lead => 
+      lead.tenantId === tenantId || !lead.tenantId
+    );
     if (userId) {
       leads = leads.filter(lead => lead.userId === userId);
     }
@@ -450,11 +459,12 @@ export class MemStorage implements IStorage {
     );
   }
 
-  async getLead(id: string): Promise<Lead | undefined> {
-    return this.leads.get(id);
+  async getLead(id: string, tenantId: string): Promise<Lead | undefined> {
+    const lead = this.leads.get(id);
+    return (lead && (lead.tenantId === tenantId || !lead.tenantId)) ? lead : undefined;
   }
 
-  async createLead(insertLead: InsertLead): Promise<Lead> {
+  async createLead(insertLead: InsertLead, tenantId: string): Promise<Lead> {
     const id = randomUUID();
     const lead: Lead = {
       ...insertLead,
@@ -472,6 +482,7 @@ export class MemStorage implements IStorage {
       lastManualStatusAt: insertLead.lastManualStatusAt ?? null,
       projectDate: insertLead.projectDate ?? null,
       lastViewedAt: insertLead.lastViewedAt ?? null,
+      tenantId,
       id,
       createdAt: new Date(),
       updatedAt: new Date(),
@@ -1925,24 +1936,35 @@ export class MemStorage implements IStorage {
   }
 
   // Additional invoice methods
-  async getInvoiceById(id: string): Promise<Invoice | undefined> {
-    return this.invoices.get(id);
+  async getInvoiceById(id: string, tenantId: string): Promise<Invoice | undefined> {
+    const invoice = this.invoices.get(id);
+    return (invoice && (invoice.tenantId === tenantId || !invoice.tenantId)) ? invoice : undefined;
   }
   
-  async getInvoicesByContactId(contactId: string): Promise<Invoice[]> {
-    return Array.from(this.invoices.values()).filter(invoice => invoice.contactId === contactId);
+  async getInvoicesByContactId(contactId: string, tenantId: string): Promise<Invoice[]> {
+    return Array.from(this.invoices.values()).filter(invoice => 
+      invoice.contactId === contactId && (invoice.tenantId === tenantId || !invoice.tenantId)
+    );
   }
 
   // Additional event methods
-  async getEventById(id: string): Promise<Event | undefined> {
-    return this.events.get(id);
+  async getEventById(id: string, tenantId: string): Promise<Event | undefined> {
+    const event = this.events.get(id);
+    return (event && (event.tenantId === tenantId || !event.tenantId)) ? event : undefined;
   }
   
-  async getEventsByContactEmail(email: string): Promise<Event[]> {
+  async getEventsByContactEmail(email: string, tenantId: string): Promise<Event[]> {
     // Find contact by email first, then get events
-    const contact = await this.getContactByEmail(email);
+    const contact = await this.getContactByEmail(email, tenantId);
     if (!contact) return [];
-    return Array.from(this.events.values()).filter(event => event.contactId === contact.id);
+    return Array.from(this.events.values()).filter(event => 
+      event.contactId === contact.id && (event.tenantId === tenantId || !event.tenantId)
+    );
+  }
+
+  // Tenant-scoped storage wrapper
+  withTenant(tenantId: string): TenantScopedStorage {
+    return new TenantScopedStorage(this, tenantId);
   }
 }
 
@@ -2016,9 +2038,32 @@ export class DrizzleStorage implements IStorage {
   }
 
   async getCalendarIntegrationsByTenant(tenantId: string): Promise<CalendarIntegration[]> {
-    // Note: calendarIntegrations table doesn't have tenantId column in current schema
-    // For now, return all calendar integrations as this method is used for email sync
-    return await this.db.select().from(calendarIntegrations);
+    // Filter calendar integrations through user relationship to ensure tenant isolation
+    const { users, calendarIntegrations } = await import('@shared/schema');
+    const { eq, and } = await import('drizzle-orm');
+    
+    return await this.db.select({
+      id: calendarIntegrations.id,
+      userId: calendarIntegrations.userId,
+      provider: calendarIntegrations.provider,
+      providerAccountId: calendarIntegrations.providerAccountId,
+      calendarId: calendarIntegrations.calendarId,
+      calendarName: calendarIntegrations.calendarName,
+      accessToken: calendarIntegrations.accessToken,
+      refreshToken: calendarIntegrations.refreshToken,
+      syncToken: calendarIntegrations.syncToken,
+      webhookId: calendarIntegrations.webhookId,
+      isActive: calendarIntegrations.isActive,
+      syncDirection: calendarIntegrations.syncDirection,
+      lastSyncAt: calendarIntegrations.lastSyncAt,
+      syncErrors: calendarIntegrations.syncErrors,
+      settings: calendarIntegrations.settings,
+      createdAt: calendarIntegrations.createdAt,
+      updatedAt: calendarIntegrations.updatedAt,
+    })
+    .from(calendarIntegrations)
+    .innerJoin(users, eq(calendarIntegrations.userId, users.id))
+    .where(eq(users.tenantId, tenantId));
   }
 
   async getCalendarIntegrationsByUser(userId: string): Promise<CalendarIntegration[]> {
@@ -3172,11 +3217,12 @@ export class DrizzleStorage implements IStorage {
   }
 
   // Quote Tokens (for public access)
-  async getQuoteByToken(token: string): Promise<{ quote: Quote; items: QuoteItem[]; packages: QuotePackage[]; addons: QuoteAddon[] } | undefined> {
-    // First, get the token and verify it's active and not expired
+  async getQuoteByToken(token: string, tenantId: string): Promise<{ quote: Quote; items: QuoteItem[]; packages: QuotePackage[]; addons: QuoteAddon[] } | undefined> {
+    // First, get the token and verify it's active, not expired, and belongs to the correct tenant
     const tokenResult = await this.db.select().from(quoteTokens)
       .where(and(
         eq(quoteTokens.token, token),
+        eq(quoteTokens.tenantId, tenantId),
         eq(quoteTokens.isActive, true)
       ));
     
@@ -3189,27 +3235,32 @@ export class DrizzleStorage implements IStorage {
       return undefined;
     }
     
-    // Get the quote
-    const quoteResult = await this.db.select().from(quotes).where(eq(quotes.id, tokenData.quoteId));
+    // Get the quote (with tenant validation)
+    const quoteResult = await this.db.select().from(quotes)
+      .where(and(
+        eq(quotes.id, tokenData.quoteId),
+        eq(quotes.tenantId, tenantId)
+      ));
     if (!quoteResult[0]) return undefined;
     
     const quote = quoteResult[0];
     
-    // Get quote items, packages, and addons
+    // Get quote items, packages, and addons (with tenant filtering)
     const [items, packages, addons] = await Promise.all([
-      this.getQuoteItems(quote.id),
-      this.getQuotePackages(),
-      this.getQuoteAddons()
+      this.getQuoteItems(quote.id, tenantId),
+      this.getQuotePackages(tenantId),
+      this.getQuoteAddons(tenantId)
     ]);
     
     return { quote, items, packages, addons };
   }
 
-  async createQuoteToken(quoteId: string, expiresAt?: Date): Promise<QuoteToken> {
+  async createQuoteToken(quoteId: string, tenantId: string, expiresAt?: Date): Promise<QuoteToken> {
     const token = Math.random().toString(36).substring(2) + Math.random().toString(36).substring(2);
     const result = await this.db.insert(quoteTokens).values({
       quoteId,
       token,
+      tenantId,
       expiresAt,
       isActive: true,
       createdAt: new Date(),
@@ -3217,36 +3268,50 @@ export class DrizzleStorage implements IStorage {
     return result[0];
   }
 
-  async getQuoteToken(token: string): Promise<QuoteToken | undefined> {
-    const result = await this.db.select().from(quoteTokens).where(eq(quoteTokens.token, token));
+  async getQuoteToken(token: string, tenantId: string): Promise<QuoteToken | undefined> {
+    const result = await this.db.select().from(quoteTokens)
+      .where(and(
+        eq(quoteTokens.token, token),
+        eq(quoteTokens.tenantId, tenantId)
+      ));
     return result[0];
   }
 
-  async deactivateQuoteToken(token: string): Promise<boolean> {
+  async deactivateQuoteToken(token: string, tenantId: string): Promise<boolean> {
     const result = await this.db.update(quoteTokens).set({
       isActive: false,
-    }).where(eq(quoteTokens.token, token));
+    }).where(and(
+      eq(quoteTokens.token, token),
+      eq(quoteTokens.tenantId, tenantId)
+    ));
     return result.rowCount > 0;
   }
 
   // Quote Signatures
-  async getQuoteSignatures(quoteId: string): Promise<QuoteSignature[]> {
+  async getQuoteSignatures(quoteId: string, tenantId: string): Promise<QuoteSignature[]> {
     return await this.db.select().from(quoteSignatures)
-      .where(eq(quoteSignatures.quoteId, quoteId))
+      .where(and(
+        eq(quoteSignatures.quoteId, quoteId),
+        eq(quoteSignatures.tenantId, tenantId)
+      ))
       .orderBy(desc(quoteSignatures.signedAt));
   }
 
-  async createQuoteSignature(signature: InsertQuoteSignature): Promise<QuoteSignature> {
+  async createQuoteSignature(signature: InsertQuoteSignature, tenantId: string): Promise<QuoteSignature> {
     const result = await this.db.insert(quoteSignatures).values({
       ...signature,
+      tenantId,
       signedAt: new Date(),
     }).returning();
     return result[0];
   }
 
-  async getQuoteSignature(quoteId: string): Promise<QuoteSignature | undefined> {
+  async getQuoteSignature(quoteId: string, tenantId: string): Promise<QuoteSignature | undefined> {
     const result = await this.db.select().from(quoteSignatures)
-      .where(eq(quoteSignatures.quoteId, quoteId))
+      .where(and(
+        eq(quoteSignatures.quoteId, quoteId),
+        eq(quoteSignatures.tenantId, tenantId)
+      ))
       .orderBy(desc(quoteSignatures.signedAt));
     return result[0];
   }
@@ -3318,76 +3383,109 @@ export class DrizzleStorage implements IStorage {
   }
 
   // Extra Info Configuration (per-quote settings)
-  async getQuoteExtraInfoConfig(quoteId: string): Promise<QuoteExtraInfoConfig | undefined> {
-    const result = await this.db.select().from(quoteExtraInfoConfig).where(eq(quoteExtraInfoConfig.quoteId, quoteId));
+  async getQuoteExtraInfoConfig(quoteId: string, tenantId: string): Promise<QuoteExtraInfoConfig | undefined> {
+    const result = await this.db.select().from(quoteExtraInfoConfig)
+      .where(and(
+        eq(quoteExtraInfoConfig.quoteId, quoteId),
+        eq(quoteExtraInfoConfig.tenantId, tenantId)
+      ));
     return result[0];
   }
 
-  async createQuoteExtraInfoConfig(config: InsertQuoteExtraInfoConfig): Promise<QuoteExtraInfoConfig> {
+  async createQuoteExtraInfoConfig(config: InsertQuoteExtraInfoConfig, tenantId: string): Promise<QuoteExtraInfoConfig> {
     const result = await this.db.insert(quoteExtraInfoConfig).values({
       ...config,
+      tenantId,
       createdAt: new Date(),
       updatedAt: new Date(),
     }).returning();
     return result[0];
   }
 
-  async updateQuoteExtraInfoConfig(quoteId: string, config: Partial<InsertQuoteExtraInfoConfig>): Promise<QuoteExtraInfoConfig | undefined> {
+  async updateQuoteExtraInfoConfig(quoteId: string, config: Partial<InsertQuoteExtraInfoConfig>, tenantId: string): Promise<QuoteExtraInfoConfig | undefined> {
     const result = await this.db.update(quoteExtraInfoConfig).set({
       ...config,
       updatedAt: new Date(),
-    }).where(eq(quoteExtraInfoConfig.quoteId, quoteId)).returning();
+    }).where(and(
+      eq(quoteExtraInfoConfig.quoteId, quoteId),
+      eq(quoteExtraInfoConfig.tenantId, tenantId)
+    )).returning();
     return result[0];
   }
 
-  async deleteQuoteExtraInfoConfig(quoteId: string): Promise<boolean> {
-    const result = await this.db.delete(quoteExtraInfoConfig).where(eq(quoteExtraInfoConfig.quoteId, quoteId));
+  async deleteQuoteExtraInfoConfig(quoteId: string, tenantId: string): Promise<boolean> {
+    const result = await this.db.delete(quoteExtraInfoConfig)
+      .where(and(
+        eq(quoteExtraInfoConfig.quoteId, quoteId),
+        eq(quoteExtraInfoConfig.tenantId, tenantId)
+      ));
     return result.rowCount > 0;
   }
 
   // Extra Info Responses (user-submitted values)
-  async getQuoteExtraInfoResponses(quoteId: string): Promise<QuoteExtraInfoResponse[]> {
+  async getQuoteExtraInfoResponses(quoteId: string, tenantId: string): Promise<QuoteExtraInfoResponse[]> {
     return await this.db.select().from(quoteExtraInfoResponses)
-      .where(eq(quoteExtraInfoResponses.quoteId, quoteId))
+      .where(and(
+        eq(quoteExtraInfoResponses.quoteId, quoteId),
+        eq(quoteExtraInfoResponses.tenantId, tenantId)
+      ))
       .orderBy(quoteExtraInfoResponses.submittedAt);
   }
 
-  async getQuoteExtraInfoResponse(quoteId: string, fieldKey: string): Promise<QuoteExtraInfoResponse | undefined> {
+  async getQuoteExtraInfoResponse(quoteId: string, fieldKey: string, tenantId: string): Promise<QuoteExtraInfoResponse | undefined> {
     const result = await this.db.select().from(quoteExtraInfoResponses)
-      .where(and(eq(quoteExtraInfoResponses.quoteId, quoteId), eq(quoteExtraInfoResponses.fieldKey, fieldKey)));
+      .where(and(
+        eq(quoteExtraInfoResponses.quoteId, quoteId),
+        eq(quoteExtraInfoResponses.fieldKey, fieldKey),
+        eq(quoteExtraInfoResponses.tenantId, tenantId)
+      ));
     return result[0];
   }
 
-  async createQuoteExtraInfoResponse(response: InsertQuoteExtraInfoResponse): Promise<QuoteExtraInfoResponse> {
+  async createQuoteExtraInfoResponse(response: InsertQuoteExtraInfoResponse, tenantId: string): Promise<QuoteExtraInfoResponse> {
     const result = await this.db.insert(quoteExtraInfoResponses).values({
       ...response,
+      tenantId,
       submittedAt: new Date(),
       updatedAt: new Date(),
     }).returning();
     return result[0];
   }
 
-  async updateQuoteExtraInfoResponse(quoteId: string, fieldKey: string, response: Partial<InsertQuoteExtraInfoResponse>): Promise<QuoteExtraInfoResponse | undefined> {
+  async updateQuoteExtraInfoResponse(quoteId: string, fieldKey: string, response: Partial<InsertQuoteExtraInfoResponse>, tenantId: string): Promise<QuoteExtraInfoResponse | undefined> {
     const result = await this.db.update(quoteExtraInfoResponses).set({
       ...response,
       updatedAt: new Date(),
-    }).where(and(eq(quoteExtraInfoResponses.quoteId, quoteId), eq(quoteExtraInfoResponses.fieldKey, fieldKey))).returning();
+    }).where(and(
+      eq(quoteExtraInfoResponses.quoteId, quoteId),
+      eq(quoteExtraInfoResponses.fieldKey, fieldKey),
+      eq(quoteExtraInfoResponses.tenantId, tenantId)
+    )).returning();
     return result[0];
   }
 
-  async upsertQuoteExtraInfoResponse(response: InsertQuoteExtraInfoResponse): Promise<QuoteExtraInfoResponse> {
-    const existing = await this.getQuoteExtraInfoResponse(response.quoteId, response.fieldKey);
+  async upsertQuoteExtraInfoResponse(response: InsertQuoteExtraInfoResponse, tenantId: string): Promise<QuoteExtraInfoResponse> {
+    const existing = await this.getQuoteExtraInfoResponse(response.quoteId, response.fieldKey, tenantId);
     if (existing) {
-      return await this.updateQuoteExtraInfoResponse(response.quoteId, response.fieldKey, response) || existing;
+      return await this.updateQuoteExtraInfoResponse(response.quoteId, response.fieldKey, response, tenantId) || existing;
     } else {
-      return await this.createQuoteExtraInfoResponse(response);
+      return await this.createQuoteExtraInfoResponse(response, tenantId);
     }
   }
 
-  async deleteQuoteExtraInfoResponse(quoteId: string, fieldKey: string): Promise<boolean> {
+  async deleteQuoteExtraInfoResponse(quoteId: string, fieldKey: string, tenantId: string): Promise<boolean> {
     const result = await this.db.delete(quoteExtraInfoResponses)
-      .where(and(eq(quoteExtraInfoResponses.quoteId, quoteId), eq(quoteExtraInfoResponses.fieldKey, fieldKey)));
+      .where(and(
+        eq(quoteExtraInfoResponses.quoteId, quoteId),
+        eq(quoteExtraInfoResponses.fieldKey, fieldKey),
+        eq(quoteExtraInfoResponses.tenantId, tenantId)
+      ));
     return result.rowCount > 0;
+  }
+
+  // Tenant-scoped storage wrapper
+  withTenant(tenantId: string): TenantScopedStorage {
+    return new TenantScopedStorage(this, tenantId);
   }
 }
 

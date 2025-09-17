@@ -40,8 +40,9 @@ const SignaturePad = forwardRef<SignaturePadRef, SignaturePadProps>(
             const img = new Image();
             img.onload = () => {
               if (ctx) {
+                const dpr = window.devicePixelRatio || 1;
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
-                ctx.drawImage(img, 0, 0);
+                ctx.drawImage(img, 0, 0, canvas.width / dpr, canvas.height / dpr);
                 setHasDrawing(true);
               }
             };
@@ -71,7 +72,7 @@ const SignaturePad = forwardRef<SignaturePadRef, SignaturePadProps>(
         ctx.lineCap = 'round';
         ctx.lineJoin = 'round';
         ctx.strokeStyle = '#000000';
-        ctx.lineWidth = 0.5;
+        ctx.lineWidth = 1;
       }
     };
 
@@ -182,8 +183,9 @@ const SignaturePad = forwardRef<SignaturePadRef, SignaturePadProps>(
             const img = new Image();
             img.onload = () => {
               if (ctx) {
+                const dpr = window.devicePixelRatio || 1;
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
-                ctx.drawImage(img, 0, 0);
+                ctx.drawImage(img, 0, 0, canvas.width / dpr, canvas.height / dpr);
                 setHasDrawing(true);
               }
             };
@@ -235,7 +237,7 @@ const SignaturePad = forwardRef<SignaturePadRef, SignaturePadProps>(
           </TabsList>
           
           <TabsContent value="draw" className="space-y-2">
-            <div className="relative">
+            <div className="relative overflow-hidden">
               <canvas
                 ref={canvasRef}
                 className={cn(

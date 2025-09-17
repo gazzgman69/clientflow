@@ -166,19 +166,63 @@ export const ensureAdminAuth = async (req: Request, res: Response, next: NextFun
     });
   }
   
-  // TODO: Implement proper role checking with database lookup
-  // For now, allow any authenticated user in development
-  if (process.env.NODE_ENV === 'production') {
-    console.error('❌ SECURITY: Admin role verification not implemented for production');
-    return res.status(403).json({ 
-      error: 'Admin access required',
-      message: 'This endpoint requires admin privileges'
+  try {
+    // Check admin role with proper database lookup
+    const hasAdminRole = await verifyAdminRole(req.session.userId);
+    if (!hasAdminRole) {
+      console.log(`🚫 SECURITY: User ${req.session.userId} denied admin access - insufficient privileges`);
+      return res.status(403).json({ 
+        error: 'Admin access required',
+        message: 'This endpoint requires admin privileges'
+      });
+    }
+    
+    req.authenticatedUserId = req.session.userId;
+    next();
+  } catch (error) {
+    console.error('❌ SECURITY: Admin role verification failed:', error);
+    // FAIL CLOSED: Deny access on error for security
+    return res.status(500).json({ 
+      error: 'Authentication failed',
+      message: 'Unable to verify admin privileges' 
     });
   }
-  
-  req.authenticatedUserId = req.session.userId;
-  next();
 };
+
+// Helper function for admin role verification with proper security enforcement
+async function verifyAdminRole(userId: string): Promise<boolean> {
+  try {
+    const { storage } = await import('../storage');
+    
+    // Get user to check admin role
+    const user = await storage.getUser(userId);
+    if (!user) {
+      console.log(`🚫 SECURITY: Admin check failed - user ${userId} not found`);
+      return false;
+    }
+    
+    // Check if user has admin role
+    // In production, this should check a proper role field or permissions table
+    const isAdmin = user.role === 'admin' || user.role === 'super_admin';
+    
+    // For development, allow first user to be admin if no admin exists
+    if (!isAdmin && process.env.NODE_ENV === 'development') {
+      const allUsers = await storage.getUsers();
+      const hasAnyAdmin = allUsers.some(u => u.role === 'admin' || u.role === 'super_admin');
+      
+      if (!hasAnyAdmin && allUsers.length > 0 && allUsers[0].id === userId) {
+        console.log(`🔧 DEV: Granting admin access to first user ${userId} (no admins exist)`);
+        return true;
+      }
+    }
+    
+    return isAdmin;
+  } catch (error) {
+    console.error('Error verifying admin role:', error);
+    // FAIL CLOSED: Deny access on error for security
+    return false;
+  }
+}
 
 /**
  * Optional authentication middleware

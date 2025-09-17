@@ -2390,7 +2390,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
 
-  app.patch("/api/tasks/:id", async (req, res) => {
+  app.patch("/api/tasks/:id", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
     try {
       const taskData = insertTaskSchema.partial().parse(req.body);
       const task = await storage.updateTask(req.params.id, taskData);

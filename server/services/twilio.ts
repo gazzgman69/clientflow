@@ -60,32 +60,38 @@ export class TwilioService {
     // Validate credentials on first use
     this.validateCredentials();
     
-    // In a real implementation, this would use the Twilio SDK
-    // For development purposes, we'll simulate the Twilio API response
-
+    // PRODUCTION IMPLEMENTATION REQUIRED
+    // This service requires the Twilio SDK to be installed for production use
+    
+    throw new Error(
+      'Twilio SMS service requires production implementation. ' +
+      'Install the Twilio SDK and implement the actual API calls. ' +
+      'Remove this placeholder when implementing real Twilio integration.'
+    );
+    
+    // TODO: Implement real Twilio API calls when SDK is available
+    /*
     try {
-      // Simulate Twilio API call
-      // In production, this would be:
-      // const client = twilio(this.config.accountSid, this.config.authToken);
-      // const twilioMessage = await client.messages.create({
-      //   body: message.body,
-      //   from: message.from || this.config.phoneNumber,
-      //   to: message.to
-      // });
-
-      // Mock successful response for development
-      const mockResponse: TwilioResponse = {
-        sid: `SM${Math.random().toString(36).substr(2, 32)}`,
-        status: 'queued'
-      };
-
-      console.log(`[Twilio SMS] Sending SMS to ${message.to}: ${message.body}`);
+      const twilio = require('twilio');
+      const client = twilio(this.config!.accountSid, this.config!.authToken);
       
-      return mockResponse;
+      const twilioMessage = await client.messages.create({
+        body: message.body,
+        from: message.from || this.config!.phoneNumber,
+        to: message.to
+      });
+
+      console.log(`[Twilio SMS] SMS sent to ${message.to} with SID: ${twilioMessage.sid}`);
+      
+      return {
+        sid: twilioMessage.sid,
+        status: twilioMessage.status
+      };
     } catch (error) {
       console.error('[Twilio SMS] Error sending SMS:', error);
-      throw new Error('Failed to send SMS via Twilio');
+      throw new Error(`Failed to send SMS via Twilio: ${error.message}`);
     }
+    */
   }
 
   /**
@@ -95,21 +101,28 @@ export class TwilioService {
     // Validate credentials on first use
     this.validateCredentials();
     
-    // In production, this would query Twilio for message status
-    // For development, return a mock status
-
+    // PRODUCTION IMPLEMENTATION REQUIRED
+    throw new Error(
+      'Twilio status check requires production implementation. ' +
+      'Install the Twilio SDK and implement the actual API calls.'
+    );
+    
+    // TODO: Implement real Twilio status check when SDK is available
+    /*
     try {
-      // Mock status check
-      const statuses = ['queued', 'sent', 'delivered', 'failed'];
-      const randomStatus = statuses[Math.floor(Math.random() * statuses.length)];
+      const twilio = require('twilio');
+      const client = twilio(this.config!.accountSid, this.config!.authToken);
       
-      console.log(`[Twilio SMS] Status check for ${messageSid}: ${randomStatus}`);
+      const message = await client.messages(messageSid).fetch();
       
-      return randomStatus;
+      console.log(`[Twilio SMS] Status check for ${messageSid}: ${message.status}`);
+      
+      return message.status;
     } catch (error) {
       console.error('[Twilio SMS] Error checking message status:', error);
-      return 'failed';
+      throw new Error(`Failed to check SMS status: ${error.message}`);
     }
+    */
   }
 
   /**

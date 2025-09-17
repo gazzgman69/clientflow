@@ -19,20 +19,8 @@ export interface TenantRequest extends Request {
  */
 export const tenantResolver = async (req: TenantRequest, res: Response, next: NextFunction) => {
   try {
-    // For development/single-tenant mode, use default tenant
-    if (process.env.NODE_ENV === 'development') {
-      // In development, we'll use a default tenant ID for now
-      // In production, this would be resolved from subdomain/domain
-      req.tenantId = 'default-tenant';
-      req.tenant = {
-        id: 'default-tenant',
-        name: 'Default Tenant',
-        slug: 'default',
-        plan: 'starter', 
-        isActive: true
-      };
-      return next();
-    }
+    // PRODUCTION: Tenant resolution must always work from session, subdomain, or domain
+    // No development fallbacks allowed in production
 
     // Extract host and subdomain BEFORE conditional checks to prevent scope issues
     const host = req.get('host') || '';

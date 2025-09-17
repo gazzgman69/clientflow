@@ -8,8 +8,29 @@ import { setupVite, serveStatic, log } from "./vite";
 import { calendarAutoSyncService } from "./services/calendar-auto-sync";
 import { tenantResolver } from "./middleware/tenantResolver";
 import { initializeFileStorage } from "./src/services/fileStorageService";
+import { validateProductionSecrets, validateTenantConfiguration } from "./src/services/productionValidation";
 
 const app = express();
+
+// CRITICAL: Validate production secrets before starting any services
+try {
+  validateProductionSecrets();
+  validateTenantConfiguration();
+} catch (error) {
+  console.error('❌ Production validation failed. Server startup aborted.');
+  console.error(error.message);
+  if (error.details) {
+    error.details.forEach((detail: string) => console.error(`  - ${detail}`));
+  }
+  console.error('\n📋 Required environment variables:');
+  console.error('  - DATABASE_URL (PostgreSQL connection string)');
+  console.error('  - SESSION_SECRET (32+ characters)');
+  console.error('  - ENCRYPTION_MASTER_KEY (32+ characters)');
+  console.error('  - GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET');
+  console.error('  - STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET');
+  console.error('\n🔧 Please configure all required secrets and restart the server.');
+  process.exit(1);
+}
 
 // Trust proxy MUST be set before rate limiting for correct client IPs
 app.set('trust proxy', 1);

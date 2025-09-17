@@ -8,6 +8,7 @@ import {
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -505,6 +506,9 @@ export default function ProjectDetailModal({ project, isOpen, onClose }: Project
       <DialogContent className="max-w-4xl h-screen overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{project.name}</DialogTitle>
+          <DialogDescription>
+            Manage project details, documents, files, and team members
+          </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-6">
@@ -1228,6 +1232,9 @@ export default function ProjectDetailModal({ project, isOpen, onClose }: Project
             {selectedDocument?.type === 'invoice' && <Receipt className="h-5 w-5 text-orange-500" />}
             {selectedDocument?.data.title}
           </DialogTitle>
+          <DialogDescription>
+            View and manage {selectedDocument?.type} details
+          </DialogDescription>
         </DialogHeader>
         
         {selectedDocument && (

@@ -10,6 +10,7 @@ export interface TenantRequest extends Request {
     plan: string;
     isActive: boolean;
   };
+  authenticatedUserId?: string; // Add for auth integration
 }
 
 /**
@@ -33,42 +34,87 @@ export const tenantResolver = async (req: TenantRequest, res: Response, next: Ne
       return next();
     }
 
-    // Production tenant resolution logic
-    // Priority: 1. Custom domain, 2. Subdomain, 3. User-based fallback
-    
-    // 1. Check for custom domain mapping
+    // Extract host and subdomain BEFORE conditional checks to prevent scope issues
     const host = req.get('host') || '';
-    // TODO: Implement domain-to-tenant lookup in database
-    
-    // 2. Check for subdomain-based tenant resolution
     const subdomain = extractSubdomain(host);
-    if (subdomain && subdomain !== 'www' && subdomain !== 'api') {
-      // TODO: Implement subdomain-to-tenant lookup in database
-      req.tenantId = `tenant-${subdomain}`;
-    }
+    let tenantSlug = 'default'; // Safe default for slug
 
-    // 3. Fallback to user-based tenant (if user is authenticated)
-    if (!req.tenantId && req.session?.user?.tenantId) {
-      req.tenantId = req.session.user.tenantId;
+    // Priority: 1. Session-based tenant (authenticated user), 2. Custom domain, 3. Subdomain
+    
+    // 1. Check for session-based tenant (authenticated users) - HIGHEST PRIORITY
+    // Add fallback to req.session.user?.tenantId for additional auth patterns
+    let resolvedFromSession = false;
+    try {
+      if (req.session?.tenantId && typeof req.session.tenantId === 'string') {
+        req.tenantId = req.session.tenantId.trim();
+        resolvedFromSession = true;
+      } else if (req.session?.user?.tenantId && typeof req.session.user.tenantId === 'string') {
+        req.tenantId = req.session.user.tenantId.trim();
+        resolvedFromSession = true;
+      }
+    } catch (sessionError) {
+      console.error('Error reading session data for tenant resolution:', sessionError);
+      // Continue with other resolution methods
+    }
+    
+    // 2. Check for custom domain mapping (only if no session tenant)
+    if (!req.tenantId) {
+      try {
+        // TODO: Implement domain-to-tenant lookup in database
+        
+        // 3. Check for subdomain-based tenant resolution (only if no session tenant)
+        if (subdomain && typeof subdomain === 'string' && subdomain !== 'www' && subdomain !== 'api') {
+          // TODO: Implement subdomain-to-tenant lookup in database
+          req.tenantId = `tenant-${subdomain.trim()}`;
+          tenantSlug = subdomain.trim(); // Use subdomain as slug when resolving via subdomain
+        }
+      } catch (subdomainError) {
+        console.error('Error processing subdomain for tenant resolution:', subdomainError);
+        // Fall through to error handling below
+      }
     }
 
     // If no tenant resolved, deny access
-    if (!req.tenantId) {
+    if (!req.tenantId || typeof req.tenantId !== 'string' || req.tenantId.trim().length === 0) {
+      console.warn('Tenant resolution failed', {
+        hasSession: !!req.session,
+        sessionTenantId: req.session?.tenantId ? '[PRESENT]' : '[MISSING]',
+        userTenantId: req.session?.user?.tenantId ? '[PRESENT]' : '[MISSING]',
+        host: host || '[MISSING]',
+        subdomain: subdomain || '[NONE]',
+        userAgent: req.get('User-Agent')?.substring(0, 100) || '[MISSING]'
+      });
+      
       return res.status(400).json({ 
         error: 'No tenant context found',
         message: 'Unable to determine tenant from request context'
       });
     }
 
+    // Validate and sanitize tenant ID
+    const sanitizedTenantId = req.tenantId.trim();
+    if (sanitizedTenantId.length > 100) { // Prevent excessively long tenant IDs
+      console.error('Tenant ID too long:', sanitizedTenantId.length);
+      return res.status(400).json({ 
+        error: 'Invalid tenant context',
+        message: 'Tenant identifier is invalid'
+      });
+    }
+
     // TODO: Load full tenant details from database
-    // For now, create a basic tenant object
-    req.tenant = {
-      id: req.tenantId,
-      name: 'Tenant',
-      slug: subdomain || 'default',
-      plan: 'starter',
-      isActive: true
-    };
+    // For now, create a basic tenant object with safe slug fallback
+    try {
+      req.tenant = {
+        id: sanitizedTenantId,
+        name: 'Tenant',
+        slug: tenantSlug, // Now properly scoped and has safe default
+        plan: 'starter',
+        isActive: true
+      };
+    } catch (tenantCreationError) {
+      console.error('Error creating tenant object:', tenantCreationError);
+      return res.status(500).json({ error: 'Failed to resolve tenant context' });
+    }
 
     next();
   } catch (error) {

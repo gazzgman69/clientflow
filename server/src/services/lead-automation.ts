@@ -30,48 +30,99 @@ class LeadAutomationService {
     try {
       console.log('🤖 Running lead automation tick...', now.toISOString());
       
-      // Load enabled rules
-      const rules = await db
-        .select()
-        .from(leadAutomationRules)
-        .where(eq(leadAutomationRules.enabled, true));
-
-      if (rules.length === 0) {
-        console.log('🤖 No enabled automation rules found');
+      // CRITICAL FIX: Get active tenants and process per tenant to ensure isolation
+      const { storage } = await import('../../storage');
+      const activeTenants = await storage.getActiveTenants();
+      
+      if (activeTenants.length === 0) {
+        console.log('🏢 No active tenants found for lead automation');
         return;
       }
-
-      console.log(`🤖 Found ${rules.length} enabled rules`);
+      
+      console.log(`🏢 Processing lead automation for ${activeTenants.length} active tenants`);
       let totalMoved = 0;
 
-      for (const rule of rules) {
+      for (const tenant of activeTenants) {
         try {
-          const moved = await this.processRule(rule, now);
-          totalMoved += moved;
+          const tenantMoved = await this.processRulesForTenant(tenant.id, now);
+          totalMoved += tenantMoved;
         } catch (error) {
-          console.error(`🤖 Error processing rule ${rule.name}:`, error);
+          console.error(`🤖 Error processing rules for tenant ${tenant.id}:`, error);
         }
       }
 
-      console.log(`🤖 Automation tick complete: ${totalMoved} leads moved`);
+      console.log(`🤖 Automation tick complete: ${totalMoved} leads moved across ${activeTenants.length} tenants`);
     } catch (error) {
       console.error('🤖 Automation tick failed:', error);
     }
   }
 
-  private async processRule(rule: LeadAutomationRule, now: Date): Promise<number> {
+  private async processRulesForTenant(tenantId: string, now: Date): Promise<number> {
+    console.log(`🏢 Processing automation rules for tenant: ${tenantId}`);
+    
+    // Import schema
+    const { leadAutomationRules } = await import('@shared/schema');
+    
+    // Load enabled rules for this specific tenant
+    const rules = await db
+      .select()
+      .from(leadAutomationRules)
+      .where(and(
+        eq(leadAutomationRules.enabled, true),
+        eq(leadAutomationRules.tenantId, tenantId)
+      ));
+
+    if (rules.length === 0) {
+      console.log(`🤖 No enabled automation rules found for tenant ${tenantId}`);
+      return 0;
+    }
+
+    console.log(`🤖 Found ${rules.length} enabled rules for tenant ${tenantId}`);
+    let totalMoved = 0;
+
+    for (const rule of rules) {
+      try {
+        const moved = await this.processRule(rule, now, tenantId);
+        totalMoved += moved;
+      } catch (error) {
+        console.error(`🤖 Error processing rule ${rule.name} for tenant ${tenantId}:`, error);
+      }
+    }
+
+    console.log(`🤖 Tenant ${tenantId}: ${totalMoved} leads moved`);
+    return totalMoved;
+  }
+
+  private async processRule(rule: LeadAutomationRule, now: Date, tenantId?: string): Promise<number> {
     console.log(`🤖 Processing rule: ${rule.name}`);
     
-    // Get candidate leads
+    // Get candidate leads - TENANT SCOPED
     let candidateLeads: Lead[];
     
     if (rule.fromStatus) {
-      candidateLeads = await db
-        .select()
-        .from(leads)
-        .where(eq(leads.status, rule.fromStatus));
+      if (tenantId) {
+        candidateLeads = await db
+          .select()
+          .from(leads)
+          .where(and(
+            eq(leads.tenantId, tenantId),
+            eq(leads.status, rule.fromStatus)
+          ));
+      } else {
+        candidateLeads = await db
+          .select()
+          .from(leads)
+          .where(eq(leads.status, rule.fromStatus));
+      }
     } else {
-      candidateLeads = await db.select().from(leads);
+      if (tenantId) {
+        candidateLeads = await db
+          .select()
+          .from(leads)
+          .where(eq(leads.tenantId, tenantId));
+      } else {
+        candidateLeads = await db.select().from(leads);
+      }
     }
 
     console.log(`🤖 Found ${candidateLeads.length} candidate leads for rule ${rule.name}`);

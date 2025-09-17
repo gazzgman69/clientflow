@@ -62,12 +62,36 @@ export class CalendarAutoSyncService {
     try {
       console.log('🔄 Starting calendar auto-sync...');
       
-      // Get all active calendar integrations
-      const integrations = await storage.getCalendarIntegrations();
-      const activeIntegrations = integrations.filter(integration => 
-        integration.isActive && 
-        (integration.provider === 'google' || integration.provider === 'ical')
-      );
+      // CRITICAL FIX: Get active tenants and process per tenant to ensure isolation
+      const activeTenants = await storage.getActiveTenants();
+      
+      if (activeTenants.length === 0) {
+        console.log('🏢 No active tenants found for calendar auto-sync');
+        return;
+      }
+      
+      console.log(`🏢 Processing calendar sync for ${activeTenants.length} active tenants`);
+      
+      let allActiveIntegrations: any[] = [];
+      
+      // Collect integrations from all tenants
+      for (const tenant of activeTenants) {
+        const tenantIntegrations = await storage.getCalendarIntegrationsByTenant(tenant.id);
+        const activeTenantIntegrations = tenantIntegrations.filter(integration => 
+          integration.isActive && 
+          (integration.provider === 'google' || integration.provider === 'ical')
+        );
+        
+        // Add tenant context to each integration for later use
+        const integrationsWithTenant = activeTenantIntegrations.map(integration => ({
+          ...integration,
+          _tenantContext: tenant.id
+        }));
+        
+        allActiveIntegrations.push(...integrationsWithTenant);
+      }
+      
+      const activeIntegrations = allActiveIntegrations;
 
       if (activeIntegrations.length === 0) {
         console.log('📭 No active calendar integrations found for auto-sync');

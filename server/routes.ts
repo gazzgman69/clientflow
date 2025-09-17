@@ -10,6 +10,7 @@ declare module 'express-session' {
   interface SessionData {
     portalContactId?: string;
     userId?: string;
+    tenantId?: string;
   }
 }
 import { twilioService } from "./services/twilio";
@@ -53,6 +54,8 @@ import portalAppointmentsRoutes from "./src/routes/portal-appointments";
 import stripeWebhooksRoutes from "./src/routes/stripe-webhooks";
 import { userPrefsService } from "./src/services/userPrefs";
 import { calendarAutoSyncService } from "./services/calendar-auto-sync";
+import { tenantResolver, requireTenant, type TenantRequest } from "./middleware/tenantResolver";
+import { tokenResolverService } from "./src/services/token-resolver";
 import { 
   insertLeadSchema, 
   insertContactSchema, 
@@ -120,7 +123,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     saveUninitialized: false,
     cookie: {
       sameSite: 'lax',
-      secure: true,
+      secure: process.env.NODE_ENV === 'production', // Only require HTTPS in production
       httpOnly: true,
       maxAge: 24 * 60 * 60 * 1000 // 24 hours
     }
@@ -151,8 +154,8 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     venuesRoutes(req, res, next);
   });
 
-  // Venue routes with CSRF protection (except for public endpoints used by lead capture forms)
-  app.use('/api/venues', (req, res, next) => {
+  // Venue routes with tenant resolution and CSRF protection (except for public endpoints used by lead capture forms)
+  app.use('/api/venues', tenantResolver, requireTenant, (req, res, next) => {
     console.log(`🔍 VENUES DEBUG: path="${req.path}", method="${req.method}"`);
     // Skip CSRF for public endpoints used by lead capture forms
     const publicEndpoints = ['/suggest', '/place-details'];
@@ -167,27 +170,164 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   }, venuesRoutes);
 
   
-  // Email routes - apply CSRF to state-changing requests
-  app.use('/api/email', csrf, emailRoutes);
-  app.use('/api/email-threads', csrf, emailRoutes); // Direct mounting for /api/email-threads routes
+  // Email routes - apply tenant resolution, CSRF to state-changing requests
+  app.use('/api/email', tenantResolver, requireTenant, csrf, emailRoutes);
+  app.use('/api/email-threads', tenantResolver, requireTenant, csrf, emailRoutes); // Direct mounting for /api/email-threads routes
   
-  // Mail settings routes - apply CSRF to state-changing requests
-  app.use('/api/settings/mail', csrf, mailSettingsRoutes);
+  // Mail settings routes - apply tenant resolution, CSRF to state-changing requests
+  app.use('/api/settings/mail', tenantResolver, requireTenant, csrf, mailSettingsRoutes);
   
-  // User preferences routes - apply CSRF to state-changing requests
-  app.use('/api/user', csrf, userPrefsRoutes);
+  // User preferences routes - apply tenant resolution, CSRF to state-changing requests
+  app.use('/api/user', tenantResolver, requireTenant, csrf, userPrefsRoutes);
   
-  // Templates routes - apply CSRF to state-changing requests
-  app.use('/api/templates', csrf, templatesRoutes);
+  // Templates routes - apply tenant resolution, CSRF to state-changing requests
+  app.use('/api/templates', tenantResolver, requireTenant, csrf, templatesRoutes);
   
-  // Token routes - apply CSRF to state-changing requests
-  app.use('/api/tokens', csrf, tokensRoutes);
+  // Token routes - apply tenant resolution, CSRF to state-changing requests
+  app.use('/api/tokens', tenantResolver, requireTenant, csrf, tokensRoutes);
   
-  // Signatures routes - apply CSRF to state-changing requests
-  app.use('/api/signatures', csrf, signaturesRoutes);
+  // Signatures routes - apply tenant resolution, CSRF to state-changing requests
+  app.use('/api/signatures', tenantResolver, requireTenant, csrf, signaturesRoutes);
   
-  // Lead Forms routes - apply CSRF to state-changing requests (but exclude public routes)  
-  app.use('/api/leads', (req, res, next) => {
+  // Specific leads endpoints (must be before general /api/leads router mount)
+  // GET /api/leads/summary
+  app.get("/api/leads/summary", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
+    try {
+      const leads = await storage.getLeads();
+      const counts = {
+        new: leads.filter(l => l.status === 'new' && !l.lastViewedAt).length, // Only count unseen new leads
+        total: leads.length
+      };
+      
+      res.json({ counts });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch summary data" });
+    }
+  });
+
+  // Mark leads as viewed (for notification badge)
+  app.post("/api/leads/mark-viewed", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
+    try {
+      const leads = await storage.getLeads();
+      const unseenLeads = leads.filter(l => l.status === 'new' && !l.lastViewedAt);
+      
+      // Mark all unseen new leads as viewed
+      for (const lead of unseenLeads) {
+        await storage.updateLead(lead.id, { lastViewedAt: new Date() });
+      }
+      
+      res.json({ marked: unseenLeads.length });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to mark leads as viewed" });
+    }
+  });
+
+  // General leads routes
+  app.get("/api/leads", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
+    try {
+      const leads = await storage.getLeads();
+      res.json(leads);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch leads" });
+    }
+  });
+
+  app.get("/api/leads/:id", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
+    try {
+      const lead = await storage.getLead(req.params.id);
+      if (!lead) {
+        return res.status(404).json({ message: "Lead not found" });
+      }
+      res.json(lead);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch lead" });
+    }
+  });
+
+  app.post("/api/leads", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
+    try {
+      const leadData = insertLeadSchema.parse(req.body);
+      const lead = await storage.createLead(leadData);
+      res.status(201).json(lead);
+    } catch (error) {
+      res.status(400).json({ message: "Invalid lead data" });
+    }
+  });
+
+  app.patch("/api/leads/:id", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
+    try {
+      const leadData = insertLeadSchema.partial().parse(req.body);
+      const lead = await storage.updateLead(req.params.id, leadData);
+      if (!lead) {
+        return res.status(404).json({ message: "Lead not found" });
+      }
+      res.json(lead);
+    } catch (error) {
+      res.status(400).json({ message: "Invalid lead data" });
+    }
+  });
+
+  // PATCH /api/leads/:id/status
+  app.patch("/api/leads/:id/status", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
+    try {
+      const { status } = leadStatusUpdateSchema.parse(req.body);
+
+      // Get current lead first
+      const currentLead = await storage.getLead(req.params.id);
+      if (!currentLead) {
+        return res.status(404).json({ message: "Lead not found" });
+      }
+
+      // Map pipeline status back to lead status
+      let leadStatus = status;
+      if (status === 'contacted') leadStatus = 'follow-up';
+      if (status === 'archived') leadStatus = 'converted';
+
+      // Update with manual status tracking
+      const lead = await storage.updateLead(req.params.id, { 
+        status: leadStatus,
+        lastManualStatusAt: new Date()
+      });
+      
+      // TODO: Record manual status change in history
+      // await storage.createLeadStatusHistory({
+      //   leadId: req.params.id,
+      //   fromStatus: currentLead.status,
+      //   toStatus: status,
+      //   reason: 'manual',
+      //   metadata: JSON.stringify({ userId: req.headers['user-id'] || 'unknown' })
+      // });
+      
+      // TODO: Trigger automation event for lead update
+      // leadAutomationService.onEvent('lead.status_changed', {
+      //   leadId: req.params.id,
+      //   fromStatus: currentLead.status,
+      //   toStatus: status,
+      //   reason: 'manual'
+      // });
+      
+      res.json({ ok: true });
+    } catch (error) {
+      res.status(400).json({ message: "Failed to update lead status" });
+    }
+  });
+
+  app.delete("/api/leads/:id", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
+    try {
+      const deleted = await storage.deleteLead(req.params.id);
+      if (!deleted) {
+        return res.status(404).json({ message: "Lead not found" });
+      }
+      res.status(204).send();
+    } catch (error) {
+      console.error('Error deleting lead:', error);
+      res.status(500).json({ message: "Failed to delete lead" });
+    }
+  });
+  
+  // Lead Forms routes - apply tenant resolution, CSRF to state-changing requests (but exclude public routes)  
+  // NOTE: This is for lead capture forms only, not general leads endpoints
+  app.use('/api/leads', tenantResolver, requireTenant, (req, res, next) => {
     console.log(`🔍 LEADS DEBUG: path="${req.path}", method="${req.method}"`);
     // Skip CSRF for public lead form routes (used by public lead capture forms)
     if (req.path.startsWith('/public/')) {
@@ -200,13 +340,13 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   }, leadFormsRoutes);
   
   // Lead-forms admin routes
-  app.use('/api/lead-forms', csrf, leadFormsRoutes);
+  app.use('/api/lead-forms', tenantResolver, requireTenant, csrf, leadFormsRoutes);
   
-  // Lead Automation routes (simplified version) - apply CSRF to state-changing requests
-  app.use('/api/admin/lead-automation', csrf, leadAutomationSimpleRoutes);
+  // Lead Automation routes (simplified version) - apply tenant resolution, CSRF to state-changing requests
+  app.use('/api/admin/lead-automation', tenantResolver, requireTenant, csrf, leadAutomationSimpleRoutes);
   
-  // Admin Lead Forms routes - apply CSRF to admin management endpoints  
-  app.use('/api/admin/lead-forms', csrf, leadFormsRoutes);
+  // Admin Lead Forms routes - apply tenant resolution, CSRF to admin management endpoints  
+  app.use('/api/admin/lead-forms', tenantResolver, requireTenant, csrf, leadFormsRoutes);
 
   // Portal routes (client portal features) - all secured with session auth + CSRF
   app.use('/api/portal/payments', ensurePortalAuth, csrf, portalPaymentsRoutes);
@@ -575,8 +715,9 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
           return res.status(500).json({ error: 'Signup failed' });
         }
         
-        // Store user ID in session (auto-login after signup)
+        // Store user ID and tenant ID in session (auto-login after signup)
         req.session.userId = newUser.id;
+        req.session.tenantId = newUser.tenantId || 'default-tenant'; // Use user's tenant or default
         
         res.json({ 
           success: true, 
@@ -632,8 +773,9 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
           return res.status(500).json({ error: 'Login failed' });
         }
         
-        // Store user ID in session
+        // Store user ID and tenant ID in session
         req.session.userId = user.id;
+        req.session.tenantId = user.tenantId || 'default-tenant'; // Use user's tenant or default
         
         res.json({ 
           success: true, 
@@ -961,7 +1103,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
 
   // Leads - Specific routes first
   // GET /api/leads/kanban
-  app.get("/api/leads/kanban", async (req, res) => {
+  app.get("/api/leads/kanban", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
     try {
       const leads = await storage.getLeads();
       const leadsWithConflicts = await detectConflicts(leads);
@@ -1007,7 +1149,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   });
 
   // GET /api/leads/inbox
-  app.get("/api/leads/inbox", async (req, res) => {
+  app.get("/api/leads/inbox", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
     try {
       const limit = parseInt(req.query.limit as string) || 50;
       const search = req.query.search as string || '';
@@ -1062,143 +1204,8 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
 
-  // GET /api/leads/summary
-  app.get("/api/leads/summary", async (req, res) => {
-    try {
-      const leads = await storage.getLeads();
-      const counts = {
-        new: leads.filter(l => l.status === 'new' && !l.lastViewedAt).length, // Only count unseen new leads
-        total: leads.length
-      };
-      
-      res.json({ counts });
-    } catch (error) {
-      res.status(500).json({ message: "Failed to fetch summary data" });
-    }
-  });
-
-  // Mark leads as viewed (for notification badge)
-  app.post("/api/leads/mark-viewed", async (req, res) => {
-    try {
-      const leads = await storage.getLeads();
-      const unseenLeads = leads.filter(l => l.status === 'new' && !l.lastViewedAt);
-      
-      // Mark all unseen new leads as viewed
-      for (const lead of unseenLeads) {
-        await storage.updateLead(lead.id, { lastViewedAt: new Date() });
-      }
-      
-      res.json({ marked: unseenLeads.length });
-    } catch (error) {
-      res.status(500).json({ message: "Failed to mark leads as viewed" });
-    }
-  });
-
-  // General leads routes
-  app.get("/api/leads", async (req, res) => {
-    try {
-      const leads = await storage.getLeads();
-      res.json(leads);
-    } catch (error) {
-      res.status(500).json({ message: "Failed to fetch leads" });
-    }
-  });
-
-  app.get("/api/leads/:id", async (req, res) => {
-    try {
-      const lead = await storage.getLead(req.params.id);
-      if (!lead) {
-        return res.status(404).json({ message: "Lead not found" });
-      }
-      res.json(lead);
-    } catch (error) {
-      res.status(500).json({ message: "Failed to fetch lead" });
-    }
-  });
-
-  app.post("/api/leads", csrf, async (req, res) => {
-    try {
-      const leadData = insertLeadSchema.parse(req.body);
-      const lead = await storage.createLead(leadData);
-      res.status(201).json(lead);
-    } catch (error) {
-      res.status(400).json({ message: "Invalid lead data" });
-    }
-  });
-
-  app.patch("/api/leads/:id", csrf, async (req, res) => {
-    try {
-      const leadData = insertLeadSchema.partial().parse(req.body);
-      const lead = await storage.updateLead(req.params.id, leadData);
-      if (!lead) {
-        return res.status(404).json({ message: "Lead not found" });
-      }
-      res.json(lead);
-    } catch (error) {
-      res.status(400).json({ message: "Invalid lead data" });
-    }
-  });
-
-  // PATCH /api/leads/:id/status
-  app.patch("/api/leads/:id/status", csrf, async (req, res) => {
-    try {
-      const { status } = leadStatusUpdateSchema.parse(req.body);
-
-      // Get current lead first
-      const currentLead = await storage.getLead(req.params.id);
-      if (!currentLead) {
-        return res.status(404).json({ message: "Lead not found" });
-      }
-
-      // Map pipeline status back to lead status
-      let leadStatus = status;
-      if (status === 'contacted') leadStatus = 'follow-up';
-      if (status === 'archived') leadStatus = 'converted';
-
-      // Update with manual status tracking
-      const lead = await storage.updateLead(req.params.id, { 
-        status: leadStatus,
-        lastManualStatusAt: new Date()
-      });
-      
-      // TODO: Record manual status change in history
-      // await storage.createLeadStatusHistory({
-      //   leadId: req.params.id,
-      //   fromStatus: currentLead.status,
-      //   toStatus: status,
-      //   reason: 'manual',
-      //   metadata: JSON.stringify({ userId: req.headers['user-id'] || 'unknown' })
-      // });
-      
-      // TODO: Trigger automation event for lead update
-      // leadAutomationService.onEvent('lead.status_changed', {
-      //   leadId: req.params.id,
-      //   fromStatus: currentLead.status,
-      //   toStatus: status,
-      //   reason: 'manual'
-      // });
-      
-      res.json({ ok: true });
-    } catch (error) {
-      res.status(400).json({ message: "Failed to update lead status" });
-    }
-  });
-
-  app.delete("/api/leads/:id", csrf, async (req, res) => {
-    try {
-      const deleted = await storage.deleteLead(req.params.id);
-      if (!deleted) {
-        return res.status(404).json({ message: "Lead not found" });
-      }
-      res.status(204).send();
-    } catch (error) {
-      console.error('Error deleting lead:', error);
-      res.status(500).json({ message: "Failed to delete lead" });
-    }
-  });
-
   // Clients
-  app.get("/api/contacts", async (req, res) => {
+  app.get("/api/contacts", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
     try {
       const contacts = await storage.getContacts();
       res.json(contacts);
@@ -1207,7 +1214,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
 
-  app.get("/api/contacts/:id", async (req, res) => {
+  app.get("/api/contacts/:id", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
     try {
       const contact = await storage.getContact(req.params.id);
       if (!contact) {
@@ -1219,7 +1226,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
 
-  app.post("/api/contacts", csrf, async (req, res) => {
+  app.post("/api/contacts", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
     try {
       const contactData = insertContactSchema.parse(req.body);
       const contact = await storage.createContact(contactData);
@@ -1229,7 +1236,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
 
-  app.patch("/api/contacts/:id", csrf, async (req, res) => {
+  app.patch("/api/contacts/:id", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
     try {
       const contactData = insertContactSchema.partial().parse(req.body);
       const contact = await storage.updateContact(req.params.id, contactData);
@@ -1242,7 +1249,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
 
-  app.delete("/api/contacts/:id", csrf, async (req, res) => {
+  app.delete("/api/contacts/:id", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
     try {
       // Check if contact has associated projects and get their details
       const associatedProjects = await storage.getProjectsByContact(req.params.id);
@@ -1339,7 +1346,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   });
 
   // Projects
-  app.get("/api/projects", async (req, res) => {
+  app.get("/api/projects", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
     try {
       const projects = await storage.getProjects();
       res.json(projects);
@@ -1348,7 +1355,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
 
-  app.get("/api/projects/:id", async (req, res) => {
+  app.get("/api/projects/:id", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
     try {
       const project = await storage.getProject(req.params.id);
       if (!project) {
@@ -1360,7 +1367,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
 
-  app.post("/api/projects", csrf, async (req, res) => {
+  app.post("/api/projects", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
     try {
       const projectData = insertProjectSchema.parse(req.body);
       const project = await storage.createProject(projectData);
@@ -1370,7 +1377,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
 
-  app.patch("/api/projects/:id", csrf, async (req, res) => {
+  app.patch("/api/projects/:id", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
     try {
       const projectData = insertProjectSchema.partial().parse(req.body);
       const project = await storage.updateProject(req.params.id, projectData);
@@ -1384,8 +1391,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   });
 
   // Get effective portal status for a project (tenant setting + project override)
-  // TODO: Add proper authentication - this endpoint should require admin session
-  app.get("/api/projects/:id/portal-status", async (req, res) => {
+  app.get("/api/projects/:id/portal-status", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
     try {
       const projectId = req.params.id;
       
@@ -1416,7 +1422,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
 
-  app.delete("/api/projects/:id", csrf, async (req, res) => {
+  app.delete("/api/projects/:id", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
     try {
       const deleted = await storage.deleteProject(req.params.id);
       if (!deleted) {
@@ -1429,7 +1435,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   });
 
   // Quotes
-  app.get("/api/quotes", async (req, res) => {
+  app.get("/api/quotes", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
     try {
       const quotes = await storage.getQuotes();
       res.json(quotes);
@@ -1438,7 +1444,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
 
-  app.post("/api/quotes", csrf, async (req, res) => {
+  app.post("/api/quotes", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
     try {
       const quoteData = insertQuoteSchema.parse(req.body);
       const quote = await storage.createQuote(quoteData);
@@ -1449,7 +1455,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   });
 
   // Contracts
-  app.get("/api/contracts", async (req, res) => {
+  app.get("/api/contracts", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
     try {
       const contracts = await storage.getContracts();
       res.json(contracts);
@@ -1458,7 +1464,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
 
-  app.post("/api/contracts", csrf, async (req, res) => {
+  app.post("/api/contracts", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
     try {
       const contractData = insertContractSchema.parse(req.body);
       const contract = await storage.createContract(contractData);
@@ -1469,7 +1475,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   });
 
   // Contract preview endpoint for live token rendering
-  app.post("/api/contracts/preview", csrf, async (req, res) => {
+  app.post("/api/contracts/preview", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
     try {
       const { bodyHtml, contactId, projectId } = req.body;
       
@@ -1478,8 +1484,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
       }
 
       // Use token resolver to render the HTML with actual data
-      const tokenResolver = new TokenResolverService();
-      const renderedHtml = await tokenResolver.resolveTokens(bodyHtml, {
+      const renderedHtml = await tokenResolverService.resolveTokens(bodyHtml, {
         contactId,
         projectId,
         userId: req.headers['user-id'] as string
@@ -1493,7 +1498,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   });
 
   // Invoices
-  app.get("/api/invoices", async (req, res) => {
+  app.get("/api/invoices", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
     try {
       const invoices = await storage.getInvoices();
       res.json(invoices);
@@ -1502,7 +1507,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
 
-  app.post("/api/invoices", async (req, res) => {
+  app.post("/api/invoices", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
     try {
       const invoiceData = insertInvoiceSchema.parse(req.body);
       const invoice = await storage.createInvoice(invoiceData);
@@ -1515,7 +1520,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   // Individual document operations
 
   // Quote operations
-  app.get("/api/quotes/:id", async (req, res) => {
+  app.get("/api/quotes/:id", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
     try {
       const quote = await storage.getQuote(req.params.id);
       if (!quote) {
@@ -1527,7 +1532,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
 
-  app.patch("/api/quotes/:id", csrf, async (req, res) => {
+  app.patch("/api/quotes/:id", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
     try {
       const quoteData = insertQuoteSchema.partial().parse(req.body);
       const quote = await storage.updateQuote(req.params.id, quoteData);
@@ -1540,7 +1545,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
 
-  app.delete("/api/quotes/:id", csrf, async (req, res) => {
+  app.delete("/api/quotes/:id", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
     try {
       const deleted = await storage.deleteQuote(req.params.id);
       if (!deleted) {
@@ -1553,7 +1558,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   });
 
   // Contract operations
-  app.get("/api/contracts/:id", async (req, res) => {
+  app.get("/api/contracts/:id", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
     try {
       const contract = await storage.getContract(req.params.id);
       if (!contract) {
@@ -1565,7 +1570,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
 
-  app.patch("/api/contracts/:id", csrf, async (req, res) => {
+  app.patch("/api/contracts/:id", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
     try {
       const contractData = insertContractSchema.partial().parse(req.body);
       const contract = await storage.updateContract(req.params.id, contractData);
@@ -1578,7 +1583,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
 
-  app.delete("/api/contracts/:id", csrf, async (req, res) => {
+  app.delete("/api/contracts/:id", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
     try {
       const deleted = await storage.deleteContract(req.params.id);
       if (!deleted) {
@@ -1591,7 +1596,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   });
 
   // Invoice operations  
-  app.get("/api/invoices/:id", async (req, res) => {
+  app.get("/api/invoices/:id", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
     try {
       const invoice = await storage.getInvoice(req.params.id);
       if (!invoice) {
@@ -1603,7 +1608,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
 
-  app.patch("/api/invoices/:id", async (req, res) => {
+  app.patch("/api/invoices/:id", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
     try {
       const invoiceData = insertInvoiceSchema.partial().parse(req.body);
       const invoice = await storage.updateInvoice(req.params.id, invoiceData);
@@ -1616,7 +1621,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
 
-  app.delete("/api/invoices/:id", async (req, res) => {
+  app.delete("/api/invoices/:id", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
     try {
       const deleted = await storage.deleteInvoice(req.params.id);
       if (!deleted) {
@@ -1629,7 +1634,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   });
 
   // Documents by client/project
-  app.get("/api/clients/:clientId/quotes", async (req, res) => {
+  app.get("/api/clients/:clientId/quotes", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
     try {
       const quotes = await storage.getQuotesByClient(req.params.clientId);
       res.json(quotes);
@@ -1638,7 +1643,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
 
-  app.get("/api/clients/:clientId/contracts", async (req, res) => {
+  app.get("/api/clients/:clientId/contracts", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
     try {
       const contracts = await storage.getContractsByClient(req.params.clientId);
       res.json(contracts);
@@ -1647,7 +1652,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
 
-  app.get("/api/clients/:clientId/invoices", async (req, res) => {
+  app.get("/api/clients/:clientId/invoices", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
     try {
       const invoices = await storage.getInvoicesByClient(req.params.clientId);
       res.json(invoices);

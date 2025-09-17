@@ -65,14 +65,38 @@ export class EmailAutoSyncService {
     try {
       log('🔄 Starting email auto-sync...');
       
-      // Get all active Google calendar integrations (which contain the OAuth tokens we need)
-      const integrations = await storage.getCalendarIntegrations();
-      const activeGoogleIntegrations = integrations.filter(integration => 
-        integration.provider === 'google' && 
-        integration.isActive && 
-        integration.accessToken &&
-        integration.userId // Ensure userId is present
-      );
+      // CRITICAL FIX: Get active tenants and process per tenant to ensure isolation
+      const activeTenants = await storage.getActiveTenants();
+      
+      if (activeTenants.length === 0) {
+        log('📭 No active tenants found for email auto-sync');
+        return;
+      }
+      
+      console.log(`🏢 Processing email sync for ${activeTenants.length} active tenants`);
+      
+      let allActiveGoogleIntegrations: any[] = [];
+      
+      // Collect integrations from all tenants
+      for (const tenant of activeTenants) {
+        const tenantIntegrations = await storage.getCalendarIntegrationsByTenant(tenant.id);
+        const activeTenantIntegrations = tenantIntegrations.filter(integration => 
+          integration.provider === 'google' && 
+          integration.isActive && 
+          integration.accessToken &&
+          integration.userId // Ensure userId is present
+        );
+        
+        // Add tenant context to each integration for later use
+        const integrationsWithTenant = activeTenantIntegrations.map(integration => ({
+          ...integration,
+          _tenantContext: tenant.id
+        }));
+        
+        allActiveGoogleIntegrations.push(...integrationsWithTenant);
+      }
+      
+      const activeGoogleIntegrations = allActiveGoogleIntegrations;
 
       if (activeGoogleIntegrations.length === 0) {
         log('📭 No active Google integrations found for email auto-sync');

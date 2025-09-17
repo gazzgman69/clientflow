@@ -1,4 +1,4 @@
-import { IFileStorage, FileStorageConfig, FileStorageError } from '../interfaces/fileStorage';
+import { IFileStorage, FileStorageConfig, FileStorageError } from '../../interfaces/fileStorage';
 import { LocalFileStorage } from './LocalFileStorage';
 import { S3FileStorage } from './S3FileStorage';
 

@@ -9,7 +9,7 @@ import {
   FileStorageConfig,
   FileNotFoundError,
   FileStorageError 
-} from '../interfaces/fileStorage';
+} from '../../interfaces/fileStorage';
 
 /**
  * Local filesystem implementation of IFileStorage

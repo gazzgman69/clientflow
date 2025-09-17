@@ -5,7 +5,7 @@ import {
   FileStorageConfig,
   FileNotFoundError,
   FileStorageError 
-} from '../interfaces/fileStorage';
+} from '../../interfaces/fileStorage';
 
 /**
  * AWS S3 implementation of IFileStorage

@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -302,6 +302,11 @@ export default function ContractEditor({
             <FileText className="h-5 w-5" />
             {editingContract ? 'Edit Contract' : 'Create Contract'}
           </DialogTitle>
+          <DialogDescription>
+            {editingContract 
+              ? "Modify the contract details and content below. You can use tokens to insert dynamic information."
+              : "Create a new contract by filling in the details and content below. You can use tokens to insert dynamic information."}
+          </DialogDescription>
         </DialogHeader>
 
         <div className="flex-1 flex gap-6 overflow-visible">

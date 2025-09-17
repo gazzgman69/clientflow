@@ -55,36 +55,8 @@ const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(
     const editor = useEditor({
       extensions: [
         StarterKit.configure({
-          bulletList: {
-            HTMLAttributes: {
-              class: 'list-disc list-outside leading-3 -mt-2',
-            },
-          },
-          orderedList: {
-            HTMLAttributes: {
-              class: 'list-decimal list-outside leading-3 -mt-2',
-            },
-          },
-          listItem: {
-            HTMLAttributes: {
-              class: 'leading-normal -mb-2',
-            },
-          },
-          blockquote: {
-            HTMLAttributes: {
-              class: 'border-l-4 border-gray-300 dark:border-gray-600 pl-4 italic',
-            },
-          },
-          code: {
-            HTMLAttributes: {
-              class: 'bg-gray-100 dark:bg-gray-800 rounded px-1.5 py-0.5 font-mono text-sm',
-            },
-          },
-          codeBlock: {
-            HTMLAttributes: {
-              class: 'bg-gray-100 dark:bg-gray-800 rounded p-4 font-mono text-sm overflow-x-auto',
-            },
-          },
+          // Disable extensions we're adding separately to avoid conflicts
+          link: false,
         }),
         Link.configure({
           openOnClick: false,

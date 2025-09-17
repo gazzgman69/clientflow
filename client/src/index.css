@@ -114,6 +114,21 @@
     box-shadow: 0 0 20px rgba(140, 100, 255, 0.3);
   }
 
+  /* Focus Ring Fix - Ensure full visibility */
+  .focus-ring-fix {
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring;
+    /* Remove ring offset to prevent clipping */
+    --tw-ring-offset-width: 0px !important;
+  }
+  
+  /* Modal and Dialog Ring Fixes */
+  .dialog-content [data-radix-collection-item],
+  .dialog-content button,
+  .dropdown-menu-trigger {
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring;
+    --tw-ring-offset-width: 0px !important;
+  }
+
   /* Email Content Styling - Force Theme Colors */
   .email-body, 
   .email-body * {

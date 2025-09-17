@@ -64,6 +64,24 @@ export class GmailService {
   constructor(private getTokensForUser: (userId: string) => Promise<GoogleTokens>) {}
 
   /**
+   * Validate Google OAuth credentials
+   */
+  private validateGoogleCredentials() {
+    const clientId = process.env.GOOGLE_CLIENT_ID;
+    const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+    
+    if (!clientId) {
+      throw new Error('GOOGLE_CLIENT_ID environment variable is required for Gmail integration');
+    }
+    
+    if (!clientSecret) {
+      throw new Error('GOOGLE_CLIENT_SECRET environment variable is required for Gmail integration');
+    }
+    
+    return { clientId, clientSecret };
+  }
+
+  /**
    * Get Gmail service with user's OAuth tokens
    */
   private async getGmailService(userId: string) {
@@ -73,11 +91,11 @@ export class GmailService {
       throw new Error('No Google access token found for user. Please reconnect your Google account.');
     }
 
+    // Validate credentials before using them
+    const { clientId, clientSecret } = this.validateGoogleCredentials();
+
     // Set up OAuth2 client with user's tokens
-    const oauth2Client = new google.auth.OAuth2(
-      process.env.GOOGLE_CLIENT_ID,
-      process.env.GOOGLE_CLIENT_SECRET
-    );
+    const oauth2Client = new google.auth.OAuth2(clientId, clientSecret);
 
     oauth2Client.setCredentials(tokens);
 

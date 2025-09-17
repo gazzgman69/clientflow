@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Calendar, CalendarIcon, FileText, Save, X } from "lucide-react";
@@ -63,7 +63,6 @@ export default function ContractEditor({
 }: ContractEditorProps) {
   const [selectedContactId, setSelectedContactId] = useState(initialContactId || "");
   const [selectedContactName, setSelectedContactName] = useState(initialContactName || "");
-  const [activeTab, setActiveTab] = useState<"template" | "scratch">("template");
   const [saveAsTemplate, setSaveAsTemplate] = useState(false);
   const [livePreview, setLivePreview] = useState("");
   const editorRef = useRef<RichTextEditorRef>(null);
@@ -450,88 +449,51 @@ export default function ContractEditor({
           </div>
 
           {/* Right Panel - Contract Content */}
-          <div className="flex-1 flex flex-col overflow-hidden">
-            {/* Template Selection Tabs */}
-            <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as "template" | "scratch")} className="flex-1 flex flex-col">
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="template" data-testid="tab-from-template">From Template</TabsTrigger>
-                <TabsTrigger value="scratch" data-testid="tab-write-scratch">Write from Scratch</TabsTrigger>
-              </TabsList>
-
-              <TabsContent value="template" className="flex-1 flex flex-col overflow-hidden">
-                <div className="space-y-4 flex-1 flex flex-col">
-                  {/* Template List */}
-                  <div className="border rounded-lg p-3 h-20 overflow-y-auto">
-                    <h4 className="text-sm font-medium mb-2">Available Templates</h4>
-                    {templates.length > 0 ? (
-                      <div className="space-y-2">
-                        {templates.map((template) => (
-                          <button
-                            key={template.id}
-                            onClick={() => handleTemplateSelect(template)}
-                            className="w-full text-left p-2 rounded border hover:bg-gray-50 dark:hover:bg-gray-800 text-sm"
-                            data-testid={`button-select-template-${template.id}`}
-                          >
-                            {template.title}
-                          </button>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="text-sm text-muted-foreground">No contract templates available</p>
-                    )}
-                  </div>
-
-                  {/* Rich Text Editor */}
-                  <div className="flex-1 flex flex-col border rounded-lg overflow-hidden">
-                    <div className="border-b p-2 flex items-center gap-2">
-                      <span className="text-sm font-medium">Contract Content</span>
-                      <div className="flex-1" />
-                      {availableTokens && (
-                        <TokenDropdown
-                          tokens={availableTokens.tokens}
-                          onTokenSelect={handleTokenInsert}
-                          data-testid="token-dropdown-contract"
-                        />
-                      )}
-                    </div>
-                    <div className="flex-1 overflow-hidden">
-                      <RichTextEditor
-                        ref={editorRef}
-                        content=""
-                        onChange={handleEditorChange}
-                        className="h-full"
-                        data-testid="editor-contract-content"
-                      />
-                    </div>
-                  </div>
-                </div>
-              </TabsContent>
-
-              <TabsContent value="scratch" className="flex-1 flex flex-col overflow-hidden">
-                <div className="flex-1 flex flex-col border rounded-lg overflow-hidden">
-                  <div className="border-b p-2 flex items-center gap-2">
-                    <span className="text-sm font-medium">Contract Content</span>
-                    <div className="flex-1" />
-                    {availableTokens && (
-                      <TokenDropdown
-                        tokens={availableTokens.tokens}
-                        onTokenSelect={handleTokenInsert}
-                        data-testid="token-dropdown-contract"
-                      />
-                    )}
-                  </div>
-                  <div className="flex-1 overflow-hidden">
-                    <RichTextEditor
-                      ref={editorRef}
-                      content=""
-                      onChange={handleEditorChange}
-                      className="h-full"
-                      data-testid="editor-contract-content"
-                    />
-                  </div>
-                </div>
-              </TabsContent>
-            </Tabs>
+          <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
+            <div className="flex-1 min-h-0 flex flex-col border rounded-lg overflow-hidden">
+              <div className="border-b p-2 flex items-center gap-2">
+                <span className="text-sm font-medium">Contract Content</span>
+                <div className="flex-1" />
+                {/* Templates dropdown */}
+                {templates.length > 0 && (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" size="sm" data-testid="button-templates-menu">
+                        <FileText className="h-4 w-4 mr-2" />
+                        Templates
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent>
+                      {templates.map((template) => (
+                        <DropdownMenuItem
+                          key={template.id}
+                          onClick={() => handleTemplateSelect(template)}
+                          data-testid={`menuitem-template-${template.id}`}
+                        >
+                          {template.title}
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
+                {availableTokens && (
+                  <TokenDropdown
+                    tokens={availableTokens.tokens}
+                    onTokenSelect={handleTokenInsert}
+                    data-testid="token-dropdown-contract"
+                  />
+                )}
+              </div>
+              <div className="flex-1 min-h-0 overflow-hidden">
+                <RichTextEditor
+                  ref={editorRef}
+                  content=""
+                  onChange={handleEditorChange}
+                  className="h-full"
+                  data-testid="editor-contract-content"
+                />
+              </div>
+            </div>
           </div>
         </div>
       </DialogContent>

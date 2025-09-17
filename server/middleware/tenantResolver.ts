@@ -22,8 +22,8 @@ export const tenantResolver = async (req: TenantRequest, res: Response, next: Ne
     // PRODUCTION: Tenant resolution must always work from session, subdomain, or domain
     // No development fallbacks allowed in production
 
-    // Extract host and subdomain BEFORE conditional checks to prevent scope issues
-    const host = req.get('host') || '';
+    // Extract and normalize host with proxy-awareness for production security
+    const host = getSecureHost(req).toLowerCase().split(':')[0]; // Remove port and normalize case
     const subdomain = extractSubdomain(host);
     let tenantSlug = 'default'; // Safe default for slug
 
@@ -48,16 +48,67 @@ export const tenantResolver = async (req: TenantRequest, res: Response, next: Ne
     // 2. Check for custom domain mapping (only if no session tenant)
     if (!req.tenantId) {
       try {
-        // TODO: Implement domain-to-tenant lookup in database
+        const { storage } = await import('../storage');
         
-        // 3. Check for subdomain-based tenant resolution (only if no session tenant)
-        if (subdomain && typeof subdomain === 'string' && subdomain !== 'www' && subdomain !== 'api') {
-          // TODO: Implement subdomain-to-tenant lookup in database
-          req.tenantId = `tenant-${subdomain.trim()}`;
-          tenantSlug = subdomain.trim(); // Use subdomain as slug when resolving via subdomain
+        // Development mode: Use default tenant for localhost and development domains
+        if (process.env.NODE_ENV === 'development' && 
+            (host === 'localhost' || host === '127.0.0.1' || host.includes('replit.dev'))) {
+          // Try to find a default tenant or create one
+          try {
+            const defaultTenant = await storage.getTenantBySlug('default');
+            if (defaultTenant) {
+              req.tenantId = defaultTenant.id;
+              tenantSlug = defaultTenant.slug;
+            } else {
+              // In development, if no default tenant exists, use a fallback
+              req.tenantId = process.env.DEV_TENANT_ID || 'development-tenant';
+              tenantSlug = 'default';
+            }
+          } catch (devTenantError) {
+            console.error('Error fetching development tenant:', devTenantError);
+            // Enhanced fallback: if DEV_TENANT_ID is set but invalid, still allow development
+            req.tenantId = process.env.DEV_TENANT_ID || 'development-tenant';
+            tenantSlug = 'default';
+          }
+        } else {
+          // Production mode: Check for custom domain first (with www normalization)
+          if (host && host !== 'localhost' && !host.includes('replit.dev')) {
+            try {
+              let tenantByDomain = await storage.getTenantByDomain(host);
+              // If no exact match and host has www, try without www
+              if (!tenantByDomain && host.startsWith('www.')) {
+                tenantByDomain = await storage.getTenantByDomain(host.substring(4));
+              }
+              // If no exact match and host doesn't have www, try with www
+              if (!tenantByDomain && !host.startsWith('www.')) {
+                tenantByDomain = await storage.getTenantByDomain(`www.${host}`);
+              }
+              
+              if (tenantByDomain) {
+                req.tenantId = tenantByDomain.id;
+                tenantSlug = tenantByDomain.slug;
+              }
+            } catch (domainLookupError) {
+              console.error('Error during domain tenant lookup:', domainLookupError);
+            }
+          }
+          
+          // 3. Check for subdomain-based tenant resolution (only if no domain match)
+          if (!req.tenantId && subdomain && typeof subdomain === 'string' && 
+              subdomain !== 'www' && subdomain !== 'api' && !subdomain.match(/^\d+$/)) {
+            try {
+              const tenantBySlug = await storage.getTenantBySlug(subdomain.trim());
+              if (tenantBySlug) {
+                req.tenantId = tenantBySlug.id;
+                tenantSlug = tenantBySlug.slug;
+              }
+            } catch (subdomainLookupError) {
+              console.error('Error during subdomain tenant lookup:', subdomainLookupError);
+            }
+          }
         }
-      } catch (subdomainError) {
-        console.error('Error processing subdomain for tenant resolution:', subdomainError);
+      } catch (tenantLookupError) {
+        console.error('Error during tenant database lookup:', tenantLookupError);
         // Fall through to error handling below
       }
     }
@@ -89,18 +140,39 @@ export const tenantResolver = async (req: TenantRequest, res: Response, next: Ne
       });
     }
 
-    // TODO: Load full tenant details from database
-    // For now, create a basic tenant object with safe slug fallback
+    // Load full tenant details from database
     try {
-      req.tenant = {
-        id: sanitizedTenantId,
-        name: 'Tenant',
-        slug: tenantSlug, // Now properly scoped and has safe default
-        plan: 'starter',
-        isActive: true
-      };
-    } catch (tenantCreationError) {
-      console.error('Error creating tenant object:', tenantCreationError);
+      const { storage } = await import('../storage');
+      const fullTenant = await storage.getTenant(sanitizedTenantId);
+      
+      if (fullTenant && fullTenant.isActive) {
+        req.tenant = {
+          id: fullTenant.id,
+          name: fullTenant.name,
+          slug: fullTenant.slug,
+          plan: fullTenant.plan || 'starter',
+          isActive: fullTenant.isActive
+        };
+      } else if (process.env.NODE_ENV === 'development' && 
+                 (sanitizedTenantId === 'development-tenant' || sanitizedTenantId === process.env.DEV_TENANT_ID)) {
+        // Development fallback tenant (enhanced to handle custom DEV_TENANT_ID)
+        req.tenant = {
+          id: sanitizedTenantId,
+          name: 'Development Tenant',
+          slug: 'default',
+          plan: 'starter',
+          isActive: true
+        };
+      } else {
+        // Tenant not found or inactive
+        console.warn('Tenant not found or inactive:', sanitizedTenantId);
+        return res.status(403).json({ 
+          error: 'Invalid tenant context',
+          message: 'Tenant not found or suspended'
+        });
+      }
+    } catch (tenantFetchError) {
+      console.error('Error fetching tenant details:', tenantFetchError);
       return res.status(500).json({ error: 'Failed to resolve tenant context' });
     }
 
@@ -112,13 +184,69 @@ export const tenantResolver = async (req: TenantRequest, res: Response, next: Ne
 };
 
 /**
- * Extract subdomain from host header
+ * Securely extract host with proxy-awareness for production deployment
+ * Handles reverse proxies, CDNs, and prevents host header spoofing
+ * Only trusts proxy headers when Express trust proxy is properly configured
+ */
+function getSecureHost(req: any): string {
+  // Check if Express app is configured to trust proxy headers
+  const trustProxy = req.app?.get('trust proxy') || process.env.TRUST_PROXY === 'true';
+  
+  // Only honor proxy headers if trust proxy is explicitly configured
+  if (trustProxy) {
+    // Check for forwarded host headers (reverse proxy/CDN scenarios)
+    const forwardedHost = req.get('x-forwarded-host');
+    const forwarded = req.get('forwarded');
+    
+    // Parse standard Forwarded header first (RFC 7239)
+    if (forwarded) {
+      const hostMatch = forwarded.match(/host=([^;,\s]+)/i);
+      if (hostMatch) {
+        return hostMatch[1].replace(/"/g, ''); // Remove quotes if present
+      }
+    }
+    
+    // Check X-Forwarded-Host (common proxy header)
+    if (forwardedHost) {
+      // Take the first host if comma-separated list
+      return forwardedHost.split(',')[0].trim();
+    }
+    
+    // Use Express req.hostname if trust proxy is configured
+    if (req.hostname && req.hostname !== 'localhost') {
+      return req.hostname;
+    }
+  } else {
+    // Trust proxy not configured - warn about potential proxy header spoofing
+    const forwardedHost = req.get('x-forwarded-host');
+    const forwarded = req.get('forwarded');
+    
+    if (process.env.NODE_ENV === 'production' && (forwardedHost || forwarded)) {
+      console.warn('Ignoring proxy headers - trust proxy not configured. Set app.set("trust proxy", true) or TRUST_PROXY=true');
+    }
+  }
+  
+  // Fallback to raw Host header
+  const rawHost = req.get('host') || '';
+  
+  // Security warning for production without proxy configuration
+  if (process.env.NODE_ENV === 'production' && !trustProxy) {
+    console.warn('Production deployment using raw Host header - configure reverse proxy and trust proxy for security');
+  }
+  
+  return rawHost;
+}
+
+/**
+ * Extract subdomain from normalized host (without port)
  * Examples: 
  *   'acme.myapp.com' -> 'acme'
  *   'www.myapp.com' -> 'www'
  *   'myapp.com' -> null
+ *   'localhost' -> null
  */
 function extractSubdomain(host: string): string | null {
+  // Host should already be normalized (lowercase, no port)
   const parts = host.split('.');
   if (parts.length > 2) {
     return parts[0];

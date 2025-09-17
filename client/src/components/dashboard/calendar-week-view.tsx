@@ -17,24 +17,49 @@ export default function CalendarWeekView() {
   });
 
   // Fetch real events from database (including Google Calendar events)
-  const { data: events } = useQuery<Event[]>({
+  const { data: events, error: eventsError } = useQuery<Event[]>({
     queryKey: ['/api/events', 'test-user'],
-    queryFn: () => fetch('/api/events?userId=test-user').then(res => res.json()),
+    queryFn: async () => {
+      try {
+        const response = await fetch('/api/events?userId=test-user');
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const data = await response.json();
+        // Ensure we always return an array
+        return Array.isArray(data) ? data : [];
+      } catch (error) {
+        console.warn('Failed to fetch events:', error);
+        return [];
+      }
+    },
   });
 
   const getEventsForDay = (date: Date) => {
-    if (!events) return [];
-    return events.filter(event => {
-      const eventDate = new Date(event.startDate);
-      return isSameDay(eventDate, date);
+    // Ensure events is always an array before filtering
+    const safeEvents = Array.isArray(events) ? events : [];
+    return safeEvents.filter(event => {
+      try {
+        const eventDate = new Date(event.startDate);
+        return isSameDay(eventDate, date);
+      } catch (error) {
+        console.warn('Invalid event date:', event, error);
+        return false;
+      }
     });
   };
 
   const getTasksForDay = (date: Date) => {
-    if (!tasks) return [];
-    return tasks.filter(task => 
-      task.dueDate && isSameDay(new Date(task.dueDate), date)
-    );
+    // Ensure tasks is always an array before filtering
+    const safeTasks = Array.isArray(tasks) ? tasks : [];
+    return safeTasks.filter(task => {
+      try {
+        return task.dueDate && isSameDay(new Date(task.dueDate), date);
+      } catch (error) {
+        console.warn('Invalid task date:', task, error);
+        return false;
+      }
+    });
   };
 
   const getEventTypeColor = (type: string) => {

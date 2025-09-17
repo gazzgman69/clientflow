@@ -29,6 +29,8 @@ import {
   type PortalForm, type InsertPortalForm,
   type PaymentSession, type InsertPaymentSession,
   type WebhookEvent, type InsertWebhookEvent,
+  // Tenant types
+  type Tenant, type InsertTenant,
   // Enhanced Quotes System types
   type QuotePackage, type InsertQuotePackage,
   type QuoteAddon, type InsertQuoteAddon,
@@ -42,7 +44,7 @@ import {
   users, leads, contacts, projects, quotes, contracts, invoices, tasks, emails, emailThreads, activities, automations, 
   members, venues, projectMembers, memberAvailability, projectFiles, projectNotes, smsMessages, 
   messageTemplates, messageThreads, events, calendarIntegrations, calendarSyncLog, templates, leadCaptureForms,
-  leadStatusHistory, emailSignatures, portalForms, paymentSessions, webhookEvents,
+  leadStatusHistory, emailSignatures, portalForms, paymentSessions, webhookEvents, tenants,
   // Enhanced Quotes System tables
   quotePackages, quoteAddons, quoteItems, quoteTokens, quoteSignatures,
   // Quote Extra Info System tables
@@ -65,8 +67,11 @@ function omitUndefined<T extends Record<string, any>>(obj: T): Partial<T> {
 }
 
 export interface IStorage {
-  // Tenants (for job scheduling)
+  // Tenants (for job scheduling and resolution)
   getActiveTenants(): Promise<{ id: string; name: string; slug: string }[]>;
+  getTenantBySlug(slug: string): Promise<Tenant | undefined>;
+  getTenantByDomain(domain: string): Promise<Tenant | undefined>;
+  getTenant(id: string): Promise<Tenant | undefined>;
   
   // Users
   getUsers(): Promise<User[]>;
@@ -1948,7 +1953,7 @@ const db = drizzle(sql);
 export class DrizzleStorage implements IStorage {
   private db = drizzle(sql);
   
-  // Tenants (for job scheduling)
+  // Tenants (for job scheduling and resolution)
   async getActiveTenants(): Promise<{ id: string; name: string; slug: string }[]> {
     const { withTenant } = await import('./utils/tenantQueries');
     const { tenants } = await import('@shared/schema');
@@ -1961,6 +1966,48 @@ export class DrizzleStorage implements IStorage {
     })
     .from(tenants)
     .where(eq(tenants.isActive, true));
+  }
+
+  async getTenantBySlug(slug: string): Promise<Tenant | undefined> {
+    const { tenants } = await import('@shared/schema');
+    const { eq, and } = await import('drizzle-orm');
+    
+    const result = await this.db.select()
+      .from(tenants)
+      .where(and(
+        eq(tenants.slug, slug),
+        eq(tenants.isActive, true)
+      ))
+      .limit(1);
+      
+    return result[0];
+  }
+
+  async getTenantByDomain(domain: string): Promise<Tenant | undefined> {
+    const { tenants } = await import('@shared/schema');
+    const { eq, and } = await import('drizzle-orm');
+    
+    const result = await this.db.select()
+      .from(tenants)
+      .where(and(
+        eq(tenants.domain, domain),
+        eq(tenants.isActive, true)
+      ))
+      .limit(1);
+      
+    return result[0];
+  }
+
+  async getTenant(id: string): Promise<Tenant | undefined> {
+    const { tenants } = await import('@shared/schema');
+    const { eq } = await import('drizzle-orm');
+    
+    const result = await this.db.select()
+      .from(tenants)
+      .where(eq(tenants.id, id))
+      .limit(1);
+      
+    return result[0];
   }
   
   // Calendar Integrations - Core functionality for Google Calendar

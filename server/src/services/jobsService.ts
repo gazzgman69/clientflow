@@ -6,13 +6,13 @@
  * interface for enqueueing background tasks throughout the application.
  */
 
-import { MemoryJobQueue } from './jobs/MemoryJobQueue';
+import { PostgreSQLJobQueue } from './jobs/PostgreSQLJobQueue';
 import { IJobQueue, JobPriority, JobSchedule } from '../interfaces/jobs';
 
 /**
- * Singleton job queue instance
+ * Singleton job queue instance - now with persistent storage
  */
-export const jobQueue: IJobQueue = new MemoryJobQueue({
+export const jobQueue: IJobQueue = new PostgreSQLJobQueue({
   maxConcurrentJobs: 3, // Conservative for CRM workload
   defaultMaxRetries: 3,
   retryDelay: 2000, // 2 seconds base retry delay

@@ -7,6 +7,7 @@ import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { calendarAutoSyncService } from "./services/calendar-auto-sync";
 import { tenantResolver } from "./middleware/tenantResolver";
+import { initializeFileStorage } from "./src/services/fileStorageService";
 
 const app = express();
 
@@ -163,8 +164,18 @@ app.use((req, res, next) => {
     port,
     host: "0.0.0.0",
     reusePort: true,
-  }, () => {
+  }, async () => {
     log(`serving on port ${port}`);
+    
+    // Initialize file storage system
+    try {
+      const storageInitialized = await initializeFileStorage();
+      if (!storageInitialized) {
+        console.warn('⚠️ File storage initialization failed - continuing with degraded functionality');
+      }
+    } catch (error) {
+      console.error('❌ File storage initialization error:', error);
+    }
     
     // Start calendar auto-sync service after server is ready
     calendarAutoSyncService.start();

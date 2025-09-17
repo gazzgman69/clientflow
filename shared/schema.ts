@@ -142,10 +142,14 @@ export const contracts = pgTable("contracts", {
   title: text("title").notNull(),
   description: text("description"),
   terms: text("terms"),
-  amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
   status: text("status").notNull().default('draft'), // draft, sent, signed, cancelled
   signedAt: timestamp("signed_at"),
   expiresAt: timestamp("expires_at"),
+  // Signature fields
+  businessSignature: text("business_signature"), // Base64 encoded signature or typed name
+  clientSignature: text("client_signature"), // Base64 encoded signature or typed name
+  businessSignedAt: timestamp("business_signed_at"),
+  clientSignedAt: timestamp("client_signed_at"),
   createdBy: varchar("created_by").references(() => users.id).notNull(),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),

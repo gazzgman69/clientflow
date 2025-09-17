@@ -20,6 +20,7 @@ import { format } from "date-fns";
 import ContactPicker from "../quote/ContactPicker";
 import { RichTextEditor, RichTextEditorRef } from "../ui/rich-text-editor";
 import { TokenDropdown } from "../ui/token-dropdown";
+import { SignaturePad, SignaturePadRef } from "../ui/signature-pad";
 import type { Contract, Contact, Template } from "@shared/schema";
 import { insertContractSchema } from "@shared/schema";
 import { z } from "zod";
@@ -32,6 +33,8 @@ const contractEditorSchema = z.object({
   terms: z.string().min(1, "Contract content is required"),
   dueDate: z.date().optional(),
   status: z.enum(["draft", "sent", "signed", "completed", "cancelled"]).default("draft"),
+  businessSignature: z.string().optional(),
+  clientSignature: z.string().optional(),
 });
 
 type ContractEditorForm = z.infer<typeof contractEditorSchema>;
@@ -65,6 +68,8 @@ export default function ContractEditor({
   const [saveAsTemplate, setSaveAsTemplate] = useState(false);
   const [livePreview, setLivePreview] = useState("");
   const editorRef = useRef<RichTextEditorRef>(null);
+  const businessSignatureRef = useRef<SignaturePadRef>(null);
+  const clientSignatureRef = useRef<SignaturePadRef>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -75,8 +80,9 @@ export default function ContractEditor({
       title: "",
       description: "",
       terms: "",
-      amount: 0,
       status: "draft",
+      businessSignature: "",
+      clientSignature: "",
     },
   });
 
@@ -89,9 +95,10 @@ export default function ContractEditor({
         title: editingContract.title,
         description: editingContract.description || "",
         terms: editingContract.terms || "",
-        amount: editingContract.amount || 0,
-        dueDate: editingContract.dueDate ? new Date(editingContract.dueDate) : undefined,
+        dueDate: editingContract.expiresAt ? new Date(editingContract.expiresAt) : undefined,
         status: editingContract.status,
+        businessSignature: editingContract.businessSignature || "",
+        clientSignature: editingContract.clientSignature || "",
       });
       // Set editor content
       if (editorRef.current && editingContract.terms) {
@@ -103,8 +110,9 @@ export default function ContractEditor({
         title: "",
         description: "",
         terms: "",
-        amount: 0,
         status: "draft",
+        businessSignature: "",
+        clientSignature: "",
       });
       setSelectedContactId(initialContactId || "");
       setSelectedContactName(initialContactName || "");
@@ -159,12 +167,11 @@ export default function ContractEditor({
         projectId: projectId || null,
         contractNumber: `CON-${Date.now()}`,
         dueDate: data.dueDate?.toISOString(),
+        businessSignature: data.businessSignature,
+        clientSignature: data.clientSignature,
       };
       
-      return await apiRequest('/api/contracts', {
-        method: 'POST',
-        body: contractData,
-      });
+      return await apiRequest('/api/contracts', 'POST', contractData);
     },
     onSuccess: () => {
       toast({
@@ -195,12 +202,11 @@ export default function ContractEditor({
         ...data,
         projectId: editingContract.projectId,
         dueDate: data.dueDate?.toISOString(),
+        businessSignature: data.businessSignature,
+        clientSignature: data.clientSignature,
       };
       
-      return await apiRequest(`/api/contracts/${editingContract.id}`, {
-        method: 'PATCH',
-        body: contractData,
-      });
+      return await apiRequest(`/api/contracts/${editingContract.id}`, 'PATCH', contractData);
     },
     onSuccess: () => {
       toast({
@@ -225,13 +231,10 @@ export default function ContractEditor({
   // Save as template mutation
   const saveAsTemplateMutation = useMutation({
     mutationFn: async (data: { title: string; body: string }) => {
-      return await apiRequest('/api/admin/templates', {
-        method: 'POST',
-        body: {
-          type: 'contract',
-          title: data.title,
-          body: data.body,
-        },
+      return await apiRequest('/api/admin/templates', 'POST', {
+        type: 'contract',
+        title: data.title,
+        body: data.body,
       });
     },
     onSuccess: () => {
@@ -394,6 +397,53 @@ export default function ContractEditor({
                     </FormItem>
                   )}
                 />
+
+                {/* Signatures Section */}
+                <div className="space-y-4 border-t pt-4">
+                  <h3 className="text-sm font-medium">Digital Signatures</h3>
+                  
+                  {/* Business Signature */}
+                  <FormField
+                    control={form.control}
+                    name="businessSignature"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Your Signature (Business Owner)</FormLabel>
+                        <FormControl>
+                          <SignaturePad
+                            ref={businessSignatureRef}
+                            value={field.value}
+                            onChange={field.onChange}
+                            placeholder="Your name"
+                            data-testid="signature-business"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  {/* Client Signature */}
+                  <FormField
+                    control={form.control}
+                    name="clientSignature"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Client Signature</FormLabel>
+                        <FormControl>
+                          <SignaturePad
+                            ref={clientSignatureRef}
+                            value={field.value}
+                            onChange={field.onChange}
+                            placeholder="Client name"
+                            data-testid="signature-client"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
 
                 {/* Save as Template Option */}
                 {!editingContract && (

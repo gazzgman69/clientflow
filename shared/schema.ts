@@ -721,6 +721,36 @@ export const insertQuoteExtraInfoResponseSchema = createInsertSchema(quoteExtraI
 // Tenants
 export const insertTenantSchema = createInsertSchema(tenants).omit({ id: true, createdAt: true, updatedAt: true });
 
+// Authentication validation schemas
+export const loginSchema = z.object({
+  username: z.string().min(1, 'Username is required'),
+  password: z.string().min(1, 'Password is required'),
+});
+
+export const requestPasswordResetSchema = z.object({
+  email: z.string().email('Invalid email address'),
+});
+
+export const resetPasswordSchema = z.object({
+  token: z.string().min(1, 'Reset token is required'),
+  newPassword: z.string().min(8, 'Password must be at least 8 characters long'),
+});
+
+export const portalAccessRequestSchema = z.object({
+  email: z.string().email('Invalid email address'),
+  projectId: z.string().optional(),
+});
+
+export const portalTokenVerifySchema = z.object({
+  token: z.string().min(1, 'Access token is required'),
+});
+
+export const leadStatusUpdateSchema = z.object({
+  status: z.enum(['new', 'contacted', 'qualified', 'archived'], {
+    errorMap: () => ({ message: 'Status must be one of: new, contacted, qualified, archived' })
+  }),
+});
+
 // Types
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;

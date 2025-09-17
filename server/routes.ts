@@ -83,7 +83,13 @@ import {
   insertQuoteSignatureSchema,
   insertQuoteExtraInfoFieldSchema,
   insertQuoteExtraInfoConfigSchema,
-  insertQuoteExtraInfoResponseSchema
+  insertQuoteExtraInfoResponseSchema,
+  loginSchema,
+  requestPasswordResetSchema,
+  resetPasswordSchema,
+  portalAccessRequestSchema,
+  portalTokenVerifySchema,
+  leadStatusUpdateSchema
 } from "@shared/schema";
 
 export async function registerRoutes(app: Express, csrfProtection?: any): Promise<Server> {
@@ -377,10 +383,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   // Step 1: Request magic link (with portal enabled check)
   app.post('/api/portal/auth/request-access', authLimiter, async (req, res) => {
     try {
-      const { email, projectId } = req.body;
-      if (!email) {
-        return res.status(400).json({ error: 'Email address required' });
-      }
+      const { email, projectId } = portalAccessRequestSchema.parse(req.body);
       
       // Find contact by email
       const contact = await storage.getContactByEmail(email);
@@ -436,10 +439,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   // Step 2: Verify token and login
   app.post('/api/portal/auth/verify-token', authLimiter, async (req, res) => {
     try {
-      const { token } = req.body;
-      if (!token) {
-        return res.status(400).json({ error: 'Access token required' });
-      }
+      const { token } = portalTokenVerifySchema.parse(req.body);
       
       // Get token from memory store
       global.portalTokens = global.portalTokens || new Map();
@@ -541,11 +541,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   // Main user authentication endpoints  
   app.post('/api/auth/login', authLimiter, async (req, res) => {
     try {
-      const { username, password } = req.body;
-      
-      if (!username || !password) {
-        return res.status(400).json({ error: 'Username and password required' });
-      }
+      const { username, password } = loginSchema.parse(req.body);
       
       // Get user from database
       const user = await storage.getUserByUsername(username);
@@ -624,11 +620,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   // Password reset endpoints
   app.post('/api/auth/request-reset', authLimiter, async (req, res) => {
     try {
-      const { email } = req.body;
-      
-      if (!email) {
-        return res.status(400).json({ error: 'Email is required' });
-      }
+      const { email } = requestPasswordResetSchema.parse(req.body);
       
       // Find user by email
       const users = await storage.getUsers();
@@ -671,15 +663,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
 
   app.post('/api/auth/reset-password', authLimiter, async (req, res) => {
     try {
-      const { token, newPassword } = req.body;
-      
-      if (!token || !newPassword) {
-        return res.status(400).json({ error: 'Token and new password are required' });
-      }
-      
-      if (newPassword.length < 8) {
-        return res.status(400).json({ error: 'Password must be at least 8 characters' });
-      }
+      const { token, newPassword } = resetPasswordSchema.parse(req.body);
       
       // Hash the provided token and look it up
       const hashedToken = hashToken(token);
@@ -1075,13 +1059,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   // PATCH /api/leads/:id/status
   app.patch("/api/leads/:id/status", csrf, async (req, res) => {
     try {
-      const { status } = req.body;
-      
-      // Validate status
-      const validStatuses = ['new', 'contacted', 'qualified', 'archived'];
-      if (!validStatuses.includes(status)) {
-        return res.status(400).json({ message: "Invalid status" });
-      }
+      const { status } = leadStatusUpdateSchema.parse(req.body);
 
       // Get current lead first
       const currentLead = await storage.getLead(req.params.id);

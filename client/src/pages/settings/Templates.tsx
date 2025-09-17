@@ -108,6 +108,9 @@ export default function TemplatesPage() {
       const response = await fetch('/api/admin/templates', {
         headers: { 'user-id': 'test-user' }
       });
+      if (!response.ok) {
+        return []; // Return empty array if API fails
+      }
       return response.json();
     },
   });

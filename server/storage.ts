@@ -28,6 +28,7 @@ import {
   type EmailSignature, type InsertEmailSignature,
   type PortalForm, type InsertPortalForm,
   type PaymentSession, type InsertPaymentSession,
+  type WebhookEvent, type InsertWebhookEvent,
   // Enhanced Quotes System types
   type QuotePackage, type InsertQuotePackage,
   type QuoteAddon, type InsertQuoteAddon,
@@ -41,7 +42,7 @@ import {
   users, leads, contacts, projects, quotes, contracts, invoices, tasks, emails, emailThreads, activities, automations, 
   members, venues, projectMembers, memberAvailability, projectFiles, projectNotes, smsMessages, 
   messageTemplates, messageThreads, events, calendarIntegrations, calendarSyncLog, templates, leadCaptureForms,
-  leadStatusHistory, emailSignatures, portalForms, paymentSessions,
+  leadStatusHistory, emailSignatures, portalForms, paymentSessions, webhookEvents,
   // Enhanced Quotes System tables
   quotePackages, quoteAddons, quoteItems, quoteTokens, quoteSignatures,
   // Quote Extra Info System tables
@@ -338,6 +339,11 @@ export interface IStorage {
   getPaymentSessionById(id: string): Promise<PaymentSession | undefined>;
   createPaymentSession(session: InsertPaymentSession): Promise<PaymentSession>;
   updatePaymentSession(sessionId: string, session: Partial<InsertPaymentSession>): Promise<PaymentSession | undefined>;
+
+  // Webhook Events - Track processed webhooks for idempotency
+  getWebhookEventByProviderAndEventId(provider: string, eventId: string): Promise<WebhookEvent | undefined>;
+  createWebhookEvent(event: InsertWebhookEvent): Promise<WebhookEvent>;
+  updateWebhookEvent(eventId: string, event: Partial<InsertWebhookEvent>): Promise<WebhookEvent | undefined>;
 
   // Additional invoice methods for portal
   getInvoiceById(id: string): Promise<Invoice | undefined>;
@@ -1844,6 +1850,9 @@ export class MemStorage implements IStorage {
 
   // Payment Sessions - MemStorage implementation
   private paymentSessions: Map<string, PaymentSession> = new Map();
+
+  // Webhook Events - MemStorage implementation  
+  private webhookEvents: Map<string, WebhookEvent> = new Map();
   
   async getPaymentSessionsByContactId(contactId: string): Promise<PaymentSession[]> {
     return Array.from(this.paymentSessions.values()).filter(session => session.contactId === contactId);
@@ -1875,6 +1884,34 @@ export class MemStorage implements IStorage {
       updatedAt: new Date(),
     };
     this.paymentSessions.set(sessionId, updated);
+    return updated;
+  }
+
+  // Webhook Events - MemStorage implementation
+  async getWebhookEventByProviderAndEventId(provider: string, eventId: string): Promise<WebhookEvent | undefined> {
+    return Array.from(this.webhookEvents.values()).find(
+      event => event.provider === provider && event.eventId === eventId
+    );
+  }
+
+  async createWebhookEvent(event: InsertWebhookEvent): Promise<WebhookEvent> {
+    const id = randomUUID();
+    const webhookEvent: WebhookEvent = {
+      ...event,
+      id,
+      createdAt: new Date(),
+    };
+    this.webhookEvents.set(id, webhookEvent);
+    return webhookEvent;
+  }
+
+  async updateWebhookEvent(eventId: string, event: Partial<InsertWebhookEvent>): Promise<WebhookEvent | undefined> {
+    // Find by eventId (provider event ID), not by our internal ID
+    const existing = Array.from(this.webhookEvents.values()).find(e => e.eventId === eventId);
+    if (!existing) return undefined;
+
+    const updated: WebhookEvent = { ...existing, ...event };
+    this.webhookEvents.set(existing.id, updated);
     return updated;
   }
 
@@ -2845,6 +2882,27 @@ export class DrizzleStorage implements IStorage {
       ...session,
       updatedAt: new Date(),
     }).where(eq(paymentSessions.sessionId, sessionId)).returning();
+    return result[0];
+  }
+
+  // Webhook Events - PostgreSQL implementation
+  async getWebhookEventByProviderAndEventId(provider: string, eventId: string): Promise<WebhookEvent | undefined> {
+    const result = await this.db.select().from(webhookEvents)
+      .where(and(eq(webhookEvents.provider, provider), eq(webhookEvents.eventId, eventId)));
+    return result[0];
+  }
+
+  async createWebhookEvent(event: InsertWebhookEvent): Promise<WebhookEvent> {
+    const result = await this.db.insert(webhookEvents).values({
+      ...event,
+      createdAt: new Date(),
+    }).returning();
+    return result[0];
+  }
+
+  async updateWebhookEvent(eventId: string, event: Partial<InsertWebhookEvent>): Promise<WebhookEvent | undefined> {
+    const result = await this.db.update(webhookEvents).set(event)
+      .where(eq(webhookEvents.eventId, eventId)).returning();
     return result[0];
   }
 

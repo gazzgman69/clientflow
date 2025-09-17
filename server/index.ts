@@ -68,7 +68,12 @@ app.use(limiter); // Apply general rate limiting to all routes
 (app as any).authLimiter = authLimiter;
 
 app.use(cookieParser()); // Required for CSRF
-app.use(express.json({ limit: '10mb' })); // Add size limit for security
+
+// CRITICAL: Webhook routes need raw body data for signature verification
+// Mount webhook routes with raw parsing BEFORE global JSON parsing
+app.use('/api/stripe/webhook', express.raw({ type: 'application/json', limit: '5mb' }));
+
+app.use(express.json({ limit: '10mb' })); // Add size limit for security  
 app.use(express.urlencoded({ extended: false, limit: '10mb' }));
 
 // CSRF Protection - applied after sessions are configured

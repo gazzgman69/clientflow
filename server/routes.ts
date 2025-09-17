@@ -50,6 +50,7 @@ import tokensRoutes from "./src/routes/tokens";
 import portalPaymentsRoutes from "./src/routes/portal-payments";
 import portalFormsRoutes from "./src/routes/portal-forms";
 import portalAppointmentsRoutes from "./src/routes/portal-appointments";
+import stripeWebhooksRoutes from "./src/routes/stripe-webhooks";
 import { userPrefsService } from "./src/services/userPrefs";
 import { calendarAutoSyncService } from "./services/calendar-auto-sync";
 import { 
@@ -210,6 +211,9 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   app.use('/api/portal/payments', ensurePortalAuth, csrf, portalPaymentsRoutes);
   app.use('/api/portal/forms', ensurePortalAuth, csrf, portalFormsRoutes);
   app.use('/api/portal/appointments', ensurePortalAuth, csrf, portalAppointmentsRoutes);
+
+  // Stripe webhook routes (NO CSRF protection - Stripe handles authentication via signature verification)
+  app.use('/api/stripe', stripeWebhooksRoutes);
   
   // Security helper functions for portal authentication
   async function verifyProjectAccess(contactId: string, projectId: string): Promise<boolean> {

@@ -1027,6 +1027,24 @@ export const paymentSessions = pgTable("payment_sessions", {
   sessionIdIdx: index("payment_sessions_session_id_idx").on(table.sessionId),
 }));
 
+// Webhook Events - Track processed webhook events for idempotency
+export const webhookEvents = pgTable("webhook_events", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  provider: text("provider").notNull(), // 'stripe', 'paypal', etc.
+  eventId: text("event_id").notNull(), // Provider's unique event ID (e.g., Stripe event.id)
+  eventType: text("event_type").notNull(), // e.g., 'payment_intent.succeeded'
+  processed: boolean("processed").default(false),
+  processedAt: timestamp("processed_at"),
+  payload: text("payload"), // JSON of full webhook payload for debugging
+  errorMessage: text("error_message"), // If processing failed
+  retryCount: integer("retry_count").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  providerEventIdIdx: unique("webhook_events_provider_event_id_unique").on(table.provider, table.eventId),
+  eventTypeIdx: index("webhook_events_event_type_idx").on(table.eventType),
+  processedIdx: index("webhook_events_processed_idx").on(table.processed),
+}));
+
 // Insert schemas and types for portal forms
 export const insertPortalFormSchema = createInsertSchema(portalForms).omit({ 
   id: true, 
@@ -1046,4 +1064,13 @@ export const insertPaymentSessionSchema = createInsertSchema(paymentSessions).om
 
 export type PaymentSession = typeof paymentSessions.$inferSelect;
 export type InsertPaymentSession = z.infer<typeof insertPaymentSessionSchema>;
+
+// Insert schemas and types for webhook events
+export const insertWebhookEventSchema = createInsertSchema(webhookEvents).omit({ 
+  id: true, 
+  createdAt: true 
+});
+
+export type WebhookEvent = typeof webhookEvents.$inferSelect;
+export type InsertWebhookEvent = z.infer<typeof insertWebhookEventSchema>;
 

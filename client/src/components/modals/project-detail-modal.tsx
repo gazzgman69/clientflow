@@ -3,7 +3,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { 
   FileText, Upload, Users, MessageSquare, Plus, 
   Download, Trash, Clock, DollarSign, MapPin, Briefcase,
-  Receipt, File, Send, Check 
+  Receipt, File, Send, Check, Edit 
 } from "lucide-react";
 import {
   Dialog,
@@ -77,6 +77,7 @@ export default function ProjectDetailModal({ project, isOpen, onClose }: Project
   const [selectedDocument, setSelectedDocument] = useState<{
     type: 'quote' | 'contract' | 'invoice';
     data: Quote | Contract | Invoice;
+    mode?: 'view' | 'edit';
   } | null>(null);
   
   // Quote creation flow state
@@ -323,6 +324,7 @@ export default function ProjectDetailModal({ project, isOpen, onClose }: Project
   };
 
   const handleQuoteEditorClose = () => {
+    setEditingQuote(null);
     setShowQuoteEditor(false);
     setSelectedContactId("");
     setSelectedContactName("");
@@ -388,6 +390,96 @@ export default function ProjectDetailModal({ project, isOpen, onClose }: Project
       });
     },
   });
+
+  // Delete mutations for documents
+  const deleteQuoteMutation = useMutation({
+    mutationFn: (quoteId: string) => apiRequest("DELETE", `/api/quotes/${quoteId}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/contacts", project?.contactId, "quotes"] });
+      toast({
+        title: "Success",
+        description: "Quote deleted successfully!",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error", 
+        description: "Failed to delete quote. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const deleteContractMutation = useMutation({
+    mutationFn: (contractId: string) => apiRequest("DELETE", `/api/contracts/${contractId}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/contacts", project?.contactId, "contracts"] });
+      toast({
+        title: "Success",
+        description: "Contract deleted successfully!",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to delete contract. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const deleteInvoiceMutation = useMutation({
+    mutationFn: (invoiceId: string) => apiRequest("DELETE", `/api/invoices/${invoiceId}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/contacts", project?.contactId, "invoices"] });
+      toast({
+        title: "Success", 
+        description: "Invoice deleted successfully!",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to delete invoice. Please try again.", 
+        variant: "destructive",
+      });
+    },
+  });
+
+  // State for editing quotes
+  const [editingQuote, setEditingQuote] = useState<Quote | null>(null);
+
+  // Handle edit operations
+  const handleEditQuote = (quote: Quote) => {
+    setEditingQuote(quote);
+    setShowQuoteEditor(true);
+  };
+
+  const handleEditContract = (contract: any) => {
+    setSelectedDocument({ type: 'contract', data: contract, mode: 'edit' });
+  };
+
+  const handleEditInvoice = (invoice: any) => {
+    setSelectedDocument({ type: 'invoice', data: invoice, mode: 'edit' });
+  };
+
+  // Handle delete operations with confirmation
+  const handleDeleteDocument = async (id: string, type: 'quote' | 'contract' | 'invoice', title: string) => {
+    const confirmDelete = window.confirm(`Are you sure you want to delete ${type} "${title}"?`);
+    if (confirmDelete) {
+      switch (type) {
+        case 'quote':
+          deleteQuoteMutation.mutate(id);
+          break;
+        case 'contract':
+          deleteContractMutation.mutate(id);
+          break;
+        case 'invoice':
+          deleteInvoiceMutation.mutate(id);
+          break;
+      }
+    }
+  };
 
   const handleFileUpload = () => {
     if (selectedFile) {
@@ -759,11 +851,39 @@ export default function ProjectDetailModal({ project, isOpen, onClose }: Project
                               </div>
                             </div>
                             <div className="flex gap-2">
+                              <Button 
+                                variant="ghost" 
+                                size="sm"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleEditQuote(quote);
+                                }}
+                                data-testid={`button-edit-quote-${quote.id}`}
+                                aria-label={`Edit quote ${quote.title}`}
+                              >
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                              <Button 
+                                variant="ghost" 
+                                size="sm"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDeleteDocument(quote.id, 'quote', quote.title);
+                                }}
+                                data-testid={`button-delete-quote-${quote.id}`}
+                                aria-label={`Delete quote ${quote.title}`}
+                                disabled={deleteQuoteMutation.isPending}
+                              >
+                                <Trash2 className="h-4 w-4 text-red-500" />
+                              </Button>
                               {quote.status === 'draft' && (
                                 <Button 
                                   variant="ghost" 
                                   size="sm"
-                                  onClick={() => sendDocumentMutation.mutate({ id: quote.id, type: 'quote' })}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    sendDocumentMutation.mutate({ id: quote.id, type: 'quote' });
+                                  }}
                                   disabled={sendDocumentMutation.isPending}
                                   data-testid={`button-send-quote-${quote.id}`}
                                 >
@@ -774,7 +894,10 @@ export default function ProjectDetailModal({ project, isOpen, onClose }: Project
                                 <Button 
                                   variant="ghost" 
                                   size="sm"
-                                  onClick={() => approveDocumentMutation.mutate({ id: quote.id, type: 'quote' })}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    approveDocumentMutation.mutate({ id: quote.id, type: 'quote' });
+                                  }}
                                   disabled={approveDocumentMutation.isPending}
                                   data-testid={`button-approve-quote-${quote.id}`}
                                 >
@@ -819,11 +942,39 @@ export default function ProjectDetailModal({ project, isOpen, onClose }: Project
                               </div>
                             </div>
                             <div className="flex gap-2">
+                              <Button 
+                                variant="ghost" 
+                                size="sm"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleEditContract(contract);
+                                }}
+                                data-testid={`button-edit-contract-${contract.id}`}
+                                aria-label={`Edit contract ${contract.title}`}
+                              >
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                              <Button 
+                                variant="ghost" 
+                                size="sm"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDeleteDocument(contract.id, 'contract', contract.title);
+                                }}
+                                data-testid={`button-delete-contract-${contract.id}`}
+                                aria-label={`Delete contract ${contract.title}`}
+                                disabled={deleteContractMutation.isPending}
+                              >
+                                <Trash2 className="h-4 w-4 text-red-500" />
+                              </Button>
                               {contract.status === 'draft' && (
                                 <Button 
                                   variant="ghost" 
                                   size="sm"
-                                  onClick={() => sendDocumentMutation.mutate({ id: contract.id, type: 'contract' })}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    sendDocumentMutation.mutate({ id: contract.id, type: 'contract' });
+                                  }}
                                   disabled={sendDocumentMutation.isPending}
                                   data-testid={`button-send-contract-${contract.id}`}
                                 >
@@ -834,7 +985,10 @@ export default function ProjectDetailModal({ project, isOpen, onClose }: Project
                                 <Button 
                                   variant="ghost" 
                                   size="sm"
-                                  onClick={() => approveDocumentMutation.mutate({ id: contract.id, type: 'contract' })}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    approveDocumentMutation.mutate({ id: contract.id, type: 'contract' });
+                                  }}
                                   disabled={approveDocumentMutation.isPending}
                                   data-testid={`button-sign-contract-${contract.id}`}
                                 >
@@ -879,11 +1033,39 @@ export default function ProjectDetailModal({ project, isOpen, onClose }: Project
                               </div>
                             </div>
                             <div className="flex gap-2">
+                              <Button 
+                                variant="ghost" 
+                                size="sm"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleEditInvoice(invoice);
+                                }}
+                                data-testid={`button-edit-invoice-${invoice.id}`}
+                                aria-label={`Edit invoice ${invoice.title}`}
+                              >
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                              <Button 
+                                variant="ghost" 
+                                size="sm"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDeleteDocument(invoice.id, 'invoice', invoice.title);
+                                }}
+                                data-testid={`button-delete-invoice-${invoice.id}`}
+                                aria-label={`Delete invoice ${invoice.title}`}
+                                disabled={deleteInvoiceMutation.isPending}
+                              >
+                                <Trash2 className="h-4 w-4 text-red-500" />
+                              </Button>
                               {invoice.status === 'draft' && (
                                 <Button 
                                   variant="ghost" 
                                   size="sm"
-                                  onClick={() => sendDocumentMutation.mutate({ id: invoice.id, type: 'invoice' })}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    sendDocumentMutation.mutate({ id: invoice.id, type: 'invoice' });
+                                  }}
                                   disabled={sendDocumentMutation.isPending}
                                   data-testid={`button-send-invoice-${invoice.id}`}
                                 >
@@ -894,7 +1076,10 @@ export default function ProjectDetailModal({ project, isOpen, onClose }: Project
                                 <Button 
                                   variant="ghost" 
                                   size="sm"
-                                  onClick={() => approveDocumentMutation.mutate({ id: invoice.id, type: 'invoice' })}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    approveDocumentMutation.mutate({ id: invoice.id, type: 'invoice' });
+                                  }}
                                   disabled={approveDocumentMutation.isPending}
                                   data-testid={`button-pay-invoice-${invoice.id}`}
                                 >
@@ -1222,6 +1407,7 @@ export default function ProjectDetailModal({ project, isOpen, onClose }: Project
       contactId={selectedContactId}
       contactName={selectedContactName}
       projectId={project?.id}
+      editingQuote={editingQuote}
     />
     </>
   );

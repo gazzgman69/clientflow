@@ -6,6 +6,7 @@ import cookieParser from "cookie-parser";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { calendarAutoSyncService } from "./services/calendar-auto-sync";
+import { tenantResolver } from "./middleware/tenantResolver";
 
 const app = express();
 
@@ -83,6 +84,9 @@ const csrfProtection = csrf({
 app.get('/api/csrf-token', csrfProtection, (req, res) => {
   res.json({ csrfToken: req.csrfToken() });
 });
+
+// Tenant resolution middleware - identifies tenant context from subdomain/domain/user
+app.use('/api', tenantResolver);
 
 app.use((req, res, next) => {
   const start = Date.now();

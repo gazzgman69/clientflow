@@ -3,8 +3,22 @@ import { pgTable, text, varchar, integer, boolean, timestamp, decimal, index, un
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
+// Tenants table for multitenancy support
+export const tenants = pgTable("tenants", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  slug: text("slug").notNull().unique(), // Used for subdomain routing
+  domain: text("domain"), // Custom domain support
+  isActive: boolean("is_active").default(true),
+  plan: text("plan").default('starter'), // starter, pro, enterprise
+  settings: text("settings"), // JSON for tenant-specific settings
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").references(() => tenants.id), // Nullable initially for safe migration
   username: text("username").notNull().unique(),
   password: text("password").notNull(),
   email: text("email").notNull().unique(),
@@ -29,6 +43,7 @@ export const userPrefs = pgTable("user_prefs", {
 
 export const contacts = pgTable("contacts", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").references(() => tenants.id), // Nullable initially for safe migration
   userId: varchar("user_id").references(() => users.id), // Made nullable initially for safe migration
   fullName: text("full_name"),
   firstName: text("first_name").notNull(),
@@ -62,6 +77,7 @@ export const contacts = pgTable("contacts", {
 
 export const projects = pgTable("projects", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").references(() => tenants.id), // Nullable initially for safe migration
   userId: varchar("user_id").references(() => users.id), // Made nullable initially for safe migration
   name: text("name").notNull(),
   description: text("description"),
@@ -81,6 +97,7 @@ export const projects = pgTable("projects", {
 
 export const leads = pgTable("leads", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").references(() => tenants.id), // Nullable initially for safe migration
   userId: varchar("user_id").references(() => users.id), // Made nullable initially for safe migration
   fullName: text("full_name"),
   firstName: text("first_name").notNull(),
@@ -105,6 +122,7 @@ export const leads = pgTable("leads", {
 
 export const quotes = pgTable("quotes", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").references(() => tenants.id), // Nullable initially for safe migration
   userId: varchar("user_id").references(() => users.id), // Made nullable initially for safe migration
   quoteNumber: text("quote_number").notNull().unique(),
   contactId: varchar("contact_id").references(() => contacts.id),
@@ -134,6 +152,7 @@ export const quotes = pgTable("quotes", {
 
 export const contracts = pgTable("contracts", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").references(() => tenants.id), // Nullable initially for safe migration
   userId: varchar("user_id").references(() => users.id), // Made nullable initially for safe migration
   contractNumber: text("contract_number").notNull().unique(),
   contactId: varchar("contact_id").references(() => contacts.id).notNull(),
@@ -158,6 +177,7 @@ export const contracts = pgTable("contracts", {
 
 export const invoices = pgTable("invoices", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").references(() => tenants.id), // Nullable initially for safe migration
   userId: varchar("user_id").references(() => users.id), // Made nullable initially for safe migration
   invoiceNumber: text("invoice_number").notNull().unique(),
   contactId: varchar("contact_id").references(() => contacts.id).notNull(),
@@ -179,6 +199,7 @@ export const invoices = pgTable("invoices", {
 
 export const tasks = pgTable("tasks", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").references(() => tenants.id), // Nullable initially for safe migration
   userId: varchar("user_id").references(() => users.id), // Made nullable initially for safe migration
   title: text("title").notNull(),
   description: text("description"),
@@ -198,6 +219,7 @@ export const tasks = pgTable("tasks", {
 // Email Threading System - replaces existing emails table with proper threading
 export const emailThreads = pgTable("email_threads", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").references(() => tenants.id), // Nullable initially for safe migration
   userId: varchar("user_id").references(() => users.id), // Made nullable initially for safe migration
   projectId: varchar("project_id").references(() => projects.id),
   subject: text("subject"),
@@ -210,6 +232,7 @@ export const emailThreads = pgTable("email_threads", {
 
 export const emails = pgTable("emails", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").references(() => tenants.id), // Nullable initially for safe migration
   userId: varchar("user_id").references(() => users.id), // Made nullable initially for safe migration
   threadId: varchar("thread_id").references(() => emailThreads.id).notNull(),
   provider: text("provider"), // 'gmail'
@@ -695,6 +718,9 @@ export const insertQuoteExtraInfoFieldSchema = createInsertSchema(quoteExtraInfo
 export const insertQuoteExtraInfoConfigSchema = createInsertSchema(quoteExtraInfoConfig).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertQuoteExtraInfoResponseSchema = createInsertSchema(quoteExtraInfoResponses).omit({ id: true, submittedAt: true, updatedAt: true });
 
+// Tenants
+export const insertTenantSchema = createInsertSchema(tenants).omit({ id: true, createdAt: true, updatedAt: true });
+
 // Types
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -750,6 +776,10 @@ export type CalendarSyncLog = typeof calendarSyncLog.$inferSelect;
 export type InsertCalendarSyncLog = z.infer<typeof insertCalendarSyncLogSchema>;
 export type Template = typeof templates.$inferSelect;
 export type InsertTemplate = z.infer<typeof insertTemplateSchema>;
+
+// Tenants
+export type Tenant = typeof tenants.$inferSelect;
+export type InsertTenant = z.infer<typeof insertTenantSchema>;
 
 // Enhanced Quotes System types
 export type QuotePackage = typeof quotePackages.$inferSelect;

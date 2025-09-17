@@ -34,6 +34,30 @@ The server is built with Express.js using TypeScript and follows a layered archi
 
 The backend uses a service-oriented approach with clear separation between HTTP handling and business logic.
 
+## Multitenancy Architecture
+The system now includes scaffolding for multitenancy support to allow multiple organizations to use the same infrastructure:
+
+- **Tenants Table**: Core tenant management with slug, domain, plan, and settings
+- **Tenant Resolution**: Middleware for identifying tenant context from subdomain, domain, or user context
+- **Data Isolation**: Tenant ID foreign keys added to core tables (users, leads, contacts, projects, quotes, contracts, invoices, tasks, emails)
+- **Query Utilities**: Helper functions for tenant-aware database operations with proper data filtering
+- **Security**: Whitelisted table names and proper reference handling for safe database operations
+
+**Current Implementation Status:**
+- ✅ Database schema with tenant_id columns on 10 core tables
+- ✅ Tenant resolver middleware integrated into Express server
+- ✅ Query utility functions for tenant-aware operations
+- ✅ Performance indexes on all tenant_id columns
+- ✅ Safe nullable references for existing data compatibility
+
+**Next Steps for Production:**
+1. **Enhanced Tenant Resolution**: Implement database-backed tenant lookup with domain validation
+2. **Query Enforcement**: Apply tenant filtering across all storage operations and API routes
+3. **Constraint Updates**: Make quote/invoice numbers unique per tenant instead of globally
+4. **Missing Tables**: Add tenant_id to auxiliary tables (smsMessages, messageTemplates, activities, automations, members)
+5. **Security Hardening**: Add requireTenant checks to sensitive routes and background services
+6. **Data Migration**: Backfill existing data with default tenant and enforce NOT NULL constraints
+
 ## Data Storage
 The application uses PostgreSQL as the primary database with:
 

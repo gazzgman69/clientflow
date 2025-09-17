@@ -12,13 +12,13 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Edit, Trash2, Briefcase, Calendar, Eye } from "lucide-react";
+import { Plus, Edit, Trash2, Briefcase, Calendar, Eye, ChevronDown } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertProjectSchema } from "@shared/schema";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { formatDistanceToNow } from "date-fns";
+import { formatDistanceToNow, format } from "date-fns";
 import type { Project, Contact } from "@shared/schema";
 import { z } from "zod";
 import ProjectDetailModal from "@/components/modals/project-detail-modal";
@@ -46,6 +46,7 @@ export default function Projects() {
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [selectedVenue, setSelectedVenue] = useState<SelectedVenue | null>(null);
+  const [sortBy, setSortBy] = useState<string>('date-newest');
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -181,6 +182,30 @@ export default function Projects() {
     return contact ? `${contact.firstName} ${contact.lastName}` : 'Unknown Contact';
   };
 
+  const sortProjects = (projects: Project[]) => {
+    if (!projects) return [];
+    
+    const sorted = [...projects];
+    
+    switch (sortBy) {
+      case 'name-asc':
+        return sorted.sort((a, b) => a.name.localeCompare(b.name));
+      case 'name-desc':
+        return sorted.sort((a, b) => b.name.localeCompare(a.name));
+      case 'client-asc':
+        return sorted.sort((a, b) => getContactName(a.contactId).localeCompare(getContactName(b.contactId)));
+      case 'client-desc':
+        return sorted.sort((a, b) => getContactName(b.contactId).localeCompare(getContactName(a.contactId)));
+      case 'date-oldest':
+        return sorted.sort((a, b) => new Date(a.createdAt!).getTime() - new Date(b.createdAt!).getTime());
+      case 'date-newest':
+      default:
+        return sorted.sort((a, b) => new Date(b.createdAt!).getTime() - new Date(a.createdAt!).getTime());
+    }
+  };
+
+  const sortedProjects = sortProjects(projects || []);
+
   const handleAddProject = () => {
     setEditingProject(null);
     form.reset();
@@ -210,10 +235,25 @@ export default function Projects() {
           <CardHeader>
             <div className="flex items-center justify-between">
               <CardTitle>All Projects</CardTitle>
-              <Button onClick={handleAddProject} data-testid="button-add-project">
-                <Plus className="h-4 w-4 mr-2" />
-                Add Project
-              </Button>
+              <div className="flex items-center space-x-3">
+                <Select value={sortBy} onValueChange={setSortBy}>
+                  <SelectTrigger className="w-48" data-testid="select-sort-projects">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="name-asc">Project Name: A-Z</SelectItem>
+                    <SelectItem value="name-desc">Project Name: Z-A</SelectItem>
+                    <SelectItem value="client-asc">Client Name: A-Z</SelectItem>
+                    <SelectItem value="client-desc">Client Name: Z-A</SelectItem>
+                    <SelectItem value="date-oldest">Project Date: Oldest First</SelectItem>
+                    <SelectItem value="date-newest">Project Date: Newest First</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Button onClick={handleAddProject} data-testid="button-add-project">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Project
+                </Button>
+              </div>
             </div>
           </CardHeader>
           <CardContent>
@@ -248,7 +288,7 @@ export default function Projects() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {projects.map((project) => (
+                  {sortedProjects.map((project) => (
                     <TableRow 
                       key={project.id} 
                       data-testid={`project-row-${project.id}`}
@@ -276,7 +316,7 @@ export default function Projects() {
                         {project.estimatedValue ? `$${parseFloat(project.estimatedValue).toLocaleString()}` : '-'}
                       </TableCell>
                       <TableCell data-testid={`project-created-${project.id}`}>
-                        {formatDistanceToNow(new Date(project.createdAt!), { addSuffix: true })}
+                        {format(new Date(project.createdAt!), 'MMM dd, yyyy')}
                       </TableCell>
                       <TableCell onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center space-x-2">

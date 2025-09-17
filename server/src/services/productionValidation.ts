@@ -112,8 +112,8 @@ export function validateProductionSecrets(): void {
     }
 
     // Validate specific formats
-    if (secret.name === 'DATABASE_URL' && !value.startsWith('postgresql://')) {
-      errors.push(`${secret.name} must be a valid PostgreSQL connection string`);
+    if (secret.name === 'DATABASE_URL' && !value.startsWith('postgresql://') && !value.startsWith('postgres://')) {
+      errors.push(`${secret.name} must be a valid PostgreSQL connection string (postgresql:// or postgres://)`);
       continue;
     }
 
@@ -156,7 +156,7 @@ export function validateProductionSecrets(): void {
     const devVars = ['VITE_DEV_MODE', 'ALLOW_DEV_FALLBACKS'];
     for (const devVar of devVars) {
       if (process.env[devVar]) {
-        warnings.push(`Development variable ${devVar} should not be set in production`);
+        errors.push(`Development variable ${devVar} must not be set in production`);
       }
     }
   }

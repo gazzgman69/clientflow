@@ -22,7 +22,17 @@ const mockApiRequest = apiRequest as jest.MockedFunction<typeof apiRequest>;
 const createWrapper = () => {
   const queryClient = new QueryClient({
     defaultOptions: {
-      queries: { retry: false },
+      queries: { 
+        retry: false,
+        queryFn: async ({ queryKey }) => {
+          const [url] = queryKey as [string];
+          const response = await mockApiRequest('GET', url);
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+          }
+          return response.json();
+        }
+      },
       mutations: { retry: false }
     }
   });

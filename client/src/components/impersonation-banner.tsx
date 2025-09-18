@@ -65,11 +65,21 @@ export function ImpersonationBanner() {
               {impersonatedUser?.firstName && impersonatedUser?.lastName && 
                 ` (${impersonatedUser.firstName} ${impersonatedUser.lastName})`
               }
+              {impersonatedUser?.tenantId && (
+                <span className="text-amber-700 dark:text-amber-300 ml-2">
+                  @ {impersonationStatus.tenantName || impersonatedUser.tenantId}
+                </span>
+              )}
             </span>
           </span>
           {originalUser && (
             <span className="text-amber-700 dark:text-amber-300 text-sm">
               • Original: {originalUser.email}
+              {originalUser.tenantId && (
+                <span className="ml-2">
+                  @ {impersonationStatus.originalTenantName || originalUser.tenantId}
+                </span>
+              )}
             </span>
           )}
         </div>

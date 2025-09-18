@@ -9,6 +9,9 @@ const mockStorage = {
   getWebhookEventByProviderAndEventId: jest.fn(),
   updateWebhookEvent: jest.fn(),
   createAdminAuditLog: jest.fn(),
+  withTenant: jest.fn().mockReturnValue({
+    updateWebhookEvent: jest.fn(),
+  }),
 };
 
 // Mock imports
@@ -206,7 +209,7 @@ describe('SUPERADMIN Impersonation & Webhook Replay', () => {
         .send({
           eventId: 'evt_test'
         })
-        .expect(500); // Zod validation error
+        .expect(400); // Zod validation error should return 400
       
       // Test missing eventId
       await agent
@@ -215,7 +218,7 @@ describe('SUPERADMIN Impersonation & Webhook Replay', () => {
         .send({
           provider: 'stripe'
         })
-        .expect(500); // Zod validation error
+        .expect(400); // Zod validation error should return 400
     });
   });
 });

@@ -1,0 +1,94 @@
+You are auditing this repo in read-only mode.
+Confirm whether the following SaaS hardening features were implemented correctly and are functioning. Do not change or run anything — just inspect the code and output a report.
+
+Areas to Verify
+
+Row Level Security (RLS)
+
+Check all multi-tenant tables include tenant_id and have RLS enabled with a tenant-scoped policy (tenant_id = current_setting('app.tenant_id')::uuid or equivalent).
+
+List tables missing RLS or policies.
+
+Confirm policies cover both USING and WITH CHECK.
+
+Show migration files/lines where RLS was enabled.
+
+Tenant context
+
+Confirm tenant context (SET LOCAL app.tenant_id) is being set after tenantResolver middleware for:
+
+API requests
+
+Webhooks (Stripe, Gmail, Microsoft)
+
+Background jobs
+
+Point to exact file/line references.
+
+Backups
+
+Confirm a backup script exists that runs pg_dump, encrypts the dump, and uploads to storage (or local fallback).
+
+Check that it uses BACKUP_ENCRYPTION_KEY and does not log secrets.
+
+Show where the daily schedule is defined.
+
+Flag if S3 integration is still a TODO.
+
+Health endpoints + alerts
+
+Verify presence of /health and /ready endpoints.
+
+Confirm they check DB (and queue if applicable).
+
+Confirm error handler emails OWNER_ALERT_EMAIL on critical errors (WebhookFailed, StripeSignatureError, OAuthRefreshError).
+
+Show code handling this.
+
+Integrations framework
+
+Confirm a generic integrations table exists with fields for tenant_id, provider, status, scopes, encrypted tokens, expiry, metadata, timestamps.
+
+Check Google/Microsoft adapters either mirror or use this store.
+
+Verify tenant-aware Connections UI shows status/errors/actions per provider.
+
+Flag any tokens not encrypted.
+
+Webhook resilience
+
+Confirm signature verification and idempotency remain in place.
+
+Confirm errors trigger structured logs and alert emails.
+
+Confirm a SUPERADMIN-only replay endpoint exists and is tenant-scoped.
+
+Environments
+
+Confirm ENV=dev|staging|prod handling is in place.
+
+Confirm sample env template (.env.example or similar) lists OWNER_ALERT_EMAIL, BACKUP_ENCRYPTION_KEY, etc.
+
+Confirm app fails fast if secrets are missing.
+
+Admin / Impersonation
+
+Confirm SUPERADMIN-only impersonation routes exist (impersonate:start / impersonate:end).
+
+Confirm impersonation sessions are tenant-scoped.
+
+Confirm an admin_audit_logs table or equivalent exists with fields: admin_id, impersonated_user_id, tenant_id, action, created_at, ip, user_agent.
+
+Confirm logs are written on start and end.
+
+Flag if there is no visible UI indicator/banner when impersonating.
+
+Deliverables
+
+Executive summary: 8–10 bullets, what’s fully done, what’s partial/missing.
+
+Findings table with columns: Area | Evidence (file:line) | Status (✅/⚠️/❌) | Gap | Suggested Fix.
+
+SQL probes: Provide read-only queries I can run manually to validate RLS (tenant_id coverage, orphaned records, cross-tenant blocking).
+
+Top 5 Risks if Misconfigured: ranked list with effort estimates to fix.

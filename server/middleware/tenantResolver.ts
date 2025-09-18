@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
+import { setTenantContext } from '../utils/tenantContext';
 
 // Extended Request interface with tenant context
 export interface TenantRequest extends Request {
@@ -182,6 +183,17 @@ export const tenantResolver = async (req: TenantRequest, res: Response, next: Ne
     } catch (tenantFetchError) {
       console.error('Error fetching tenant details:', tenantFetchError);
       return res.status(500).json({ error: 'Failed to resolve tenant context' });
+    }
+
+    // Set PostgreSQL session variable for RLS policies
+    try {
+      await setTenantContext(req.tenantId);
+    } catch (tenantContextError) {
+      console.error('Failed to set database tenant context:', tenantContextError);
+      return res.status(500).json({ 
+        error: 'Failed to initialize tenant context',
+        message: 'Database tenant isolation setup failed'
+      });
     }
 
     next();

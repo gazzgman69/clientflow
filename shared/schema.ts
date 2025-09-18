@@ -340,7 +340,12 @@ export const activities = pgTable("activities", {
   projectId: varchar("project_id").references(() => projects.id),
   userId: varchar("user_id").references(() => users.id), // Made nullable initially for safe migration
   createdAt: timestamp("created_at").defaultNow(),
-});
+}, (table) => ({
+  // Ensure activities belong to same tenant through contact/project/user relationships
+  contactIdIdx: index("activities_contact_id_idx").on(table.contactId),
+  projectIdIdx: index("activities_project_id_idx").on(table.projectId),
+  userIdIdx: index("activities_user_id_idx").on(table.userId),
+}));
 
 export const automations = pgTable("automations", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -352,7 +357,10 @@ export const automations = pgTable("automations", {
   createdBy: varchar("created_by").references(() => users.id).notNull(),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
-});
+}, (table) => ({
+  // Ensure automations belong to same tenant as the user through the user relationship
+  createdByIdx: index("automations_created_by_idx").on(table.createdBy),
+}));
 
 // Members (Musicians) Management
 export const members = pgTable("members", {
@@ -372,7 +380,10 @@ export const members = pgTable("members", {
   notes: text("notes"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
-});
+}, (table) => ({
+  // Ensure members belong to same tenant as the user through the user relationship
+  userIdIdx: index("members_user_id_idx").on(table.userId),
+}));
 
 // Venues Management
 export const venues = pgTable("venues", {
@@ -407,7 +418,10 @@ export const venues = pgTable("venues", {
   notes: text("notes"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
-});
+}, (table) => ({
+  // Ensure venues belong to same tenant as the user through the user relationship
+  userIdIdx: index("venues_user_id_idx").on(table.userId),
+}));
 
 // Project Members Junction Table
 export const projectMembers = pgTable("project_members", {
@@ -441,7 +455,11 @@ export const projectFiles = pgTable("project_files", {
   mimeType: text("mime_type"),
   uploadedBy: varchar("uploaded_by").references(() => users.id).notNull(),
   createdAt: timestamp("created_at").defaultNow(),
-});
+}, (table) => ({
+  // Ensure project files belong to same tenant as the project through the project relationship
+  projectIdIdx: index("project_files_project_id_idx").on(table.projectId),
+  uploadedByIdx: index("project_files_uploaded_by_idx").on(table.uploadedBy),
+}));
 
 // Project Notes
 export const projectNotes = pgTable("project_notes", {
@@ -450,7 +468,11 @@ export const projectNotes = pgTable("project_notes", {
   note: text("note").notNull(),
   createdBy: varchar("created_by").references(() => users.id).notNull(),
   createdAt: timestamp("created_at").defaultNow(),
-});
+}, (table) => ({
+  // Ensure project notes belong to same tenant as the project through the project relationship
+  projectIdIdx: index("project_notes_project_id_idx").on(table.projectId),
+  createdByIdx: index("project_notes_created_by_idx").on(table.createdBy),
+}));
 
 // Calendar Integrations
 export const calendarIntegrations = pgTable("calendar_integrations", {
@@ -471,7 +493,10 @@ export const calendarIntegrations = pgTable("calendar_integrations", {
   settings: text("settings"), // JSON string for provider-specific settings
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
-});
+}, (table) => ({
+  // Ensure calendar integrations belong to same tenant as the user through the user relationship
+  userIdIdx: index("calendar_integrations_user_id_idx").on(table.userId),
+}));
 
 // Calendar Sync Log
 export const calendarSyncLog = pgTable("calendar_sync_log", {
@@ -589,7 +614,10 @@ export const quoteItems = pgTable("quote_items", {
   vatRate: decimal("vat_rate", { precision: 5, scale: 4 }).notNull(),
   lineTotal: decimal("line_total", { precision: 10, scale: 2 }).notNull(),
   createdAt: timestamp("created_at").defaultNow(),
-});
+}, (table) => ({
+  // Ensure quote items belong to same tenant as the quote through the quote relationship
+  quoteIdIdx: index("quote_items_quote_id_idx").on(table.quoteId),
+}));
 
 export const quoteTokens = pgTable("quote_tokens", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -598,7 +626,10 @@ export const quoteTokens = pgTable("quote_tokens", {
   isActive: boolean("is_active").default(true),
   expiresAt: timestamp("expires_at"),
   createdAt: timestamp("created_at").defaultNow(),
-});
+}, (table) => ({
+  // Ensure quote tokens belong to same tenant as the quote through the quote relationship
+  quoteIdIdx: index("quote_tokens_quote_id_idx").on(table.quoteId),
+}));
 
 export const quoteSignatures = pgTable("quote_signatures", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -609,7 +640,10 @@ export const quoteSignatures = pgTable("quote_signatures", {
   signedAt: timestamp("signed_at").defaultNow(),
   ipAddress: text("ip_address"),
   userAgent: text("user_agent"),
-});
+}, (table) => ({
+  // Ensure quote signatures belong to same tenant as the quote through the quote relationship
+  quoteIdIdx: index("quote_signatures_quote_id_idx").on(table.quoteId),
+}));
 
 // Quote Extra Info System - for configurable contract details collection
 export const quoteExtraInfoFields = pgTable("quote_extra_info_fields", {

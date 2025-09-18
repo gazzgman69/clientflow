@@ -2820,49 +2820,6 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
 
-  // Authentication
-  app.post("/api/auth/login", async (req, res) => {
-    try {
-      const { username, password } = req.body;
-      const user = await storage.getUserByUsername(username);
-      if (!user || user.password !== password) {
-        return res.status(401).json({ message: "Invalid credentials" });
-      }
-      // Store user in session (simplified version)
-      (req as any).session = { userId: user.id, user };
-      res.json({ 
-        id: user.id, 
-        username: user.username, 
-        email: user.email, 
-        firstName: user.firstName,
-        lastName: user.lastName,
-        role: user.role 
-      });
-    } catch (error) {
-      res.status(500).json({ message: "Login failed" });
-    }
-  });
-
-  app.post("/api/auth/logout", async (req, res) => {
-    try {
-      (req as any).session = null;
-      res.json({ message: "Logged out successfully" });
-    } catch (error) {
-      res.status(500).json({ message: "Logout failed" });
-    }
-  });
-
-  app.get("/api/auth/session", async (req, res) => {
-    try {
-      const session = (req as any).session;
-      if (!session?.user) {
-        return res.status(401).json({ message: "Not authenticated" });
-      }
-      res.json(session.user);
-    } catch (error) {
-      res.status(500).json({ message: "Failed to get session" });
-    }
-  });
 
   // Members (Musicians)
   app.get("/api/members", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {

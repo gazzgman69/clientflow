@@ -439,7 +439,7 @@ export class MemStorage implements IStorage {
         username: "admin",
         password: "$2b$12$SM67YK8RyHHkIISwIXS/OOjT5FQiKCOrMBRXzBljj4JlIqD6e/mhi", // bcrypt hashed "password" - CHANGE IN PRODUCTION
         email: "admin@localhost.dev",
-        role: "admin",
+        role: "super_admin",
         firstName: "Admin",
         lastName: "User",
         avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=100&h=100",

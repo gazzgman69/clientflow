@@ -1,4 +1,5 @@
 import type { Request, Response, NextFunction } from 'express';
+import { SecurityRequest, trackSecurityEvent } from './tenantSecurity';
 
 // Extend Express Request to include authenticated user info
 declare global {
@@ -11,16 +12,32 @@ declare global {
 }
 
 /**
- * Standard user authentication middleware
- * Checks for valid user session and sets req.authenticatedUserId
+ * Enhanced user authentication middleware with security logging
+ * Checks for valid user session and sets req.authenticatedUserId with security tracking
  */
 export const ensureUserAuth = (req: Request, res: Response, next: NextFunction) => {
   if (!req.session?.userId) {
+    // Log failed authentication attempt
+    logSecurityEvent('auth_failure', {
+      ip: req.ip,
+      userAgent: req.get('User-Agent'),
+      path: req.path,
+      method: req.method
+    });
+    
     return res.status(401).json({ 
       error: 'Authentication required', 
       message: 'Please log in to access this endpoint'
     });
   }
+  
+  // Log successful authentication
+  logSecurityEvent('auth_success', {
+    userId: req.session.userId,
+    ip: req.ip,
+    path: req.path,
+    method: req.method
+  });
   
   req.authenticatedUserId = req.session.userId;
   next();
@@ -237,10 +254,107 @@ export const optionalUserAuth = (req: Request, res: Response, next: NextFunction
 };
 
 /**
- * Middleware composition helper for common auth + tenant pattern
+ * Enhanced secure authentication middleware with tenant security
+ */
+export const ensureSecureAuth = async (req: SecurityRequest, res: Response, next: NextFunction) => {
+  // First ensure basic authentication
+  if (!req.session?.userId) {
+    logSecurityEvent('secure_auth_failure', {
+      ip: req.ip,
+      userAgent: req.get('User-Agent'),
+      path: req.path,
+      method: req.method,
+      reason: 'no_session'
+    });
+    
+    return res.status(401).json({ 
+      error: 'Authentication required', 
+      message: 'Please log in to access this endpoint'
+    });
+  }
+
+  try {
+    // Import storage for enhanced security checks
+    const { storage } = await import('../storage');
+    
+    // Validate user still exists and is active
+    const user = await storage.getUser(req.session.userId);
+    if (!user) {
+      logSecurityEvent('secure_auth_failure', {
+        userId: req.session.userId,
+        ip: req.ip,
+        path: req.path,
+        reason: 'user_not_found'
+      });
+      
+      // Clear invalid session
+      req.session.destroy((err) => {
+        if (err) console.error('Error destroying invalid session:', err);
+      });
+      
+      return res.status(401).json({ 
+        error: 'Invalid session', 
+        message: 'User account not found'
+      });
+    }
+
+    // Check if user account is active/not suspended
+    if (user.status && user.status !== 'active') {
+      logSecurityEvent('secure_auth_failure', {
+        userId: user.id,
+        userStatus: user.status,
+        ip: req.ip,
+        path: req.path,
+        reason: 'user_suspended'
+      });
+      
+      return res.status(403).json({ 
+        error: 'Account suspended', 
+        message: 'Your account has been suspended. Please contact support.'
+      });
+    }
+
+    // Log successful secure authentication
+    logSecurityEvent('secure_auth_success', {
+      userId: user.id,
+      userRole: user.role,
+      ip: req.ip,
+      path: req.path,
+      method: req.method
+    });
+    
+    req.authenticatedUserId = req.session.userId;
+    next();
+  } catch (error) {
+    console.error('❌ SECURITY: Enhanced auth validation failed:', error);
+    logSecurityEvent('secure_auth_error', {
+      userId: req.session?.userId,
+      ip: req.ip,
+      path: req.path,
+      error: error.message
+    });
+    
+    return res.status(500).json({ 
+      error: 'Authentication failed',
+      message: 'Unable to validate user session'
+    });
+  }
+};
+
+/**
+ * Middleware composition helper for standard auth + tenant pattern
  */
 export const withUserAuth = (tenantResolver: any, requireTenant: any, csrf?: any) => {
   const middleware = [ensureUserAuth, tenantResolver, requireTenant];
+  if (csrf) middleware.push(csrf);
+  return middleware;
+};
+
+/**
+ * Middleware composition helper for enhanced secure auth + tenant security
+ */
+export const withSecureAuth = (tenantResolver: any, requireTenant: any, csrf?: any) => {
+  const middleware = [ensureSecureAuth, tenantResolver, requireTenant];
   if (csrf) middleware.push(csrf);
   return middleware;
 };
@@ -253,3 +367,9 @@ export const withPortalAuth = (csrf?: any) => {
   if (csrf) middleware.push(csrf);
   return middleware;
 };
+
+// Helper function for security event logging (delegates to shared trackSecurityEvent)
+function logSecurityEvent(event: string, data: any): void {
+  // Use the shared trackSecurityEvent function for consistency
+  trackSecurityEvent(event, undefined, { ...data, source: 'AuthMiddleware' });
+}

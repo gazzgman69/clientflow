@@ -1,0 +1,109 @@
+You are auditing this repo to confirm that every login/connection point works in a multi-tenant way and is clearly surfaced in the UI.
+Do not create/edit/run anything. Return a single markdown report with concrete file/line references.
+
+Scope to verify (read-only):
+
+Tenant routing & session binding
+
+Subdomain or tenant selector → session carries tenantId across the app.
+
+Login pages are tenant-aware (branding, redirect URL, return_to).
+
+Logout clears tenant-scoped sessions/tokens only.
+
+Files: router/middleware, auth guards, session setup.
+
+Core auth (email/password or passwordless)
+
+Password hashing (bcrypt/Argon2), email verification, password reset, 2FA optional.
+
+Rate-limited login attempts; CSRF/cookie flags set.
+
+Files: auth routes, schema for users, email templates.
+
+Google OAuth (Gmail + Calendar)
+
+Tenant-scoped OAuth: where are tokens stored? (table + columns)
+
+Scopes: Gmail read/send, Calendar read/write as required.
+
+PKCE + state used, strict redirect URIs per environment.
+
+Token refresh flow present; de-auth (revoke) supported.
+
+Webhooks: Gmail push (watch/stop) and Calendar watch channels—where handled?
+
+UI: clear “Connect Google Account” and per-tenant status badge; reconnect/repair flows.
+
+Files: Google OAuth service, webhook endpoints, token store.
+
+Microsoft OAuth (Outlook Mail + Calendar via Graph)
+
+Similar checks: scopes (Mail.Read/Send, Calendars.ReadWrite), PKCE/state, redirect URIs.
+
+Token refresh, de-auth, per-tenant token storage, tenant status UI.
+
+Graph webhooks/subscriptions (renewal job present?).
+
+Files: MS OAuth service, webhook handlers, token store.
+
+IMAP/SMTP fallback (optional)
+
+If supported: per-tenant server/port/SSL settings saved encrypted; health check UI.
+
+UI/UX
+
+A single “Connections” or “Integrations” page that’s tenant-aware listing:
+
+Google Mail, Google Calendar, Microsoft Mail, Microsoft Calendar
+
+Current connection state, scopes, last sync/error, “Repair/Reconnect,” “Disconnect”
+
+Buttons/links visible in nav for this tenant only; no cross-tenant bleed.
+
+File/lines for the page + components.
+
+Security & storage
+
+All third-party tokens encrypted at rest using ENCRYPTION_MASTER_KEY; never logged.
+
+Per-tenant encryption salt/IV recorded; key presence enforced at startup.
+
+Background jobs enqueue with tenantId; no global queues without scoping.
+
+Events → Business actions
+
+Minimal mapping exists (even as stubs) for:
+
+checkout.session.completed / invoice.paid → activate subscription for this tenant
+
+Gmail new message / Calendar event change → route to this tenant’s pipelines
+
+Idempotency on webhook handlers.
+
+Deliverables:
+
+Executive summary (5–10 bullets): what’s ready, what’s missing for tenant-safe login/integrations.
+
+Checklist matrix (table): Rows = features (Email login, Google Mail, Google Cal, MS Mail, MS Cal, IMAP/SMTP, Connections UI, Webhooks, Token refresh, De-auth, Multi-tenant sessions).
+Columns = Present? File/lines, Tenant-scoped?, Security (encrypt+no logs), Gaps, Fix suggestion.
+
+Concrete gaps with file/line references and exact next steps (1–3 lines each).
+
+Test flows to run manually (no code):
+
+New tenant → connect Google Mail & Cal → verify tokens stored with tenantId → simulate webhook payload path.
+
+Switch tenant → ensure previous tokens aren’t reused.
+
+Disconnect/reconnect → verify revocation and fresh tokens.
+
+Rules:
+
+Read-only. Provide paths + line ranges (e.g., server/oauth/google.ts:88–134).
+
+Flag any implicit globals or shared singletons that ignore tenantId.
+
+Call out missing scopes, missing state/PKCE, missing webhook signature verification.
+
+Return a concise, actionable report.

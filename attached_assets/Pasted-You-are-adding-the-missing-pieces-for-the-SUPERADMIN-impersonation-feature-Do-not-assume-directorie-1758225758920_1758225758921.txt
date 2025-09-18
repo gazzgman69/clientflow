@@ -1,0 +1,67 @@
+You are adding the missing pieces for the SUPERADMIN impersonation feature.
+Do not assume directories or filenames — discover and conform to existing patterns. Make small commits and open a PR titled:
+“Impersonation UX + Admin Replay — Banner, Replay Endpoint, Tests”.
+
+1) Impersonation UI Banner (tenant-aware)
+
+Add a lightweight, always-visible indicator only when impersonating showing:
+
+“Impersonating: {user email/name} @ {tenant}”
+
+A clear “End impersonation” action that calls the existing END route.
+
+Follow the project’s UI conventions (theme/spacing/alerts).
+
+Include a data-test id so E2E tests can detect it.
+Acceptance
+
+When impersonating: banner is visible on all authenticated app pages.
+
+Clicking “End” ends impersonation and removes the banner.
+
+No banner when not impersonating.
+
+2) SUPERADMIN Webhook Replay (tenant-scoped, idempotent)
+
+Add a SUPERADMIN-only endpoint/action to replay a past webhook event for a given provider.
+
+Inputs: provider, eventId (and any minimal metadata you already store).
+
+Must resolve the correct tenant context and process via the same handler path used in production.
+
+Enforce idempotency (ignore duplicates already processed).
+
+Log an admin audit entry for replay attempts (success/failure).
+Acceptance
+
+First replay processes successfully and returns 200 with a summary.
+
+Replaying the same event returns 200/409 with “already processed”.
+
+Non-SUPERADMIN receives 403.
+
+3) Minimal Tests (fit your test stack)
+
+Unit/integration:
+
+Banner renders only when impersonating; “End” calls END route.
+
+Replay endpoint: SUPERADMIN 200 (first), idempotent on second; non-SUPERADMIN 403.
+
+Add a short “How to verify” section to the PR.
+
+Keep existing security guarantees
+
+Don’t relax CSRF, auth, or RLS.
+
+Keep session regeneration on impersonation end/start as implemented.
+
+Ensure replay runs with tenant context set before DB calls.
+
+Deliverables
+
+Banner component (or equivalent UI hook) wired to status + end routes.
+
+SUPERADMIN-only replay endpoint/action + audit logging.
+
+Tests + brief docs in the PR.

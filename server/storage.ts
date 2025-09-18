@@ -375,6 +375,9 @@ export interface IStorage {
   getAdminAuditLog(id: string): Promise<AdminAuditLog | undefined>;
   createAdminAuditLog(auditLog: InsertAdminAuditLog): Promise<AdminAuditLog>;
 
+  // Tenant management
+  getAllTenants(): Promise<import('@shared/schema').Tenant[]>;
+
   // Tenant-scoped storage wrapper
   withTenant(tenantId: string): TenantScopedStorage;
 }
@@ -425,6 +428,7 @@ export class MemStorage implements IStorage {
   private leadCaptureForms: Map<string, LeadCaptureForm> = new Map();
   private emailSignatures: Map<string, EmailSignature> = new Map();
   private adminAuditLogs: Map<string, AdminAuditLog> = new Map();
+  private tenants: Map<string, import('@shared/schema').Tenant> = new Map();
 
   constructor() {
     // Initialize with default admin user (DEVELOPMENT ONLY)
@@ -442,6 +446,22 @@ export class MemStorage implements IStorage {
         createdAt: new Date(),
       };
       this.users.set(defaultUser.id, defaultUser);
+    }
+    
+    // Initialize with default tenant for development
+    if (process.env.NODE_ENV !== 'production') {
+      const defaultTenant: import('@shared/schema').Tenant = {
+        id: 'default-tenant',
+        name: 'Default Tenant',
+        slug: 'default',
+        domain: null,
+        isActive: true,
+        plan: 'starter',
+        settings: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+      this.tenants.set(defaultTenant.id, defaultTenant);
     }
   }
 
@@ -2075,6 +2095,11 @@ export class MemStorage implements IStorage {
     return log;
   }
 
+  // Tenant management - MemStorage implementation
+  async getAllTenants(): Promise<import('@shared/schema').Tenant[]> {
+    return Array.from(this.tenants.values());
+  }
+
   // Tenant-scoped storage wrapper
   withTenant(tenantId: string): TenantScopedStorage {
     return new TenantScopedStorage(this, tenantId);
@@ -2161,6 +2186,12 @@ export class DrizzleStorage implements IStorage {
       .limit(1);
       
     return result[0];
+  }
+
+  // Tenant management - DrizzleStorage implementation
+  async getAllTenants(): Promise<import('@shared/schema').Tenant[]> {
+    const { tenants } = await import('@shared/schema');
+    return await this.db.select().from(tenants);
   }
   
   // Calendar Integrations - Core functionality for Google Calendar

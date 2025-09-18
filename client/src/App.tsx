@@ -30,6 +30,7 @@ import MusicianPortal from "@/pages/portal/musician-portal";
 import ClientPortal from "@/pages/portal/client-portal";
 import LoginPage from "@/pages/login";
 import Sidebar from "@/components/layout/sidebar";
+import { ImpersonationBanner } from "@/components/impersonation-banner";
 
 // Authentication wrapper component  
 function AuthWrapper({ children }: { children: React.ReactNode }) {
@@ -99,6 +100,7 @@ function Router() {
             <div className="flex h-screen bg-background">
               <Sidebar />
               <div className="flex-1 flex flex-col overflow-hidden">
+                <ImpersonationBanner />
                 <Switch>
                   <Route path="/" component={Dashboard} />
                   <Route path="/leads/capture" component={LeadCaptureBuilder} />

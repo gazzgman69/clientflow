@@ -26,10 +26,16 @@ export function EmailSyncStatus() {
     refetchInterval: 30000
   });
 
+  const { data: microsoftStatusData, isLoading: microsoftLoading } = useQuery({
+    queryKey: ['/api/auth/microsoft/status'],
+    refetchInterval: 30000
+  });
+
   const settings = (settingsData as any)?.settings as MailSettings | null;
   const gmailStatus = gmailStatusData as { ok: boolean; connected: boolean; scopes?: string[] } | undefined;
+  const microsoftStatus = microsoftStatusData as { ok: boolean; connected: boolean; scopes?: string[]; provider?: string } | undefined;
   
-  const isLoading = settingsLoading || gmailLoading;
+  const isLoading = settingsLoading || gmailLoading || microsoftLoading;
 
   if (isLoading) {
     return (
@@ -39,21 +45,44 @@ export function EmailSyncStatus() {
     );
   }
 
-  // If Gmail is connected, show Gmail status even without mail settings
+  // Show connected providers status
+  const connectedProviders = [];
   if (gmailStatus?.connected) {
+    connectedProviders.push({
+      name: 'Gmail',
+      icon: <CheckCircle className="h-4 w-4 text-green-500" />,
+      testId: 'email-sync-gmail-connected'
+    });
+  }
+  if (microsoftStatus?.connected) {
+    connectedProviders.push({
+      name: 'Outlook',
+      icon: <CheckCircle className="h-4 w-4 text-blue-500" />,
+      testId: 'email-sync-microsoft-connected'
+    });
+  }
+
+  if (connectedProviders.length > 0) {
     return (
-      <div 
-        className="flex items-center space-x-1" 
-        data-testid="email-sync-gmail-connected"
-        title="Gmail connected and syncing"
-      >
-        <CheckCircle className="h-4 w-4 text-green-500" />
-        <span className="text-xs text-green-500">Gmail</span>
+      <div className="flex items-center space-x-2" data-testid="email-sync-providers-connected">
+        {connectedProviders.map((provider, index) => (
+          <div 
+            key={provider.name}
+            className="flex items-center space-x-1" 
+            data-testid={provider.testId}
+            title={`${provider.name} connected and syncing`}
+          >
+            {provider.icon}
+            <span className={`text-xs ${provider.name === 'Gmail' ? 'text-green-500' : 'text-blue-500'}`}>
+              {provider.name}
+            </span>
+          </div>
+        ))}
       </div>
     );
   }
 
-  if (!settings && !gmailStatus?.connected) {
+  if (!settings && !gmailStatus?.connected && !microsoftStatus?.connected) {
     return (
       <Link href="/settings?tab=email">
         <div className="flex items-center space-x-1 hover:text-blue-600 cursor-pointer transition-colors" data-testid="email-sync-not-configured">

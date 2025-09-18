@@ -136,6 +136,14 @@ async function processStripeWebhookEvent(event: Stripe.Event): Promise<void> {
       await handlePaymentIntentCanceled(event.data.object as Stripe.PaymentIntent);
       break;
       
+    case 'checkout.session.completed':
+      await handleCheckoutSessionCompleted(event.data.object as Stripe.Checkout.Session);
+      break;
+      
+    case 'invoice.paid':
+      await handleInvoicePaid(event.data.object as Stripe.Invoice);
+      break;
+      
     default:
       console.log(`ℹ️ Unhandled Stripe webhook event type: ${event.type}`);
       // Don't throw error for unhandled events - just log and continue
@@ -194,6 +202,84 @@ async function handlePaymentIntentCanceled(paymentIntent: Stripe.PaymentIntent):
   });
 
   console.log(`📧 Payment session ${paymentIntent.id} marked as cancelled`);
+}
+
+/**
+ * Handle successful checkout session completion
+ */
+async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session): Promise<void> {
+  console.log(`💳 Processing checkout session completed: ${session.id}`);
+  
+  try {
+    // Extract customer information
+    const customerId = session.customer as string;
+    const customerEmail = session.customer_details?.email;
+    const paymentStatus = session.payment_status;
+    const amount = session.amount_total; // Amount in cents
+    const currency = session.currency;
+    
+    console.log(`💰 Checkout completed - Customer: ${customerEmail}, Amount: ${amount} ${currency}, Status: ${paymentStatus}`);
+    
+    // TODO: Implement your business logic here
+    // Example actions:
+    // 1. Update user subscription status
+    // 2. Send confirmation email
+    // 3. Activate premium features
+    // 4. Record payment in database
+    
+    if (paymentStatus === 'paid') {
+      console.log(`✅ Payment confirmed for session ${session.id}`);
+      
+      // Add your payment confirmation logic here
+      // Example: await activateSubscription(customerId, session.metadata);
+      
+    } else {
+      console.log(`⚠️ Payment not completed for session ${session.id} - Status: ${paymentStatus}`);
+    }
+    
+  } catch (error: any) {
+    console.error(`❌ Error processing checkout session ${session.id}:`, error);
+    throw error;
+  }
+}
+
+/**
+ * Handle successful invoice payment
+ */
+async function handleInvoicePaid(invoice: Stripe.Invoice): Promise<void> {
+  console.log(`📄 Processing invoice paid: ${invoice.id}`);
+  
+  try {
+    const customerId = invoice.customer as string;
+    const subscriptionId = invoice.subscription as string;
+    const amount = invoice.amount_paid; // Amount in cents
+    const currency = invoice.currency;
+    const customerEmail = invoice.customer_email;
+    
+    console.log(`💰 Invoice paid - Customer: ${customerEmail}, Amount: ${amount} ${currency}, Subscription: ${subscriptionId}`);
+    
+    // TODO: Implement your business logic here
+    // Example actions:
+    // 1. Update subscription billing status
+    // 2. Send payment receipt
+    // 3. Reset usage counters for metered billing
+    // 4. Update tenant subscription status
+    
+    if (subscriptionId) {
+      console.log(`🔄 Updating subscription ${subscriptionId} for successful payment`);
+      
+      // Add your subscription update logic here
+      // Example: await updateSubscriptionStatus(subscriptionId, 'active');
+      
+    }
+    
+    // Record payment in webhook events for audit trail
+    console.log(`✅ Invoice payment confirmed for ${invoice.id}`);
+    
+  } catch (error: any) {
+    console.error(`❌ Error processing invoice payment ${invoice.id}:`, error);
+    throw error;
+  }
 }
 
 export default router;

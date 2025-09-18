@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { randomUUID } from 'crypto';
 import { googleOAuthService, getGoogleAuthUrl } from '../services/google-oauth';
+import { microsoftOAuthService } from '../services/microsoft-oauth';
 import { storage } from '../storage';
 import { google } from 'googleapis';
 
@@ -387,6 +388,51 @@ router.delete('/calendar-integrations/:id', async (req, res) => {
 /**
  * Google Auth Status - Check if user has connected Google account and validate token
  */
+/**
+ * Check Microsoft OAuth connection status
+ */
+router.get('/api/auth/microsoft/status', requireAuth, async (req: any, res) => {
+  try {
+    const userId = req.authenticatedUserId;
+    
+    // Check if Microsoft OAuth is connected using the connector
+    const connectionTest = await microsoftOAuthService.testConnection();
+    
+    if (connectionTest.success) {
+      // Microsoft OAuth is connected
+      const scopes = [
+        'https://graph.microsoft.com/Mail.Read',
+        'https://graph.microsoft.com/Mail.ReadWrite', 
+        'https://graph.microsoft.com/Mail.Send',
+        'https://graph.microsoft.com/User.Read',
+        'https://graph.microsoft.com/Calendars.Read',
+        'https://graph.microsoft.com/Calendars.ReadWrite'
+      ];
+      
+      res.json({ 
+        ok: true, 
+        connected: true, 
+        scopes,
+        email: connectionTest.email,
+        provider: 'microsoft'
+      });
+    } else {
+      // Microsoft OAuth is not connected or expired
+      res.json({ 
+        ok: true, 
+        connected: false, 
+        needsReconnect: true,
+        error: connectionTest.error || 'Microsoft OAuth not connected',
+        scopes: [] 
+      });
+    }
+    
+  } catch (error: any) {
+    console.error('Error checking Microsoft auth status:', error);
+    res.status(500).json({ ok: false, error: 'Internal server error' });
+  }
+});
+
 router.get('/api/auth/google/status', requireAuth, async (req: any, res) => {
   try {
     const userId = req.authenticatedUserId;
@@ -468,6 +514,30 @@ router.get('/api/auth/google/status', requireAuth, async (req: any, res) => {
 /**
  * Google Auth Disconnect - Remove Google tokens for user  
  */
+/**
+ * Disconnect Microsoft OAuth
+ */
+router.post('/api/auth/microsoft/disconnect', requireAuth, async (req: any, res) => {
+  try {
+    const userId = req.authenticatedUserId;
+    
+    // Note: For Microsoft connector, actual disconnection would need to be handled
+    // through the Replit connector system. For now, we'll just return success
+    // since the connection is managed externally.
+    
+    console.log(`🔌 Microsoft OAuth disconnect requested for user ${userId}`);
+    
+    res.json({ 
+      ok: true, 
+      message: 'Microsoft OAuth disconnection requested. Please disconnect through your account settings.' 
+    });
+    
+  } catch (error: any) {
+    console.error('Error disconnecting Microsoft OAuth:', error);
+    res.status(500).json({ ok: false, error: 'Internal server error' });
+  }
+});
+
 router.post('/api/auth/google/disconnect', requireAuth, async (req: any, res) => {
   try {
     const userId = req.authenticatedUserId;

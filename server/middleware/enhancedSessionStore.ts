@@ -124,6 +124,18 @@ export class TenantAwareSessionStore extends Store {
    * Create session with security enhancements
    */
   private createSecureSession(sid: string, session: any, callback: (err?: any) => void): void {
+    // SECURITY: Reject sessions with default or missing tenant
+    if (!session.tenantId || session.tenantId === 'default-tenant') {
+      const error = new Error(`Invalid tenant context: ${session.tenantId || 'missing'}. Sessions require explicit tenant assignment.`);
+      this.logSecurityEvent('session_rejected_invalid_tenant', {
+        sessionId: sid,
+        userId: session.userId,
+        tenantId: session.tenantId,
+        error: error.message
+      });
+      return callback(error);
+    }
+
     // Add security metadata
     const enhancedSession = {
       ...session,

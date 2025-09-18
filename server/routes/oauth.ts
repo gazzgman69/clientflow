@@ -564,14 +564,17 @@ router.get('/api/auth/google/status', requireAuth, async (req: any, res) => {
 router.get('/api/auth/microsoft/status', requireAuth, async (req: any, res) => {
   try {
     const userId = req.authenticatedUserId;
-    const tenantId = req.tenantId || 'default-tenant';
+    const tenantId = req.tenantId;
+    if (!tenantId) {
+      return res.status(400).json({ error: 'Tenant context required' });
+    }
     
     // Check if user has active Microsoft integrations for this tenant
     const integrations = await storage.getCalendarIntegrationsByUser(userId);
     const microsoftIntegration = integrations.find(i => 
       i.provider === 'microsoft' && 
       i.isActive &&
-      (i.tenantId === tenantId || (!i.tenantId && tenantId === 'default-tenant'))
+      i.tenantId === tenantId
     );
     
     if (!microsoftIntegration) {

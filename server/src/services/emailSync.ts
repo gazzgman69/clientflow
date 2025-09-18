@@ -3,6 +3,7 @@ import { emailThreads, emails, emailAttachments, contacts, projects, leads } fro
 import { eq, and, or, desc, isNotNull, sql, not } from "drizzle-orm";
 import type { gmail_v1 } from "googleapis";
 import type { EmailThread, Email, InsertEmailThread, InsertEmail, InsertEmailAttachment } from "@shared/schema";
+import { storage } from "../../storage";
 
 // Database retry wrapper to handle connection issues
 async function withDbRetry<T>(operation: () => Promise<T>, maxRetries = 3, delayMs = 1000): Promise<T> {
@@ -54,8 +55,10 @@ interface GmailThread {
 
 export class EmailSyncService {
   private gmailService: any;
+  private tenantId?: string;
 
-  constructor() {
+  constructor(tenantId?: string) {
+    this.tenantId = tenantId;
     // Gmail service will be initialized on first use
   }
 
@@ -211,50 +214,90 @@ export class EmailSyncService {
             );
           }
 
-          // Store the latest message details (quick sync)
+          // Store the latest message details (quick sync) - CONTACTS-ONLY INGESTION GUARD
           const emailId = `email_${gmailThread.latest.id}`;
           
           // Determine direction based on user's email
           const userEmail = await this.gmailService.getUserEmail(userId);
           const fromEmailParsed = this.extractEmails(gmailThread.latest.from)[0] || '';
           const direction = fromEmailParsed.toLowerCase().includes(userEmail.toLowerCase()) ? 'outbound' : 'inbound';
-          console.log(`📧 THREAD DIRECTION: "${gmailThread.latest.from}" → ${direction} (user: ${userEmail})`);
           
-          await withDbRetry(() =>
-            db
-              .insert(emails)
-              .values({
-                id: emailId,
-                threadId,
-                userId, // Add userId for multi-tenant support
-                provider: 'gmail',
-                providerMessageId: gmailThread.latest.id,
-                direction,
-                fromEmail: gmailThread.latest.from,
-                toEmails: [gmailThread.latest.to],
-                ccEmails: [],
-                bccEmails: [],
-                subject: gmailThread.latest.subject,
-                bodyText: gmailThread.latest.snippet,
-                bodyHtml: null,
-                sentAt: new Date(gmailThread.latest.dateISO),
-                hasAttachments: false,
-                contactId: null,
-                projectId: matchedProjectId,
-                createdAt: new Date(),
-                updatedAt: new Date(),
-              })
-              .onConflictDoUpdate({
-                target: emails.providerMessageId,
-                set: {
-                  updatedAt: new Date(),
-                  bodyText: gmailThread.latest.snippet,
+          // INGESTION GUARD: Get tenant ID from authenticated session context
+          // This is passed from the email sync service call which has session context
+          let tenantId: string;
+          if (this.tenantId) {
+            tenantId = this.tenantId;
+          } else {
+            // Fallback: Lookup user's tenant from database using authenticated userId
+            const userTenant = await storage.getUserTenant(userId);
+            // SECURITY: Require authenticated tenant context - never fallback to default
+            throw new Error(`Email sync requires authenticated tenant context for user ${userId}. Session-based tenant ID must be provided.`);
+          }
+          let contactId: string | null = null;
+          
+          if (direction === 'inbound') {
+            // For inbound emails, sender must be a known contact
+            contactId = await this.findExistingContact(fromEmailParsed, tenantId);
+            if (!contactId) {
+              // PII-SAFE LOGGING: Use domain-only information
+              const senderDomain = fromEmailParsed ? fromEmailParsed.split('@')[1] || 'unknown' : 'unknown';
+              console.log(`🚫 INGESTION GUARD: Rejecting inbound email from unknown contact from domain: ${senderDomain} (tenant: ${tenantId})`);
+              skipped++;
+              continue; // Skip this email - do not persist
+            }
+          } else {
+            // For outbound emails, recipient should be a contact (create if needed)
+            const toEmailParsed = this.extractEmails(gmailThread.latest.to)[0] || '';
+            contactId = await this.findOrCreateContact(toEmailParsed, tenantId, matchedProjectId);
+          }
+          
+          // PII-SAFE LOGGING: Use direction info only
+          console.log(`📧 THREAD DIRECTION: ${direction} message (contactId: ${contactId})`);
+          
+          // Only persist if we have a valid contact
+          if (contactId) {
+            await withDbRetry(() =>
+              db
+                .insert(emails)
+                .values({
+                  id: emailId,
+                  threadId,
+                  userId, // Add userId for multi-tenant support
+                  tenantId, // Add tenantId for proper isolation
+                  provider: 'gmail',
+                  providerMessageId: gmailThread.latest.id,
+                  direction,
+                  fromEmail: gmailThread.latest.from,
+                  toEmails: [gmailThread.latest.to],
+                  ccEmails: [],
+                  bccEmails: [],
                   subject: gmailThread.latest.subject,
+                  bodyText: gmailThread.latest.snippet,
+                  bodyHtml: null,
+                  sentAt: new Date(gmailThread.latest.dateISO),
+                  hasAttachments: false,
+                  contactId, // Always populated now
                   projectId: matchedProjectId,
-                  // Don't overwrite direction to preserve manual fixes
-                },
-              })
-          );
+                  createdAt: new Date(),
+                  updatedAt: new Date(),
+                })
+                .onConflictDoUpdate({
+                  target: emails.providerMessageId,
+                  set: {
+                    updatedAt: new Date(),
+                    bodyText: gmailThread.latest.snippet,
+                    subject: gmailThread.latest.subject,
+                    projectId: matchedProjectId,
+                    contactId, // Update contact ID too
+                    // Don't overwrite direction to preserve manual fixes
+                  },
+                })
+            );
+          } else {
+            console.log(`🚫 INGESTION GUARD: No valid contact found, skipping email: ${fromEmailParsed}`);
+            skipped++;
+            continue;
+          }
 
           if (matchedProjectId) {
             console.log(`📧 Associated thread "${gmailThread.latest.subject}" with project ${matchedProjectId}`);
@@ -413,31 +456,75 @@ export class EmailSyncService {
   }
 
   /**
-   * Find or create contact for email address
+   * Normalize email address for consistent lookup
    */
-  private async findOrCreateContact(email: string, projectId?: string) {
-    if (!email) return null;
+  private normalizeEmail(email: string): string {
+    if (!email) return '';
+    
+    // Extract email from "Name <email@domain.com>" format
+    const emailMatch = email.match(/<([^>]+)>/);
+    const cleanEmail = emailMatch ? emailMatch[1] : email;
+    
+    // Lowercase and trim
+    return cleanEmail.toLowerCase().trim();
+  }
+
+  /**
+   * Find existing contact for email address (tenant-aware, no creation)
+   * Used for ingestion guard - only returns existing contacts
+   */
+  private async findExistingContact(email: string, tenantId: string): Promise<string | null> {
+    if (!email || !tenantId) return null;
     
     try {
-      // Look for existing contact
+      const normalizedEmail = this.normalizeEmail(email);
+      
+      // Look for existing contact in this tenant only
+      const { withTenantAnd } = await import('../../utils/tenantQueries');
       const [existingContact] = await db
-        .select()
+        .select({ id: contacts.id })
         .from(contacts)
-        .where(eq(contacts.email, email))
+        .where(withTenantAnd(contacts.tenantId, tenantId, eq(contacts.email, normalizedEmail)))
+        .limit(1);
+      
+      return existingContact?.id || null;
+    } catch (error) {
+      console.error('Error finding existing contact:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Find or create contact for email address (tenant-aware)
+   * Only used for outbound emails where we want to create contacts
+   */
+  private async findOrCreateContact(email: string, tenantId: string, projectId?: string): Promise<string | null> {
+    if (!email || !tenantId) return null;
+    
+    try {
+      const normalizedEmail = this.normalizeEmail(email);
+      
+      // Look for existing contact in this tenant only
+      const { withTenantAnd, withTenantData } = await import('../../utils/tenantQueries');
+      const [existingContact] = await db
+        .select({ id: contacts.id })
+        .from(contacts)
+        .where(withTenantAnd(contacts.tenantId, tenantId, eq(contacts.email, normalizedEmail)))
         .limit(1);
       
       if (existingContact) return existingContact.id;
       
-      // Create new contact if not found
+      // Create new contact if not found (tenant-scoped)
       const [newContact] = await db
         .insert(contacts)
-        .values({
-          firstName: email.split('@')[0], // Use email prefix as name
+        .values(withTenantData({
+          firstName: normalizedEmail.split('@')[0], // Use email prefix as name
           lastName: '',
-          email: email,
-        })
-        .returning();
+          email: normalizedEmail,
+        }, tenantId))
+        .returning({ id: contacts.id });
       
+      console.log(`📧 Created new contact for ${normalizedEmail} in tenant ${tenantId}`);
       return newContact.id;
     } catch (error) {
       console.error('Error finding/creating contact:', error);
@@ -548,16 +635,43 @@ export class EmailSyncService {
       const ccEmails = this.extractEmails(message.cc || '');
       const bccEmails = this.extractEmails(message.bcc || '');
 
-      // Find contact for sender
-      const contactId = fromEmails.length > 0 
-        ? await this.findOrCreateContact(fromEmails[0], projectId)
-        : null;
-
       // Determine direction (inbound/outbound) based on user's email
       const userEmail = await this.gmailService.getUserEmail(userId);
       const direction = fromEmails.some(email => email.toLowerCase().includes(userEmail.toLowerCase())) 
         ? 'outbound' 
         : 'inbound';
+
+      // INGESTION GUARD: Get tenant ID and check if sender is a known contact
+      // SECURITY FIX: Use session-aware tenant resolution
+      let tenantId: string;
+      if (this.tenantId) {
+        tenantId = this.tenantId;
+      } else {
+        // Fallback: Lookup user's tenant from database using authenticated userId
+        const userTenant = await storage.getUserTenant(userId);
+        // SECURITY: Require authenticated tenant context - never fallback to default
+        throw new Error(`Email sync requires authenticated tenant context for user ${userId}. Session-based tenant ID must be provided.`);
+      }
+      let contactId: string | null = null;
+
+      if (direction === 'inbound') {
+        // For inbound emails, sender must be a known contact
+        contactId = fromEmails.length > 0 
+          ? await this.findExistingContact(fromEmails[0], tenantId)
+          : null;
+        
+        if (!contactId) {
+          // PII-SAFE LOGGING: Use domain-only information
+          const senderDomain = fromEmails[0] ? fromEmails[0].split('@')[1] || 'unknown' : 'unknown';
+          console.log(`🚫 INGESTION GUARD: Rejecting inbound email from unknown contact from domain: ${senderDomain} (tenant: ${tenantId})`);
+          return null; // Skip this email - do not persist
+        }
+      } else {
+        // For outbound emails, recipient should be a contact (create if needed)
+        contactId = fromEmails.length > 0 
+          ? await this.findOrCreateContact(fromEmails[0], tenantId, projectId)
+          : null;
+      }
 
       // Convert date
       const sentAt = message.date ? new Date(message.date) : (
@@ -636,11 +750,6 @@ export class EmailSyncService {
       const ccEmails = this.extractEmails(headers.cc || '');
       const bccEmails = this.extractEmails(headers.bcc || '');
 
-      // Find contact for sender
-      const contactId = fromEmails.length > 0 
-        ? await this.findOrCreateContact(fromEmails[0], projectId)
-        : null;
-
       // Determine direction (inbound/outbound) based on user's email
       const userEmail = await this.gmailService.getUserEmail(userId);
       console.log(`🔍 DEBUG: userEmail="${userEmail}", fromEmails=[${fromEmails.join(', ')}], subject="${headers.subject || 'N/A'}"`);
@@ -654,6 +763,37 @@ export class EmailSyncService {
       
       const direction = matches.some(match => match) ? 'outbound' : 'inbound';
       console.log(`📧 FINAL DIRECTION: ${direction} (${fromEmails[0]} → ${direction})`);
+
+      // INGESTION GUARD: Get tenant ID from authenticated context and check if sender is a known contact  
+      // SECURITY FIX: Use session-aware tenant resolution
+      let tenantId: string;
+      if (this.tenantId) {
+        tenantId = this.tenantId;
+      } else {
+        // This should not happen in authenticated contexts - log for debugging
+        // SECURITY: Require authenticated tenant context for outbound emails
+        throw new Error(`Outbound email sync requires authenticated tenant context for user ${userId}. Session-based tenant ID must be provided.`);
+      }
+      let contactId: string | null = null;
+
+      if (direction === 'inbound') {
+        // For inbound emails, sender must be a known contact
+        contactId = fromEmails.length > 0 
+          ? await this.findExistingContact(fromEmails[0], tenantId)
+          : null;
+        
+        if (!contactId) {
+          // PII-safe logging: Use domain-only information
+          const senderDomain = fromEmails[0] ? fromEmails[0].split('@')[1] || 'unknown' : 'unknown';
+          console.log(`🚫 INGESTION GUARD: Rejecting inbound email from unknown contact from domain: ${senderDomain} (tenant: ${tenantId})`);
+          return null; // Skip this email - do not persist
+        }
+      } else {
+        // For outbound emails, sender should be a contact (for consistency)
+        contactId = fromEmails.length > 0 
+          ? await this.findOrCreateContact(fromEmails[0], tenantId, projectId)
+          : null;
+      }
 
       // Check for attachments
       const hasAttachments = this.hasAttachments(gmailMessage.payload);
@@ -825,8 +965,18 @@ export class EmailSyncService {
       );
 
       // Find contact for primary recipient
+      // SECURITY FIX: Use session-aware tenant resolution
+      let tenantId: string;
+      if (this.tenantId) {
+        tenantId = this.tenantId;
+      } else {
+        // This method needs tenant context - should be passed from authenticated context
+        const { storage } = await import('../../storage');
+        // SECURITY: Require authenticated tenant context for email creation
+        throw new Error(`Email creation requires authenticated tenant context for user ${data.userId}. Session-based tenant ID must be provided.`);
+      }
       const contactId = data.to.length > 0 
-        ? await this.findOrCreateContact(data.to[0], data.projectId)
+        ? await this.findOrCreateContact(data.to[0], tenantId, data.projectId)
         : null;
 
       const [newEmail] = await db

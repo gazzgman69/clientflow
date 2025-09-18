@@ -1119,7 +1119,10 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
       }
 
       const originalUserId = req.session.originalUserId;
-      const originalTenantId = req.session.originalTenantId || 'default-tenant';
+      const originalTenantId = req.session.originalTenantId;
+      if (!originalTenantId) {
+        return res.status(400).json({ error: 'Original tenant context missing from session' });
+      }
       const impersonatedUserId = req.session.impersonatedUserId;
 
       // Verify original user still has SUPERADMIN role (use original tenant context)
@@ -1219,8 +1222,11 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   app.get('/api/admin/impersonate/status', ensureSuperAdminAuth, async (req, res) => {
     try {
       if (req.session?.isImpersonating && req.session?.impersonatedUserId) {
-        const impersonatedUser = await storage.getUser(req.session.impersonatedUserId, req.session.tenantId || 'default-tenant');
-        const originalUser = await storage.getUser(req.session.originalUserId!, req.session.originalTenantId || 'default-tenant');
+        if (!req.session.tenantId || !req.session.originalTenantId) {
+          return res.status(400).json({ error: 'Tenant context missing from impersonation session' });
+        }
+        const impersonatedUser = await storage.getUser(req.session.impersonatedUserId, req.session.tenantId);
+        const originalUser = await storage.getUser(req.session.originalUserId!, req.session.originalTenantId);
         
         // Get tenant information for display
         const impersonatedTenant = req.session.tenantId ? await storage.getTenant(req.session.tenantId) : null;

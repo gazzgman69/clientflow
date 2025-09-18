@@ -239,40 +239,44 @@ router.get('/threads', requireAuth, async (req: any, res) => {
     const limit = parseInt(req.query.limit as string) || 20;
     const userId = req.user.id;
     
-    // Get email threads from the database with latest message details
-    const threadsWithLatest = await db
-      .select({
-        threadId: emailThreads.id,
-        subject: emailThreads.subject,
-        lastMessageAt: emailThreads.lastMessageAt,
-        projectId: emailThreads.projectId,
-        latestMessageId: sql`(
-          SELECT e.id FROM emails e 
-          WHERE e.thread_id = ${emailThreads.id} 
-          ORDER BY e.sent_at DESC 
-          LIMIT 1
-        )`.as('latest_message_id'),
-        latestFrom: sql`(
-          SELECT e.from_email FROM emails e 
-          WHERE e.thread_id = ${emailThreads.id} 
-          ORDER BY e.sent_at DESC 
-          LIMIT 1
-        )`.as('latest_from'),
-        latestSnippet: sql`(
-          SELECT COALESCE(e.snippet, LEFT(e.body_text, 100)) FROM emails e 
-          WHERE e.thread_id = ${emailThreads.id} 
-          ORDER BY e.sent_at DESC 
-          LIMIT 1
-        )`.as('latest_snippet'),
-        messageCount: sql`(
-          SELECT COUNT(*) FROM emails e 
-          WHERE e.thread_id = ${emailThreads.id}
-        )`.as('message_count')
-      })
-      .from(emailThreads)
-      .where(eq(emailThreads.userId, userId))
-      .orderBy(desc(emailThreads.lastMessageAt))
-      .limit(limit);
+    // SECURITY FIX: Use tenant-aware storage method with proper filtering
+    const tenantId = req.tenantId;
+    if (!tenantId) {
+      return res.status(400).json({ ok: false, error: 'Tenant context required' });
+    }
+
+    // Get email threads using tenant-aware storage method
+    const emails = await storage.getEmails(tenantId, { userId, limit });
+    
+    // Transform to threads format with latest message details
+    const threadMap = new Map();
+    emails.forEach(email => {
+      if (!threadMap.has(email.threadId)) {
+        threadMap.set(email.threadId, {
+          threadId: email.threadId,
+          subject: email.subject || 'No Subject',
+          lastMessageAt: email.sentAt,
+          projectId: email.projectId,
+          latestMessageId: email.id,
+          latestFrom: email.fromEmail || 'Unknown Sender',
+          latestSnippet: email.snippet || email.bodyText?.substring(0, 100) || '',
+          messageCount: 1
+        });
+      } else {
+        const thread = threadMap.get(email.threadId);
+        thread.messageCount++;
+        if (email.sentAt > thread.lastMessageAt) {
+          thread.lastMessageAt = email.sentAt;
+          thread.latestMessageId = email.id;
+          thread.latestFrom = email.fromEmail || 'Unknown Sender';
+          thread.latestSnippet = email.snippet || email.bodyText?.substring(0, 100) || '';
+        }
+      }
+    });
+    
+    const threadsWithLatest = Array.from(threadMap.values()).sort((a, b) => 
+      new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime()
+    ).slice(0, limit);
 
     // Format the response to match the frontend expectations
     const formattedThreads = threadsWithLatest.map(thread => ({

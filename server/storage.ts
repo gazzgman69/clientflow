@@ -57,7 +57,7 @@ import { randomUUID } from "crypto";
 import { TenantScopedStorage } from './utils/tenantScopedStorage';
 import { drizzle } from 'drizzle-orm/neon-http';
 import { neon } from '@neondatabase/serverless';
-import { eq, and, desc, or, isNull } from 'drizzle-orm';
+import { eq, and, desc, or, isNull, isNotNull } from 'drizzle-orm';
 import { secureStore } from './src/services/secureStore';
 
 // Helper function to omit undefined values to prevent overwriting required fields
@@ -2729,19 +2729,41 @@ export class DrizzleStorage implements IStorage {
     return result.rowCount > 0;
   }
   
-  // Emails - PostgreSQL implementation
-  async getEmails() { 
-    return await this.db.select().from(emails).orderBy(desc(emails.createdAt));
+  // Emails - PostgreSQL implementation with tenant isolation
+  async getEmails(tenantId?: string) { 
+    // QUERY GUARD: Only return emails with valid contact links AND proper tenant isolation
+    const { withTenantAnd } = await import('./utils/tenantQueries');
+    const whereCondition = tenantId 
+      ? withTenantAnd(emails.tenantId, tenantId, isNotNull(emails.contactId))
+      : isNotNull(emails.contactId);
+    return await this.db.select().from(emails)
+      .where(whereCondition)
+      .orderBy(desc(emails.createdAt));
   }
-  async getEmail(id: string) { 
-    const result = await this.db.select().from(emails).where(eq(emails.id, id));
+  async getEmail(id: string, tenantId?: string) { 
+    // QUERY GUARD: Only return emails with valid contact links AND proper tenant isolation
+    const { withTenantAnd } = await import('./utils/tenantQueries');
+    const whereCondition = tenantId 
+      ? withTenantAnd(emails.tenantId, tenantId, and(eq(emails.id, id), isNotNull(emails.contactId)))
+      : and(eq(emails.id, id), isNotNull(emails.contactId));
+    const result = await this.db.select().from(emails).where(whereCondition);
     return result[0];
   }
-  async getEmailsByClient(clientId: string) { 
-    return await this.db.select().from(emails).where(eq(emails.contactId, clientId));
+  async getEmailsByClient(clientId: string, tenantId?: string) { 
+    // QUERY GUARD: contactId filter ensures valid contact links AND proper tenant isolation
+    const { withTenantAnd } = await import('./utils/tenantQueries');
+    const whereCondition = tenantId 
+      ? withTenantAnd(emails.tenantId, tenantId, eq(emails.contactId, clientId))
+      : eq(emails.contactId, clientId);
+    return await this.db.select().from(emails).where(whereCondition);
   }
-  async getEmailsByProject(projectId: string) { 
-    return await this.db.select().from(emails).where(eq(emails.projectId, projectId));
+  async getEmailsByProject(projectId: string, tenantId?: string) { 
+    // QUERY GUARD: Only return emails with valid contact links AND proper tenant isolation
+    const { withTenantAnd } = await import('./utils/tenantQueries');
+    const whereCondition = tenantId 
+      ? withTenantAnd(emails.tenantId, tenantId, and(eq(emails.projectId, projectId), isNotNull(emails.contactId)))
+      : and(eq(emails.projectId, projectId), isNotNull(emails.contactId));
+    return await this.db.select().from(emails).where(whereCondition);
   }
   async createEmail(email: InsertEmail) { 
     const result = await this.db.insert(emails).values({

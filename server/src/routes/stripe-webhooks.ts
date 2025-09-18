@@ -1,6 +1,7 @@
 import express from 'express';
 import Stripe from 'stripe';
 import { storage } from '../../storage';
+import { TenantScopedStorage } from '../../utils/tenantScopedStorage';
 import { insertWebhookEventSchema } from '@shared/schema';
 
 const router = express.Router();
@@ -155,31 +156,72 @@ async function processStripeWebhookEvent(event: Stripe.Event): Promise<void> {
 async function handlePaymentIntentSucceeded(paymentIntent: Stripe.PaymentIntent): Promise<void> {
   console.log(`💰 Payment succeeded: ${paymentIntent.id} - Amount: ${paymentIntent.amount / 100} ${paymentIntent.currency}`);
   
-  // Update payment session status
-  await storage.updatePaymentSession(paymentIntent.id, {
+  // SECURITY: Get tenant context from invoice for proper tenant isolation
+  const invoiceId = paymentIntent.metadata.invoiceId;
+  if (!invoiceId) {
+    console.error(`⚠️ Payment intent ${paymentIntent.id} has no associated invoiceId in metadata - cannot verify tenant context`);
+    throw new Error('Payment missing required invoice context for tenant validation');
+  }
+
+  // Get invoice to validate tenant context
+  const invoice = await storage.getInvoiceById(invoiceId);
+  if (!invoice) {
+    console.error(`❌ Invoice ${invoiceId} not found for payment ${paymentIntent.id}`);
+    throw new Error(`Invoice ${invoiceId} not found`);
+  }
+
+  if (!invoice.tenantId) {
+    console.error(`❌ Invoice ${invoiceId} has no tenant context`);
+    throw new Error(`Invoice ${invoiceId} missing tenant context`);
+  }
+
+  // SECURITY: Use tenant-scoped storage for all operations
+  const tenantStorage = new TenantScopedStorage(storage, invoice.tenantId);
+  console.log(`🔐 Using tenant-scoped storage for tenant: ${invoice.tenantId}`);
+  
+  // Update payment session status with tenant validation
+  await tenantStorage.updatePaymentSession(paymentIntent.id, {
     status: 'completed',
     completedAt: new Date(),
   });
 
-  // Update invoice status to paid
-  const invoiceId = paymentIntent.metadata.invoiceId;
-  if (invoiceId) {
-    await storage.updateInvoice(invoiceId, {
-      status: 'paid',
-      paidAt: new Date(),
-    });
-    console.log(`📧 Invoice ${invoiceId} marked as paid`);
-  } else {
-    console.warn(`⚠️ Payment intent ${paymentIntent.id} has no associated invoiceId in metadata`);
-  }
+  // Update invoice status to paid with tenant validation
+  await tenantStorage.updateInvoice(invoiceId, {
+    status: 'paid',
+    paidAt: new Date(),
+  });
+  console.log(`📧 Invoice ${invoiceId} marked as paid for tenant ${invoice.tenantId}`);
 }
 
 // Handle failed payment
 async function handlePaymentIntentFailed(paymentIntent: Stripe.PaymentIntent): Promise<void> {
   console.log(`💸 Payment failed: ${paymentIntent.id} - ${paymentIntent.last_payment_error?.message || 'Unknown error'}`);
   
-  // Update payment session status
-  await storage.updatePaymentSession(paymentIntent.id, {
+  // SECURITY: Get tenant context from invoice for proper tenant isolation
+  const invoiceId = paymentIntent.metadata.invoiceId;
+  if (!invoiceId) {
+    console.error(`⚠️ Payment intent ${paymentIntent.id} has no associated invoiceId in metadata - cannot verify tenant context`);
+    throw new Error('Payment missing required invoice context for tenant validation');
+  }
+
+  // Get invoice to validate tenant context
+  const invoice = await storage.getInvoiceById(invoiceId);
+  if (!invoice) {
+    console.error(`❌ Invoice ${invoiceId} not found for payment ${paymentIntent.id}`);
+    throw new Error(`Invoice ${invoiceId} not found`);
+  }
+
+  if (!invoice.tenantId) {
+    console.error(`❌ Invoice ${invoiceId} has no tenant context`);
+    throw new Error(`Invoice ${invoiceId} missing tenant context`);
+  }
+
+  // SECURITY: Use tenant-scoped storage for all operations
+  const tenantStorage = new TenantScopedStorage(storage, invoice.tenantId);
+  console.log(`🔐 Using tenant-scoped storage for tenant: ${invoice.tenantId}`);
+  
+  // Update payment session status with tenant validation
+  await tenantStorage.updatePaymentSession(paymentIntent.id, {
     status: 'failed',
     metadata: JSON.stringify({
       ...JSON.parse(paymentIntent.metadata as any || '{}'),
@@ -189,19 +231,42 @@ async function handlePaymentIntentFailed(paymentIntent: Stripe.PaymentIntent): P
   });
 
   // Keep invoice status as unpaid for failed payments
-  console.log(`📧 Payment session ${paymentIntent.id} marked as failed`);
+  console.log(`📧 Payment session ${paymentIntent.id} marked as failed for tenant ${invoice.tenantId}`);
 }
 
 // Handle canceled payment
 async function handlePaymentIntentCanceled(paymentIntent: Stripe.PaymentIntent): Promise<void> {
   console.log(`🚫 Payment canceled: ${paymentIntent.id}`);
   
-  // Update payment session status
-  await storage.updatePaymentSession(paymentIntent.id, {
+  // SECURITY: Get tenant context from invoice for proper tenant isolation
+  const invoiceId = paymentIntent.metadata.invoiceId;
+  if (!invoiceId) {
+    console.error(`⚠️ Payment intent ${paymentIntent.id} has no associated invoiceId in metadata - cannot verify tenant context`);
+    throw new Error('Payment missing required invoice context for tenant validation');
+  }
+
+  // Get invoice to validate tenant context
+  const invoice = await storage.getInvoiceById(invoiceId);
+  if (!invoice) {
+    console.error(`❌ Invoice ${invoiceId} not found for payment ${paymentIntent.id}`);
+    throw new Error(`Invoice ${invoiceId} not found`);
+  }
+
+  if (!invoice.tenantId) {
+    console.error(`❌ Invoice ${invoiceId} has no tenant context`);
+    throw new Error(`Invoice ${invoiceId} missing tenant context`);
+  }
+
+  // SECURITY: Use tenant-scoped storage for all operations
+  const tenantStorage = new TenantScopedStorage(storage, invoice.tenantId);
+  console.log(`🔐 Using tenant-scoped storage for tenant: ${invoice.tenantId}`);
+  
+  // Update payment session status with tenant validation
+  await tenantStorage.updatePaymentSession(paymentIntent.id, {
     status: 'cancelled',
   });
 
-  console.log(`📧 Payment session ${paymentIntent.id} marked as cancelled`);
+  console.log(`📧 Payment session ${paymentIntent.id} marked as cancelled for tenant ${invoice.tenantId}`);
 }
 
 /**

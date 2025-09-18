@@ -3,8 +3,11 @@ import express from "express";
 import { createServer, type Server } from "http";
 import session from "express-session";
 import ConnectPgSimple from "connect-pg-simple";
+import rateLimit from "express-rate-limit";
 import { storage } from "./storage";
 import { createTenantAwareSessionStore } from "./middleware/enhancedSessionStore";
+import { db } from './db';
+import { sql } from 'drizzle-orm';
 
 // Extend session to include portal and user authentication
 declare module 'express-session' {
@@ -115,13 +118,89 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     hasUse: typeof app.use === 'function'
   });
 
-  // CRITICAL DEBUG: Add test route at the very beginning
-  app.get('/api/debug/start', (req, res) => {
-    console.log('🚀 DEBUG START ROUTE HIT - ROUTING IS WORKING!');
-    res.json({ message: 'Debug route at start of function works!', timestamp: new Date().toISOString() });
+  // Health endpoints with rate limiting for production monitoring
+  const healthLimiter = rateLimit({
+    windowMs: 60 * 1000, // 1 minute
+    max: 30, // Allow 30 requests per minute per IP for health
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: 'Too many health check requests' },
   });
-  
-  console.log('✅ DEBUG: Added debug route to app instance');
+
+  const readinessLimiter = rateLimit({
+    windowMs: 60 * 1000, // 1 minute  
+    max: 6, // Allow 6 requests per minute per IP for readiness (more expensive)
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: 'Too many readiness check requests' },
+  });
+
+  // Basic health check - lightweight endpoint for load balancers
+  app.get('/api/health', healthLimiter, (req, res) => {
+    res.set('Cache-Control', 'no-store');
+    res.status(200).json({
+      status: 'healthy',
+      timestamp: new Date().toISOString(),
+      uptime: process.uptime(),
+      version: process.env.APP_VERSION || '1.0.0'
+    });
+  });
+
+  // Readiness check - comprehensive dependency verification
+  app.get('/api/ready', readinessLimiter, async (req, res) => {
+    res.set('Cache-Control', 'no-store');
+    const checks = {
+      timestamp: new Date().toISOString(),
+      status: 'ready',
+      services: {} as Record<string, { status: string; response_time_ms?: number; used_mb?: number; error?: string }>
+    };
+
+    try {
+      // Database connectivity check
+      const dbStart = Date.now();
+      await db.execute(sql.raw('SELECT 1'));
+      checks.services.database = {
+        status: 'healthy',
+        response_time_ms: Date.now() - dbStart
+      };
+    } catch (error) {
+      checks.services.database = {
+        status: 'unhealthy',
+        error: error instanceof Error ? error.message : 'Unknown database error'
+      };
+      checks.status = 'degraded';
+    }
+
+    // Memory usage check
+    const memUsage = process.memoryUsage();
+    const memUsageMB = Math.round(memUsage.heapUsed / 1024 / 1024);
+    checks.services.memory = {
+      status: memUsageMB > 500 ? 'warning' : 'healthy',
+      used_mb: memUsageMB
+    };
+
+    // Job queue health check
+    try {
+      const { jobs } = await import('./src/services/jobsService');
+      const queueStatus = await jobs.getQueueStatus();
+      checks.services.job_queue = {
+        status: 'healthy',
+        response_time_ms: queueStatus.activeJobs
+      };
+    } catch (error) {
+      checks.services.job_queue = {
+        status: 'degraded',
+        error: 'Job queue status unavailable'
+      };
+    }
+
+    // Return appropriate HTTP status based on overall health
+    const hasUnhealthy = Object.values(checks.services).some(service => service.status === 'unhealthy');
+    const hasDegraded = Object.values(checks.services).some(service => service.status === 'degraded');
+    const statusCode = hasUnhealthy ? 503 : (hasDegraded ? 503 : 200);
+    
+    res.status(statusCode).json(checks);
+  });
 
   // Import auth limiter from main app
   const authLimiter = (app as any).authLimiter;

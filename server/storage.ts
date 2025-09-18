@@ -377,10 +377,17 @@ export class MemStorage implements IStorage {
   private safeDecrypt(token: string): string {
     if (!token) return '';
     
-    // During migration, assume ALL tokens are plain text unless explicitly encrypted
-    // This is safer than trying to decrypt every token
-    console.warn('⚠️ Token appears to be plain text during migration period');
-    return token;
+    try {
+      // Try to decrypt the token - if it succeeds, it was encrypted
+      return secureStore.decrypt(token);
+    } catch (error) {
+      // If decryption fails, treat as plain text (legacy tokens during migration)
+      // Only log this occasionally to avoid spam, and only in development
+      if (process.env.NODE_ENV === 'development' && Math.random() < 0.1) {
+        console.warn('⚠️ Token appears to be plain text (legacy format) - consider re-authenticating');
+      }
+      return token;
+    }
   }
   private users: Map<string, User> = new Map();
   private leads: Map<string, Lead> = new Map();
@@ -2036,10 +2043,17 @@ export class DrizzleStorage implements IStorage {
   private safeDecrypt(token: string): string {
     if (!token) return '';
     
-    // During migration, assume ALL tokens are plain text unless explicitly encrypted
-    // This is safer than trying to decrypt every token
-    console.warn('⚠️ Token appears to be plain text during migration period');
-    return token;
+    try {
+      // Try to decrypt the token - if it succeeds, it was encrypted
+      return secureStore.decrypt(token);
+    } catch (error) {
+      // If decryption fails, treat as plain text (legacy tokens during migration)
+      // Only log this occasionally to avoid spam, and only in development
+      if (process.env.NODE_ENV === 'development' && Math.random() < 0.1) {
+        console.warn('⚠️ Token appears to be plain text (legacy format) - consider re-authenticating');
+      }
+      return token;
+    }
   }
   private db = drizzle(sql);
   

@@ -1,0 +1,223 @@
+Goal: Implement a minimal, professional SaaS baseline without changing the repo’s layout:
+
+Tenant isolation: Postgres RLS + app-layer tenant scoping helper
+
+Backups: Daily encrypted pg_dump to S3-compatible storage
+
+Ops: /health + /ready endpoints and email alerts to owner on critical errors
+
+Integrations framework: Generic, tenant-aware Connections UI and storage for providers (Google/Microsoft now; others later)
+
+Webhook resilience: Signature verification (keep), tenant-scoped error reporting + admin replay endpoint
+
+Environments: Clean dev / staging / prod separation with fail-fast secret checks
+
+Admin: Impersonation (SUPERADMIN-only) with full audit trail
+
+Important constraints
+
+Do not assume or prescribe directories or filenames.
+
+Discover existing architecture, code style, and locations; conform to them.
+
+Make small, reviewable commits and open one PR titled:
+“SaaS Hardening Sprint – RLS / Backups / Health / Integrations / Admin”.
+
+Migrations must be additive and idempotent. Do not drop data/columns.
+
+If something is ambiguous, ask the Questions at the end before proceeding.
+
+Tasks (structure-aware; adapt to repo conventions)
+1) Postgres RLS + app-layer enforcement
+
+Add RLS to all multi-tenant tables (those that contain tenant data).
+
+Enable RLS and create policies that allow access only where tenant_id matches the request’s tenant context (e.g., current_setting('app.tenant_id')).
+
+Ensure the application sets the tenant context per request/webhook/job (e.g., SET LOCAL app.tenant_id = '<uuid>') at the appropriate point in the DB access lifecycle used by this codebase.
+
+Ensure all reads/writes go through a tenant-aware data-access helper (use or create a small wrapper if one exists in the project).
+
+Add minimal tests proving cross-tenant access is blocked.
+
+Acceptance
+
+Every multi-tenant table has RLS + policy.
+
+Request pipeline reliably sets tenant context.
+
+Data access is tenant-scoped by default; tests verify isolation.
+
+2) Backups (daily, encrypted)
+
+Implement a scripted backup that:
+
+Runs a full logical backup (pg_dump or equivalent).
+
+Encrypts the artifact (AES-256) using an env key (e.g., BACKUP_ENCRYPTION_KEY).
+
+Uploads to S3-compatible storage using envs (AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_REGION, BACKUP_S3_BUCKET, BACKUP_S3_PREFIX).
+
+Names files with ISO datetime.
+
+Set up a daily schedule at 02:00 in whatever scheduler the project already uses (CI, container cron, platform scheduler, etc.).
+
+Document restore steps following this repo’s docs pattern.
+
+Acceptance
+
+Backup runs in staging; encrypted artifact appears in the configured bucket/prefix.
+
+No secrets printed. Restore steps documented.
+
+3) Ops endpoints + email alerting
+
+Add lightweight health endpoints consistent with the existing router style:
+
+/health: basic ping + version + timestamp.
+
+/ready: checks critical dependencies (DB, queue if any) and returns 503 when not ready.
+
+Centralize structured error logging (include request ID + tenantId where available).
+
+On critical classes of errors (WebhookFailed, StripeSignatureError, OAuthRefreshError), email the owner (OWNER_ALERT_EMAIL env) with tenantId, provider, event id, and stack trace.
+
+Apply minimal rate limiting to health endpoints (keep with existing middleware patterns).
+
+Acceptance
+
+Health endpoints behave as expected (200 when healthy, 503 when not ready).
+
+Simulated webhook error sends a single alert email to owner.
+
+4) Integrations framework (generic; keep existing providers working)
+
+Introduce or adapt a generic integrations store for tenant-scoped provider connections that can represent Google, Microsoft, Stripe, and future providers (Zoom, Teams, Dropbox, Twilio, Google Forms):
+
+Fields should cover: tenant_id, provider, status, scopes, encrypted tokens, expiry, metadata, created/updated timestamps.
+
+Use the project’s existing encryption utility to encrypt secrets at rest (ENCRYPTION_MASTER_KEY).
+
+Adapt Google/Microsoft code paths to use or mirror into this generic store without breaking existing behavior.
+
+Extend/compose the Connections UI (tenant-aware) to display each provider’s status, errors, and actions (Connect / Disconnect / Repair), matching existing UI patterns.
+
+Acceptance
+
+Current Google/Microsoft connections still work; their status appears correctly per tenant.
+
+Adding a new provider record (e.g., Zoom) surfaces a UI CTA without layout rewrites.
+
+5) Webhook resilience (+ admin replay)
+
+Keep existing signature verification & idempotency.
+
+On exceptions in Stripe/Gmail/Graph handlers: structured log + owner alert email including tenantId and event id.
+
+Add an admin-protected endpoint for replaying a past event (tenant-scoped, ignore duplicates). Follow existing auth patterns.
+
+Acceptance
+
+Forced error triggers one email alert.
+
+Replay enqueues a single retry and respects idempotency.
+
+6) Environments (dev / staging / prod)
+
+Ensure separate env configurations for dev, staging, and prod (distinct DBs & secrets).
+
+Add a preflight boot check that refuses to start if critical secrets are missing (Stripe keys, ENCRYPTION_MASTER_KEY, BACKUP_ENCRYPTION_KEY in staging/prod).
+
+Keep the repo’s current config style; update the sample env template accordingly.
+
+Acceptance
+
+Running in staging uses staging DB/secrets.
+
+Missing secrets → clear, early startup error.
+
+7) Admin / Impersonation (SUPERADMIN-only; audited)
+
+Implement a SUPERADMIN-only capability to impersonate a specific user within their tenant and then exit impersonation, using the app’s existing auth/session mechanism.
+
+Persist an audit log record on start/end (admin id, impersonated user id, tenant id, timestamp, IP, user agent).
+
+When impersonating, include a log marker and (optionally) a UI banner indicating the impersonation state, following existing UX conventions.
+
+Acceptance
+
+Only SUPERADMIN can impersonate; start/end are fully audited and filterable.
+
+Impersonation is strictly tenant-scoped; no cross-tenant leakage.
+
+Tests (fit into the project’s existing test setup)
+
+RLS isolation (cross-tenant access blocked).
+
+Tenant-aware data access helper used in read/write code paths.
+
+Health endpoints happy-path and failure behavior.
+
+Connections page shows correct per-tenant status.
+
+Webhook exception → owner alert.
+
+Admin impersonation: start/end + audit; access restricted to tenant.
+
+Deliverables
+
+One PR containing:
+
+Additive migrations/policies and any minimal code to set tenant context.
+
+Backup script + scheduled execution (consistent with repo’s tooling).
+
+Health/ready endpoints, alerting hook, and minimal docs.
+
+Integrations storage + tenant-aware Connections UI adjustments.
+
+Admin impersonation + audit logging.
+
+Updated sample envs and short runbooks (backup/restore, health, alerts, impersonation).
+
+Keep changes idiomatic to this repo (same frameworks, patterns, and locations).
+
+Questions (ask before risky changes; assume nothing)
+
+Multi-tenant tables: List them from the schema to confirm RLS coverage.
+
+Tenant context: Where in this codebase is the best place to set app.tenant_id per request/webhook/job?
+
+Backups: Do we have S3-compatible credentials (bucket/region/prefix) now, or should we wire a local fallback with a TODO?
+
+Owner alerts: Which email should receive alerts? (Use OWNER_ALERT_EMAIL env.)
+
+Integrations migration path: Mirror Google/Microsoft into the generic store (keep old path) or fully switch adapters now?
+
+Replay endpoint auth: Which role(s) can call it? Default to SUPERADMIN only unless told otherwise.
+
+Staging details: Confirm staging domain/DB so health checks and webhooks can target staging first.
+
+Impersonation storage: Confirm session mechanism (cookie/JWT) and how to persist the original admin identity safely during impersonation.
+
+If any answer is missing, choose safe defaults, clearly document them in the PR description, and leave TODOs for follow-up.
+
+Acceptance Checklist (tick before merge)
+
+ RLS policies applied; tests prove isolation
+
+ Tenant context reliably set per request/webhook/job
+
+ All data access paths are tenant-scoped by default
+
+ Daily encrypted backups running; restore docs included
+
+ /health + /ready added; basic rate limiting in place
+
+ Critical errors send owner alert emails
+
+ Connections UI shows tenant-scoped Google/Microsoft states
+
+ Admin impersonation + audit trail working; SUPERADMIN-guarded
+
+ Env templates updated; app fails fast on missing secrets

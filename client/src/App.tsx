@@ -31,11 +31,32 @@ import ClientPortal from "@/pages/portal/client-portal";
 import LoginPage from "@/pages/login";
 import Sidebar from "@/components/layout/sidebar";
 
-// Authentication wrapper component
+// Authentication wrapper component  
 function AuthWrapper({ children }: { children: React.ReactNode }) {
   const { data: user, isLoading, error } = useQuery({
     queryKey: ['/api/auth/me'],
-    retry: false
+    retry: false,
+    refetchInterval: false,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    refetchOnMount: false,
+    staleTime: Infinity,
+    queryFn: async () => {
+      const res = await fetch('/api/auth/me', {
+        credentials: 'include',
+      });
+      
+      // If 401, return null (not authenticated) instead of throwing
+      if (res.status === 401) {
+        return { user: null };
+      }
+      
+      if (!res.ok) {
+        throw new Error(`${res.status}: ${res.statusText}`);
+      }
+      
+      return res.json();
+    }
   });
 
   if (isLoading) {

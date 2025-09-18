@@ -1,0 +1,156 @@
+You are auditing this repo in read-only mode.
+Your job: verify SaaS readiness across multi-tenancy, auth, data model, integrations, payments, jobs, storage, observability, security, compliance, backups, environments, email, admin, and performance.
+
+Important constraints
+
+Do not run or edit anything.
+
+Report only.
+
+Return results in markdown.
+
+Areas to Audit
+
+1. Product & Tenancy
+
+What is the canonical tenant identifier and where is it set/read per request?
+
+Do all user-owned tables have tenant_id + index?
+
+Any joins without tenant scoping?
+
+Can a user belong to multiple tenants, and if so, how is context switched and audited?
+
+2. Auth & Sessions
+
+Are passwords hashed (bcrypt/Argon2)?
+
+Are sessions/JWTs tied to tenantId?
+
+Are login/logout flows tenant-aware?
+
+Is there email verification, password reset, optional 2FA?
+
+Any rate-limit/lockout policy for brute force?
+
+3. Data Model & Migrations
+
+Is there a single migration pipeline updating shared schema for all tenants?
+
+Is rollback possible?
+
+Do records include created_by/updated_by (user+tenant) for audit?
+
+4. Integrations (Google/Microsoft)
+
+Where are OAuth tokens stored? Are they encrypted and tenant-scoped?
+
+Are PKCE + state nonce + strict redirect URIs used?
+
+Are token refresh/revoke flows implemented?
+
+Are webhooks/subscription renewal jobs present?
+
+How are provider rate limits handled per tenant?
+
+5. Payments (Stripe)
+
+Is subscription state mirrored from Stripe webhooks only?
+
+Are webhook signatures verified and idempotency keys used?
+
+How are seat changes, trials, proration, and failed payments handled?
+
+6. Background Jobs & Webhooks
+
+Do jobs accept tenantId and run idempotently?
+
+How is duplicate processing prevented (locks/queues)?
+
+What is retry/backoff strategy? Dead-letter handling?
+
+7. Files & Storage
+
+Are uploads handled via an adapter (local/S3) with tenant-prefixed keys?
+
+Are signed URLs used?
+
+Is MIME/size validation enforced?
+
+8. Observability & Ops
+
+Do logs include structured fields and request IDs?
+
+Are per-tenant metrics tracked?
+
+Are health/readiness probes defined?
+
+What SLOs/alerts are configured?
+
+9. Security & Compliance
+
+Are secrets only loaded via env/secret manager (no defaults)?
+
+Is tenant isolation enforced via RLS or guaranteed tenant-scoping helpers?
+
+Is there a GDPR path (export, delete, retention)?
+
+Is access to PII logged/audited?
+
+10. Backups & DR
+
+What is the backup schedule and retention?
+
+Are backups encrypted?
+
+Can a single tenant be restored without affecting others?
+
+11. Environments & Release
+
+Are dev/staging/prod clearly separated with distinct credentials/domains?
+
+Are feature flags in place for risky changes?
+
+Is rollback quick and safe?
+
+12. Email Deliverability
+
+Are SPF/DKIM/DMARC set up per-tenant?
+
+Are bounce/complaints handled?
+
+Is per-tenant sending rate limited?
+
+13. Access & Admin
+
+Is there an internal admin view to impersonate a user within their tenant (with audit)?
+
+Is there a tenant off-boarding flow (cancel billing, export data, delete schedule)?
+
+14. Performance & Limits
+
+Are per-tenant rate limits/quotas enforced (API, emails/day, storage)?
+
+Are queries indexed by tenantId?
+
+Are N+1 query risks monitored?
+
+Deliverables
+
+Executive Summary (10–12 bullets): main SaaS strengths, biggest gaps.
+
+Findings Table: columns = Area | Evidence (file:lines) | Status (✅/⚠️/❌) | Gap | Suggested fix.
+
+SQL Probes: generate read-only queries I can run manually in Postgres to validate tenant isolation (tenant_id counts, RLS policies, indexes).
+
+Top 5 Fixes: the smallest, highest-leverage changes to make us SaaS-safe.
+
+Test Flows: list manual test scenarios (new tenant login, connect Google/Microsoft, run migration, process Stripe webhook, etc.) to confirm isolation + systemwide updates.
+
+Rules
+
+Report only. Do not run or change code.
+
+Be specific: cite file paths + line numbers where evidence is found.
+
+Flag any global singletons, missing tenant scoping, or insecure defaults.

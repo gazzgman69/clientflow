@@ -38,9 +38,7 @@ function AuthWrapper({ children }: { children: React.ReactNode }) {
     retry: false,
     refetchInterval: false,
     refetchOnWindowFocus: false,
-    refetchOnReconnect: false,
-    refetchOnMount: false,
-    staleTime: Infinity,
+    staleTime: 5 * 60 * 1000, // 5 minutes instead of Infinity
     queryFn: async () => {
       const res = await fetch('/api/auth/me', {
         credentials: 'include',

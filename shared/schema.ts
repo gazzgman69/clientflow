@@ -269,25 +269,32 @@ export const emails = pgTable("emails", {
 
 export const emailAttachments = pgTable("email_attachments", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").references(() => tenants.id).notNull(),
   emailId: varchar("email_id").references(() => emails.id).notNull(),
   filename: text("filename"),
   mimeType: text("mime_type"),
   size: integer("size"),
   storageKey: text("storage_key"), // fs path or S3 key
   createdAt: timestamp("created_at").defaultNow(),
-});
+}, (table) => ({
+  tenantIdIdx: index("email_attachments_tenant_id_idx").on(table.tenantId),
+  emailIdIdx: index("email_attachments_email_id_idx").on(table.emailId),
+}));
 
 export const emailThreadReads = pgTable("email_thread_reads", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").references(() => tenants.id).notNull(),
   threadId: varchar("thread_id").references(() => emailThreads.id).notNull(),
   userId: varchar("user_id").references(() => users.id), // Made nullable initially for safe migration
   lastReadAt: timestamp("last_read_at"),
 }, (table) => ({
+  tenantIdIdx: index("email_thread_reads_tenant_id_idx").on(table.tenantId),
   threadIdUserIdUnique: unique("email_thread_reads_thread_id_user_id_unique").on(table.threadId, table.userId),
 }));
 
 export const smsMessages = pgTable("sms_messages", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").references(() => tenants.id).notNull(),
   body: text("body").notNull(),
   fromPhone: text("from_phone").notNull(),
   toPhone: text("to_phone").notNull(),
@@ -306,6 +313,7 @@ export const smsMessages = pgTable("sms_messages", {
 
 export const messageTemplates = pgTable("message_templates", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").references(() => tenants.id).notNull(),
   name: text("name").notNull(),
   type: text("type").notNull(), // email, sms, whatsapp
   subject: text("subject"), // For email templates
@@ -320,6 +328,7 @@ export const messageTemplates = pgTable("message_templates", {
 
 export const messageThreads = pgTable("message_threads", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").references(() => tenants.id).notNull(),
   subject: text("subject"),
   participants: text("participants").array().notNull(), // Phone numbers or emails
   leadId: varchar("lead_id").references(() => leads.id),
@@ -332,6 +341,7 @@ export const messageThreads = pgTable("message_threads", {
 
 export const activities = pgTable("activities", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").references(() => tenants.id).notNull(),
   type: text("type").notNull(), // lead_created, quote_sent, contract_signed, etc.
   description: text("description").notNull(),
   entityType: text("entity_type"), // lead, client, project, quote, contract, invoice
@@ -342,6 +352,7 @@ export const activities = pgTable("activities", {
   createdAt: timestamp("created_at").defaultNow(),
 }, (table) => ({
   // Ensure activities belong to same tenant through contact/project/user relationships
+  tenantIdIdx: index("activities_tenant_id_idx").on(table.tenantId),
   contactIdIdx: index("activities_contact_id_idx").on(table.contactId),
   projectIdIdx: index("activities_project_id_idx").on(table.projectId),
   userIdIdx: index("activities_user_id_idx").on(table.userId),
@@ -349,6 +360,7 @@ export const activities = pgTable("activities", {
 
 export const automations = pgTable("automations", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").references(() => tenants.id).notNull(),
   name: text("name").notNull(),
   description: text("description"),
   trigger: text("trigger").notNull(), // lead_created, quote_sent, etc.
@@ -360,11 +372,13 @@ export const automations = pgTable("automations", {
 }, (table) => ({
   // Ensure automations belong to same tenant as the user through the user relationship
   createdByIdx: index("automations_created_by_idx").on(table.createdBy),
+  tenantIdIdx: index("automations_tenant_id_idx").on(table.tenantId),
 }));
 
 // Members (Musicians) Management
 export const members = pgTable("members", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").references(() => tenants.id).notNull(),
   userId: varchar("user_id").references(() => users.id), // Made nullable initially for safe migration
   firstName: text("first_name").notNull(),
   lastName: text("last_name").notNull(),
@@ -383,11 +397,13 @@ export const members = pgTable("members", {
 }, (table) => ({
   // Ensure members belong to same tenant as the user through the user relationship
   userIdIdx: index("members_user_id_idx").on(table.userId),
+  tenantIdIdx: index("members_tenant_id_idx").on(table.tenantId),
 }));
 
 // Venues Management
 export const venues = pgTable("venues", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").references(() => tenants.id).notNull(),
   userId: varchar("user_id").references(() => users.id), // Made nullable initially for safe migration
   name: text("name").notNull(),
   address: text("address"),
@@ -421,10 +437,12 @@ export const venues = pgTable("venues", {
 }, (table) => ({
   // Ensure venues belong to same tenant as the user through the user relationship
   userIdIdx: index("venues_user_id_idx").on(table.userId),
+  tenantIdIdx: index("venues_tenant_id_idx").on(table.tenantId),
 }));
 
 // Project Members Junction Table
 export const projectMembers = pgTable("project_members", {
+  tenantId: varchar("tenant_id").references(() => tenants.id).notNull(),
   projectId: varchar("project_id").references(() => projects.id).notNull(),
   memberId: varchar("member_id").references(() => members.id).notNull(),
   role: text("role"), // Lead, Support, etc.
@@ -433,21 +451,30 @@ export const projectMembers = pgTable("project_members", {
   confirmedAt: timestamp("confirmed_at"),
   notes: text("notes"),
   createdAt: timestamp("created_at").defaultNow(),
-});
+}, (table) => ({
+  tenantIdIdx: index("project_members_tenant_id_idx").on(table.tenantId),
+  projectIdIdx: index("project_members_project_id_idx").on(table.projectId),
+  memberIdIdx: index("project_members_member_id_idx").on(table.memberId),
+}));
 
 // Member Availability
 export const memberAvailability = pgTable("member_availability", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").references(() => tenants.id).notNull(),
   memberId: varchar("member_id").references(() => members.id).notNull(),
   date: timestamp("date").notNull(),
   available: boolean("available").default(true),
   notes: text("notes"),
   createdAt: timestamp("created_at").defaultNow(),
-});
+}, (table) => ({
+  tenantIdIdx: index("member_availability_tenant_id_idx").on(table.tenantId),
+  memberIdIdx: index("member_availability_member_id_idx").on(table.memberId),
+}));
 
 // Project Files
 export const projectFiles = pgTable("project_files", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").references(() => tenants.id).notNull(),
   projectId: varchar("project_id").references(() => projects.id).notNull(),
   fileName: text("file_name").notNull(),
   originalName: text("original_name").notNull(),
@@ -457,6 +484,7 @@ export const projectFiles = pgTable("project_files", {
   createdAt: timestamp("created_at").defaultNow(),
 }, (table) => ({
   // Ensure project files belong to same tenant as the project through the project relationship
+  tenantIdIdx: index("project_files_tenant_id_idx").on(table.tenantId),
   projectIdIdx: index("project_files_project_id_idx").on(table.projectId),
   uploadedByIdx: index("project_files_uploaded_by_idx").on(table.uploadedBy),
 }));
@@ -464,12 +492,14 @@ export const projectFiles = pgTable("project_files", {
 // Project Notes
 export const projectNotes = pgTable("project_notes", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").references(() => tenants.id).notNull(),
   projectId: varchar("project_id").references(() => projects.id).notNull(),
   note: text("note").notNull(),
   createdBy: varchar("created_by").references(() => users.id).notNull(),
   createdAt: timestamp("created_at").defaultNow(),
 }, (table) => ({
   // Ensure project notes belong to same tenant as the project through the project relationship
+  tenantIdIdx: index("project_notes_tenant_id_idx").on(table.tenantId),
   projectIdIdx: index("project_notes_project_id_idx").on(table.projectId),
   createdByIdx: index("project_notes_created_by_idx").on(table.createdBy),
 }));
@@ -477,6 +507,7 @@ export const projectNotes = pgTable("project_notes", {
 // Calendar Integrations
 export const calendarIntegrations = pgTable("calendar_integrations", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").references(() => tenants.id).notNull(),
   userId: varchar("user_id").references(() => users.id), // Made nullable initially for safe migration
   provider: text("provider").notNull(), // google, outlook, apple, ical
   providerAccountId: text("provider_account_id"), // External calendar account ID
@@ -496,11 +527,13 @@ export const calendarIntegrations = pgTable("calendar_integrations", {
 }, (table) => ({
   // Ensure calendar integrations belong to same tenant as the user through the user relationship
   userIdIdx: index("calendar_integrations_user_id_idx").on(table.userId),
+  tenantIdIdx: index("calendar_integrations_tenant_id_idx").on(table.tenantId),
 }));
 
 // Calendar Sync Log
 export const calendarSyncLog = pgTable("calendar_sync_log", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").references(() => tenants.id).notNull(),
   integrationId: varchar("integration_id").references(() => calendarIntegrations.id).notNull(),
   syncType: text("sync_type").notNull(), // manual, automatic, webhook
   direction: text("direction").notNull(), // import, export
@@ -513,11 +546,15 @@ export const calendarSyncLog = pgTable("calendar_sync_log", {
   completedAt: timestamp("completed_at"),
   status: text("status").notNull().default('processing'), // processing, completed, failed
   createdAt: timestamp("created_at").defaultNow(),
-});
+}, (table) => ({
+  tenantIdIdx: index("calendar_sync_log_tenant_id_idx").on(table.tenantId),
+  integrationIdIdx: index("calendar_sync_log_integration_id_idx").on(table.integrationId),
+}));
 
 // Events/Calendar System
 export const events = pgTable("events", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").references(() => tenants.id).notNull(),
   title: text("title").notNull(),
   description: text("description"),
   location: text("location"),
@@ -546,6 +583,7 @@ export const events = pgTable("events", {
 // Templates table for auto-responders, emails, invoices, contracts
 export const templates = pgTable("templates", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").references(() => tenants.id).notNull(),
   type: text("type").notNull(), // auto_responder, email, invoice, contract
   title: text("title").notNull(),
   subject: text("subject"), // nullable - for email types
@@ -1072,6 +1110,7 @@ export const paymentSessions = pgTable("payment_sessions", {
 // Webhook Events - Track processed webhook events for idempotency
 export const webhookEvents = pgTable("webhook_events", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").references(() => tenants.id).notNull(),
   provider: text("provider").notNull(), // 'stripe', 'paypal', etc.
   eventId: text("event_id").notNull(), // Provider's unique event ID (e.g., Stripe event.id)
   eventType: text("event_type").notNull(), // e.g., 'payment_intent.succeeded'

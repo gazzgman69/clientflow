@@ -1,12 +1,19 @@
 import { Link, useLocation } from "wouter";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 import { 
   BarChart3, Users, UserPlus, Briefcase, FileText, 
-  File, Receipt, Calendar, Bot, Settings,
-  Music, MapPin, FolderOpen, Mail
+  File, Receipt, Calendar, Bot, Settings, LogOut,
+  Music, MapPin, FolderOpen, Mail, ChevronDown
 } from "lucide-react";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { useToast } from "@/hooks/use-toast";
 
 const staticNavigationItems = [
   { href: "/", icon: BarChart3, label: "Dashboard", badge: null },
@@ -29,6 +36,7 @@ const staticNavigationItems = [
 
 export default function Sidebar() {
   const [location] = useLocation();
+  const { toast } = useToast();
 
   // Fetch leads summary for new leads count
   const { data: leadsSummary } = useQuery({
@@ -42,6 +50,36 @@ export default function Sidebar() {
     refetchOnWindowFocus: true,
     refetchOnMount: true,
     refetchOnReconnect: true,
+  });
+
+  // Get current user info
+  const { data: currentUser } = useQuery({
+    queryKey: ['/api/auth/me'],
+    retry: false,
+  });
+
+  // Logout mutation
+  const logoutMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest('POST', '/api/auth/logout');
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Logged out successfully",
+        description: "You have been signed out of your account"
+      });
+      // Clear the auth cache and redirect to login
+      queryClient.invalidateQueries({ queryKey: ['/api/auth/me'] });
+      window.location.href = '/';
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Logout error",
+        description: error.message || "Failed to log out",
+        variant: "destructive"
+      });
+    }
   });
 
   // Create navigation items with dynamic badge for leads
@@ -140,21 +178,44 @@ export default function Sidebar() {
 
       {/* User Profile */}
       <div className="p-4 border-t border-border">
-        <div className="flex items-center space-x-3">
-          <img 
-            src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=100&h=100" 
-            alt="User avatar" 
-            className="w-10 h-10 rounded-full object-cover"
-            data-testid="user-avatar"
-          />
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-foreground truncate" data-testid="user-name">John Smith</p>
-            <p className="text-xs text-muted-foreground truncate" data-testid="user-email">john@company.com</p>
-          </div>
-          <button className="text-muted-foreground hover:text-foreground" data-testid="user-menu">
-            <Settings className="h-4 w-4" />
-          </button>
-        </div>
+        <DropdownMenu>
+          <DropdownMenuTrigger className="w-full" data-testid="user-menu">
+            <div className="flex items-center space-x-3 hover:bg-muted/50 rounded-lg p-2 transition-colors">
+              <img 
+                src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=100&h=100" 
+                alt="User avatar" 
+                className="w-10 h-10 rounded-full object-cover"
+                data-testid="user-avatar"
+              />
+              <div className="flex-1 min-w-0 text-left">
+                <p className="text-sm font-medium text-foreground truncate" data-testid="user-name">
+                  {currentUser?.user ? `${currentUser.user.firstName} ${currentUser.user.lastName}` : 'John Smith'}
+                </p>
+                <p className="text-xs text-muted-foreground truncate" data-testid="user-email">
+                  {currentUser?.user?.email || 'john@company.com'}
+                </p>
+              </div>
+              <ChevronDown className="h-4 w-4 text-muted-foreground" />
+            </div>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-56">
+            <DropdownMenuItem asChild>
+              <Link href="/settings" className="flex items-center space-x-2 w-full" data-testid="menu-settings">
+                <Settings className="h-4 w-4" />
+                <span>Settings</span>
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem 
+              onClick={() => logoutMutation.mutate()}
+              disabled={logoutMutation.isPending}
+              className="flex items-center space-x-2 text-red-600 focus:text-red-600"
+              data-testid="menu-logout"
+            >
+              <LogOut className="h-4 w-4" />
+              <span>{logoutMutation.isPending ? 'Signing out...' : 'Sign out'}</span>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     </div>
   );

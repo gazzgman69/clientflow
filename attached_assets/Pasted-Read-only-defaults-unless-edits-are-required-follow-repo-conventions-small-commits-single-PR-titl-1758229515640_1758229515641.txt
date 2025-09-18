@@ -1,0 +1,58 @@
+Read-only defaults unless edits are required; follow repo conventions; small commits; single PR titled:
+“Global-by-Default: Tenant Enumeration • Backup Options • Central Config • Multi-Tenant Tests”.
+
+Goals
+
+Email sync job: Ensure it enumerates all tenants and runs per tenant via existing queue/scheduler.
+
+Add jitter/backoff to respect provider quotas.
+
+Guard with feature flag (enable/disable per tenant).
+
+Acceptance: logs show runs for ≥2 tenants; each path uses withTenant(tenantId) (or equivalent).
+
+Backups
+
+Keep existing global full-DB backup.
+
+Add optional per-tenant export path (config-controlled), writing an artifact tagged with tenantId and timestamp.
+
+Acceptance: per-tenant export can be invoked without affecting others; documented as optional.
+
+Centralise env access
+
+Replace direct env reads flagged in the audit (e.g., SESSION_SECRET, dev checks) with the project’s central config/settings service.
+
+Leave infra-level envs (e.g., DATABASE_URL) as is.
+
+Acceptance: grep shows no direct process.env.SESSION_SECRET in routes/feature code; config validation fails fast if missing.
+
+Tests (multi-tenant)
+
+Auth: login/session for Tenant A and Tenant B, prove cross-tenant access is denied.
+
+Storage: write/read same record type across two tenants; cross-tenant query returns 0 (RLS + helper).
+
+Jobs: simulate email-sync for two tenants; verify isolation + backoff called.
+
+Acceptance: tests pass and explicitly assert behavior for two tenant IDs.
+
+Do not assume folders; discover structure and conform. Additive changes only.
+
+Deliverables
+
+Code changes for the four goals.
+
+Short docs in the PR: how to enable per-tenant export, how email-sync enumeration works, and where config lives.
+
+“How to verify” section with commands/log expectations.
+
+Quick checks to include in PR description
+
+ Email sync logs show runs for two tenants with tenant IDs.
+
+ grep -R "process\.env\.SESSION_SECRET" returns 0 in app/route code.
+
+ Per-tenant export can run for a single tenant without touching others.
+
+ New tests: auth/storage/jobs cover 2 tenants and pass.

@@ -228,15 +228,13 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     sessionTimeoutMinutes: 1440 // 24 hours
   });
   
+  // Get session secret from config service
+  const { configService } = await import('./src/services/configService');
+  const sessionSecret = await configService.getSessionSecret();
+  
   app.use(session({
     store: enhancedSessionStore,
-    secret: process.env.SESSION_SECRET || (() => {
-      if (process.env.NODE_ENV === 'production') {
-        throw new Error('SESSION_SECRET environment variable is required in production');
-      }
-      console.warn('⚠️  Using fallback SESSION_SECRET in development. Set SESSION_SECRET env var for production.');
-      return 'fallback-secret-for-development-only';
-    })(),
+    secret: sessionSecret,
     resave: false,
     saveUninitialized: false,
     cookie: {

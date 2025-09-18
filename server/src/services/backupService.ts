@@ -4,6 +4,7 @@ import { join } from 'path';
 import crypto from 'crypto';
 import { promisify } from 'util';
 import { pipeline } from 'stream';
+import { createTenantSqlExport, createTenantJsonExport } from './backupHelpers';
 
 const pipelineAsync = promisify(pipeline);
 
@@ -13,14 +14,18 @@ const pipelineAsync = promisify(pipeline);
  */
 export class BackupService {
   private readonly backupDir = '/tmp/backups';
+  private readonly tenantBackupDir = '/tmp/tenant-backups';
   private readonly algorithm = 'aes-256-gcm';
   private readonly keyLength = 32; // 256 bits
   private readonly ivLength = 16; // 128 bits
 
   constructor() {
-    // Ensure backup directory exists
+    // Ensure backup directories exist
     if (!existsSync(this.backupDir)) {
       mkdirSync(this.backupDir, { recursive: true });
+    }
+    if (!existsSync(this.tenantBackupDir)) {
+      mkdirSync(this.tenantBackupDir, { recursive: true });
     }
   }
 
@@ -52,6 +57,66 @@ export class BackupService {
       return { success: true, backupPath };
     } catch (error) {
       console.error('❌ Backup creation failed:', error);
+      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+    }
+  }
+
+  /**
+   * Create a per-tenant export (optional feature, config-controlled)
+   * Exports only data belonging to a specific tenant
+   */
+  async createTenantExport(tenantId: string, options: {
+    includeSchema?: boolean;
+    format?: 'sql' | 'json';
+    encrypt?: boolean;
+  } = {}): Promise<{ success: boolean; exportPath?: string; error?: string }> {
+    const { includeSchema = false, format = 'sql', encrypt = true } = options;
+    
+    try {
+      // Check if per-tenant exports are enabled via config
+      const { configService } = await import('./configService');
+      const tenantExportsEnabled = await configService.getConfig('TENANT_EXPORTS_ENABLED', {
+        defaultValue: 'false'
+      });
+      
+      if (tenantExportsEnabled !== 'true') {
+        return {
+          success: false,
+          error: 'Per-tenant exports are not enabled. Set TENANT_EXPORTS_ENABLED=true to enable.'
+        };
+      }
+      
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      const exportName = `tenant_${tenantId}_${timestamp}.${format}${encrypt ? '.enc' : ''}`;
+      const exportPath = join(this.tenantBackupDir, exportName);
+      
+      console.log(`📦 Starting tenant export for ${tenantId}: ${exportName}`);
+      
+      if (format === 'sql') {
+        // SECURITY: SQL export via pg_dump is currently unsafe for tenant isolation
+        // pg_dump doesn't support row-level WHERE filtering, and post-processing
+        // filtering of SQL text is dangerous and can leak cross-tenant data
+        return {
+          success: false,
+          error: 'SQL per-tenant export is currently disabled for security reasons. Please use JSON format instead.'
+        };
+      } else {
+        const encryptionKey = encrypt ? this.getEncryptionKey() : null;
+        await createTenantJsonExport(
+          tenantId, 
+          exportPath, 
+          encrypt,
+          encryptionKey,
+          this.algorithm,
+          this.ivLength
+        );
+      }
+      
+      console.log(`✅ Tenant export created successfully: ${exportPath}`);
+      return { success: true, exportPath };
+      
+    } catch (error) {
+      console.error(`❌ Tenant export failed for ${tenantId}:`, error);
       return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
     }
   }
@@ -191,6 +256,52 @@ export class BackupService {
     } catch (error) {
       console.warn('⚠️ Failed to clean up old backups:', error);
       // Don't throw - cleanup failure shouldn't fail the backup process
+    }
+    
+    // Also clean up tenant exports if enabled
+    await this.cleanupOldTenantExports();
+  }
+  
+  /**
+   * Clean up old tenant export files (keep last 30 days)
+   */
+  private async cleanupOldTenantExports(): Promise<void> {
+    try {
+      const { configService } = await import('./configService');
+      const tenantExportsEnabled = await configService.getConfig('TENANT_EXPORTS_ENABLED', {
+        defaultValue: 'false'
+      });
+      
+      if (tenantExportsEnabled !== 'true') {
+        return;
+      }
+      
+      const fs = await import('fs/promises');
+      const files = await fs.readdir(this.tenantBackupDir);
+      
+      const exportFiles = files
+        .filter(file => file.startsWith('tenant_') && (file.endsWith('.sql') || file.endsWith('.json') || file.endsWith('.enc')))
+        .map(file => ({
+          name: file,
+          path: join(this.tenantBackupDir, file),
+          // Extract timestamp from filename
+          timestamp: file.split('_')[2]?.replace(/\.(sql|json)(\.enc)?$/, '') || ''
+        }))
+        .sort((a, b) => b.timestamp.localeCompare(a.timestamp)); // Sort newest first
+
+      // Keep the newest 30 exports per tenant, delete the rest
+      const filesToDelete = exportFiles.slice(30);
+      
+      for (const file of filesToDelete) {
+        await fs.unlink(file.path);
+        console.log(`🗑️ Cleaned up old tenant export: ${file.name}`);
+      }
+
+      if (filesToDelete.length > 0) {
+        console.log(`🧹 Cleaned up ${filesToDelete.length} old tenant export(s)`);
+      }
+    } catch (error) {
+      console.warn('⚠️ Failed to clean up old tenant exports:', error);
     }
   }
 

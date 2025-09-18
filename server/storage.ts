@@ -41,6 +41,7 @@ import {
   type QuoteExtraInfoField, type InsertQuoteExtraInfoField,
   type QuoteExtraInfoConfig, type InsertQuoteExtraInfoConfig,
   type QuoteExtraInfoResponse, type InsertQuoteExtraInfoResponse,
+  type AdminAuditLog, type InsertAdminAuditLog,
   users, leads, contacts, projects, quotes, contracts, invoices, tasks, emails, emailThreads, activities, automations, 
   members, venues, projectMembers, memberAvailability, projectFiles, projectNotes, smsMessages, 
   messageTemplates, messageThreads, events, calendarIntegrations, calendarSyncLog, templates, leadCaptureForms,
@@ -48,7 +49,9 @@ import {
   // Enhanced Quotes System tables
   quotePackages, quoteAddons, quoteItems, quoteTokens, quoteSignatures,
   // Quote Extra Info System tables
-  quoteExtraInfoFields, quoteExtraInfoConfig, quoteExtraInfoResponses
+  quoteExtraInfoFields, quoteExtraInfoConfig, quoteExtraInfoResponses,
+  // Admin Audit Logs table
+  adminAuditLogs
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { TenantScopedStorage } from './utils/tenantScopedStorage';
@@ -78,6 +81,7 @@ export interface IStorage {
   // Users
   getUsers(tenantId: string): Promise<User[]>;
   getUser(id: string, tenantId: string): Promise<User | undefined>;
+  getUserGlobal(id: string): Promise<User | undefined>; // Global lookup across all tenants for SUPERADMIN verification
   getUserByUsername(username: string, tenantId: string): Promise<User | undefined>;
   createUser(user: InsertUser, tenantId: string): Promise<User>;
   updateUser(id: string, user: Partial<InsertUser>, tenantId: string): Promise<User | undefined>;
@@ -366,6 +370,11 @@ export interface IStorage {
   getEventById(id: string, tenantId: string): Promise<Event | undefined>;
   getEventsByContactEmail(email: string, tenantId: string): Promise<Event[]>;
 
+  // Admin Audit Logs - SUPERADMIN impersonation tracking
+  getAdminAuditLogs(adminUserId?: string, impersonatedUserId?: string, tenantId?: string): Promise<AdminAuditLog[]>;
+  getAdminAuditLog(id: string): Promise<AdminAuditLog | undefined>;
+  createAdminAuditLog(auditLog: InsertAdminAuditLog): Promise<AdminAuditLog>;
+
   // Tenant-scoped storage wrapper
   withTenant(tenantId: string): TenantScopedStorage;
 }
@@ -415,6 +424,7 @@ export class MemStorage implements IStorage {
   private templates: Map<string, Template> = new Map();
   private leadCaptureForms: Map<string, LeadCaptureForm> = new Map();
   private emailSignatures: Map<string, EmailSignature> = new Map();
+  private adminAuditLogs: Map<string, AdminAuditLog> = new Map();
 
   constructor() {
     // Initialize with default admin user (DEVELOPMENT ONLY)
@@ -443,6 +453,11 @@ export class MemStorage implements IStorage {
   async getUser(id: string, tenantId: string): Promise<User | undefined> {
     const user = this.users.get(id);
     return (user && (user.tenantId === tenantId || !user.tenantId)) ? user : undefined;
+  }
+
+  async getUserGlobal(id: string): Promise<User | undefined> {
+    // Global lookup across all tenants for SUPERADMIN verification
+    return this.users.get(id);
   }
 
   async getUserByUsername(username: string, tenantId: string): Promise<User | undefined> {
@@ -2026,6 +2041,40 @@ export class MemStorage implements IStorage {
     );
   }
 
+  // Admin Audit Logs - MemStorage implementation
+  async getAdminAuditLogs(adminUserId?: string, impersonatedUserId?: string, tenantId?: string): Promise<AdminAuditLog[]> {
+    let logs = Array.from(this.adminAuditLogs.values());
+    
+    if (adminUserId) {
+      logs = logs.filter(log => log.adminUserId === adminUserId);
+    }
+    if (impersonatedUserId) {
+      logs = logs.filter(log => log.impersonatedUserId === impersonatedUserId);
+    }
+    if (tenantId) {
+      logs = logs.filter(log => log.tenantId === tenantId);
+    }
+    
+    return logs.sort((a, b) => 
+      new Date(b.timestamp!).getTime() - new Date(a.timestamp!).getTime()
+    );
+  }
+
+  async getAdminAuditLog(id: string): Promise<AdminAuditLog | undefined> {
+    return this.adminAuditLogs.get(id);
+  }
+
+  async createAdminAuditLog(auditLog: InsertAdminAuditLog): Promise<AdminAuditLog> {
+    const id = randomUUID();
+    const log: AdminAuditLog = {
+      ...auditLog,
+      id,
+      timestamp: new Date()
+    };
+    this.adminAuditLogs.set(id, log);
+    return log;
+  }
+
   // Tenant-scoped storage wrapper
   withTenant(tenantId: string): TenantScopedStorage {
     return new TenantScopedStorage(this, tenantId);
@@ -2276,6 +2325,11 @@ export class DrizzleStorage implements IStorage {
     return await this.db.select().from(users);
   }
   async getUser(id: string) { 
+    const result = await this.db.select().from(users).where(eq(users.id, id));
+    return result[0];
+  }
+  async getUserGlobal(id: string): Promise<User | undefined> {
+    // Global lookup across all tenants for SUPERADMIN verification - bypasses tenant isolation
     const result = await this.db.select().from(users).where(eq(users.id, id));
     return result[0];
   }
@@ -3625,6 +3679,46 @@ export class DrizzleStorage implements IStorage {
         eq(quoteExtraInfoResponses.tenantId, tenantId)
       ));
     return result.rowCount > 0;
+  }
+
+  // Admin Audit Logs - DrizzleStorage implementation
+  async getAdminAuditLogs(adminUserId?: string, impersonatedUserId?: string, tenantId?: string): Promise<AdminAuditLog[]> {
+    const conditions = [];
+    
+    if (adminUserId) {
+      conditions.push(eq(adminAuditLogs.adminUserId, adminUserId));
+    }
+    if (impersonatedUserId) {
+      conditions.push(eq(adminAuditLogs.impersonatedUserId, impersonatedUserId));
+    }
+    if (tenantId) {
+      conditions.push(eq(adminAuditLogs.tenantId, tenantId));
+    }
+    
+    const whereCondition = conditions.length > 0 ? and(...conditions) : undefined;
+    
+    return await this.db
+      .select()
+      .from(adminAuditLogs)
+      .where(whereCondition)
+      .orderBy(desc(adminAuditLogs.timestamp));
+  }
+
+  async getAdminAuditLog(id: string): Promise<AdminAuditLog | undefined> {
+    const result = await this.db
+      .select()
+      .from(adminAuditLogs)
+      .where(eq(adminAuditLogs.id, id))
+      .limit(1);
+    return result[0];
+  }
+
+  async createAdminAuditLog(auditLog: InsertAdminAuditLog): Promise<AdminAuditLog> {
+    const result = await this.db
+      .insert(adminAuditLogs)
+      .values(auditLog)
+      .returning();
+    return result[0];
   }
 
   // Tenant-scoped storage wrapper

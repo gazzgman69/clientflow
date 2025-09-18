@@ -368,6 +368,85 @@ export const withPortalAuth = (csrf?: any) => {
   return middleware;
 };
 
+/**
+ * SUPERADMIN authentication middleware with impersonation context support
+ * Checks for SUPERADMIN role, handling both normal and impersonation scenarios
+ */
+export const ensureSuperAdminAuth = async (req: Request, res: Response, next: NextFunction) => {
+  if (!req.session?.userId) {
+    return res.status(401).json({ 
+      error: 'Authentication required', 
+      message: 'Please log in to access this endpoint'
+    });
+  }
+  
+  try {
+    // Determine the actual admin user ID and tenant ID based on impersonation state
+    let adminUserId: string;
+    let adminTenantId: string | undefined;
+
+    if (req.session.isImpersonating && req.session.originalUserId) {
+      // During impersonation, check the original admin's credentials
+      adminUserId = req.session.originalUserId;
+      adminTenantId = req.session.originalTenantId;
+    } else {
+      // Normal case, check current user
+      adminUserId = req.session.userId;
+      adminTenantId = req.session.tenantId;
+    }
+
+    // Verify SUPERADMIN role with global lookup (bypass tenant isolation)
+    const hasSuperAdminRole = await verifySuperAdminRole(adminUserId, adminTenantId);
+    if (!hasSuperAdminRole) {
+      console.log(`🚫 SECURITY: User ${adminUserId} denied SUPERADMIN access - insufficient privileges`);
+      return res.status(403).json({ 
+        error: 'SUPERADMIN access required',
+        message: 'This endpoint requires SUPERADMIN privileges'
+      });
+    }
+    
+    req.authenticatedUserId = adminUserId;
+    next();
+  } catch (error) {
+    console.error('❌ SECURITY: SUPERADMIN role verification failed:', error);
+    // FAIL CLOSED: Deny access on error for security
+    return res.status(500).json({ 
+      error: 'Authentication failed',
+      message: 'Unable to verify SUPERADMIN privileges' 
+    });
+  }
+};
+
+// Helper function for SUPERADMIN role verification with proper security enforcement
+async function verifySuperAdminRole(userId: string, tenantId?: string): Promise<boolean> {
+  try {
+    const { storage } = await import('../storage');
+    
+    // GLOBAL SUPERADMIN CHECK: Query across all tenants to find user
+    // This bypasses tenant isolation for SUPERADMIN role verification
+    const user = await storage.getUserGlobal(userId);
+    if (!user) {
+      console.log(`🚫 SECURITY: SUPERADMIN check failed - user ${userId} not found globally`);
+      return false;
+    }
+    
+    // Check if user has super_admin role (strict check)
+    const isSuperAdmin = user.role === 'super_admin';
+    
+    if (isSuperAdmin) {
+      console.log(`✅ SECURITY: SUPERADMIN access granted to user ${userId} (role: ${user.role}, found in tenant: ${user.tenantId})`);
+    } else {
+      console.log(`🚫 SECURITY: User ${userId} denied SUPERADMIN access - role: ${user.role}`);
+    }
+    
+    return isSuperAdmin;
+  } catch (error) {
+    console.error('Error verifying SUPERADMIN role:', error);
+    // FAIL CLOSED: Deny access on error for security
+    return false;
+  }
+}
+
 // Helper function for security event logging (delegates to shared trackSecurityEvent)
 function logSecurityEvent(event: string, data: any): void {
   // Use the shared trackSecurityEvent function for consistency

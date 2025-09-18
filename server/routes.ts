@@ -15,11 +15,17 @@ declare module 'express-session' {
     portalContactId?: string;
     userId?: string;
     tenantId?: string;
+    // Impersonation state for SUPERADMIN functionality
+    originalUserId?: string; // The actual SUPERADMIN's ID when impersonating
+    originalTenantId?: string; // The SUPERADMIN's original tenant ID
+    impersonatedUserId?: string; // The user being impersonated 
+    isImpersonating?: boolean; // Flag indicating active impersonation
   }
 }
 import { twilioService } from "./services/twilio";
 import bcrypt from "bcrypt";
 import crypto from "crypto";
+import { z } from "zod";
 
 // Password hashing utility
 const SALT_ROUNDS = 12;
@@ -59,7 +65,7 @@ import stripeWebhooksRoutes from "./src/routes/stripe-webhooks";
 import { userPrefsService } from "./src/services/userPrefs";
 import { calendarAutoSyncService } from "./services/calendar-auto-sync";
 import { tenantResolver, requireTenant, type TenantRequest } from "./middleware/tenantResolver";
-import { ensureUserAuth, ensurePortalAuth, ensureAdminAuth, withUserAuth, withPortalAuth } from "./middleware/auth";
+import { ensureUserAuth, ensurePortalAuth, ensureAdminAuth, ensureSuperAdminAuth, withUserAuth, withPortalAuth } from "./middleware/auth";
 import { 
   withTenantSecurity, 
   validateTenantSession, 
@@ -100,6 +106,7 @@ import {
   insertQuoteExtraInfoFieldSchema,
   insertQuoteExtraInfoConfigSchema,
   insertQuoteExtraInfoResponseSchema,
+  insertAdminAuditLogSchema,
   signupSchema,
   loginSchema,
   requestPasswordResetSchema,
@@ -907,6 +914,347 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
       }
       res.json({ success: true });
     });
+  });
+
+  // SUPERADMIN middleware is now imported from middleware/auth.ts with proper impersonation context handling
+
+  // Helper function to log admin audit events with proper tenant context
+  const logAdminAudit = async (
+    adminUserId: string, 
+    action: string, 
+    req: Request, 
+    impersonatedUserId?: string, 
+    details?: any
+  ) => {
+    try {
+      // For admin audit logs, use the admin's original tenant context
+      let auditTenantId = req.session?.tenantId || null;
+      if (req.session?.isImpersonating && req.session?.originalTenantId) {
+        auditTenantId = req.session.originalTenantId;
+      }
+      
+      const auditData = insertAdminAuditLogSchema.parse({
+        adminUserId,
+        impersonatedUserId,
+        tenantId: auditTenantId,
+        action,
+        details: details ? JSON.stringify(details) : null,
+        ipAddress: req.ip,
+        userAgent: req.get('User-Agent'),
+        sessionId: req.sessionID
+      });
+      
+      await storage.createAdminAuditLog(auditData);
+      console.log(`🔐 ADMIN AUDIT: ${action} by ${adminUserId} (tenant: ${auditTenantId})${impersonatedUserId ? ` -> ${impersonatedUserId}` : ''}`);
+    } catch (error) {
+      console.error('❌ Failed to log admin audit event:', error);
+      // Don't fail the request for audit logging failure
+    }
+  };
+
+  // SUPERADMIN Impersonation Routes
+  
+  // Input validation schema for impersonation
+  const impersonateSchema = z.object({
+    targetUserId: z.string().uuid('Target user ID must be a valid UUID')
+  });
+
+  // Start impersonation
+  app.post('/api/admin/impersonate/start', ...withTenantSecurity(ensureUserAuth, tenantResolver, requireTenant, csrfProtection), ensureSuperAdminAuth, authLimiter, async (req, res) => {
+    try {
+      // Validate input using Zod
+      const { targetUserId } = impersonateSchema.parse(req.body);
+
+      // Prevent impersonating yourself
+      if (targetUserId === req.session!.userId) {
+        return res.status(400).json({
+          error: 'Invalid request',
+          message: 'Cannot impersonate yourself'
+        });
+      }
+
+      // Verify target user exists and get their details
+      // CRITICAL: Use global lookup to search across ALL tenants for SUPERADMIN operations
+      const targetUser = await storage.getUserGlobal(targetUserId);
+      if (!targetUser) {
+        return res.status(404).json({
+          error: 'User not found',
+          message: 'Target user does not exist'
+        });
+      }
+
+      // SECURITY: Prevent impersonating other SUPERADMINs (explicit check)
+      if (targetUser.role === 'super_admin') {
+        console.log(`🚨 SECURITY VIOLATION: SUPERADMIN ${req.session!.userId} attempted to impersonate another SUPERADMIN ${targetUserId}`);
+        
+        // Log the security violation attempt
+        await logAdminAudit(
+          req.session!.userId,
+          'impersonate_superadmin_blocked',
+          req,
+          targetUserId,
+          {
+            targetUserEmail: targetUser.email,
+            targetUserRole: targetUser.role,
+            violation: 'attempted_superadmin_impersonation'
+          }
+        );
+        
+        return res.status(403).json({
+          error: 'Access denied',
+          message: 'Cannot impersonate other SUPERADMIN users'
+        });
+      }
+
+      // Check if already impersonating
+      if (req.session!.isImpersonating) {
+        return res.status(400).json({
+          error: 'Already impersonating',
+          message: 'You are already impersonating another user. End current impersonation first.'
+        });
+      }
+
+      // CRITICAL: Store original user data before session regeneration
+      const adminUserId = req.session!.userId;
+      const adminTenantId = req.session!.tenantId;
+
+      // SECURITY: Regenerate session to prevent session fixation attacks
+      req.session.regenerate(async (err: any) => {
+        if (err) {
+          console.error('❌ Session regeneration failed during impersonation start:', err);
+          return res.status(500).json({
+            error: 'Session security error',
+            message: 'Unable to start secure impersonation session'
+          });
+        }
+
+        try {
+          // Store original admin context and set impersonation state
+          req.session!.originalUserId = adminUserId;
+          req.session!.originalTenantId = adminTenantId;
+          req.session!.impersonatedUserId = targetUserId;
+          req.session!.userId = targetUserId; // Switch context to impersonated user
+          req.session!.tenantId = targetUser.tenantId; // Switch to target user's tenant
+          req.session!.isImpersonating = true;
+
+          // Save session to ensure persistence
+          req.session.save(async (saveErr: any) => {
+            if (saveErr) {
+              console.error('❌ Session save failed during impersonation:', saveErr);
+              return res.status(500).json({
+                error: 'Session save error',
+                message: 'Unable to save impersonation session'
+              });
+            }
+
+            try {
+              // Log the impersonation start
+              await logAdminAudit(
+                adminUserId, 
+                'impersonate_start', 
+                req, 
+                targetUserId,
+                { 
+                  targetUserEmail: targetUser.email,
+                  targetUserRole: targetUser.role,
+                  targetTenantId: targetUser.tenantId,
+                  originalTenantId: adminTenantId,
+                  sessionRegenerated: true
+                }
+              );
+
+              console.log(`🎭 IMPERSONATION STARTED: SUPERADMIN ${adminUserId} -> User ${targetUserId} (${targetUser.email})`);
+
+              res.json({
+                success: true,
+                message: 'Impersonation started successfully',
+                impersonatedUser: {
+                  id: targetUser.id,
+                  email: targetUser.email,
+                  firstName: targetUser.firstName,
+                  lastName: targetUser.lastName,
+                  role: targetUser.role
+                }
+              });
+            } catch (auditError) {
+              console.error('❌ Audit logging failed during impersonation start:', auditError);
+              // Continue with success response even if audit fails
+              res.json({
+                success: true,
+                message: 'Impersonation started successfully',
+                impersonatedUser: {
+                  id: targetUser.id,
+                  email: targetUser.email,
+                  firstName: targetUser.firstName,
+                  lastName: targetUser.lastName,
+                  role: targetUser.role
+                }
+              });
+            }
+          });
+        } catch (impersonationError) {
+          console.error('❌ Impersonation setup failed:', impersonationError);
+          return res.status(500).json({
+            error: 'Impersonation failed',
+            message: 'Unable to complete impersonation setup'
+          });
+        }
+      });
+    } catch (error) {
+      console.error('❌ Failed to start impersonation:', error);
+      res.status(500).json({ 
+        error: 'Impersonation failed',
+        message: 'Unable to start impersonation' 
+      });
+    }
+  });
+
+  // End impersonation
+  app.post('/api/admin/impersonate/end', ...withTenantSecurity(ensureUserAuth, tenantResolver, requireTenant, csrfProtection), ensureSuperAdminAuth, async (req, res) => {
+    try {
+      // Check if currently impersonating
+      if (!req.session?.isImpersonating || !req.session?.originalUserId) {
+        return res.status(400).json({
+          error: 'Not impersonating',
+          message: 'No active impersonation session found'
+        });
+      }
+
+      const originalUserId = req.session.originalUserId;
+      const originalTenantId = req.session.originalTenantId || 'default-tenant';
+      const impersonatedUserId = req.session.impersonatedUserId;
+
+      // Verify original user still has SUPERADMIN role (use original tenant context)
+      const originalUser = await storage.getUser(originalUserId, originalTenantId);
+      if (!originalUser || originalUser.role !== 'super_admin') {
+        console.error(`🚨 SECURITY: Original user ${originalUserId} lost SUPERADMIN privileges during impersonation`);
+        // Force logout for security
+        req.session.destroy((err) => {
+          if (err) console.error('Error destroying compromised session:', err);
+        });
+        return res.status(401).json({
+          error: 'Session compromised',
+          message: 'Original user privileges have been revoked. Please log in again.'
+        });
+      }
+
+      // SECURITY: Regenerate session when ending impersonation to prevent privilege escalation
+      req.session.regenerate(async (err: any) => {
+        if (err) {
+          console.error('❌ Session regeneration failed during impersonation end:', err);
+          return res.status(500).json({
+            error: 'Session security error',
+            message: 'Unable to end impersonation securely'
+          });
+        }
+
+        try {
+          // Restore original admin context
+          req.session!.userId = originalUserId;
+          req.session!.tenantId = originalTenantId;
+          req.session!.isImpersonating = false;
+          // Clear impersonation fields
+          delete req.session!.originalUserId;
+          delete req.session!.originalTenantId;
+          delete req.session!.impersonatedUserId;
+
+          // Save session to ensure persistence
+          req.session.save(async (saveErr: any) => {
+            if (saveErr) {
+              console.error('❌ Session save failed during impersonation end:', saveErr);
+              return res.status(500).json({
+                error: 'Session save error',
+                message: 'Unable to save restored session'
+              });
+            }
+
+            try {
+              // Log the impersonation end
+              await logAdminAudit(
+                originalUserId, 
+                'impersonate_end', 
+                req, 
+                impersonatedUserId,
+                { 
+                  endReason: 'admin_requested',
+                  originalTenantId: originalTenantId,
+                  sessionRegenerated: true
+                }
+              );
+            } catch (auditError) {
+              console.error('❌ Audit logging failed during impersonation end:', auditError);
+              // Continue with success response even if audit fails
+            }
+
+            console.log(`🎭 IMPERSONATION ENDED: SUPERADMIN ${originalUserId} <- User ${impersonatedUserId}`);
+
+            res.json({
+              success: true,
+              message: 'Impersonation ended successfully',
+              restoredUser: {
+                id: originalUser.id,
+                email: originalUser.email,
+                firstName: originalUser.firstName,
+                lastName: originalUser.lastName,
+                role: originalUser.role
+              }
+            });
+          });
+        } catch (restoreError) {
+          console.error('❌ Impersonation restoration failed:', restoreError);
+          return res.status(500).json({
+            error: 'Restoration failed',
+            message: 'Unable to restore original user session'
+          });
+        }
+      });
+    } catch (error) {
+      console.error('❌ Failed to end impersonation:', error);
+      res.status(500).json({ 
+        error: 'End impersonation failed',
+        message: 'Unable to end impersonation' 
+      });
+    }
+  });
+
+  // Get current impersonation status
+  app.get('/api/admin/impersonate/status', ensureSuperAdminAuth, async (req, res) => {
+    try {
+      if (req.session?.isImpersonating && req.session?.impersonatedUserId) {
+        const impersonatedUser = await storage.getUser(req.session.impersonatedUserId, req.session.tenantId || 'default-tenant');
+        const originalUser = await storage.getUser(req.session.originalUserId!, req.session.originalTenantId || 'default-tenant');
+        
+        res.json({
+          isImpersonating: true,
+          originalUser: originalUser ? {
+            id: originalUser.id,
+            email: originalUser.email,
+            firstName: originalUser.firstName,
+            lastName: originalUser.lastName,
+            role: originalUser.role
+          } : null,
+          impersonatedUser: impersonatedUser ? {
+            id: impersonatedUser.id,
+            email: impersonatedUser.email,
+            firstName: impersonatedUser.firstName,
+            lastName: impersonatedUser.lastName,
+            role: impersonatedUser.role
+          } : null
+        });
+      } else {
+        res.json({
+          isImpersonating: false,
+          originalUser: null,
+          impersonatedUser: null
+        });
+      }
+    } catch (error) {
+      console.error('❌ Failed to get impersonation status:', error);
+      res.status(500).json({ 
+        error: 'Status check failed',
+        message: 'Unable to check impersonation status' 
+      });
+    }
   });
 
   // CRITICAL TEST: Place test route right next to working route

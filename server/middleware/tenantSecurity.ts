@@ -10,6 +10,11 @@ declare module 'express-session' {
       tenantId: string;
     };
     lastActivity?: string;
+    // SUPERADMIN impersonation properties
+    originalUserId?: string;
+    originalTenantId?: string;
+    impersonatedUserId?: string;
+    isImpersonating?: boolean;
   }
 }
 

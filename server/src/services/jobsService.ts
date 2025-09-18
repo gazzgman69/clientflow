@@ -16,7 +16,7 @@ export const jobQueue: IJobQueue = new PostgreSQLJobQueue({
   maxConcurrentJobs: 3, // Conservative for CRM workload
   defaultMaxRetries: 3,
   retryDelay: 2000, // 2 seconds base retry delay
-  jobTimeout: 60000, // 1 minute timeout for jobs
+  jobTimeout: 180000, // 3 minutes timeout for jobs (increased for email sync)
   cleanupInterval: 300000, // 5 minutes cleanup interval
   maxJobAge: 86400000, // 24 hours max job age
 });

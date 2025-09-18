@@ -3713,6 +3713,44 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
 
+  // Tenant configuration endpoint for branding
+  app.get('/api/tenant/config', tenantResolver, async (req: TenantRequest, res) => {
+    try {
+      const tenantId = req.tenantId;
+      
+      if (!tenantId) {
+        return res.status(400).json({ error: 'Tenant context required' });
+      }
+
+      // Get tenant details for branding
+      const tenant = req.tenant || await storage.getTenantById(tenantId);
+      
+      if (!tenant) {
+        return res.status(404).json({ error: 'Tenant not found' });
+      }
+
+      // Return tenant configuration with branding information
+      const tenantConfig = {
+        id: tenant.id,
+        name: tenant.name,
+        slug: tenant.slug,
+        branding: {
+          companyName: tenant.name,
+          loginTitle: `Sign in to ${tenant.name}`,
+          welcomeMessage: `Welcome to ${tenant.name}'s business management portal`,
+          primaryColor: '#0ea5e9',
+          backgroundColor: '#ffffff'
+          // Add more branding options as needed
+        }
+      };
+
+      res.json(tenantConfig);
+    } catch (error: any) {
+      console.error('Error fetching tenant config:', error);
+      res.status(500).json({ error: 'Failed to fetch tenant configuration' });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

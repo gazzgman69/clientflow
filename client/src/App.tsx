@@ -1,6 +1,6 @@
 import { Switch, Route, Redirect } from "wouter";
 import { queryClient } from "./lib/queryClient";
-import { QueryClientProvider } from "@tanstack/react-query";
+import { QueryClientProvider, useQuery } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/not-found";
@@ -28,59 +28,88 @@ import Members from "@/pages/members";
 import Venues from "@/pages/venues";
 import MusicianPortal from "@/pages/portal/musician-portal";
 import ClientPortal from "@/pages/portal/client-portal";
+import LoginPage from "@/pages/login";
 import Sidebar from "@/components/layout/sidebar";
+
+// Authentication wrapper component
+function AuthWrapper({ children }: { children: React.ReactNode }) {
+  const { data: user, isLoading } = useQuery({
+    queryKey: ['/api/auth/me'],
+    retry: false
+  });
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
+
+  // If no user data or error, show login page
+  if (!user?.user) {
+    return <LoginPage />;
+  }
+
+  return <>{children}</>;
+}
 
 function Router() {
   return (
     <Switch>
-      {/* Portal Routes - No Sidebar */}
+      {/* Public Login Route */}
+      <Route path="/login" component={LoginPage} />
+      
+      {/* Portal Routes - No Authentication Required */}
       <Route path="/portal/musician" component={MusicianPortal} />
       
-      {/* Public Form Routes - No Sidebar */}
+      {/* Public Form Routes - No Authentication Required */}
       <Route path="/f/:slug">
         {(params) => <LeadFormHosted slug={params.slug} />}
       </Route>
       
-      {/* Public Quote Routes - No Sidebar */}
+      {/* Public Quote Routes - No Authentication Required */}
       <Route path="/q/:token">
         {(params) => <PublicQuote token={params.token} />}
       </Route>
       
-      {/* Admin Routes - With Sidebar */}
+      {/* Protected Routes - Require Authentication */}
       <Route>
         {() => (
-          <div className="flex h-screen bg-background">
-            <Sidebar />
-            <div className="flex-1 flex flex-col overflow-hidden">
-              <Switch>
-                <Route path="/" component={Dashboard} />
-                <Route path="/leads/capture" component={LeadCaptureBuilder} />
-                <Route path="/leads/board" component={LeadsKanban} />
-                <Route path="/leads/inbox" component={LeadsInbox} />
-                <Route path="/leads">
-                  <Redirect to="/leads/board" replace />
-                </Route>
-                <Route path="/contacts" component={Contacts} />
-                <Route path="/projects/:id" component={ProjectDetail} />
-                <Route path="/projects" component={Projects} />
-                <Route path="/members" component={Members} />
-                <Route path="/venues" component={Venues} />
-                <Route path="/documents" component={Documents} />
-                <Route path="/quotes" component={Quotes} />
-                <Route path="/contracts" component={Contracts} />
-                <Route path="/invoices" component={Invoices} />
-                <Route path="/calendar" component={Calendar} />
-                <Route path="/automations" component={Automations} />
-                <Route path="/portal/client" component={ClientPortal} />
-                <Route path="/portal" component={ClientPortal} />
-                <Route path="/settings/email" component={EmailSettings} />
-                <Route path="/settings/templates" component={Templates} />
-                <Route path="/settings/automations" component={LeadAutomations} />
-                <Route path="/settings" component={Settings} />
-                <Route component={NotFound} />
-              </Switch>
+          <AuthWrapper>
+            <div className="flex h-screen bg-background">
+              <Sidebar />
+              <div className="flex-1 flex flex-col overflow-hidden">
+                <Switch>
+                  <Route path="/" component={Dashboard} />
+                  <Route path="/leads/capture" component={LeadCaptureBuilder} />
+                  <Route path="/leads/board" component={LeadsKanban} />
+                  <Route path="/leads/inbox" component={LeadsInbox} />
+                  <Route path="/leads">
+                    <Redirect to="/leads/board" replace />
+                  </Route>
+                  <Route path="/contacts" component={Contacts} />
+                  <Route path="/projects/:id" component={ProjectDetail} />
+                  <Route path="/projects" component={Projects} />
+                  <Route path="/members" component={Members} />
+                  <Route path="/venues" component={Venues} />
+                  <Route path="/documents" component={Documents} />
+                  <Route path="/quotes" component={Quotes} />
+                  <Route path="/contracts" component={Contracts} />
+                  <Route path="/invoices" component={Invoices} />
+                  <Route path="/calendar" component={Calendar} />
+                  <Route path="/automations" component={Automations} />
+                  <Route path="/portal/client" component={ClientPortal} />
+                  <Route path="/portal" component={ClientPortal} />
+                  <Route path="/settings/email" component={EmailSettings} />
+                  <Route path="/settings/templates" component={Templates} />
+                  <Route path="/settings/automations" component={LeadAutomations} />
+                  <Route path="/settings" component={Settings} />
+                  <Route component={NotFound} />
+                </Switch>
+              </div>
             </div>
-          </div>
+          </AuthWrapper>
         )}
       </Route>
     </Switch>

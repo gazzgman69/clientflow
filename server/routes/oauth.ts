@@ -511,9 +511,56 @@ router.get('/api/auth/google/status', requireAuth, async (req: any, res) => {
   }
 });
 
-/**
- * Google Auth Disconnect - Remove Google tokens for user  
- */
+// Microsoft OAuth status endpoint
+router.get('/api/auth/microsoft/status', requireAuth, async (req: any, res) => {
+  try {
+    const userId = req.authenticatedUserId;
+    
+    // Test Microsoft OAuth connection using the service
+    const connectionTest = await microsoftOAuthService.testConnection();
+    
+    if (connectionTest.success) {
+      // If connected, get user profile for additional info
+      try {
+        const profile = await microsoftOAuthService.getUserProfile();
+        
+        res.json({ 
+          ok: true, 
+          connected: true, 
+          provider: 'microsoft',
+          email: profile.email,
+          name: profile.name,
+          scopes: [
+            'https://graph.microsoft.com/User.Read',
+            'https://graph.microsoft.com/Calendars.ReadWrite',
+            'https://graph.microsoft.com/Mail.ReadWrite'
+          ]
+        });
+      } catch (profileError: any) {
+        console.log(`🔒 Microsoft profile fetch failed for user ${userId}:`, profileError.message);
+        res.json({ 
+          ok: true, 
+          connected: true, 
+          provider: 'microsoft',
+          scopes: []
+        });
+      }
+    } else {
+      res.json({ 
+        ok: true, 
+        connected: false, 
+        provider: 'microsoft',
+        error: connectionTest.error,
+        scopes: [] 
+      });
+    }
+    
+  } catch (error: any) {
+    console.error('Error fetching Microsoft OAuth status:', error);
+    res.status(500).json({ ok: false, connected: false, error: 'Failed to fetch status', scopes: [] });
+  }
+});
+
 /**
  * Disconnect Microsoft OAuth
  */

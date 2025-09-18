@@ -700,11 +700,26 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
 
   app.post('/api/auth/login', tenantResolver, requireTenant, authLimiter, async (req, res) => {
     try {
+      console.log('🔐 LOGIN ATTEMPT:', {
+        body: req.body,
+        tenantId: (req as any).tenantId,
+        host: req.get('host'),
+        sessionId: req.session?.id,
+        hasSession: !!req.session
+      });
+      
       const { username, password } = loginSchema.parse(req.body);
       
       // Get current tenant context from request - MUST be properly resolved
       const currentTenantId = (req as any).tenantId;
+      console.log('🔐 TENANT CHECK:', {
+        currentTenantId,
+        tenantType: typeof currentTenantId,
+        isEmpty: !currentTenantId
+      });
+      
       if (!currentTenantId) {
+        console.error('🚨 TENANT CONTEXT MISSING - Login failed due to no tenant resolution');
         return res.status(400).json({ 
           error: 'Tenant context required',
           message: 'Unable to determine tenant context for authentication'

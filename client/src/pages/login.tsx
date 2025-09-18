@@ -10,7 +10,7 @@ import { Separator } from '@/components/ui/separator';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { apiRequest } from '@/lib/queryClient';
+import { apiRequest, queryClient } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
 import { Building2, User, Lock, Mail, Eye, EyeOff } from 'lucide-react';
 import { z } from 'zod';
@@ -108,6 +108,8 @@ export default function LoginPage() {
           title: "Login successful",
           description: `Welcome back, ${data.user.firstName}!`
         });
+        // Invalidate the auth query so AuthWrapper re-fetches user data
+        queryClient.invalidateQueries({ queryKey: ['/api/auth/me'] });
         setLocation('/');
       } else {
         toast({

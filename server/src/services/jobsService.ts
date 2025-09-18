@@ -221,6 +221,26 @@ class JobsService {
       return { cleanedCount, timestamp: new Date().toISOString() };
     });
 
+    // Daily encrypted database backup job handler  
+    this.registerHandler('daily-backup', async (payload) => {
+      console.log('💾 Processing daily backup job:', payload);
+      
+      // Import backup service
+      const { backupService } = await import('./backupService');
+      
+      const result = await backupService.createBackup();
+      
+      if (!result.success) {
+        throw new Error(`Backup failed: ${result.error}`);
+      }
+      
+      return { 
+        success: true, 
+        backupPath: result.backupPath,
+        timestamp: new Date().toISOString() 
+      };
+    });
+
     console.log('📋 Built-in job handlers registered');
   }
 }

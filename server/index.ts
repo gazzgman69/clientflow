@@ -219,6 +219,16 @@ app.use((req, res, next) => {
       await jobs.enqueueRecurring('lead-automation', {}, 5 * 60 * 1000);
       console.log('✅ Lead automation job scheduled (every 5 minutes)');
       
+      // Daily encrypted database backup: 02:00 Europe/London
+      try {
+        const { scheduleDailyBackup } = await import('./src/services/backupScheduler');
+        await scheduleDailyBackup();
+        console.log('✅ Daily encrypted backup scheduled (02:00 Europe/London)');
+      } catch (backupError) {
+        console.error('⚠️ Failed to schedule daily backup:', backupError);
+        console.log('🔧 Backup can be run manually or scheduled later');
+      }
+      
       console.log('🎉 All background jobs successfully scheduled via job queue');
       
     } catch (error) {

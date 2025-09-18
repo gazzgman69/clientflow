@@ -17,7 +17,7 @@ export async function setTenantContext(tenantId: string): Promise<void> {
 
   try {
     // Set the tenant context for RLS policies
-    await db.execute(sql`SET LOCAL app.current_tenant_id = ${tenantId}`);
+    await db.execute(sql.raw(`SET LOCAL app.current_tenant_id = '${tenantId.replace(/'/g, "''")}'`));
   } catch (error) {
     console.error('Failed to set tenant context in database:', error);
     throw new Error('Failed to set tenant context');
@@ -29,7 +29,7 @@ export async function setTenantContext(tenantId: string): Promise<void> {
  */
 export async function clearTenantContext(): Promise<void> {
   try {
-    await db.execute(sql`SET LOCAL app.current_tenant_id = ''`);
+    await db.execute(sql.raw(`SET LOCAL app.current_tenant_id = ''`));
   } catch (error) {
     console.error('Failed to clear tenant context:', error);
     // Don't throw - this is cleanup
@@ -41,7 +41,7 @@ export async function clearTenantContext(): Promise<void> {
  */
 export async function getCurrentTenantContext(): Promise<string | null> {
   try {
-    const result = await db.execute(sql`SELECT current_setting('app.current_tenant_id', true) as tenant_id`);
+    const result = await db.execute(sql.raw(`SELECT current_setting('app.current_tenant_id', true) as tenant_id`));
     const tenantId = result.rows[0]?.tenant_id as string;
     return tenantId && tenantId !== '' ? tenantId : null;
   } catch (error) {

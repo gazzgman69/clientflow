@@ -620,7 +620,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   
   // Main user authentication endpoints  
   // User signup endpoint
-  app.post('/api/auth/signup', authLimiter, async (req, res) => {
+  app.post('/api/auth/signup', tenantResolver, requireTenant, authLimiter, async (req, res) => {
     try {
       const { username, email, password, firstName, lastName } = signupSchema.parse(req.body);
       
@@ -639,14 +639,18 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
       // Hash password with bcrypt
       const hashedPassword = await hashPassword(password);
       
-      // Create new user
+      // Get tenant context from middleware - tenantResolver ensures this is valid
+      const currentTenantId = (req as any).tenantId;
+      
+      // Create new user with proper tenant assignment
       const newUser = await storage.createUser({
         username,
         email,
         password: hashedPassword,
         firstName,
         lastName,
-        role: 'user' // Default role
+        role: 'user', // Default role
+        tenantId: currentTenantId // Assign to resolved tenant
       });
       
       // Regenerate session ID for security
@@ -658,7 +662,10 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
         
         // Store user ID and tenant ID in session (auto-login after signup)
         req.session.userId = newUser.id;
-        req.session.tenantId = newUser.tenantId || 'default-tenant'; // Use user's tenant or default
+        if (!newUser.tenantId) {
+          return res.status(500).json({ error: 'User tenant context is invalid' });
+        }
+        req.session.tenantId = newUser.tenantId;
         
         res.json({ 
           success: true, 
@@ -691,12 +698,18 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
 
-  app.post('/api/auth/login', authLimiter, async (req, res) => {
+  app.post('/api/auth/login', tenantResolver, requireTenant, authLimiter, async (req, res) => {
     try {
       const { username, password } = loginSchema.parse(req.body);
       
-      // Get current tenant context from request
-      const currentTenantId = (req as any).tenantId || 'default-tenant';
+      // Get current tenant context from request - MUST be properly resolved
+      const currentTenantId = (req as any).tenantId;
+      if (!currentTenantId) {
+        return res.status(400).json({ 
+          error: 'Tenant context required',
+          message: 'Unable to determine tenant context for authentication'
+        });
+      }
       
       // Get user from database with tenant scoping
       const user = await storage.getUserByUsername(username, currentTenantId);
@@ -731,9 +744,12 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
           return res.status(500).json({ error: 'Login failed' });
         }
         
-        // Store user ID and tenant ID in session
+        // Store user ID and tenant ID in session - validate tenant exists
         req.session.userId = user.id;
-        req.session.tenantId = user.tenantId || 'default-tenant'; // Use user's tenant or default
+        if (!user.tenantId) {
+          return res.status(500).json({ error: 'User tenant context is invalid' });
+        }
+        req.session.tenantId = user.tenantId;
         
         res.json({ 
           success: true, 

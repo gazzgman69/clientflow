@@ -1,0 +1,82 @@
+You are auditing the SUPERADMIN impersonation feature in read-only mode. Do not run or change anything. Produce a markdown report with evidence (file:line) and pass/fail results for each check below.
+
+A) Authorization & Guardrails
+
+Role gate: Only SUPERADMIN can start/stop impersonation. Show the guard (file:line).
+
+No SUPERADMIN→SUPERADMIN impersonation: Explicit block present. Show code path.
+
+Nested prevention: Cannot start a new impersonation while already impersonating.
+
+Cross-tenant lookup: Allowed only when starting impersonation; ensure it does not bypass RLS for normal requests.
+
+B) Session / Token Safety
+
+Session regeneration: On start & end (prevents fixation). Show the calls.
+
+Original identity storage: Where is admin identity stored during impersonation? (name the field/claim).
+
+Clear termination: End route clears impersonation flags/claims and restores the original session.
+
+C) Tenant Isolation During Impersonation
+
+Tenant binding: On start, request context and DB session set tenantId to the impersonated user’s tenant (e.g., SET LOCAL app.tenant_id). Show where this happens.
+
+RLS still enforced: Normal app queries still pass through RLS while impersonating (no bypass helpers).
+
+D) CSRF / Input Validation
+
+CSRF coverage: Start/end routes protected (show middleware chain).
+
+Validation: userId input validated (type/format/existence). Show schema/guard.
+
+E) Audit Trail
+
+Table or log: Evidence of an audit record with fields: admin_id, impersonated_user_id, tenant_id, action (START/END), timestamp, ip, user_agent.
+
+Write sites: Show where START and END write audit entries (file:line).
+
+Queryable: There is a way to filter audit by tenant/admin/date.
+
+F) UI / DX Signals
+
+Banner/indicator: Visible “You are impersonating X@tenant” with an “End impersonation” action. Show component (file:line).
+
+Server log marker: Requests while impersonating include a marker (e.g., X-Impersonated-By or structured log field).
+
+G) Replay / Webhooks / Jobs (regressions)
+
+Admin replay endpoint: Still SUPERADMIN-only; runs inside tenant context. Show guard + context set.
+
+Webhooks/jobs tenant context: While impersonating, webhook/job processing does not inherit impersonation state (show separation).
+
+H) Minimal Manual Tests (generate for me)
+
+Provide copy-paste curl commands I can run after deploy to verify:
+
+Start → Status → End flows (expect 200s).
+
+Trying to start while impersonating (expect 409/400).
+
+SUPERADMIN→SUPERADMIN attempt (expect 403).
+
+Non-SUPERADMIN attempt (expect 403).
+For each, include expected JSON shape (redacted) and headers to check.
+
+I) SQL Probes (read-only commands to run later)
+
+Provide psql statements to confirm:
+
+Latest START/END rows in audit for my user (filter by admin_id).
+
+That current_setting('app.tenant_id') would match the impersonated user’s tenant during a simulated request.
+
+Output format
+
+Executive summary (bullets: ✅/⚠️/❌).
+
+Findings table: Check | Evidence (file:line) | Status | Gap | Fix.
+
+cURL block (ready to run).
+
+SQL block (ready to run).

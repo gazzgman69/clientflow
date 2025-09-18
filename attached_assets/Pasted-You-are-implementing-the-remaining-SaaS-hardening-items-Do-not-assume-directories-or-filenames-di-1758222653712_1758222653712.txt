@@ -1,0 +1,127 @@
+You are implementing the remaining SaaS hardening items.
+Do not assume directories or filenames — discover and follow existing conventions.
+Make small, reviewable commits and open one PR titled:
+“Finish SaaS Hardening — Impersonation • Encrypted Backups • Alerts • Webhook Replay • Tenant Context (Webhooks/Jobs) • Env Template”.
+
+Scope (implement all)
+
+Admin Impersonation (SUPERADMIN-only, audited)
+
+Add SUPERADMIN-only start/end impersonation actions using the app’s existing auth/session mechanism.
+
+Persist audit records (admin id, impersonated user id, tenant id, action start/end, timestamp, IP, user agent).
+
+When impersonating, add a clear indicator (log marker + simple UI banner consistent with current UX).
+
+Acceptance: Only SUPERADMIN can impersonate; start/end fully logged; session/claims remain tenant-scoped.
+
+Backup Encryption (BACKUP_ENCRYPTION_KEY)
+
+Ensure the existing backup flow encrypts the dump (AES-256) using BACKUP_ENCRYPTION_KEY from env.
+
+Keep current storage target (S3 or local fallback); no secrets in logs.
+
+Add a one-liner manual decrypt check in docs.
+
+Acceptance: Running the backup produces an encrypted artifact, decryptable only with the key.
+
+Critical Error Alerting (OWNER_ALERT_EMAIL)
+
+On critical classes (WebhookFailed, StripeSignatureError, OAuthRefreshError), send a concise email alert to OWNER_ALERT_EMAIL.
+
+Include tenantId (if resolved), provider, event id/reference, and a short stack/summary.
+
+Reuse existing mailer; no noisy spam on handled errors.
+
+Acceptance: Forcing one of these errors triggers exactly one alert email.
+
+Webhook Replay (SUPERADMIN-only)
+
+Add a secure endpoint/action to replay a past event (e.g., Stripe/Gmail/Graph), respecting existing idempotency.
+
+Require SUPERADMIN; replay must run within tenant context.
+
+Acceptance: First replay enqueues/handles once; duplicates ignored.
+
+Tenant Context for Webhooks & Background Jobs
+
+Wherever webhooks/jobs hit the DB, set the Postgres tenant context (e.g., SET LOCAL app.tenant_id = '<uuid>') the same way API requests do.
+
+Prove it via a small log/assert (respect existing logging style).
+
+Acceptance: All webhook/job paths set tenant context before queries.
+
+Environment Template
+
+Add/update the repo’s env template (e.g., .env.example) including (non-secret placeholders):
+
+ENCRYPTION_MASTER_KEY, BACKUP_ENCRYPTION_KEY, OWNER_ALERT_EMAIL,
+Stripe keys/secrets, DB URLs per env, OAuth secrets, any required keys the app fails-fast on.
+
+Boot should fail fast with clear messages if required vars are missing (keep current pattern).
+
+Acceptance: Fresh clone → copy template → app boots (or fails with clear missing-secret messages).
+
+Constraints
+
+No hardcoded paths; follow existing structure and naming.
+
+Additive migrations/changes only; do not drop data.
+
+Keep UX minimal but clear (banner for impersonation).
+
+Don’t change working provider flows (Stripe/Google/Microsoft); extend rather than rewrite.
+
+Deliverables (in the PR)
+
+Implementation for all six items above.
+
+Short docs/README updates:
+
+How to start/end impersonation & where to view audit.
+
+How to run/decrypt a backup (one command each).
+
+How alerting works and how to set OWNER_ALERT_EMAIL.
+
+How to replay a webhook safely.
+
+Env setup from the template.
+
+A brief “How to verify” section with copy-paste commands (curl + one SQL probe).
+
+Quick Acceptance Checks (include in PR description)
+
+Impersonation:
+
+Start → banner visible; audit row created. End → banner cleared; audit row created. SUPERADMIN enforced.
+
+Backup:
+
+Run backup → encrypted file produced. Decrypt with key → valid dump.
+
+Alerts:
+
+Force a Stripe signature error (safe test) → exactly one email to OWNER_ALERT_EMAIL.
+
+Replay:
+
+Replay same event twice → first processes, second is ignored (idempotent).
+
+Tenant context (webhooks/jobs):
+
+Logs show tenant context set prior to DB calls on a webhook + a job.
+
+Env template:
+
+Fresh clone → copy template → app runs (or fails fast with clear messages).
+
+Questions (ask only if truly ambiguous)
+
+Confirm the SUPERADMIN role/flag to use (if not present, add a minimal one).
+
+Confirm where you prefer the impersonation banner (follow current UI patterns).
+
+If backup currently targets S3 and creds are not set, keep local encrypted fallback and note a TODO.
+
+If anything is unclear, choose the least intrusive option that matches existing patterns, document it in the PR, and leave a TODO.

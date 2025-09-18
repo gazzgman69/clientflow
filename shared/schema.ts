@@ -1190,6 +1190,26 @@ export const jobExecutions = pgTable("job_executions", {
   startedAtIdx: index("job_executions_started_at_idx").on(table.startedAt),
 }));
 
+// Admin Audit Logs for SUPERADMIN impersonation tracking
+export const adminAuditLogs = pgTable("admin_audit_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  adminUserId: varchar("admin_user_id").references(() => users.id).notNull(), // SUPERADMIN performing the action
+  impersonatedUserId: varchar("impersonated_user_id").references(() => users.id), // User being impersonated (null for non-impersonation actions)
+  tenantId: varchar("tenant_id").references(() => tenants.id), // Tenant context when action occurred
+  action: text("action").notNull(), // 'impersonate_start', 'impersonate_end', 'admin_action'
+  details: text("details"), // JSON string with additional context
+  ipAddress: text("ip_address"),
+  userAgent: text("user_agent"),
+  sessionId: text("session_id"), // Link to session if available
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  adminUserIdIdx: index("admin_audit_logs_admin_user_id_idx").on(table.adminUserId),
+  impersonatedUserIdIdx: index("admin_audit_logs_impersonated_user_id_idx").on(table.impersonatedUserId),
+  tenantIdIdx: index("admin_audit_logs_tenant_id_idx").on(table.tenantId),
+  actionIdx: index("admin_audit_logs_action_idx").on(table.action),
+  createdAtIdx: index("admin_audit_logs_created_at_idx").on(table.createdAt),
+}));
+
 // Insert schemas and types for jobs
 export const insertJobSchema = createInsertSchema(jobs).omit({ 
   id: true, 
@@ -1208,4 +1228,13 @@ export const insertJobExecutionSchema = createInsertSchema(jobExecutions).omit({
 
 export type JobExecution = typeof jobExecutions.$inferSelect;
 export type InsertJobExecution = z.infer<typeof insertJobExecutionSchema>;
+
+// Insert schemas and types for admin audit logs
+export const insertAdminAuditLogSchema = createInsertSchema(adminAuditLogs).omit({ 
+  id: true, 
+  createdAt: true 
+});
+
+export type AdminAuditLog = typeof adminAuditLogs.$inferSelect;
+export type InsertAdminAuditLog = z.infer<typeof insertAdminAuditLogSchema>;
 

@@ -171,7 +171,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   });
 
   // Venue routes with authentication, tenant resolution and CSRF protection (except for public endpoints used by lead capture forms)
-  app.use('/api/venues', ensureUserAuth, tenantResolver, requireTenant, (req, res, next) => {
+  app.use('/api/venues', ...withTenantSecurity(ensureUserAuth, tenantResolver, requireTenant), (req, res, next) => {
     console.log(`🔍 VENUES DEBUG: path="${req.path}", method="${req.method}"`);
     // Skip CSRF for public endpoints used by lead capture forms
     const publicEndpoints = ['/suggest', '/place-details'];
@@ -199,11 +199,11 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   // Templates routes - apply enhanced tenant security
   app.use('/api/templates', ...withTenantSecurity(ensureUserAuth, tenantResolver, requireTenant, csrf), templatesRoutes);
   
-  // Token routes - apply authentication, tenant resolution, CSRF to state-changing requests
-  app.use('/api/tokens', ensureUserAuth, tenantResolver, requireTenant, csrf, tokensRoutes);
+  // Token routes - apply enhanced tenant security
+  app.use('/api/tokens', ...withTenantSecurity(ensureUserAuth, tenantResolver, requireTenant, csrf), tokensRoutes);
   
-  // Signatures routes - apply authentication, tenant resolution, CSRF to state-changing requests
-  app.use('/api/signatures', ensureUserAuth, tenantResolver, requireTenant, csrf, signaturesRoutes);
+  // Signatures routes - apply enhanced tenant security
+  app.use('/api/signatures', ...withTenantSecurity(ensureUserAuth, tenantResolver, requireTenant, csrf), signaturesRoutes);
   
   // Specific leads endpoints (must be before general /api/leads router mount)
   // GET /api/leads/summary

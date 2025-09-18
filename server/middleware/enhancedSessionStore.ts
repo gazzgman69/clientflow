@@ -164,11 +164,48 @@ export class TenantAwareSessionStore extends Store {
       return callback();
     }
 
-    // Note: In production, this should query the session table to count active sessions
-    // For now, we'll implement basic limits without querying
-    // TODO: Implement actual session counting from database
-    
-    callback(); // Allow session creation for now
+    // Get active session count asynchronously
+    this.getActiveSessionCount(userId, 'user')
+      .then(userSessionCount => {
+        if (userSessionCount >= this.securityConfig.maxSessionsPerUser) {
+          const error = new Error(`Maximum sessions per user exceeded (${this.securityConfig.maxSessionsPerUser})`);
+          this.logSecurityEvent('session_limit_exceeded_user', {
+            userId,
+            tenantId,
+            currentSessions: userSessionCount,
+            maxAllowed: this.securityConfig.maxSessionsPerUser
+          });
+          return callback(error);
+        }
+
+        // Check tenant limits if tenant ID is provided
+        if (tenantId) {
+          return this.getActiveSessionCount(tenantId, 'tenant')
+            .then(tenantSessionCount => {
+              if (tenantSessionCount >= this.securityConfig.maxSessionsPerTenant) {
+                const error = new Error(`Maximum sessions per tenant exceeded (${this.securityConfig.maxSessionsPerTenant})`);
+                this.logSecurityEvent('session_limit_exceeded_tenant', {
+                  userId,
+                  tenantId,
+                  currentSessions: tenantSessionCount,
+                  maxAllowed: this.securityConfig.maxSessionsPerTenant
+                });
+                return callback(error);
+              }
+              callback();
+            })
+            .catch(err => {
+              this.logSecurityEvent('session_limit_check_error', { userId, tenantId, error: err.message });
+              callback(err);
+            });
+        }
+
+        callback();
+      })
+      .catch(err => {
+        this.logSecurityEvent('session_limit_check_error', { userId, tenantId, error: err.message });
+        callback(err);
+      });
   }
 
   /**
@@ -184,6 +221,64 @@ export class TenantAwareSessionStore extends Store {
     const timeoutMs = this.securityConfig.sessionTimeoutMinutes * 60 * 1000;
     
     return (now.getTime() - lastActivity.getTime()) > timeoutMs;
+  }
+
+  /**
+   * Get active session count for user or tenant
+   */
+  private async getActiveSessionCount(identifier: string, type: 'user' | 'tenant'): Promise<number> {
+    return new Promise((resolve, reject) => {
+      try {
+        // In development, we use a simplified approach since pgStore.all() may not be available
+        // In production, this should use direct SQL queries to the sessions table
+        
+        if (typeof this.pgStore.all === 'function') {
+          this.pgStore.all((err: any, sessions: any[]) => {
+            if (err) {
+              return reject(err);
+            }
+
+            if (!sessions) {
+              return resolve(0);
+            }
+
+            const activeSessions = sessions.filter(session => {
+              if (!session.sess) return false;
+              
+              try {
+                const sessionData = typeof session.sess === 'string' ? JSON.parse(session.sess) : session.sess;
+                
+                // Filter out expired sessions based on our security settings
+                if (this.isSessionExpired(sessionData)) {
+                  return false;
+                }
+                
+                // Check if session is for the specified user or tenant
+                if (type === 'user') {
+                  return sessionData.userId === identifier;
+                } else if (type === 'tenant') {
+                  return sessionData.tenantId === identifier || sessionData.user?.tenantId === identifier;
+                }
+                
+                return false;
+              } catch (parseError) {
+                // Skip sessions with malformed data
+                return false;
+              }
+            });
+
+            resolve(activeSessions.length);
+          });
+        } else {
+          // Fallback for development - allow sessions without counting
+          // TODO: In production, implement direct SQL query
+          console.warn('Session counting unavailable - allowing session creation');
+          resolve(0);
+        }
+      } catch (error) {
+        reject(error);
+      }
+    });
   }
 
   /**

@@ -107,6 +107,22 @@ import {
 } from "@shared/schema";
 
 export async function registerRoutes(app: Express, csrfProtection?: any): Promise<Server> {
+  // CRITICAL DEBUG: Log app instance and verify route registration
+  console.log('🔧 REGISTER ROUTES CALLED:', {
+    appType: typeof app,
+    hasGet: typeof app.get === 'function',
+    hasPost: typeof app.post === 'function',
+    hasUse: typeof app.use === 'function'
+  });
+
+  // CRITICAL DEBUG: Add test route at the very beginning
+  app.get('/api/debug/start', (req, res) => {
+    console.log('🚀 DEBUG START ROUTE HIT - ROUTING IS WORKING!');
+    res.json({ message: 'Debug route at start of function works!', timestamp: new Date().toISOString() });
+  });
+  
+  console.log('✅ DEBUG: Added debug route to app instance');
+
   // Import auth limiter from main app
   const authLimiter = (app as any).authLimiter;
   
@@ -698,6 +714,12 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
 
+  // Test route to verify routing is working
+  app.get('/api/auth/test', (req, res) => {
+    console.log('🧪 TEST ROUTE HIT:', req.path);
+    res.json({ message: 'Route registration is working' });
+  });
+
   app.post('/api/auth/login', tenantResolver, requireTenant, authLimiter, async (req, res) => {
     try {
       console.log('🔐 LOGIN ATTEMPT:', {
@@ -806,6 +828,12 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
       }
       res.json({ success: true });
     });
+  });
+
+  // CRITICAL TEST: Place test route right next to working route
+  app.get('/api/auth/debug-test', (req, res) => {
+    console.log('🎯 CRITICAL TEST ROUTE HIT - RIGHT NEXT TO WORKING ROUTE!');
+    res.json({ message: 'Test route next to working route works!', timestamp: new Date().toISOString() });
   });
 
   app.get('/api/auth/me', ensureUserAuth, async (req, res) => {

@@ -19,6 +19,14 @@ export interface TenantRequest extends Request {
  */
 export const tenantResolver = async (req: TenantRequest, res: Response, next: NextFunction) => {
   try {
+    console.log('🏢 TENANT RESOLVER CALLED:', {
+      path: req.path,
+      method: req.method,
+      host: req.get('host'),
+      hasSession: !!req.session,
+      sessionData: req.session ? { tenantId: req.session.tenantId, userId: req.session.userId } : null
+    });
+    
     // PRODUCTION: Tenant resolution must always work from session, subdomain, or domain
     // No development fallbacks allowed in production
 

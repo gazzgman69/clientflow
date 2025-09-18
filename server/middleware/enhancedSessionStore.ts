@@ -1,5 +1,6 @@
 import { Store } from 'express-session';
 import ConnectPgSimple from 'connect-pg-simple';
+import session from 'express-session';
 
 /**
  * Enhanced PostgreSQL session store with tenant-aware security features
@@ -18,7 +19,7 @@ export class TenantAwareSessionStore extends Store {
     super();
     
     // Initialize the underlying PostgreSQL store
-    const PgSession = ConnectPgSimple(require('express-session'));
+    const PgSession = ConnectPgSimple(session);
     this.pgStore = new PgSession({
       ...options,
       tableName: options.tableName || 'sessions',

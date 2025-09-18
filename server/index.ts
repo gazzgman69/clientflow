@@ -16,7 +16,7 @@ const app = express();
 try {
   validateProductionSecrets();
   validateTenantConfiguration();
-} catch (error) {
+} catch (error: any) {
   console.error('❌ Production validation failed. Server startup aborted.');
   console.error(error.message);
   if (error.details) {

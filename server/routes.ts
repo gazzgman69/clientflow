@@ -4,6 +4,7 @@ import { createServer, type Server } from "http";
 import session from "express-session";
 import ConnectPgSimple from "connect-pg-simple";
 import { storage } from "./storage";
+import { createTenantAwareSessionStore } from "./middleware/enhancedSessionStore";
 
 // Extend session to include portal and user authentication
 declare module 'express-session' {
@@ -56,6 +57,13 @@ import { userPrefsService } from "./src/services/userPrefs";
 import { calendarAutoSyncService } from "./services/calendar-auto-sync";
 import { tenantResolver, requireTenant, type TenantRequest } from "./middleware/tenantResolver";
 import { ensureUserAuth, ensurePortalAuth, ensureAdminAuth, withUserAuth, withPortalAuth } from "./middleware/auth";
+import { 
+  withTenantSecurity, 
+  validateTenantSession, 
+  enforceSessionTimeout, 
+  preventCrossTenantAccess, 
+  auditSecurityEvents 
+} from "./middleware/tenantSecurity";
 import { tokenResolverService } from "./src/services/token-resolver";
 import { 
   insertLeadSchema, 
@@ -107,12 +115,19 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   const sessionTableName = 'sessions';
   console.log(`🗄️  Session store using table: ${sessionTableName}`);
   
+  // Enhanced tenant-aware session store with security features
+  const enhancedSessionStore = createTenantAwareSessionStore({
+    conString: process.env.DATABASE_URL,
+    tableName: sessionTableName,
+    createTableIfMissing: true,
+    maxSessionsPerUser: 5,
+    maxSessionsPerTenant: 100,
+    enableSessionTracking: true,
+    sessionTimeoutMinutes: 1440 // 24 hours
+  });
+  
   app.use(session({
-    store: new PgSession({
-      conString: process.env.DATABASE_URL,
-      tableName: sessionTableName,
-      createTableIfMissing: true // auto-create table on boot if absent
-    }),
+    store: enhancedSessionStore,
     secret: process.env.SESSION_SECRET || (() => {
       if (process.env.NODE_ENV === 'production') {
         throw new Error('SESSION_SECRET environment variable is required in production');
@@ -172,17 +187,17 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
 
   
   // Email routes - apply authentication, tenant resolution, CSRF to state-changing requests
-  app.use('/api/email', ensureUserAuth, tenantResolver, requireTenant, csrf, emailRoutes);
-  app.use('/api/email-threads', ensureUserAuth, tenantResolver, requireTenant, csrf, emailRoutes); // Direct mounting for /api/email-threads routes
+  app.use('/api/email', ...withTenantSecurity(ensureUserAuth, tenantResolver, requireTenant, csrf), emailRoutes);
+  app.use('/api/email-threads', ...withTenantSecurity(ensureUserAuth, tenantResolver, requireTenant, csrf), emailRoutes); // Direct mounting for /api/email-threads routes
   
-  // Mail settings routes - apply authentication, tenant resolution, CSRF to state-changing requests
-  app.use('/api/settings/mail', ensureUserAuth, tenantResolver, requireTenant, csrf, mailSettingsRoutes);
+  // Mail settings routes - apply enhanced tenant security
+  app.use('/api/settings/mail', ...withTenantSecurity(ensureUserAuth, tenantResolver, requireTenant, csrf), mailSettingsRoutes);
   
-  // User preferences routes - apply authentication, tenant resolution, CSRF to state-changing requests
-  app.use('/api/user', ensureUserAuth, tenantResolver, requireTenant, csrf, userPrefsRoutes);
+  // User preferences routes - apply enhanced tenant security
+  app.use('/api/user', ...withTenantSecurity(ensureUserAuth, tenantResolver, requireTenant, csrf), userPrefsRoutes);
   
-  // Templates routes - apply authentication, tenant resolution, CSRF to state-changing requests
-  app.use('/api/templates', ensureUserAuth, tenantResolver, requireTenant, csrf, templatesRoutes);
+  // Templates routes - apply enhanced tenant security
+  app.use('/api/templates', ...withTenantSecurity(ensureUserAuth, tenantResolver, requireTenant, csrf), templatesRoutes);
   
   // Token routes - apply authentication, tenant resolution, CSRF to state-changing requests
   app.use('/api/tokens', ensureUserAuth, tenantResolver, requireTenant, csrf, tokensRoutes);
@@ -192,7 +207,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   
   // Specific leads endpoints (must be before general /api/leads router mount)
   // GET /api/leads/summary
-  app.get("/api/leads/summary", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
+  app.get("/api/leads/summary", ...withTenantSecurity(ensureUserAuth, tenantResolver, requireTenant), async (req, res) => {
     try {
       const leads = await storage.getLeads();
       const counts = {
@@ -224,7 +239,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   });
 
   // General leads routes
-  app.get("/api/leads", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
+  app.get("/api/leads", ...withTenantSecurity(ensureUserAuth, tenantResolver, requireTenant), async (req, res) => {
     try {
       const leads = await storage.getLeads();
       res.json(leads);

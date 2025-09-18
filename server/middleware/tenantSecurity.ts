@@ -188,7 +188,7 @@ export const enforceSessionTimeout = async (req: SecurityRequest, res: Response,
     const timeSinceActivity = now.getTime() - lastActivity.getTime();
 
     // Get tenant-specific timeout settings (default 24 hours)
-    const sessionTimeout = await getTenantSessionTimeout(req.tenantId);
+    const sessionTimeout = await getTenantSessionTimeout(req.tenantId || 'default');
     
     if (timeSinceActivity > sessionTimeout) {
       console.log(`⏰ Session timeout for user ${req.securityContext.userId} in tenant ${req.tenantId}`);

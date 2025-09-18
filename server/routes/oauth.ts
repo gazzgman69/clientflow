@@ -388,50 +388,6 @@ router.delete('/calendar-integrations/:id', async (req, res) => {
 /**
  * Google Auth Status - Check if user has connected Google account and validate token
  */
-/**
- * Check Microsoft OAuth connection status
- */
-router.get('/api/auth/microsoft/status', requireAuth, async (req: any, res) => {
-  try {
-    const userId = req.authenticatedUserId;
-    
-    // Check if Microsoft OAuth is connected using the connector
-    const connectionTest = await microsoftOAuthService.testConnection();
-    
-    if (connectionTest.success) {
-      // Microsoft OAuth is connected
-      const scopes = [
-        'https://graph.microsoft.com/Mail.Read',
-        'https://graph.microsoft.com/Mail.ReadWrite', 
-        'https://graph.microsoft.com/Mail.Send',
-        'https://graph.microsoft.com/User.Read',
-        'https://graph.microsoft.com/Calendars.Read',
-        'https://graph.microsoft.com/Calendars.ReadWrite'
-      ];
-      
-      res.json({ 
-        ok: true, 
-        connected: true, 
-        scopes,
-        email: connectionTest.email,
-        provider: 'microsoft'
-      });
-    } else {
-      // Microsoft OAuth is not connected or expired
-      res.json({ 
-        ok: true, 
-        connected: false, 
-        needsReconnect: true,
-        error: connectionTest.error || 'Microsoft OAuth not connected',
-        scopes: [] 
-      });
-    }
-    
-  } catch (error: any) {
-    console.error('Error checking Microsoft auth status:', error);
-    res.status(500).json({ ok: false, error: 'Internal server error' });
-  }
-});
 
 router.get('/api/auth/google/status', requireAuth, async (req: any, res) => {
   try {
@@ -511,46 +467,88 @@ router.get('/api/auth/google/status', requireAuth, async (req: any, res) => {
   }
 });
 
-// Microsoft OAuth status endpoint
+// Microsoft OAuth status endpoint - tenant/user scoped
 router.get('/api/auth/microsoft/status', requireAuth, async (req: any, res) => {
   try {
     const userId = req.authenticatedUserId;
+    const tenantId = req.tenantId || 'default-tenant';
     
-    // Test Microsoft OAuth connection using the service
-    const connectionTest = await microsoftOAuthService.testConnection();
+    // Check if user has active Microsoft integrations for this tenant
+    const integrations = await storage.getCalendarIntegrationsByUser(userId);
+    const microsoftIntegration = integrations.find(i => 
+      i.provider === 'microsoft' && 
+      i.isActive &&
+      (i.tenantId === tenantId || (!i.tenantId && tenantId === 'default-tenant'))
+    );
     
-    if (connectionTest.success) {
-      // If connected, get user profile for additional info
-      try {
-        const profile = await microsoftOAuthService.getUserProfile();
-        
-        res.json({ 
-          ok: true, 
-          connected: true, 
-          provider: 'microsoft',
-          email: profile.email,
-          name: profile.name,
-          scopes: [
-            'https://graph.microsoft.com/User.Read',
-            'https://graph.microsoft.com/Calendars.ReadWrite',
-            'https://graph.microsoft.com/Mail.ReadWrite'
-          ]
-        });
-      } catch (profileError: any) {
-        console.log(`🔒 Microsoft profile fetch failed for user ${userId}:`, profileError.message);
-        res.json({ 
-          ok: true, 
-          connected: true, 
-          provider: 'microsoft',
-          scopes: []
-        });
-      }
-    } else {
-      res.json({ 
+    if (!microsoftIntegration) {
+      return res.json({ 
         ok: true, 
         connected: false, 
         provider: 'microsoft',
-        error: connectionTest.error,
+        error: 'No active Microsoft integration found for this tenant',
+        scopes: [] 
+      });
+    }
+
+    // For Microsoft OAuth connector status, we need to check the global connector state
+    // since Microsoft OAuth integration is managed through Replit's connector system
+    try {
+      const connectionTest = await microsoftOAuthService.testConnection();
+      
+      if (connectionTest.success) {
+        try {
+          // Verify we can get user profile (tests permissions)
+          const profile = await microsoftOAuthService.getUserProfile();
+          
+          res.json({ 
+            ok: true, 
+            connected: true, 
+            provider: 'microsoft',
+            email: profile.email || microsoftIntegration.providerAccountId,
+            name: profile.name,
+            scopes: [
+              'https://graph.microsoft.com/User.Read',
+              'https://graph.microsoft.com/Calendars.ReadWrite',
+              'https://graph.microsoft.com/Mail.ReadWrite'
+            ],
+            lastSyncAt: microsoftIntegration.lastSyncAt
+          });
+        } catch (profileError: any) {
+          console.log(`🔒 Microsoft profile fetch failed for user ${userId}, tenant ${tenantId}:`, profileError.message);
+          
+          // Profile failed - likely token issue or insufficient permissions
+          res.json({ 
+            ok: true, 
+            connected: false, 
+            needsReconnect: true,
+            error: 'Token expired or insufficient permissions',
+            provider: 'microsoft',
+            scopes: [] 
+          });
+        }
+      } else {
+        // Connection test failed
+        res.json({ 
+          ok: true, 
+          connected: false, 
+          provider: 'microsoft',
+          error: connectionTest.error || 'Microsoft OAuth not connected',
+          needsReconnect: true,
+          scopes: [] 
+        });
+      }
+      
+    } catch (tokenError: any) {
+      // Token validation failed - user needs to reconnect
+      console.log(`🔒 Microsoft token validation failed for user ${userId}, tenant ${tenantId}:`, tokenError.message);
+      
+      res.json({ 
+        ok: true, 
+        connected: false, 
+        needsReconnect: true,
+        error: 'Token expired or revoked',
+        provider: 'microsoft',
         scopes: [] 
       });
     }

@@ -54,6 +54,19 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const { toast } = useToast();
 
+  // Check if user is already authenticated and redirect
+  const { data: authData } = useQuery({
+    queryKey: ['/api/auth/me'],
+    retry: false
+  });
+
+  useEffect(() => {
+    // If user is already authenticated, redirect to dashboard
+    if (authData?.user) {
+      setLocation('/');
+    }
+  }, [authData, setLocation]);
+
   // Fetch tenant configuration for branding
   const { data: tenantConfig, isLoading: tenantLoading } = useQuery({
     queryKey: ['/api/tenant/config'],

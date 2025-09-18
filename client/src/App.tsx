@@ -33,7 +33,7 @@ import Sidebar from "@/components/layout/sidebar";
 
 // Authentication wrapper component
 function AuthWrapper({ children }: { children: React.ReactNode }) {
-  const { data: user, isLoading } = useQuery({
+  const { data: user, isLoading, error } = useQuery({
     queryKey: ['/api/auth/me'],
     retry: false
   });
@@ -46,8 +46,8 @@ function AuthWrapper({ children }: { children: React.ReactNode }) {
     );
   }
 
-  // If no user data or error, show login page
-  if (!user?.user) {
+  // If authentication failed or no user data, show login page
+  if (error || !user?.user) {
     return <LoginPage />;
   }
 

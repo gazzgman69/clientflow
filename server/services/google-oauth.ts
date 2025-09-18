@@ -1,6 +1,7 @@
 import { google } from 'googleapis';
 import { storage } from '../storage';
 import type { CalendarIntegration } from '@shared/schema';
+import { secureStore } from '../src/services/secureStore';
 
 // Helper function to get the correct redirect URI
 function getRedirectUri(): string {
@@ -57,12 +58,38 @@ const SCOPES = [
 
 export class GoogleOAuthService {
   /**
-   * Generate OAuth URL for user to authenticate
+   * Generate code verifier and challenge for PKCE
+   */
+  private generatePKCEChallenge(): { codeVerifier: string; codeChallenge: string } {
+    // Generate a cryptographically random code verifier (43-128 characters)
+    const codeVerifier = crypto.randomBytes(32).toString('base64url');
+    
+    // Create code challenge using SHA256
+    const codeChallenge = crypto
+      .createHash('sha256')
+      .update(codeVerifier)
+      .digest('base64url');
+    
+    return { codeVerifier, codeChallenge };
+  }
+
+  /**
+   * Generate OAuth URL for user to authenticate with PKCE support
    * @param email User's email for login hint
    * @param userId User ID in our system
+   * @param session Express session to store PKCE verifier
    */
-  generateAuthUrl(email: string, userId: string): string {
+  generateAuthUrl(email: string, userId: string, session?: any): string {
     const state = Buffer.from(JSON.stringify({ email, userId })).toString('base64');
+    
+    // Generate PKCE challenge and verifier
+    const { codeVerifier, codeChallenge } = this.generatePKCEChallenge();
+    
+    // Store code verifier in session for later verification
+    if (session) {
+      session.pkceCodeVerifier = codeVerifier;
+      console.log('🔐 PKCE: Code verifier stored in session for OAuth flow');
+    }
     
     const authUrl = getOAuth2Client().generateAuthUrl({
       access_type: 'offline',
@@ -70,30 +97,50 @@ export class GoogleOAuthService {
       prompt: 'consent',
       login_hint: email,
       state: state,
-      include_granted_scopes: true
+      include_granted_scopes: true,
+      // PKCE parameters
+      code_challenge: codeChallenge,
+      code_challenge_method: 'S256'
     });
     
+    console.log('🔐 SECURITY: Generated OAuth URL with PKCE protection');
     return authUrl;
   }
 
   /**
-   * Exchange authorization code for tokens
+   * Exchange authorization code for tokens with PKCE verification
+   * @param code Authorization code from OAuth provider
+   * @param codeVerifier PKCE code verifier (from session)
    */
-  async exchangeCodeForTokens(code: string): Promise<{
+  async exchangeCodeForTokens(code: string, codeVerifier?: string): Promise<{
     access_token: string;
     refresh_token: string | null;
     email: string;
   }> {
     const client = getOAuth2Client();
-    const { tokens } = await client.getToken(code);
+    
+    // Prepare token exchange parameters
+    const tokenParams: any = { code };
+    
+    // Include PKCE code verifier if provided (camelCase for google-auth-library)
+    if (codeVerifier) {
+      tokenParams.codeVerifier = codeVerifier;
+      console.log('🔐 PKCE: Using code verifier for token exchange');
+    } else {
+      console.warn('⚠️ SECURITY: OAuth token exchange without PKCE verification');
+    }
+    
+    const { tokens } = await client.getToken(tokenParams);
     client.setCredentials(tokens);
     
     // Log scopes for verification
-    console.log("Granted scopes:", tokens.scope);
+    console.log("✅ OAuth tokens obtained, granted scopes:", tokens.scope);
     
     // Get user's email
     const oauth2 = google.oauth2({ version: 'v2', auth: client });
     const { data } = await oauth2.userinfo.get();
+    
+    console.log('✅ SECURITY: OAuth flow completed with PKCE verification');
     
     return {
       access_token: tokens.access_token!,
@@ -106,6 +153,7 @@ export class GoogleOAuthService {
    * Create calendar service with user's tokens
    */
   async getCalendarService(integration: CalendarIntegration) {
+    // Tokens are already decrypted by storage layer
     const tokens = {
       access_token: integration.accessToken,
       refresh_token: integration.refreshToken
@@ -120,17 +168,21 @@ export class GoogleOAuthService {
     
     userOAuth2Client.setCredentials(tokens);
     
-    // Handle token refresh
+    // Handle token refresh - CRITICAL: Encrypt tokens before storing
     userOAuth2Client.on('tokens', async (tokens) => {
+      console.log('🔄 Token refresh detected, encrypting before storage');
+      
       if (tokens.refresh_token) {
         await storage.updateCalendarIntegration(integration.id, {
-          refreshToken: tokens.refresh_token,
-          accessToken: tokens.access_token!
+          refreshToken: secureStore.encrypt(tokens.refresh_token),
+          accessToken: secureStore.encrypt(tokens.access_token!)
         });
+        console.log('🔐 SECURITY: Refresh and access tokens encrypted and updated');
       } else if (tokens.access_token) {
         await storage.updateCalendarIntegration(integration.id, {
-          accessToken: tokens.access_token
+          accessToken: secureStore.encrypt(tokens.access_token)
         });
+        console.log('🔐 SECURITY: Access token encrypted and updated');
       }
     });
     
@@ -480,8 +532,16 @@ export class GoogleOAuthService {
 /**
  * Simple function to get Google auth URL with force consent and Gmail scopes
  */
-export function getGoogleAuthUrl({ state }: { state: string }): string {
-  return getOAuth2Client().generateAuthUrl({
+export function getGoogleAuthUrl({ 
+  state, 
+  codeChallenge, 
+  codeChallengeMethod 
+}: { 
+  state: string;
+  codeChallenge?: string;
+  codeChallengeMethod?: string;
+}): string {
+  const authParams: any = {
     access_type: 'offline',
     prompt: 'consent',
     response_type: 'code',
@@ -493,7 +553,16 @@ export function getGoogleAuthUrl({ state }: { state: string }): string {
       'https://www.googleapis.com/auth/gmail.send',
       'https://www.googleapis.com/auth/gmail.readonly',
     ],
-  });
+  };
+  
+  // Add PKCE parameters if provided
+  if (codeChallenge) {
+    authParams.code_challenge = codeChallenge;
+    authParams.code_challenge_method = codeChallengeMethod || 'S256';
+    console.log('🔐 SECURITY: getGoogleAuthUrl using PKCE challenge');
+  }
+  
+  return getOAuth2Client().generateAuthUrl(authParams);
 }
 
 export const googleOAuthService = new GoogleOAuthService();

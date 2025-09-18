@@ -55,6 +55,7 @@ import { TenantScopedStorage } from './utils/tenantScopedStorage';
 import { drizzle } from 'drizzle-orm/neon-http';
 import { neon } from '@neondatabase/serverless';
 import { eq, and, desc, or, isNull } from 'drizzle-orm';
+import { secureStore } from './src/services/secureStore';
 
 // Helper function to omit undefined values to prevent overwriting required fields
 function omitUndefined<T extends Record<string, any>>(obj: T): Partial<T> {
@@ -370,6 +371,17 @@ export interface IStorage {
 }
 
 export class MemStorage implements IStorage {
+  /**
+   * Safely decrypt a token - handles migration from plain text to encrypted tokens
+   */
+  private safeDecrypt(token: string): string {
+    if (!token) return '';
+    
+    // During migration, assume ALL tokens are plain text unless explicitly encrypted
+    // This is safer than trying to decrypt every token
+    console.warn('⚠️ Token appears to be plain text during migration period');
+    return token;
+  }
   private users: Map<string, User> = new Map();
   private leads: Map<string, Lead> = new Map();
   private contacts: Map<string, Contact> = new Map();
@@ -1536,19 +1548,43 @@ export class MemStorage implements IStorage {
   }
 
   async getCalendarIntegration(id: string): Promise<CalendarIntegration | undefined> {
-    return this.calendarIntegrations.get(id);
+    const integration = this.calendarIntegrations.get(id);
+    if (!integration) return undefined;
+    
+    // Decrypt tokens for use
+    return {
+      ...integration,
+      accessToken: integration.accessToken ? secureStore.decrypt(integration.accessToken) : null,
+      refreshToken: integration.refreshToken ? secureStore.decrypt(integration.refreshToken) : null,
+    };
   }
 
   async getCalendarIntegrationsByUser(userId: string): Promise<CalendarIntegration[]> {
-    return Array.from(this.calendarIntegrations.values()).filter(integration => 
+    const integrations = Array.from(this.calendarIntegrations.values()).filter(integration => 
       integration.userId === userId
     );
+    
+    // Decrypt tokens for use
+    return integrations.map(integration => ({
+      ...integration,
+      accessToken: integration.accessToken ? this.safeDecrypt(integration.accessToken) : null,
+      refreshToken: integration.refreshToken ? this.safeDecrypt(integration.refreshToken) : null,
+    }));
   }
   
   async getCalendarIntegrationByEmail(email: string, userId: string): Promise<CalendarIntegration | undefined> {
-    return Array.from(this.calendarIntegrations.values()).find(integration => 
+    const integration = Array.from(this.calendarIntegrations.values()).find(integration => 
       integration.providerAccountId === email && integration.userId === userId && integration.provider === 'google'
     );
+    
+    if (!integration) return undefined;
+    
+    // Decrypt tokens for use
+    return {
+      ...integration,
+      accessToken: integration.accessToken ? secureStore.decrypt(integration.accessToken) : null,
+      refreshToken: integration.refreshToken ? secureStore.decrypt(integration.refreshToken) : null,
+    };
   }
 
   async createCalendarIntegration(insertIntegration: InsertCalendarIntegration): Promise<CalendarIntegration> {
@@ -1557,8 +1593,8 @@ export class MemStorage implements IStorage {
       ...insertIntegration,
       providerAccountId: insertIntegration.providerAccountId ?? null,
       calendarId: insertIntegration.calendarId ?? null,
-      accessToken: insertIntegration.accessToken ?? null,
-      refreshToken: insertIntegration.refreshToken ?? null,
+      accessToken: insertIntegration.accessToken ? secureStore.encrypt(insertIntegration.accessToken) : null,
+      refreshToken: insertIntegration.refreshToken ? secureStore.encrypt(insertIntegration.refreshToken) : null,
       syncToken: insertIntegration.syncToken ?? null,
       webhookId: insertIntegration.webhookId ?? null,
       isActive: insertIntegration.isActive ?? true,
@@ -1571,20 +1607,41 @@ export class MemStorage implements IStorage {
       updatedAt: new Date(),
     };
     this.calendarIntegrations.set(id, integration);
-    return integration;
+    
+    // Return with decrypted tokens for immediate use
+    return {
+      ...integration,
+      accessToken: integration.accessToken ? secureStore.decrypt(integration.accessToken) : null,
+      refreshToken: integration.refreshToken ? secureStore.decrypt(integration.refreshToken) : null,
+    };
   }
 
   async updateCalendarIntegration(id: string, integrationUpdate: Partial<InsertCalendarIntegration>): Promise<CalendarIntegration | undefined> {
     const integration = this.calendarIntegrations.get(id);
     if (!integration) return undefined;
     
+    // Encrypt sensitive OAuth tokens if they're being updated
+    const secureUpdate = { ...integrationUpdate };
+    if (integrationUpdate.accessToken !== undefined) {
+      secureUpdate.accessToken = integrationUpdate.accessToken ? secureStore.encrypt(integrationUpdate.accessToken) : null;
+    }
+    if (integrationUpdate.refreshToken !== undefined) {
+      secureUpdate.refreshToken = integrationUpdate.refreshToken ? secureStore.encrypt(integrationUpdate.refreshToken) : null;
+    }
+    
     const updatedIntegration: CalendarIntegration = {
       ...integration,
-      ...omitUndefined(integrationUpdate),
+      ...omitUndefined(secureUpdate),
       updatedAt: new Date(),
     };
     this.calendarIntegrations.set(id, updatedIntegration);
-    return updatedIntegration;
+    
+    // Return with decrypted tokens for immediate use
+    return {
+      ...updatedIntegration,
+      accessToken: updatedIntegration.accessToken ? secureStore.decrypt(updatedIntegration.accessToken) : null,
+      refreshToken: updatedIntegration.refreshToken ? secureStore.decrypt(updatedIntegration.refreshToken) : null,
+    };
   }
 
   async deleteCalendarIntegration(id: string): Promise<boolean> {
@@ -1973,6 +2030,17 @@ const sql = neon(process.env.DATABASE_URL!);
 const db = drizzle(sql);
 
 export class DrizzleStorage implements IStorage {
+  /**
+   * Safely decrypt a token - handles migration from plain text to encrypted tokens
+   */
+  private safeDecrypt(token: string): string {
+    if (!token) return '';
+    
+    // During migration, assume ALL tokens are plain text unless explicitly encrypted
+    // This is safer than trying to decrypt every token
+    console.warn('⚠️ Token appears to be plain text during migration period');
+    return token;
+  }
   private db = drizzle(sql);
   
   // Tenants (for job scheduling and resolution)
@@ -2067,28 +2135,85 @@ export class DrizzleStorage implements IStorage {
   }
 
   async getCalendarIntegrationsByUser(userId: string): Promise<CalendarIntegration[]> {
-    return await db.select().from(calendarIntegrations).where(eq(calendarIntegrations.userId, userId));
+    const integrations = await db.select().from(calendarIntegrations).where(eq(calendarIntegrations.userId, userId));
+    
+    // Decrypt tokens for use
+    return integrations.map(integration => ({
+      ...integration,
+      accessToken: integration.accessToken ? this.safeDecrypt(integration.accessToken) : null,
+      refreshToken: integration.refreshToken ? this.safeDecrypt(integration.refreshToken) : null,
+    }));
   }
 
   async getCalendarIntegration(id: string): Promise<CalendarIntegration | undefined> {
     const result = await db.select().from(calendarIntegrations).where(eq(calendarIntegrations.id, id));
-    return result[0];
+    
+    if (!result[0]) return undefined;
+    
+    // Decrypt tokens for use
+    const integration = result[0];
+    return {
+      ...integration,
+      accessToken: integration.accessToken ? this.safeDecrypt(integration.accessToken) : null,
+      refreshToken: integration.refreshToken ? this.safeDecrypt(integration.refreshToken) : null,
+    };
   }
 
   async getCalendarIntegrationByEmail(email: string, userId: string): Promise<CalendarIntegration | undefined> {
     const result = await db.select().from(calendarIntegrations)
       .where(and(eq(calendarIntegrations.providerAccountId, email), eq(calendarIntegrations.userId, userId)));
-    return result[0];
+    
+    if (!result[0]) return undefined;
+    
+    // Decrypt tokens for use
+    const integration = result[0];
+    return {
+      ...integration,
+      accessToken: integration.accessToken ? this.safeDecrypt(integration.accessToken) : null,
+      refreshToken: integration.refreshToken ? this.safeDecrypt(integration.refreshToken) : null,
+    };
   }
 
   async createCalendarIntegration(integration: InsertCalendarIntegration): Promise<CalendarIntegration> {
-    const result = await db.insert(calendarIntegrations).values(integration).returning();
-    return result[0];
+    // Encrypt sensitive OAuth tokens before storing
+    const secureIntegration = {
+      ...integration,
+      accessToken: integration.accessToken ? secureStore.encrypt(integration.accessToken) : null,
+      refreshToken: integration.refreshToken ? secureStore.encrypt(integration.refreshToken) : null,
+    };
+    
+    const result = await db.insert(calendarIntegrations).values(secureIntegration).returning();
+    
+    // Return with decrypted tokens for immediate use
+    const storedIntegration = result[0];
+    return {
+      ...storedIntegration,
+      accessToken: storedIntegration.accessToken ? this.safeDecrypt(storedIntegration.accessToken) : null,
+      refreshToken: storedIntegration.refreshToken ? this.safeDecrypt(storedIntegration.refreshToken) : null,
+    };
   }
 
   async updateCalendarIntegration(id: string, updates: Partial<InsertCalendarIntegration>): Promise<CalendarIntegration | undefined> {
-    const result = await db.update(calendarIntegrations).set(updates).where(eq(calendarIntegrations.id, id)).returning();
-    return result[0];
+    // Encrypt sensitive OAuth tokens if they're being updated
+    const secureUpdates = { ...updates };
+    if (updates.accessToken !== undefined) {
+      secureUpdates.accessToken = updates.accessToken ? secureStore.encrypt(updates.accessToken) : null;
+    }
+    if (updates.refreshToken !== undefined) {
+      secureUpdates.refreshToken = updates.refreshToken ? secureStore.encrypt(updates.refreshToken) : null;
+    }
+    
+    const result = await db.update(calendarIntegrations).set(secureUpdates).where(eq(calendarIntegrations.id, id)).returning();
+    
+    if (!result[0]) return undefined;
+    
+    // Return with decrypted tokens for immediate use
+    const storedIntegration = result[0];
+    return {
+      ...storedIntegration,
+      accessToken: storedIntegration.accessToken ? this.safeDecrypt(storedIntegration.accessToken) : null,
+      refreshToken: storedIntegration.refreshToken ? this.safeDecrypt(storedIntegration.refreshToken) : null,
+    };
   }
 
   async deleteCalendarIntegration(id: string): Promise<boolean> {

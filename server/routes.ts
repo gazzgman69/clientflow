@@ -695,10 +695,27 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     try {
       const { username, password } = loginSchema.parse(req.body);
       
-      // Get user from database
-      const user = await storage.getUserByUsername(username);
+      // Get current tenant context from request
+      const currentTenantId = (req as any).tenantId || 'default-tenant';
+      
+      // Get user from database with tenant scoping
+      const user = await storage.getUserByUsername(username, currentTenantId);
       if (!user) {
         return res.status(401).json({ error: 'Invalid credentials' });
+      }
+      
+      // SECURITY: Validate user belongs to the current tenant context
+      if (user.tenantId !== currentTenantId) {
+        console.warn(`🚨 SECURITY VIOLATION: User ${username} attempted login to wrong tenant`, {
+          userTenant: user.tenantId,
+          requestTenant: currentTenantId,
+          ip: req.ip,
+          userAgent: req.get('User-Agent')
+        });
+        return res.status(403).json({ 
+          error: 'Access denied',
+          message: 'User not authorized for this tenant'
+        });
       }
       
       // Use bcrypt to compare hashed passwords

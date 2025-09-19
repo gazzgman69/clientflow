@@ -243,7 +243,7 @@ function getTargetData(model: string, result: MappingResult): Record<string, any
 }
 
 function handleVenueAddressComponent(key: string, value: any, result: MappingResult): void {
-  // Map venue address components to contacts model
+  // Map venue address components to contacts model (use snake_case to match current system expectations)
   const venueFieldMap: Record<string, string> = {
     'eventLocationCity': 'venue_city',
     'eventLocationState': 'venue_state', 

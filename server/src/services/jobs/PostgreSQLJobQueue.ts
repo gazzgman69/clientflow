@@ -29,7 +29,7 @@ import {
   JobTimeoutError,
   JobNotFoundError,
 } from '../../interfaces/jobs';
-import { randomUUID } from 'crypto';
+import crypto from 'crypto';
 import { db } from '../../../db';
 import { jobs, jobExecutions } from '@shared/schema';
 import { eq, and, or, sql, lt, desc, asc, isNotNull } from 'drizzle-orm';
@@ -67,7 +67,7 @@ export class PostgreSQLJobQueue implements IJobQueue {
       schedule?: JobSchedule;
     } = {}
   ): Promise<string> {
-    const jobId = randomUUID();
+    const jobId = crypto.randomUUID();
     const now = new Date();
 
     // Calculate next run time
@@ -356,7 +356,7 @@ export class PostgreSQLJobQueue implements IJobQueue {
   }
 
   private async executeJob(job: Job): Promise<void> {
-    const executionId = randomUUID();
+    const executionId = crypto.randomUUID();
     this.runningJobs.add(job.id);
 
     // Mark job as running

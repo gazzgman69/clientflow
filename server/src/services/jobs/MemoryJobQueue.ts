@@ -27,7 +27,7 @@ import {
   JobTimeoutError,
   JobNotFoundError,
 } from '../../interfaces/jobs';
-import { randomUUID } from 'crypto';
+import crypto from 'crypto';
 
 export class MemoryJobQueue implements IJobQueue {
   private jobs = new Map<string, Job>();
@@ -65,7 +65,7 @@ export class MemoryJobQueue implements IJobQueue {
       schedule?: JobSchedule;
     } = {}
   ): Promise<string> {
-    const jobId = randomUUID();
+    const jobId = crypto.randomUUID();
     const now = new Date();
 
     const job: Job = {
@@ -222,7 +222,7 @@ export class MemoryJobQueue implements IJobQueue {
 
     // Create cancelled execution
     const execution: JobExecution = {
-      id: randomUUID(),
+      id: crypto.randomUUID(),
       jobId: id,
       status: 'cancelled',
       startedAt: new Date(),

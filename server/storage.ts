@@ -53,7 +53,7 @@ import {
   // Admin Audit Logs table
   adminAuditLogs
 } from "@shared/schema";
-import { randomUUID } from "crypto";
+import crypto from "crypto";
 import { TenantScopedStorage } from './utils/tenantScopedStorage';
 import { drizzle } from 'drizzle-orm/neon-http';
 import { neon } from '@neondatabase/serverless';
@@ -435,7 +435,7 @@ export class MemStorage implements IStorage {
     // TODO: In production, remove this default user or require strong random credentials via environment variables
     if (process.env.NODE_ENV !== 'production') {
       const defaultUser: User = {
-        id: randomUUID(),
+        id: crypto.randomUUID(),
         username: "admin",
         password: "$2b$12$SM67YK8RyHHkIISwIXS/OOjT5FQiKCOrMBRXzBljj4JlIqD6e/mhi", // bcrypt hashed "password" - CHANGE IN PRODUCTION
         email: "admin@localhost.dev",

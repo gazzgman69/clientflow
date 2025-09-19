@@ -46,9 +46,7 @@ export default function Settings() {
     queryKey: ['/api/auth/google/status'],
     queryFn: async () => {
       const response = await fetch('/api/auth/google/status', {
-        headers: {
-          'user-id': 'test-user' // TODO: Get from actual auth context
-        }
+        credentials: 'include' // Use session cookies for authentication
       });
       return response.json();
     },

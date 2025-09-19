@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { randomUUID } from 'crypto';
+import { randomUUID, randomBytes, createHash } from 'crypto';
 import { googleOAuthService, getGoogleAuthUrl } from '../services/google-oauth';
 import { microsoftOAuthService } from '../services/microsoft-oauth';
 import { storage } from '../storage';
@@ -32,9 +32,8 @@ router.get('/auth/google', (req, res) => {
     const state = randomUUID();
     
     // Generate PKCE challenge and verifier for security
-    const crypto = require('crypto');
-    const codeVerifier = crypto.randomBytes(32).toString('base64url');
-    const codeChallenge = crypto.createHash('sha256').update(codeVerifier).digest('base64url');
+    const codeVerifier = randomBytes(32).toString('base64url');
+    const codeChallenge = createHash('sha256').update(codeVerifier).digest('base64url');
     
     // Save state, popup flag, return URL, origin, and PKCE verifier to session
     req.session.oauth_state = state;

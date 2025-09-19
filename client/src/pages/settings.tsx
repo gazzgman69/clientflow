@@ -487,73 +487,47 @@ export default function Settings() {
                           <div className="flex gap-2">
                             <Button
                               onClick={() => {
-                                try {
-                                  console.log('🔄 Connect Google button clicked');
-                                  
-                                  const returnTo = window.location.pathname;
-                                  const origin = window.location.origin;
-                                  const w = 500, h = 650;
-                                  const left = Math.round((screen.width / 2) - (w / 2));
-                                  const top = Math.round((screen.height / 2) - (h / 2));
-                                  const features = `popup,width=${w},height=${h},left=${left},top=${top}`;
-                                  
-                                  const oauthUrl = `/auth/google?popup=1&returnTo=${encodeURIComponent(returnTo)}&origin=${encodeURIComponent(origin)}`;
-                                  console.log('🌐 Opening OAuth URL:', oauthUrl);
-                                  
-                                  // TEMP: Force redirect instead of popup for testing
-                                  console.log('🔀 TESTING: Using redirect instead of popup');
-                                  const redirectUrl = `/auth/google?returnTo=${encodeURIComponent(returnTo)}&origin=${encodeURIComponent(origin)}`;
-                                  console.log('🔀 Redirecting to:', redirectUrl);
-                                  window.location.href = redirectUrl;
+                                const returnTo = window.location.pathname;
+                                const origin = window.location.origin;
+                                const w = 500, h = 650;
+                                const left = Math.round((screen.width / 2) - (w / 2));
+                                const top = Math.round((screen.height / 2) - (h / 2));
+                                const features = `popup,width=${w},height=${h},left=${left},top=${top}`;
+                                
+                                const popup = window.open(
+                                  `/auth/google?popup=1&returnTo=${encodeURIComponent(returnTo)}&origin=${encodeURIComponent(origin)}`,
+                                  'oauth',
+                                  features
+                                );
+                                
+                                if (!popup) {
+                                  // Fallback if popup blocked
+                                  window.location.href = `/auth/google?returnTo=${encodeURIComponent(returnTo)}&origin=${encodeURIComponent(origin)}`;
                                   return;
-                                  
-                                  const popup = window.open(oauthUrl, 'oauth', features);
-                                  console.log('🪟 Popup window result:', popup);
-                                  
-                                  if (!popup) {
-                                    console.log('⚠️ Popup blocked, using redirect fallback');
-                                    const redirectUrl = `/auth/google?returnTo=${encodeURIComponent(returnTo)}&origin=${encodeURIComponent(origin)}`;
-                                    console.log('🔀 Redirecting to:', redirectUrl);
-                                    window.location.href = redirectUrl;
-                                    return;
-                                  }
-                                  
-                                  console.log('✅ Popup opened successfully');
-                                  
-                                  // Listen for OAuth success/error messages
-                                  const handleMessage = (event: MessageEvent) => {
-                                    console.log('📨 Received message:', event);
-                                    if (event.origin !== window.location.origin) return;
-                                    
-                                    if (event.data.type === 'oauth:success') {
-                                      console.log('✅ OAuth success message received');
-                                      window.removeEventListener('message', handleMessage);
-                                      if (popup && !popup.closed) popup.close();
-                                      // Refresh Google status
-                                      refetchStatus();
-                                      toast({ title: 'Google account connected successfully' });
-                                    } else if (event.data.type === 'oauth:error') {
-                                      console.log('❌ OAuth error message received:', event.data.error);
-                                      window.removeEventListener('message', handleMessage);
-                                      if (popup && !popup.closed) popup.close();
-                                      toast({
-                                        title: 'Failed to connect Google account',
-                                        description: event.data.error || 'An error occurred',
-                                        variant: 'destructive'
-                                      });
-                                    }
-                                  };
-                                  
-                                  window.addEventListener('message', handleMessage);
-                                  console.log('👂 Message listener added');
-                                } catch (error) {
-                                  console.error('❌ Error in Connect Google click handler:', error);
-                                  toast({
-                                    title: 'Failed to start OAuth flow',
-                                    description: 'An unexpected error occurred',
-                                    variant: 'destructive'
-                                  });
                                 }
+                                
+                                // Listen for OAuth success/error messages
+                                const handleMessage = (event: MessageEvent) => {
+                                  if (event.origin !== window.location.origin) return;
+                                  
+                                  if (event.data.type === 'oauth:success') {
+                                    window.removeEventListener('message', handleMessage);
+                                    if (popup && !popup.closed) popup.close();
+                                    // Refresh Google status
+                                    refetchStatus();
+                                    toast({ title: 'Google account connected successfully' });
+                                  } else if (event.data.type === 'oauth:error') {
+                                    window.removeEventListener('message', handleMessage);
+                                    if (popup && !popup.closed) popup.close();
+                                    toast({
+                                      title: 'Failed to connect Google account',
+                                      description: event.data.error || 'An error occurred',
+                                      variant: 'destructive'
+                                    });
+                                  }
+                                };
+                                
+                                window.addEventListener('message', handleMessage);
                               }}
                               disabled={statusLoading}
                               data-testid="button-connect-google"

@@ -596,8 +596,10 @@ export const templates = pgTable("templates", {
 // Lead Capture Forms table
 export const leadCaptureForms = pgTable("lead_capture_forms", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").references(() => tenants.id), // Added for tenant isolation
   name: text("name").notNull(),
   slug: text("slug").notNull(), // unique constraint removed temporarily
+  questions: text("questions"), // JSON string of form questions
   autoResponseTemplateId: varchar("auto_response_template_id").references(() => templates.id),
   notification: text("notification").notNull().default('email'), // email, sms
   calendarId: varchar("calendar_id").references(() => calendarIntegrations.id),

@@ -19,15 +19,8 @@ function getDefaultQuestionsForForm() {
   ];
 }
 
-const requireAuth = (req: any, res: any, next: any) => {
-  if (!req.headers['user-id']) {
-    return res.status(401).json({ error: 'Authentication required' });
-  }
-  next();
-};
-
-// GET /api/admin/lead-forms
-router.get('/admin/lead-forms', requireAuth, async (req, res) => {
+// GET /api/lead-forms (mounted at /api/lead-forms)
+router.get('/', async (req, res) => {
   try {
     const forms = await storage.getLeadCaptureForms();
     // Return simplified list format
@@ -44,10 +37,10 @@ router.get('/admin/lead-forms', requireAuth, async (req, res) => {
   }
 });
 
-// POST /api/admin/lead-forms
-router.post('/admin/lead-forms', requireAuth, async (req, res) => {
+// POST /api/lead-forms (mounted at /api/lead-forms)
+router.post('/', async (req, res) => {
   try {
-    const userId = req.headers['user-id'] as string;
+    const userId = req.authenticatedUserId;
     const { title = 'New Capture Form' } = req.body;
     
     // Generate unique slug
@@ -100,8 +93,8 @@ router.post('/admin/lead-forms', requireAuth, async (req, res) => {
   }
 });
 
-// GET /api/admin/lead-forms/:id
-router.get('/admin/lead-forms/:id', requireAuth, async (req, res) => {
+// GET /api/lead-forms/:id (mounted at /api/lead-forms)
+router.get('/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const form = await storage.getLeadCaptureForm(id);
@@ -149,8 +142,8 @@ router.get('/admin/lead-forms/:id', requireAuth, async (req, res) => {
   }
 });
 
-// PATCH /api/admin/lead-forms/:id
-router.patch('/admin/lead-forms/:id', requireAuth, async (req, res) => {
+// PATCH /api/lead-forms/:id (mounted at /api/lead-forms)
+router.patch('/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const { form, questions } = req.body;
@@ -200,8 +193,8 @@ router.patch('/admin/lead-forms/:id', requireAuth, async (req, res) => {
   }
 });
 
-// DELETE /api/admin/lead-forms/:id
-router.delete('/admin/lead-forms/:id', requireAuth, async (req, res) => {
+// DELETE /api/lead-forms/:id (mounted at /api/lead-forms)
+router.delete('/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const success = await storage.deleteLeadCaptureForm(id);

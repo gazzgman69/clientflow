@@ -26,7 +26,12 @@ export function GoogleOAuthModal({ userId, onSuccess, onCancel }: GoogleOAuthMod
           'Content-Type': 'application/json'
         },
         credentials: 'include', // Include session cookies
-        body: JSON.stringify({ email })
+        body: JSON.stringify({ 
+          email,
+          popup: true,
+          origin: window.location.origin,
+          returnTo: '/settings'
+        })
       });
 
       if (!response.ok) {

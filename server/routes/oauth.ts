@@ -76,7 +76,7 @@ const requireAuth = async (req: any, res: any, next: any) => {
  */
 router.post('/auth/google/start', requireAuth, async (req: any, res) => {
   try {
-    const { email } = req.body;
+    const { email, popup, origin, returnTo } = req.body;
     const userId = req.authenticatedUserId;
     
     if (!email) {
@@ -92,8 +92,24 @@ router.post('/auth/google/start', requireAuth, async (req: any, res) => {
       });
     }
     
-    // Generate OAuth URL with PKCE support
+    // Create a random state for CSRF protection
+    const state = randomUUID();
+    
+    // Generate PKCE challenge and verifier for security
+    const codeVerifier = randomBytes(32).toString('base64url');
+    const codeChallenge = createHash('sha256').update(codeVerifier).digest('base64url');
+    
+    // Save state, popup flag, return URL, origin, and PKCE verifier to session
+    req.session.oauth_state = state;
+    req.session.oauth_popup = popup || true; // Default to popup for POST route
+    req.session.oauth_return_to = returnTo || '/settings';
+    req.session.oauth_origin = origin || '';
+    req.session.pkceCodeVerifier = codeVerifier;
+    
+    // Generate OAuth URL with PKCE support  
     const authUrl = googleOAuthService.generateAuthUrl(email, userId, req.session);
+    
+    console.log('🔐 SECURITY: POST /auth/google/start now using PKCE protection and popup session data');
     
     res.json({ authUrl });
   } catch (error: any) {

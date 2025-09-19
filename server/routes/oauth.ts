@@ -683,14 +683,41 @@ router.post('/api/auth/google/disconnect', requireAuth, async (req: any, res) =>
   try {
     const userId = req.authenticatedUserId;
     
-    // Find and delete all Google integrations for this user
-    const integrations = await storage.getCalendarIntegrationsByUser(userId);
-    const googleIntegrations = integrations.filter(i => i.provider === 'google');
-    
     let deletedCount = 0;
-    for (const integration of googleIntegrations) {
-      const success = await storage.deleteCalendarIntegration(integration.id);
-      if (success) deletedCount++;
+    
+    try {
+      // Try to get integrations normally first
+      const integrations = await storage.getCalendarIntegrationsByUser(userId);
+      const googleIntegrations = integrations.filter(i => i.provider === 'google');
+      
+      for (const integration of googleIntegrations) {
+        const success = await storage.deleteCalendarIntegration(integration.id);
+        if (success) deletedCount++;
+      }
+      
+      console.log(`🔌 Successfully disconnected ${deletedCount} Google integration(s) for user ${userId}`);
+    } catch (decryptionError: any) {
+      console.warn('⚠️ Token decryption failed, using direct database cleanup:', decryptionError.message);
+      
+      // If decryption fails, delete Google integrations directly from database
+      // This handles corrupted tokens that can't be decrypted
+      const { calendarIntegrations } = await import('@shared/schema');
+      const { eq, and } = await import('drizzle-orm');
+      const { neon } = await import('@neondatabase/serverless');
+      const { drizzle } = await import('drizzle-orm/neon-http');
+      
+      const sql = neon(process.env.DATABASE_URL!);
+      const db = drizzle(sql);
+      
+      const result = await db.delete(calendarIntegrations)
+        .where(and(
+          eq(calendarIntegrations.userId, userId),
+          eq(calendarIntegrations.provider, 'google')
+        ))
+        .returning({ id: calendarIntegrations.id });
+      
+      deletedCount = result.length;
+      console.log(`🔌 Direct database cleanup: removed ${deletedCount} corrupted Google integration(s) for user ${userId}`);
     }
     
     res.json({ 

@@ -186,30 +186,43 @@ router.get('/auth/google/callback', async (req, res) => {
       });
     }
     
-    // Initial sync
+    // Schedule background sync (don't await - let popup close immediately)
     if (integration) {
-      await googleOAuthService.syncFromGoogle(integration);
-      
-      // Set up webhook for real-time sync
-      await googleOAuthService.setupWebhook(integration);
-      
-      // Sync Gmail emails to database after authentication
-      try {
-        const { emailSyncService } = await import('../src/services/emailSync');
-        
-        console.log('🔄 Syncing Gmail emails to database after OAuth...');
-        
-        // Sync Gmail threads to database for fast access
-        const syncResult = await emailSyncService.syncGmailThreadsToDatabase(userId);
-        console.log(`✅ Gmail sync completed: ${syncResult.synced} synced, ${syncResult.skipped} skipped`);
-        
-        if (syncResult.errors.length > 0) {
-          console.warn('⚠️  Some sync errors occurred:', syncResult.errors);
+      setImmediate(async () => {
+        try {
+          console.log('🔄 Starting background sync after OAuth...');
+          
+          // Calendar sync in background
+          await googleOAuthService.syncFromGoogle(integration);
+          console.log('✅ Calendar sync completed');
+          
+          // Set up webhook for real-time sync in background
+          await googleOAuthService.setupWebhook(integration);
+          console.log('✅ Webhook setup completed');
+          
+          // Sync Gmail emails to database in background
+          try {
+            const { emailSyncService } = await import('../src/services/emailSync');
+            
+            console.log('🔄 Syncing Gmail emails to database...');
+            
+            // Sync Gmail threads to database for fast access
+            const syncResult = await emailSyncService.syncGmailThreadsToDatabase(userId);
+            console.log(`✅ Gmail sync completed: ${syncResult.synced} synced, ${syncResult.skipped} skipped`);
+            
+            if (syncResult.errors.length > 0) {
+              console.warn('⚠️  Some sync errors occurred:', syncResult.errors);
+            }
+          } catch (emailSyncError) {
+            console.error('❌ Failed to sync Gmail emails:', emailSyncError);
+            // Don't fail the OAuth flow if email sync fails
+          }
+          
+          console.log('✅ All background OAuth sync tasks completed');
+        } catch (backgroundError) {
+          console.error('❌ Background OAuth sync failed:', backgroundError);
         }
-      } catch (emailSyncError) {
-        console.error('❌ Failed to sync Gmail emails:', emailSyncError);
-        // Don't fail the whole OAuth flow if email sync fails
-      }
+      });
     }
     
     // Handle popup vs regular flow

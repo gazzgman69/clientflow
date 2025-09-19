@@ -701,23 +701,45 @@ router.post('/api/auth/google/disconnect', requireAuth, async (req: any, res) =>
       
       // If decryption fails, delete Google integrations directly from database
       // This handles corrupted tokens that can't be decrypted
-      const { calendarIntegrations } = await import('@shared/schema');
-      const { eq, and } = await import('drizzle-orm');
+      const { calendarIntegrations, events } = await import('@shared/schema');
+      const { eq, and, inArray } = await import('drizzle-orm');
       const { neon } = await import('@neondatabase/serverless');
       const { drizzle } = await import('drizzle-orm/neon-http');
       
       const sql = neon(process.env.DATABASE_URL!);
       const db = drizzle(sql);
       
-      const result = await db.delete(calendarIntegrations)
+      // First, get all Google calendar integration IDs for this user
+      const googleIntegrations = await db.select({ id: calendarIntegrations.id })
+        .from(calendarIntegrations)
         .where(and(
           eq(calendarIntegrations.userId, userId),
           eq(calendarIntegrations.provider, 'google')
-        ))
-        .returning({ id: calendarIntegrations.id });
+        ));
       
-      deletedCount = result.length;
-      console.log(`🔌 Direct database cleanup: removed ${deletedCount} corrupted Google integration(s) for user ${userId}`);
+      if (googleIntegrations.length > 0) {
+        const integrationIds = googleIntegrations.map(i => i.id);
+        
+        // Delete related calendar events first to avoid foreign key constraint
+        const deletedEvents = await db.delete(events)
+          .where(inArray(events.calendarIntegrationId, integrationIds))
+          .returning({ id: events.id });
+        
+        console.log(`🗑️ Deleted ${deletedEvents.length} calendar events before removing Google integrations`);
+        
+        // Now delete the calendar integrations
+        const result = await db.delete(calendarIntegrations)
+          .where(and(
+            eq(calendarIntegrations.userId, userId),
+            eq(calendarIntegrations.provider, 'google')
+          ))
+          .returning({ id: calendarIntegrations.id });
+        
+        deletedCount = result.length;
+        console.log(`🔌 Direct database cleanup: removed ${deletedCount} corrupted Google integration(s) for user ${userId}`);
+      } else {
+        console.log(`🔌 No Google integrations found for user ${userId}`);
+      }
     }
     
     res.json({ 

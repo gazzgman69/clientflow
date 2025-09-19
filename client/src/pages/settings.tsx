@@ -25,11 +25,13 @@ import { useUserPrefs } from "@/hooks/useUserPrefs";
 import EmailSettings from "@/pages/settings/EmailSettings";
 import TemplatesPage from "@/pages/settings/Templates";
 import PortalSettingsComponent from "@/components/settings/PortalSettings";
+import { GoogleOAuthModal } from '@/components/google-oauth-modal';
 
 export default function Settings() {
   const [location] = useLocation();
   const [activeTab, setActiveTab] = useState("profile");
   const [isLoading, setIsLoading] = useState(false);
+  const [showGoogleOAuth, setShowGoogleOAuth] = useState(false);
   const { toast } = useToast();
 
   // Check for tab parameter in URL and set active tab
@@ -40,6 +42,17 @@ export default function Settings() {
       setActiveTab(tabParam);
     }
   }, [location]);
+
+  // Get current user
+  const { data: currentUser } = useQuery({
+    queryKey: ['/api/auth/me'],
+    queryFn: async () => {
+      const response = await fetch('/api/auth/me', {
+        credentials: 'include'
+      });
+      return response.json();
+    },
+  });
 
   // Google auth status query
   const { data: googleStatus, isLoading: statusLoading, refetch: refetchStatus } = useQuery({
@@ -606,7 +619,7 @@ export default function Settings() {
                       </Badge>
                     </div>
                     
-                    {googleStatus?.connected && (
+                    {googleStatus?.connected ? (
                       <div className="flex gap-2">
                         <Button
                           onClick={() => requestSyncMutation.mutate()}
@@ -633,6 +646,18 @@ export default function Settings() {
                             <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                           ) : null}
                           Disconnect
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="flex gap-2">
+                        <Button
+                          onClick={() => setShowGoogleOAuth(true)}
+                          variant="default"
+                          size="sm"
+                          data-testid="button-connect-calendar"
+                        >
+                          <Calendar className="h-4 w-4 mr-2" />
+                          Connect Google Calendar
                         </Button>
                       </div>
                     )}
@@ -769,6 +794,26 @@ export default function Settings() {
           </TabsContent>
         </Tabs>
       </main>
+
+      {/* Google OAuth Modal */}
+      {showGoogleOAuth && currentUser?.user?.id && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-background p-6 rounded-lg max-w-md w-full mx-4">
+            <GoogleOAuthModal
+              userId={currentUser.user.id}
+              onSuccess={() => {
+                setShowGoogleOAuth(false);
+                refetchStatus();
+                toast({
+                  title: "Success",
+                  description: "Google Calendar connected successfully!"
+                });
+              }}
+              onCancel={() => setShowGoogleOAuth(false)}
+            />
+          </div>
+        </div>
+      )}
     </>
   );
 }

@@ -500,6 +500,13 @@ export default function Settings() {
                                   const oauthUrl = `/auth/google?popup=1&returnTo=${encodeURIComponent(returnTo)}&origin=${encodeURIComponent(origin)}`;
                                   console.log('🌐 Opening OAuth URL:', oauthUrl);
                                   
+                                  // TEMP: Force redirect instead of popup for testing
+                                  console.log('🔀 TESTING: Using redirect instead of popup');
+                                  const redirectUrl = `/auth/google?returnTo=${encodeURIComponent(returnTo)}&origin=${encodeURIComponent(origin)}`;
+                                  console.log('🔀 Redirecting to:', redirectUrl);
+                                  window.location.href = redirectUrl;
+                                  return;
+                                  
                                   const popup = window.open(oauthUrl, 'oauth', features);
                                   console.log('🪟 Popup window result:', popup);
                                   

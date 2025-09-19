@@ -1,0 +1,170 @@
+Implement a complete fix so every form field’s "mapsTo" writes to the correct CRM field, with tenant-safe handling, proper validation, and tests.
+Do not assume directories or filenames; discover project structure and conform to it.
+Create small commits and one PR titled:
+“Form Mapping Overhaul — Event Fields, Registry, Venue Address, Validation, Tenant Isolation, Backfill, Tests”.
+
+Scope (do all)
+
+Database (additive migrations)
+
+Add missing leads columns:
+
+ALTER TABLE leads ADD COLUMN event_type text;
+ALTER TABLE leads ADD COLUMN event_location text;
+
+
+Confirm lead_capture_forms already has tenant_id and questions (leave if present).
+
+Add indexes where sensible (e.g., leads(tenant_id, event_type)).
+
+No destructive changes.
+
+Central Mapping Registry (+ runtime validation)
+
+Create/confirm a single source of truth mapping registry for form keys → { model, field, type, required?, sanitizer? }.
+
+Include canonical keys:
+
+leadName → leads.full_name
+
+leadEmail → leads.email
+
+leadPhoneNumber → leads.phone
+
+projectDate → leads.project_date
+
+nothing → leads.notes
+
+eventType → leads.event_type
+
+eventLocation → leads.event_location
+
+Deprecations / backward compat:
+
+whatKindOfEventIsIt ⇒ deprecated, map to eventType.
+
+Any earlier workaround mapping eventLocation → contacts.company should be removed; now maps to leads.event_location.
+
+Add a tiny applyMapping(payload, {tenantId}) that:
+
+Validates against the registry (reject unknown keys / wrong types).
+
+Sanitizes (trim, lowercase emails, strip HTML from free-text if your project does this).
+
+Writes via tenant-scoped storage (withTenant / RLS-safe).
+
+Form Builder UI (mapTo options)
+
+Replace invalid options with canonical ones:
+
+{ value: 'leadName', label: 'Lead name' }
+{ value: 'leadEmail', label: 'Lead email' }
+{ value: 'leadPhoneNumber', label: 'Lead phone' }
+{ value: 'eventType', label: 'Event Type' }           // NEW canonical
+{ value: 'eventLocation', label: 'Event Location' }   // NEW canonical
+{ value: 'projectDate', label: 'Project date' }
+{ value: 'nothing', label: 'Notes / Message' }
+{ value: 'custom', label: 'Custom Field' }            // if supported
+
+
+Prevent saving forms with mapTo values not in the registry (show a clear UI error).
+
+Submission Handler (backend)
+
+Remove hard-coded mappings and the contacts.company workaround.
+
+Build the lead payload via applyMapping(). Example fields to include:
+
+full_name, email, phone, project_date, notes, event_type, event_location.
+
+If you still want lead_source, derive it cleanly (e.g., eventType ? \${eventType} Lead` : 'Website Form'`) without abusing eventType as a workaround.
+
+Venue Address Handling (clean pass)
+
+If your form provides address components (eventLocationCity, eventLocationState, eventLocationZipCode, eventLocationCountry), normalize and store them in the correct model/columns already in your schema (e.g., contacts.venue_city, venue_state, venue_zip_code, venue_country, or dedicated venue table if you have one).
+
+Keep this additive; don’t repurpose fields incorrectly.
+
+If you maintain both a combined address and parts, keep them consistent (build combined from parts server-side).
+
+Tenant Isolation (critical)
+
+Remove any hard-coded user IDs (e.g., '00000000-...0001').
+
+Public form submission must resolve tenant properly (slug/domain/form key) and enforce withTenant(tenantId) or RLS context before writes.
+
+Reject submissions if tenant cannot be resolved or if the form doesn’t belong to that tenant.
+
+Backfill / Data Repair (idempotent)
+
+One-time job:
+
+Update existing forms/questions: rewrite mapTo=whatKindOfEventIsIt → eventType.
+
+For existing leads where event_type/event_location are missing but the data was stashed in lead_source, notes, or contacts.company due to the workaround:
+
+Extract and populate leads.event_type / leads.event_location if deterministic.
+
+Clear/normalize the old workaround fields only when safe.
+
+Ensure the job is idempotent and tenant-scoped.
+
+Log a summary per tenant (counts updated/skipped), with no PII.
+
+Validation & Errors
+
+On submit: if a field key isn’t in the registry, return 400 with a precise error: "Unknown mapTo 'X'. Allowed: ..." (don’t 500).
+
+Server-side type checks (e.g., date parse), return useful messages.
+
+Tests (multi-tenant)
+
+Happy path: form with name+email+phone+projectDate+eventType+eventLocation+notes stores in the exact leads.* columns.
+
+Backward compat: old forms using whatKindOfEventIsIt correctly populate leads.event_type.
+
+Venue components: components land in the intended fields; combined address is consistent if you support it.
+
+Tenant safety: submit in Tenant A; ensure Tenant B can’t see it. Public form submission validates tenant ownership.
+
+Registry enforcement: invalid mapTo is rejected; unknown fields don’t write.
+
+Docs / Upgrade notes
+
+Short README/CHANGELOG section:
+
+New columns added (event_type, event_location).
+
+Deprecated mapTo keys and their replacements.
+
+How the backfill works and how to run it safely (env flag / script).
+
+How tenant is resolved for public submissions.
+
+Acceptance Checklist (include in PR)
+
+ Migrations add leads.event_type, leads.event_location (with indexes if appropriate).
+
+ Central mapping registry present; handlers use applyMapping() only.
+
+ Form builder blocks invalid mapTo; uses canonical options.
+
+ Backend no longer maps eventLocation → contacts.company.
+
+ Venue address components stored in correct columns; combined value consistent (if used).
+
+ Public submission resolves tenant; no hard-coded user IDs.
+
+ Backfill updates old forms and repairs lead data; idempotent & tenant-scoped.
+
+ Tests cover two tenants, backward compat, registry validation, and venue mapping.
+
+Guardrails
+
+Additive only; no destructive schema changes.
+
+No PII in logs.
+
+Respect existing coding style, error handling, and feature flag patterns.
+
+If anything is ambiguous, pick the least intrusive approach that matches current patterns, document it in the PR, and leave TODOs.

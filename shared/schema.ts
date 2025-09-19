@@ -116,9 +116,15 @@ export const leads = pgTable("leads", {
   lastManualStatusAt: timestamp("last_manual_status_at"), // set when status changed by a user
   projectDate: timestamp("project_date"), // event/project date from form
   lastViewedAt: timestamp("last_viewed_at"), // when user last viewed this lead
+  eventType: text("event_type"), // Type of event (Wedding, Corporate, etc.)
+  eventLocation: text("event_location"), // Event location/venue
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
-});
+}, (table) => ({
+  // Indexes for performance
+  tenantEventTypeIdx: index("idx_leads_tenant_event_type").on(table.tenantId, table.eventType),
+  eventLocationIdx: index("idx_leads_event_location").on(table.eventLocation),
+}));
 
 export const quotes = pgTable("quotes", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),

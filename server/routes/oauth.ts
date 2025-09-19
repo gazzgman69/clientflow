@@ -615,15 +615,25 @@ router.get('/api/auth/microsoft/status', requireAuth, async (req: any, res) => {
       });
     }
 
-    // For Microsoft OAuth connector status, we need to check the global connector state
-    // since Microsoft OAuth integration is managed through Replit's connector system
+    // SECURITY HARDENING: Microsoft OAuth now requires explicit connection validation
+    // No auto-linking from connector system without explicit user consent
     try {
-      const connectionTest = await microsoftOAuthService.testConnection();
+      const connectionTest = await microsoftOAuthService.testConnection({
+        tenantId,
+        userId,
+        requireExplicitConnection: true, // Security: Block auto-linking
+        isSystemOperation: false
+      });
       
       if (connectionTest.success) {
         try {
           // Verify we can get user profile (tests permissions)
-          const profile = await microsoftOAuthService.getUserProfile();
+          const profile = await microsoftOAuthService.getUserProfile({
+            tenantId,
+            userId,
+            requireExplicitConnection: true, // Security: Block auto-linking
+            isSystemOperation: false
+          });
           
           res.json({ 
             ok: true, 

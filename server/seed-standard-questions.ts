@@ -249,7 +249,13 @@ const STANDARD_QUESTIONS: Omit<InsertQuoteExtraInfoField, 'id' | 'createdAt' | '
 ];
 
 export async function seedStandardQuestions(): Promise<void> {
-  console.log('🌱 Starting to seed standard questions...');
+  // Only seed if SEED_DEMO environment variable is explicitly set to true
+  if (process.env.SEED_DEMO !== 'true') {
+    console.log('🚫 SEED_DEMO not set to true - skipping standard questions seeding for clean tenant');
+    return;
+  }
+  
+  console.log('🌱 DEMO DATA: Starting to seed standard questions (SEED_DEMO=true)...');
   
   try {
     // Check if standard questions already exist
@@ -257,7 +263,7 @@ export async function seedStandardQuestions(): Promise<void> {
     const standardQuestions = existingStandardQuestions.filter(q => q.isStandard);
     
     if (standardQuestions.length > 0) {
-      console.log(`📋 Found ${standardQuestions.length} existing standard questions. Skipping seed.`);
+      console.log(`📋 DEMO DATA: Found ${standardQuestions.length} existing standard questions. Skipping seed.`);
       return;
     }
     

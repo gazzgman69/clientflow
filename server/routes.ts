@@ -62,6 +62,7 @@ import portalPaymentsRoutes from "./src/routes/portal-payments";
 import portalFormsRoutes from "./src/routes/portal-forms";
 import portalAppointmentsRoutes from "./src/routes/portal-appointments";
 import stripeWebhooksRoutes from "./src/routes/stripe-webhooks";
+import tenantCleanupRoutes from "./routes/tenantCleanup";
 import { userPrefsService } from "./src/services/userPrefs";
 import { calendarAutoSyncService } from "./services/calendar-auto-sync";
 import { tenantResolver, requireTenant, type TenantRequest } from "./middleware/tenantResolver";
@@ -463,6 +464,9 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   
   // Admin Lead Forms routes - apply admin auth, tenant resolution, CSRF to admin management endpoints  
   app.use('/api/admin/lead-forms', ensureAdminAuth, tenantResolver, requireTenant, csrf, leadFormsRoutes);
+
+  // Tenant Cleanup routes - apply ADMIN auth, tenant resolution, CSRF to cleanup management endpoints
+  app.use('/api/tenant-cleanup', ensureAdminAuth, tenantResolver, requireTenant, csrf, tenantCleanupRoutes);
 
   // Portal routes (client portal features) - all secured with session auth + CSRF
   app.use('/api/portal/payments', ensurePortalAuth, csrf, portalPaymentsRoutes);

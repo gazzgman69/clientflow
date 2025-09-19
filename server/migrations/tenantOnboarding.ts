@@ -81,10 +81,12 @@ export class TenantOnboardingService {
       result.adminUserId = adminUser.id;
       result.completedSteps.push('create-admin');
 
-      // Step 5: Setup default data
-      if (this.config.enableWelcomeData) {
+      // Step 5: Setup default data - HARD GATE: Only if SEED_DEMO=true environment variable is set
+      if (process.env.SEED_DEMO === 'true' && this.config.enableWelcomeData) {
         await this.setupWelcomeData(tenantId, adminUser.id);
         result.completedSteps.push('setup-welcome-data');
+      } else if (this.config.enableWelcomeData && process.env.SEED_DEMO !== 'true') {
+        console.log(`🚫 SECURITY: Blocked demo data creation - SEED_DEMO not set to 'true' (tenantId: ${tenantId})`);
       }
 
       // Step 6: Configure integrations
@@ -328,30 +330,36 @@ export class TenantOnboardingService {
     const client = await this.pool.connect();
     
     try {
+      console.log(`🌱 DEMO DATA: Creating welcome data for tenant: ${tenantId} (SEED_DEMO=${process.env.SEED_DEMO})`);
+      
       // Create welcome project
       await client.query(`
         INSERT INTO projects (id, tenant_id, name, description, status, assigned_to, created_at)
         VALUES ($1, $2, 'Welcome to BusinessCRM', 'Your first project to get started', 'active', $3, NOW())
       `, [`proj_${tenantId}_welcome`, tenantId, adminUserId]);
+      console.log(`📋 DEMO DATA: Created welcome project for tenant: ${tenantId}`);
 
       // Create sample lead
       await client.query(`
         INSERT INTO leads (id, tenant_id, email, name, company, status, source, assigned_to, created_at)
         VALUES ($1, $2, 'sample@example.com', 'Sample Lead', 'Example Corp', 'new', 'manual', $3, NOW())
       `, [`lead_${tenantId}_sample`, tenantId, adminUserId]);
+      console.log(`👤 DEMO DATA: Created sample lead for tenant: ${tenantId}`);
 
-      console.log(`📋 Welcome data created for tenant: ${tenantId}`);
+      console.log(`✅ DEMO DATA: Welcome data setup completed for tenant: ${tenantId}`);
     } finally {
       client.release();
     }
   }
 
   private async setupDefaultIntegrations(tenantId: string): Promise<void> {
-    // Setup default integration configurations
-    console.log(`🔌 Setting up default integrations for tenant: ${tenantId}`);
+    // Clean tenants have NO default integrations by design
+    // Integrations must be explicitly connected via OAuth flows
+    console.log(`🔌 CLEAN TENANT: No default integrations configured for tenant: ${tenantId} - require explicit connection`);
     
-    // This would configure default integration templates
-    // For now, we'll just log the intention
+    if (this.config.integrationPresets.length > 0) {
+      console.log(`📋 Integration presets configured: [${this.config.integrationPresets.join(', ')}] but skipping auto-setup`);
+    }
   }
 
   private async validateTenantSetup(tenantId: string): Promise<void> {
@@ -481,9 +489,9 @@ export function createTenantOnboardingService(
   const defaultConfig: TenantOnboardingConfig = {
     databaseUrl: process.env.DATABASE_URL || '',
     defaultAdminEmail: 'admin@example.com',
-    enableWelcomeData: true,
+    enableWelcomeData: process.env.SEED_DEMO === 'true', // Only enable demo data if explicitly requested
     customizationSettings: {},
-    integrationPresets: ['email', 'calendar'],
+    integrationPresets: [], // Empty by default - require explicit integration setup
     timeoutMs: 30000
   };
 

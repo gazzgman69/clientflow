@@ -27,9 +27,7 @@ export function useUserPrefs(keys?: string[]) {
         : '/api/user/prefs';
       
       const response = await fetch(url, {
-        headers: {
-          'user-id': 'test-user' // TODO: Get from actual auth context
-        }
+        credentials: 'include' // Use session cookies for authentication
       });
       
       if (!response.ok) {

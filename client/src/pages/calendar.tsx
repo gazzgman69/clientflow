@@ -188,10 +188,10 @@ export default function CalendarPage() {
       {showGoogleOAuth && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <GoogleOAuthModal 
-            userId="test-user"
+            userId="test-user" // Will be removed in future - session handles auth
             onSuccess={() => {
               setShowGoogleOAuth(false);
-              queryClient.invalidateQueries({ queryKey: ['/api/calendar-integrations', 'test-user'] });
+              queryClient.invalidateQueries({ queryKey: ['/api/calendar-integrations'] });
             }}
             onCancel={() => setShowGoogleOAuth(false)}
           />

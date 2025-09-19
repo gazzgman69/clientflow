@@ -23,9 +23,9 @@ export function GoogleOAuthModal({ userId, onSuccess, onCancel }: GoogleOAuthMod
       const response = await fetch('/auth/google/start', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          'user-id': userId
+          'Content-Type': 'application/json'
         },
+        credentials: 'include', // Include session cookies
         body: JSON.stringify({ email })
       });
 

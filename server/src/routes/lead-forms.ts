@@ -3,16 +3,17 @@ import { storage } from '../../storage';
 import { insertLeadCaptureFormSchema } from '@shared/schema';
 import { z } from 'zod';
 import { splitFullName } from '@shared/utils/name-splitter';
+import { applyMapping, FORM_FIELD_REGISTRY } from '@shared/formMappingRegistry';
 
 const router = Router();
 
-// Helper function for default questions
+// Helper function for default questions - use canonical field mappings
 function getDefaultQuestionsForForm() {
   return [
     { id: '1', type: 'text', label: 'Name', required: true, mapTo: 'leadName', orderIndex: 0 },
     { id: '2', type: 'email', label: 'Email Address', required: true, mapTo: 'leadEmail', orderIndex: 1 },
     { id: '3', type: 'tel', label: 'Phone Number', required: true, mapTo: 'leadPhoneNumber', orderIndex: 2 },
-    { id: '4', type: 'select', label: 'Event Type', required: true, mapTo: 'whatKindOfEventIsIt', orderIndex: 3, options: 'Wedding,Private,Corporate,Other' },
+    { id: '4', type: 'select', label: 'Event Type', required: true, mapTo: 'eventType', orderIndex: 3, options: 'Wedding,Private,Corporate,Other' },
     { id: '5', type: 'venue', label: 'Event Location (Full address if possible please)', required: true, mapTo: 'eventLocation', orderIndex: 4 },
     { id: '6', type: 'date', label: 'Event Date', required: true, mapTo: 'projectDate', orderIndex: 5 },
     { id: '7', type: 'textarea', label: 'Message', required: false, mapTo: 'nothing', orderIndex: 6 }
@@ -68,12 +69,12 @@ router.post('/', async (req, res) => {
 
     const form = await storage.createLeadCaptureForm(formData);
     
-    // Create default questions to match the provided template
+    // Create default questions to match the provided template - use canonical field mappings
     const defaultQuestions = [
       { type: 'text', label: 'Name', required: true, mapTo: 'leadName', orderIndex: 0 },
       { type: 'email', label: 'Email Address', required: true, mapTo: 'leadEmail', orderIndex: 1 },
       { type: 'tel', label: 'Phone Number', required: true, mapTo: 'leadPhoneNumber', orderIndex: 2 },
-      { type: 'select', label: 'Event Type', required: true, mapTo: 'whatKindOfEventIsIt', orderIndex: 3, options: 'Wedding,Private,Corporate,Other' },
+      { type: 'select', label: 'Event Type', required: true, mapTo: 'eventType', orderIndex: 3, options: 'Wedding,Private,Corporate,Other' },
       { type: 'text', label: 'Event Location (Full address if possible please)', required: true, mapTo: 'eventLocation', orderIndex: 4 },
       { type: 'date', label: 'Event Date', required: true, mapTo: 'projectDate', orderIndex: 5 },
       { type: 'textarea', label: 'Message', required: false, mapTo: 'nothing', orderIndex: 6 }
@@ -257,72 +258,76 @@ router.post('/public/:slug/submit', async (req, res) => {
     const { slug } = req.params;
     const formData = req.body;
     
-    
     const form = await storage.getLeadCaptureFormBySlug(slug);
     if (!form || !form.isActive) {
       return res.status(404).json({ error: 'Form not found' });
     }
 
-    // Create lead from form submission - split name properly
-    const nameParts = splitFullName(formData.leadName || '');
+    // Parse the form questions to get field mappings
+    let questions = getDefaultQuestionsForForm();
+    try {
+      if (form.questions) {
+        questions = JSON.parse(form.questions);
+      }
+    } catch (e) {
+      console.error('Error parsing questions:', e);
+      // Fall back to default questions
+    }
+
+    // Use the central mapping registry to process the form submission
+    const tenantId = req.tenantId || 'default-tenant';
+    const userId = '00000000-0000-0000-0000-000000000001'; // Default user for public submissions
+    
+    // Apply mapping registry to transform form data to database models
+    const mappingResult = applyMapping(formData, {
+      tenantId,
+      allowUnknownKeys: true, // Allow custom fields for now
+      enableDeprecationWarnings: true
+    });
+
+    // Create lead from mapped data
+    const nameParts = splitFullName(mappingResult.leadData.full_name || '');
     const leadData = {
+      ...mappingResult.leadData,
       fullName: nameParts.fullName,
       firstName: nameParts.firstName,
       middleName: nameParts.middleName,
       lastName: nameParts.lastName,
-      email: formData.leadEmail || '',
-      phone: formData.leadPhoneNumber || '',
-      company: formData.eventLocation || '',  // Use event location as company for now
-      leadSource: formData.whatKindOfEventIsIt ? `${formData.whatKindOfEventIsIt} Event` : 'Website Form',
-      notes: formData.nothing || '',  // Message field maps to notes
-      projectDate: formData.projectDate ? new Date(formData.projectDate) : null,  // Convert string to Date object
       status: 'new' as const,
-      estimatedValue: null,
-      userId: '00000000-0000-0000-0000-000000000001'  // Default user ID for public form submissions
+      userId
     };
 
     const lead = await storage.createLead(leadData);
 
-    // Automatically create contact (client) from lead data - use same name parts
+    // Create contact from mapped data
     const contactData = {
+      ...mappingResult.contactData,
       fullName: nameParts.fullName,
       firstName: nameParts.firstName,
       middleName: nameParts.middleName,
       lastName: nameParts.lastName,
-      email: formData.leadEmail || '',
-      phone: formData.leadPhoneNumber || '',
-      address: '', // Leave personal address blank 
-      company: '',
-      // Map venue location to venue address fields - now includes all address components
-      venueAddress: formData.eventLocation || '',
-      venueCity: formData.eventLocationCity || null,
-      venueState: formData.eventLocationState || null,
-      venueZipCode: formData.eventLocationZipCode || null,
-      venueCountry: formData.eventLocationCountry || null,
-      notes: `Auto-created from lead form: ${formData.nothing || ''}`,
-      userId: '00000000-0000-0000-0000-000000000001'  // Default user ID for public form submissions
+      notes: `Auto-created from lead form`,
+      userId
     };
 
     const contact = await storage.createContact(contactData);
 
-    // Automatically create project from lead data
+    // Create project from mapped data
     const projectData = {
-      name: `${formData.whatKindOfEventIsIt || 'Event'} - ${formData.leadName || 'Unknown'}`,
-      description: `${formData.whatKindOfEventIsIt || 'Event'} at ${formData.eventLocation || 'TBD'}`,
+      ...mappingResult.projectData,
+      name: `${mappingResult.leadData.event_type || 'Event'} - ${nameParts.fullName || 'Unknown'}`,
+      description: `${mappingResult.leadData.event_type || 'Event'} at ${mappingResult.contactData.venue_address || 'TBD'}`,
       contactId: contact.id,
       status: 'pending' as const,
-      startDate: formData.projectDate ? new Date(formData.projectDate) : null,
-      endDate: null,
-      estimatedValue: null,
       progress: 0,
-      userId: '00000000-0000-0000-0000-000000000001'  // Default user ID for public form submissions
+      userId
     };
 
     const project = await storage.createProject(projectData);
 
     // Update lead notes to reference the created contact and project
     await storage.updateLead(lead.id, { 
-      notes: `${leadData.notes}. Auto-linked to Contact: ${contact.id} and Project: ${project.id}`
+      notes: `${leadData.notes || ''}. Auto-linked to Contact: ${contact.id} and Project: ${project.id}`
     });
 
     // TODO: Send auto-response if template configured

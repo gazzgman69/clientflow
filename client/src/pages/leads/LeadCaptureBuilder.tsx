@@ -267,19 +267,19 @@ export default function LeadCaptureBuilder() {
 
   // Fetch all forms
   const { data: forms = [], isLoading: formsLoading } = useQuery<LeadForm[]>({
-    queryKey: ['/api/admin/lead-forms'],
+    queryKey: ['/api/lead-forms'],
     queryFn: async () => {
-      const response = await apiRequest('GET', '/api/admin/lead-forms');
+      const response = await apiRequest('GET', '/api/lead-forms');
       return response.json();
     },
   });
 
   // Fetch selected form details
   const { data: formData, isLoading: formLoading } = useQuery({
-    queryKey: ['/api/admin/lead-forms', selectedFormId],
+    queryKey: ['/api/lead-forms', selectedFormId],
     queryFn: async () => {
       if (!selectedFormId) return null;
-      const response = await apiRequest('GET', `/api/admin/lead-forms/${selectedFormId}`);
+      const response = await apiRequest('GET', `/api/lead-forms/${selectedFormId}`);
       return response.json();
     },
     enabled: !!selectedFormId,
@@ -295,11 +295,11 @@ export default function LeadCaptureBuilder() {
   // Create new form mutation
   const createFormMutation = useMutation({
     mutationFn: async (title: string) => {
-      const response = await apiRequest('POST', '/api/admin/lead-forms', { title });
+      const response = await apiRequest('POST', '/api/lead-forms', { title });
       return response.json();
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['/api/admin/lead-forms'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/lead-forms'] });
       setSelectedFormId(data.id);
       toast({ title: 'Form created successfully' });
     },
@@ -312,15 +312,15 @@ export default function LeadCaptureBuilder() {
   const saveFormMutation = useMutation({
     mutationFn: async () => {
       if (!selectedFormId || !formDetails) return;
-      const response = await apiRequest('PATCH', `/api/admin/lead-forms/${selectedFormId}`, {
+      const response = await apiRequest('PATCH', `/api/lead-forms/${selectedFormId}`, {
         form: formDetails,
         questions: questions
       });
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/admin/lead-forms'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/admin/lead-forms', selectedFormId] });
+      queryClient.invalidateQueries({ queryKey: ['/api/lead-forms'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/lead-forms', selectedFormId] });
       toast({ title: 'Form saved successfully' });
     },
     onError: () => {
@@ -331,11 +331,11 @@ export default function LeadCaptureBuilder() {
   // Delete form mutation
   const deleteFormMutation = useMutation({
     mutationFn: async (formId: string) => {
-      const response = await apiRequest('DELETE', `/api/admin/lead-forms/${formId}`);
+      const response = await apiRequest('DELETE', `/api/lead-forms/${formId}`);
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/admin/lead-forms'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/lead-forms'] });
       if (selectedFormId === deleteFormMutation.variables) {
         setSelectedFormId(null);
         setFormDetails(null);

@@ -8,6 +8,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useForm } from 'react-hook-form';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { getFormBuilderOptions, validateFieldMapping } from '@shared/formMappingRegistry';
+import { useToast } from '@/hooks/use-toast';
 
 interface Question {
   id?: string;
@@ -40,16 +42,8 @@ const QUESTION_TYPES = [
   { value: 'checkbox', label: 'Checkboxes' },
 ];
 
-const MAP_TO_OPTIONS = [
-  { value: 'leadName', label: 'Lead name' },
-  { value: 'leadEmail', label: 'Lead email' },
-  { value: 'leadPhoneNumber', label: 'Lead phone number' },
-  { value: 'whatKindOfEventIsIt', label: 'What Kind Of Event Is It?' },
-  { value: 'eventLocation', label: 'Event Location' },
-  { value: 'projectDate', label: 'Project date' },
-  { value: 'nothing', label: 'Nothing' },
-  { value: 'custom', label: 'Custom Field' },
-];
+// Get canonical mapping options from the central registry
+const MAP_TO_OPTIONS = getFormBuilderOptions();
 
 export default function QuestionEditor({ 
   isOpen, 
@@ -58,6 +52,7 @@ export default function QuestionEditor({
   question, 
   nextOrderIndex 
 }: QuestionEditorProps) {
+  const { toast } = useToast();
   const form = useForm<Question>({
     defaultValues: {
       type: 'text',
@@ -88,6 +83,19 @@ export default function QuestionEditor({
   const needsOptions = ['select', 'radio', 'checkbox'].includes(selectedType);
 
   const handleSave = (data: Question) => {
+    // Validate the mapTo field against the registry (allow "custom" as a special case)
+    if (data.mapTo !== 'custom') {
+      const validation = validateFieldMapping(data.mapTo);
+      if (!validation.valid) {
+        toast({
+          title: "Invalid Field Mapping",
+          description: validation.message,
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
     onSave({
       ...data,
       id: question?.id || `q_${Date.now()}`,

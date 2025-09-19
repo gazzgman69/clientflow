@@ -275,8 +275,13 @@ router.post('/public/:slug/submit', async (req, res) => {
     }
 
     // Use the central mapping registry to process the form submission
-    const tenantId = req.tenantId || 'default-tenant';
-    const userId = '00000000-0000-0000-0000-000000000001'; // Default user for public submissions
+    // SECURITY: Use form's tenant, not request tenant, for proper isolation in public submissions
+    const tenantId = form.tenantId;
+    if (!tenantId) {
+      return res.status(500).json({ error: 'Form tenant context missing' });
+    }
+    // Public submissions have no authenticated user - use null for proper tenant isolation
+    const userId = null;
     
     // Apply mapping registry to transform form data to database models
     const mappingResult = applyMapping(formData, {
@@ -297,7 +302,7 @@ router.post('/public/:slug/submit', async (req, res) => {
       userId
     };
 
-    const lead = await storage.createLead(leadData);
+    const lead = await storage.createLead(leadData, tenantId);
 
     // Create contact from mapped data
     const contactData = {
@@ -310,7 +315,7 @@ router.post('/public/:slug/submit', async (req, res) => {
       userId
     };
 
-    const contact = await storage.createContact(contactData);
+    const contact = await storage.createContact(contactData, tenantId);
 
     // Create project from mapped data
     const projectData = {
@@ -323,12 +328,12 @@ router.post('/public/:slug/submit', async (req, res) => {
       userId
     };
 
-    const project = await storage.createProject(projectData);
+    const project = await storage.createProject(projectData, tenantId);
 
     // Update lead notes to reference the created contact and project
     await storage.updateLead(lead.id, { 
       notes: `${leadData.notes || ''}. Auto-linked to Contact: ${contact.id} and Project: ${project.id}`
-    });
+    }, tenantId);
 
     // TODO: Send auto-response if template configured
     // TODO: Trigger workflows if configured

@@ -555,9 +555,9 @@ export class MemStorage implements IStorage {
     return lead;
   }
 
-  async updateLead(id: string, leadUpdate: Partial<InsertLead>): Promise<Lead | undefined> {
+  async updateLead(id: string, leadUpdate: Partial<InsertLead>, tenantId: string): Promise<Lead | undefined> {
     const lead = this.leads.get(id);
-    if (!lead) return undefined;
+    if (!lead || lead.tenantId !== tenantId) return undefined;
     
     const updatedLead: Lead = {
       ...lead,
@@ -587,7 +587,7 @@ export class MemStorage implements IStorage {
     return this.contacts.get(id);
   }
 
-  async createContact(insertContact: InsertContact): Promise<Contact> {
+  async createContact(insertContact: InsertContact, tenantId: string): Promise<Contact> {
     const id = randomUUID();
     const contact: Contact = {
       ...insertContact,
@@ -612,6 +612,7 @@ export class MemStorage implements IStorage {
       leadSource: insertContact.leadSource ?? null,
       notes: insertContact.notes ?? null,
       leadId: insertContact.leadId ?? null,
+      tenantId,
       id,
       createdAt: new Date(),
       updatedAt: new Date(),
@@ -664,7 +665,7 @@ export class MemStorage implements IStorage {
     return Array.from(this.projects.values()).filter(project => project.contactId === contactId);
   }
 
-  async createProject(insertProject: InsertProject): Promise<Project> {
+  async createProject(insertProject: InsertProject, tenantId: string): Promise<Project> {
     const id = randomUUID();
     const project: Project = {
       ...insertProject,
@@ -677,6 +678,7 @@ export class MemStorage implements IStorage {
       estimatedValue: insertProject.estimatedValue ?? null,
       actualValue: insertProject.actualValue ?? null,
       assignedTo: insertProject.assignedTo ?? null,
+      tenantId,
       id,
       createdAt: new Date(),
       updatedAt: new Date(),

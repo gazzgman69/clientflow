@@ -71,6 +71,25 @@ export default function Settings() {
     },
   });
 
+  // Request manual sync mutation
+  const requestSyncMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest('POST', '/api/auth/google/sync', {});
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({ title: 'Calendar sync requested successfully' });
+      refetchStatus();
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Failed to request calendar sync',
+        description: error.message,
+        variant: 'destructive'
+      });
+    },
+  });
+
   const handleSaveSettings = async (section: string) => {
     setIsLoading(true);
     // Simulate API call
@@ -573,15 +592,50 @@ export default function Settings() {
                   </Card>
 
                   {/* Calendar Integration */}
-                  <div className="flex items-center justify-between p-4 border rounded-lg">
-                    <div className="flex items-center space-x-3">
-                      <Calendar className="h-8 w-8 text-green-600" />
-                      <div>
-                        <p className="font-medium">Calendar Integration</p>
-                        <p className="text-sm text-muted-foreground">Sync with Google Calendar</p>
+                  <div className="p-4 border rounded-lg space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-3">
+                        <Calendar className="h-8 w-8 text-green-600" />
+                        <div>
+                          <p className="font-medium">Calendar Integration</p>
+                          <p className="text-sm text-muted-foreground">Sync with Google Calendar</p>
+                        </div>
                       </div>
+                      <Badge variant={googleStatus?.connected ? "default" : "secondary"}>
+                        {googleStatus?.connected ? 'Connected' : 'Disconnected'}
+                      </Badge>
                     </div>
-                    <Badge variant="secondary">Connected</Badge>
+                    
+                    {googleStatus?.connected && (
+                      <div className="flex gap-2">
+                        <Button
+                          onClick={() => requestSyncMutation.mutate()}
+                          disabled={requestSyncMutation.isPending}
+                          variant="outline"
+                          size="sm"
+                          data-testid="button-request-sync"
+                        >
+                          {requestSyncMutation.isPending ? (
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          ) : (
+                            <Calendar className="h-4 w-4 mr-2" />
+                          )}
+                          Request Sync
+                        </Button>
+                        <Button
+                          onClick={() => disconnectMutation.mutate()}
+                          disabled={disconnectMutation.isPending}
+                          variant="outline"
+                          size="sm"
+                          data-testid="button-disconnect-calendar"
+                        >
+                          {disconnectMutation.isPending ? (
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          ) : null}
+                          Disconnect
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 </div>
               </CardContent>

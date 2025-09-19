@@ -780,4 +780,67 @@ router.post('/api/auth/google/disconnect', requireAuth, async (req: any, res) =>
   }
 });
 
+/**
+ * Manual Google Calendar Sync
+ */
+router.post('/api/auth/google/sync', requireAuth, async (req: any, res) => {
+  try {
+    const userId = req.authenticatedUserId;
+    
+    // Get active Google integrations for this user
+    const integrations = await storage.getCalendarIntegrationsByUser(userId);
+    const activeGoogleIntegrations = integrations.filter(i => 
+      i.provider === 'google' && i.isActive
+    );
+    
+    if (activeGoogleIntegrations.length === 0) {
+      return res.status(400).json({ 
+        error: 'No active Google Calendar integrations found' 
+      });
+    }
+    
+    // Trigger sync for all active Google integrations
+    let syncCount = 0;
+    let errors: string[] = [];
+    
+    for (const integration of activeGoogleIntegrations) {
+      try {
+        await googleOAuthService.syncFromGoogle(integration);
+        syncCount++;
+        console.log(`✅ Manual sync completed for integration ${integration.id}`);
+      } catch (syncError: any) {
+        console.error(`❌ Manual sync failed for integration ${integration.id}:`, syncError);
+        errors.push(`${integration.calendarName}: ${syncError.message}`);
+      }
+    }
+    
+    // Update last sync time for successful integrations
+    await Promise.all(
+      activeGoogleIntegrations.slice(0, syncCount).map(integration =>
+        storage.updateCalendarIntegration(integration.id, {
+          lastSyncAt: new Date()
+        })
+      )
+    );
+    
+    if (errors.length > 0 && syncCount === 0) {
+      // All syncs failed
+      return res.status(500).json({ 
+        error: 'All calendar syncs failed',
+        details: errors
+      });
+    }
+    
+    res.json({ 
+      success: true, 
+      message: `Successfully synced ${syncCount} of ${activeGoogleIntegrations.length} calendar(s)`,
+      syncCount,
+      errors: errors.length > 0 ? errors : undefined
+    });
+  } catch (error: any) {
+    console.error('Manual Google sync error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 export default router;

@@ -53,6 +53,18 @@ export default function LeadFormHosted({ slug }: LeadFormHostedProps) {
   const isEmbed = urlParams.get('embed') === '1';
   const isDialog = urlParams.get('dialog') === '1';
 
+  // Fetch form data
+  const { data: formData, isLoading, error } = useQuery<FormData>({
+    queryKey: ['/api/leads/public', slug],
+    queryFn: async () => {
+      const response = await fetch(`/api/leads/public/${slug}`);
+      if (!response.ok) {
+        throw new Error('Form not found');
+      }
+      return response.json();
+    },
+  });
+
   // Load reCAPTCHA script dynamically
   useEffect(() => {
     if (!formData?.form.recaptchaEnabled) return;
@@ -65,21 +77,12 @@ export default function LeadFormHosted({ slug }: LeadFormHostedProps) {
     document.head.appendChild(script);
     
     return () => {
-      document.head.removeChild(script);
+      const existingScript = document.head.querySelector(`script[src*="recaptcha"]`);
+      if (existingScript) {
+        document.head.removeChild(existingScript);
+      }
     };
   }, [formData?.form.recaptchaEnabled]);
-
-  // Fetch form data
-  const { data: formData, isLoading, error } = useQuery<FormData>({
-    queryKey: ['/api/leads/public', slug],
-    queryFn: async () => {
-      const response = await fetch(`/api/leads/public/${slug}`);
-      if (!response.ok) {
-        throw new Error('Form not found');
-      }
-      return response.json();
-    },
-  });
 
   // Submit form mutation
   const submitMutation = useMutation({

@@ -44,6 +44,7 @@ export default function LeadFormHosted({ slug }: LeadFormHostedProps) {
   const [formValues, setFormValues] = useState<Record<string, any>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [recaptchaLoaded, setRecaptchaLoaded] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -51,6 +52,22 @@ export default function LeadFormHosted({ slug }: LeadFormHostedProps) {
   const urlParams = new URLSearchParams(window.location.search);
   const isEmbed = urlParams.get('embed') === '1';
   const isDialog = urlParams.get('dialog') === '1';
+
+  // Load reCAPTCHA script dynamically
+  useEffect(() => {
+    if (!formData?.form.recaptchaEnabled) return;
+    
+    const script = document.createElement('script');
+    const siteKey = '6LfGW5cqAAAAAMsEQ2eClNPfhxJrpB5xXXXXXXXX';
+    script.src = `https://www.google.com/recaptcha/api.js?render=${siteKey}`;
+    script.async = true;
+    script.onload = () => setRecaptchaLoaded(true);
+    document.head.appendChild(script);
+    
+    return () => {
+      document.head.removeChild(script);
+    };
+  }, [formData?.form.recaptchaEnabled]);
 
   // Fetch form data
   const { data: formData, isLoading, error } = useQuery<FormData>({
@@ -107,7 +124,7 @@ export default function LeadFormHosted({ slug }: LeadFormHostedProps) {
     }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!formData) return;
@@ -126,6 +143,23 @@ export default function LeadFormHosted({ slug }: LeadFormHostedProps) {
       return;
     }
 
+    // Get reCAPTCHA token if enabled
+    let recaptchaToken = '';
+    if (formData.form.recaptchaEnabled && recaptchaLoaded) {
+      try {
+        const siteKey = '6LfGW5cqAAAAAMsEQ2eClNPfhxJrpB5xXXXXXXXX';
+        recaptchaToken = await window.grecaptcha.execute(siteKey, { action: 'submit' });
+      } catch (error) {
+        console.error('reCAPTCHA error:', error);
+        toast({
+          title: 'Security verification failed',
+          description: 'Please try again.',
+          variant: 'destructive',
+        });
+        return;
+      }
+    }
+
     // Map form values to expected format
     const submissionData: Record<string, any> = {};
     formData.questions.forEach(question => {
@@ -140,6 +174,11 @@ export default function LeadFormHosted({ slug }: LeadFormHostedProps) {
         submissionData[key] = formValues[key];
       }
     });
+
+    // Add reCAPTCHA token to submission
+    if (recaptchaToken) {
+      submissionData.recaptchaToken = recaptchaToken;
+    }
 
     submitMutation.mutate(submissionData);
   };
@@ -345,10 +384,24 @@ export default function LeadFormHosted({ slug }: LeadFormHostedProps) {
                   </div>
                 ))}
 
+              {formData.form.recaptchaEnabled && (
+                <div className="text-xs text-muted-foreground mb-4">
+                  This site is protected by reCAPTCHA and the Google{' '}
+                  <a href="https://policies.google.com/privacy" className="underline" target="_blank" rel="noopener noreferrer">
+                    Privacy Policy
+                  </a>{' '}
+                  and{' '}
+                  <a href="https://policies.google.com/terms" className="underline" target="_blank" rel="noopener noreferrer">
+                    Terms of Service
+                  </a>{' '}
+                  apply.
+                </div>
+              )}
+
               <Button
                 type="submit"
                 className="w-full"
-                disabled={isSubmitting || submitMutation.isPending}
+                disabled={isSubmitting || submitMutation.isPending || (formData.form.recaptchaEnabled && !recaptchaLoaded)}
                 data-testid="button-submit-form"
               >
                 {submitMutation.isPending ? 'Submitting...' : 'Submit'}

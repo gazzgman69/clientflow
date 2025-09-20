@@ -5,6 +5,32 @@ import { z } from 'zod';
 import { splitFullName } from '@shared/utils/name-splitter';
 import { applyMapping, FORM_FIELD_REGISTRY } from '@shared/formMappingRegistry';
 
+// reCAPTCHA verification helper
+async function verifyRecaptcha(token: string): Promise<boolean> {
+  if (!token || !process.env.RECAPTCHA_SECRET_KEY) {
+    return false;
+  }
+
+  try {
+    const response = await fetch('https://www.google.com/recaptcha/api/siteverify', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: new URLSearchParams({
+        secret: process.env.RECAPTCHA_SECRET_KEY,
+        response: token,
+      }),
+    });
+
+    const result = await response.json();
+    return result.success && result.score >= 0.5; // Adjust score threshold as needed
+  } catch (error) {
+    console.error('reCAPTCHA verification error:', error);
+    return false;
+  }
+}
+
 const router = Router();
 
 // Helper function for default questions - use canonical field mappings
@@ -256,11 +282,19 @@ router.get('/public/:slug', async (req, res) => {
 router.post('/public/:slug/submit', async (req, res) => {
   try {
     const { slug } = req.params;
-    const formData = req.body;
+    const { recaptchaToken, ...formData } = req.body;
     
     const form = await storage.getLeadCaptureFormBySlug(slug);
     if (!form || !form.isActive) {
       return res.status(404).json({ error: 'Form not found' });
+    }
+
+    // Verify reCAPTCHA if enabled
+    if (form.recaptchaEnabled) {
+      const isValidRecaptcha = await verifyRecaptcha(recaptchaToken);
+      if (!isValidRecaptcha) {
+        return res.status(400).json({ error: 'reCAPTCHA verification failed' });
+      }
     }
 
     // Parse the form questions to get field mappings

@@ -45,13 +45,13 @@ const cspConfig = {
       styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
       fontSrc: ["'self'", "https://fonts.gstatic.com"],
       scriptSrc: isProduction 
-        ? ["'self'"] 
-        : ["'self'", "'unsafe-inline'", "'unsafe-eval'"], // unsafe-eval only for Vite dev
+        ? ["'self'", "https://www.google.com", "https://www.gstatic.com"] 
+        : ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://www.google.com", "https://www.gstatic.com"], // unsafe-eval only for Vite dev
       imgSrc: ["'self'", "data:", "https:"],
       connectSrc: isProduction 
-        ? ["'self'", "wss://your-domain.com", "https://api.stripe.com"] // Restrict in production
+        ? ["'self'", "wss://your-domain.com", "https://api.stripe.com", "https://www.google.com"] // Restrict in production
         : ["'self'", "wss:", "https:", "http://localhost:*"], // Allow dev servers
-      frameSrc: ["'none'"],
+      frameSrc: ["'self'", "https://www.google.com"],
       objectSrc: ["'none'"],
       baseUri: ["'self'"],
       formAction: ["'self'"],

@@ -69,12 +69,31 @@ export default function LeadFormHosted({ slug }: LeadFormHostedProps) {
   useEffect(() => {
     if (!formData?.form.recaptchaEnabled) return;
     
-    const script = document.createElement('script');
-    const siteKey = '6LfGW5cqAAAAAMsEQ2eClNPfhxJrpB5xXXXXXXXX';
-    script.src = `https://www.google.com/recaptcha/api.js?render=${siteKey}`;
-    script.async = true;
-    script.onload = () => setRecaptchaLoaded(true);
-    document.head.appendChild(script);
+    // Fetch site key from backend
+    fetch('/api/leads/recaptcha-config')
+      .then(res => res.json())
+      .then(config => {
+        if (!config.siteKey || !config.enabled) {
+          console.error('reCAPTCHA not properly configured on server');
+          return;
+        }
+        
+        const script = document.createElement('script');
+        script.src = `https://www.google.com/recaptcha/api.js?render=${config.siteKey}`;
+        script.async = true;
+        script.onload = () => {
+          window.grecaptcha.ready(() => {
+            setRecaptchaLoaded(true);
+          });
+        };
+        document.head.appendChild(script);
+        
+        // Store site key for later use
+        window.recaptchaSiteKey = config.siteKey;
+      })
+      .catch(err => {
+        console.error('Failed to load reCAPTCHA config:', err);
+      });
     
     return () => {
       const existingScript = document.head.querySelector(`script[src*="recaptcha"]`);
@@ -150,7 +169,10 @@ export default function LeadFormHosted({ slug }: LeadFormHostedProps) {
     let recaptchaToken = '';
     if (formData.form.recaptchaEnabled && recaptchaLoaded) {
       try {
-        const siteKey = '6LfGW5cqAAAAAMsEQ2eClNPfhxJrpB5xXXXXXXXX';
+        const siteKey = (window as any).recaptchaSiteKey;
+        if (!siteKey) {
+          throw new Error('reCAPTCHA site key not available');
+        }
         recaptchaToken = await window.grecaptcha.execute(siteKey, { action: 'submit' });
       } catch (error) {
         console.error('reCAPTCHA error:', error);

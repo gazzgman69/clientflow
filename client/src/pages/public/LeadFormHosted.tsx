@@ -69,27 +69,39 @@ export default function LeadFormHosted({ slug }: LeadFormHostedProps) {
   useEffect(() => {
     if (!formData?.form.recaptchaEnabled) return;
     
+    // Don't reload if already loaded
+    if (window.grecaptcha && (window as any).recaptchaSiteKey) {
+      setRecaptchaLoaded(true);
+      return;
+    }
+    
     // Fetch site key from backend
     fetch('/api/leads/recaptcha-config')
       .then(res => res.json())
       .then(config => {
+        console.log('reCAPTCHA config loaded:', { enabled: config.enabled, hasSiteKey: !!config.siteKey });
         if (!config.siteKey || !config.enabled) {
           console.error('reCAPTCHA not properly configured on server');
           return;
         }
         
+        // Store site key first
+        (window as any).recaptchaSiteKey = config.siteKey;
+        
         const script = document.createElement('script');
         script.src = `https://www.google.com/recaptcha/api.js?render=${config.siteKey}`;
         script.async = true;
         script.onload = () => {
+          console.log('reCAPTCHA script loaded successfully');
           window.grecaptcha.ready(() => {
+            console.log('reCAPTCHA ready');
             setRecaptchaLoaded(true);
           });
         };
+        script.onerror = (error) => {
+          console.error('Failed to load reCAPTCHA script:', error);
+        };
         document.head.appendChild(script);
-        
-        // Store site key for later use
-        window.recaptchaSiteKey = config.siteKey;
       })
       .catch(err => {
         console.error('Failed to load reCAPTCHA config:', err);
@@ -167,13 +179,38 @@ export default function LeadFormHosted({ slug }: LeadFormHostedProps) {
 
     // Get reCAPTCHA token if enabled
     let recaptchaToken = '';
-    if (formData.form.recaptchaEnabled && recaptchaLoaded) {
+    if (formData.form.recaptchaEnabled) {
+      if (!recaptchaLoaded) {
+        toast({
+          title: 'Security verification loading',
+          description: 'Please wait for security verification to load and try again.',
+          variant: 'destructive',
+        });
+        return;
+      }
+      
       try {
         const siteKey = (window as any).recaptchaSiteKey;
+        console.log('reCAPTCHA token generation:', { 
+          hasSiteKey: !!siteKey, 
+          hasGrecaptcha: !!window.grecaptcha,
+          recaptchaLoaded 
+        });
+        
         if (!siteKey) {
           throw new Error('reCAPTCHA site key not available');
         }
+        
+        if (!window.grecaptcha) {
+          throw new Error('reCAPTCHA script not loaded');
+        }
+        
         recaptchaToken = await window.grecaptcha.execute(siteKey, { action: 'submit' });
+        console.log('reCAPTCHA token generated:', { tokenLength: recaptchaToken?.length });
+        
+        if (!recaptchaToken || recaptchaToken.length < 10) {
+          throw new Error('Invalid reCAPTCHA token generated');
+        }
       } catch (error) {
         console.error('reCAPTCHA error:', error);
         toast({

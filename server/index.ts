@@ -120,6 +120,65 @@ app.get('/api/leads/recaptcha-config', (req, res) => {
   });
 });
 
+// Public venue endpoints for lead capture forms (no auth, no tenant required)
+app.post('/api/venues/suggest', async (req, res) => {
+  console.log('✅ Public venue suggest route hit (before tenant resolver)');
+  try {
+    const { venuesService } = await import('./src/services/venues');
+    const { z } = await import('zod');
+    const autocompleteSchema = z.object({
+      input: z.string().min(1, 'Search input is required'),
+      sessionToken: z.string().optional(),
+      types: z.array(z.string()).optional()
+    });
+    
+    const validatedData = autocompleteSchema.parse(req.body);
+    
+    const suggestions = await venuesService.getSuggestions(
+      validatedData.input,
+      {
+        sessionToken: validatedData.sessionToken,
+        types: validatedData.types
+      }
+    );
+    
+    res.json({ predictions: suggestions });
+  } catch (error) {
+    console.error('Error getting venue suggestions:', error);
+    if (error && typeof error === 'object' && 'errors' in error) {
+      res.status(400).json({ 
+        message: 'Validation error', 
+        errors: (error as any).errors 
+      });
+    } else {
+      res.status(500).json({ 
+        message: error instanceof Error ? error.message : 'Failed to get venue suggestions'
+      });
+    }
+  }
+});
+
+app.post('/api/venues/place-details', async (req, res) => {
+  console.log('✅ Public venue place-details route hit (before tenant resolver)');
+  try {
+    const { geocodingService } = await import('./src/services/geocoding');
+    const { placeId, sessionToken } = req.body;
+    
+    if (!placeId) {
+      return res.status(400).json({ message: 'placeId is required' });
+    }
+    
+    const placeDetails = await geocodingService.getPlaceDetails(placeId, sessionToken);
+    res.json(placeDetails);
+  } catch (error) {
+    console.error('Error getting place details:', error);
+    res.status(500).json({ 
+      message: 'Failed to get place details',
+      error: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
+
 // Tenant resolution middleware - identifies tenant context from subdomain/domain/user
 app.use('/api', tenantResolver);
 

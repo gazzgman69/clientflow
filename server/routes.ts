@@ -256,19 +256,76 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   const csrf = csrfProtection || ((req: any, res: any, next: any) => next());
 
   // CSRF-free public venue endpoints for lead capture forms (must be before general venue mount)
-  app.post('/api/venues/suggest', (req, res, next) => {
+  app.post('/api/venues/suggest', async (req, res) => {
     console.log('✅ Direct venue suggest route hit');
-    venuesRoutes(req, res, next);
+    try {
+      const { venuesService } = await import('./src/services/venues');
+      const autocompleteSchema = z.object({
+        input: z.string().min(1, 'Search input is required'),
+        sessionToken: z.string().optional(),
+        types: z.array(z.string()).optional()
+      });
+      
+      const validatedData = autocompleteSchema.parse(req.body);
+      
+      const suggestions = await venuesService.getSuggestions(
+        validatedData.input,
+        {
+          sessionToken: validatedData.sessionToken,
+          types: validatedData.types
+        }
+      );
+      
+      res.json({ predictions: suggestions });
+    } catch (error) {
+      console.error('Error getting venue suggestions:', error);
+      if (error instanceof z.ZodError) {
+        res.status(400).json({ 
+          message: 'Validation error', 
+          errors: error.errors 
+        });
+      } else {
+        res.status(500).json({ 
+          message: error instanceof Error ? error.message : 'Failed to get venue suggestions'
+        });
+      }
+    }
   });
 
-  app.post('/api/venues/place-details', (req, res, next) => {
+  app.post('/api/venues/place-details', async (req, res) => {
     console.log('✅ Direct venue place-details route hit');
-    venuesRoutes(req, res, next);
+    try {
+      const { geocodingService } = await import('./src/services/geocoding');
+      const { placeId, sessionToken } = req.body;
+      
+      if (!placeId) {
+        return res.status(400).json({ message: 'placeId is required' });
+      }
+      
+      const placeDetails = await geocodingService.getPlaceDetails(placeId, sessionToken);
+      res.json(placeDetails);
+    } catch (error) {
+      console.error('Error getting place details:', error);
+      res.status(500).json({ 
+        message: 'Failed to get place details',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
   });
 
-  app.post('/api/venues/:id/track-usage', (req, res, next) => {
+  app.post('/api/venues/:id/track-usage', async (req, res) => {
     console.log('✅ Direct venue track-usage route hit');
-    venuesRoutes(req, res, next);
+    try {
+      const { venuesService } = await import('./src/services/venues');
+      await venuesService.trackVenueUsage(req.params.id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Error tracking venue usage:', error);
+      res.status(500).json({ 
+        message: 'Failed to track venue usage',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
   });
 
   // Venue routes with authentication, tenant resolution and CSRF protection (except for public endpoints used by lead capture forms)

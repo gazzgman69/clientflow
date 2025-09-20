@@ -102,6 +102,11 @@ async function verifyRecaptcha(options: RecaptchaVerificationOptions): Promise<b
     }
 
     // Validate token freshness to prevent replay attacks
+    if (!result.challenge_ts || Number.isNaN(new Date(result.challenge_ts).getTime())) {
+      console.warn('🔐 reCAPTCHA: Missing or invalid challenge timestamp', logData);
+      return false;
+    }
+    
     const challengeTimestamp = new Date(result.challenge_ts).getTime();
     const now = Date.now();
     const maxAge = 120 * 1000; // 120 seconds

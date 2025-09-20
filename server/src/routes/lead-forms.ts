@@ -410,6 +410,14 @@ router.post('/public/:slug/submit', formSubmissionLimiter, async (req, res) => {
     const { slug } = req.params;
     const { recaptchaToken, ...formData } = req.body;
     
+    console.log('🔍 FORM SUBMISSION DEBUG:', { 
+      slug, 
+      hasFormData: !!formData,
+      formDataKeys: Object.keys(formData || {}),
+      formData: JSON.stringify(formData, null, 2),
+      hasRecaptchaToken: !!recaptchaToken
+    });
+    
     const form = await storage.getLeadCaptureFormBySlug(slug);
     if (!form || !form.isActive) {
       return res.status(404).json({ error: 'Form not found' });

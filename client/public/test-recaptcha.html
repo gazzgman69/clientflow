@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>reCAPTCHA & Google Places Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; }
+        .container { max-width: 600px; margin: 0 auto; }
+        .form-group { margin-bottom: 20px; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; }
+        input[type="text"], input[type="email"], textarea { 
+            width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; 
+        }
+        button { 
+            background: #007cba; color: white; padding: 12px 24px; 
+            border: none; border-radius: 4px; cursor: pointer; font-size: 16px;
+        }
+        button:hover { background: #005a87; }
+        .status { 
+            margin-top: 20px; padding: 15px; border-radius: 4px; 
+            background: #f8f9fa; border: 1px solid #dee2e6;
+        }
+        .success { background: #d4edda; border-color: #c3e6cb; color: #155724; }
+        .error { background: #f8d7da; border-color: #f5c6cb; color: #721c24; }
+        .venue-suggestions { 
+            position: absolute; background: white; border: 1px solid #ddd; 
+            border-radius: 4px; max-height: 200px; overflow-y: auto; width: 100%; z-index: 1000;
+        }
+        .venue-option { 
+            padding: 10px; cursor: pointer; border-bottom: 1px solid #eee; 
+        }
+        .venue-option:hover { background: #f8f9fa; }
+        .venue-container { position: relative; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>reCAPTCHA & Google Places Test</h1>
+        
+        <form id="testForm">
+            <div class="form-group">
+                <label for="name">Your Name:</label>
+                <input type="text" id="name" name="name" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="email">Email:</label>
+                <input type="email" id="email" name="email" required>
+            </div>
+            
+            <div class="form-group venue-container">
+                <label for="venue">Event Venue:</label>
+                <input type="text" id="venue" name="venue" placeholder="Start typing venue name..." autocomplete="off">
+                <div id="venueSuggestions" class="venue-suggestions" style="display: none;"></div>
+            </div>
+            
+            <div class="form-group">
+                <label for="message">Message:</label>
+                <textarea id="message" name="message" rows="4"></textarea>
+            </div>
+            
+            <button type="submit">Submit with reCAPTCHA</button>
+        </form>
+        
+        <div id="status" class="status" style="display: none;"></div>
+        
+        <div style="margin-top: 30px; padding: 20px; background: #f8f9fa; border-radius: 4px;">
+            <h3>Test Status:</h3>
+            <div id="recaptchaStatus">⏳ reCAPTCHA: Loading...</div>
+            <div id="placesStatus">⏳ Google Places: Ready</div>
+        </div>
+    </div>
+
+    <script>
+        let recaptchaLoaded = false;
+        let siteKey = '';
+        
+        // Load reCAPTCHA configuration
+        fetch('/api/leads/recaptcha-config')
+            .then(res => res.json())
+            .then(config => {
+                if (config.enabled && config.siteKey) {
+                    siteKey = config.siteKey;
+                    const script = document.createElement('script');
+                    script.src = `https://www.google.com/recaptcha/api.js?render=${config.siteKey}`;
+                    script.onload = () => {
+                        window.grecaptcha.ready(() => {
+                            recaptchaLoaded = true;
+                            document.getElementById('recaptchaStatus').innerHTML = '✅ reCAPTCHA: Ready';
+                        });
+                    };
+                    script.onerror = () => {
+                        document.getElementById('recaptchaStatus').innerHTML = '❌ reCAPTCHA: Failed to load';
+                    };
+                    document.head.appendChild(script);
+                } else {
+                    document.getElementById('recaptchaStatus').innerHTML = '❌ reCAPTCHA: Not configured';
+                }
+            })
+            .catch(err => {
+                document.getElementById('recaptchaStatus').innerHTML = '❌ reCAPTCHA: Config failed';
+            });
+        
+        // Venue autocomplete
+        const venueInput = document.getElementById('venue');
+        const suggestions = document.getElementById('venueSuggestions');
+        let debounceTimer;
+        
+        venueInput.addEventListener('input', function(e) {
+            clearTimeout(debounceTimer);
+            const query = e.target.value.trim();
+            
+            if (query.length < 2) {
+                suggestions.style.display = 'none';
+                return;
+            }
+            
+            debounceTimer = setTimeout(() => {
+                searchVenues(query);
+            }, 300);
+        });
+        
+        function searchVenues(query) {
+            // Note: This would normally require authentication, but we're testing the endpoint structure
+            fetch(`/api/venues/suggest?query=${encodeURIComponent(query)}`)
+                .then(res => res.json())
+                .then(data => {
+                    if (data.error) {
+                        document.getElementById('placesStatus').innerHTML = '⚠️ Google Places: Auth needed (expected)';
+                        suggestions.innerHTML = '<div class="venue-option">Google Places API ready (requires authentication)</div>';
+                    } else if (data.suggestions) {
+                        displaySuggestions(data.suggestions);
+                        document.getElementById('placesStatus').innerHTML = '✅ Google Places: Working';
+                    }
+                    suggestions.style.display = 'block';
+                })
+                .catch(err => {
+                    document.getElementById('placesStatus').innerHTML = '❌ Google Places: Error';
+                });
+        }
+        
+        function displaySuggestions(suggestions) {
+            const html = suggestions.map(s => 
+                `<div class="venue-option" onclick="selectVenue('${s.description}')">${s.description}</div>`
+            ).join('');
+            document.getElementById('venueSuggestions').innerHTML = html;
+        }
+        
+        function selectVenue(description) {
+            venueInput.value = description;
+            suggestions.style.display = 'none';
+        }
+        
+        // Hide suggestions when clicking outside
+        document.addEventListener('click', function(e) {
+            if (!e.target.closest('.venue-container')) {
+                suggestions.style.display = 'none';
+            }
+        });
+        
+        // Form submission with reCAPTCHA
+        document.getElementById('testForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const statusDiv = document.getElementById('status');
+            
+            if (!recaptchaLoaded) {
+                showStatus('❌ reCAPTCHA not loaded yet. Please wait and try again.', 'error');
+                return;
+            }
+            
+            try {
+                showStatus('⏳ Generating reCAPTCHA token...', '');
+                
+                // Generate reCAPTCHA token
+                const token = await window.grecaptcha.execute(siteKey, { action: 'submit' });
+                
+                if (!token || token.length < 10) {
+                    throw new Error('Invalid reCAPTCHA token generated');
+                }
+                
+                showStatus(`✅ reCAPTCHA token generated successfully!<br>
+                           Token length: ${token.length} characters<br>
+                           Form data: ${JSON.stringify(Object.fromEntries(new FormData(this)))}`, 'success');
+                
+            } catch (error) {
+                showStatus(`❌ reCAPTCHA Error: ${error.message}`, 'error');
+            }
+        });
+        
+        function showStatus(message, type) {
+            const statusDiv = document.getElementById('status');
+            statusDiv.innerHTML = message;
+            statusDiv.className = `status ${type}`;
+            statusDiv.style.display = 'block';
+        }
+    </script>
+</body>
+</html>

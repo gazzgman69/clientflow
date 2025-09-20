@@ -318,12 +318,6 @@ export default function LeadsKanban() {
             </Button>
           </div>
           <div className="flex items-center gap-3">
-            <Button variant="outline" asChild data-testid="button-inbox-view">
-              <Link href="/leads/inbox">
-                <Inbox className="h-4 w-4 mr-2" />
-                Inbox View
-              </Link>
-            </Button>
             <Button variant="outline" asChild data-testid="button-lead-forms">
               <Link href="/leads/capture">
                 <FileText className="h-4 w-4 mr-2" />

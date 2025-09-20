@@ -1,13 +1,35 @@
 import { Router } from 'express';
+import rateLimit from 'express-rate-limit';
 import { storage } from '../../storage';
 import { insertLeadCaptureFormSchema } from '@shared/schema';
 import { z } from 'zod';
 import { splitFullName } from '@shared/utils/name-splitter';
 import { applyMapping, FORM_FIELD_REGISTRY } from '@shared/formMappingRegistry';
 
-// reCAPTCHA verification helper
-async function verifyRecaptcha(token: string): Promise<boolean> {
-  if (!token || !process.env.RECAPTCHA_SECRET_KEY) {
+// reCAPTCHA verification helper with enhanced security validation
+interface RecaptchaVerificationOptions {
+  token: string;
+  expectedAction: string;
+  userIP: string;
+  hostname: string;
+  scoreThreshold?: number;
+}
+
+async function verifyRecaptcha(options: RecaptchaVerificationOptions): Promise<boolean> {
+  const { token, expectedAction, userIP, hostname, scoreThreshold = 0.5 } = options;
+  
+  // Require token when verification is called
+  if (!token) {
+    console.warn('🔐 reCAPTCHA: Token missing', { 
+      ip: userIP?.slice(0, 8) + '***', // Log partial IP for debugging, minimal PII
+      hostname,
+      expectedAction 
+    });
+    return false;
+  }
+
+  if (!process.env.RECAPTCHA_SECRET_KEY) {
+    console.error('🔐 reCAPTCHA: SECRET_KEY not configured');
     return false;
   }
 
@@ -20,18 +42,104 @@ async function verifyRecaptcha(token: string): Promise<boolean> {
       body: new URLSearchParams({
         secret: process.env.RECAPTCHA_SECRET_KEY,
         response: token,
+        remoteip: userIP, // Include user IP for better verification
       }),
     });
 
     const result = await response.json();
-    return result.success && result.score >= 0.5; // Adjust score threshold as needed
+    
+    // Log verification attempt with minimal PII
+    const logData = {
+      success: result.success,
+      score: result.score,
+      action: result.action,
+      hostname: result.hostname,
+      expectedAction,
+      expectedHostname: hostname,
+      scoreThreshold,
+      timestamp: new Date().toISOString(),
+      ip: userIP?.slice(0, 8) + '***' // Partial IP only
+    };
+
+    if (!result.success) {
+      console.warn('🔐 reCAPTCHA: Verification failed', {
+        ...logData,
+        errorCodes: result['error-codes']
+      });
+      return false;
+    }
+
+    // Validate score threshold
+    if (result.score < scoreThreshold) {
+      console.warn('🔐 reCAPTCHA: Score too low', logData);
+      return false;
+    }
+
+    // Validate expected action
+    if (result.action !== expectedAction) {
+      console.warn('🔐 reCAPTCHA: Action mismatch', logData);
+      return false;
+    }
+
+    // Validate hostname using server-configured allowlist (not client-provided hostname)
+    const allowedHosts = (process.env.RECAPTCHA_ALLOWED_HOSTS || 'localhost').split(',').map(h => h.trim());
+    const resultHostname = result.hostname || '';
+    
+    // For development, allow replit.dev domains specifically
+    const isDevEnvironment = process.env.NODE_ENV !== 'production';
+    const isValidReplit = isDevEnvironment && resultHostname.endsWith('.replit.dev');
+    const isExplicitlyAllowed = allowedHosts.includes(resultHostname);
+    
+    const isHostnameValid = isExplicitlyAllowed || isValidReplit;
+
+    if (!isHostnameValid) {
+      console.warn('🔐 reCAPTCHA: Hostname not in allowlist', {
+        ...logData,
+        allowedHosts: allowedHosts.length, // Don't leak exact hosts
+        isDevEnvironment
+      });
+      return false;
+    }
+
+    // Validate token freshness to prevent replay attacks
+    const challengeTimestamp = new Date(result.challenge_ts).getTime();
+    const now = Date.now();
+    const maxAge = 120 * 1000; // 120 seconds
+    
+    if (now - challengeTimestamp > maxAge) {
+      console.warn('🔐 reCAPTCHA: Token too old', {
+        ...logData,
+        ageSeconds: Math.round((now - challengeTimestamp) / 1000)
+      });
+      return false;
+    }
+
+    console.log('🔐 reCAPTCHA: Verification successful', logData);
+    return true;
+
   } catch (error) {
-    console.error('reCAPTCHA verification error:', error);
+    console.error('🔐 reCAPTCHA: Verification error', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      ip: userIP?.slice(0, 8) + '***',
+      hostname,
+      expectedAction
+    });
     return false;
   }
 }
 
 const router = Router();
+
+// Rate limiting for public form submissions
+const formSubmissionLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 5, // Limit each IP to 5 form submissions per windowMs
+  message: { error: 'Too many form submissions. Please try again later.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+  // Don't skip any requests - applies to all IPs
+  skip: () => false,
+});
 
 // Helper function for default questions - use canonical field mappings
 function getDefaultQuestionsForForm() {
@@ -90,7 +198,7 @@ router.post('/', async (req, res) => {
       projectTags: null,
       recaptchaEnabled: false,
       isActive: true,
-      createdBy: userId
+      createdBy: userId || 'system'
     };
 
     const form = await storage.createLeadCaptureForm(formData);
@@ -279,7 +387,7 @@ router.get('/public/:slug', async (req, res) => {
 });
 
 // POST /api/leads/public/:slug/submit
-router.post('/public/:slug/submit', async (req, res) => {
+router.post('/public/:slug/submit', formSubmissionLimiter, async (req, res) => {
   try {
     const { slug } = req.params;
     const { recaptchaToken, ...formData } = req.body;
@@ -291,7 +399,21 @@ router.post('/public/:slug/submit', async (req, res) => {
 
     // Verify reCAPTCHA if enabled
     if (form.recaptchaEnabled) {
-      const isValidRecaptcha = await verifyRecaptcha(recaptchaToken);
+      if (!recaptchaToken) {
+        return res.status(400).json({ error: 'reCAPTCHA token is required for this form' });
+      }
+
+      const userIP = req.ip || req.connection.remoteAddress || 'unknown';
+      // Don't use client-provided hostname for security - will be validated against allowlist
+      
+      const isValidRecaptcha = await verifyRecaptcha({
+        token: recaptchaToken,
+        expectedAction: 'submit',
+        userIP,
+        hostname: '', // Not used anymore - validation is based on server allowlist
+        scoreThreshold: 0.5 // Could be made configurable per form in the future
+      });
+      
       if (!isValidRecaptcha) {
         return res.status(400).json({ error: 'reCAPTCHA verification failed' });
       }
@@ -366,7 +488,7 @@ router.post('/public/:slug/submit', async (req, res) => {
 
     // Update lead notes to reference the created contact and project
     await storage.updateLead(lead.id, { 
-      notes: `${leadData.notes || ''}. Auto-linked to Contact: ${contact.id} and Project: ${project.id}`
+      notes: `Auto-linked to Contact: ${contact.id} and Project: ${project.id}`
     }, tenantId);
 
     // TODO: Send auto-response if template configured

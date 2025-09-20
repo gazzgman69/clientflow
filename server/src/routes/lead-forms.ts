@@ -92,6 +92,15 @@ async function verifyRecaptcha(options: RecaptchaVerificationOptions): Promise<b
     
     const isHostnameValid = isExplicitlyAllowed || isValidReplit;
 
+    // Log hostname info for debugging
+    console.log('🔐 reCAPTCHA: Hostname validation', {
+      resultHostname,
+      isDevEnvironment,
+      isValidReplit,
+      isExplicitlyAllowed,
+      isHostnameValid
+    });
+
     if (!isHostnameValid) {
       console.warn('🔐 reCAPTCHA: Hostname not in allowlist', {
         ...logData,

@@ -339,22 +339,15 @@ export default function LeadFormHosted({ slug }: LeadFormHostedProps) {
         );
 
       case 'venue':
+        // Temporarily use a simple text input instead of venue autocomplete
         return (
-          <VenueAutocomplete
-            onVenueSelect={(venue) => {
-              // Use the address exactly as shown in the dropdown
-              const addressValue = venue.address || venue.name || '';
-              handleInputChange(question.mapTo, addressValue);
-              
-              // Also store the individual address components for backend processing
-              if (venue.city) handleInputChange(question.mapTo + 'City', venue.city);
-              if (venue.state) handleInputChange(question.mapTo + 'State', venue.state);
-              if (venue.zipCode) handleInputChange(question.mapTo + 'ZipCode', venue.zipCode);
-              if (venue.country) handleInputChange(question.mapTo + 'Country', venue.country);
-            }}
-            placeholder="Search for venues or enter an address..."
-            initialValue={value}
-            data-testid={`venue-${question.mapTo}`}
+          <Input
+            type="text"
+            value={value}
+            onChange={(e) => handleInputChange(question.mapTo, e.target.value)}
+            required={question.required}
+            placeholder="Enter venue location or address..."
+            data-testid={`input-${question.mapTo}`}
           />
         );
 

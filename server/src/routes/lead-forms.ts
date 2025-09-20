@@ -386,12 +386,6 @@ router.post('/public/:slug/submit', async (req, res) => {
   }
 });
 
-// GET /api/leads/recaptcha-config (public endpoint for site key)
-router.get('/recaptcha-config', (req, res) => {
-  res.json({
-    siteKey: process.env.RECAPTCHA_SITE_KEY || null,
-    enabled: !!process.env.RECAPTCHA_SITE_KEY
-  });
-});
+// reCAPTCHA config endpoint moved to server/routes.ts as a direct route to avoid middleware conflicts
 
 export default router;

@@ -442,6 +442,8 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
   
+  // reCAPTCHA config endpoint moved to server/index.ts to avoid global middleware conflicts
+
   // Lead Forms routes - public routes (no auth), non-public routes need auth
   // NOTE: This is for lead capture forms only, not general leads endpoints
   app.use('/api/leads', tenantResolver, requireTenant, (req, res, next) => {

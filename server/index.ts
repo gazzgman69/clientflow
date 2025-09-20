@@ -112,6 +112,14 @@ app.get('/api/csrf-token', csrfProtection, (req, res) => {
   res.json({ csrfToken: req.csrfToken() });
 });
 
+// Public reCAPTCHA config endpoint (no auth, no tenant required)
+app.get('/api/leads/recaptcha-config', (req, res) => {
+  res.json({
+    siteKey: process.env.RECAPTCHA_SITE_KEY || null,
+    enabled: !!process.env.RECAPTCHA_SITE_KEY
+  });
+});
+
 // Tenant resolution middleware - identifies tenant context from subdomain/domain/user
 app.use('/api', tenantResolver);
 

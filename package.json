@@ -57,6 +57,7 @@
     "@tiptap/starter-kit": "^3.4.2",
     "@tiptap/suggestion": "^3.4.2",
     "@types/bcrypt": "^6.0.0",
+    "@types/cookie-parser": "^1.4.9",
     "@types/csurf": "^1.11.5",
     "@types/imap": "^0.8.42",
     "@types/jest": "^30.0.0",

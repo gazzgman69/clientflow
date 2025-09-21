@@ -44,10 +44,10 @@ async function verifyRecaptcha(options: RecaptchaVerificationOptions): Promise<b
         'Content-Type': 'application/x-www-form-urlencoded',
       },
       body: new URLSearchParams({
-        secret: process.env.RECAPTCHA_SECRET_KEY,
+        secret: process.env.RECAPTCHA_SECRET_KEY || '',
         response: token,
-        remoteip: userIP, // Include user IP for better verification
-      }),
+        remoteip: userIP || '', // Include user IP for better verification
+      }).toString(),
     });
 
     const result = await response.json();
@@ -135,9 +135,9 @@ async function verifyRecaptcha(options: RecaptchaVerificationOptions): Promise<b
     console.log('🔐 reCAPTCHA: Verification successful', logData);
     return true;
 
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('🔐 reCAPTCHA: Verification error', {
-      error: error instanceof Error ? error.message : 'Unknown error',
+      error: error instanceof Error ? error.message : String(error),
       ip: userIP?.slice(0, 8) + '***',
       hostname,
       expectedAction
@@ -476,6 +476,7 @@ router.post('/public/:slug/submit', formSubmissionLimiter, async (req, res) => {
     const nameParts = splitFullName(mappingResult.leadData.full_name || '');
     const leadData = {
       ...mappingResult.leadData,
+      email: mappingResult.leadData.email || mappingResult.contactData.email,
       fullName: nameParts.fullName,
       firstName: nameParts.firstName,
       middleName: nameParts.middleName,
@@ -484,11 +485,12 @@ router.post('/public/:slug/submit', formSubmissionLimiter, async (req, res) => {
       userId
     };
 
-    const lead = await storage.createLead(leadData, tenantId);
+    const lead = await storage.createLead(leadData);
 
     // Create contact from mapped data
     const contactData = {
       ...mappingResult.contactData,
+      email: mappingResult.contactData.email || mappingResult.leadData.email,
       fullName: nameParts.fullName,
       firstName: nameParts.firstName,
       middleName: nameParts.middleName,
@@ -497,7 +499,7 @@ router.post('/public/:slug/submit', formSubmissionLimiter, async (req, res) => {
       userId
     };
 
-    const contact = await storage.createContact(contactData, tenantId);
+    const contact = await storage.createContact(contactData);
 
     // Create project from mapped data
     const projectData = {
@@ -510,12 +512,12 @@ router.post('/public/:slug/submit', formSubmissionLimiter, async (req, res) => {
       userId
     };
 
-    const project = await storage.createProject(projectData, tenantId);
+    const project = await storage.createProject(projectData);
 
     // Update lead notes to reference the created contact and project
     await storage.updateLead(lead.id, { 
       notes: `Auto-linked to Contact: ${contact.id} and Project: ${project.id}`
-    }, tenantId);
+    });
 
     // TODO: Send auto-response if template configured
     // TODO: Trigger workflows if configured

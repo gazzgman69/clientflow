@@ -126,7 +126,8 @@ export default function LeadFormHosted({ slug }: LeadFormHostedProps) {
         body: JSON.stringify(data),
       });
       if (!response.ok) {
-        throw new Error('Failed to submit form');
+        const errorData = await response.json().catch(() => ({ error: 'Failed to submit form' }));
+        throw new Error(errorData.error || `Server error: ${response.status}`);
       }
       return response.json();
     },

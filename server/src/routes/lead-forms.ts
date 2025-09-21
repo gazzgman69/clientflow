@@ -147,7 +147,7 @@ const router = Router();
 // Rate limiting for public form submissions
 const formSubmissionLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 5, // Limit each IP to 5 form submissions per windowMs
+  max: process.env.NODE_ENV === 'production' ? 5 : 50, // Allow more submissions in development for testing
   message: { error: 'Too many form submissions. Please try again later.' },
   standardHeaders: true,
   legacyHeaders: false,

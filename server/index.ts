@@ -46,7 +46,7 @@ const cspConfig = {
       fontSrc: ["'self'", "https://fonts.gstatic.com"],
       scriptSrc: isProduction 
         ? ["'self'", "https://www.google.com", "https://www.gstatic.com"] 
-        : ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://www.google.com", "https://www.gstatic.com"], // unsafe-eval only for Vite dev
+        : ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://www.google.com", "https://www.gstatic.com", "https://replit.com"], // unsafe-eval only for Vite dev, replit.com for dev banner
       imgSrc: ["'self'", "data:", "https:"],
       connectSrc: isProduction 
         ? ["'self'", "wss://your-domain.com", "https://api.stripe.com", "https://www.google.com"] // Restrict in production

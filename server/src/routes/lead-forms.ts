@@ -527,7 +527,14 @@ router.post('/public/:slug/submit', formSubmissionLimiter, async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Error submitting form:', error);
+    console.error('🚨 FORM SUBMISSION ERROR:', {
+      error: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+      slug: req.params.slug,
+      hasFormData: !!req.body,
+      formDataKeys: req.body ? Object.keys(req.body) : [],
+      timestamp: new Date().toISOString()
+    });
     res.status(500).json({ error: 'Failed to submit form' });
   }
 });

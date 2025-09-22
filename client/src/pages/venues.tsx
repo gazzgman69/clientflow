@@ -452,7 +452,17 @@ export default function VenuesPage() {
                                 <Star className="h-4 w-4 text-yellow-500 fill-current" />
                                 <span className="font-medium text-lg">{enrichment.rating}</span>
                               </div>
-                              {enrichment.userRatingsTotal && (
+                              {enrichment.userRatingsTotal && selectedVenue.placeId && (
+                                <a 
+                                  href={`https://search.google.com/local/reviews?placeid=${selectedVenue.placeId}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-sm text-blue-600 hover:text-blue-800 hover:underline cursor-pointer"
+                                >
+                                  ({enrichment.userRatingsTotal} reviews)
+                                </a>
+                              )}
+                              {enrichment.userRatingsTotal && !selectedVenue.placeId && (
                                 <span className="text-sm text-muted-foreground">
                                   ({enrichment.userRatingsTotal} reviews)
                                 </span>
@@ -915,7 +925,18 @@ export default function VenuesPage() {
                                 <div className="flex items-center gap-1 text-sm">
                                   <Star className="h-3 w-3 text-yellow-500 fill-current" />
                                   <span className="font-medium">{enrichment.rating}</span>
-                                  {enrichment.userRatingsTotal && (
+                                  {enrichment.userRatingsTotal && venue.placeId && (
+                                    <a 
+                                      href={`https://search.google.com/local/reviews?placeid=${venue.placeId}`}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="text-xs text-blue-600 hover:text-blue-800 hover:underline cursor-pointer"
+                                      onClick={(e) => e.stopPropagation()}
+                                    >
+                                      ({enrichment.userRatingsTotal} reviews)
+                                    </a>
+                                  )}
+                                  {enrichment.userRatingsTotal && !venue.placeId && (
                                     <span className="text-xs text-muted-foreground">
                                       ({enrichment.userRatingsTotal} reviews)
                                     </span>

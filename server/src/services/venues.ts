@@ -182,6 +182,7 @@ export class VenuesService {
   async getSuggestions(input: string, options?: {
     sessionToken?: string;
     types?: string[];
+    cacheOnly?: boolean;
   }) {
     const cacheResults: any[] = [];
     const maxCacheResults = 5;
@@ -197,11 +198,15 @@ export class VenuesService {
     }
     
     // Enhanced caching logic:
-    // Skip Google API if we have good cache results
+    // Skip Google API if we have good cache results or if cacheOnly flag is set
     let shouldQueryGoogle = true;
     let googleResultsLimit = 8;
     
-    if (cacheResults.length > 0) {
+    // If cacheOnly flag is set, skip Google API entirely
+    if (options?.cacheOnly) {
+      shouldQueryGoogle = false;
+      console.log('🏠 CACHE ONLY: Skipping Google API call due to cacheOnly flag');
+    } else if (cacheResults.length > 0) {
       // Calculate cache result quality score
       const qualityScore = this.calculateCacheQualityScore(input, cacheResults);
       

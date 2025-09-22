@@ -44,7 +44,8 @@ router.post('/suggest', async (req, res) => {
       validatedData.input,
       {
         sessionToken: validatedData.sessionToken,
-        types: validatedData.types
+        types: validatedData.types,
+        cacheOnly: validatedData.cacheOnly
       }
     );
     
@@ -84,7 +85,8 @@ const createMinimalSchema = z.object({
 const autocompleteSchema = z.object({
   input: z.string().min(1, 'Search input is required'),
   sessionToken: z.string().optional(),
-  types: z.array(z.string()).optional()
+  types: z.array(z.string()).optional(),
+  cacheOnly: z.boolean().optional()
 });
 
 // POST /api/venues/from-google - Create venue from Google Place

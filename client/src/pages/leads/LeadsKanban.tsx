@@ -110,11 +110,48 @@ export default function LeadsKanban() {
   };
 
   // Fetch kanban data with auto-refresh
-  const { data: kanbanData, isLoading, refetch } = useQuery<KanbanData>({
-    queryKey: ["/api/leads/kanban"],
-    queryFn: async () => {
-      const response = await apiRequest("GET", "/api/leads/kanban");
-      return response.json();
+  const { data: kanbanData, isLoading, isError, refetch } = useQuery<KanbanData>({
+    queryKey: ["/api/leads"],
+    select: (leads: any[]) => {
+      // Group leads into kanban columns
+      const columns = {
+        new: [],
+        contacted: [],
+        qualified: [],
+        archived: []
+      };
+
+      leads.forEach((lead) => {
+        // Normalize status to expected values
+        const status = lead.status?.toLowerCase() || 'new';
+        const normalizedStatus = ['new', 'contacted', 'qualified', 'archived'].includes(status) 
+          ? status 
+          : 'new'; // default to 'new' if status doesn't match
+
+        const leadCard: LeadCardDTO = {
+          id: lead.id,
+          contactName: `${lead.firstName} ${lead.lastName}`.trim() || lead.fullName || 'Unknown',
+          email: lead.email,
+          phone: lead.phone || '',
+          projectId: lead.projectId,
+          projectTitle: lead.projectTitle,
+          projectDateISO: lead.projectDate,
+          source: lead.source || 'form',
+          createdAtISO: lead.createdAt,
+          status: normalizedStatus as 'new' | 'contacted' | 'qualified' | 'archived',
+          hasConflict: lead.hasConflict || false,
+          conflictDetails: lead.conflictDetails
+        };
+
+        columns[normalizedStatus].push(leadCard);
+      });
+
+      return {
+        columns,
+        counts: {
+          new: columns.new.length
+        }
+      };
     },
     refetchInterval: 10000, // Refresh every 10 seconds for better responsiveness
     refetchIntervalInBackground: true,
@@ -139,7 +176,7 @@ export default function LeadsKanban() {
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/leads/kanban"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/leads"] });
       queryClient.invalidateQueries({ queryKey: ["/api/leads/summary"] });
       toast({
         title: "Lead updated",
@@ -152,7 +189,7 @@ export default function LeadsKanban() {
         description: "Failed to update lead status. Changes reverted.",
         variant: "destructive",
       });
-      queryClient.invalidateQueries({ queryKey: ["/api/leads/kanban"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/leads"] });
     },
   });
 
@@ -163,7 +200,7 @@ export default function LeadsKanban() {
       return response.status === 204 ? {} : response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/leads/kanban"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/leads"] });
       queryClient.invalidateQueries({ queryKey: ["/api/leads/summary"] });
       toast({
         title: "Lead deleted",

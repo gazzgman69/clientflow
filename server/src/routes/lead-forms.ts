@@ -353,6 +353,36 @@ router.post('/public/:slug/submit', formSubmissionLimiter, async (req, res) => {
 
     const lead = await storage.createLead(leadData);
 
+    // Store custom field responses
+    if (mappingResult.customFieldData && mappingResult.customFieldData.length > 0) {
+      console.log('🎯 STORING CUSTOM FIELDS:', { 
+        leadId: lead.id, 
+        customFieldCount: mappingResult.customFieldData.length,
+        customFields: mappingResult.customFieldData 
+      });
+      
+      for (const customField of mappingResult.customFieldData) {
+        try {
+          const customFieldResponse = {
+            leadId: lead.id,
+            fieldKey: customField.key,
+            value: customField.value ? String(customField.value) : null,
+            submittedAt: new Date(),
+            updatedAt: new Date()
+          };
+          
+          await storage.upsertLeadCustomFieldResponse(customFieldResponse, tenantId);
+          console.log('✅ Stored custom field response:', { fieldKey: customField.key, leadId: lead.id });
+        } catch (error) {
+          console.error('❌ Failed to store custom field response:', { 
+            fieldKey: customField.key, 
+            leadId: lead.id, 
+            error: error instanceof Error ? error.message : String(error) 
+          });
+        }
+      }
+    }
+
     // Create contact from mapped data
     const contactData = {
       ...mappingResult.contactData,

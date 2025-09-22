@@ -364,20 +364,10 @@ export function VenueAutocomplete({
                       {prediction.structured_formatting?.main_text || prediction.description.split(', ')[0]}
                     </div>
                     <div className="text-xs text-muted-foreground truncate mt-0.5">
-                      {/* DEBUG: Log what we're showing */}
-                      {(() => {
-                        const addressPart = prediction.structured_formatting?.secondary_text || 
-                                          prediction.description.split(', ').slice(1).join(', ');
-                        if (prediction.description.includes('Post Barn')) {
-                          console.log('🔍 POST BARN DEBUG:', {
-                            description: prediction.description,
-                            main_text: prediction.structured_formatting?.main_text,
-                            secondary_text: prediction.structured_formatting?.secondary_text,
-                            final_address: addressPart
-                          });
-                        }
-                        return addressPart;
-                      })()}
+                      {/* Show the most complete address information available */}
+                      {prediction.structured_formatting?.secondary_text || 
+                       prediction.description.split(', ').slice(1).join(', ') ||
+                       'No address available'}
                     </div>
                   </div>
                 </Button>

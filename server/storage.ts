@@ -41,6 +41,9 @@ import {
   type QuoteExtraInfoField, type InsertQuoteExtraInfoField,
   type QuoteExtraInfoConfig, type InsertQuoteExtraInfoConfig,
   type QuoteExtraInfoResponse, type InsertQuoteExtraInfoResponse,
+  // Lead Custom Fields System types
+  type LeadCustomField, type InsertLeadCustomField,
+  type LeadCustomFieldResponse, type InsertLeadCustomFieldResponse,
   type AdminAuditLog, type InsertAdminAuditLog,
   users, leads, contacts, projects, quotes, contracts, invoices, tasks, emails, emailThreads, activities, automations, 
   members, venues, projectMembers, memberAvailability, projectFiles, projectNotes, smsMessages, 
@@ -50,6 +53,8 @@ import {
   quotePackages, quoteAddons, quoteItems, quoteTokens, quoteSignatures,
   // Quote Extra Info System tables
   quoteExtraInfoFields, quoteExtraInfoConfig, quoteExtraInfoResponses,
+  // Lead Custom Fields System tables
+  leadCustomFields, leadCustomFieldResponses,
   // Admin Audit Logs table
   adminAuditLogs
 } from "@shared/schema";
@@ -172,6 +177,23 @@ export interface IStorage {
   updateQuoteExtraInfoResponse(quoteId: string, fieldKey: string, response: Partial<InsertQuoteExtraInfoResponse>, tenantId: string): Promise<QuoteExtraInfoResponse | undefined>;
   upsertQuoteExtraInfoResponse(response: InsertQuoteExtraInfoResponse, tenantId: string): Promise<QuoteExtraInfoResponse>;
   deleteQuoteExtraInfoResponse(quoteId: string, fieldKey: string, tenantId: string): Promise<boolean>;
+  
+  // Lead Custom Fields System
+  // Lead Custom Field Definitions
+  getLeadCustomFields(tenantId: string, userId?: string): Promise<LeadCustomField[]>;
+  getLeadCustomField(id: string, tenantId: string): Promise<LeadCustomField | undefined>;
+  getLeadCustomFieldByKey(key: string, tenantId: string, userId?: string): Promise<LeadCustomField | undefined>;
+  createLeadCustomField(field: InsertLeadCustomField, tenantId: string): Promise<LeadCustomField>;
+  updateLeadCustomField(id: string, field: Partial<InsertLeadCustomField>, tenantId: string): Promise<LeadCustomField | undefined>;
+  deleteLeadCustomField(id: string, tenantId: string): Promise<boolean>;
+  
+  // Lead Custom Field Responses (user-submitted values)
+  getLeadCustomFieldResponses(leadId: string, tenantId: string): Promise<LeadCustomFieldResponse[]>;
+  getLeadCustomFieldResponse(leadId: string, fieldKey: string, tenantId: string): Promise<LeadCustomFieldResponse | undefined>;
+  createLeadCustomFieldResponse(response: InsertLeadCustomFieldResponse, tenantId: string): Promise<LeadCustomFieldResponse>;
+  updateLeadCustomFieldResponse(leadId: string, fieldKey: string, response: Partial<InsertLeadCustomFieldResponse>, tenantId: string): Promise<LeadCustomFieldResponse | undefined>;
+  upsertLeadCustomFieldResponse(response: InsertLeadCustomFieldResponse, tenantId: string): Promise<LeadCustomFieldResponse>;
+  deleteLeadCustomFieldResponse(leadId: string, fieldKey: string, tenantId: string): Promise<boolean>;
   
   // Contracts
   getContracts(tenantId: string): Promise<Contract[]>;
@@ -3732,6 +3754,138 @@ export class DrizzleStorage implements IStorage {
         eq(quoteExtraInfoResponses.quoteId, quoteId),
         eq(quoteExtraInfoResponses.fieldKey, fieldKey),
         eq(quoteExtraInfoResponses.tenantId, tenantId)
+      ));
+    return result.rowCount > 0;
+  }
+
+  // Lead Custom Fields System Implementation
+  
+  // Lead Custom Field Definitions
+  async getLeadCustomFields(tenantId: string, userId?: string): Promise<LeadCustomField[]> {
+    const conditions = [eq(leadCustomFields.tenantId, tenantId)];
+    
+    if (userId) {
+      conditions.push(or(
+        eq(leadCustomFields.userId, userId),
+        and(eq(leadCustomFields.isStandard, true), isNull(leadCustomFields.userId))
+      ));
+    } else {
+      // Return only standard fields if no userId provided
+      conditions.push(and(eq(leadCustomFields.isStandard, true), isNull(leadCustomFields.userId)));
+    }
+    
+    return await this.db.select().from(leadCustomFields)
+      .where(and(...conditions))
+      .orderBy(leadCustomFields.displayOrder, leadCustomFields.createdAt);
+  }
+
+  async getLeadCustomField(id: string, tenantId: string): Promise<LeadCustomField | undefined> {
+    const result = await this.db.select().from(leadCustomFields)
+      .where(and(eq(leadCustomFields.id, id), eq(leadCustomFields.tenantId, tenantId)));
+    return result[0];
+  }
+
+  async getLeadCustomFieldByKey(key: string, tenantId: string, userId?: string): Promise<LeadCustomField | undefined> {
+    const conditions = [
+      eq(leadCustomFields.tenantId, tenantId),
+      eq(leadCustomFields.key, key)
+    ];
+    
+    if (userId) {
+      conditions.push(or(
+        eq(leadCustomFields.userId, userId),
+        and(eq(leadCustomFields.isStandard, true), isNull(leadCustomFields.userId))
+      ));
+    } else {
+      conditions.push(and(eq(leadCustomFields.isStandard, true), isNull(leadCustomFields.userId)));
+    }
+    
+    const result = await this.db.select().from(leadCustomFields)
+      .where(and(...conditions));
+    return result[0];
+  }
+
+  async createLeadCustomField(field: InsertLeadCustomField, tenantId: string): Promise<LeadCustomField> {
+    const newField = { ...field, tenantId };
+    const result = await this.db.insert(leadCustomFields).values(newField).returning();
+    return result[0];
+  }
+
+  async updateLeadCustomField(id: string, field: Partial<InsertLeadCustomField>, tenantId: string): Promise<LeadCustomField | undefined> {
+    const result = await this.db.update(leadCustomFields)
+      .set({ ...omitUndefined(field), updatedAt: new Date() })
+      .where(and(eq(leadCustomFields.id, id), eq(leadCustomFields.tenantId, tenantId)))
+      .returning();
+    return result[0];
+  }
+
+  async deleteLeadCustomField(id: string, tenantId: string): Promise<boolean> {
+    const result = await this.db.delete(leadCustomFields)
+      .where(and(eq(leadCustomFields.id, id), eq(leadCustomFields.tenantId, tenantId)));
+    return result.rowCount > 0;
+  }
+
+  // Lead Custom Field Responses
+  async getLeadCustomFieldResponses(leadId: string, tenantId: string): Promise<LeadCustomFieldResponse[]> {
+    return await this.db.select().from(leadCustomFieldResponses)
+      .where(and(
+        eq(leadCustomFieldResponses.leadId, leadId),
+        eq(leadCustomFieldResponses.tenantId, tenantId)
+      ));
+  }
+
+  async getLeadCustomFieldResponse(leadId: string, fieldKey: string, tenantId: string): Promise<LeadCustomFieldResponse | undefined> {
+    const result = await this.db.select().from(leadCustomFieldResponses)
+      .where(and(
+        eq(leadCustomFieldResponses.leadId, leadId),
+        eq(leadCustomFieldResponses.fieldKey, fieldKey),
+        eq(leadCustomFieldResponses.tenantId, tenantId)
+      ));
+    return result[0];
+  }
+
+  async createLeadCustomFieldResponse(response: InsertLeadCustomFieldResponse, tenantId: string): Promise<LeadCustomFieldResponse> {
+    const newResponse = { ...response, tenantId };
+    const result = await this.db.insert(leadCustomFieldResponses).values(newResponse).returning();
+    return result[0];
+  }
+
+  async updateLeadCustomFieldResponse(leadId: string, fieldKey: string, response: Partial<InsertLeadCustomFieldResponse>, tenantId: string): Promise<LeadCustomFieldResponse | undefined> {
+    const result = await this.db.update(leadCustomFieldResponses)
+      .set({ ...omitUndefined(response), updatedAt: new Date() })
+      .where(and(
+        eq(leadCustomFieldResponses.leadId, leadId),
+        eq(leadCustomFieldResponses.fieldKey, fieldKey),
+        eq(leadCustomFieldResponses.tenantId, tenantId)
+      ))
+      .returning();
+    return result[0];
+  }
+
+  async upsertLeadCustomFieldResponse(response: InsertLeadCustomFieldResponse, tenantId: string): Promise<LeadCustomFieldResponse> {
+    const newResponse = { ...response, tenantId };
+    const result = await this.db.insert(leadCustomFieldResponses)
+      .values(newResponse)
+      .onConflictDoUpdate({
+        target: [leadCustomFieldResponses.leadId, leadCustomFieldResponses.fieldKey],
+        set: {
+          value: response.value,
+          fileName: response.fileName,
+          fileSize: response.fileSize,
+          mimeType: response.mimeType,
+          updatedAt: new Date()
+        }
+      })
+      .returning();
+    return result[0];
+  }
+
+  async deleteLeadCustomFieldResponse(leadId: string, fieldKey: string, tenantId: string): Promise<boolean> {
+    const result = await this.db.delete(leadCustomFieldResponses)
+      .where(and(
+        eq(leadCustomFieldResponses.leadId, leadId),
+        eq(leadCustomFieldResponses.fieldKey, fieldKey),
+        eq(leadCustomFieldResponses.tenantId, tenantId)
       ));
     return result.rowCount > 0;
   }

@@ -54,6 +54,7 @@ import templatesRoutes from "./src/routes/templates";
 import mailSettingsRoutes from "./src/routes/mailSettings";
 import userPrefsRoutes from "./src/routes/userPrefs";
 import leadFormsRoutes from "./src/routes/lead-forms";
+import leadCustomFieldsRoutes from "./src/routes/lead-custom-fields";
 import leadAutomationSimpleRoutes from "./src/routes/lead-automation-simple";
 import signaturesRoutes from "./src/routes/signatures";
 import venuesRoutes from "./src/routes/venues";
@@ -521,6 +522,9 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   
   // Lead-forms admin routes
   app.use('/api/lead-forms', ensureUserAuth, tenantResolver, requireTenant, csrf, leadFormsRoutes);
+  
+  // Lead Custom Fields routes - apply user auth, tenant resolution, CSRF for custom field management
+  app.use('/api/lead-custom-fields', ensureUserAuth, tenantResolver, requireTenant, csrf, leadCustomFieldsRoutes);
   
   // Lead Automation routes (simplified version) - apply admin auth, tenant resolution, CSRF to state-changing requests
   app.use('/api/admin/lead-automation', ensureAdminAuth, tenantResolver, requireTenant, csrf, leadAutomationSimpleRoutes);

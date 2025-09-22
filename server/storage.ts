@@ -2419,6 +2419,9 @@ export class DrizzleStorage implements IStorage {
     return result[0];
   }
   async createLead(insertLead: InsertLead, tenantId: string): Promise<Lead> {
+    if (!tenantId) {
+      throw new Error("Tenant ID is required for multi-tenant lead creation");
+    }
     const result = await db.insert(leads).values({
       ...insertLead,
       tenantId,
@@ -2473,6 +2476,9 @@ export class DrizzleStorage implements IStorage {
     return result[0];
   }
   async createContact(contact: InsertContact, tenantId: string): Promise<Contact> {
+    if (!tenantId) {
+      throw new Error("Tenant ID is required for multi-tenant contact creation");
+    }
     const result = await this.db.insert(contacts).values({
       ...contact,
       tenantId,

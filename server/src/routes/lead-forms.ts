@@ -326,8 +326,23 @@ router.post('/public/:slug/submit', formSubmissionLimiter, async (req, res) => {
     // SECURITY: Use form's tenant, not request tenant, for proper isolation in public submissions
     const tenantId = form.tenantId;
     if (!tenantId) {
+      console.error('🚨 FORM TENANT ERROR: Form missing tenantId', {
+        slug,
+        formId: form.id,
+        formName: form.name,
+        timestamp: new Date().toISOString()
+      });
       return res.status(500).json({ error: 'Form tenant context missing' });
     }
+    
+    console.log('🏢 TENANT RESOLUTION SUCCESS:', {
+      slug,
+      tenantId,
+      formId: form.id,
+      formName: form.name,
+      timestamp: new Date().toISOString()
+    });
+    
     // Public submissions have no authenticated user - use null for proper tenant isolation
     const userId = null;
     
@@ -352,6 +367,15 @@ router.post('/public/:slug/submit', formSubmissionLimiter, async (req, res) => {
     };
 
     const lead = await storage.createLead(leadData, tenantId);
+    
+    console.log('✅ LEAD CREATED:', {
+      leadId: lead.id,
+      leadEmail: lead.email,
+      leadName: lead.fullName,
+      tenantId,
+      slug,
+      timestamp: new Date().toISOString()
+    });
 
     // Store custom field responses
     if (mappingResult.customFieldData && mappingResult.customFieldData.length > 0) {
@@ -396,6 +420,15 @@ router.post('/public/:slug/submit', formSubmissionLimiter, async (req, res) => {
     };
 
     const contact = await storage.createContact(contactData, tenantId);
+    
+    console.log('✅ CONTACT CREATED:', {
+      contactId: contact.id,
+      contactEmail: contact.email,
+      contactName: contact.fullName,
+      tenantId,
+      slug,
+      timestamp: new Date().toISOString()
+    });
 
     // Create project from mapped data
     const projectData = {
@@ -408,11 +441,29 @@ router.post('/public/:slug/submit', formSubmissionLimiter, async (req, res) => {
       userId
     };
 
-    const project = await storage.createProject(projectData);
+    const project = await storage.createProject(projectData, tenantId);
+    
+    console.log('✅ PROJECT CREATED:', {
+      projectId: project.id,
+      projectName: project.name,
+      contactId: contact.id,
+      tenantId,
+      slug,
+      timestamp: new Date().toISOString()
+    });
 
     // Update lead notes to reference the created contact and project
     await storage.updateLead(lead.id, { 
       notes: `Auto-linked to Contact: ${contact.id} and Project: ${project.id}`
+    }, tenantId);
+    
+    console.log('✅ LEAD UPDATED:', {
+      leadId: lead.id,
+      contactId: contact.id,
+      projectId: project.id,
+      tenantId,
+      slug,
+      timestamp: new Date().toISOString()
     });
 
     // TODO: Send auto-response if template configured

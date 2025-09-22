@@ -4,6 +4,9 @@ import { googleOAuthService, getGoogleAuthUrl } from '../services/google-oauth';
 import { microsoftOAuthService } from '../services/microsoft-oauth';
 import { storage } from '../../storage';
 import { google } from 'googleapis';
+import { db } from '../../db';
+import { calendarIntegrations } from '@shared/schema';
+import { eq } from 'drizzle-orm';
 
 // Extend session type to include oauth_state and oauth_return_to
 declare module 'express-session' {
@@ -67,7 +70,14 @@ const requireAuth = async (req: any, res: any, next: any) => {
       message: 'Please log in to access this endpoint'
     });
   }
+  if (!req.session?.tenantId) {
+    return res.status(400).json({ 
+      error: 'Tenant context required', 
+      message: 'Session missing tenant information'
+    });
+  }
   req.authenticatedUserId = req.session.userId;
+  req.tenantId = req.session.tenantId;
   next();
 };
 
@@ -84,7 +94,7 @@ router.post('/auth/google/start', requireAuth, async (req: any, res) => {
     }
     
     // Check if integration already exists
-    const existing = await storage.getCalendarIntegrationByEmail(email, userId);
+    const existing = await storage.getCalendarIntegrationByEmail(email, userId, req.tenantId);
     if (existing && existing.refreshToken) {
       return res.json({ 
         message: 'Already connected',
@@ -168,7 +178,12 @@ router.get('/auth/google/callback', async (req, res) => {
     if (!req.session?.userId) {
       return res.status(401).send('Authentication required');
     }
+    // Get tenantId from session for tenant isolation
+    if (!req.session?.tenantId) {
+      return res.status(400).send('Tenant context required');
+    }
     const userId = req.session.userId;
+    const tenantId = req.session.tenantId;
     
     // Exchange code for tokens with PKCE verification
     const tokens = await googleOAuthService.exchangeCodeForTokens(code as string, pkceCodeVerifier);
@@ -177,7 +192,7 @@ router.get('/auth/google/callback', async (req, res) => {
     console.log('Tokens received with scopes:', tokens);
     
     // Check if integration already exists
-    let integration = await storage.getCalendarIntegrationByEmail(tokens.email, userId);
+    let integration = await storage.getCalendarIntegrationByEmail(tokens.email, userId, tenantId);
     
     if (integration) {
       // Update existing integration with tokens and expiry
@@ -187,7 +202,7 @@ router.get('/auth/google/callback', async (req, res) => {
         providerAccountId: tokens.email,
         isActive: true,
         lastSyncAt: new Date()
-      });
+      }, tenantId);
     } else {
       // Create new integration
       integration = await storage.createCalendarIntegration({
@@ -199,7 +214,7 @@ router.get('/auth/google/callback', async (req, res) => {
         refreshToken: tokens.refresh_token,
         isActive: true,
         syncDirection: 'bidirectional'
-      });
+      }, tenantId);
     }
     
     // Schedule background sync (don't await - let popup close immediately)
@@ -302,9 +317,9 @@ router.get('/auth/google/callback', async (req, res) => {
 /**
  * Manual sync trigger
  */
-router.post('/calendar-integrations/:id/sync', async (req, res) => {
+router.post('/calendar-integrations/:id/sync', requireAuth, async (req: any, res) => {
   try {
-    const integration = await storage.getCalendarIntegration(req.params.id);
+    const integration = await storage.getCalendarIntegration(req.params.id, req.tenantId);
     
     if (!integration) {
       return res.status(404).json({ error: 'Integration not found' });
@@ -327,12 +342,12 @@ router.post('/calendar-integrations/:id/sync', async (req, res) => {
 /**
  * Sync single event to Google
  */
-router.post('/events/:id/sync-to-google', async (req, res) => {
+router.post('/events/:id/sync-to-google', requireAuth, async (req: any, res) => {
   try {
     const { integrationId } = req.body;
     const eventId = req.params.id;
     
-    const integration = await storage.getCalendarIntegration(integrationId);
+    const integration = await storage.getCalendarIntegration(integrationId, req.tenantId);
     
     if (!integration) {
       return res.status(404).json({ error: 'Integration not found' });
@@ -382,17 +397,22 @@ const verifyGoogleWebhook = async (req: any, res: any, next: any) => {
       return res.status(400).send('Missing integration ID');
     }
     
-    // Verify the integration exists and get the stored webhook ID
-    const integration = await storage.getCalendarIntegration(integrationId);
+    // Get integration without tenantId for webhook verification - security validation done later
+    const integration = await db.select().from(calendarIntegrations).where(eq(calendarIntegrations.id, integrationId));
+    if (!integration[0]) {
+      console.error('❌ Google webhook integration not found:', integrationId);
+      return res.status(404).send('Integration not found');
+    }
+    const integrationData = integration[0];
     if (!integration) {
       console.error('❌ Google webhook integration not found:', integrationId);
       return res.status(404).send('Integration not found');
     }
     
     // Verify the resourceId matches the stored webhook ID for this integration
-    if (integration.webhookId && integration.webhookId !== resourceId) {
+    if (integrationData.webhookId && integrationData.webhookId !== resourceId) {
       console.error('❌ Google webhook resource ID mismatch:', {
-        expected: integration.webhookId,
+        expected: integrationData.webhookId,
         received: resourceId,
         integrationId
       });
@@ -400,11 +420,11 @@ const verifyGoogleWebhook = async (req: any, res: any, next: any) => {
     }
     
     // Verify channel token if configured (cryptographic validation)
-    if (channelToken && integration.webhookId) {
+    if (channelToken && integrationData.webhookId) {
       try {
         // Create expected signature using webhook secret + resource ID + channel ID
         const crypto = require('crypto');
-        const webhookSecret = process.env.GOOGLE_WEBHOOK_SECRET || integration.webhookId;
+        const webhookSecret = process.env.GOOGLE_WEBHOOK_SECRET || integrationData.webhookId;
         
         // Create signature payload: method + url + timestamp + body
         const payload = `${req.method}${req.originalUrl}${messageNumber || ''}${JSON.stringify(req.body || {})}`;
@@ -420,9 +440,9 @@ const verifyGoogleWebhook = async (req: any, res: any, next: any) => {
         
         // For Google webhooks, the channel token is not necessarily a signature
         // Instead, we validate that it matches our stored expectation
-        if (integration.settings) {
+        if (integrationData.settings) {
           try {
-            const settings = JSON.parse(integration.settings);
+            const settings = JSON.parse(integrationData.settings);
             if (settings.expectedChannelToken && settings.expectedChannelToken !== channelToken) {
               console.error('❌ Google webhook channel token mismatch');
               return res.status(403).send('Invalid webhook channel token');
@@ -448,12 +468,12 @@ const verifyGoogleWebhook = async (req: any, res: any, next: any) => {
     // Log successful verification
     console.log('✅ Google webhook verification passed:', {
       integrationId,
-      userId: integration.userId,
+      userId: integrationData.userId,
       resourceState
     });
     
     // Add integration context to request for webhook handler
-    req.webhookIntegration = integration;
+    req.webhookIntegration = integrationData;
     next();
     
   } catch (error: any) {
@@ -467,7 +487,8 @@ const verifyGoogleWebhook = async (req: any, res: any, next: any) => {
  */
 router.post('/webhooks/google-calendar/:integrationId', verifyGoogleWebhook, async (req, res) => {
   try {
-    const integration = await storage.getCalendarIntegration(req.params.integrationId);
+    // Integration already verified in webhook verification middleware
+    const integration = req.webhookIntegration;
     
     if (!integration) {
       console.error('❌ Integration not found for webhook:', req.params.integrationId);
@@ -491,9 +512,9 @@ router.post('/webhooks/google-calendar/:integrationId', verifyGoogleWebhook, asy
 /**
  * Disconnect integration
  */
-router.delete('/calendar-integrations/:id', async (req, res) => {
+router.delete('/calendar-integrations/:id', requireAuth, async (req: any, res) => {
   try {
-    const success = await storage.deleteCalendarIntegration(req.params.id);
+    const success = await storage.deleteCalendarIntegration(req.params.id, req.tenantId);
     
     if (!success) {
       return res.status(404).json({ error: 'Integration not found' });
@@ -515,7 +536,7 @@ router.get('/api/auth/google/status', requireAuth, async (req: any, res) => {
     const userId = req.authenticatedUserId;
     
     // Check if user has any active Google integrations
-    const integrations = await storage.getCalendarIntegrationsByUser(userId);
+    const integrations = await storage.getCalendarIntegrationsByUser(userId, req.tenantId);
     const googleIntegration = integrations.find(i => i.provider === 'google' && i.isActive);
     
     if (!googleIntegration || !googleIntegration.accessToken) {
@@ -598,7 +619,7 @@ router.get('/api/auth/microsoft/status', requireAuth, async (req: any, res) => {
     }
     
     // Check if user has active Microsoft integrations for this tenant
-    const integrations = await storage.getCalendarIntegrationsByUser(userId);
+    const integrations = await storage.getCalendarIntegrationsByUser(userId, tenantId);
     const microsoftIntegration = integrations.find(i => 
       i.provider === 'microsoft' && 
       i.isActive &&
@@ -725,11 +746,11 @@ router.post('/api/auth/google/disconnect', requireAuth, async (req: any, res) =>
     
     try {
       // Try to get integrations normally first
-      const integrations = await storage.getCalendarIntegrationsByUser(userId);
+      const integrations = await storage.getCalendarIntegrationsByUser(userId, req.tenantId);
       const googleIntegrations = integrations.filter(i => i.provider === 'google');
       
       for (const integration of googleIntegrations) {
-        const success = await storage.deleteCalendarIntegration(integration.id);
+        const success = await storage.deleteCalendarIntegration(integration.id, req.tenantId);
         if (success) deletedCount++;
       }
       
@@ -798,7 +819,7 @@ router.post('/api/auth/google/sync', requireAuth, async (req: any, res) => {
     const userId = req.authenticatedUserId;
     
     // Get active Google integrations for this user
-    const integrations = await storage.getCalendarIntegrationsByUser(userId);
+    const integrations = await storage.getCalendarIntegrationsByUser(userId, req.tenantId);
     const activeGoogleIntegrations = integrations.filter(i => 
       i.provider === 'google' && i.isActive
     );
@@ -829,7 +850,7 @@ router.post('/api/auth/google/sync', requireAuth, async (req: any, res) => {
       activeGoogleIntegrations.slice(0, syncCount).map(integration =>
         storage.updateCalendarIntegration(integration.id, {
           lastSyncAt: new Date()
-        })
+        }, req.tenantId)
       )
     );
     

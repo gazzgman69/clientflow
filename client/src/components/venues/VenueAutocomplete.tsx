@@ -361,9 +361,13 @@ export function VenueAutocomplete({
                   <MapPin className="mr-3 h-4 w-4 text-muted-foreground shrink-0" />
                   <div className="min-w-0 flex-1">
                     <div className="font-medium text-sm truncate">
-                      {/* Show exactly what will appear in the field after selection */}
-                      {prediction.description}
+                      {prediction.structured_formatting?.main_text || prediction.description}
                     </div>
+                    {prediction.structured_formatting?.secondary_text && (
+                      <div className="text-xs text-muted-foreground truncate mt-0.5">
+                        {prediction.structured_formatting.secondary_text}
+                      </div>
+                    )}
                   </div>
                 </Button>
               ))}

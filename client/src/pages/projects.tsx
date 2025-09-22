@@ -52,8 +52,8 @@ export default function Projects() {
 
   const { data: projects, isLoading } = useQuery<Project[]>({
     queryKey: ["/api/projects"],
-    refetchInterval: 1000, // Refresh every 1 second for real-time updates
-    refetchIntervalInBackground: true,
+    refetchInterval: 30000, // Refresh every 30 seconds for reasonable updates
+    refetchIntervalInBackground: false, // Don't poll when tab is inactive
     refetchOnWindowFocus: true, // Refresh when tab/window gains focus
     refetchOnMount: true, // Refresh when component mounts
     refetchOnReconnect: true, // Refresh on reconnect
@@ -61,8 +61,8 @@ export default function Projects() {
 
   const { data: contacts } = useQuery<Contact[]>({
     queryKey: ["/api/contacts"],
-    refetchInterval: 1000, // Refresh every 1 second for real-time updates
-    refetchIntervalInBackground: true,
+    refetchInterval: 30000, // Refresh every 30 seconds for reasonable updates
+    refetchIntervalInBackground: false, // Don't poll when tab is inactive
     refetchOnWindowFocus: true, // Refresh when tab/window gains focus
     refetchOnMount: true, // Refresh when component mounts
     refetchOnReconnect: true, // Refresh on reconnect

@@ -952,12 +952,6 @@ export default function VenuesPage() {
                                     </span>
                                   </div>
                                 )}
-                                {enrichment.businessStatus === 'OPERATIONAL' && (
-                                  <div className="flex items-center gap-1 text-xs">
-                                    <CheckCircle className="h-3 w-3 text-green-500" />
-                                    <span className="text-green-600">Open</span>
-                                  </div>
-                                )}
                               </div>
                             </div>
                           );

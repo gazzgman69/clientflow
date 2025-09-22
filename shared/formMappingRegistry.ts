@@ -197,7 +197,8 @@ export function applyMapping(
   // Validate all keys exist in registry
   const unknownKeys = Object.keys(payload).filter(key => 
     !FORM_FIELD_REGISTRY[key] && 
-    !key.includes('eventLocation') // Allow venue address components
+    // Allow venue address components like 'eventLocationCity', etc.
+    !(key.startsWith('eventLocation') && key !== 'eventLocation')
   );
   
   if (unknownKeys.length > 0 && !options.allowUnknownKeys) {

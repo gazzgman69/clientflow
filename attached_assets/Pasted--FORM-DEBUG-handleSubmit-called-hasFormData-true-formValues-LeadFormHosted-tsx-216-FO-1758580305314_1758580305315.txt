@@ -1,0 +1,30 @@
+🔍 FORM DEBUG: handleSubmit called {hasFormData: true, formValues: {…}}
+LeadFormHosted.tsx:216 🚀 FORM DEBUG: About to submit form {submissionData: {…}, url: '/api/leads/public/new-capture-form-1757975240101/submit'}
+LeadFormHosted.tsx:115 🌐 FETCH DEBUG: Starting fetch request {url: '/api/leads/public/new-capture-form-1757975240101/submit', data: {…}}
+LeadFormHosted.tsx:117  POST https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/api/leads/public/new-capture-form-1757975240101/submit 500 (Internal Server Error)
+mutationFn @ LeadFormHosted.tsx:117
+fn @ @tanstack_react-query.js?v=773266cd:1189
+run @ @tanstack_react-query.js?v=773266cd:494
+start @ @tanstack_react-query.js?v=773266cd:536
+execute @ @tanstack_react-query.js?v=773266cd:1225
+await in execute
+mutate @ @tanstack_react-query.js?v=773266cd:2630
+(anonymous) @ @tanstack_react-query.js?v=773266cd:3295
+handleSubmit @ LeadFormHosted.tsx:217
+callCallback2 @ chunk-RPCDYKBN.js?v=773266cd:3674
+invokeGuardedCallbackDev @ chunk-RPCDYKBN.js?v=773266cd:3699
+invokeGuardedCallback @ chunk-RPCDYKBN.js?v=773266cd:3733
+invokeGuardedCallbackAndCatchFirstError @ chunk-RPCDYKBN.js?v=773266cd:3736
+executeDispatch @ chunk-RPCDYKBN.js?v=773266cd:7014
+processDispatchQueueItemsInOrder @ chunk-RPCDYKBN.js?v=773266cd:7034
+processDispatchQueue @ chunk-RPCDYKBN.js?v=773266cd:7043
+dispatchEventsForPlugins @ chunk-RPCDYKBN.js?v=773266cd:7051
+(anonymous) @ chunk-RPCDYKBN.js?v=773266cd:7174
+batchedUpdates$1 @ chunk-RPCDYKBN.js?v=773266cd:18913
+batchedUpdates @ chunk-RPCDYKBN.js?v=773266cd:3579
+dispatchEventForPluginEventSystem @ chunk-RPCDYKBN.js?v=773266cd:7173
+dispatchEventWithEnableCapturePhaseSelectiveHydrationWithoutDiscreteEventReplay @ chunk-RPCDYKBN.js?v=773266cd:5478
+dispatchEvent @ chunk-RPCDYKBN.js?v=773266cd:5472
+dispatchDiscreteEvent @ chunk-RPCDYKBN.js?v=773266cd:5449Understand this error
+LeadFormHosted.tsx:125 📡 FETCH DEBUG: Response received {status: 500, statusText: 'Internal Server Error', ok: false, headers: {…}}
+LeadFormHosted.tsx:134 ❌ FETCH DEBUG: Response not ok {status: 500, errorData: {…}}

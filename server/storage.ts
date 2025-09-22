@@ -2515,9 +2515,13 @@ export class DrizzleStorage implements IStorage {
   async getProjectsByContact(contactId: string): Promise<Project[]> {
     return await this.db.select().from(projects).where(eq(projects.contactId, contactId)).orderBy(desc(projects.createdAt));
   }
-  async createProject(project: InsertProject): Promise<Project> {
+  async createProject(project: InsertProject, tenantId: string): Promise<Project> {
+    if (!tenantId) {
+      throw new Error("Tenant ID is required for multi-tenant project creation");
+    }
     const result = await this.db.insert(projects).values({
       ...project,
+      tenantId,
       userId: project.userId,  // Explicitly ensure userId is included
       createdAt: new Date(),
       updatedAt: new Date(),

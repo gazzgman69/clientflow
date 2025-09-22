@@ -364,8 +364,20 @@ export function VenueAutocomplete({
                       {prediction.structured_formatting?.main_text || prediction.description.split(', ')[0]}
                     </div>
                     <div className="text-xs text-muted-foreground truncate mt-0.5">
-                      {/* Always show the full address from description for maximum detail */}
-                      {prediction.description.split(', ').slice(1).join(', ')}
+                      {/* DEBUG: Log what we're showing */}
+                      {(() => {
+                        const addressPart = prediction.structured_formatting?.secondary_text || 
+                                          prediction.description.split(', ').slice(1).join(', ');
+                        if (prediction.description.includes('Post Barn')) {
+                          console.log('🔍 POST BARN DEBUG:', {
+                            description: prediction.description,
+                            main_text: prediction.structured_formatting?.main_text,
+                            secondary_text: prediction.structured_formatting?.secondary_text,
+                            final_address: addressPart
+                          });
+                        }
+                        return addressPart;
+                      })()}
                     </div>
                   </div>
                 </Button>

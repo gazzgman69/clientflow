@@ -860,14 +860,6 @@ export default function VenuesPage() {
                           {venue.name}
                         </div>
                       </div>
-                      {venue.website && (
-                        <div className="flex items-center gap-1 text-xs text-muted-foreground mt-1">
-                          <Globe className="h-3 w-3" />
-                          <a href={venue.website} target="_blank" rel="noopener noreferrer" className="hover:underline">
-                            Website
-                          </a>
-                        </div>
-                      )}
                     </TableCell>
                     <TableCell>
                       <div className="space-y-1">
@@ -956,6 +948,16 @@ export default function VenuesPage() {
                             </div>
                           );
                         })()}
+                        
+                        {/* Website */}
+                        {venue.website && (
+                          <div className="flex items-center gap-1 text-sm">
+                            <Globe className="h-3 w-3" />
+                            <a href={venue.website} target="_blank" rel="noopener noreferrer" className="hover:underline text-blue-600">
+                              Website
+                            </a>
+                          </div>
+                        )}
                         
                         {/* Venue Capacity */}
                         {venue.capacity && (

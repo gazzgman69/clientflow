@@ -58,7 +58,7 @@ export const FORM_FIELD_REGISTRY: Record<string, FormFieldMapping> = {
   },
   eventLocation: {
     model: 'leads',
-    field: 'event_location', 
+    field: 'eventLocation', 
     type: 'text',
     required: false,
     label: 'Event Location',
@@ -212,16 +212,6 @@ export function applyMapping(
 
   // Process each field in the payload
   Object.entries(payload).forEach(([key, value]) => {
-    // Debug logging for eventLocation field
-    if (key === 'eventLocation') {
-      console.log('🔍 EVENTLOCATION DEBUG:', {
-        key,
-        value,
-        hasMapping: !!FORM_FIELD_REGISTRY[key],
-        mapping: FORM_FIELD_REGISTRY[key]
-      });
-    }
-    
     const mapping = FORM_FIELD_REGISTRY[key];
     
     if (!mapping) {
@@ -250,7 +240,7 @@ export function applyMapping(
       try {
         sanitizedValue = mapping.sanitizer(value);
       } catch (error) {
-        result.errors.push(`Failed to sanitize field '${key}': ${error.message}`);
+        result.errors.push(`Failed to sanitize field '${key}': ${error instanceof Error ? error.message : 'Unknown error'}`);
         return;
       }
     }

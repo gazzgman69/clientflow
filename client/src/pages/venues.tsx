@@ -421,6 +421,112 @@ export default function VenuesPage() {
                     </FormItem>
                   )}
                 />
+
+                {/* Enriched Venue Details Display - Only show when editing existing venue */}
+                {selectedVenue && (() => {
+                  const enrichment = parseVenueEnrichment(selectedVenue.meta);
+                  return enrichment && (
+                    <div className="rounded-lg border p-4 bg-muted/30">
+                      <h3 className="text-sm font-medium mb-3 flex items-center gap-2">
+                        <Star className="h-4 w-4 text-yellow-500" />
+                        Google Places Information
+                      </h3>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {/* Rating and Reviews */}
+                        {enrichment.rating && (
+                          <div className="space-y-1">
+                            <div className="text-xs text-muted-foreground">Rating</div>
+                            <div className="flex items-center gap-2">
+                              <div className="flex items-center gap-1">
+                                <Star className="h-4 w-4 text-yellow-500 fill-current" />
+                                <span className="font-medium text-lg">{enrichment.rating}</span>
+                              </div>
+                              {enrichment.userRatingsTotal && (
+                                <span className="text-sm text-muted-foreground">
+                                  ({enrichment.userRatingsTotal} reviews)
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Price Level */}
+                        {enrichment.priceLevel && (
+                          <div className="space-y-1">
+                            <div className="text-xs text-muted-foreground">Price Level</div>
+                            <div className="flex items-center gap-2">
+                              <DollarSign className="h-4 w-4 text-green-600" />
+                              <span className="font-medium text-green-600 text-lg">
+                                {getPriceLevelDisplay(enrichment.priceLevel)}
+                              </span>
+                              <span className="text-sm text-muted-foreground">
+                                {enrichment.priceLevel === 1 && 'Inexpensive'}
+                                {enrichment.priceLevel === 2 && 'Moderate'}
+                                {enrichment.priceLevel === 3 && 'Expensive'}
+                                {enrichment.priceLevel === 4 && 'Very Expensive'}
+                              </span>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Business Status */}
+                        {enrichment.businessStatus && (
+                          <div className="space-y-1">
+                            <div className="text-xs text-muted-foreground">Status</div>
+                            <div className="flex items-center gap-2">
+                              {enrichment.businessStatus === 'OPERATIONAL' ? (
+                                <>
+                                  <CheckCircle className="h-4 w-4 text-green-500" />
+                                  <span className="text-green-600 font-medium">Open</span>
+                                </>
+                              ) : (
+                                <>
+                                  <span className="text-muted-foreground font-medium">{enrichment.businessStatus}</span>
+                                </>
+                              )}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Opening Hours */}
+                        {enrichment.openingHours && enrichment.openingHours.length > 0 && (
+                          <div className="space-y-1">
+                            <div className="text-xs text-muted-foreground">Hours</div>
+                            <div className="flex items-center gap-2">
+                              <Clock className="h-4 w-4 text-blue-600" />
+                              <span className="text-sm font-medium">Available</span>
+                              <details className="text-xs">
+                                <summary className="cursor-pointer text-blue-600 hover:underline">View Hours</summary>
+                                <div className="mt-2 space-y-1 bg-background p-2 rounded border">
+                                  {enrichment.openingHours.slice(0, 7).map((hours, idx) => (
+                                    <div key={idx} className="text-xs">
+                                      {hours}
+                                    </div>
+                                  ))}
+                                </div>
+                              </details>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Enrichment Info */}
+                      {enrichment.lastEnriched && (
+                        <div className="mt-3 pt-3 border-t text-xs text-muted-foreground">
+                          <div className="flex items-center justify-between">
+                            <span>
+                              {enrichment.autoEnriched ? '🤖 Auto-enriched' : '✋ Manually enriched'} 
+                              {enrichment.confidence && ` (${Math.round(enrichment.confidence * 100)}% match)`}
+                            </span>
+                            <span>
+                              {new Date(enrichment.lastEnriched).toLocaleDateString()}
+                            </span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
                 
                 {/* Address Line 1 */}
                 <FormField

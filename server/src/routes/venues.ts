@@ -94,7 +94,7 @@ router.post('/from-google', async (req, res) => {
   try {
     const validatedData = createFromGoogleSchema.parse(req.body);
     
-    const venue = await venuesService.createFromGoogle(validatedData);
+    const venue = await venuesService.createFromGoogle(validatedData, (req as any).tenantId);
     
     // Track usage for caching
     await venuesService.trackVenueUsage(venue.id);
@@ -140,7 +140,7 @@ router.post('/minimal', async (req, res) => {
   try {
     const validatedData = createMinimalSchema.parse(req.body);
     
-    const venue = await venuesService.createMinimal(validatedData);
+    const venue = await venuesService.createMinimal(validatedData, (req as any).tenantId);
     
     res.status(201).json(venue);
   } catch (error) {

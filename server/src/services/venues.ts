@@ -1,6 +1,7 @@
 import { storage } from '../../storage';
 import { geocodingService, type PlaceDetails } from './geocoding';
 import type { Venue, InsertVenue } from '@shared/schema';
+import { withTenantData } from '../../utils/tenantQueries';
 
 export interface CreateVenueFromGoogleRequest {
   placeId: string;
@@ -21,7 +22,7 @@ export class VenuesService {
    * Create or update venue from Google Place details
    * If place_id already exists, update only empty fields to preserve manual edits
    */
-  async upsertFromPlace(details: PlaceDetails): Promise<Venue> {
+  async upsertFromPlace(details: PlaceDetails, tenantId: string): Promise<Venue> {
     // Check if venue with this place_id already exists
     const existingVenues = await storage.getVenues();
     const existingVenue = existingVenues.find(v => v.placeId === details.placeId);
@@ -54,7 +55,7 @@ export class VenuesService {
     }
 
     // Create new venue
-    const newVenue: InsertVenue = {
+    const newVenueData = {
       name: details.name,
       address: details.address1,
       address2: details.address2,
@@ -68,16 +69,17 @@ export class VenuesService {
       placeId: details.placeId,
     };
 
+    const newVenue: InsertVenue = withTenantData(newVenueData, tenantId);
     return await storage.createVenue(newVenue);
   }
 
   /**
    * Create venue from Google Place ID and session token
    */
-  async createFromGoogle({ placeId, sessionToken }: CreateVenueFromGoogleRequest): Promise<Venue> {
+  async createFromGoogle({ placeId, sessionToken }: CreateVenueFromGoogleRequest, tenantId: string): Promise<Venue> {
     try {
       const placeDetails = await geocodingService.getPlaceDetails(placeId, sessionToken);
-      return await this.upsertFromPlace(placeDetails);
+      return await this.upsertFromPlace(placeDetails, tenantId);
     } catch (error) {
       console.error('Error creating venue from Google Place:', error);
       throw new Error('Failed to create venue from Google Place');
@@ -94,8 +96,8 @@ export class VenuesService {
   /**
    * Create minimal venue for manual entry (when user doesn't select a Google result)
    */
-  async createMinimal(venueData: CreateMinimalVenueRequest): Promise<Venue> {
-    const venueInsert: InsertVenue = {
+  async createMinimal(venueData: CreateMinimalVenueRequest, tenantId: string): Promise<Venue> {
+    const venueData_base = {
       name: venueData.name,
       address: venueData.address || null,
       city: venueData.city || null,
@@ -104,6 +106,7 @@ export class VenuesService {
       country: venueData.country || null,
     };
 
+    const venueInsert: InsertVenue = withTenantData(venueData_base, tenantId);
     return await storage.createVenue(venueInsert);
   }
 

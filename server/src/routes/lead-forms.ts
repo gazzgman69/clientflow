@@ -351,7 +351,7 @@ router.post('/public/:slug/submit', formSubmissionLimiter, async (req, res) => {
       userId
     };
 
-    const lead = await storage.createLead(leadData);
+    const lead = await storage.createLead(leadData, tenantId);
 
     // Store custom field responses
     if (mappingResult.customFieldData && mappingResult.customFieldData.length > 0) {

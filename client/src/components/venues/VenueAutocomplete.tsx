@@ -363,11 +363,11 @@ export function VenueAutocomplete({
                     <div className="font-medium text-sm truncate">
                       {prediction.structured_formatting?.main_text || prediction.description}
                     </div>
-                    {prediction.structured_formatting?.secondary_text && (
-                      <div className="text-xs text-muted-foreground truncate mt-0.5">
-                        {prediction.structured_formatting.secondary_text}
-                      </div>
-                    )}
+                    <div className="text-xs text-muted-foreground truncate mt-0.5">
+                      {/* Show the most complete address information available */}
+                      {prediction.structured_formatting?.secondary_text || 
+                       prediction.description.split(', ').slice(1).join(', ')}
+                    </div>
                   </div>
                 </Button>
               ))}

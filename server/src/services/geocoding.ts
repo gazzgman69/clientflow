@@ -120,11 +120,6 @@ Current key starts with: ${this.apiKey.substring(0, 8)}...
         return [];
       }
 
-      // DEBUG: Log predictions for "The Post Barn" specifically
-      if (input.toLowerCase().includes('post barn')) {
-        console.log('🔍 DEBUG: The Post Barn predictions:', JSON.stringify(data.predictions, null, 2));
-      }
-
       return data.predictions;
     } catch (error) {
       console.error('Error fetching place predictions:', error);

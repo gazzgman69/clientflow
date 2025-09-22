@@ -214,8 +214,8 @@ export function applyMapping(
     const mapping = FORM_FIELD_REGISTRY[key];
     
     if (!mapping) {
-      // Handle venue address components separately
-      if (key.includes('eventLocation')) {
+      // Handle venue address components separately (but not the base eventLocation field)
+      if (key.includes('eventLocation') && key !== 'eventLocation') {
         handleVenueAddressComponent(key, value, result);
         return;
       }

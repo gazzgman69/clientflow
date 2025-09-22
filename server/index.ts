@@ -54,7 +54,7 @@ const cspConfig = {
       frameSrc: ["'self'", "https://www.google.com"],
       objectSrc: ["'none'"],
       baseUri: ["'self'"],
-      formAction: ["'self'"],
+      formAction: ["'self'", "*"], // Allow form submissions from any origin for development
     },
   },
   crossOriginEmbedderPolicy: false,

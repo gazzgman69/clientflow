@@ -657,31 +657,20 @@ export default function LeadCaptureBuilder() {
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <Label htmlFor="notification">Notification Method</Label>
-                        <Select
-                          value={formDetails?.notification || 'email'}
-                          onValueChange={(value) => setFormDetails(prev => prev ? {...prev, notification: value} : null)}
-                        >
-                          <SelectTrigger data-testid="select-notification">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="email">Email</SelectItem>
-                            <SelectItem value="sms">SMS</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <Switch
-                          id="recaptcha"
-                          checked={formDetails?.recaptchaEnabled || false}
-                          onCheckedChange={(checked) => setFormDetails(prev => prev ? {...prev, recaptchaEnabled: checked} : null)}
-                          data-testid="switch-recaptcha"
-                        />
-                        <Label htmlFor="recaptcha">Enable reCAPTCHA</Label>
-                      </div>
+                    <div>
+                      <Label htmlFor="notification">Notification Method</Label>
+                      <Select
+                        value={formDetails?.notification || 'email'}
+                        onValueChange={(value) => setFormDetails(prev => prev ? {...prev, notification: value} : null)}
+                      >
+                        <SelectTrigger data-testid="select-notification">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="email">Email</SelectItem>
+                          <SelectItem value="sms">SMS</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
 
                     <div>

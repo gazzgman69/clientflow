@@ -27,13 +27,13 @@ export class SignaturesService {
   /**
    * Create a new signature
    */
-  async createSignature(data: InsertEmailSignature): Promise<EmailSignature> {
+  async createSignature(data: InsertEmailSignature, tenantId: string): Promise<EmailSignature> {
     // If this is set as default, remove default from other signatures
     if (data.isDefault) {
       await storage.clearDefaultSignatures(data.userId);
     }
 
-    return await storage.createSignature(data);
+    return await storage.createSignature(data, tenantId);
   }
 
   /**

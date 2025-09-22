@@ -272,7 +272,7 @@ export async function seedStandardQuestions(): Promise<void> {
     
     for (const question of STANDARD_QUESTIONS) {
       try {
-        const created = await storage.createQuoteExtraInfoField(question);
+        const created = await storage.createQuoteExtraInfoField(question, 'default-tenant');
         console.log(`✅ Created: ${question.key} - ${question.label}`);
       } catch (error) {
         console.error(`❌ Failed to create ${question.key}:`, error);

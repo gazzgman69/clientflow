@@ -60,7 +60,7 @@ export class TemplatesService {
     title: string;
     subject?: string;
     body: string;
-  }): Promise<Template> {
+  }, tenantId: string): Promise<Template> {
     const templateData: InsertTemplate = {
       type: data.type,
       title: data.title,
@@ -69,7 +69,7 @@ export class TemplatesService {
       isActive: true
     };
     
-    return await storage.createTemplate(templateData);
+    return await storage.createTemplate(templateData, tenantId);
   }
 
   /**

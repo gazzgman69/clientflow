@@ -422,7 +422,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   app.post("/api/leads", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
     try {
       const leadData = insertLeadSchema.parse(req.body);
-      const lead = await storage.createLead(leadData);
+      const lead = await storage.createLead(leadData, req.tenantId);
       res.status(201).json(lead);
     } catch (error) {
       res.status(400).json({ message: "Invalid lead data" });
@@ -820,9 +820,8 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
         password: hashedPassword,
         firstName,
         lastName,
-        role: 'user', // Default role
-        tenantId: currentTenantId // Assign to resolved tenant
-      });
+        role: 'user' // Default role
+      }, currentTenantId);
       
       // Regenerate session ID for security
       req.session.regenerate((err: any) => {
@@ -1013,7 +1012,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
         sessionId: req.sessionID
       });
       
-      await storage.createAdminAuditLog(auditData);
+      await storage.createAdminAuditLog(auditData, auditTenantId);
       console.log(`🔐 ADMIN AUDIT: ${action} by ${adminUserId} (tenant: ${auditTenantId})${impersonatedUserId ? ` -> ${impersonatedUserId}` : ''}`);
     } catch (error) {
       console.error('❌ Failed to log admin audit event:', error);
@@ -1963,7 +1962,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   app.post("/api/contacts", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
     try {
       const contactData = insertContactSchema.parse(req.body);
-      const contact = await storage.createContact(contactData);
+      const contact = await storage.createContact(contactData, req.tenantId);
       res.status(201).json(contact);
     } catch (error) {
       res.status(400).json({ message: "Invalid contact data" });
@@ -2104,7 +2103,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   app.post("/api/projects", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
     try {
       const projectData = insertProjectSchema.parse(req.body);
-      const project = await storage.createProject(projectData);
+      const project = await storage.createProject(projectData, req.tenantId);
       res.status(201).json(project);
     } catch (error) {
       res.status(400).json({ message: "Invalid project data" });
@@ -2181,7 +2180,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   app.post("/api/quotes", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
     try {
       const quoteData = insertQuoteSchema.parse(req.body);
-      const quote = await storage.createQuote(quoteData);
+      const quote = await storage.createQuote(quoteData, req.tenantId);
       res.status(201).json(quote);
     } catch (error) {
       res.status(400).json({ message: "Invalid quote data" });
@@ -2201,7 +2200,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   app.post("/api/contracts", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
     try {
       const contractData = insertContractSchema.parse(req.body);
-      const contract = await storage.createContract(contractData);
+      const contract = await storage.createContract(contractData, req.tenantId);
       res.status(201).json(contract);
     } catch (error) {
       res.status(400).json({ message: "Invalid contract data" });
@@ -2244,7 +2243,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   app.post("/api/invoices", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
     try {
       const invoiceData = insertInvoiceSchema.parse(req.body);
-      const invoice = await storage.createInvoice(invoiceData);
+      const invoice = await storage.createInvoice(invoiceData, req.tenantId);
       res.status(201).json(invoice);
     } catch (error) {
       res.status(400).json({ message: "Invalid invoice data" });
@@ -2659,7 +2658,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   app.post("/api/admin/quote-packages", ensureAdminAuth, csrf, async (req, res) => {
     try {
       const packageData = insertQuotePackageSchema.parse(req.body);
-      const pkg = await storage.createQuotePackage(packageData);
+      const pkg = await storage.createQuotePackage(packageData, req.tenantId);
       res.status(201).json(pkg);
     } catch (error) {
       console.error("Error creating quote package:", error);
@@ -2721,7 +2720,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   app.post("/api/admin/quote-addons", ensureAdminAuth, csrf, async (req, res) => {
     try {
       const addonData = insertQuoteAddonSchema.parse(req.body);
-      const addon = await storage.createQuoteAddon(addonData);
+      const addon = await storage.createQuoteAddon(addonData, req.tenantId);
       res.status(201).json(addon);
     } catch (error) {
       console.error("Error creating quote addon:", error);
@@ -2773,7 +2772,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
         ...req.body,
         quoteId: req.params.quoteId
       });
-      const item = await storage.createQuoteItem(itemData);
+      const item = await storage.createQuoteItem(itemData, req.tenantId);
       res.status(201).json(item);
     } catch (error) {
       console.error("Error creating quote item:", error);
@@ -2814,6 +2813,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
       const { expiresAt } = req.body;
       const token = await storage.createQuoteToken(
         req.params.id, 
+        req.tenantId,
         expiresAt ? new Date(expiresAt) : undefined
       );
       res.status(201).json(token);
@@ -2889,7 +2889,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
         ...req.body,
         userId: req.body.isStandard ? null : userId, // Standard fields have null userId
       });
-      const field = await storage.createQuoteExtraInfoField(fieldData);
+      const field = await storage.createQuoteExtraInfoField(fieldData, req.tenantId);
       res.status(201).json(field);
     } catch (error) {
       console.error("Error creating extra info field:", error);
@@ -2963,7 +2963,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
         ...req.body,
         quoteId: req.params.id,
       });
-      const config = await storage.createQuoteExtraInfoConfig(configData);
+      const config = await storage.createQuoteExtraInfoConfig(configData, req.tenantId);
       res.status(201).json(config);
     } catch (error) {
       console.error("Error creating quote extra info config:", error);
@@ -3195,7 +3195,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
       const taskData = insertTaskSchema.parse(req.body);
       // SECURITY: Override any client-provided tenantId with the authenticated tenant
       taskData.tenantId = req.tenantId;
-      const task = await storage.createTask(taskData);
+      const task = await storage.createTask(taskData, req.tenantId);
       res.status(201).json(task);
     } catch (error) {
       res.status(400).json({ message: "Invalid task data" });
@@ -3243,7 +3243,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
         ...emailData,
         sentAt: new Date(),
         status: 'sent'
-      });
+      }, req.tenantId);
       res.status(201).json(email);
     } catch (error) {
       res.status(400).json({ message: "Invalid email data" });
@@ -3478,7 +3478,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   app.post("/api/message-templates", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
     try {
       const templateData = insertMessageTemplateSchema.parse(req.body);
-      const template = await storage.createMessageTemplate(templateData);
+      const template = await storage.createMessageTemplate(templateData, req.tenantId);
       res.status(201).json(template);
     } catch (error) {
       res.status(400).json({ message: "Invalid template data" });
@@ -3537,7 +3537,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   app.post("/api/message-threads", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
     try {
       const threadData = insertMessageThreadSchema.parse(req.body);
-      const thread = await storage.createMessageThread(threadData);
+      const thread = await storage.createMessageThread(threadData, req.tenantId);
       res.status(201).json(thread);
     } catch (error) {
       res.status(400).json({ message: "Invalid thread data" });
@@ -3573,7 +3573,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   app.post("/api/automations", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
     try {
       const automationData = insertAutomationSchema.parse(req.body);
-      const automation = await storage.createAutomation(automationData);
+      const automation = await storage.createAutomation(automationData, req.tenantId);
       res.status(201).json(automation);
     } catch (error) {
       res.status(400).json({ message: "Invalid automation data" });
@@ -3606,7 +3606,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   app.post("/api/members", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
     try {
       const memberData = insertMemberSchema.parse(req.body);
-      const member = await storage.createMember(memberData);
+      const member = await storage.createMember(memberData, req.tenantId);
       res.status(201).json(member);
     } catch (error) {
       res.status(400).json({ message: "Invalid member data" });
@@ -3962,7 +3962,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   app.post("/api/events", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
     try {
       const validatedData = insertEventSchema.parse(req.body);
-      const event = await storage.createEvent(validatedData);
+      const event = await storage.createEvent(validatedData, req.tenantId);
       
       // Auto-sync to Google Calendar if user has an active integration
       try {
@@ -4087,7 +4087,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   app.post("/api/calendar-integrations", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
     try {
       const validatedData = insertCalendarIntegrationSchema.parse(req.body);
-      const integration = await storage.createCalendarIntegration(validatedData);
+      const integration = await storage.createCalendarIntegration(validatedData, req.tenantId);
       res.status(201).json(integration);
     } catch (error) {
       res.status(400).json({ message: "Invalid calendar integration data", error });
@@ -4183,7 +4183,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   app.post("/api/calendar-sync-logs", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
     try {
       const validatedData = insertCalendarSyncLogSchema.parse(req.body);
-      const log = await storage.createCalendarSyncLog(validatedData);
+      const log = await storage.createCalendarSyncLog(validatedData, req.tenantId);
       res.status(201).json(log);
     } catch (error) {
       res.status(400).json({ message: "Invalid sync log data", error });

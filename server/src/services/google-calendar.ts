@@ -353,7 +353,7 @@ class GoogleCalendarService {
             await storage.createEvent({
               ...crmEventData,
               createdBy: userId
-            });
+            }, integration.tenantId);
             eventsCreated++;
           }
         }

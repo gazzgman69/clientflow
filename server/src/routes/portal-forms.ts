@@ -137,6 +137,12 @@ router.post("/forms", async (req, res) => {
       return res.status(400).json({ error: 'Missing required fields' });
     }
 
+    // Get contact to determine tenantId
+    const contact = await storage.getContactById(contactId, 'default-tenant');
+    if (!contact) {
+      return res.status(403).json({ error: 'Contact not found' });
+    }
+
     const form = insertPortalFormSchema.parse({
       projectId,
       contactId,
@@ -147,7 +153,7 @@ router.post("/forms", async (req, res) => {
       createdBy,
     });
 
-    const newForm = await storage.createPortalForm(form);
+    const newForm = await storage.createPortalForm(form, contact.tenantId);
     res.json(newForm);
   } catch (error: any) {
     console.error('Error creating form:', error);

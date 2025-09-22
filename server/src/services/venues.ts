@@ -70,7 +70,7 @@ export class VenuesService {
     };
 
     const newVenue: InsertVenue = withTenantData(newVenueData, tenantId);
-    return await storage.createVenue(newVenue);
+    return await storage.createVenue(newVenue, tenantId);
   }
 
   /**
@@ -89,8 +89,8 @@ export class VenuesService {
   /**
    * Create venue with full venue data (general method)
    */
-  async createVenue(venueData: InsertVenue): Promise<Venue> {
-    return await storage.createVenue(venueData);
+  async createVenue(venueData: InsertVenue, tenantId: string): Promise<Venue> {
+    return await storage.createVenue(venueData, tenantId);
   }
 
   /**
@@ -107,7 +107,7 @@ export class VenuesService {
     };
 
     const venueInsert: InsertVenue = withTenantData(venueData_base, tenantId);
-    return await storage.createVenue(venueInsert);
+    return await storage.createVenue(venueInsert, tenantId);
   }
 
   /**

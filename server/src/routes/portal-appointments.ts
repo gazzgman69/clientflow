@@ -139,7 +139,7 @@ router.post("/appointments", async (req, res) => {
       reminders: [15], // 15 minute reminder
     });
 
-    const newEvent = await storage.createEvent(event);
+    const newEvent = await storage.createEvent(event, contact.tenantId);
 
     // Note: Google Calendar sync functionality would be implemented here
     // when proper individual event sync is available

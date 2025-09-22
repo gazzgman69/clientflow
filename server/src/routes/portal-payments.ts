@@ -97,6 +97,12 @@ router.post("/create-payment-intent", async (req, res) => {
       },
     });
 
+    // Get contact to get tenantId
+    const contact = await storage.getContactById(contactId, invoice.tenantId || 'default-tenant');
+    if (!contact) {
+      return res.status(403).json({ error: 'Contact not found' });
+    }
+
     // Save payment session to database
     const paymentSession = insertPaymentSessionSchema.parse({
       invoiceId,
@@ -114,7 +120,7 @@ router.post("/create-payment-intent", async (req, res) => {
       }),
     });
 
-    await storage.createPaymentSession(paymentSession);
+    await storage.createPaymentSession(paymentSession, contact.tenantId);
 
     res.json({ 
       clientSecret: paymentIntent.client_secret,

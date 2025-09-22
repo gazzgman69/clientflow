@@ -217,7 +217,7 @@ class ICalService {
           await storage.createEvent({
             ...crmEventData,
             createdBy: userId
-          });
+          }, integration.tenantId);
           eventsCreated++;
         }
       }

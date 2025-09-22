@@ -320,7 +320,7 @@ export class GoogleOAuthService {
         if (existing) {
           await storage.updateEvent(existing.id, eventData);
         } else {
-          await storage.createEvent(eventData);
+          await storage.createEvent(eventData, integration.tenantId);
         }
       }
 

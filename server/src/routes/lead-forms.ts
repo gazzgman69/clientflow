@@ -93,7 +93,7 @@ router.post('/', async (req, res) => {
       createdBy: userId || 'system'
     };
 
-    const form = await storage.createLeadCaptureForm(formData);
+    const form = await storage.createLeadCaptureForm(formData, req.tenantId);
     
     // Create default questions to match the provided template - use canonical field mappings
     const defaultQuestions = [

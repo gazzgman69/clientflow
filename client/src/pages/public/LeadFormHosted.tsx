@@ -315,9 +315,13 @@ export default function LeadFormHosted({ slug }: LeadFormHostedProps) {
           <VenueAutocomplete
             onVenueSelect={(venue) => {
               // Create full address display - show the complete address that was selected
-              const fullAddress = venue.address ? 
-                `${venue.name} - ${venue.address}${venue.city ? ', ' + venue.city : ''}${venue.state ? ', ' + venue.state : ''}${venue.zipCode ? ' ' + venue.zipCode : ''}` :
-                venue.name;
+              const addressParts = [venue.name];
+              if (venue.address) addressParts.push(venue.address);
+              if (venue.city) addressParts.push(venue.city);
+              if (venue.state) addressParts.push(venue.state);
+              if (venue.zipCode) addressParts.push(venue.zipCode);
+              
+              const fullAddress = addressParts.join(', ');
                 
               // Store the full address as the main value
               handleInputChange(question.mapTo, fullAddress);

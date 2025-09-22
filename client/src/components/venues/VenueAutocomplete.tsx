@@ -139,12 +139,10 @@ export function VenueAutocomplete({
 
   // Handle venue selection
   const handleVenueSelect = async (prediction: PlacePrediction) => {
-    console.log('🔍 VENUE SELECTION STARTED:', prediction.description);
     isSelectingRef.current = true; // Prevent blur from closing menu
     
     // Keep the original description text throughout the process
     const originalDescription = prediction.description;
-    console.log('🔍 SETTING QUERY TO:', originalDescription);
     setQuery(originalDescription);
     setShowPredictions(false);
     setPredictions([]);
@@ -206,7 +204,6 @@ export function VenueAutocomplete({
         }
 
         const placeDetails = await response.json();
-        console.log('🔍 PLACE DETAILS RECEIVED:', placeDetails);
         
         // Transform place details for form pre-filling
         selectedVenue = {
@@ -220,18 +217,14 @@ export function VenueAutocomplete({
           latitude: placeDetails.latitude,
           longitude: placeDetails.longitude,
         };
-        console.log('🔍 SELECTED VENUE OBJECT:', selectedVenue);
       }
 
-      console.log('🔍 CALLING onVenueSelect with:', selectedVenue);
       onVenueSelect(selectedVenue);
-      console.log('🔍 AFTER onVenueSelect - current query:', query);
       
       // Mark venue as selected and hide predictions immediately
       setHasSelectedVenue(true);
       setShowPredictions(false);
       setPredictions([]);
-      console.log('🔍 VENUE SELECTION COMPLETE - final query:', query);
       
       // Focus next field (blur current input)
       if (inputRef.current) {
@@ -361,7 +354,6 @@ export function VenueAutocomplete({
                   className="w-full justify-start p-3 h-auto text-left hover:bg-muted/50"
                   onMouseDown={(e) => {
                     e.preventDefault(); // Prevent input blur
-                    console.log('🎯 BUTTON CLICKED:', prediction.description);
                     handleVenueSelect(prediction);
                   }}
                   data-testid={`button-venue-${prediction.place_id}`}

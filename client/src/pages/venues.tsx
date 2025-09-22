@@ -454,7 +454,7 @@ export default function VenuesPage() {
                               </div>
                               {enrichment.userRatingsTotal && selectedVenue.placeId && (
                                 <a 
-                                  href={`https://search.google.com/local/reviews?placeid=${selectedVenue.placeId}`}
+                                  href={`https://www.google.com/maps/place/?q=place_id:${selectedVenue.placeId}`}
                                   target="_blank"
                                   rel="noopener noreferrer"
                                   className="text-sm text-blue-600 hover:text-blue-800 hover:underline cursor-pointer"
@@ -927,7 +927,7 @@ export default function VenuesPage() {
                                   <span className="font-medium">{enrichment.rating}</span>
                                   {enrichment.userRatingsTotal && venue.placeId && (
                                     <a 
-                                      href={`https://search.google.com/local/reviews?placeid=${venue.placeId}`}
+                                      href={`https://www.google.com/maps/place/?q=place_id:${venue.placeId}`}
                                       target="_blank"
                                       rel="noopener noreferrer"
                                       className="text-xs text-blue-600 hover:text-blue-800 hover:underline cursor-pointer"

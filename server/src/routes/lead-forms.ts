@@ -395,7 +395,7 @@ router.post('/public/:slug/submit', formSubmissionLimiter, async (req, res) => {
       userId
     };
 
-    const contact = await storage.createContact(contactData);
+    const contact = await storage.createContact(contactData, tenantId);
 
     // Create project from mapped data
     const projectData = {

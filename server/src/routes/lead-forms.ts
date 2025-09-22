@@ -5,6 +5,7 @@ import { insertLeadCaptureFormSchema } from '@shared/schema';
 import { z } from 'zod';
 import { splitFullName } from '@shared/utils/name-splitter';
 import { applyMapping, FORM_FIELD_REGISTRY } from '@shared/formMappingRegistry';
+import { venuesService } from '../services/venues';
 
 // Honeypot spam protection helper
 function validateHoneypot(formData: Record<string, any>): boolean {
@@ -437,12 +438,79 @@ router.post('/public/:slug/submit', formSubmissionLimiter, async (req, res) => {
       timestamp: new Date().toISOString()
     });
 
+    // Create/update venue if venue information exists
+    let createdVenue = null;
+    if (mappingResult.contactData.venue_address) {
+      try {
+        // Build venue details in the format expected by venuesService
+        const venueDetails = {
+          placeId: formData.eventLocationPlaceId || null, // Use placeId if available from Google Places
+          name: mappingResult.contactData.venue_address?.split(',')[0]?.trim() || 'Venue', // Use first part as venue name
+          address1: mappingResult.contactData.venue_address,
+          address2: null,
+          city: mappingResult.contactData.venue_city || '',
+          state: mappingResult.contactData.venue_state || '',
+          postalCode: mappingResult.contactData.venue_zip_code || '',
+          countryCode: mappingResult.contactData.venue_country || 'US',
+          latitude: formData.eventLocationLat ? parseFloat(formData.eventLocationLat) : 0,
+          longitude: formData.eventLocationLng ? parseFloat(formData.eventLocationLng) : 0,
+        };
+
+        // Only create venue if we have meaningful address information
+        if (venueDetails.address1 || venueDetails.city) {
+          if (venueDetails.placeId) {
+            // Use the existing upsertFromPlace method for Google Places venues
+            createdVenue = await venuesService.upsertFromPlace(venueDetails, tenantId);
+          } else {
+            // For manually entered venues, create a basic venue
+            createdVenue = await venuesService.createVenue({
+              name: venueDetails.name,
+              address: venueDetails.address1,
+              city: venueDetails.city,
+              state: venueDetails.state,
+              zipCode: venueDetails.postalCode,
+              country: venueDetails.countryCode,
+              latitude: venueDetails.latitude ? venueDetails.latitude.toString() : null,
+              longitude: venueDetails.longitude ? venueDetails.longitude.toString() : null,
+            }, tenantId);
+          }
+
+          // Update contact with venue reference
+          if (createdVenue) {
+            await storage.updateContact(contact.id, { 
+              venueId: createdVenue.id 
+            });
+            
+            console.log('✅ VENUE CREATED/UPDATED:', {
+              venueId: createdVenue.id,
+              venueName: createdVenue.name,
+              venueAddress: createdVenue.address,
+              contactId: contact.id,
+              tenantId,
+              slug,
+              timestamp: new Date().toISOString()
+            });
+          }
+        }
+      } catch (error) {
+        console.error('❌ Failed to create/update venue:', {
+          error: error instanceof Error ? error.message : String(error),
+          venueData: mappingResult.contactData,
+          tenantId,
+          slug,
+          timestamp: new Date().toISOString()
+        });
+        // Continue with form submission even if venue creation fails
+      }
+    }
+
     // Create project from mapped data
     const projectData = {
       ...mappingResult.projectData,
       name: `${mappingResult.leadData.event_type || 'Event'} - ${nameParts.fullName || 'Unknown'}`,
       description: `${mappingResult.leadData.event_type || 'Event'} at ${mappingResult.contactData.venue_address || 'TBD'}`,
       contactId: contact.id,
+      venueId: createdVenue?.id || null, // Link project to venue if created
       status: 'pending' as const,
       progress: 0,
       userId

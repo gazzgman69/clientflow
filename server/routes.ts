@@ -503,16 +503,20 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
 
   // Lead Forms routes - public routes (no auth), non-public routes need auth
   // NOTE: This is for lead capture forms only, not general leads endpoints
-  app.use('/api/leads', tenantResolver, requireTenant, (req, res, next) => {
-    console.log(`🔍 LEADS DEBUG: path="${req.path}", method="${req.method}"`);
-    // Public lead form routes (used by public lead capture forms) - no auth required
+  app.use('/api/leads', (req, res, next) => {
+    console.log(`🔍 LEADS DEBUG: path="${req.path}", method="${req.method}", headers=${JSON.stringify(req.headers.host)}`);
+    // Public lead form routes (used by public lead capture forms) - no auth or tenant required
     if (req.path.startsWith('/public/')) {
-      console.log('✅ LEADS: Public route - skipping auth and CSRF');
+      console.log('✅ LEADS: Public route - skipping auth, CSRF, and tenant resolution');
       return next();
     }
-    // All other lead form routes need authentication
-    console.log('🛡️ LEADS: Private route - applying auth and CSRF');
-    return ensureUserAuth(req, res, () => csrf(req, res, next));
+    // All other lead form routes need tenant resolution and authentication
+    console.log('🛡️ LEADS: Private route - applying tenant resolution, auth and CSRF');
+    return tenantResolver(req, res, () => {
+      requireTenant(req, res, () => {
+        ensureUserAuth(req, res, () => csrf(req, res, next));
+      });
+    });
   }, leadFormsRoutes);
   
   // Lead-forms admin routes

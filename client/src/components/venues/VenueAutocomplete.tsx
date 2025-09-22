@@ -354,6 +354,7 @@ export function VenueAutocomplete({
                   className="w-full justify-start p-3 h-auto text-left hover:bg-muted/50"
                   onMouseDown={(e) => {
                     e.preventDefault(); // Prevent input blur
+                    console.log('🎯 BUTTON CLICKED:', prediction.description);
                     handleVenueSelect(prediction);
                   }}
                   data-testid={`button-venue-${prediction.place_id}`}

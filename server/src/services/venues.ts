@@ -177,13 +177,14 @@ export class VenuesService {
 
   /**
    * Get venue suggestions from cache first, then Google Places API
+   * Enhanced caching reduces unnecessary API calls
    */
   async getSuggestions(input: string, options?: {
     sessionToken?: string;
     types?: string[];
   }) {
     const cacheResults: any[] = [];
-    const maxCacheResults = 3;
+    const maxCacheResults = 5;
     
     // First, search cache by address/name matching
     if (input.length >= 2) {
@@ -195,25 +196,91 @@ export class VenuesService {
       }
     }
     
-    // If we have some cache results, limit Google results
-    // Otherwise, get full results from Google
-    const googleResultsLimit = cacheResults.length > 0 ? 5 - cacheResults.length : 8;
+    // Enhanced caching logic:
+    // Skip Google API if we have good cache results
+    let shouldQueryGoogle = true;
+    let googleResultsLimit = 8;
+    
+    if (cacheResults.length > 0) {
+      // Calculate cache result quality score
+      const qualityScore = this.calculateCacheQualityScore(input, cacheResults);
+      
+      console.log(`🎯 Cache results for "${input}": ${cacheResults.length} found, quality score: ${qualityScore}`);
+      
+      if (cacheResults.length >= 3 && qualityScore >= 0.7) {
+        // High quality cache results - skip Google API entirely
+        shouldQueryGoogle = false;
+        console.log('🚀 CACHE HIT: Skipping Google API call due to high-quality cache results');
+      } else if (cacheResults.length >= 2 && qualityScore >= 0.5) {
+        // Good cache results - limit Google API calls  
+        googleResultsLimit = Math.max(1, 4 - cacheResults.length);
+        console.log(`🏃 CACHE PARTIAL: Limiting Google API to ${googleResultsLimit} results`);
+      } else {
+        // Some cache results but not great - get more from Google
+        googleResultsLimit = Math.max(3, 6 - cacheResults.length);
+      }
+    }
     
     let googleResults: any[] = [];
-    try {
-      if (googleResultsLimit > 0) {
+    if (shouldQueryGoogle && googleResultsLimit > 0) {
+      try {
+        console.log(`📡 Querying Google Places API for "${input}" (limit: ${googleResultsLimit})`);
         const googleResponse = await geocodingService.getPlacePredictions(input, options);
         googleResults = googleResponse.slice(0, googleResultsLimit).map(prediction => ({
           ...prediction,
           cached: false // Flag to indicate this is from Google
         }));
+        console.log(`📥 Google API returned ${googleResults.length} results`);
+      } catch (error) {
+        console.warn('⚠️ Google Places API error, using cache only:', error);
       }
-    } catch (error) {
-      console.warn('Google Places API error, using cache only:', error);
     }
     
-    // Combine cache and Google results, with cache results first
-    return [...cacheResults, ...googleResults];
+    const finalResults = [...cacheResults, ...googleResults];
+    console.log(`📊 Final results for "${input}": ${finalResults.length} total (${cacheResults.length} cached, ${googleResults.length} from Google)`);
+    
+    // Cache this search query for future optimization
+    this.recordSearchQuery(input, finalResults.length);
+    
+    return finalResults;
+  }
+
+  /**
+   * Calculate cache quality score based on how well cached results match the search input
+   */
+  private calculateCacheQualityScore(input: string, cacheResults: any[]): number {
+    if (cacheResults.length === 0) return 0;
+    
+    const normalizedInput = this.normalizeAddress(input.toLowerCase());
+    let totalScore = 0;
+    
+    for (const result of cacheResults) {
+      const normalizedDescription = this.normalizeAddress(result.description.toLowerCase());
+      const normalizedMainText = this.normalizeAddress(result.structured_formatting.main_text.toLowerCase());
+      
+      // Check for exact matches
+      if (normalizedMainText === normalizedInput || normalizedDescription.startsWith(normalizedInput)) {
+        totalScore += 1.0; // Perfect match
+      } else if (normalizedMainText.includes(normalizedInput)) {
+        totalScore += 0.8; // Good match
+      } else if (normalizedDescription.includes(normalizedInput)) {
+        totalScore += 0.6; // Decent match
+      } else {
+        totalScore += 0.2; // Weak match
+      }
+    }
+    
+    return Math.min(1.0, totalScore / cacheResults.length);
+  }
+
+  /**
+   * Record search queries for future caching optimization
+   * In a production app, this could be stored in a separate table/cache
+   */
+  private recordSearchQuery(input: string, resultCount: number): void {
+    // For now, just log it - in production, you might store this data
+    // for analytics and further cache optimization
+    console.log(`📝 Search recorded: "${input}" → ${resultCount} results`);
   }
 
   /**

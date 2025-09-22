@@ -46,11 +46,11 @@ const cspConfig = {
       fontSrc: ["'self'", "https://fonts.gstatic.com"],
       scriptSrc: isProduction 
         ? ["'self'", "https://www.google.com", "https://www.gstatic.com"] 
-        : ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://www.google.com", "https://www.gstatic.com", "https://replit.com"], // unsafe-eval only for Vite dev, replit.com for dev banner
+        : ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://www.google.com", "https://www.gstatic.com", "https://replit.com"],
       imgSrc: ["'self'", "data:", "https:"],
       connectSrc: isProduction 
-        ? ["'self'", "wss://your-domain.com", "https://api.stripe.com", "https://www.google.com"] // Restrict in production
-        : ["'self'", "wss:", "https:", "http://localhost:*"], // Allow dev servers
+        ? ["'self'", "wss://your-domain.com", "https://api.stripe.com", "https://www.google.com"]
+        : ["'self'", "wss:", "https:", "http://localhost:*"],
       frameSrc: ["'self'", "https://www.google.com"],
       objectSrc: ["'none'"],
       baseUri: ["'self'"],
@@ -110,9 +110,8 @@ app.use(express.urlencoded({ extended: false, limit: '10mb' }));
 
 // Body parser error handler - catch parsing errors that cause 500s
 app.use((err: any, req: any, res: any, next: any) => {
-  if (err instanceof SyntaxError && err.status === 400 && 'body' in err) {
+  if (err instanceof SyntaxError && 'body' in err) {
     console.error('💥 BODY PARSER ERROR:', {
-      type: err.type || 'unknown',
       message: err.message,
       url: req.url,
       method: req.method,

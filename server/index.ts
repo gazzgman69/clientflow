@@ -91,12 +91,41 @@ app.use(limiter); // Apply general rate limiting to all routes
 
 app.use(cookieParser()); // Required for CSRF
 
+// Global request debugging - catch ALL requests BEFORE body parsing
+app.use((req, res, next) => {
+  // Global request debugging - catch ALL requests
+  if (req.path.includes('/public/') || req.method === 'POST') {
+    console.log(`🌍 GLOBAL REQUEST: ${req.method} ${req.url} from ${req.ip}`);
+    console.log(`📝 GLOBAL HEADERS:`, JSON.stringify(req.headers, null, 2));
+  }
+  next();
+});
+
 // CRITICAL: Webhook routes need raw body data for signature verification
 // Mount webhook routes with raw parsing BEFORE global JSON parsing
 app.use('/api/stripe/webhook', express.raw({ type: 'application/json', limit: '5mb' }));
 
 app.use(express.json({ limit: '10mb' })); // Add size limit for security  
 app.use(express.urlencoded({ extended: false, limit: '10mb' }));
+
+// Body parser error handler - catch parsing errors that cause 500s
+app.use((err: any, req: any, res: any, next: any) => {
+  if (err instanceof SyntaxError && err.status === 400 && 'body' in err) {
+    console.error('💥 BODY PARSER ERROR:', {
+      type: err.type || 'unknown',
+      message: err.message,
+      url: req.url,
+      method: req.method,
+      contentType: req.headers['content-type'],
+      bodySize: req.headers['content-length']
+    });
+    return res.status(400).json({ 
+      error: 'Invalid JSON payload',
+      message: 'Request body contains malformed JSON'
+    });
+  }
+  next(err);
+});
 
 // CSRF Protection - applied after sessions are configured
 const csrfProtection = csrf({
@@ -182,13 +211,8 @@ app.post('/api/venues/place-details', async (req, res) => {
 // Tenant resolution middleware - identifies tenant context from subdomain/domain/user
 app.use('/api', tenantResolver);
 
+// API response logging middleware - logs API calls with timing
 app.use((req, res, next) => {
-  // Global request debugging - catch ALL requests
-  if (req.path.includes('/public/') || req.method === 'POST') {
-    console.log(`🌍 GLOBAL REQUEST: ${req.method} ${req.url} from ${req.ip}`);
-    console.log(`📝 GLOBAL HEADERS:`, JSON.stringify(req.headers, null, 2));
-  }
-  
   const start = Date.now();
   const path = req.path;
   let capturedJsonResponse: Record<string, any> | undefined = undefined;

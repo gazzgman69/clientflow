@@ -139,10 +139,12 @@ export function VenueAutocomplete({
 
   // Handle venue selection
   const handleVenueSelect = async (prediction: PlacePrediction) => {
+    console.log('🔍 VENUE SELECTION STARTED:', prediction.description);
     isSelectingRef.current = true; // Prevent blur from closing menu
     
     // Keep the original description text throughout the process
     const originalDescription = prediction.description;
+    console.log('🔍 SETTING QUERY TO:', originalDescription);
     setQuery(originalDescription);
     setShowPredictions(false);
     setPredictions([]);

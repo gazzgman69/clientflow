@@ -183,6 +183,12 @@ app.post('/api/venues/place-details', async (req, res) => {
 app.use('/api', tenantResolver);
 
 app.use((req, res, next) => {
+  // Global request debugging - catch ALL requests
+  if (req.path.includes('/public/') || req.method === 'POST') {
+    console.log(`🌍 GLOBAL REQUEST: ${req.method} ${req.url} from ${req.ip}`);
+    console.log(`📝 GLOBAL HEADERS:`, JSON.stringify(req.headers, null, 2));
+  }
+  
   const start = Date.now();
   const path = req.path;
   let capturedJsonResponse: Record<string, any> | undefined = undefined;

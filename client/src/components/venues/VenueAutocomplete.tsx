@@ -143,12 +143,6 @@ export function VenueAutocomplete({
     
     // Keep the original description text throughout the process
     const originalDescription = prediction.description;
-    console.log('🔍 VENUE SELECTION DEBUG:', {
-      description: prediction.description,
-      main_text: prediction.structured_formatting?.main_text,
-      secondary_text: prediction.structured_formatting?.secondary_text,
-      setting_query_to: originalDescription
-    });
     setQuery(originalDescription);
     setShowPredictions(false);
     setPredictions([]);

@@ -1,9 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { MapPin, ExternalLink, Loader2, Map, Navigation } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn, formatVenueDisplay } from '@/lib/utils';
 
 interface VenueCardProps {
   venue: {
@@ -45,9 +45,38 @@ export function VenueCard({
   const [mapLoading, setMapLoading] = useState(false);
   const [mapError, setMapError] = useState(false);
   const [mapsLink, setMapsLink] = useState<string | null>(null);
+  const [formattedVenueDisplay, setFormattedVenueDisplay] = useState<string | null>(null);
+
+  // Format venue display for legacy data
+  useEffect(() => {
+    const shouldFormatVenue = () => {
+      // Check if venue has minimal address information
+      const hasAddressInfo = venue.address || venue.city || venue.state || venue.zipCode || venue.formattedAddress;
+      
+      // If no address info but has a name, try to format it
+      return !hasAddressInfo && venue.name && venue.name.trim().length > 0;
+    };
+
+    if (shouldFormatVenue()) {
+      formatVenueDisplay(venue.name)
+        .then(formattedDisplay => {
+          if (formattedDisplay !== venue.name) {
+            setFormattedVenueDisplay(formattedDisplay);
+          }
+        })
+        .catch(error => {
+          console.warn('Failed to format venue display:', venue.name, error);
+        });
+    }
+  }, [venue.name, venue.address, venue.city, venue.state, venue.zipCode, venue.formattedAddress]);
 
   // Format the full address
   const getFormattedAddress = () => {
+    // Use formatted venue display if available (for legacy data)
+    if (formattedVenueDisplay) {
+      return formattedVenueDisplay;
+    }
+    
     if (venue.formattedAddress) {
       return venue.formattedAddress;
     }

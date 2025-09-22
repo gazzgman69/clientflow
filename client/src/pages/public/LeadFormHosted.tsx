@@ -13,6 +13,7 @@ import { useToast } from '@/hooks/use-toast';
 import { apiRequest } from '@/lib/queryClient';
 import { useQueryClient } from '@tanstack/react-query';
 import { VenueAutocomplete } from '@/components/venues/VenueAutocomplete';
+import { formatVenueDisplay } from '@/lib/utils';
 
 interface Question {
   id: string;
@@ -43,6 +44,7 @@ export default function LeadFormHosted({ slug }: LeadFormHostedProps) {
   const [formValues, setFormValues] = useState<Record<string, any>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [formattingVenues, setFormattingVenues] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -62,6 +64,49 @@ export default function LeadFormHosted({ slug }: LeadFormHostedProps) {
       return response.json();
     },
   });
+
+  // Format venue displays for legacy data when form loads
+  useEffect(() => {
+    if (!formData || formattingVenues) return;
+
+    const formatVenueFields = async () => {
+      setFormattingVenues(true);
+      
+      // Find venue questions
+      const venueQuestions = formData.questions.filter(q => q.type === 'venue');
+      if (venueQuestions.length === 0) {
+        setFormattingVenues(false);
+        return;
+      }
+
+      const updates: Record<string, any> = {};
+      let hasUpdates = false;
+
+      for (const question of venueQuestions) {
+        const currentValue = formValues[question.mapTo];
+        if (currentValue && typeof currentValue === 'string' && !currentValue.includes(' - ')) {
+          // This looks like legacy venue data (just name), try to format it
+          try {
+            const formattedValue = await formatVenueDisplay(currentValue);
+            if (formattedValue !== currentValue) {
+              updates[question.mapTo] = formattedValue;
+              hasUpdates = true;
+            }
+          } catch (error) {
+            console.warn('Failed to format venue display:', currentValue, error);
+          }
+        }
+      }
+
+      if (hasUpdates) {
+        setFormValues(prev => ({ ...prev, ...updates }));
+      }
+      
+      setFormattingVenues(false);
+    };
+
+    formatVenueFields();
+  }, [formData, formattingVenues]); // eslint-disable-line react-hooks/exhaustive-deps
 
 
   // Submit form mutation

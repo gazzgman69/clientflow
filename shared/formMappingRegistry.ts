@@ -212,6 +212,16 @@ export function applyMapping(
 
   // Process each field in the payload
   Object.entries(payload).forEach(([key, value]) => {
+    // Debug logging for eventLocation field
+    if (key === 'eventLocation') {
+      console.log('🔍 EVENTLOCATION DEBUG:', {
+        key,
+        value,
+        hasMapping: !!FORM_FIELD_REGISTRY[key],
+        mapping: FORM_FIELD_REGISTRY[key]
+      });
+    }
+    
     const mapping = FORM_FIELD_REGISTRY[key];
     
     if (!mapping) {

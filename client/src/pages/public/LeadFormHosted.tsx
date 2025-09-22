@@ -118,6 +118,8 @@ export default function LeadFormHosted({ slug }: LeadFormHostedProps) {
   // Submit form mutation
   const submitMutation = useMutation({
     mutationFn: async (data: Record<string, any>) => {
+      console.log('🌐 FETCH DEBUG: Starting fetch request', { url: `/api/leads/public/${slug}/submit`, data });
+      
       const response = await fetch(`/api/leads/public/${slug}/submit`, {
         method: 'POST',
         headers: {
@@ -125,11 +127,23 @@ export default function LeadFormHosted({ slug }: LeadFormHostedProps) {
         },
         body: JSON.stringify(data),
       });
+      
+      console.log('📡 FETCH DEBUG: Response received', { 
+        status: response.status, 
+        statusText: response.statusText, 
+        ok: response.ok,
+        headers: Object.fromEntries(response.headers.entries())
+      });
+      
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({ error: 'Failed to submit form' }));
+        console.error('❌ FETCH DEBUG: Response not ok', { status: response.status, errorData });
         throw new Error(errorData.error || `Server error: ${response.status}`);
       }
-      return response.json();
+      
+      const result = await response.json();
+      console.log('✅ FETCH DEBUG: Success response', { result });
+      return result;
     },
     onSuccess: (data) => {
       setSubmitted(true);
@@ -161,8 +175,12 @@ export default function LeadFormHosted({ slug }: LeadFormHostedProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    console.log('🔍 FORM DEBUG: handleSubmit called', { hasFormData: !!formData, formValues });
     
-    if (!formData) return;
+    if (!formData) {
+      console.log('❌ FORM DEBUG: No form data available');
+      return;
+    }
 
     // Validate required fields
     const missingRequired = formData.questions
@@ -243,6 +261,7 @@ export default function LeadFormHosted({ slug }: LeadFormHostedProps) {
       submissionData.recaptchaToken = recaptchaToken;
     }
 
+    console.log('🚀 FORM DEBUG: About to submit form', { submissionData, url: `/api/leads/public/${slug}/submit` });
     submitMutation.mutate(submissionData);
   };
 

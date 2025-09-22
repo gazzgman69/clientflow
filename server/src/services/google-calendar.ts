@@ -1,6 +1,6 @@
 import { google } from 'googleapis';
 import { OAuth2Client } from 'google-auth-library';
-import { storage } from '../storage';
+import { storage } from '../../storage';
 import type { Event, InsertEvent, CalendarIntegration } from '@shared/schema';
 
 interface GoogleCalendarEvent {

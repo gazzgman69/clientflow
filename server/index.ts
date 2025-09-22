@@ -5,7 +5,7 @@ import csrf from "csurf";
 import cookieParser from "cookie-parser";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
-import { calendarAutoSyncService } from "./services/calendar-auto-sync";
+import { calendarAutoSyncService } from "./src/services/calendar-auto-sync";
 import { tenantResolver } from "./middleware/tenantResolver";
 import { initializeFileStorage } from "./src/services/fileStorageService";
 import { validateProductionSecrets, validateTenantConfiguration } from "./src/services/productionValidation";

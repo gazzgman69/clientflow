@@ -1,7 +1,7 @@
 import { google } from 'googleapis';
-import { storage } from '../storage';
+import { storage } from '../../storage';
 import type { CalendarIntegration } from '@shared/schema';
-import { secureStore } from '../src/services/secureStore';
+import { secureStore } from './secureStore';
 
 // Helper function to get the correct redirect URI
 function getRedirectUri(): string {

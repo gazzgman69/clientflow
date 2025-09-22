@@ -7,7 +7,7 @@
  * flags and provide safe cleanup operations for existing tenants.
  */
 
-import { storage } from '../storage';
+import { storage } from '../../storage';
 
 interface CleanupResult {
   success: boolean;

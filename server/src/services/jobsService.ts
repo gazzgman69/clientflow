@@ -172,7 +172,7 @@ class JobsService {
       console.log('📅 Processing calendar sync job:', payload);
       
       // Import calendar service dynamically
-      const { calendarAutoSyncService } = await import('../../services/calendar-auto-sync');
+      const { calendarAutoSyncService } = await import('./calendar-auto-sync');
       
       await calendarAutoSyncService.performAutoSync();
       

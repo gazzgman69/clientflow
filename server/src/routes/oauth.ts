@@ -2,7 +2,7 @@ import { Router } from 'express';
 import crypto from 'crypto';
 import { googleOAuthService, getGoogleAuthUrl } from '../services/google-oauth';
 import { microsoftOAuthService } from '../services/microsoft-oauth';
-import { storage } from '../storage';
+import { storage } from '../../storage';
 import { google } from 'googleapis';
 
 // Extend session type to include oauth_state and oauth_return_to

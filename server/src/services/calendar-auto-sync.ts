@@ -1,4 +1,4 @@
-import { storage } from '../storage';
+import { storage } from '../../storage';
 import { googleOAuthService } from './google-oauth';
 import { icalService } from './ical';
 

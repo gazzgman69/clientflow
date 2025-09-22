@@ -1,6 +1,6 @@
 // @ts-ignore - node-ical doesn't have TypeScript definitions
 import ical from 'node-ical';
-import { storage } from '../storage';
+import { storage } from '../../storage';
 import type { Event, InsertEvent, CalendarIntegration } from '@shared/schema';
 
 interface ICalEvent {

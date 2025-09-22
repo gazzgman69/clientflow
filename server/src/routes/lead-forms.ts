@@ -452,8 +452,9 @@ router.post('/public/:slug/submit', formSubmissionLimiter, async (req, res) => {
       timestamp: new Date().toISOString()
     });
 
-    // Update lead notes to reference the created contact and project
+    // Update lead to link it to the created contact and project
     await storage.updateLead(lead.id, { 
+      projectId: project.id,
       notes: `Auto-linked to Contact: ${contact.id} and Project: ${project.id}`
     }, tenantId);
     

@@ -2418,9 +2418,10 @@ export class DrizzleStorage implements IStorage {
     const result = await db.select().from(leads).where(eq(leads.id, id));
     return result[0];
   }
-  async createLead(insertLead: InsertLead): Promise<Lead> {
+  async createLead(insertLead: InsertLead, tenantId: string): Promise<Lead> {
     const result = await db.insert(leads).values({
       ...insertLead,
+      tenantId,
       status: insertLead.status ?? 'new',
       createdAt: new Date(),
       updatedAt: new Date(),

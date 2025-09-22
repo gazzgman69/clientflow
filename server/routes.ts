@@ -22,7 +22,7 @@ declare module 'express-session' {
     isImpersonating?: boolean; // Flag indicating active impersonation
   }
 }
-import { twilioService } from "./services/twilio";
+import { twilioService } from "./src/services/twilio";
 import bcrypt from "bcrypt";
 import crypto from "crypto";
 import { z } from "zod";
@@ -45,10 +45,10 @@ const generateResetToken = (): string => {
 const hashToken = (token: string): string => {
   return crypto.createHash('sha256').update(token).digest('hex');
 };
-import { googleCalendarService } from "./services/google-calendar";
-import { googleOAuthService } from "./services/google-oauth";
-import { icalService } from "./services/ical";
-import oauthRoutes from "./routes/oauth";
+import { googleCalendarService } from "./src/services/google-calendar";
+import { googleOAuthService } from "./src/services/google-oauth";
+import { icalService } from "./src/services/ical";
+import oauthRoutes from "./src/routes/oauth";
 import emailRoutes from "./src/routes/email";
 import templatesRoutes from "./src/routes/templates";
 import mailSettingsRoutes from "./src/routes/mailSettings";
@@ -63,9 +63,9 @@ import portalPaymentsRoutes from "./src/routes/portal-payments";
 import portalFormsRoutes from "./src/routes/portal-forms";
 import portalAppointmentsRoutes from "./src/routes/portal-appointments";
 import stripeWebhooksRoutes from "./src/routes/stripe-webhooks";
-import tenantCleanupRoutes from "./routes/tenantCleanup";
+import tenantCleanupRoutes from "./src/routes/tenantCleanup";
 import { userPrefsService } from "./src/services/userPrefs";
-import { calendarAutoSyncService } from "./services/calendar-auto-sync";
+import { calendarAutoSyncService } from "./src/services/calendar-auto-sync";
 import { tenantResolver, requireTenant, type TenantRequest } from "./middleware/tenantResolver";
 import { ensureUserAuth, ensurePortalAuth, ensureAdminAuth, ensureSuperAdminAuth, withUserAuth, withPortalAuth } from "./middleware/auth";
 import { 

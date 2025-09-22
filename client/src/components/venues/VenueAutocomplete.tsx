@@ -206,6 +206,7 @@ export function VenueAutocomplete({
         }
 
         const placeDetails = await response.json();
+        console.log('🔍 PLACE DETAILS RECEIVED:', placeDetails);
         
         // Transform place details for form pre-filling
         selectedVenue = {
@@ -219,14 +220,18 @@ export function VenueAutocomplete({
           latitude: placeDetails.latitude,
           longitude: placeDetails.longitude,
         };
+        console.log('🔍 SELECTED VENUE OBJECT:', selectedVenue);
       }
 
+      console.log('🔍 CALLING onVenueSelect with:', selectedVenue);
       onVenueSelect(selectedVenue);
+      console.log('🔍 AFTER onVenueSelect - current query:', query);
       
       // Mark venue as selected and hide predictions immediately
       setHasSelectedVenue(true);
       setShowPredictions(false);
       setPredictions([]);
+      console.log('🔍 VENUE SELECTION COMPLETE - final query:', query);
       
       // Focus next field (blur current input)
       if (inputRef.current) {

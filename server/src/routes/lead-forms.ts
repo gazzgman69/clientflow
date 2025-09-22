@@ -6,140 +6,18 @@ import { z } from 'zod';
 import { splitFullName } from '@shared/utils/name-splitter';
 import { applyMapping, FORM_FIELD_REGISTRY } from '@shared/formMappingRegistry';
 
-// reCAPTCHA verification helper with enhanced security validation
-interface RecaptchaVerificationOptions {
-  token: string;
-  expectedAction: string;
-  userIP: string;
-  hostname: string;
-  scoreThreshold?: number;
-}
-
-async function verifyRecaptcha(options: RecaptchaVerificationOptions): Promise<boolean> {
-  const { token, expectedAction, userIP, hostname, scoreThreshold = 0.5 } = options;
-  
-  // Require token when verification is called
-  if (!token) {
-    console.warn('🔐 reCAPTCHA: Token missing', { 
-      ip: userIP?.slice(0, 8) + '***', // Log partial IP for debugging, minimal PII
-      hostname,
-      expectedAction 
+// Honeypot spam protection helper
+function validateHoneypot(formData: Record<string, any>): boolean {
+  // Check if honeypot field is filled (indicates spam)
+  const honeypotValue = formData.website_url;
+  if (honeypotValue && honeypotValue.trim() !== '') {
+    console.log('🛡️ HONEYPOT: Spam detected - honeypot field filled', {
+      honeypotValue: typeof honeypotValue,
+      timestamp: new Date().toISOString()
     });
-    return false;
+    return false; // Honeypot caught spam
   }
-
-  if (!process.env.RECAPTCHA_SECRET_KEY) {
-    console.error('🔐 reCAPTCHA: SECRET_KEY not configured');
-    return false;
-  }
-
-  try {
-    const response = await fetch('https://www.google.com/recaptcha/api/siteverify', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-      body: new URLSearchParams({
-        secret: process.env.RECAPTCHA_SECRET_KEY || '',
-        response: token,
-        remoteip: userIP || '', // Include user IP for better verification
-      }).toString(),
-    });
-
-    const result = await response.json();
-    
-    // Log verification attempt with minimal PII
-    const logData = {
-      success: result.success,
-      score: result.score,
-      action: result.action,
-      hostname: result.hostname,
-      expectedAction,
-      expectedHostname: hostname,
-      scoreThreshold,
-      timestamp: new Date().toISOString(),
-      ip: userIP?.slice(0, 8) + '***' // Partial IP only
-    };
-
-    if (!result.success) {
-      console.warn('🔐 reCAPTCHA: Verification failed', {
-        ...logData,
-        errorCodes: result['error-codes']
-      });
-      return false;
-    }
-
-    // Validate score threshold
-    if (result.score < scoreThreshold) {
-      console.warn('🔐 reCAPTCHA: Score too low', logData);
-      return false;
-    }
-
-    // Validate expected action
-    if (result.action !== expectedAction) {
-      console.warn('🔐 reCAPTCHA: Action mismatch', logData);
-      return false;
-    }
-
-    // Validate hostname using server-configured allowlist (not client-provided hostname)
-    const allowedHosts = (process.env.RECAPTCHA_ALLOWED_HOSTS || 'localhost').split(',').map(h => h.trim());
-    const resultHostname = result.hostname || '';
-    
-    // For development, allow replit.dev domains specifically
-    const isDevEnvironment = process.env.NODE_ENV !== 'production';
-    const isValidReplit = isDevEnvironment && resultHostname.endsWith('.replit.dev');
-    const isExplicitlyAllowed = allowedHosts.includes(resultHostname);
-    
-    const isHostnameValid = isExplicitlyAllowed || isValidReplit;
-
-    // Log hostname info for debugging
-    console.log('🔐 reCAPTCHA: Hostname validation', {
-      resultHostname,
-      isDevEnvironment,
-      isValidReplit,
-      isExplicitlyAllowed,
-      isHostnameValid
-    });
-
-    if (!isHostnameValid) {
-      console.warn('🔐 reCAPTCHA: Hostname not in allowlist', {
-        ...logData,
-        allowedHosts: allowedHosts.length, // Don't leak exact hosts
-        isDevEnvironment
-      });
-      return false;
-    }
-
-    // Validate token freshness to prevent replay attacks
-    if (!result.challenge_ts || Number.isNaN(new Date(result.challenge_ts).getTime())) {
-      console.warn('🔐 reCAPTCHA: Missing or invalid challenge timestamp', logData);
-      return false;
-    }
-    
-    const challengeTimestamp = new Date(result.challenge_ts).getTime();
-    const now = Date.now();
-    const maxAge = 120 * 1000; // 120 seconds
-    
-    if (now - challengeTimestamp > maxAge) {
-      console.warn('🔐 reCAPTCHA: Token too old', {
-        ...logData,
-        ageSeconds: Math.round((now - challengeTimestamp) / 1000)
-      });
-      return false;
-    }
-
-    console.log('🔐 reCAPTCHA: Verification successful', logData);
-    return true;
-
-  } catch (error: unknown) {
-    console.error('🔐 reCAPTCHA: Verification error', {
-      error: error instanceof Error ? error.message : String(error),
-      ip: userIP?.slice(0, 8) + '***',
-      hostname,
-      expectedAction
-    });
-    return false;
-  }
+  return true; // Looks legitimate
 }
 
 const router = Router();
@@ -404,14 +282,13 @@ router.get('/public/:slug', async (req, res) => {
 router.post('/public/:slug/submit', formSubmissionLimiter, async (req, res) => {
   try {
     const { slug } = req.params;
-    const { recaptchaToken, ...formData } = req.body;
+    const formData = req.body;
     
     console.log('🔍 FORM SUBMISSION DEBUG:', { 
       slug, 
       hasFormData: !!formData,
       formDataKeys: Object.keys(formData || {}),
-      formData: JSON.stringify(formData, null, 2),
-      hasRecaptchaToken: !!recaptchaToken
+      formData: JSON.stringify(formData, null, 2)
     });
     
     const form = await storage.getLeadCaptureFormBySlug(slug);
@@ -419,26 +296,19 @@ router.post('/public/:slug/submit', formSubmissionLimiter, async (req, res) => {
       return res.status(404).json({ error: 'Form not found' });
     }
 
-    // Verify reCAPTCHA if enabled
-    if (form.recaptchaEnabled) {
-      if (!recaptchaToken) {
-        return res.status(400).json({ error: 'reCAPTCHA token is required for this form' });
-      }
-
-      const userIP = req.ip || req.connection.remoteAddress || 'unknown';
-      // Don't use client-provided hostname for security - will be validated against allowlist
-      
-      const isValidRecaptcha = await verifyRecaptcha({
-        token: recaptchaToken,
-        expectedAction: 'submit',
-        userIP,
-        hostname: '', // Not used anymore - validation is based on server allowlist
-        scoreThreshold: 0.5 // Could be made configurable per form in the future
+    // Check honeypot for spam protection
+    if (!validateHoneypot(formData)) {
+      // Silent rejection - don't give spammers feedback about what went wrong
+      console.log('🛡️ SPAM REJECTED: Honeypot validation failed', {
+        slug,
+        ip: req.ip?.slice(0, 8) + '***',
+        timestamp: new Date().toISOString()
       });
-      
-      if (!isValidRecaptcha) {
-        return res.status(400).json({ error: 'reCAPTCHA verification failed' });
-      }
+      // Return success to prevent spammers from detecting the protection
+      return res.status(200).json({ 
+        success: true,
+        message: 'Thank you for your submission!' 
+      });
     }
 
     // Parse the form questions to get field mappings

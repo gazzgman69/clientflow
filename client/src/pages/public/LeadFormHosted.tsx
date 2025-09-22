@@ -29,7 +29,6 @@ interface FormData {
     id: string;
     title: string;
     slug: string;
-    recaptchaEnabled: boolean;
     transparency: string;
   };
   questions: Question[];
@@ -44,7 +43,6 @@ export default function LeadFormHosted({ slug }: LeadFormHostedProps) {
   const [formValues, setFormValues] = useState<Record<string, any>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
-  const [recaptchaLoaded, setRecaptchaLoaded] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -65,55 +63,6 @@ export default function LeadFormHosted({ slug }: LeadFormHostedProps) {
     },
   });
 
-  // Load reCAPTCHA script dynamically
-  useEffect(() => {
-    if (!formData?.form.recaptchaEnabled) return;
-    
-    // Don't reload if already loaded
-    if (window.grecaptcha && (window as any).recaptchaSiteKey) {
-      setRecaptchaLoaded(true);
-      return;
-    }
-    
-    // Fetch site key from backend
-    fetch('/api/leads/recaptcha-config')
-      .then(res => res.json())
-      .then(config => {
-        console.log('reCAPTCHA config loaded:', { enabled: config.enabled, hasSiteKey: !!config.siteKey });
-        if (!config.siteKey || !config.enabled) {
-          console.error('reCAPTCHA not properly configured on server');
-          return;
-        }
-        
-        // Store site key first
-        (window as any).recaptchaSiteKey = config.siteKey;
-        
-        const script = document.createElement('script');
-        script.src = `https://www.google.com/recaptcha/api.js?render=${config.siteKey}`;
-        script.async = true;
-        script.onload = () => {
-          console.log('reCAPTCHA script loaded successfully');
-          window.grecaptcha.ready(() => {
-            console.log('reCAPTCHA ready');
-            setRecaptchaLoaded(true);
-          });
-        };
-        script.onerror = (error) => {
-          console.error('Failed to load reCAPTCHA script:', error);
-        };
-        document.head.appendChild(script);
-      })
-      .catch(err => {
-        console.error('Failed to load reCAPTCHA config:', err);
-      });
-    
-    return () => {
-      const existingScript = document.head.querySelector(`script[src*="recaptcha"]`);
-      if (existingScript) {
-        document.head.removeChild(existingScript);
-      }
-    };
-  }, [formData?.form.recaptchaEnabled]);
 
   // Submit form mutation
   const submitMutation = useMutation({
@@ -196,49 +145,11 @@ export default function LeadFormHosted({ slug }: LeadFormHostedProps) {
       return;
     }
 
-    // Get reCAPTCHA token if enabled
-    let recaptchaToken = '';
-    if (formData.form.recaptchaEnabled) {
-      if (!recaptchaLoaded) {
-        toast({
-          title: 'Security verification loading',
-          description: 'Please wait for security verification to load and try again.',
-          variant: 'destructive',
-        });
-        return;
-      }
-      
-      try {
-        const siteKey = (window as any).recaptchaSiteKey;
-        console.log('reCAPTCHA token generation:', { 
-          hasSiteKey: !!siteKey, 
-          hasGrecaptcha: !!window.grecaptcha,
-          recaptchaLoaded 
-        });
-        
-        if (!siteKey) {
-          throw new Error('reCAPTCHA site key not available');
-        }
-        
-        if (!window.grecaptcha) {
-          throw new Error('reCAPTCHA script not loaded');
-        }
-        
-        recaptchaToken = await window.grecaptcha.execute(siteKey, { action: 'submit' });
-        console.log('reCAPTCHA token generated:', { tokenLength: recaptchaToken?.length });
-        
-        if (!recaptchaToken || recaptchaToken.length < 10) {
-          throw new Error('Invalid reCAPTCHA token generated');
-        }
-      } catch (error) {
-        console.error('reCAPTCHA error:', error);
-        toast({
-          title: 'Security verification failed',
-          description: 'Please try again.',
-          variant: 'destructive',
-        });
-        return;
-      }
+    // Check honeypot field - if filled, it's likely spam
+    if (formValues.website_url && formValues.website_url.trim() !== '') {
+      // Silent rejection - don't give spammers feedback
+      console.log('🛡️ Honeypot field filled - rejecting spam submission');
+      return;
     }
 
     // Map form values to expected format
@@ -256,10 +167,6 @@ export default function LeadFormHosted({ slug }: LeadFormHostedProps) {
       }
     });
 
-    // Add reCAPTCHA token to submission
-    if (recaptchaToken) {
-      submissionData.recaptchaToken = recaptchaToken;
-    }
 
     console.log('🚀 FORM DEBUG: About to submit form', { submissionData, url: `/api/leads/public/${slug}/submit` });
     submitMutation.mutate(submissionData);
@@ -459,24 +366,30 @@ export default function LeadFormHosted({ slug }: LeadFormHostedProps) {
                   </div>
                 ))}
 
-              {formData.form.recaptchaEnabled && (
-                <div className="text-xs text-muted-foreground mb-4">
-                  This site is protected by reCAPTCHA and the Google{' '}
-                  <a href="https://policies.google.com/privacy" className="underline" target="_blank" rel="noopener noreferrer">
-                    Privacy Policy
-                  </a>{' '}
-                  and{' '}
-                  <a href="https://policies.google.com/terms" className="underline" target="_blank" rel="noopener noreferrer">
-                    Terms of Service
-                  </a>{' '}
-                  apply.
-                </div>
-              )}
+              {/* Honeypot field - hidden from humans, visible to bots */}
+              <input
+                type="url"
+                name="website_url"
+                value={formValues.website_url || ''}
+                onChange={(e) => handleInputChange('website_url', e.target.value)}
+                style={{
+                  position: 'absolute',
+                  left: '-9999px',
+                  width: '1px',
+                  height: '1px',
+                  opacity: 0,
+                  overflow: 'hidden'
+                }}
+                tabIndex={-1}
+                autoComplete="off"
+                aria-hidden="true"
+                data-testid="honeypot-field"
+              />
 
               <Button
                 type="submit"
                 className="w-full"
-                disabled={isSubmitting || submitMutation.isPending || (formData.form.recaptchaEnabled && !recaptchaLoaded)}
+                disabled={isSubmitting || submitMutation.isPending}
                 data-testid="button-submit-form"
               >
                 {submitMutation.isPending ? 'Submitting...' : 'Submit'}

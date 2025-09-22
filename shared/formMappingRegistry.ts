@@ -152,6 +152,7 @@ export interface MappingResult {
   leadData: Record<string, any>;
   contactData: Record<string, any>;
   projectData: Record<string, any>;
+  customFieldData: Array<{key: string, value: any}>; // Store custom field responses
   warnings: string[];
   errors: string[];
 }
@@ -164,6 +165,7 @@ export function applyMapping(
     leadData: {},
     contactData: {},
     projectData: {},
+    customFieldData: [],
     warnings: [],
     errors: [],
   };
@@ -196,7 +198,8 @@ export function applyMapping(
       }
       
       if (options.allowUnknownKeys) {
-        result.warnings.push(`Ignoring unknown field: ${key}`);
+        // Treat unknown fields as potential custom fields
+        result.customFieldData.push({ key, value });
         return;
       }
     }

@@ -85,14 +85,46 @@ export class GeocodingService {
       const data = await response.json() as GooglePlacePredictionsResponse;
 
       if (data.status !== 'OK') {
-        console.error('Google Places Autocomplete API error:', data.status);
+        console.error('Google Places Autocomplete API error:', {
+          status: data.status,
+          error_message: (data as any).error_message,
+          input: input,
+          url: url.replace(this.apiKey, 'REDACTED_KEY')
+        });
+        
+        if (data.status === 'REQUEST_DENIED') {
+          console.error(`
+🚨 GOOGLE PLACES API CONFIGURATION ERROR 🚨
+The Google Places API is returning REQUEST_DENIED. This usually means:
+
+1. 📋 PLACES API NOT ENABLED: The Places API might not be enabled in your Google Cloud Console
+   → Go to https://console.cloud.google.com/apis/library/places-backend.googleapis.com
+   → Click "Enable"
+
+2. 🔑 API KEY RESTRICTIONS: Your API key might have domain/IP restrictions
+   → Go to https://console.cloud.google.com/apis/credentials  
+   → Click on your API key
+   → Check "Application restrictions" and "API restrictions"
+   → Make sure your current domain is allowed
+
+3. 💳 BILLING NOT SET UP: Google Places API requires a billing account
+   → Go to https://console.cloud.google.com/billing
+   → Set up billing for your project
+
+4. 🚫 API KEY INVALID: The API key might be invalid or deleted
+   → Double-check your GOOGLE_MAPS_API_KEY environment variable
+
+Current key starts with: ${this.apiKey.substring(0, 8)}...
+          `);
+        }
         return [];
       }
 
       return data.predictions;
     } catch (error) {
       console.error('Error fetching place predictions:', error);
-      throw new Error('Failed to fetch place predictions from Google Places API');
+      console.error('Failed to connect to Google Places API. Check your internet connection and API configuration.');
+      return [];
     }
   }
 

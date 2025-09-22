@@ -411,6 +411,13 @@ router.post('/public/:slug/submit', formSubmissionLimiter, async (req, res) => {
     const contactData = {
       ...mappingResult.contactData,
       email: mappingResult.contactData.email || mappingResult.leadData.email,
+      phone: mappingResult.leadData.phone, // Transfer phone from lead data
+      // Map venue address from form data 
+      venueAddress: mappingResult.contactData.venue_address,
+      venueCity: mappingResult.contactData.venue_city,
+      venueState: mappingResult.contactData.venue_state,
+      venueZipCode: mappingResult.contactData.venue_zip_code,
+      venueCountry: mappingResult.contactData.venue_country,
       fullName: nameParts.fullName,
       firstName: nameParts.firstName,
       middleName: nameParts.middleName,

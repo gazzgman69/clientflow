@@ -432,6 +432,17 @@ export default function VenuesPage() {
                         Google Places Information
                       </h3>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {/* Phone Number */}
+                        {selectedVenue.contactPhone && (
+                          <div className="space-y-1">
+                            <div className="text-xs text-muted-foreground">Phone</div>
+                            <div className="flex items-center gap-2">
+                              <Phone className="h-4 w-4 text-blue-600" />
+                              <span className="font-medium text-sm">{selectedVenue.contactPhone}</span>
+                            </div>
+                          </div>
+                        )}
+
                         {/* Rating and Reviews */}
                         {enrichment.rating && (
                           <div className="space-y-1">

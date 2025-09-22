@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Plus, MapPin, Phone, Mail, Users, Edit, Trash, Globe, Star, Calendar, BarChart3, Tag } from "lucide-react";
+import { Plus, MapPin, Phone, Mail, Users, Edit, Trash, Globe, Star, Calendar, BarChart3, Tag, Clock, DollarSign, CheckCircle } from "lucide-react";
 import { AddressFields } from "@/components/shared/AddressFields";
 import { VenueAutocomplete } from "@/components/venues/VenueAutocomplete";
 import {
@@ -72,6 +72,33 @@ const venueSchema = z.object({
 });
 
 type VenueFormData = z.infer<typeof venueSchema>;
+
+// Helper function to parse enriched venue metadata
+function parseVenueEnrichment(meta: string | null) {
+  if (!meta) return null;
+  try {
+    const parsed = JSON.parse(meta);
+    return {
+      rating: parsed.rating,
+      userRatingsTotal: parsed.userRatingsTotal,
+      priceLevel: parsed.priceLevel,
+      businessStatus: parsed.businessStatus,
+      openingHours: parsed.openingHours,
+      lastEnriched: parsed.lastEnriched,
+      autoEnriched: parsed.autoEnriched,
+      confidence: parsed.confidence
+    };
+  } catch {
+    return null;
+  }
+}
+
+// Helper function to get price level display
+function getPriceLevelDisplay(priceLevel: number | null | undefined) {
+  if (!priceLevel) return null;
+  const symbols = ['$', '$$', '$$$', '$$$$'];
+  return symbols[priceLevel - 1] || null;
+}
 
 export default function VenuesPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -762,12 +789,57 @@ export default function VenuesPage() {
                     </TableCell>
                     <TableCell>
                       <div className="space-y-1">
+                        {/* Enriched Data - Rating and Business Info */}
+                        {(() => {
+                          const enrichment = parseVenueEnrichment(venue.meta);
+                          return enrichment && (
+                            <div className="space-y-1 border-b pb-2 mb-2">
+                              {enrichment.rating && (
+                                <div className="flex items-center gap-1 text-sm">
+                                  <Star className="h-3 w-3 text-yellow-500 fill-current" />
+                                  <span className="font-medium">{enrichment.rating}</span>
+                                  {enrichment.userRatingsTotal && (
+                                    <span className="text-xs text-muted-foreground">
+                                      ({enrichment.userRatingsTotal} reviews)
+                                    </span>
+                                  )}
+                                </div>
+                              )}
+                              <div className="flex items-center gap-2">
+                                {enrichment.priceLevel && (
+                                  <div className="flex items-center gap-1 text-sm">
+                                    <DollarSign className="h-3 w-3 text-green-600" />
+                                    <span className="font-medium text-green-600">
+                                      {getPriceLevelDisplay(enrichment.priceLevel)}
+                                    </span>
+                                  </div>
+                                )}
+                                {enrichment.businessStatus === 'OPERATIONAL' && (
+                                  <div className="flex items-center gap-1 text-xs">
+                                    <CheckCircle className="h-3 w-3 text-green-500" />
+                                    <span className="text-green-600">Open</span>
+                                  </div>
+                                )}
+                              </div>
+                              {enrichment.openingHours && enrichment.openingHours.length > 0 && (
+                                <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                                  <Clock className="h-3 w-3" />
+                                  <span>Has hours</span>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })()}
+                        
+                        {/* Venue Capacity */}
                         {venue.capacity && (
                           <div className="flex items-center gap-1 text-sm">
                             <Users className="h-3 w-3" />
                             <span data-testid={`text-capacity-${venue.id}`}>{venue.capacity}</span>
                           </div>
                         )}
+                        
+                        {/* Tags */}
                         {venue.tags && venue.tags.length > 0 && (
                           <div className="flex flex-wrap gap-1 mt-1">
                             {venue.tags.slice(0, 2).map((tag, idx) => (
@@ -782,6 +854,8 @@ export default function VenuesPage() {
                             )}
                           </div>
                         )}
+                        
+                        {/* Notes indicator */}
                         {(venue.restrictions || venue.accessNotes) && (
                           <div className="flex items-center gap-1 text-xs text-muted-foreground">
                             <Tag className="h-3 w-3" />

@@ -225,6 +225,28 @@ router.post('/:id/track-usage', async (req, res) => {
   }
 });
 
+// POST /api/venues/:id/enrich - Try to enrich a venue with Google Places data
+router.post('/:id/enrich', async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const enrichedVenue = await venuesService.tryAutoEnrichVenue(id, (req as any).tenantId);
+    
+    if (!enrichedVenue) {
+      return res.status(404).json({ 
+        message: 'Venue not found or already enriched' 
+      });
+    }
+    
+    res.json(enrichedVenue);
+  } catch (error) {
+    console.error('Error enriching venue:', error);
+    res.status(500).json({ 
+      message: 'Failed to enrich venue'
+    });
+  }
+});
+
 // POST /api/venues - Create new venue with full field validation
 router.post('/', async (req, res) => {
   try {

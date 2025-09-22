@@ -11,6 +11,18 @@ export interface PlaceDetails {
   latitude: number;
   longitude: number;
   placeId: string;
+  // Enrichment fields
+  phone?: string;
+  website?: string;
+  rating?: number;
+  userRatingsTotal?: number;
+  priceLevel?: number;
+  businessStatus?: string;
+  openingHours?: {
+    openNow?: boolean;
+    periods?: any[];
+    weekdayText?: string[];
+  };
 }
 
 export interface GooglePlaceDetailsResponse {
@@ -29,6 +41,18 @@ export interface GooglePlaceDetailsResponse {
         lng: number;
       };
     };
+    formatted_phone_number?: string;
+    international_phone_number?: string;
+    website?: string;
+    opening_hours?: {
+      open_now?: boolean;
+      periods?: any[];
+      weekday_text?: string[];
+    };
+    rating?: number;
+    user_ratings_total?: number;
+    price_level?: number;
+    business_status?: string;
   };
   status: string;
 }
@@ -137,7 +161,15 @@ Current key starts with: ${this.apiKey.substring(0, 8)}...
       'name', 
       'formatted_address',
       'address_components',
-      'geometry/location'
+      'geometry/location',
+      'formatted_phone_number',
+      'international_phone_number',
+      'website',
+      'opening_hours',
+      'rating',
+      'user_ratings_total',
+      'price_level',
+      'business_status'
     ].join(',');
 
     const params = new URLSearchParams({
@@ -238,7 +270,19 @@ Current key starts with: ${this.apiKey.substring(0, 8)}...
       countryCode: country,
       latitude: place.geometry.location.lat,
       longitude: place.geometry.location.lng,
-      placeId: place.place_id
+      placeId: place.place_id,
+      // Enrichment fields
+      phone: place.formatted_phone_number || undefined,
+      website: place.website || undefined,
+      rating: place.rating || undefined,
+      userRatingsTotal: place.user_ratings_total || undefined,
+      priceLevel: place.price_level || undefined,
+      businessStatus: place.business_status || undefined,
+      openingHours: place.opening_hours ? {
+        openNow: place.opening_hours.open_now,
+        periods: place.opening_hours.periods,
+        weekdayText: place.opening_hours.weekday_text
+      } : undefined
     };
   }
 

@@ -41,6 +41,23 @@ export class VenuesService {
       if (!existingVenue.countryCode) updates.countryCode = details.countryCode;
       if (!existingVenue.latitude) updates.latitude = details.latitude.toString();
       if (!existingVenue.longitude) updates.longitude = details.longitude.toString();
+      
+      // Add enrichment fields - only update if empty to preserve manual edits
+      if (!existingVenue.contactPhone && details.phone) updates.contactPhone = details.phone;
+      if (!existingVenue.website && details.website) updates.website = details.website;
+      
+      // Store enriched data in meta field as JSON
+      if (details.rating || details.userRatingsTotal || details.priceLevel || details.businessStatus || details.openingHours) {
+        const enrichmentData = {
+          rating: details.rating,
+          userRatingsTotal: details.userRatingsTotal,
+          priceLevel: details.priceLevel,
+          businessStatus: details.businessStatus,
+          openingHours: details.openingHours,
+          lastEnriched: new Date().toISOString()
+        };
+        updates.meta = JSON.stringify(enrichmentData);
+      }
 
       if (Object.keys(updates).length > 0) {
         try {
@@ -54,7 +71,16 @@ export class VenuesService {
       return existingVenue;
     }
 
-    // Create new venue
+    // Create new venue with enrichment data
+    const enrichmentData = {
+      rating: details.rating,
+      userRatingsTotal: details.userRatingsTotal,
+      priceLevel: details.priceLevel,
+      businessStatus: details.businessStatus,
+      openingHours: details.openingHours,
+      lastEnriched: new Date().toISOString()
+    };
+
     const newVenueData = {
       name: details.name,
       address: details.address1,
@@ -67,6 +93,10 @@ export class VenuesService {
       latitude: details.latitude.toString(),
       longitude: details.longitude.toString(),
       placeId: details.placeId,
+      // Add enrichment fields
+      contactPhone: details.phone || null,
+      website: details.website || null,
+      meta: JSON.stringify(enrichmentData),
     };
 
     const newVenue: InsertVenue = withTenantData(newVenueData, tenantId);
@@ -95,6 +125,7 @@ export class VenuesService {
 
   /**
    * Create minimal venue for manual entry (when user doesn't select a Google result)
+   * Attempts automatic enrichment if possible
    */
   async createMinimal(venueData: CreateMinimalVenueRequest, tenantId: string): Promise<Venue> {
     const venueData_base = {
@@ -107,7 +138,132 @@ export class VenuesService {
     };
 
     const venueInsert: InsertVenue = withTenantData(venueData_base, tenantId);
-    return await storage.createVenue(venueInsert, tenantId);
+    const createdVenue = await storage.createVenue(venueInsert, tenantId);
+    
+    // Attempt automatic enrichment after creation
+    try {
+      const enrichedVenue = await this.tryAutoEnrichVenue(createdVenue.id, tenantId);
+      return enrichedVenue || createdVenue;
+    } catch (error) {
+      console.warn('Failed to auto-enrich venue:', error);
+      return createdVenue;
+    }
+  }
+
+  /**
+   * Attempt to automatically enrich a venue by searching Google Places
+   */
+  async tryAutoEnrichVenue(venueId: string, tenantId: string): Promise<Venue | null> {
+    const venue = await storage.getVenue(venueId);
+    if (!venue || venue.placeId) {
+      return null; // Already has Google Places data or doesn't exist
+    }
+
+    // Don't try to enrich if we already have enrichment data
+    if (venue.meta) {
+      try {
+        const metaData = JSON.parse(venue.meta);
+        if (metaData.lastEnriched) {
+          console.log(`🔍 Venue ${venue.name} already enriched, skipping`);
+          return venue;
+        }
+      } catch (e) {
+        // Invalid JSON in meta, continue with enrichment
+      }
+    }
+
+    // Build search query from venue data
+    const searchTerms = [venue.name, venue.address, venue.city, venue.state, venue.country]
+      .filter(Boolean)
+      .join(', ');
+    
+    if (!searchTerms || searchTerms.length < 5) {
+      console.log(`🔍 Insufficient data to enrich venue: ${venue.name}`);
+      return venue;
+    }
+
+    try {
+      console.log(`🔍 Auto-enriching venue: ${venue.name} with query: "${searchTerms}"`);
+      
+      // Search for the venue on Google Places
+      const predictions = await geocodingService.getPlacePredictions(searchTerms, {
+        types: ['establishment', 'premise']
+      });
+
+      if (!predictions || predictions.length === 0) {
+        console.log(`🔍 No Google Places results found for: ${venue.name}`);
+        return venue;
+      }
+
+      // Try the first result that seems to match
+      const bestMatch = predictions[0];
+      const placeDetails = await geocodingService.getPlaceDetails(bestMatch.place_id);
+
+      // Verify it's actually the same venue by checking name similarity
+      const nameSimilarity = this.calculateNameSimilarity(venue.name, placeDetails.name);
+      if (nameSimilarity < 0.6) {
+        console.log(`🔍 Name similarity too low (${nameSimilarity}) for ${venue.name} vs ${placeDetails.name}`);
+        return venue;
+      }
+
+      // Update venue with enriched data, preserving manual edits
+      const updates: Partial<InsertVenue> = {};
+      
+      // Only update fields that are empty
+      if (!venue.contactPhone && placeDetails.phone) updates.contactPhone = placeDetails.phone;
+      if (!venue.website && placeDetails.website) updates.website = placeDetails.website;
+      if (!venue.placeId) updates.placeId = placeDetails.placeId;
+      
+      // Store enrichment data in meta
+      const enrichmentData = {
+        rating: placeDetails.rating,
+        userRatingsTotal: placeDetails.userRatingsTotal,
+        priceLevel: placeDetails.priceLevel,
+        businessStatus: placeDetails.businessStatus,
+        openingHours: placeDetails.openingHours,
+        lastEnriched: new Date().toISOString(),
+        autoEnriched: true,
+        confidence: nameSimilarity
+      };
+      updates.meta = JSON.stringify(enrichmentData);
+
+      if (Object.keys(updates).length > 0) {
+        const updatedVenue = await storage.updateVenue(venueId, updates);
+        console.log(`✅ Successfully enriched venue: ${venue.name} with phone: ${placeDetails.phone}, website: ${placeDetails.website}`);
+        return updatedVenue || venue;
+      }
+
+      return venue;
+    } catch (error) {
+      console.warn(`❌ Failed to auto-enrich venue ${venue.name}:`, error);
+      return venue;
+    }
+  }
+
+  /**
+   * Calculate name similarity between two venue names
+   */
+  private calculateNameSimilarity(name1: string, name2: string): number {
+    if (!name1 || !name2) return 0;
+    
+    const normalize = (str: string) => str.toLowerCase()
+      .replace(/[^\w\s]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+    
+    const n1 = normalize(name1);
+    const n2 = normalize(name2);
+    
+    if (n1 === n2) return 1.0;
+    if (n1.includes(n2) || n2.includes(n1)) return 0.8;
+    
+    // Simple word overlap calculation
+    const words1 = n1.split(' ');
+    const words2 = n2.split(' ');
+    const intersection = words1.filter(word => words2.includes(word));
+    const union = [...new Set([...words1, ...words2])];
+    
+    return intersection.length / union.length;
   }
 
   /**

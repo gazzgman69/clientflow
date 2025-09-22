@@ -206,12 +206,12 @@ router.patch('/:id', async (req, res) => {
     if (form.recaptchaEnabled !== undefined) updateData.recaptchaEnabled = form.recaptchaEnabled;
     if (form.isActive !== undefined) updateData.isActive = form.isActive;
 
-    const updatedForm = await storage.updateLeadCaptureForm(id, updateData);
-    
     // Handle questions update
     if (questions) {
       updateData.questions = JSON.stringify(questions);
     }
+    
+    const updatedForm = await storage.updateLeadCaptureForm(id, updateData);
     
     res.json({ ok: true, slug: updatedForm?.slug });
   } catch (error) {

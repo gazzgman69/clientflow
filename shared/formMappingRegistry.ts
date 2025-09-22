@@ -87,6 +87,32 @@ export const FORM_FIELD_REGISTRY: Record<string, FormFieldMapping> = {
     sanitizer: (value: string) => value?.trim() || '',
   },
   
+  // Direct field mappings for forms that use simple field names
+  name: {
+    model: 'leads', 
+    field: 'full_name',
+    type: 'text',
+    required: true,
+    label: 'Name',
+    sanitizer: (value: string) => value?.trim() || '',
+  },
+  email: {
+    model: 'leads',
+    field: 'email', 
+    type: 'email',
+    required: true,
+    label: 'Email',
+    sanitizer: (value: string) => value?.trim()?.toLowerCase() || '',
+  },
+  message: {
+    model: 'leads',
+    field: 'notes',
+    type: 'textarea', 
+    required: false,
+    label: 'Message',
+    sanitizer: (value: string) => value?.trim() || '',
+  },
+
   // DEPRECATED MAPPINGS - kept for backward compatibility
   whatKindOfEventIsIt: {
     model: 'leads',

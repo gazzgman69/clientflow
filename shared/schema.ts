@@ -746,6 +746,51 @@ export const quoteExtraInfoResponses = pgTable("quote_extra_info_responses", {
   };
 });
 
+// Lead Custom Fields System - for configurable custom field collection on lead forms  
+export const leadCustomFields = pgTable("lead_custom_fields", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").references(() => tenants.id), // Nullable initially for safe migration
+  userId: varchar("user_id").references(() => users.id), // Owner of this custom field, NULL for global standard fields
+  key: text("key").notNull(), // Unique key for this field (e.g., 'custom_music_style', 'dietary_requirements')
+  label: text("label").notNull(), // Display label for the field
+  type: text("type").notNull(), // text, email, phone, date, time, textarea, select, checkbox, file, address
+  helpText: text("help_text"), // Optional help text shown to user
+  placeholder: text("placeholder"), // Placeholder text for inputs
+  options: text("options").array(), // For select/checkbox types - array of option values
+  isRequired: boolean("is_required").default(false), // Whether this field is required
+  isStandard: boolean("is_standard").default(false), // true for predefined standard fields
+  crmMapping: text("crm_mapping"), // Maps to CRM field like 'Lead.customField1', 'Contact.customData'
+  validationRules: text("validation_rules"), // JSON string for additional validation rules
+  displayOrder: integer("display_order").default(0), // Order to display fields
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => {
+  return {
+    // Multi-tenant uniqueness constraints
+    tenantKeyUnique: unique("lead_custom_fields_tenant_key_unique").on(table.tenantId, table.key),
+    tenantIdIdx: index("idx_lead_custom_fields_tenant_id").on(table.tenantId),
+  };
+});
+
+export const leadCustomFieldResponses = pgTable("lead_custom_field_responses", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").references(() => tenants.id), // Nullable initially for safe migration
+  leadId: varchar("lead_id").references(() => leads.id).notNull(),
+  fieldKey: text("field_key").notNull(), // References leadCustomFields.key
+  value: text("value"), // The user's response value
+  fileName: text("file_name"), // For file type fields
+  fileSize: integer("file_size"), // For file type fields  
+  mimeType: text("mime_type"), // For file type fields
+  submittedAt: timestamp("submitted_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => {
+  return {
+    leadFieldUnique: unique().on(table.leadId, table.fieldKey), // One response per field per lead
+    tenantIdIdx: index("idx_lead_custom_field_responses_tenant_id").on(table.tenantId),
+    leadIdIdx: index("idx_lead_custom_field_responses_lead_id").on(table.leadId),
+  };
+});
+
 
 // Insert schemas
 export const insertUserSchema = createInsertSchema(users).omit({ id: true, createdAt: true });
@@ -797,6 +842,10 @@ export const insertQuoteSignatureSchema = createInsertSchema(quoteSignatures).om
 export const insertQuoteExtraInfoFieldSchema = createInsertSchema(quoteExtraInfoFields).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertQuoteExtraInfoConfigSchema = createInsertSchema(quoteExtraInfoConfig).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertQuoteExtraInfoResponseSchema = createInsertSchema(quoteExtraInfoResponses).omit({ id: true, submittedAt: true, updatedAt: true });
+
+// Lead Custom Fields System schemas  
+export const insertLeadCustomFieldSchema = createInsertSchema(leadCustomFields).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertLeadCustomFieldResponseSchema = createInsertSchema(leadCustomFieldResponses).omit({ id: true, submittedAt: true, updatedAt: true });
 
 // Tenants
 export const insertTenantSchema = createInsertSchema(tenants).omit({ id: true, createdAt: true, updatedAt: true });
@@ -918,6 +967,12 @@ export type QuoteExtraInfoConfig = typeof quoteExtraInfoConfig.$inferSelect;
 export type InsertQuoteExtraInfoConfig = z.infer<typeof insertQuoteExtraInfoConfigSchema>;
 export type QuoteExtraInfoResponse = typeof quoteExtraInfoResponses.$inferSelect;
 export type InsertQuoteExtraInfoResponse = z.infer<typeof insertQuoteExtraInfoResponseSchema>;
+
+// Lead Custom Fields System types
+export type LeadCustomField = typeof leadCustomFields.$inferSelect;
+export type InsertLeadCustomField = z.infer<typeof insertLeadCustomFieldSchema>;
+export type LeadCustomFieldResponse = typeof leadCustomFieldResponses.$inferSelect;
+export type InsertLeadCustomFieldResponse = z.infer<typeof insertLeadCustomFieldResponseSchema>;
 export const leadStatusHistory = pgTable("lead_status_history", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   leadId: varchar("lead_id").references(() => leads.id).notNull(),

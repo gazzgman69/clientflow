@@ -1,0 +1,68 @@
+Role: You are auditing and refactoring a lead capture form in a SaaS CRM to make sure it is 100% safe and correct for multi-tenant use.
+
+Context: This CRM is multi-tenant, with strict tenant isolation (RLS in Postgres + service-layer checks). Each tenant has their own lead forms, submissions, and notifications.
+
+Your tasks:
+
+Audit current implementation:
+
+Confirm form routing is tenant-scoped (subdomain or /t/{tenant} path).
+
+Check every submission is written with a tenant_id enforced at the DB layer (RLS) and service layer.
+
+Verify no global leaks (one tenant cannot see another’s submissions).
+
+Schema & DB changes:
+
+Ensure there is a lead_forms table and lead_submissions table with tenant_id foreign keys.
+
+Add fields for: idempotency_key, consent_marketing, consent_timestamp (dd/mm/yyyy), ip_hash, ua_hash, and audit_log.
+
+Enforce RLS: USING (tenant_id = current_setting('app.tenant_id')::uuid).
+
+API contract:
+
+Public endpoint: POST /api/public/lead-submissions.
+
+Headers: X-Tenant: <tenant-id> and Idempotency-Key: <uuid-v4>.
+
+Validate body against the tenant’s form schema before insert.
+
+Security & compliance:
+
+Add spam protection (hCaptcha/Turnstile).
+
+Require HTTPS; ensure no secrets in client HTML.
+
+Encrypt or hash PII where possible (e.g., phone, email index).
+
+Provide GDPR compliance: data export + deletion per tenant.
+
+Notifications:
+
+Ensure emails/SMS route through tenant-scoped templates and from-addresses.
+
+Do not mix tenant messaging configs.
+
+Testing:
+
+Write integration tests to prove:
+• Cross-tenant submission visibility is blocked.
+• Idempotency prevents duplicate submissions.
+• Consent + timestamp are stored correctly (dd/mm/yyyy).
+• Notifications fire only for the correct tenant.
+
+Deliverables:
+
+Updated schema migrations (Drizzle).
+
+Updated API handler.
+
+A README.md summarising the form flow, DB schema, and tenant isolation guarantees.
+
+Test suite that can run against a fresh staging DB.
+
+Rules:
+• Never touch production DB.
+• Stop after each major step (schema, API, tests) and show the diff + test results before continuing.
+• If anything is unclear, ask me before assuming.

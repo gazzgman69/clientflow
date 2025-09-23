@@ -620,40 +620,6 @@ export const leadCaptureForms = pgTable("lead_capture_forms", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
-// Lead Submissions - Secure table for form submissions with compliance fields
-export const leadSubmissions = pgTable("lead_submissions", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  tenantId: varchar("tenant_id").references(() => tenants.id).notNull(), // Required for RLS
-  leadCaptureFormId: varchar("lead_capture_form_id").references(() => leadCaptureForms.id).notNull(),
-  leadId: varchar("lead_id").references(() => leads.id), // Created lead from this submission
-  // Security and compliance fields
-  idempotencyKey: text("idempotency_key").notNull().unique(), // Prevents duplicate submissions
-  consentMarketing: boolean("consent_marketing").default(false), // GDPR/privacy compliance
-  consentTimestamp: timestamp("consent_timestamp"), // When consent was given
-  ipHash: text("ip_hash"), // Hashed IP for audit without storing PII
-  uaHash: text("ua_hash"), // Hashed user agent for fraud detection
-  auditLog: text("audit_log"), // JSON audit trail for compliance
-  // Form data
-  submissionData: text("submission_data").notNull(), // JSON form submission data
-  processedData: text("processed_data"), // JSON processed/normalized data
-  status: text("status").notNull().default('pending'), // pending, processed, failed
-  processedAt: timestamp("processed_at"),
-  errorMessage: text("error_message"), // If processing failed
-  // Metadata
-  submitterEmail: text("submitter_email"), // Email from form (for tracking)
-  referrerUrl: text("referrer_url"), // Where submission came from
-  sessionId: text("session_id"), // Session tracking
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
-}, (table) => ({
-  tenantIdIdx: index("lead_submissions_tenant_id_idx").on(table.tenantId),
-  leadCaptureFormIdIdx: index("lead_submissions_form_id_idx").on(table.leadCaptureFormId),
-  leadIdIdx: index("lead_submissions_lead_id_idx").on(table.leadId),
-  statusIdx: index("lead_submissions_status_idx").on(table.status),
-  submitterEmailIdx: index("lead_submissions_submitter_email_idx").on(table.submitterEmail),
-  createdAtIdx: index("lead_submissions_created_at_idx").on(table.createdAt.desc()),
-}));
-
 // Enhanced Quotes System - Package-based quoting with public access
 export const quotePackages = pgTable("quote_packages", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -865,13 +831,6 @@ export const insertCalendarSyncLogSchema = createInsertSchema(calendarSyncLog).o
 export const insertTemplateSchema = createInsertSchema(templates).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertLeadCaptureFormSchema = createInsertSchema(leadCaptureForms).omit({ id: true, createdAt: true, updatedAt: true });
 
-// Lead Submissions insert schema and types
-export const insertLeadSubmissionSchema = createInsertSchema(leadSubmissions).omit({ 
-  id: true, 
-  createdAt: true, 
-  updatedAt: true 
-});
-
 // Enhanced Quotes System schemas
 export const insertQuotePackageSchema = createInsertSchema(quotePackages).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertQuoteAddonSchema = createInsertSchema(quoteAddons).omit({ id: true, createdAt: true, updatedAt: true });
@@ -1045,8 +1004,6 @@ export const insertLeadAutomationRuleSchema = createInsertSchema(leadAutomationR
 
 export type LeadCaptureForm = typeof leadCaptureForms.$inferSelect;
 export type InsertLeadCaptureForm = z.infer<typeof insertLeadCaptureFormSchema>;
-export type LeadSubmission = typeof leadSubmissions.$inferSelect;
-export type InsertLeadSubmission = z.infer<typeof insertLeadSubmissionSchema>;
 export type LeadStatusHistory = typeof leadStatusHistory.$inferSelect;
 export type InsertLeadStatusHistory = z.infer<typeof insertLeadStatusHistorySchema>;
 export type LeadAutomationRule = typeof leadAutomationRules.$inferSelect;

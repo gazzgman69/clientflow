@@ -184,6 +184,37 @@ export class TenantScopedStorage {
     return this.baseStorage.createActivity(activity, this.tenantId);
   }
 
+  // Lead Custom Field Responses - SECURITY: Required for tenant-scoped form submissions
+  async upsertLeadCustomFieldResponse(response: any) {
+    return this.baseStorage.upsertLeadCustomFieldResponse(response, this.tenantId);
+  }
+
+  // Form Submissions - SECURITY: Idempotency tracking with tenant isolation
+  async getFormSubmissionByKey(submissionKey: string) {
+    return this.baseStorage.getFormSubmissionByKey(this.tenantId, submissionKey);
+  }
+
+  async createFormSubmission(submission: any) {
+    // Ensure the submission includes the tenant ID for proper isolation
+    const submissionWithTenant = { ...submission, tenantId: this.tenantId };
+    return this.baseStorage.createFormSubmission(submissionWithTenant);
+  }
+
+  // Lead Consent - SECURITY: GDPR compliance with tenant isolation  
+  async createLeadConsent(consent: any) {
+    // Ensure the consent includes the tenant ID for proper isolation
+    const consentWithTenant = { ...consent, tenantId: this.tenantId };
+    return this.baseStorage.createLeadConsent(consentWithTenant);
+  }
+
+  async getLeadConsents(leadId: string) {
+    return this.baseStorage.getLeadConsents(leadId, this.tenantId);
+  }
+
+  async updateLeadConsent(id: string, consent: any) {
+    return this.baseStorage.updateLeadConsent(id, consent, this.tenantId);
+  }
+
   // Get the tenant ID for this scope
   get currentTenantId(): string {
     return this.tenantId;

@@ -6,6 +6,8 @@ import { z } from 'zod';
 import { splitFullName } from '@shared/utils/name-splitter';
 import { applyMapping, FORM_FIELD_REGISTRY } from '@shared/formMappingRegistry';
 import { venuesService } from '../services/venues';
+import crypto from 'crypto';
+import { TenantRequest } from '../../middleware/tenantResolver';
 
 // Honeypot spam protection helper
 function validateHoneypot(formData: Record<string, any>): boolean {
@@ -94,7 +96,7 @@ router.post('/', async (req, res) => {
       createdBy: userId || 'system'
     };
 
-    const form = await storage.createLeadCaptureForm(formData, req.tenantId);
+    const form = await storage.createLeadCaptureForm({ ...formData, tenantId: (req as TenantRequest).tenantId });
     
     // Create default questions to match the provided template - use canonical field mappings
     const defaultQuestions = [
@@ -289,7 +291,8 @@ router.post('/public/:slug/submit', formSubmissionLimiter, async (req, res) => {
       slug, 
       hasFormData: !!formData,
       formDataKeys: Object.keys(formData || {}),
-      formData: JSON.stringify(formData, null, 2)
+      ip: req.ip?.slice(0, 8) + '***',
+      timestamp: new Date().toISOString()
     });
     
     const form = await storage.getLeadCaptureFormBySlug(slug);
@@ -297,12 +300,35 @@ router.post('/public/:slug/submit', formSubmissionLimiter, async (req, res) => {
       return res.status(404).json({ error: 'Form not found' });
     }
 
+    // SECURITY: Validate form has proper tenant isolation
+    if (!form.tenantId) {
+      console.error('🚨 SECURITY: Form missing tenantId', {
+        slug,
+        formId: form.id,
+        formName: form.name,
+        timestamp: new Date().toISOString()
+      });
+      return res.status(500).json({ error: 'Form configuration error' });
+    }
+
+    // Create tenant-scoped storage for secure data operations
+    const tenantStorage = new (await import('../../utils/tenantScopedStorage')).TenantScopedStorage(storage, form.tenantId);
+    
+    console.log('🏢 TENANT ISOLATION ACTIVE:', {
+      slug,
+      tenantId: form.tenantId,
+      formId: form.id,
+      formName: form.name,
+      timestamp: new Date().toISOString()
+    });
+
     // Check honeypot for spam protection
     if (!validateHoneypot(formData)) {
-      // Silent rejection - don't give spammers feedback about what went wrong
+      // Log spam attempt but return success to prevent detection
       console.log('🛡️ SPAM REJECTED: Honeypot validation failed', {
         slug,
         ip: req.ip?.slice(0, 8) + '***',
+        tenantId: form.tenantId,
         timestamp: new Date().toISOString()
       });
       // Return success to prevent spammers from detecting the protection
@@ -310,6 +336,44 @@ router.post('/public/:slug/submit', formSubmissionLimiter, async (req, res) => {
         success: true,
         message: 'Thank you for your submission!' 
       });
+    }
+
+    // SECURITY: Create submission fingerprint for idempotency checking
+    const submissionKey = crypto
+      .createHash('sha256')
+      .update(JSON.stringify({
+        slug,
+        formId: form.id,
+        email: formData.leadEmail || formData.email,
+        phone: formData.leadPhoneNumber || formData.phone,
+        timestamp: new Date().toDateString(), // Same day submissions considered duplicates
+      }))
+      .digest('hex');
+
+    // Check for duplicate submission using idempotency key - SECURITY: Use tenant-scoped storage
+    try {
+      const existingSubmission = await tenantStorage.getFormSubmissionByKey(submissionKey);
+      if (existingSubmission) {
+        console.log('🔁 DUPLICATE SUBMISSION PREVENTED:', {
+          submissionKey: submissionKey.slice(0, 8) + '***',
+          existingSubmissionId: existingSubmission.id,
+          slug,
+          tenantId: form.tenantId,
+          timestamp: new Date().toISOString()
+        });
+        // Return success with existing lead ID to prevent re-submission attempts
+        return res.json({
+          ok: true,
+          leadId: existingSubmission.leadId,
+          afterSubmit: {
+            type: 'message',
+            message: 'Thank you! We have already received your submission.'
+          }
+        });
+      }
+    } catch (idempotencyError) {
+      console.warn('⚠️ Idempotency check failed, continuing:', idempotencyError);
+      // Continue with submission if idempotency check fails
     }
 
     // Parse the form questions to get field mappings
@@ -323,38 +387,26 @@ router.post('/public/:slug/submit', formSubmissionLimiter, async (req, res) => {
       // Fall back to default questions
     }
 
-    // Use the central mapping registry to process the form submission
-    // SECURITY: Use form's tenant, not request tenant, for proper isolation in public submissions
-    const tenantId = form.tenantId;
-    if (!tenantId) {
-      console.error('🚨 FORM TENANT ERROR: Form missing tenantId', {
-        slug,
-        formId: form.id,
-        formName: form.name,
-        timestamp: new Date().toISOString()
+    // Check if consent is required and validate
+    const consentGiven = formData.consent === true || formData.consent === 'true';
+    if (form.consentRequired && !consentGiven) {
+      return res.status(400).json({ 
+        error: 'Consent is required',
+        message: 'You must provide consent to process your personal data.' 
       });
-      return res.status(500).json({ error: 'Form tenant context missing' });
     }
-    
-    console.log('🏢 TENANT RESOLUTION SUCCESS:', {
-      slug,
-      tenantId,
-      formId: form.id,
-      formName: form.name,
-      timestamp: new Date().toISOString()
-    });
     
     // Public submissions have no authenticated user - use null for proper tenant isolation
     const userId = null;
     
     // Apply mapping registry to transform form data to database models
     const mappingResult = applyMapping(formData, {
-      tenantId,
+      tenantId: form.tenantId,
       allowUnknownKeys: true, // Allow custom fields for now
       enableDeprecationWarnings: true
     });
 
-    // Create lead from mapped data
+    // Create lead from mapped data using TENANT-SCOPED storage
     const nameParts = splitFullName(mappingResult.leadData.full_name || '');
     const leadData = {
       ...mappingResult.leadData,
@@ -367,18 +419,37 @@ router.post('/public/:slug/submit', formSubmissionLimiter, async (req, res) => {
       userId
     };
 
-    const lead = await storage.createLead(leadData, tenantId);
+    const lead = await tenantStorage.createLead(leadData);
     
     console.log('✅ LEAD CREATED:', {
       leadId: lead.id,
       leadEmail: lead.email,
       leadName: lead.fullName,
-      tenantId,
+      tenantId: form.tenantId,
       slug,
       timestamp: new Date().toISOString()
     });
 
-    // Store custom field responses
+    // SECURITY: Store consent information for GDPR compliance - Use tenant-scoped storage
+    if (form.consentRequired && consentGiven) {
+      try {
+        await tenantStorage.createLeadConsent({
+          leadId: lead.id,
+          formId: form.id,
+          consentType: 'processing',
+          consentGiven: true,
+          consentText: form.consentText || 'I consent to processing my personal data for contact purposes.',
+          ipAddress: req.ip,
+          userAgent: req.get('User-Agent')?.slice(0, 500), // Limit length
+        });
+        console.log('✅ CONSENT RECORDED:', { leadId: lead.id, consentType: 'processing', tenantId: form.tenantId });
+      } catch (consentError) {
+        console.error('❌ Failed to record consent:', { leadId: lead.id, error: consentError });
+        // Continue with form processing even if consent logging fails
+      }
+    }
+
+    // Store custom field responses using tenant-scoped storage
     if (mappingResult.customFieldData && mappingResult.customFieldData.length > 0) {
       console.log('🎯 STORING CUSTOM FIELDS:', { 
         leadId: lead.id, 
@@ -396,7 +467,7 @@ router.post('/public/:slug/submit', formSubmissionLimiter, async (req, res) => {
             updatedAt: new Date()
           };
           
-          await storage.upsertLeadCustomFieldResponse(customFieldResponse, tenantId);
+          await tenantStorage.upsertLeadCustomFieldResponse(customFieldResponse);
           console.log('✅ Stored custom field response:', { fieldKey: customField.key, leadId: lead.id });
         } catch (error) {
           console.error('❌ Failed to store custom field response:', { 
@@ -408,7 +479,7 @@ router.post('/public/:slug/submit', formSubmissionLimiter, async (req, res) => {
       }
     }
 
-    // Create contact from mapped data
+    // Create contact from mapped data using TENANT-SCOPED storage
     const contactData = {
       ...mappingResult.contactData,
       email: mappingResult.contactData.email || mappingResult.leadData.email,
@@ -423,35 +494,35 @@ router.post('/public/:slug/submit', formSubmissionLimiter, async (req, res) => {
       firstName: nameParts.firstName,
       middleName: nameParts.middleName,
       lastName: nameParts.lastName,
-      notes: `Auto-created from lead form`,
+      notes: `Auto-created from lead form on ${new Date().toLocaleDateString('en-GB')}`, // Use dd/mm/yyyy format
       userId
     };
 
-    const contact = await storage.createContact(contactData, tenantId);
+    const contact = await tenantStorage.createContact(contactData);
     
     console.log('✅ CONTACT CREATED:', {
       contactId: contact.id,
       contactEmail: contact.email,
       contactName: contact.fullName,
-      tenantId,
+      tenantId: form.tenantId,
       slug,
       timestamp: new Date().toISOString()
     });
 
-    // Create/update venue if venue information exists
+    // Create/update venue if venue information exists using TENANT-SCOPED operations
     let createdVenue = null;
     if (mappingResult.contactData.venue_address) {
       try {
         // Build venue details in the format expected by venuesService
         const venueDetails = {
-          placeId: formData.eventLocationPlaceId || null, // Use placeId if available from Google Places
-          name: mappingResult.contactData.venue_address?.split(',')[0]?.trim() || 'Venue', // Use first part as venue name
+          placeId: formData.eventLocationPlaceId || null,
+          name: mappingResult.contactData.venue_address?.split(',')[0]?.trim() || 'Venue',
           address1: mappingResult.contactData.venue_address,
-          address2: null,
+          address2: undefined, // Use undefined instead of null for PlaceDetails interface
           city: mappingResult.contactData.venue_city || '',
           state: mappingResult.contactData.venue_state || '',
           postalCode: mappingResult.contactData.venue_zip_code || '',
-          countryCode: mappingResult.contactData.venue_country || 'US',
+          countryCode: mappingResult.contactData.venue_country || 'GB',
           latitude: formData.eventLocationLat ? parseFloat(formData.eventLocationLat) : 0,
           longitude: formData.eventLocationLng ? parseFloat(formData.eventLocationLng) : 0,
         };
@@ -460,11 +531,12 @@ router.post('/public/:slug/submit', formSubmissionLimiter, async (req, res) => {
         if (venueDetails.address1 || venueDetails.city) {
           if (venueDetails.placeId) {
             // Use the existing upsertFromPlace method for Google Places venues
-            createdVenue = await venuesService.upsertFromPlace(venueDetails, tenantId);
+            createdVenue = await venuesService.upsertFromPlace(venueDetails, form.tenantId);
           } else {
-            // For manually entered venues, create a basic venue
+            // For manually entered venues, create a basic venue using tenant-scoped operations
             createdVenue = await venuesService.createVenue({
               name: venueDetails.name,
+              tenantId: form.tenantId, // Add required tenantId
               address: venueDetails.address1,
               city: venueDetails.city,
               state: venueDetails.state,
@@ -472,12 +544,12 @@ router.post('/public/:slug/submit', formSubmissionLimiter, async (req, res) => {
               country: venueDetails.countryCode,
               latitude: venueDetails.latitude ? venueDetails.latitude.toString() : null,
               longitude: venueDetails.longitude ? venueDetails.longitude.toString() : null,
-            }, tenantId);
+            });
           }
 
-          // Update contact with venue reference
+          // Update contact with venue reference using TENANT-SCOPED storage
           if (createdVenue) {
-            await storage.updateContact(contact.id, { 
+            await tenantStorage.updateContact(contact.id, { 
               venueId: createdVenue.id 
             });
             
@@ -486,7 +558,7 @@ router.post('/public/:slug/submit', formSubmissionLimiter, async (req, res) => {
               venueName: createdVenue.name,
               venueAddress: createdVenue.address,
               contactId: contact.id,
-              tenantId,
+              tenantId: form.tenantId,
               slug,
               timestamp: new Date().toISOString()
             });
@@ -496,7 +568,7 @@ router.post('/public/:slug/submit', formSubmissionLimiter, async (req, res) => {
         console.error('❌ Failed to create/update venue:', {
           error: error instanceof Error ? error.message : String(error),
           venueData: mappingResult.contactData,
-          tenantId,
+          tenantId: form.tenantId,
           slug,
           timestamp: new Date().toISOString()
         });
@@ -504,7 +576,7 @@ router.post('/public/:slug/submit', formSubmissionLimiter, async (req, res) => {
       }
     }
 
-    // Create project from mapped data
+    // Create project from mapped data using TENANT-SCOPED storage
     const projectData = {
       ...mappingResult.projectData,
       name: `${mappingResult.leadData.event_type || 'Event'} - ${nameParts.fullName || 'Unknown'}`,
@@ -516,31 +588,63 @@ router.post('/public/:slug/submit', formSubmissionLimiter, async (req, res) => {
       userId
     };
 
-    const project = await storage.createProject(projectData, tenantId);
+    const project = await tenantStorage.createProject(projectData);
     
     console.log('✅ PROJECT CREATED:', {
       projectId: project.id,
       projectName: project.name,
       contactId: contact.id,
-      tenantId,
+      tenantId: form.tenantId,
       slug,
       timestamp: new Date().toISOString()
     });
 
-    // Update lead to link it to the created contact and project
-    await storage.updateLead(lead.id, { 
+    // Update lead to link it to the created contact and project using TENANT-SCOPED storage
+    await tenantStorage.updateLead(lead.id, { 
       projectId: project.id,
-      notes: `Auto-linked to Contact: ${contact.id} and Project: ${project.id}`
-    }, tenantId);
+      notes: `Auto-linked to Contact: ${contact.id} and Project: ${project.id} on ${new Date().toLocaleDateString('en-GB')}`
+    });
     
     console.log('✅ LEAD UPDATED:', {
       leadId: lead.id,
       contactId: contact.id,
       projectId: project.id,
-      tenantId,
+      tenantId: form.tenantId,
       slug,
       timestamp: new Date().toISOString()
     });
+
+    // SECURITY: Record successful submission for idempotency tracking - Use tenant-scoped storage
+    try {
+      const submissionRecord = {
+        formId: form.id,
+        submissionKey,
+        ipAddress: req.ip,
+        userAgent: req.get('User-Agent')?.slice(0, 500), // Limit length
+        leadId: lead.id,
+        status: 'processed' as const,
+        metadata: JSON.stringify({
+          contactId: contact.id,
+          projectId: project.id,
+          venueId: createdVenue?.id || null
+        }),
+        expiresAt: new Date(Date.now() + (30 * 24 * 60 * 60 * 1000)), // 30 days TTL
+      };
+      
+      await tenantStorage.createFormSubmission(submissionRecord);
+      console.log('✅ IDEMPOTENCY RECORDED:', { 
+        submissionKey: submissionKey.slice(0, 8) + '***', 
+        leadId: lead.id,
+        tenantId: form.tenantId
+      });
+    } catch (idempotencyRecordError) {
+      console.error('❌ Failed to record idempotency:', { 
+        leadId: lead.id, 
+        tenantId: form.tenantId,
+        error: idempotencyRecordError 
+      });
+      // Continue even if idempotency recording fails
+    }
 
     // TODO: Send auto-response if template configured
     // TODO: Trigger workflows if configured

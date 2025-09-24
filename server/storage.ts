@@ -45,6 +45,9 @@ import {
   type LeadCustomField, type InsertLeadCustomField,
   type LeadCustomFieldResponse, type InsertLeadCustomFieldResponse,
   type AdminAuditLog, type InsertAdminAuditLog,
+  // Form submission and consent types
+  type FormSubmission, type InsertFormSubmission,
+  type LeadConsent, type InsertLeadConsent,
   users, leads, contacts, projects, quotes, contracts, invoices, tasks, emails, emailThreads, activities, automations, 
   members, venues, projectMembers, memberAvailability, projectFiles, projectNotes, smsMessages, 
   messageTemplates, messageThreads, events, calendarIntegrations, calendarSyncLog, templates, leadCaptureForms,
@@ -56,7 +59,9 @@ import {
   // Lead Custom Fields System tables
   leadCustomFields, leadCustomFieldResponses,
   // Admin Audit Logs table
-  adminAuditLogs
+  adminAuditLogs,
+  // Security and compliance tables
+  formSubmissions, leadConsents
 } from "@shared/schema";
 import crypto from "crypto";
 import { TenantScopedStorage } from './utils/tenantScopedStorage';
@@ -397,6 +402,15 @@ export interface IStorage {
   getAdminAuditLog(id: string): Promise<AdminAuditLog | undefined>;
   createAdminAuditLog(auditLog: InsertAdminAuditLog): Promise<AdminAuditLog>;
 
+  // Form Submissions - Idempotency tracking for security
+  getFormSubmissionByKey(tenantId: string, submissionKey: string): Promise<FormSubmission | undefined>;
+  createFormSubmission(submission: InsertFormSubmission): Promise<FormSubmission>;
+  
+  // Lead Consent - GDPR compliance tracking
+  createLeadConsent(consent: InsertLeadConsent): Promise<LeadConsent>;
+  getLeadConsents(leadId: string, tenantId: string): Promise<LeadConsent[]>;
+  updateLeadConsent(id: string, consent: Partial<InsertLeadConsent>, tenantId: string): Promise<LeadConsent | undefined>;
+
   // Tenant management
   getAllTenants(): Promise<import('@shared/schema').Tenant[]>;
 
@@ -451,6 +465,9 @@ export class MemStorage implements IStorage {
   private emailSignatures: Map<string, EmailSignature> = new Map();
   private adminAuditLogs: Map<string, AdminAuditLog> = new Map();
   private tenants: Map<string, import('@shared/schema').Tenant> = new Map();
+  // Security and compliance storage
+  private formSubmissions: Map<string, FormSubmission> = new Map();
+  private leadConsents: Map<string, LeadConsent> = new Map();
 
   constructor() {
     // Initialize with default admin user (DEVELOPMENT ONLY)
@@ -3938,6 +3955,59 @@ export class DrizzleStorage implements IStorage {
     const result = await this.db
       .insert(adminAuditLogs)
       .values(auditLog)
+      .returning();
+    return result[0];
+  }
+
+  // Form Submissions - Security idempotency tracking
+  async getFormSubmissionByKey(tenantId: string, submissionKey: string): Promise<FormSubmission | undefined> {
+    const result = await this.db
+      .select()
+      .from(formSubmissions)
+      .where(and(
+        eq(formSubmissions.tenantId, tenantId),
+        eq(formSubmissions.submissionKey, submissionKey)
+      ))
+      .limit(1);
+    return result[0];
+  }
+
+  async createFormSubmission(submission: InsertFormSubmission): Promise<FormSubmission> {
+    const result = await this.db
+      .insert(formSubmissions)
+      .values(submission)
+      .returning();
+    return result[0];
+  }
+  
+  // Lead Consent - GDPR compliance tracking
+  async createLeadConsent(consent: InsertLeadConsent): Promise<LeadConsent> {
+    const result = await this.db
+      .insert(leadConsents)
+      .values(consent)
+      .returning();
+    return result[0];
+  }
+
+  async getLeadConsents(leadId: string, tenantId: string): Promise<LeadConsent[]> {
+    return await this.db
+      .select()
+      .from(leadConsents)
+      .where(and(
+        eq(leadConsents.leadId, leadId),
+        eq(leadConsents.tenantId, tenantId)
+      ))
+      .orderBy(desc(leadConsents.createdAt));
+  }
+
+  async updateLeadConsent(id: string, consent: Partial<InsertLeadConsent>, tenantId: string): Promise<LeadConsent | undefined> {
+    const result = await this.db
+      .update(leadConsents)
+      .set({ ...omitUndefined(consent), updatedAt: new Date() })
+      .where(and(
+        eq(leadConsents.id, id),
+        eq(leadConsents.tenantId, tenantId)
+      ))
       .returning();
     return result[0];
   }

@@ -614,11 +614,56 @@ export const leadCaptureForms = pgTable("lead_capture_forms", {
   contactTags: text("contact_tags"), // CSV for now (TODO normalize)
   projectTags: text("project_tags"), // CSV for now (TODO normalize)
   recaptchaEnabled: boolean("recaptcha_enabled").default(false),
+  consentText: text("consent_text").default('I consent to processing my personal data for contact purposes.'),
+  consentRequired: boolean("consent_required").default(true),
+  dataRetentionDays: integer("data_retention_days").default(365), // GDPR compliance
+  privacyPolicyUrl: text("privacy_policy_url"),
+  fromAddress: text("from_address"), // Tenant-specific from address for notifications
   isActive: boolean("is_active").default(true),
   createdBy: varchar("created_by").references(() => users.id).notNull(),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
-});
+}, (table) => ({
+  tenantIdSlugIdx: index("lead_capture_forms_tenant_id_slug_idx").on(table.tenantId, table.slug),
+}));
+
+// Form submission idempotency tracking to prevent duplicates
+export const formSubmissions = pgTable("form_submissions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").references(() => tenants.id).notNull(),
+  formId: varchar("form_id").references(() => leadCaptureForms.id).notNull(),
+  submissionKey: text("submission_key").notNull(), // Hash of form data for deduplication
+  ipAddress: text("ip_address"),
+  userAgent: text("user_agent"),
+  leadId: varchar("lead_id").references(() => leads.id), // Link to created lead
+  status: text("status").notNull().default('processed'), // processed, failed, spam
+  metadata: text("metadata"), // JSON string for additional tracking data
+  submittedAt: timestamp("submitted_at").defaultNow(),
+  expiresAt: timestamp("expires_at").notNull(), // TTL for cleanup
+}, (table) => ({
+  tenantIdSubmissionKeyUnique: unique("form_submissions_tenant_submission_key_unique").on(table.tenantId, table.submissionKey),
+  tenantIdFormIdIdx: index("form_submissions_tenant_id_form_id_idx").on(table.tenantId, table.formId),
+  expiresAtIdx: index("form_submissions_expires_at_idx").on(table.expiresAt),
+}));
+
+// Lead consent tracking for GDPR compliance
+export const leadConsents = pgTable("lead_consents", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").references(() => tenants.id).notNull(),
+  leadId: varchar("lead_id").references(() => leads.id).notNull(),
+  formId: varchar("form_id").references(() => leadCaptureForms.id),
+  consentType: text("consent_type").notNull().default('marketing'), // marketing, processing, storage
+  consentGiven: boolean("consent_given").notNull(),
+  consentText: text("consent_text"), // The exact consent text shown to user
+  ipAddress: text("ip_address"),
+  userAgent: text("user_agent"),
+  consentDate: timestamp("consent_date").defaultNow(),
+  withdrawnDate: timestamp("withdrawn_date"),
+  expiresAt: timestamp("expires_at"), // For automatic consent expiry
+}, (table) => ({
+  tenantIdLeadIdIdx: index("lead_consents_tenant_id_lead_id_idx").on(table.tenantId, table.leadId),
+  leadIdConsentTypeUnique: unique("lead_consents_lead_consent_type_unique").on(table.leadId, table.consentType),
+}));
 
 // Enhanced Quotes System - Package-based quoting with public access
 export const quotePackages = pgTable("quote_packages", {
@@ -1300,4 +1345,22 @@ export const insertAdminAuditLogSchema = createInsertSchema(adminAuditLogs).omit
 
 export type AdminAuditLog = typeof adminAuditLogs.$inferSelect;
 export type InsertAdminAuditLog = z.infer<typeof insertAdminAuditLogSchema>;
+
+// Insert schemas and types for form submissions (idempotency)
+export const insertFormSubmissionSchema = createInsertSchema(formSubmissions).omit({ 
+  id: true, 
+  submittedAt: true 
+});
+
+export type FormSubmission = typeof formSubmissions.$inferSelect;
+export type InsertFormSubmission = z.infer<typeof insertFormSubmissionSchema>;
+
+// Insert schemas and types for lead consents (GDPR)
+export const insertLeadConsentSchema = createInsertSchema(leadConsents).omit({ 
+  id: true, 
+  consentDate: true 
+});
+
+export type LeadConsent = typeof leadConsents.$inferSelect;
+export type InsertLeadConsent = z.infer<typeof insertLeadConsentSchema>;
 

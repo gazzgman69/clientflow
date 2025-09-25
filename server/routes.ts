@@ -501,7 +501,121 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   // NOTE: This is for lead capture forms only, not general leads endpoints
   
   // PUBLIC ROUTES: Lead form hosting (no auth required for public access)
-  app.use('/api/leads', leadFormsRoutes);
+  // Direct implementation to avoid conflicts with lead CRUD operations
+  app.get('/api/leads/public/:slug', async (req, res) => {
+    try {
+      const { slug } = req.params;
+      const form = await storage.getLeadCaptureFormBySlug(slug);
+      
+      if (!form || !form.isActive) {
+        return res.status(404).json({ error: 'Form not found' });
+      }
+
+      // Parse questions from form or use default questions from leadFormsRoutes
+      const getDefaultQuestionsForForm = () => [
+        {
+          id: 'firstName',
+          type: 'text',
+          label: 'First Name',
+          required: true,
+          mapTo: 'firstName',
+          orderIndex: 1
+        },
+        {
+          id: 'lastName', 
+          type: 'text',
+          label: 'Last Name',
+          required: true,
+          mapTo: 'lastName',
+          orderIndex: 2
+        },
+        {
+          id: 'email',
+          type: 'email', 
+          label: 'Email',
+          required: true,
+          mapTo: 'email',
+          orderIndex: 3
+        },
+        {
+          id: 'phone',
+          type: 'tel',
+          label: 'Phone', 
+          required: false,
+          mapTo: 'phone',
+          orderIndex: 4
+        },
+        {
+          id: 'projectDate',
+          type: 'date',
+          label: 'Event Date',
+          required: true,
+          mapTo: 'projectDate', 
+          orderIndex: 5
+        },
+        {
+          id: 'venue',
+          type: 'venue',
+          label: 'Venue',
+          required: false,
+          mapTo: 'venue',
+          orderIndex: 6
+        }
+      ];
+
+      let questions = getDefaultQuestionsForForm();
+      try {
+        if (form.questions) {
+          questions = JSON.parse(form.questions);
+        }
+      } catch (e) {
+        console.error('Error parsing questions:', e);
+        // Fall back to default questions
+      }
+
+      res.json({
+        form: {
+          id: form.id,
+          title: form.name,
+          slug: form.slug,
+          recaptchaEnabled: form.recaptchaEnabled,
+          transparency: 'We will use this information to contact you about our services.',
+          consentRequired: form.consentRequired,
+          consentText: form.consentText,
+          privacyPolicyUrl: form.privacyPolicyUrl,
+          dataRetentionDays: form.dataRetentionDays
+        },
+        questions: questions
+      });
+    } catch (error) {
+      console.error('Error fetching public form:', error);
+      res.status(500).json({ error: 'Failed to fetch form' });
+    }
+  });
+  
+  // Form submission rate limiter
+  const formSubmissionLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 5, // Limit each IP to 5 requests per windowMs
+    message: 'Too many form submissions, please try again later.',
+    standardHeaders: true,
+    legacyHeaders: false,
+  });
+  
+  app.post('/api/leads/public/:slug/submit', formSubmissionLimiter, async (req, res) => {
+    // This route implementation would be quite long, so let's use the existing router for this specific route
+    // by temporarily bypassing the conflict
+    const originalRoutes = leadFormsRoutes.router?.stack || [];
+    const submitRoute = originalRoutes.find(layer => 
+      layer.route?.path === '/public/:slug/submit' && layer.route.methods.post
+    );
+    
+    if (submitRoute && submitRoute.route.stack[0]) {
+      return submitRoute.route.stack[0].handle(req, res);
+    }
+    
+    res.status(500).json({ error: 'Form submission handler not found' });
+  });
   
   // Lead-forms admin routes (with auth)
   app.use('/api/lead-forms', ensureUserAuth, tenantResolver, requireTenant, csrf, leadFormsRoutes);

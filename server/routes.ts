@@ -1964,11 +1964,11 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
       }
 
       // Get all related data that will be deleted
-      const relatedProjects = await storage.getProjectsByContact(contactId);
+      const relatedProjects = await storage.getProjectsByContact(contactId, req.tenantId);
       const relatedEmails = await storage.getEmailsByContact(contactId);
-      const relatedQuotes = await storage.getQuotesByContact(contactId);
-      const relatedContracts = await storage.getContractsByContact(contactId);
-      const relatedInvoices = await storage.getInvoicesByContact(contactId);
+      const relatedQuotes = await storage.getQuotesByContact(contactId, req.tenantId);
+      const relatedContracts = await storage.getContractsByContact(contactId, req.tenantId);
+      const relatedInvoices = await storage.getInvoicesByContactId(contactId, req.tenantId);
       
       // Count related data for each project
       const projectDetails = await Promise.all(relatedProjects.map(async (project) => {
@@ -2364,12 +2364,12 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
             await storage.deleteQuote(quote.id);
           }
 
-          const contactContracts = await storage.getContractsByContact(contactId);
+          const contactContracts = await storage.getContractsByContact(contactId, req.tenantId);
           for (const contract of contactContracts) {
             await storage.deleteContract(contract.id);
           }
 
-          const contactInvoices = await storage.getInvoicesByContact(contactId);
+          const contactInvoices = await storage.getInvoicesByContactId(contactId, req.tenantId);
           for (const invoice of contactInvoices) {
             await storage.deleteInvoice(invoice.id);
           }
@@ -2644,7 +2644,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
 
   app.get("/api/contacts/:contactId/invoices", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
     try {
-      const invoices = await storage.getInvoicesByContactId(req.params.contactId);
+      const invoices = await storage.getInvoicesByContactId(req.params.contactId, req.tenantId);
       res.json(invoices);
     } catch (error) {
       console.error("Error fetching invoices for contact:", error);

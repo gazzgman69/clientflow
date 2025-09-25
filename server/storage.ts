@@ -204,6 +204,7 @@ export interface IStorage {
   getContracts(tenantId: string): Promise<Contract[]>;
   getContract(id: string, tenantId: string): Promise<Contract | undefined>;
   getContractsByClient(clientId: string, tenantId: string): Promise<Contract[]>;
+  getContractsByContact(contactId: string, tenantId: string): Promise<Contract[]>;
   createContract(contract: InsertContract, tenantId: string): Promise<Contract>;
   updateContract(id: string, contract: Partial<InsertContract>, tenantId: string): Promise<Contract | undefined>;
   deleteContract(id: string, tenantId: string): Promise<boolean>;
@@ -814,6 +815,10 @@ export class MemStorage implements IStorage {
 
   async getContractsByClient(clientId: string): Promise<Contract[]> {
     return Array.from(this.contracts.values()).filter(contract => contract.contactId === clientId);
+  }
+
+  async getContractsByContact(contactId: string): Promise<Contract[]> {
+    return Array.from(this.contracts.values()).filter(contract => contract.contactId === contactId);
   }
 
   async createContract(insertContract: InsertContract): Promise<Contract> {
@@ -2654,6 +2659,9 @@ export class DrizzleStorage implements IStorage {
   }
   async getContractsByClient(clientId: string) { 
     return await this.db.select().from(contracts).where(eq(contracts.contactId, clientId));
+  }
+  async getContractsByContact(contactId: string) { 
+    return await this.db.select().from(contracts).where(eq(contracts.contactId, contactId));
   }
   async createContract(contract: InsertContract) { 
     const result = await this.db.insert(contracts).values({

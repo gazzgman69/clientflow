@@ -2423,13 +2423,19 @@ export class DrizzleStorage implements IStorage {
     return result[0];
   }
   
-  async getLeads(userId?: string): Promise<Lead[]> {
-    if (userId) {
-      return await this.db.select().from(leads)
-        .where(eq(leads.userId, userId))
-        .orderBy(desc(leads.createdAt));
+  async getLeads(tenantId: string, userId?: string): Promise<Lead[]> {
+    if (!tenantId) {
+      throw new Error("SECURITY: tenantId is required to prevent cross-tenant data access");
     }
-    return await this.db.select().from(leads).orderBy(desc(leads.createdAt));
+    
+    let whereCondition = eq(leads.tenantId, tenantId);
+    if (userId) {
+      whereCondition = and(eq(leads.tenantId, tenantId), eq(leads.userId, userId));
+    }
+    
+    return await this.db.select().from(leads)
+      .where(whereCondition)
+      .orderBy(desc(leads.createdAt));
   }
   async getLead(id: string): Promise<Lead | undefined> {
     const result = await db.select().from(leads).where(eq(leads.id, id));
@@ -2471,13 +2477,19 @@ export class DrizzleStorage implements IStorage {
   }
   
   // Contacts - Using PostgreSQL
-  async getContacts(userId?: string): Promise<Contact[]> {
-    if (userId) {
-      return await this.db.select().from(contacts)
-        .where(eq(contacts.userId, userId))
-        .orderBy(desc(contacts.createdAt));
+  async getContacts(tenantId: string, userId?: string): Promise<Contact[]> {
+    if (!tenantId) {
+      throw new Error("SECURITY: tenantId is required to prevent cross-tenant data access");
     }
-    return await this.db.select().from(contacts).orderBy(desc(contacts.createdAt));
+    
+    let whereCondition = eq(contacts.tenantId, tenantId);
+    if (userId) {
+      whereCondition = and(eq(contacts.tenantId, tenantId), eq(contacts.userId, userId));
+    }
+    
+    return await this.db.select().from(contacts)
+      .where(whereCondition)
+      .orderBy(desc(contacts.createdAt));
   }
   async getContactById(id: string): Promise<Contact | undefined> {
     const result = await this.db.select().from(contacts).where(eq(contacts.id, id));
@@ -2517,13 +2529,22 @@ export class DrizzleStorage implements IStorage {
   }
   
   // Projects - Using PostgreSQL
-  async getProjects(userId?: string): Promise<Project[]> {
-    if (userId) {
-      return await this.db.select().from(projects)
-        .where(or(eq(projects.userId, userId), eq(projects.assignedTo, userId)))
-        .orderBy(desc(projects.createdAt));
+  async getProjects(tenantId: string, userId?: string): Promise<Project[]> {
+    if (!tenantId) {
+      throw new Error("SECURITY: tenantId is required to prevent cross-tenant data access");
     }
-    return await this.db.select().from(projects).orderBy(desc(projects.createdAt));
+    
+    let whereCondition = eq(projects.tenantId, tenantId);
+    if (userId) {
+      whereCondition = and(
+        eq(projects.tenantId, tenantId),
+        or(eq(projects.userId, userId), eq(projects.assignedTo, userId))
+      );
+    }
+    
+    return await this.db.select().from(projects)
+      .where(whereCondition)
+      .orderBy(desc(projects.createdAt));
   }
   async getProject(id: string): Promise<Project | undefined> {
     const result = await this.db.select().from(projects).where(eq(projects.id, id));

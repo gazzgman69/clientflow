@@ -5,6 +5,26 @@ import { Card, CardContent } from '@/components/ui/card';
 import { MapPin, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
+// Local cache for venue autocomplete results
+interface CacheEntry {
+  predictions: PlacePrediction[];
+  timestamp: number;
+}
+
+// Simple in-memory cache with 5-minute expiration
+const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+const autocompleteCache = new Map<string, CacheEntry>();
+
+// Helper to clear cache (used when venues are modified)
+export const clearVenueAutocompleteCache = () => {
+  autocompleteCache.clear();
+};
+
+// Helper to check if cache entry is still valid
+const isCacheValid = (entry: CacheEntry): boolean => {
+  return Date.now() - entry.timestamp < CACHE_DURATION;
+};
+
 interface PlacePrediction {
   place_id: string;
   description: string;
@@ -88,7 +108,7 @@ export function VenueAutocomplete({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Fetch place predictions from Google Places API
+  // Fetch place predictions from Google Places API with caching
   const fetchPredictions = async (input: string) => {
     // Never fetch predictions if a venue is already selected
     if (hasSelectedVenue) {
@@ -103,6 +123,18 @@ export function VenueAutocomplete({
       return;
     }
 
+    const trimmedInput = input.trim().toLowerCase();
+    
+    // Check cache first
+    const cacheEntry = autocompleteCache.get(trimmedInput);
+    if (cacheEntry && isCacheValid(cacheEntry)) {
+      setPredictions(cacheEntry.predictions);
+      if (!hasSelectedVenue && !(initialValue && initialValue.trim().length > 0)) {
+        setShowPredictions(true);
+      }
+      return;
+    }
+
     setIsLoading(true);
     try {
       const response = await fetch('/api/venues/suggest', {
@@ -111,7 +143,7 @@ export function VenueAutocomplete({
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          input: input.trim(),
+          input: trimmedInput,
           sessionToken,
           types: ['establishment', 'geocode'] // Focus on venues and addresses
         }),
@@ -122,7 +154,15 @@ export function VenueAutocomplete({
       }
 
       const data = await response.json();
-      setPredictions(data.predictions || []);
+      const predictions = data.predictions || [];
+      
+      // Cache the results for future use
+      autocompleteCache.set(trimmedInput, {
+        predictions,
+        timestamp: Date.now()
+      });
+      
+      setPredictions(predictions);
       
       // Double-check: Never show predictions if venue already selected  
       if (!hasSelectedVenue && !(initialValue && initialValue.trim().length > 0)) {

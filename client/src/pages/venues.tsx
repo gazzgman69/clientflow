@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Plus, MapPin, Phone, Mail, Users, Edit, Trash, Globe, Star, Calendar, BarChart3, Tag, Clock, DollarSign, CheckCircle } from "lucide-react";
 import { AddressFields } from "@/components/shared/AddressFields";
-import { VenueAutocomplete } from "@/components/venues/VenueAutocomplete";
+import { VenueAutocomplete, clearVenueAutocompleteCache } from "@/components/venues/VenueAutocomplete";
 import {
   Card,
   CardContent,
@@ -171,7 +171,8 @@ export default function VenuesPage() {
       return apiRequest("POST", "/api/venues/minimal", payload);
     },
     onSuccess: () => {
-      // Only invalidate venues list for new venue creation
+      // Clear autocomplete cache and invalidate venues list for new venue creation
+      clearVenueAutocompleteCache();
       queryClient.invalidateQueries({ queryKey: ["/api/venues"] });
       setIsDialogOpen(false);
       form.reset();
@@ -226,7 +227,8 @@ export default function VenuesPage() {
       return apiRequest("PATCH", `/api/venues/${id}`, payload);
     },
     onSuccess: (_, { id }) => {
-      // Invalidate both the venues list and any individual venue queries
+      // Clear autocomplete cache and invalidate venue queries
+      clearVenueAutocompleteCache();
       queryClient.invalidateQueries({ queryKey: ["/api/venues"] });
       queryClient.invalidateQueries({ queryKey: ["/api/venues", id] });
       setIsDialogOpen(false);
@@ -249,7 +251,8 @@ export default function VenuesPage() {
   const deleteMutation = useMutation({
     mutationFn: (id: string) => apiRequest("DELETE", `/api/venues/${id}`),
     onSuccess: (_, id) => {
-      // Invalidate venues list and remove specific venue from cache
+      // Clear autocomplete cache, invalidate venues list and remove specific venue from cache
+      clearVenueAutocompleteCache();
       queryClient.invalidateQueries({ queryKey: ["/api/venues"] });
       queryClient.removeQueries({ queryKey: ["/api/venues", id] });
       toast({

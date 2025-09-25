@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import Header from "@/components/layout/header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -24,6 +24,29 @@ import { z } from "zod";
 import ProjectDetailModal from "@/components/modals/project-detail-modal";
 import { VenueSelector } from "@/components/venues";
 
+// Type for project deletion preview response
+interface ProjectDeletionPreview {
+  project: {
+    id: string;
+    name: string;
+    status: string;
+  };
+  willDelete: {
+    contactInfo?: {
+      id: string;
+      name: string;
+      wasOnlyProject: boolean;
+    };
+    emails: number;
+    tasks: number;
+    quotes: number;
+    contracts: number;
+    invoices: number;
+    leads: number;
+    totalItems: number;
+  };
+}
+
 const projectFormSchema = insertProjectSchema.extend({
   estimatedValue: z.string().optional(),
 });
@@ -47,6 +70,8 @@ export default function Projects() {
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [selectedVenue, setSelectedVenue] = useState<SelectedVenue | null>(null);
   const [sortBy, setSortBy] = useState<string>('date-newest');
+  const [deletionPreview, setDeletionPreview] = useState<ProjectDeletionPreview | null>(null);
+  const [previewProjectId, setPreviewProjectId] = useState<string | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -142,16 +167,40 @@ export default function Projects() {
     },
   });
 
+  // Fetch deletion preview when project is selected for deletion
+  const { data: previewData, isLoading: previewLoading } = useQuery({
+    queryKey: ['/api/projects', previewProjectId, 'deletion-preview'],
+    queryFn: async () => {
+      const response = await apiRequest('GET', `/api/projects/${previewProjectId}/deletion-preview`);
+      return response.json();
+    },
+    enabled: !!previewProjectId,
+    retry: false
+  });
+
+  // Update deletion preview when data is loaded
+  useEffect(() => {
+    if (previewData && previewProjectId) {
+      setDeletionPreview(previewData);
+    }
+  }, [previewData, previewProjectId]);
+
   const deleteProjectMutation = useMutation({
     mutationFn: async (projectId: string) => {
       return await apiRequest("DELETE", `/api/projects/${projectId}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/contacts"] });
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard/metrics"] });
+      
+      // Clear preview state
+      setDeletionPreview(null);
+      setPreviewProjectId(null);
+      
       toast({
         title: "Project deleted",
-        description: "The project has been successfully deleted.",
+        description: "Project and all related data have been deleted successfully.",
       });
     },
     onError: () => {
@@ -162,6 +211,21 @@ export default function Projects() {
       });
     },
   });
+
+  const handleDeleteClick = (projectId: string) => {
+    setPreviewProjectId(projectId);
+  };
+
+  const handleConfirmDelete = () => {
+    if (previewProjectId) {
+      deleteProjectMutation.mutate(previewProjectId);
+    }
+  };
+
+  const handleCancelDelete = () => {
+    setPreviewProjectId(null);
+    setDeletionPreview(null);
+  };
 
   const onSubmit = (data: z.infer<typeof projectFormSchema>) => {
     createProjectMutation.mutate(data);
@@ -339,36 +403,17 @@ export default function Projects() {
                           >
                             <Edit className="h-4 w-4" />
                           </Button>
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                              <Button 
-                                variant="ghost" 
-                                size="sm" 
-                                onClick={(e) => e.stopPropagation()}
-                                data-testid={`delete-project-${project.id}`}
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                              <AlertDialogHeader>
-                                <AlertDialogTitle>Delete Project</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                  Are you sure you want to delete "{project.name}"? This action cannot be undone and will remove all associated tasks, files, and data.
-                                </AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter>
-                                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                <AlertDialogAction
-                                  onClick={() => deleteProjectMutation.mutate(project.id)}
-                                  className="bg-red-600 hover:bg-red-700"
-                                  data-testid={`confirm-delete-project-${project.id}`}
-                                >
-                                  Delete
-                                </AlertDialogAction>
-                              </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteClick(project.id);
+                            }}
+                            data-testid={`delete-project-${project.id}`}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
                         </div>
                       </TableCell>
                     </TableRow>
@@ -533,6 +578,109 @@ export default function Projects() {
         isOpen={showDetailModal}
         onClose={handleCloseDetailModal}
       />
+
+      {/* Enhanced Deletion Preview Dialog */}
+      {(deletionPreview || previewLoading) && (
+        <AlertDialog open={true} onOpenChange={handleCancelDelete}>
+          <AlertDialogContent className="max-w-2xl">
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete Project - Preview</AlertDialogTitle>
+              <AlertDialogDescription asChild>
+                <div className="space-y-4">
+                  {previewLoading ? (
+                    <div className="flex items-center space-x-2">
+                      <div className="animate-spin h-4 w-4 border-2 border-blue-500 border-t-transparent rounded-full"></div>
+                      <span>Loading deletion preview...</span>
+                    </div>
+                  ) : deletionPreview ? (
+                    <>
+                      <p>
+                        You are about to delete project <strong>{deletionPreview.project.name}</strong> 
+                        {deletionPreview.project.status && ` (${deletionPreview.project.status})`}.
+                      </p>
+                      
+                      {deletionPreview.willDelete.totalItems > 0 || deletionPreview.willDelete.contactInfo ? (
+                        <div className="bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+                          <h4 className="font-semibold text-red-800 dark:text-red-200 mb-2">
+                            ⚠️ This will permanently delete:
+                          </h4>
+                          <ul className="space-y-2 text-sm">
+                            {deletionPreview.willDelete.contactInfo?.wasOnlyProject && (
+                              <li className="bg-yellow-100 dark:bg-yellow-900/20 border border-yellow-300 dark:border-yellow-600 rounded p-2">
+                                <strong>🔄 Associated Contact:</strong> {deletionPreview.willDelete.contactInfo.name}
+                                <br />
+                                <span className="text-xs text-yellow-700 dark:text-yellow-300">
+                                  This contact will also be deleted since this is their only project (reverse cascading deletion)
+                                </span>
+                              </li>
+                            )}
+                            {deletionPreview.willDelete.emails > 0 && (
+                              <li><strong>{deletionPreview.willDelete.emails}</strong> emails</li>
+                            )}
+                            {deletionPreview.willDelete.tasks > 0 && (
+                              <li><strong>{deletionPreview.willDelete.tasks}</strong> tasks</li>
+                            )}
+                            {deletionPreview.willDelete.quotes > 0 && (
+                              <li><strong>{deletionPreview.willDelete.quotes}</strong> quotes</li>
+                            )}
+                            {deletionPreview.willDelete.contracts > 0 && (
+                              <li><strong>{deletionPreview.willDelete.contracts}</strong> contracts</li>
+                            )}
+                            {deletionPreview.willDelete.invoices > 0 && (
+                              <li><strong>{deletionPreview.willDelete.invoices}</strong> invoices</li>
+                            )}
+                            {deletionPreview.willDelete.leads > 0 && (
+                              <li><strong>{deletionPreview.willDelete.leads}</strong> leads</li>
+                            )}
+                          </ul>
+                          {deletionPreview.willDelete.totalItems > 0 && (
+                            <p className="mt-2 text-sm font-medium text-red-700 dark:text-red-300">
+                              Total: {deletionPreview.willDelete.totalItems} items will be permanently deleted
+                              {deletionPreview.willDelete.contactInfo?.wasOnlyProject && " (plus 1 contact)"}
+                            </p>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
+                          <p className="text-green-800 dark:text-green-200">
+                            ✅ This project has no associated data. It can be safely deleted.
+                          </p>
+                        </div>
+                      )}
+                      
+                      <p className="text-sm text-gray-600 dark:text-gray-400">
+                        This action cannot be undone.
+                      </p>
+                    </>
+                  ) : null}
+                </div>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={handleCancelDelete} disabled={deleteProjectMutation.isPending}>
+                Cancel
+              </AlertDialogCancel>
+              {!previewLoading && deletionPreview && (
+                <AlertDialogAction
+                  onClick={handleConfirmDelete}
+                  disabled={deleteProjectMutation.isPending}
+                  className="bg-red-600 hover:bg-red-700"
+                  data-testid={`confirm-delete-project-${deletionPreview.project.id}`}
+                >
+                  {deleteProjectMutation.isPending ? (
+                    <div className="flex items-center space-x-2">
+                      <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full"></div>
+                      <span>Deleting...</span>
+                    </div>
+                  ) : (
+                    `Delete Project${deletionPreview.willDelete.totalItems > 0 || deletionPreview.willDelete.contactInfo ? ` & Related Data` : ''}`
+                  )}
+                </AlertDialogAction>
+              )}
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
     </>
   );
 }

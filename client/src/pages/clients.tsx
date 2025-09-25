@@ -125,6 +125,10 @@ export default function Contacts() {
   // Fetch deletion preview when contact is selected for deletion
   const { data: previewData, isLoading: previewLoading } = useQuery({
     queryKey: ['/api/contacts', previewContactId, 'deletion-preview'],
+    queryFn: async () => {
+      const response = await apiRequest('GET', `/api/contacts/${previewContactId}/deletion-preview`);
+      return response.json();
+    },
     enabled: !!previewContactId,
     retry: false
   });

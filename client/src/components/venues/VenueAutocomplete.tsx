@@ -397,10 +397,49 @@ export function VenueAutocomplete({
 
       {showPredictions && predictions.length === 0 && query.length >= 2 && !isLoading && (
         <Card className="absolute top-full z-50 mt-1 w-full shadow-lg">
-          <CardContent className="p-3">
-            <div className="text-sm text-muted-foreground text-center">
-              No venues found for "{query}"
-            </div>
+          <CardContent className="p-0">
+            <Button
+              variant="ghost"
+              className="w-full justify-start p-3 h-auto text-left hover:bg-muted/50"
+              onMouseDown={(e) => {
+                e.preventDefault(); // Prevent input blur
+                // Create a basic venue from the typed text
+                const basicVenue: SelectedVenue = {
+                  placeId: `manual-${Date.now()}`, // Generate a unique ID for manual entries
+                  name: query.trim(),
+                  address: query.trim()
+                };
+                onVenueSelect(basicVenue);
+                setHasSelectedVenue(true);
+                setShowPredictions(false);
+                setPredictions([]);
+                
+                // Focus next field
+                if (inputRef.current) {
+                  inputRef.current.blur();
+                  const form = inputRef.current.closest('form');
+                  if (form) {
+                    const formElements = Array.from(form.querySelectorAll('input, select, textarea, button'));
+                    const currentIndex = formElements.indexOf(inputRef.current);
+                    const nextElement = formElements[currentIndex + 1] as HTMLElement;
+                    if (nextElement && nextElement.focus) {
+                      nextElement.focus();
+                    }
+                  }
+                }
+              }}
+              data-testid="button-use-manual-venue"
+            >
+              <MapPin className="mr-3 h-4 w-4 text-muted-foreground shrink-0" />
+              <div className="min-w-0 flex-1">
+                <div className="font-medium text-sm truncate">
+                  Use "{query}"
+                </div>
+                <div className="text-xs text-muted-foreground truncate mt-0.5">
+                  Use this address as entered
+                </div>
+              </div>
+            </Button>
           </CardContent>
         </Card>
       )}

@@ -380,14 +380,46 @@ router.post('/public/:slug/submit', formSubmissionLimiter, async (req, res) => {
       }
     }
     
-    // Transform submitted data using question mappings
-    for (const [key, value] of Object.entries(formData)) {
-      if (questionIdToMapTo[key]) {
-        // Map question ID to canonical field name
-        transformedData[questionIdToMapTo[key]] = value;
+    // Handle both flat and nested form data structures
+    
+    // If form data has a nested 'data' structure, extract it
+    if (formData.data && typeof formData.data === 'object') {
+      // Check if nested data contains question IDs or canonical field names
+      const nestedKeys = Object.keys(formData.data);
+      const hasQuestionIds = nestedKeys.some(key => questionIdToMapTo[key]);
+      
+      if (hasQuestionIds) {
+        // Apply transformations to the nested data object (question IDs to canonical names)
+        for (const [key, value] of Object.entries(formData.data)) {
+          if (questionIdToMapTo[key]) {
+            transformedData[questionIdToMapTo[key]] = value;
+          } else {
+            transformedData[key] = value;
+          }
+        }
       } else {
-        // Keep non-question fields as-is (consent, honeypot, etc.)
-        transformedData[key] = value;
+        // Data already contains canonical field names, flatten them directly
+        for (const [key, value] of Object.entries(formData.data)) {
+          transformedData[key] = value;
+        }
+      }
+      
+      // Keep other top-level fields (like consent, honeypot)
+      for (const [key, value] of Object.entries(formData)) {
+        if (key !== 'data') {
+          transformedData[key] = value;
+        }
+      }
+    } else {
+      // Handle flat structure (legacy format)
+      for (const [key, value] of Object.entries(formData)) {
+        if (questionIdToMapTo[key]) {
+          // Map question ID to canonical field name
+          transformedData[questionIdToMapTo[key]] = value;
+        } else {
+          // Keep non-question fields as-is (consent, honeypot, etc.)
+          transformedData[key] = value;
+        }
       }
     }
     

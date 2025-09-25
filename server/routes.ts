@@ -1679,9 +1679,9 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   app.get("/api/business/metrics", ensureUserAuth, async (req, res) => {
     try {
       const userId = req.authenticatedUserId;
-      const leads = await storage.getLeads(userId);
-      const clients = await storage.getContacts(userId);
-      const projects = await storage.getProjects(userId);
+      const leads = await storage.getLeads(req.tenantId, userId);
+      const clients = await storage.getContacts(req.tenantId, userId);
+      const projects = await storage.getProjects(req.tenantId, userId);
       const quotes = await storage.getQuotes();
       const invoices = await storage.getInvoices();
       const contracts = await storage.getContracts();
@@ -1811,7 +1811,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
         }
 
         // Check for other projects with same date
-        const allProjects = await storage.getProjects();
+        const allProjects = await storage.getProjects(req.tenantId);
         const conflictingProjects = allProjects.filter(p => 
           p.id !== project.id && 
           p.startDate && project.startDate &&
@@ -1945,7 +1945,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   // Clients
   app.get("/api/contacts", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
     try {
-      const contacts = await storage.getContacts();
+      const contacts = await storage.getContacts(req.tenantId, req.authenticatedUserId);
       res.json(contacts);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch contacts" });
@@ -2146,7 +2146,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   // Projects
   app.get("/api/projects", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
     try {
-      const projects = await storage.getProjects();
+      const projects = await storage.getProjects(req.tenantId, req.authenticatedUserId);
       res.json(projects);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch projects" });

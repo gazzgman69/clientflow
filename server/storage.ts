@@ -612,8 +612,10 @@ export class MemStorage implements IStorage {
   }
 
   // Contacts
-  async getContacts(userId?: string): Promise<Contact[]> {
-    let contacts = Array.from(this.contacts.values());
+  async getContacts(tenantId: string, userId?: string): Promise<Contact[]> {
+    let contacts = Array.from(this.contacts.values()).filter(contact => 
+      contact.tenantId === tenantId || !contact.tenantId
+    );
     if (userId) {
       contacts = contacts.filter(contact => contact.userId === userId);
     }
@@ -686,8 +688,10 @@ export class MemStorage implements IStorage {
   }
 
   // Projects
-  async getProjects(userId?: string): Promise<Project[]> {
-    let projects = Array.from(this.projects.values());
+  async getProjects(tenantId: string, userId?: string): Promise<Project[]> {
+    let projects = Array.from(this.projects.values()).filter(project => 
+      project.tenantId === tenantId || !project.tenantId
+    );
     if (userId) {
       projects = projects.filter(project => project.userId === userId || project.assignedTo === userId);
     }

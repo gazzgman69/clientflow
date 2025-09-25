@@ -499,9 +499,11 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
 
   // Lead Forms routes - public routes (no auth), non-public routes need auth
   // NOTE: This is for lead capture forms only, not general leads endpoints
-  // REMOVED: Conflicting mount at /api/leads - leadFormsRoutes should only be at /api/lead-forms
   
-  // Lead-forms admin routes
+  // PUBLIC ROUTES: Lead form hosting (no auth required for public access)
+  app.use('/api/leads', leadFormsRoutes);
+  
+  // Lead-forms admin routes (with auth)
   app.use('/api/lead-forms', ensureUserAuth, tenantResolver, requireTenant, csrf, leadFormsRoutes);
   
   // Lead Custom Fields routes - apply user auth, tenant resolution, CSRF for custom field management

@@ -307,16 +307,17 @@ export default function Contacts() {
                         {contact.phone || '-'}
                       </TableCell>
                       <TableCell data-testid={`contact-location-${contact.id}`}>
-                        <div className="space-y-1">
+                        {contact.venueCity ? (
                           <div className="text-sm">
-                            <span className="font-medium">Personal:</span> {contact.city ? `${contact.city}${contact.state ? `, ${contact.state}` : ''}` : (contact.address || '-')}
+                            <span className="font-medium">{contact.venueCity}</span>
+                            {contact.venueState && <span className="text-muted-foreground">, {contact.venueState}</span>}
                           </div>
-                          {(contact.venueCity || contact.venueAddress) && (
-                            <div className="text-sm text-muted-foreground">
-                              <span className="font-medium">Venue:</span> {contact.venueCity ? `${contact.venueCity}${contact.venueState ? `, ${contact.venueState}` : ''}` : (contact.venueAddress || '-')}
-                            </div>
-                          )}
-                        </div>
+                        ) : contact.city ? (
+                          <div className="text-sm">
+                            <span className="font-medium">{contact.city}</span>
+                            {contact.state && <span className="text-muted-foreground">, {contact.state}</span>}
+                          </div>
+                        ) : '-'}
                       </TableCell>
                       <TableCell data-testid={`contact-tags-${contact.id}`}>
                         {contact.tags && contact.tags.length > 0 ? (

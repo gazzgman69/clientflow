@@ -857,9 +857,16 @@ export default function VenuesPage() {
                           <div className="flex items-center gap-1 text-sm">
                             <MapPin className="h-3 w-3" />
                             <span data-testid={`text-location-${venue.id}`}>
-                              {[venue.address, venue.city, venue.state]
-                                .filter(Boolean)
-                                .join(", ")}
+                              {(() => {
+                                // If address exists and seems to be a formatted address (contains commas), use it
+                                if (venue.address && venue.address.includes(',')) {
+                                  return venue.address;
+                                }
+                                // Otherwise build from components
+                                return [venue.address, venue.city, venue.state]
+                                  .filter(Boolean)
+                                  .join(", ");
+                              })()}
                             </span>
                           </div>
                         )}

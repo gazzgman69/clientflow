@@ -2462,7 +2462,17 @@ export class DrizzleStorage implements IStorage {
     return result[0];
   }
   async deleteLead(id: string): Promise<boolean> {
-    // First delete any lead status history records to avoid foreign key constraint
+    // First delete related records to avoid foreign key constraints
+    
+    // Delete lead consent records
+    await this.db.delete(leadConsents).where(eq(leadConsents.leadId, id));
+    
+    // Delete form submission references (set leadId to null)
+    await this.db.update(formSubmissions)
+      .set({ leadId: null })
+      .where(eq(formSubmissions.leadId, id));
+    
+    // Delete lead status history records
     await this.db.delete(leadStatusHistory).where(eq(leadStatusHistory.leadId, id));
     
     // Then delete the lead itself

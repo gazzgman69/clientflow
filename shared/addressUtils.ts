@@ -14,29 +14,67 @@ export interface AddressComponents {
 
 /**
  * Clean address field by removing venue name duplication and redundant information
+ * Handles both comma-delimited and non-comma formats
  */
 export function cleanVenueAddress(address: string, venueName: string): string {
   if (!address || !venueName) return address || '';
   
-  // Convert to lowercase for comparison
-  const cleanAddress = address.trim();
-  const cleanVenueName = venueName.trim().toLowerCase();
+  let cleanAddress = address.trim();
+  const cleanVenueName = venueName.trim();
   
-  // Split address by commas to check each part
-  const addressParts = cleanAddress.split(',').map(part => part.trim());
+  // Escape special regex characters in venue name
+  const escapedVenueName = cleanVenueName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   
-  // Remove parts that contain the venue name
-  const cleanedParts = addressParts.filter(part => {
-    const partLower = part.toLowerCase();
-    return !partLower.includes(cleanVenueName) || partLower.length <= cleanVenueName.length + 5;
-  });
+  // Strategy 1: Remove venue name from the beginning of the address
+  // Handles cases like "Venue Name 123 Main St" or "Venue Name, 123 Main St"
+  const startPattern = new RegExp(`^${escapedVenueName}[,\\s]*`, 'i');
+  cleanAddress = cleanAddress.replace(startPattern, '');
   
-  // If we removed too much, keep the original but remove exact duplicates
-  if (cleanedParts.length === 0) {
-    return cleanAddress.replace(new RegExp(`${venueName},?\\s*`, 'gi'), '');
+  // Strategy 2: Remove venue name from the end of the address
+  // Handles cases like "123 Main St, Venue Name"
+  const endPattern = new RegExp(`[,\\s]*${escapedVenueName}\\s*$`, 'i');
+  cleanAddress = cleanAddress.replace(endPattern, '');
+  
+  // Strategy 3: For comma-delimited addresses, filter out parts containing venue name
+  if (cleanAddress.includes(',')) {
+    const addressParts = cleanAddress.split(',').map(part => part.trim());
+    const cleanVenueNameLower = cleanVenueName.toLowerCase();
+    
+    const cleanedParts = addressParts.filter(part => {
+      const partLower = part.toLowerCase();
+      // Keep the part if it doesn't contain the venue name, or if it's very short (likely just a number/abbreviation)
+      return !partLower.includes(cleanVenueNameLower) || part.length <= Math.max(3, cleanVenueName.length * 0.3);
+    });
+    
+    // Only use filtered result if we have meaningful content left
+    if (cleanedParts.length > 0 && cleanedParts.some(part => part.length > 2)) {
+      cleanAddress = cleanedParts.join(', ');
+    }
   }
   
-  return cleanedParts.join(', ');
+  // Strategy 4: Remove any remaining exact venue name matches
+  const exactPattern = new RegExp(escapedVenueName, 'gi');
+  const potentialClean = cleanAddress.replace(exactPattern, '').replace(/,\s*,/g, ',').trim();
+  
+  // Only use the result if we still have meaningful content
+  if (potentialClean.length > 3 && /\d/.test(potentialClean)) {
+    cleanAddress = potentialClean;
+  }
+  
+  // Clean up any remaining formatting issues
+  cleanAddress = cleanAddress
+    .replace(/^[,\s]+|[,\s]+$/g, '') // Remove leading/trailing commas and spaces
+    .replace(/,\s*,+/g, ',') // Remove duplicate commas
+    .replace(/\s+/g, ' ') // Normalize spaces
+    .trim();
+  
+  // If we ended up with an empty or very short result, return the original
+  // but with basic venue name removal
+  if (!cleanAddress || cleanAddress.length < 3) {
+    return address.replace(new RegExp(`${escapedVenueName}[,\\s]*`, 'gi'), '').trim();
+  }
+  
+  return cleanAddress;
 }
 
 /**

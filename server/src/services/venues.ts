@@ -34,23 +34,40 @@ export class VenuesService {
       
       if (!existingVenue.name) updates.name = details.name;
       
-      // Apply address cleaning if any address fields need updating
-      const addressNeedsUpdate = !existingVenue.address || !existingVenue.city || !existingVenue.state || !existingVenue.zipCode || !existingVenue.country;
-      if (addressNeedsUpdate) {
-        const cleanedAddress = validateAndCleanVenueAddress({
-          venueName: details.name,
-          address: !existingVenue.address ? details.address1 : existingVenue.address,
-          city: !existingVenue.city ? details.city : existingVenue.city,
-          state: !existingVenue.state ? details.state : existingVenue.state,
-          zipCode: !existingVenue.zipCode ? details.postalCode : existingVenue.zipCode,
-          country: !existingVenue.country ? details.countryCode : existingVenue.country
-        });
-        
-        if (!existingVenue.address) updates.address = cleanedAddress.address;
-        if (!existingVenue.city) updates.city = cleanedAddress.city;
-        if (!existingVenue.state) updates.state = cleanedAddress.state;
-        if (!existingVenue.zipCode) updates.zipCode = cleanedAddress.zipCode;
-        if (!existingVenue.country) updates.country = cleanedAddress.country;
+      // Always apply address cleaning to detect and fix any existing duplication
+      const currentAddressData = {
+        venueName: existingVenue.name || details.name,
+        address: existingVenue.address || details.address1,
+        city: existingVenue.city || details.city,
+        state: existingVenue.state || details.state,
+        zipCode: existingVenue.zipCode || details.postalCode,
+        country: existingVenue.country || details.countryCode
+      };
+      
+      const cleanedAddress = validateAndCleanVenueAddress(currentAddressData);
+      
+      // Update empty fields with new data
+      if (!existingVenue.address && details.address1) updates.address = cleanedAddress.address;
+      if (!existingVenue.city && details.city) updates.city = cleanedAddress.city;
+      if (!existingVenue.state && details.state) updates.state = cleanedAddress.state;
+      if (!existingVenue.zipCode && details.postalCode) updates.zipCode = cleanedAddress.zipCode;
+      if (!existingVenue.country && details.countryCode) updates.country = cleanedAddress.country;
+      
+      // Fix existing duplicated address data if cleaning changed it
+      if (existingVenue.address && cleanedAddress.address !== existingVenue.address) {
+        updates.address = cleanedAddress.address;
+      }
+      if (existingVenue.city && cleanedAddress.city !== existingVenue.city) {
+        updates.city = cleanedAddress.city;
+      }
+      if (existingVenue.state && cleanedAddress.state !== existingVenue.state) {
+        updates.state = cleanedAddress.state;
+      }
+      if (existingVenue.zipCode && cleanedAddress.zipCode !== existingVenue.zipCode) {
+        updates.zipCode = cleanedAddress.zipCode;
+      }
+      if (existingVenue.country && cleanedAddress.country !== existingVenue.country) {
+        updates.country = cleanedAddress.country;
       }
       
       if (!existingVenue.address2) updates.address2 = details.address2;

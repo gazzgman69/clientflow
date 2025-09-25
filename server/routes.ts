@@ -368,7 +368,8 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   // GET /api/leads/summary
   app.get("/api/leads/summary", ...withTenantSecurity(ensureUserAuth, tenantResolver, requireTenant), async (req, res) => {
     try {
-      const leads = await storage.getLeads();
+      const tenantId = (req as TenantRequest).tenantId;
+      const leads = await storage.getLeads(tenantId);
       const counts = {
         new: leads.filter(l => l.status === 'new' && !l.lastViewedAt).length, // Only count unseen new leads
         total: leads.length
@@ -383,7 +384,8 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   // Mark leads as viewed (for notification badge)
   app.post("/api/leads/mark-viewed", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
     try {
-      const leads = await storage.getLeads();
+      const tenantId = (req as TenantRequest).tenantId;
+      const leads = await storage.getLeads(tenantId);
       const unseenLeads = leads.filter(l => l.status === 'new' && !l.lastViewedAt);
       
       // Mark all unseen new leads as viewed
@@ -400,7 +402,8 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   // General leads routes
   app.get("/api/leads", ...withTenantSecurity(ensureUserAuth, tenantResolver, requireTenant), async (req, res) => {
     try {
-      const leads = await storage.getLeads();
+      const tenantId = (req as TenantRequest).tenantId;
+      const leads = await storage.getLeads(tenantId);
       res.json(leads);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch leads" });
@@ -1838,7 +1841,8 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   // GET /api/leads/kanban
   app.get("/api/leads/kanban", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
     try {
-      const leads = await storage.getLeads();
+      const tenantId = (req as TenantRequest).tenantId;
+      const leads = await storage.getLeads(tenantId);
       const leadsWithConflicts = await detectConflicts(leads);
       
       // Group leads by pipeline stage
@@ -1884,10 +1888,11 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   // GET /api/leads/inbox
   app.get("/api/leads/inbox", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
     try {
+      const tenantId = (req as TenantRequest).tenantId;
       const limit = parseInt(req.query.limit as string) || 50;
       const search = req.query.search as string || '';
       
-      let leads = await storage.getLeads();
+      let leads = await storage.getLeads(tenantId);
       
       // Filter by search term
       if (search) {
@@ -3858,8 +3863,9 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
 
   app.get("/api/dashboard/business-priorities", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
     try {
+      const tenantId = (req as TenantRequest).tenantId;
       // Get leads that need attention
-      const leads = await storage.getLeads();
+      const leads = await storage.getLeads(tenantId);
       const newLeads = leads.filter(l => l.status === 'new').map(l => ({
         id: l.id,
         type: 'new_lead',

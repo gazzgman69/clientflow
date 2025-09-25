@@ -615,8 +615,8 @@ export const leadCaptureForms = pgTable("lead_capture_forms", {
   projectTags: text("project_tags"), // CSV for now (TODO normalize)
   recaptchaEnabled: boolean("recaptcha_enabled").default(false),
   consentText: text("consent_text").default('I consent to processing my personal data for contact purposes.'),
-  consentRequired: boolean("consent_required").default(true),
-  dataRetentionDays: integer("data_retention_days").default(365), // GDPR compliance
+  consentRequired: boolean("consent_required").default(false), // Optional by default
+  dataRetentionDays: integer("data_retention_days").default(730), // 2+ years for events far in future
   privacyPolicyUrl: text("privacy_policy_url"),
   fromAddress: text("from_address"), // Tenant-specific from address for notifications
   isActive: boolean("is_active").default(true),

@@ -2086,7 +2086,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
         email: lead.email,
         phone: lead.phone,
         projectId: lead.projectId,
-        projectTitle: lead.projectTitle || null,
+        projectTitle: (lead as any).projectVenueName || lead.eventLocation || null,
         projectDateISO: lead.projectDate || null,
         source: lead.leadSource || 'Unknown',
         createdAtISO: lead.createdAt,

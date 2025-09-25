@@ -2,6 +2,10 @@
 
 BusinessCRM is a comprehensive customer relationship management system built with a modern full-stack architecture. The application provides lead management, client tracking, project management, quotation system, contract management, invoicing, email integration, calendar functionality, and workflow automation. It's designed to streamline business operations from lead capture through project completion and billing.
 
+## Recent Changes (September 25, 2025)
+
+**Lead Card Venue Display Enhancement**: Modified lead cards to display venue names (e.g., "Stratton Court Barn", "The Post Barn") instead of project descriptions. This improvement enhances the user interface by showing actual venue locations rather than generic project titles, making lead management more intuitive and location-focused.
+
 # User Preferences
 
 Preferred communication style: Simple, everyday language.

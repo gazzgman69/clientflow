@@ -67,7 +67,7 @@ import crypto from "crypto";
 import { TenantScopedStorage } from './utils/tenantScopedStorage';
 import { drizzle } from 'drizzle-orm/neon-http';
 import { neon } from '@neondatabase/serverless';
-import { eq, and, desc, or, isNull, isNotNull } from 'drizzle-orm';
+import { eq, and, desc, or, isNull, isNotNull, leftJoin } from 'drizzle-orm';
 import { secureStore } from './src/services/secureStore';
 
 // Helper function to omit undefined values to prevent overwriting required fields
@@ -2442,9 +2442,67 @@ export class DrizzleStorage implements IStorage {
       whereCondition = and(eq(leads.tenantId, tenantId), eq(leads.userId, userId));
     }
     
-    return await this.db.select().from(leads)
+    const result = await this.db.select({
+      id: leads.id,
+      tenantId: leads.tenantId,
+      userId: leads.userId,
+      firstName: leads.firstName,
+      middleName: leads.middleName,
+      lastName: leads.lastName,
+      fullName: leads.fullName,
+      email: leads.email,
+      phone: leads.phone,
+      company: leads.company,
+      leadSource: leads.leadSource,
+      estimatedValue: leads.estimatedValue,
+      status: leads.status,
+      notes: leads.notes,
+      assignedTo: leads.assignedTo,
+      projectId: leads.projectId,
+      lastContactAt: leads.lastContactAt,
+      lastManualStatusAt: leads.lastManualStatusAt,
+      projectDate: leads.projectDate,
+      eventLocation: leads.eventLocation,
+      eventType: leads.eventType,
+      lastViewedAt: leads.lastViewedAt,
+      createdAt: leads.createdAt,
+      updatedAt: leads.updatedAt,
+      venueName: venues.name,
+    }).from(leads)
+      .leftJoin(projects, eq(leads.projectId, projects.id))
+      .leftJoin(venues, eq(projects.venueId, venues.id))
       .where(whereCondition)
       .orderBy(desc(leads.createdAt));
+    
+    // Map the results to the Lead type format with venue name
+    return result.map(row => ({
+      id: row.id,
+      tenantId: row.tenantId,
+      userId: row.userId,
+      firstName: row.firstName,
+      middleName: row.middleName,
+      lastName: row.lastName,
+      fullName: row.fullName,
+      email: row.email,
+      phone: row.phone,
+      company: row.company,
+      leadSource: row.leadSource,
+      estimatedValue: row.estimatedValue,
+      status: row.status,
+      notes: row.notes,
+      assignedTo: row.assignedTo,
+      projectId: row.projectId,
+      lastContactAt: row.lastContactAt,
+      lastManualStatusAt: row.lastManualStatusAt,
+      projectDate: row.projectDate,
+      eventLocation: row.eventLocation,
+      eventType: row.eventType,
+      lastViewedAt: row.lastViewedAt,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
+      // Add venue name as a property that can be accessed
+      projectVenueName: row.venueName,
+    } as any));
   }
   async getLead(id: string): Promise<Lead | undefined> {
     const result = await db.select().from(leads).where(eq(leads.id, id));

@@ -2470,7 +2470,7 @@ export class DrizzleStorage implements IStorage {
     }).where(eq(leads.id, id)).returning();
     return result[0];
   }
-  async deleteLead(id: string): Promise<boolean> {
+  async deleteLead(id: string, tenantId: string): Promise<boolean> {
     // First delete related records to avoid foreign key constraints
     
     // Delete lead consent records
@@ -2484,8 +2484,8 @@ export class DrizzleStorage implements IStorage {
     // Delete lead status history records
     await this.db.delete(leadStatusHistory).where(eq(leadStatusHistory.leadId, id));
     
-    // Then delete the lead itself
-    const result = await this.db.delete(leads).where(eq(leads.id, id));
+    // Then delete the lead itself - WITH TENANT ISOLATION
+    const result = await this.db.delete(leads).where(and(eq(leads.id, id), eq(leads.tenantId, tenantId)));
     return result.rowCount > 0;
   }
   async getLeadsByProject(projectId: string): Promise<Lead[]> {

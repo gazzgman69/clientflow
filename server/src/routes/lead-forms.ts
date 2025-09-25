@@ -242,8 +242,8 @@ router.delete('/:id', async (req, res) => {
 
 // Public routes for form submission
 
-// GET /api/leads/public/:slug
-router.get('/public/:slug', async (req, res) => {
+// GET /:slug (mounted under /api/leads/public)
+router.get('/:slug', async (req, res) => {
   try {
     const { slug } = req.params;
     const form = await storage.getLeadCaptureFormBySlug(slug);
@@ -285,8 +285,8 @@ router.get('/public/:slug', async (req, res) => {
   }
 });
 
-// POST /api/leads/public/:slug/submit
-router.post('/public/:slug/submit', formSubmissionLimiter, async (req, res) => {
+// POST /:slug/submit (mounted under /api/leads/public)
+router.post('/:slug/submit', formSubmissionLimiter, async (req, res) => {
   try {
     const { slug } = req.params;
     const formData = req.body;

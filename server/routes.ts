@@ -2105,9 +2105,36 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   // Clients
   app.get("/api/contacts", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
     try {
+      // Parse pagination parameters
+      const page = Math.max(1, parseInt(req.query.page as string) || 1);
+      const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string) || 25));
+      const offset = (page - 1) * limit;
+      
+      // For lead capture forms and similar use cases, provide a simple limit-only option
+      if (req.query.simple === '1') {
+        const simpleLimit = Math.min(50, Math.max(1, parseInt(req.query.limit as string) || 10));
+        const contacts = await storage.getContacts(req.tenantId, undefined, simpleLimit);
+        return res.json(contacts);
+      }
+
       // Don't filter by userId - all contacts in tenant should be visible to authenticated users
-      const contacts = await storage.getContacts(req.tenantId);
-      res.json(contacts);
+      const contacts = await storage.getContacts(req.tenantId, undefined, limit, offset);
+      
+      // Get total count for pagination info
+      const totalCount = await storage.getContactsCount(req.tenantId);
+      const totalPages = Math.ceil(totalCount / limit);
+      
+      res.json({
+        contacts,
+        pagination: {
+          page,
+          limit,
+          totalCount,
+          totalPages,
+          hasNext: page < totalPages,
+          hasPrev: page > 1
+        }
+      });
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch contacts" });
     }
@@ -2307,9 +2334,36 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   // Projects
   app.get("/api/projects", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
     try {
+      // Parse pagination parameters
+      const page = Math.max(1, parseInt(req.query.page as string) || 1);
+      const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string) || 25));
+      const offset = (page - 1) * limit;
+      
+      // For lead capture forms and similar use cases, provide a simple limit-only option
+      if (req.query.simple === '1') {
+        const simpleLimit = Math.min(50, Math.max(1, parseInt(req.query.limit as string) || 10));
+        const projects = await storage.getProjects(req.tenantId, undefined, simpleLimit);
+        return res.json(projects);
+      }
+
       // Don't filter by userId - all projects in tenant should be visible to authenticated users
-      const projects = await storage.getProjects(req.tenantId);
-      res.json(projects);
+      const projects = await storage.getProjects(req.tenantId, undefined, limit, offset);
+      
+      // Get total count for pagination info
+      const totalCount = await storage.getProjectsCount(req.tenantId);
+      const totalPages = Math.ceil(totalCount / limit);
+      
+      res.json({
+        projects,
+        pagination: {
+          page,
+          limit,
+          totalCount,
+          totalPages,
+          hasNext: page < totalPages,
+          hasPrev: page > 1
+        }
+      });
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch projects" });
     }

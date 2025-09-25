@@ -25,7 +25,7 @@ export class VenuesService {
    */
   async upsertFromPlace(details: PlaceDetails, tenantId: string): Promise<Venue> {
     // Check if venue with this place_id already exists
-    const existingVenues = await storage.getVenues();
+    const existingVenues = await storage.getVenues(tenantId);
     const existingVenue = existingVenues.find(v => v.placeId === details.placeId);
 
     if (existingVenue) {
@@ -94,7 +94,7 @@ export class VenuesService {
 
       if (Object.keys(updates).length > 0) {
         try {
-          const updatedVenue = await storage.updateVenue(existingVenue.id, updates);
+          const updatedVenue = await storage.updateVenue(existingVenue.id, updates, tenantId);
           return updatedVenue!;
         } catch (error) {
           console.warn('Failed to update existing venue, returning existing venue:', error);
@@ -207,7 +207,7 @@ export class VenuesService {
    * Attempt to automatically enrich a venue by searching Google Places
    */
   async tryAutoEnrichVenue(venueId: string, tenantId: string): Promise<Venue | null> {
-    const venue = await storage.getVenue(venueId);
+    const venue = await storage.getVenue(venueId, tenantId);
     if (!venue || venue.placeId) {
       return null; // Already has Google Places data or doesn't exist
     }
@@ -281,7 +281,7 @@ export class VenuesService {
       updates.meta = JSON.stringify(enrichmentData);
 
       if (Object.keys(updates).length > 0) {
-        const updatedVenue = await storage.updateVenue(venueId, updates);
+        const updatedVenue = await storage.updateVenue(venueId, updates, tenantId);
         console.log(`✅ Successfully enriched venue: ${venue.name} with phone: ${placeDetails.phone}, website: ${placeDetails.website}`);
         return updatedVenue || venue;
       }
@@ -322,8 +322,8 @@ export class VenuesService {
   /**
    * Find venue by place_id to check cache
    */
-  async findByPlaceId(placeId: string): Promise<Venue | null> {
-    const venues = await storage.getVenues();
+  async findByPlaceId(placeId: string, tenantId: string): Promise<Venue | null> {
+    const venues = await storage.getVenues(tenantId);
     return venues.find(v => v.placeId === placeId) || null;
   }
 
@@ -340,8 +340,8 @@ export class VenuesService {
   /**
    * Find venues by normalized address matching
    */
-  async findByAddress(searchInput: string): Promise<Venue[]> {
-    const venues = await storage.getVenues();
+  async findByAddress(searchInput: string, tenantId: string): Promise<Venue[]> {
+    const venues = await storage.getVenues(tenantId);
     const normalizedInput = this.normalizeAddress(searchInput);
     
     return venues.filter(venue => {
@@ -503,15 +503,15 @@ export class VenuesService {
   /**
    * Update venue usage tracking (increment use count and update last used)
    */
-  async trackVenueUsage(venueId: string): Promise<void> {
+  async trackVenueUsage(venueId: string, tenantId: string): Promise<void> {
     try {
-      const venue = await storage.getVenue(venueId);
+      const venue = await storage.getVenue(venueId, tenantId);
       if (venue) {
         const updates = {
           useCount: (venue.useCount || 0) + 1,
           lastUsedAt: new Date()
         };
-        await storage.updateVenue(venueId, updates);
+        await storage.updateVenue(venueId, updates, tenantId);
       }
     } catch (error) {
       console.warn('Failed to track venue usage:', error);
@@ -522,12 +522,12 @@ export class VenuesService {
   /**
    * Generate static map URL for venue
    */
-  async getStaticMapUrl(venueId: string, options?: {
+  async getStaticMapUrl(venueId: string, tenantId: string, options?: {
     width?: number;
     height?: number;
     zoom?: number;
   }): Promise<string | null> {
-    const venue = await storage.getVenue(venueId);
+    const venue = await storage.getVenue(venueId, tenantId);
     
     if (!venue || !venue.latitude || !venue.longitude) {
       return null;
@@ -542,8 +542,8 @@ export class VenuesService {
   /**
    * Generate Google Maps link for venue
    */
-  async getMapsLink(venueId: string): Promise<string | null> {
-    const venue = await storage.getVenue(venueId);
+  async getMapsLink(venueId: string, tenantId: string): Promise<string | null> {
+    const venue = await storage.getVenue(venueId, tenantId);
     
     if (!venue || !venue.latitude || !venue.longitude) {
       return null;
@@ -558,31 +558,35 @@ export class VenuesService {
   /**
    * Update venue with manual edits
    */
-  async updateVenue(venueId: string, updates: Partial<InsertVenue>): Promise<Venue | null> {
-    const result = await storage.updateVenue(venueId, updates);
+  async updateVenue(venueId: string, updates: Partial<InsertVenue>, tenantId: string): Promise<Venue | null> {
+    const result = await storage.updateVenue(venueId, updates, tenantId);
     return result || null;
   }
 
   /**
    * Get all venues
    */
-  async getVenues(): Promise<Venue[]> {
-    return await storage.getVenues();
+  async getVenues(tenantId: string, limit?: number, offset?: number): Promise<Venue[]> {
+    return await storage.getVenues(tenantId, limit, offset);
+  }
+
+  async getVenuesCount(tenantId: string): Promise<number> {
+    return await storage.getVenuesCount(tenantId);
   }
 
   /**
    * Get venue by ID
    */
-  async getVenue(venueId: string): Promise<Venue | null> {
-    const result = await storage.getVenue(venueId);
+  async getVenue(venueId: string, tenantId: string): Promise<Venue | null> {
+    const result = await storage.getVenue(venueId, tenantId);
     return result || null;
   }
 
   /**
    * Delete venue
    */
-  async deleteVenue(venueId: string): Promise<boolean> {
-    return await storage.deleteVenue(venueId);
+  async deleteVenue(venueId: string, tenantId: string): Promise<boolean> {
+    return await storage.deleteVenue(venueId, tenantId);
   }
 }
 

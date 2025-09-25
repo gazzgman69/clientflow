@@ -98,7 +98,7 @@ router.post('/from-google', async (req, res) => {
     const venue = await venuesService.createFromGoogle(validatedData, (req as any).tenantId);
     
     // Track usage for caching
-    await venuesService.trackVenueUsage(venue.id);
+    await venuesService.trackVenueUsage(venue.id, (req as any).tenantId);
     
     res.status(201).json(venue);
   } catch (error) {
@@ -171,7 +171,7 @@ router.get('/:id/map', async (req, res) => {
       zoom: zoom ? parseInt(zoom as string) : undefined
     };
     
-    const mapUrl = await venuesService.getStaticMapUrl(id, options);
+    const mapUrl = await venuesService.getStaticMapUrl(id, (req as any).tenantId, options);
     
     if (!mapUrl) {
       return res.status(404).json({ 
@@ -193,7 +193,7 @@ router.get('/:id/maps-link', async (req, res) => {
   try {
     const { id } = req.params;
     
-    const mapsLink = await venuesService.getMapsLink(id);
+    const mapsLink = await venuesService.getMapsLink(id, (req as any).tenantId);
     
     if (!mapsLink) {
       return res.status(404).json({ 
@@ -215,7 +215,7 @@ router.post('/:id/track-usage', async (req, res) => {
   try {
     const { id } = req.params;
     
-    await venuesService.trackVenueUsage(id);
+    await venuesService.trackVenueUsage(id, (req as any).tenantId);
     
     res.json({ success: true });
   } catch (error) {
@@ -253,7 +253,7 @@ router.post('/', async (req, res) => {
   try {
     const validatedData = insertVenueSchema.parse(req.body);
     
-    const venue = await venuesService.createVenue(validatedData);
+    const venue = await venuesService.createVenue(validatedData, (req as any).tenantId);
     res.status(201).json(venue);
   } catch (error) {
     console.error('Error creating venue:', error);
@@ -270,11 +270,38 @@ router.post('/', async (req, res) => {
   }
 });
 
-// GET /api/venues - Get all venues
+// GET /api/venues - Get all venues with pagination
 router.get('/', async (req, res) => {
   try {
-    const venues = await venuesService.getVenues();
-    res.json(venues);
+    // Parse pagination parameters
+    const page = Math.max(1, parseInt(req.query.page as string) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string) || 25));
+    const offset = (page - 1) * limit;
+    
+    // For lead capture forms and similar use cases, provide a simple limit-only option
+    if (req.query.simple === '1') {
+      const simpleLimit = Math.min(50, Math.max(1, parseInt(req.query.limit as string) || 10));
+      const venues = await venuesService.getVenues((req as any).tenantId, simpleLimit);
+      return res.json(venues);
+    }
+
+    const venues = await venuesService.getVenues((req as any).tenantId, limit, offset);
+    
+    // Get total count for pagination info
+    const totalCount = await venuesService.getVenuesCount((req as any).tenantId);
+    const totalPages = Math.ceil(totalCount / limit);
+    
+    res.json({
+      venues,
+      pagination: {
+        page,
+        limit,
+        totalCount,
+        totalPages,
+        hasNext: page < totalPages,
+        hasPrev: page > 1
+      }
+    });
   } catch (error) {
     console.error('Error fetching venues:', error);
     res.status(500).json({ 
@@ -323,7 +350,7 @@ router.post('/cleanup-addresses', async (req, res) => {
 router.get('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const venue = await venuesService.getVenue(id);
+    const venue = await venuesService.getVenue(id, (req as any).tenantId);
     
     if (!venue) {
       return res.status(404).json({ 
@@ -346,7 +373,7 @@ router.patch('/:id', async (req, res) => {
     const { id } = req.params;
     const validatedData = insertVenueSchema.partial().parse(req.body);
     
-    const venue = await venuesService.updateVenue(id, validatedData);
+    const venue = await venuesService.updateVenue(id, validatedData, (req as any).tenantId);
     
     if (!venue) {
       return res.status(404).json({ 
@@ -376,7 +403,7 @@ router.put('/:id', async (req, res) => {
     const { id } = req.params;
     const validatedData = insertVenueSchema.parse(req.body);
     
-    const venue = await venuesService.updateVenue(id, validatedData);
+    const venue = await venuesService.updateVenue(id, validatedData, (req as any).tenantId);
     
     if (!venue) {
       return res.status(404).json({ 
@@ -404,7 +431,7 @@ router.put('/:id', async (req, res) => {
 router.delete('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const deleted = await venuesService.deleteVenue(id);
+    const deleted = await venuesService.deleteVenue(id, (req as any).tenantId);
     
     if (!deleted) {
       return res.status(404).json({ 

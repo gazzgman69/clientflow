@@ -105,7 +105,8 @@ export interface IStorage {
   deleteLead(id: string, tenantId: string): Promise<boolean>;
   
   // Contacts
-  getContacts(tenantId: string, userId?: string): Promise<Contact[]>;
+  getContacts(tenantId: string, userId?: string, limit?: number, offset?: number): Promise<Contact[]>;
+  getContactsCount(tenantId: string, userId?: string): Promise<number>;
   getContact(id: string, tenantId: string): Promise<Contact | undefined>;
   getContactByEmail(email: string, tenantId: string): Promise<Contact | undefined>;
   getContactById(id: string, tenantId: string): Promise<Contact | undefined>;
@@ -114,7 +115,8 @@ export interface IStorage {
   deleteContact(id: string, tenantId: string): Promise<boolean>;
   
   // Projects
-  getProjects(tenantId: string, userId?: string): Promise<Project[]>;
+  getProjects(tenantId: string, userId?: string, limit?: number, offset?: number): Promise<Project[]>;
+  getProjectsCount(tenantId: string, userId?: string): Promise<number>;
   getProject(id: string, tenantId: string): Promise<Project | undefined>;
   getProjectsByContact(contactId: string, tenantId: string): Promise<Project[]>;
   createProject(project: InsertProject, tenantId: string): Promise<Project>;
@@ -279,7 +281,8 @@ export interface IStorage {
   deleteMember(id: string, tenantId: string): Promise<boolean>;
   
   // Venues
-  getVenues(tenantId: string): Promise<Venue[]>;
+  getVenues(tenantId: string, limit?: number, offset?: number): Promise<Venue[]>;
+  getVenuesCount(tenantId: string): Promise<number>;
   getVenue(id: string, tenantId: string): Promise<Venue | undefined>;
   createVenue(venue: InsertVenue, tenantId: string): Promise<Venue>;
   updateVenue(id: string, venue: Partial<InsertVenue>, tenantId: string): Promise<Venue | undefined>;
@@ -1321,14 +1324,42 @@ export class MemStorage implements IStorage {
   }
 
   // Venues
-  async getVenues(): Promise<Venue[]> {
-    return Array.from(this.venues.values()).sort((a, b) => 
-      new Date(b.createdAt!).getTime() - new Date(a.createdAt!).getTime()
-    );
+  async getVenues(tenantId: string, limit?: number, offset?: number): Promise<Venue[]> {
+    if (!tenantId) {
+      throw new Error("SECURITY: tenantId is required to prevent cross-tenant data access");
+    }
+    
+    let venuesList = Array.from(this.venues.values())
+      .filter(venue => venue.tenantId === tenantId)
+      .sort((a, b) => 
+        new Date(b.createdAt!).getTime() - new Date(a.createdAt!).getTime()
+      );
+    
+    if (offset !== undefined) {
+      venuesList = venuesList.slice(offset);
+    }
+    if (limit !== undefined) {
+      venuesList = venuesList.slice(0, limit);
+    }
+    
+    return venuesList;
   }
 
-  async getVenue(id: string): Promise<Venue | undefined> {
-    return this.venues.get(id);
+  async getVenuesCount(tenantId: string): Promise<number> {
+    if (!tenantId) {
+      throw new Error("SECURITY: tenantId is required to prevent cross-tenant data access");
+    }
+    
+    return Array.from(this.venues.values()).filter(venue => venue.tenantId === tenantId).length;
+  }
+
+  async getVenue(id: string, tenantId: string): Promise<Venue | undefined> {
+    if (!tenantId) {
+      throw new Error("SECURITY: tenantId is required to prevent cross-tenant data access");
+    }
+    
+    const venue = this.venues.get(id);
+    return venue && venue.tenantId === tenantId ? venue : undefined;
   }
 
   async createVenue(insertVenue: InsertVenue): Promise<Venue> {
@@ -2586,7 +2617,7 @@ export class DrizzleStorage implements IStorage {
   }
   
   // Contacts - Using PostgreSQL
-  async getContacts(tenantId: string, userId?: string): Promise<Contact[]> {
+  async getContacts(tenantId: string, userId?: string, limit?: number, offset?: number): Promise<Contact[]> {
     if (!tenantId) {
       throw new Error("SECURITY: tenantId is required to prevent cross-tenant data access");
     }
@@ -2596,9 +2627,35 @@ export class DrizzleStorage implements IStorage {
       whereCondition = and(eq(contacts.tenantId, tenantId), eq(contacts.userId, userId));
     }
     
-    return await this.db.select().from(contacts)
+    let query = this.db.select().from(contacts)
       .where(whereCondition)
       .orderBy(desc(contacts.createdAt));
+    
+    if (limit !== undefined) {
+      query = query.limit(limit);
+    }
+    if (offset !== undefined) {
+      query = query.offset(offset);
+    }
+    
+    return await query;
+  }
+
+  async getContactsCount(tenantId: string, userId?: string): Promise<number> {
+    if (!tenantId) {
+      throw new Error("SECURITY: tenantId is required to prevent cross-tenant data access");
+    }
+    
+    let whereCondition = eq(contacts.tenantId, tenantId);
+    if (userId) {
+      whereCondition = and(eq(contacts.tenantId, tenantId), eq(contacts.userId, userId));
+    }
+    
+    const result = await this.db.select({ count: sql<number>`count(*)` })
+      .from(contacts)
+      .where(whereCondition);
+    
+    return result[0]?.count || 0;
   }
   async getContactById(id: string): Promise<Contact | undefined> {
     const result = await this.db.select().from(contacts).where(eq(contacts.id, id));
@@ -2638,7 +2695,7 @@ export class DrizzleStorage implements IStorage {
   }
   
   // Projects - Using PostgreSQL
-  async getProjects(tenantId: string, userId?: string): Promise<Project[]> {
+  async getProjects(tenantId: string, userId?: string, limit?: number, offset?: number): Promise<Project[]> {
     if (!tenantId) {
       throw new Error("SECURITY: tenantId is required to prevent cross-tenant data access");
     }
@@ -2651,9 +2708,38 @@ export class DrizzleStorage implements IStorage {
       );
     }
     
-    return await this.db.select().from(projects)
+    let query = this.db.select().from(projects)
       .where(whereCondition)
       .orderBy(desc(projects.createdAt));
+    
+    if (limit !== undefined) {
+      query = query.limit(limit);
+    }
+    if (offset !== undefined) {
+      query = query.offset(offset);
+    }
+    
+    return await query;
+  }
+
+  async getProjectsCount(tenantId: string, userId?: string): Promise<number> {
+    if (!tenantId) {
+      throw new Error("SECURITY: tenantId is required to prevent cross-tenant data access");
+    }
+    
+    let whereCondition = eq(projects.tenantId, tenantId);
+    if (userId) {
+      whereCondition = and(
+        eq(projects.tenantId, tenantId),
+        or(eq(projects.userId, userId), eq(projects.assignedTo, userId))
+      );
+    }
+    
+    const result = await this.db.select({ count: sql<number>`count(*)` })
+      .from(projects)
+      .where(whereCondition);
+    
+    return result[0]?.count || 0;
   }
   async getProject(id: string): Promise<Project | undefined> {
     const result = await this.db.select().from(projects).where(eq(projects.id, id));
@@ -3045,12 +3131,43 @@ export class DrizzleStorage implements IStorage {
   }
   
   // Venues - PostgreSQL implementation
-  async getVenues(): Promise<Venue[]> {
-    return await this.db.select().from(venues);
+  async getVenues(tenantId: string, limit?: number, offset?: number): Promise<Venue[]> {
+    if (!tenantId) {
+      throw new Error("SECURITY: tenantId is required to prevent cross-tenant data access");
+    }
+    
+    let query = this.db.select().from(venues)
+      .where(eq(venues.tenantId, tenantId))
+      .orderBy(desc(venues.createdAt));
+    
+    if (limit !== undefined) {
+      query = query.limit(limit);
+    }
+    if (offset !== undefined) {
+      query = query.offset(offset);
+    }
+    
+    return await query;
   }
 
-  async getVenue(id: string): Promise<Venue | undefined> {
-    const result = await this.db.select().from(venues).where(eq(venues.id, id));
+  async getVenuesCount(tenantId: string): Promise<number> {
+    if (!tenantId) {
+      throw new Error("SECURITY: tenantId is required to prevent cross-tenant data access");
+    }
+    
+    const result = await this.db.select({ count: sql<number>`count(*)` })
+      .from(venues)
+      .where(eq(venues.tenantId, tenantId));
+    return result[0]?.count || 0;
+  }
+
+  async getVenue(id: string, tenantId: string): Promise<Venue | undefined> {
+    if (!tenantId) {
+      throw new Error("SECURITY: tenantId is required to prevent cross-tenant data access");
+    }
+    
+    const result = await this.db.select().from(venues)
+      .where(and(eq(venues.id, id), eq(venues.tenantId, tenantId)));
     return result[0];
   }
 

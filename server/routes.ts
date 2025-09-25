@@ -400,15 +400,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   });
 
   // General leads routes
-  app.get("/api/leads", ...withTenantSecurity(ensureUserAuth, tenantResolver, requireTenant), async (req, res) => {
-    try {
-      const tenantId = (req as TenantRequest).tenantId;
-      const leads = await storage.getLeads(tenantId);
-      res.json(leads);
-    } catch (error) {
-      res.status(500).json({ message: "Failed to fetch leads" });
-    }
-  });
+  // NOTE: Main GET /api/leads route moved to line ~1946 with proper LeadCardDTO mapping
 
   app.get("/api/leads/:id", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
     try {

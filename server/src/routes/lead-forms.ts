@@ -842,7 +842,9 @@ router.post('/public/:slug/submit', formSubmissionLimiter, async (req, res) => {
       venueId: createdVenue?.id || null, // Link project to venue if created
       status: 'pending' as const,
       progress: 0,
-      userId
+      userId,
+      // Copy project date from lead to project start date for proper conflict detection
+      startDate: mappingResult.leadData.projectDate || null
     };
 
     const project = await tenantStorage.createProject(projectData);

@@ -499,21 +499,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
 
   // Lead Forms routes - public routes (no auth), non-public routes need auth
   // NOTE: This is for lead capture forms only, not general leads endpoints
-  app.use('/api/leads', (req, res, next) => {
-    console.log(`🔍 LEADS DEBUG: path="${req.path}", method="${req.method}", headers=${JSON.stringify(req.headers.host)}`);
-    // Public lead form routes (used by public lead capture forms) - no auth or tenant required
-    if (req.path.startsWith('/public/')) {
-      console.log('✅ LEADS: Public route - skipping auth, CSRF, and tenant resolution');
-      return next();
-    }
-    // All other lead form routes need tenant resolution and authentication
-    console.log('🛡️ LEADS: Private route - applying tenant resolution, auth and CSRF');
-    return tenantResolver(req, res, () => {
-      requireTenant(req, res, () => {
-        ensureUserAuth(req, res, () => csrf(req, res, next));
-      });
-    });
-  }, leadFormsRoutes);
+  // REMOVED: Conflicting mount at /api/leads - leadFormsRoutes should only be at /api/lead-forms
   
   // Lead-forms admin routes
   app.use('/api/lead-forms', ensureUserAuth, tenantResolver, requireTenant, csrf, leadFormsRoutes);
@@ -1791,7 +1777,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   };
 
   // Helper function to detect conflicts
-  const detectConflicts = async (leads: any[]): Promise<any[]> => {
+  const detectConflicts = async (leads: any[], tenantId: string): Promise<any[]> => {
     const leadsWithProjects = await Promise.all(
       leads.map(async (lead) => {
         if (!lead.projectId) {
@@ -1804,7 +1790,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
         }
 
         // Check for other projects with same date
-        const allProjects = await storage.getProjects(req.tenantId);
+        const allProjects = await storage.getProjects(tenantId);
         const conflictingProjects = allProjects.filter(p => 
           p.id !== project.id && 
           p.startDate && project.startDate &&
@@ -1836,7 +1822,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     try {
       const tenantId = (req as TenantRequest).tenantId;
       const leads = await storage.getLeads(tenantId);
-      const leadsWithConflicts = await detectConflicts(leads);
+      const leadsWithConflicts = await detectConflicts(leads, tenantId);
       
       // Group leads by pipeline stage
       const columns: Record<string, any[]> = {
@@ -1906,7 +1892,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
       
       // Apply limit
       const paginatedLeads = leads.slice(0, limit);
-      const leadsWithConflicts = await detectConflicts(paginatedLeads);
+      const leadsWithConflicts = await detectConflicts(paginatedLeads, req.tenantId);
       
       const items = leadsWithConflicts.map(lead => ({
         id: lead.id,
@@ -1940,7 +1926,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     try {
       const tenantId = (req as TenantRequest).tenantId;
       const leads = await storage.getLeads(tenantId);
-      const leadsWithConflicts = await detectConflicts(leads);
+      const leadsWithConflicts = await detectConflicts(leads, tenantId);
       
       // Map to LeadCardDTO format for frontend
       const leadCardDTOs = leadsWithConflicts.map(lead => ({

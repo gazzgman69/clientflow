@@ -593,29 +593,9 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
   
-  // Form submission rate limiter
-  const formSubmissionLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 5, // Limit each IP to 5 requests per windowMs
-    message: 'Too many form submissions, please try again later.',
-    standardHeaders: true,
-    legacyHeaders: false,
-  });
-  
-  app.post('/api/leads/public/:slug/submit', formSubmissionLimiter, async (req, res) => {
-    // This route implementation would be quite long, so let's use the existing router for this specific route
-    // by temporarily bypassing the conflict
-    const originalRoutes = leadFormsRoutes.router?.stack || [];
-    const submitRoute = originalRoutes.find(layer => 
-      layer.route?.path === '/public/:slug/submit' && layer.route.methods.post
-    );
-    
-    if (submitRoute && submitRoute.route.stack[0]) {
-      return submitRoute.route.stack[0].handle(req, res);
-    }
-    
-    res.status(500).json({ error: 'Form submission handler not found' });
-  });
+  // Mount public lead form routes (no authentication required) 
+  // These routes include the public form submission endpoints
+  app.use('/api/leads', leadFormsRoutes);
   
   // Lead-forms admin routes (with auth)
   app.use('/api/lead-forms', ensureUserAuth, tenantResolver, requireTenant, csrf, leadFormsRoutes);

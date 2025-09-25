@@ -1680,8 +1680,9 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     try {
       const userId = req.authenticatedUserId;
       const leads = await storage.getLeads(req.tenantId, userId);
-      const clients = await storage.getContacts(req.tenantId, userId);
-      const projects = await storage.getProjects(req.tenantId, userId);
+      // Get all contacts and projects in tenant for business metrics
+      const clients = await storage.getContacts(req.tenantId);
+      const projects = await storage.getProjects(req.tenantId);
       const quotes = await storage.getQuotes();
       const invoices = await storage.getInvoices();
       const contracts = await storage.getContracts();
@@ -1945,7 +1946,8 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   // Clients
   app.get("/api/contacts", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
     try {
-      const contacts = await storage.getContacts(req.tenantId, req.authenticatedUserId);
+      // Don't filter by userId - all contacts in tenant should be visible to authenticated users
+      const contacts = await storage.getContacts(req.tenantId);
       res.json(contacts);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch contacts" });
@@ -2146,7 +2148,8 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   // Projects
   app.get("/api/projects", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
     try {
-      const projects = await storage.getProjects(req.tenantId, req.authenticatedUserId);
+      // Don't filter by userId - all projects in tenant should be visible to authenticated users
+      const projects = await storage.getProjects(req.tenantId);
       res.json(projects);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch projects" });

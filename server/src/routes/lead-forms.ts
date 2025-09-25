@@ -271,7 +271,11 @@ router.get('/public/:slug', async (req, res) => {
         title: form.name,
         slug: form.slug,
         recaptchaEnabled: form.recaptchaEnabled,
-        transparency: 'We will use this information to contact you about our services.'
+        transparency: 'We will use this information to contact you about our services.',
+        consentRequired: form.consentRequired,
+        consentText: form.consentText,
+        privacyPolicyUrl: form.privacyPolicyUrl,
+        dataRetentionDays: form.dataRetentionDays
       },
       questions: questions
     });

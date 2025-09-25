@@ -14,6 +14,7 @@ import { apiRequest } from '@/lib/queryClient';
 import { useQueryClient } from '@tanstack/react-query';
 import { VenueAutocomplete } from '@/components/venues/VenueAutocomplete';
 import { formatVenueDisplay } from '@/lib/utils';
+import { ExternalLink } from 'lucide-react';
 
 interface Question {
   id: string;
@@ -31,6 +32,10 @@ interface FormData {
     title: string;
     slug: string;
     transparency: string;
+    consentRequired: boolean;
+    consentText: string;
+    privacyPolicyUrl?: string;
+    dataRetentionDays: number;
   };
   questions: Question[];
 }
@@ -190,6 +195,16 @@ export default function LeadFormHosted({ slug }: LeadFormHostedProps) {
       return;
     }
 
+    // Validate consent if required
+    if (formData.form.consentRequired && !formValues.consent) {
+      toast({
+        title: 'Consent required',
+        description: 'You must provide consent to process your personal data.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     // Check honeypot field - if filled, it's likely spam
     if (formValues.website_url && formValues.website_url.trim() !== '') {
       // Silent rejection - don't give spammers feedback
@@ -214,7 +229,10 @@ export default function LeadFormHosted({ slug }: LeadFormHostedProps) {
 
 
     console.log('🚀 FORM DEBUG: About to submit form', { submissionData, url: `/api/leads/public/${slug}/submit` });
-    submitMutation.mutate(submissionData);
+    submitMutation.mutate({
+      data: submissionData,
+      consent: formValues.consent || false
+    });
   };
 
   const renderQuestion = (question: Question) => {
@@ -444,6 +462,43 @@ export default function LeadFormHosted({ slug }: LeadFormHostedProps) {
                 aria-hidden="true"
                 data-testid="honeypot-field"
               />
+
+              {/* Consent Checkbox - GDPR Compliance */}
+              {formData.form.consentRequired && (
+                <div className="flex items-start space-x-3 p-4 bg-muted/50 rounded-lg border">
+                  <Checkbox
+                    id="consent-checkbox"
+                    checked={formValues.consent || false}
+                    onCheckedChange={(checked) => handleInputChange('consent', checked)}
+                    data-testid="checkbox-consent"
+                    className="mt-0.5"
+                  />
+                  <div className="space-y-2">
+                    <Label 
+                      htmlFor="consent-checkbox" 
+                      className="text-sm leading-relaxed cursor-pointer"
+                    >
+                      {formData.form.consentText}
+                      <span className="text-red-500 ml-1">*</span>
+                    </Label>
+                    {formData.form.privacyPolicyUrl && (
+                      <a 
+                        href={formData.form.privacyPolicyUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center text-xs text-primary hover:underline"
+                        data-testid="link-privacy-policy"
+                      >
+                        View Privacy Policy
+                        <ExternalLink className="w-3 h-3 ml-1" />
+                      </a>
+                    )}
+                    <p className="text-xs text-muted-foreground">
+                      Your data will be retained for {formData.form.dataRetentionDays} days as per our data retention policy.
+                    </p>
+                  </div>
+                </div>
+              )}
 
               <Button
                 type="submit"

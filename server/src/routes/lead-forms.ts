@@ -731,8 +731,8 @@ router.post('/:slug/submit', formSubmissionLimiter, async (req, res) => {
     };
 
     // Prepare venue processing function
+    const venueStartTime = Date.now();
     const venueProcessingPromise = (async () => {
-      const venueStartTime = Date.now();
       let createdVenue = null;
       
       if (mappingResult.contactData.venueAddress) {
@@ -825,8 +825,6 @@ router.post('/:slug/submit', formSubmissionLimiter, async (req, res) => {
         }
       }
       
-      const venueEndTime = Date.now();
-      console.log('⏱️ PERFORMANCE: Venue processing completed in', venueEndTime - venueStartTime, 'ms');
       return createdVenue;
     })();
 
@@ -837,6 +835,9 @@ router.post('/:slug/submit', formSubmissionLimiter, async (req, res) => {
       venueProcessingPromise
     ]);
     const contactEndTime = Date.now();
+    const venueEndTime = Date.now();
+    
+    console.log('⏱️ PERFORMANCE: Venue processing completed in', venueEndTime - venueStartTime, 'ms');
     const parallelEndTime = Date.now();
     
     console.log('⏱️ PERFORMANCE: Contact creation completed in', contactEndTime - contactStartTime, 'ms');

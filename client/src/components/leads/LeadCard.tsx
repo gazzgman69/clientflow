@@ -109,9 +109,9 @@ export default function LeadCard({ lead, onClick, draggable = false, onDragStart
         <span className="font-medium">Event:</span> {formatDate(lead.projectDateISO)}
       </div>
 
-      {/* Venue */}
+      {/* Source */}
       <div className="text-xs text-muted-foreground mb-3">
-        {lead.projectTitle || 'Unknown'}
+        {lead.source || 'Unknown'}
       </div>
 
       {/* Status Badge */}

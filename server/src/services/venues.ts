@@ -2,6 +2,7 @@ import { storage } from '../../storage';
 import { geocodingService, type PlaceDetails } from './geocoding';
 import type { Venue, InsertVenue } from '@shared/schema';
 import { withTenantData } from '../../utils/tenantQueries';
+import { validateAndCleanVenueAddress, hasAddressDuplication } from '@shared/addressUtils';
 
 export interface CreateVenueFromGoogleRequest {
   placeId: string;
@@ -32,12 +33,27 @@ export class VenuesService {
       const updates: Partial<InsertVenue> = {};
       
       if (!existingVenue.name) updates.name = details.name;
-      if (!existingVenue.address) updates.address = details.address1;
+      
+      // Apply address cleaning if any address fields need updating
+      const addressNeedsUpdate = !existingVenue.address || !existingVenue.city || !existingVenue.state || !existingVenue.zipCode || !existingVenue.country;
+      if (addressNeedsUpdate) {
+        const cleanedAddress = validateAndCleanVenueAddress({
+          venueName: details.name,
+          address: !existingVenue.address ? details.address1 : existingVenue.address,
+          city: !existingVenue.city ? details.city : existingVenue.city,
+          state: !existingVenue.state ? details.state : existingVenue.state,
+          zipCode: !existingVenue.zipCode ? details.postalCode : existingVenue.zipCode,
+          country: !existingVenue.country ? details.countryCode : existingVenue.country
+        });
+        
+        if (!existingVenue.address) updates.address = cleanedAddress.address;
+        if (!existingVenue.city) updates.city = cleanedAddress.city;
+        if (!existingVenue.state) updates.state = cleanedAddress.state;
+        if (!existingVenue.zipCode) updates.zipCode = cleanedAddress.zipCode;
+        if (!existingVenue.country) updates.country = cleanedAddress.country;
+      }
+      
       if (!existingVenue.address2) updates.address2 = details.address2;
-      if (!existingVenue.city) updates.city = details.city;
-      if (!existingVenue.state) updates.state = details.state;
-      if (!existingVenue.zipCode) updates.zipCode = details.postalCode;
-      if (!existingVenue.country) updates.country = details.countryCode;
       if (!existingVenue.countryCode) updates.countryCode = details.countryCode;
       if (!existingVenue.latitude) updates.latitude = details.latitude.toString();
       if (!existingVenue.longitude) updates.longitude = details.longitude.toString();
@@ -81,9 +97,19 @@ export class VenuesService {
       lastEnriched: new Date().toISOString()
     };
 
+    // Clean and validate address data before storing
+    const cleanedAddress = validateAndCleanVenueAddress({
+      venueName: details.name,
+      address: details.address1,
+      city: details.city,
+      state: details.state,
+      zipCode: details.postalCode,
+      country: details.countryCode
+    });
+
     const newVenueData = {
       name: details.name,
-      address: details.address1,
+      address: cleanedAddress.address,
       address2: details.address2,
       city: details.city,
       state: details.state,
@@ -128,9 +154,19 @@ export class VenuesService {
    * Attempts automatic enrichment if possible
    */
   async createMinimal(venueData: CreateMinimalVenueRequest, tenantId: string): Promise<Venue> {
+    // Clean and validate address data before storing
+    const cleanedAddress = validateAndCleanVenueAddress({
+      venueName: venueData.name,
+      address: venueData.address,
+      city: venueData.city,
+      state: venueData.state,
+      zipCode: venueData.zipCode,
+      country: venueData.country
+    });
+
     const venueData_base = {
       name: venueData.name,
-      address: venueData.address || null,
+      address: cleanedAddress.address || null,
       city: venueData.city || null,
       state: venueData.state || null,
       zipCode: venueData.zipCode || null,

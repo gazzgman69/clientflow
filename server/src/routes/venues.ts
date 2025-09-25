@@ -3,6 +3,7 @@ import { venuesService } from '../services/venues';
 import { geocodingService } from '../services/geocoding';
 import { insertVenueSchema } from '@shared/schema';
 import { z } from 'zod';
+import { cleanupAllVenueAddresses, findVenuesWithAddressIssues } from '../scripts/cleanupVenueAddresses';
 
 const router = Router();
 
@@ -278,6 +279,42 @@ router.get('/', async (req, res) => {
     console.error('Error fetching venues:', error);
     res.status(500).json({ 
       message: 'Failed to fetch venues' 
+    });
+  }
+});
+
+// GET /api/venues/address-issues - Find venues with potential address duplication issues
+router.get('/address-issues', async (req, res) => {
+  try {
+    const issues = await findVenuesWithAddressIssues();
+    res.json({
+      success: true,
+      count: issues.length,
+      venues: issues
+    });
+  } catch (error) {
+    console.error('Error finding venue address issues:', error);
+    res.status(500).json({
+      success: false,
+      message: error instanceof Error ? error.message : 'Failed to find venue address issues'
+    });
+  }
+});
+
+// POST /api/venues/cleanup-addresses - Clean up all venue addresses with duplication issues
+router.post('/cleanup-addresses', async (req, res) => {
+  try {
+    const results = await cleanupAllVenueAddresses();
+    res.json({
+      success: true,
+      message: `Cleaned up ${results.length} venues with address issues`,
+      results
+    });
+  } catch (error) {
+    console.error('Error cleaning up venue addresses:', error);
+    res.status(500).json({
+      success: false,
+      message: error instanceof Error ? error.message : 'Failed to clean up venue addresses'
     });
   }
 });

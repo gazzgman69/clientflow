@@ -247,10 +247,28 @@ export function VenueAutocomplete({
     } catch (error) {
       console.error('Error getting place details:', error);
       // Final fallback to basic venue data from prediction
+      // Parse secondary_text to extract just the street address, not the full formatted address
+      const secondaryText = prediction.structured_formatting.secondary_text || '';
+      const addressParts = secondaryText.split(',').map(part => part.trim());
+      
+      // Try to extract just the street address (usually the first part that's not the venue name)
+      let cleanAddress = '';
+      if (addressParts.length > 0) {
+        // Skip the first part if it contains the venue name, otherwise use it
+        const venueName = prediction.structured_formatting.main_text.toLowerCase();
+        const firstPart = addressParts[0].toLowerCase();
+        
+        if (!firstPart.includes(venueName)) {
+          cleanAddress = addressParts[0];
+        } else if (addressParts.length > 1) {
+          cleanAddress = addressParts[1];
+        }
+      }
+      
       const basicVenue: SelectedVenue = {
         placeId: prediction.place_id,
         name: prediction.structured_formatting.main_text,
-        address: prediction.structured_formatting.secondary_text || prediction.structured_formatting.main_text
+        address: cleanAddress
       };
       onVenueSelect(basicVenue);
       

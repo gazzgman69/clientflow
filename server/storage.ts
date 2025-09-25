@@ -69,6 +69,7 @@ import { drizzle } from 'drizzle-orm/neon-http';
 import { neon } from '@neondatabase/serverless';
 import { eq, and, desc, or, isNull, isNotNull, leftJoin } from 'drizzle-orm';
 import { secureStore } from './src/services/secureStore';
+import { validateAndCleanVenueAddress } from '@shared/addressUtils';
 
 // Helper function to omit undefined values to prevent overwriting required fields
 function omitUndefined<T extends Record<string, any>>(obj: T): Partial<T> {
@@ -1366,9 +1367,34 @@ export class MemStorage implements IStorage {
     const venue = this.venues.get(id);
     if (!venue) return undefined;
     
+    let processedUpdate = { ...venueUpdate };
+    
+    // Apply address cleaning if any address fields are being updated
+    const addressFields = ['name', 'address', 'city', 'state', 'zipCode', 'country'];
+    const hasAddressUpdate = addressFields.some(field => processedUpdate[field as keyof InsertVenue] !== undefined);
+    
+    if (hasAddressUpdate) {
+      const currentData = { ...venue, ...omitUndefined(venueUpdate) };
+      const cleanedAddress = validateAndCleanVenueAddress({
+        venueName: currentData.name || '',
+        address: currentData.address || undefined,
+        city: currentData.city || undefined,
+        state: currentData.state || undefined,
+        zipCode: currentData.zipCode || undefined,
+        country: currentData.country || undefined
+      });
+      
+      // Apply cleaned address data to the update
+      if (processedUpdate.address !== undefined) processedUpdate.address = cleanedAddress.address;
+      if (processedUpdate.city !== undefined) processedUpdate.city = cleanedAddress.city;
+      if (processedUpdate.state !== undefined) processedUpdate.state = cleanedAddress.state;
+      if (processedUpdate.zipCode !== undefined) processedUpdate.zipCode = cleanedAddress.zipCode;
+      if (processedUpdate.country !== undefined) processedUpdate.country = cleanedAddress.country;
+    }
+    
     const updatedVenue: Venue = {
       ...venue,
-      ...omitUndefined(venueUpdate),
+      ...omitUndefined(processedUpdate),
       updatedAt: new Date(),
     };
     this.venues.set(id, updatedVenue);

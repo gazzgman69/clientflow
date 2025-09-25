@@ -593,9 +593,64 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
   
-  // Mount public lead form routes (no authentication required) 
-  // These routes include the public form submission endpoints
-  app.use('/api/leads', leadFormsRoutes);
+  // Helper function for default form questions
+  function getDefaultQuestionsForForm() {
+    return [
+      { id: '1', type: 'text', label: 'Name', required: true, mapTo: 'leadName', orderIndex: 0 },
+      { id: '2', type: 'email', label: 'Email Address', required: true, mapTo: 'leadEmail', orderIndex: 1 },
+      { id: '3', type: 'tel', label: 'Phone Number', required: true, mapTo: 'leadPhoneNumber', orderIndex: 2 },
+      { id: '4', type: 'select', label: 'Event Type', required: true, mapTo: 'eventType', orderIndex: 3, options: 'Wedding,Private,Corporate,Other' },
+      { id: '5', type: 'venue', label: 'Event Location (Full address if possible please)', required: true, mapTo: 'eventLocation', orderIndex: 4 },
+      { id: '6', type: 'date', label: 'Event Date', required: true, mapTo: 'projectDate', orderIndex: 5 },
+      { id: '7', type: 'textarea', label: 'Message', required: false, mapTo: 'nothing', orderIndex: 6 }
+    ];
+  }
+
+  // Mount only the specific public form routes (no authentication required)
+  // Public form access: GET /api/leads/public/:slug
+  app.get('/api/leads/public/:slug', async (req, res) => {
+    const { slug } = req.params;
+    
+    try {
+      const form = await storage.getLeadCaptureFormBySlug(slug);
+      
+      if (!form || !form.isActive) {
+        return res.status(404).json({ error: 'Form not found' });
+      }
+
+      // Parse questions from form or use default questions
+      let questions = getDefaultQuestionsForForm();
+      try {
+        if (form.questions) {
+          questions = JSON.parse(form.questions);
+        }
+      } catch (e) {
+        console.error('Error parsing questions:', e);
+        // Fall back to default questions
+      }
+
+      res.json({
+        form: {
+          id: form.id,
+          title: form.name,
+          slug: form.slug,
+          recaptchaEnabled: form.recaptchaEnabled,
+          transparency: 'We will use this information to contact you about our services.',
+          consentRequired: form.consentRequired,
+          consentText: form.consentText,
+          privacyPolicyUrl: form.privacyPolicyUrl,
+          dataRetentionDays: form.dataRetentionDays
+        },
+        questions: questions
+      });
+    } catch (error) {
+      console.error('Error fetching public form:', error);
+      res.status(500).json({ error: 'Failed to fetch form' });
+    }
+  });
+  
+  // Public form submission: POST /api/leads/public/:slug/submit  
+  app.use('/api/leads/public', leadFormsRoutes);
   
   // Lead-forms admin routes (with auth)
   app.use('/api/lead-forms', ensureUserAuth, tenantResolver, requireTenant, csrf, leadFormsRoutes);

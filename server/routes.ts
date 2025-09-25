@@ -2283,12 +2283,110 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
 
   app.delete("/api/projects/:id", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
     try {
+      // Get the project to check for associated contact
+      const project = await storage.getProject(req.params.id);
+      if (!project) {
+        return res.status(404).json({ message: "Project not found" });
+      }
+
+      let shouldDeleteContact = false;
+      let contactId = null;
+
+      // Check if we should delete the associated contact (reverse cascading deletion)
+      if (project.contactId) {
+        contactId = project.contactId;
+        // Check if this is the only project for this contact
+        const contactProjects = await storage.getProjectsByContact(project.contactId);
+        shouldDeleteContact = contactProjects.length === 1;
+      }
+
+      // Delete all related project data first (similar to contact deletion)
+      try {
+        // Get and delete emails for this project
+        const emails = await storage.getEmailsByProject(project.id);
+        for (const email of emails) {
+          await storage.deleteEmail(email.id);
+        }
+        
+        // Get and delete tasks for this project  
+        const tasks = await storage.getTasksByProject(project.id);
+        for (const task of tasks) {
+          await storage.deleteTask(task.id);
+        }
+        
+        // Get and delete quotes for this project
+        const quotes = await storage.getQuotesByProject(project.id);
+        for (const quote of quotes) {
+          await storage.deleteQuote(quote.id);
+        }
+        
+        // Get and delete contracts for this project
+        const contracts = await storage.getContractsByProject(project.id);
+        for (const contract of contracts) {
+          await storage.deleteContract(contract.id);
+        }
+        
+        // Get and delete invoices for this project
+        const invoices = await storage.getInvoicesByProject(project.id);
+        for (const invoice of invoices) {
+          await storage.deleteInvoice(invoice.id);
+        }
+        
+        // Get and delete leads associated with this project
+        const leads = await storage.getLeadsByProject(project.id);
+        for (const lead of leads) {
+          await storage.deleteLead(lead.id);
+        }
+      } catch (error: any) {
+        console.log('Error deleting related project data:', error.message);
+      }
+
+      // Now delete the project itself
       const deleted = await storage.deleteProject(req.params.id);
       if (!deleted) {
         return res.status(404).json({ message: "Project not found" });
       }
+
+      // If this was the contact's only project, delete the contact too (reverse cascading)
+      if (shouldDeleteContact && contactId) {
+        try {
+          // Get and delete any remaining contact-specific data
+          const contactEmails = await storage.getEmailsByContact(contactId);
+          for (const email of contactEmails) {
+            await storage.deleteEmail(email.id);
+          }
+
+          const contactQuotes = await storage.getQuotesByContact(contactId);
+          for (const quote of contactQuotes) {
+            await storage.deleteQuote(quote.id);
+          }
+
+          const contactContracts = await storage.getContractsByContact(contactId);
+          for (const contract of contactContracts) {
+            await storage.deleteContract(contract.id);
+          }
+
+          const contactInvoices = await storage.getInvoicesByContact(contactId);
+          for (const invoice of contactInvoices) {
+            await storage.deleteInvoice(invoice.id);
+          }
+
+          // Delete the contact
+          await storage.deleteContact(contactId);
+          
+          console.log('✅ REVERSE CASCADE: Contact deleted after removing their only project', {
+            projectId: req.params.id,
+            contactId,
+            tenantId: req.tenantId
+          });
+        } catch (error: any) {
+          console.error('❌ Failed to delete contact in reverse cascade:', error.message);
+        }
+      }
+
       res.status(204).send();
     } catch (error) {
+      console.error('Error deleting project:', error);
       res.status(500).json({ message: "Failed to delete project" });
     }
   });

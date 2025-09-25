@@ -4022,6 +4022,13 @@ export class DrizzleStorage implements IStorage {
       .returning();
     return result[0];
   }
+
+  async deleteFormSubmission(id: string): Promise<boolean> {
+    const result = await this.db
+      .delete(formSubmissions)
+      .where(eq(formSubmissions.id, id));
+    return result.rowCount > 0;
+  }
   
   // Lead Consent - GDPR compliance tracking
   async createLeadConsent(consent: InsertLeadConsent): Promise<LeadConsent> {

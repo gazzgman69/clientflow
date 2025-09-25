@@ -347,6 +347,10 @@ router.post('/public/:slug/submit', formSubmissionLimiter, async (req, res) => {
     try {
       if (form.questions) {
         questions = JSON.parse(form.questions);
+        console.log('🔄 PARSED QUESTIONS DEBUG:', {
+          questionsCount: questions.length,
+          questionMappings: questions.map(q => ({ id: q.id, mapTo: q.mapTo }))
+        });
       }
     } catch (e) {
       console.error('Error parsing questions:', e);
@@ -365,8 +369,37 @@ router.post('/public/:slug/submit', formSubmissionLimiter, async (req, res) => {
     // Public submissions have no authenticated user - use null for proper tenant isolation
     const userId = null;
     
+    // Transform question IDs to canonical field names using form questions
+    const transformedData: Record<string, any> = {};
+    const questionIdToMapTo: Record<string, string> = {};
+    
+    // Build mapping from question ID to canonical field name
+    for (const question of questions) {
+      if (question.id && question.mapTo && question.mapTo !== 'nothing') {
+        questionIdToMapTo[question.id] = question.mapTo;
+      }
+    }
+    
+    // Transform submitted data using question mappings
+    for (const [key, value] of Object.entries(formData)) {
+      if (questionIdToMapTo[key]) {
+        // Map question ID to canonical field name
+        transformedData[questionIdToMapTo[key]] = value;
+      } else {
+        // Keep non-question fields as-is (consent, honeypot, etc.)
+        transformedData[key] = value;
+      }
+    }
+    
+    console.log('🔄 FIELD TRANSFORMATION DEBUG:', {
+      originalKeys: Object.keys(formData),
+      questionMappings: questionIdToMapTo,
+      transformedKeys: Object.keys(transformedData),
+      transformedData: JSON.stringify(transformedData, null, 2)
+    });
+    
     // Apply mapping registry to transform form data to database models
-    const mappingResult = applyMapping(formData.data, {
+    const mappingResult = applyMapping(transformedData, {
       tenantId: form.tenantId,
       allowUnknownKeys: true, // Allow custom fields for now
       enableDeprecationWarnings: true
@@ -399,22 +432,172 @@ router.post('/public/:slug/submit', formSubmissionLimiter, async (req, res) => {
     try {
       const existingSubmission = await tenantStorage.getFormSubmissionByKey(submissionKey);
       if (existingSubmission) {
-        console.log('🔁 DUPLICATE SUBMISSION PREVENTED:', {
+        console.log('🔍 DUPLICATE SUBMISSION DETECTED:', {
           submissionKey: submissionKey.slice(0, 8) + '***',
           existingSubmissionId: existingSubmission.id,
           slug,
           tenantId: form.tenantId,
           timestamp: new Date().toISOString()
         });
-        // Return success with existing lead ID to prevent re-submission attempts
-        return res.json({
-          ok: true,
-          leadId: existingSubmission.leadId,
-          afterSubmit: {
-            type: 'message',
-            message: 'Thank you! We have already received your submission.'
+        
+        // Parse metadata to get contact and project IDs
+        let metadata: any = {};
+        try {
+          if (typeof existingSubmission.metadata === 'string') {
+            metadata = JSON.parse(existingSubmission.metadata);
+          } else {
+            metadata = existingSubmission.metadata || {};
           }
-        });
+        } catch (metadataError) {
+          console.warn('⚠️ Failed to parse submission metadata:', metadataError);
+        }
+        
+        // Check if the referenced contact still exists
+        if (metadata.contactId) {
+          try {
+            const existingContact = await tenantStorage.getContactById(metadata.contactId);
+            if (existingContact) {
+              console.log('♻️ REUSING EXISTING CONTACT:', {
+                contactId: existingContact.id,
+                contactEmail: existingContact.email,
+                contactName: `${existingContact.firstName} ${existingContact.lastName}`,
+                slug,
+                tenantId: form.tenantId
+              });
+              
+              // Reuse contact, create new lead and project
+              // Continue with modified submission flow using existingContact
+              const nameParts = splitFullName(mappingResult.leadData.full_name || '');
+              const leadData = {
+                ...mappingResult.leadData,
+                email: mappingResult.leadData.email || mappingResult.contactData.email,
+                fullName: nameParts.fullName,
+                firstName: nameParts.firstName,
+                middleName: nameParts.middleName,
+                lastName: nameParts.lastName,
+                status: 'new' as const,
+                userId
+              };
+              
+              const lead = await tenantStorage.createLead(leadData);
+              
+              console.log('✅ NEW LEAD CREATED FOR EXISTING CONTACT:', {
+                leadId: lead.id,
+                contactId: existingContact.id,
+                leadEmail: lead.email,
+                leadName: lead.fullName,
+                tenantId: form.tenantId,
+                slug
+              });
+              
+              // Continue with the rest of the submission flow...
+              // Store consent if required
+              if (form.consentRequired && consentGiven) {
+                try {
+                  await tenantStorage.createLeadConsent({
+                    leadId: lead.id,
+                    formId: form.id,
+                    consentType: 'processing',
+                    consentGiven: true,
+                    consentText: form.consentText || 'I consent to processing my personal data for contact purposes.',
+                    ipAddress: req.ip,
+                    userAgent: req.get('User-Agent')?.slice(0, 500),
+                  });
+                  console.log('✅ CONSENT RECORDED:', { leadId: lead.id, consentType: 'processing', tenantId: form.tenantId });
+                } catch (consentError) {
+                  console.error('❌ Failed to record consent:', { leadId: lead.id, error: consentError });
+                }
+              }
+              
+              // Skip contact creation, use existing contact for project creation
+              const projectData = {
+                ...mappingResult.projectData,
+                name: `${mappingResult.leadData.event_type || 'Project'} - ${existingContact.firstName} ${existingContact.lastName}`,
+                contactId: existingContact.id,
+                status: 'active' as const,
+                userId
+              };
+              
+              const project = await tenantStorage.createProject(projectData);
+              
+              console.log('✅ NEW PROJECT CREATED FOR EXISTING CONTACT:', {
+                projectId: project.id,
+                projectName: project.name,
+                contactId: existingContact.id,
+                tenantId: form.tenantId,
+                slug
+              });
+              
+              // Update lead with project reference
+              await tenantStorage.updateLead(lead.id, { 
+                projectId: project.id,
+                notes: `Auto-linked to Contact: ${existingContact.id} and Project: ${project.id} on ${new Date().toLocaleDateString()}`
+              });
+              
+              // Record new form submission
+              await tenantStorage.createFormSubmission({
+                formId: form.id,
+                submissionKey: submissionKey, 
+                ipAddress: req.ip?.slice(0, 15) || 'unknown',
+                userAgent: req.get('User-Agent')?.slice(0, 200) || 'unknown',
+                leadId: lead.id,
+                status: 'processed',
+                metadata: JSON.stringify({
+                  contactId: existingContact.id,
+                  projectId: project.id,
+                  venueId: null
+                }),
+                submittedAt: new Date(),
+                expiresAt: new Date(Date.now() + (30 * 24 * 60 * 60 * 1000)) // 30 days
+              });
+              
+              console.log('✅ DUPLICATE SUBMISSION HANDLED - REUSED CONTACT, CREATED NEW PROJECT:', {
+                leadId: lead.id,
+                contactId: existingContact.id,
+                projectId: project.id,
+                submissionKey: submissionKey.slice(0, 8) + '***',
+                tenantId: form.tenantId
+              });
+              
+              return res.json({
+                ok: true,
+                leadId: lead.id,
+                afterSubmit: {
+                  type: 'message',
+                  message: 'Thank you! We have logged another project for you.'
+                }
+              });
+            } else {
+              // Contact was deleted - clean up stale submission and continue as new
+              console.log('🧹 CLEANING UP STALE SUBMISSION - CONTACT DELETED:', {
+                submissionId: existingSubmission.id,
+                staleContactId: metadata.contactId,
+                slug,
+                tenantId: form.tenantId
+              });
+              
+              // Delete the stale form submission entry
+              try {
+                await storage.deleteFormSubmission(existingSubmission.id);
+                console.log('✅ STALE FORM SUBMISSION CLEANED UP:', { submissionId: existingSubmission.id });
+              } catch (cleanupError) {
+                console.warn('⚠️ Failed to clean up stale submission:', cleanupError);
+              }
+              
+              // Continue as new submission (fall through to normal creation logic)
+            }
+          } catch (contactCheckError) {
+            console.warn('⚠️ Failed to check existing contact, continuing as new submission:', contactCheckError);
+            // Continue as new submission if contact check fails
+          }
+        } else {
+          // No contactId in metadata - treat as new submission
+          console.log('🔄 NO CONTACT ID IN METADATA - CONTINUING AS NEW SUBMISSION:', {
+            submissionId: existingSubmission.id,
+            slug,
+            tenantId: form.tenantId
+          });
+        }
       }
     } catch (idempotencyError) {
       console.warn('⚠️ Idempotency check failed, continuing:', idempotencyError);

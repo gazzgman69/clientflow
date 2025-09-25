@@ -110,11 +110,16 @@ export default function LeadsKanban() {
   };
 
   // Fetch kanban data with auto-refresh
-  const { data: kanbanData, isLoading, isError, refetch } = useQuery<KanbanData>({
+  const { data: kanbanData, isLoading, isError, refetch } = useQuery<LeadCardDTO[], Error, KanbanData>({
     queryKey: ["/api/leads"],
-    select: (leads: any[]) => {
+    select: (leads: LeadCardDTO[]) => {
       // Group leads into kanban columns
-      const columns = {
+      const columns: {
+        new: LeadCardDTO[];
+        contacted: LeadCardDTO[];
+        qualified: LeadCardDTO[];
+        archived: LeadCardDTO[];
+      } = {
         new: [],
         contacted: [],
         qualified: [],
@@ -128,22 +133,13 @@ export default function LeadsKanban() {
           ? status 
           : 'new'; // default to 'new' if status doesn't match
 
+        // Since /api/leads already returns LeadCardDTO format, just use the lead directly
         const leadCard: LeadCardDTO = {
-          id: lead.id,
-          contactName: `${lead.firstName} ${lead.lastName}`.trim() || lead.fullName || 'Unknown',
-          email: lead.email,
-          phone: lead.phone || '',
-          projectId: lead.projectId,
-          projectTitle: lead.projectTitle,
-          projectDateISO: lead.projectDate,
-          source: lead.source || 'form',
-          createdAtISO: lead.createdAt,
-          status: normalizedStatus as 'new' | 'contacted' | 'qualified' | 'archived',
-          hasConflict: lead.hasConflict || false,
-          conflictDetails: lead.conflictDetails
+          ...lead,
+          status: normalizedStatus as 'new' | 'contacted' | 'qualified' | 'archived'
         };
 
-        columns[normalizedStatus].push(leadCard);
+        (columns as any)[normalizedStatus].push(leadCard);
       });
 
       return {

@@ -24,7 +24,7 @@ export const FORM_FIELD_REGISTRY: Record<string, FormFieldMapping> = {
   // Core lead fields
   leadName: {
     model: 'leads',
-    field: 'full_name',
+    field: 'fullName',
     type: 'text',
     required: true,
     label: 'Lead Name',
@@ -50,7 +50,7 @@ export const FORM_FIELD_REGISTRY: Record<string, FormFieldMapping> = {
   // Event-specific fields (NEW)
   eventType: {
     model: 'leads',
-    field: 'event_type',
+    field: 'eventType',
     type: 'text',
     required: false,
     label: 'Event Type',
@@ -68,7 +68,7 @@ export const FORM_FIELD_REGISTRY: Record<string, FormFieldMapping> = {
   // Date and notes fields
   projectDate: {
     model: 'leads',
-    field: 'project_date',
+    field: 'projectDate',
     type: 'date',
     required: false,
     label: 'Project Date',
@@ -90,7 +90,7 @@ export const FORM_FIELD_REGISTRY: Record<string, FormFieldMapping> = {
   // DEPRECATED MAPPINGS - kept for backward compatibility
   whatKindOfEventIsIt: {
     model: 'leads',
-    field: 'event_type',
+    field: 'eventType',
     type: 'text',
     required: false,
     label: 'Event Type (Deprecated)',

@@ -106,7 +106,7 @@ export default function LeadCard({ lead, onClick, draggable = false, onDragStart
 
       {/* Project Date */}
       <div className="text-xs text-muted-foreground mb-2">
-        <span className="font-medium">Event:</span> {formatDate(lead.projectDateISO)}
+        <span className="font-medium">Event:</span> {formatDate(lead.projectDate)}
       </div>
 
       {/* Source */}

@@ -400,7 +400,7 @@ router.post('/public/:slug/submit', formSubmissionLimiter, async (req, res) => {
     const userId = null;
     
     // Apply mapping registry to transform form data to database models
-    const mappingResult = applyMapping(formData, {
+    const mappingResult = applyMapping(formData.data, {
       tenantId: form.tenantId,
       allowUnknownKeys: true, // Allow custom fields for now
       enableDeprecationWarnings: true

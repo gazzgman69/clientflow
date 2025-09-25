@@ -713,8 +713,10 @@ router.post('/:slug/submit', formSubmissionLimiter, async (req, res) => {
       }
     }
 
-    // Create contact from mapped data using TENANT-SCOPED storage
-    const contactStartTime = Date.now();
+    // PARALLEL PROCESSING OPTIMIZATION: Run contact creation and venue processing simultaneously
+    const parallelStartTime = Date.now();
+    
+    // Prepare contact data
     const contactData = {
       ...mappingResult.contactData,
       email: mappingResult.contactData.email || mappingResult.leadData.email,
@@ -728,10 +730,117 @@ router.post('/:slug/submit', formSubmissionLimiter, async (req, res) => {
       userId
     };
 
-    const contact = await tenantStorage.createContact(contactData);
+    // Prepare venue processing function
+    const venueProcessingPromise = (async () => {
+      const venueStartTime = Date.now();
+      let createdVenue = null;
+      
+      if (mappingResult.contactData.venueAddress) {
+        try {
+          // Build venue details in the format expected by venuesService
+          const venueDetails = {
+            placeId: formData.eventLocationPlaceId || null,
+            name: mappingResult.contactData.venueAddress?.split(',')[0]?.trim() || 'Venue',
+            address1: mappingResult.contactData.venueAddress,
+            address2: undefined, // Use undefined instead of null for PlaceDetails interface
+            city: mappingResult.contactData.venue_city || '',
+            state: mappingResult.contactData.venue_state || '',
+            postalCode: mappingResult.contactData.venue_zip_code || '',
+            countryCode: mappingResult.contactData.venue_country || 'GB',
+            latitude: formData.eventLocationLat ? parseFloat(formData.eventLocationLat) : 0,
+            longitude: formData.eventLocationLng ? parseFloat(formData.eventLocationLng) : 0,
+          };
+
+          // Only create venue if we have meaningful address information
+          if (venueDetails.address1 || venueDetails.city) {
+            if (venueDetails.placeId) {
+              // For Google Places venues, use upsert which handles deduplication automatically
+              createdVenue = await venuesService.upsertFromPlace(venueDetails, form.tenantId);
+              console.log('✅ VENUE UPSERTED (Google Places):', {
+                venueId: createdVenue.id,
+                venueName: createdVenue.name,
+                placeId: venueDetails.placeId,
+                tenantId: form.tenantId
+              });
+            } else {
+              // For manually entered venues, implement deduplication logic
+              const searchQuery = `${venueDetails.name} ${venueDetails.address1}`.trim();
+              const existingVenues = await venuesService.findByAddress(searchQuery);
+              
+              // Filter by tenant to ensure proper isolation
+              const tenantVenues = existingVenues.filter(v => v.tenantId === form.tenantId);
+              
+              if (tenantVenues.length > 0) {
+                // Use the most relevant existing venue (findByAddress already sorts by useCount and lastUsedAt)
+                createdVenue = tenantVenues[0];
+                
+                // Update venue usage tracking
+                await tenantStorage.updateVenue(createdVenue.id, {
+                  useCount: (createdVenue.useCount || 0) + 1,
+                  lastUsedAt: new Date()
+                });
+                
+                console.log('✅ VENUE REUSED (Deduplication):', {
+                  venueId: createdVenue.id,
+                  venueName: createdVenue.name,
+                  venueAddress: createdVenue.address,
+                  newUseCount: (createdVenue.useCount || 0) + 1,
+                  tenantId: form.tenantId,
+                  searchQuery
+                });
+              } else {
+                // Create new venue since no duplicates found
+                createdVenue = await venuesService.createVenue({
+                  name: venueDetails.name,
+                  tenantId: form.tenantId,
+                  address: venueDetails.address1,
+                  city: venueDetails.city,
+                  state: venueDetails.state,
+                  zipCode: venueDetails.postalCode,
+                  country: venueDetails.countryCode,
+                  latitude: venueDetails.latitude ? venueDetails.latitude.toString() : null,
+                  longitude: venueDetails.longitude ? venueDetails.longitude.toString() : null,
+                  useCount: 1, // Start with count of 1 since it's being used immediately
+                  lastUsedAt: new Date()
+                });
+                
+                console.log('✅ VENUE CREATED (New):', {
+                  venueId: createdVenue.id,
+                  venueName: createdVenue.name,
+                  venueAddress: createdVenue.address,
+                  tenantId: form.tenantId
+                });
+              }
+            }
+          }
+        } catch (error) {
+          console.error('❌ Failed to create/update venue:', {
+            error: error instanceof Error ? error.message : String(error),
+            venueData: mappingResult.contactData,
+            tenantId: form.tenantId,
+            slug,
+            timestamp: new Date().toISOString()
+          });
+          // Continue with form submission even if venue creation fails
+        }
+      }
+      
+      const venueEndTime = Date.now();
+      console.log('⏱️ PERFORMANCE: Venue processing completed in', venueEndTime - venueStartTime, 'ms');
+      return createdVenue;
+    })();
+
+    // Run contact creation and venue processing in parallel
+    const contactStartTime = Date.now();
+    const [contact, createdVenue] = await Promise.all([
+      tenantStorage.createContact(contactData),
+      venueProcessingPromise
+    ]);
     const contactEndTime = Date.now();
+    const parallelEndTime = Date.now();
     
     console.log('⏱️ PERFORMANCE: Contact creation completed in', contactEndTime - contactStartTime, 'ms');
+    console.log('⏱️ PERFORMANCE: Parallel processing (contact + venue) completed in', parallelEndTime - parallelStartTime, 'ms');
     console.log('✅ CONTACT CREATED:', {
       contactId: contact.id,
       contactEmail: contact.email,
@@ -741,107 +850,13 @@ router.post('/:slug/submit', formSubmissionLimiter, async (req, res) => {
       timestamp: new Date().toISOString()
     });
 
-    // Create/update venue if venue information exists with deduplication logic
-    const venueStartTime = Date.now();
-    let createdVenue = null;
-    if (mappingResult.contactData.venueAddress) {
-      try {
-        // Build venue details in the format expected by venuesService
-        const venueDetails = {
-          placeId: formData.eventLocationPlaceId || null,
-          name: mappingResult.contactData.venueAddress?.split(',')[0]?.trim() || 'Venue',
-          address1: mappingResult.contactData.venueAddress,
-          address2: undefined, // Use undefined instead of null for PlaceDetails interface
-          city: mappingResult.contactData.venue_city || '',
-          state: mappingResult.contactData.venue_state || '',
-          postalCode: mappingResult.contactData.venue_zip_code || '',
-          countryCode: mappingResult.contactData.venue_country || 'GB',
-          latitude: formData.eventLocationLat ? parseFloat(formData.eventLocationLat) : 0,
-          longitude: formData.eventLocationLng ? parseFloat(formData.eventLocationLng) : 0,
-        };
-
-        // Only create venue if we have meaningful address information
-        if (venueDetails.address1 || venueDetails.city) {
-          if (venueDetails.placeId) {
-            // For Google Places venues, use upsert which handles deduplication automatically
-            createdVenue = await venuesService.upsertFromPlace(venueDetails, form.tenantId);
-            console.log('✅ VENUE UPSERTED (Google Places):', {
-              venueId: createdVenue.id,
-              venueName: createdVenue.name,
-              placeId: venueDetails.placeId,
-              tenantId: form.tenantId
-            });
-          } else {
-            // For manually entered venues, implement deduplication logic
-            const searchQuery = `${venueDetails.name} ${venueDetails.address1}`.trim();
-            const existingVenues = await venuesService.findByAddress(searchQuery);
-            
-            // Filter by tenant to ensure proper isolation
-            const tenantVenues = existingVenues.filter(v => v.tenantId === form.tenantId);
-            
-            if (tenantVenues.length > 0) {
-              // Use the most relevant existing venue (findByAddress already sorts by useCount and lastUsedAt)
-              createdVenue = tenantVenues[0];
-              
-              // Update venue usage tracking
-              await tenantStorage.updateVenue(createdVenue.id, {
-                useCount: (createdVenue.useCount || 0) + 1,
-                lastUsedAt: new Date()
-              });
-              
-              console.log('✅ VENUE REUSED (Deduplication):', {
-                venueId: createdVenue.id,
-                venueName: createdVenue.name,
-                venueAddress: createdVenue.address,
-                newUseCount: (createdVenue.useCount || 0) + 1,
-                tenantId: form.tenantId,
-                searchQuery
-              });
-            } else {
-              // Create new venue since no duplicates found
-              createdVenue = await venuesService.createVenue({
-                name: venueDetails.name,
-                tenantId: form.tenantId,
-                address: venueDetails.address1,
-                city: venueDetails.city,
-                state: venueDetails.state,
-                zipCode: venueDetails.postalCode,
-                country: venueDetails.countryCode,
-                latitude: venueDetails.latitude ? venueDetails.latitude.toString() : null,
-                longitude: venueDetails.longitude ? venueDetails.longitude.toString() : null,
-                useCount: 1, // Start with count of 1 since it's being used immediately
-                lastUsedAt: new Date()
-              });
-              
-              console.log('✅ VENUE CREATED (New):', {
-                venueId: createdVenue.id,
-                venueName: createdVenue.name,
-                venueAddress: createdVenue.address,
-                tenantId: form.tenantId
-              });
-            }
-          }
-
-          // Update contact with venue reference using TENANT-SCOPED storage
-          if (createdVenue) {
-            await tenantStorage.updateContact(contact.id, { 
-              venueId: createdVenue.id 
-            });
-          }
-        }
-      } catch (error) {
-        console.error('❌ Failed to create/update venue:', {
-          error: error instanceof Error ? error.message : String(error),
-          venueData: mappingResult.contactData,
-          tenantId: form.tenantId,
-          slug,
-          timestamp: new Date().toISOString()
-        });
-        // Continue with form submission even if venue creation fails
-      }
+    // Update contact with venue reference if venue was created
+    if (createdVenue) {
+      await tenantStorage.updateContact(contact.id, { 
+        venueId: createdVenue.id 
+      });
+      console.log('✅ CONTACT UPDATED WITH VENUE REFERENCE:', { contactId: contact.id, venueId: createdVenue.id });
     }
-    const venueEndTime = Date.now();
-    console.log('⏱️ PERFORMANCE: Venue processing completed in', venueEndTime - venueStartTime, 'ms');
 
     // Create project from mapped data using TENANT-SCOPED storage
     const projectStartTime = Date.now();

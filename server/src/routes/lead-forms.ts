@@ -637,6 +637,7 @@ router.post('/:slug/submit', formSubmissionLimiter, async (req, res) => {
     }
 
     // Create lead from mapped data using TENANT-SCOPED storage
+    const startTime = Date.now();
     const nameParts = splitFullName(mappingResult.leadData.fullName || '');
     const leadData = {
       ...mappingResult.leadData,
@@ -649,8 +650,11 @@ router.post('/:slug/submit', formSubmissionLimiter, async (req, res) => {
       userId
     };
 
+    const leadStartTime = Date.now();
     const lead = await tenantStorage.createLead(leadData);
+    const leadEndTime = Date.now();
     
+    console.log('⏱️ PERFORMANCE: Lead creation completed in', leadEndTime - leadStartTime, 'ms');
     console.log('✅ LEAD CREATED:', {
       leadId: lead.id,
       leadEmail: lead.email,
@@ -710,6 +714,7 @@ router.post('/:slug/submit', formSubmissionLimiter, async (req, res) => {
     }
 
     // Create contact from mapped data using TENANT-SCOPED storage
+    const contactStartTime = Date.now();
     const contactData = {
       ...mappingResult.contactData,
       email: mappingResult.contactData.email || mappingResult.leadData.email,
@@ -724,7 +729,9 @@ router.post('/:slug/submit', formSubmissionLimiter, async (req, res) => {
     };
 
     const contact = await tenantStorage.createContact(contactData);
+    const contactEndTime = Date.now();
     
+    console.log('⏱️ PERFORMANCE: Contact creation completed in', contactEndTime - contactStartTime, 'ms');
     console.log('✅ CONTACT CREATED:', {
       contactId: contact.id,
       contactEmail: contact.email,
@@ -735,6 +742,7 @@ router.post('/:slug/submit', formSubmissionLimiter, async (req, res) => {
     });
 
     // Create/update venue if venue information exists with deduplication logic
+    const venueStartTime = Date.now();
     let createdVenue = null;
     if (mappingResult.contactData.venueAddress) {
       try {
@@ -832,8 +840,11 @@ router.post('/:slug/submit', formSubmissionLimiter, async (req, res) => {
         // Continue with form submission even if venue creation fails
       }
     }
+    const venueEndTime = Date.now();
+    console.log('⏱️ PERFORMANCE: Venue processing completed in', venueEndTime - venueStartTime, 'ms');
 
     // Create project from mapped data using TENANT-SCOPED storage
+    const projectStartTime = Date.now();
     const projectData = {
       ...mappingResult.projectData,
       name: `${mappingResult.leadData.eventType || 'Event'} - ${nameParts.fullName || 'Unknown'}`,
@@ -848,7 +859,9 @@ router.post('/:slug/submit', formSubmissionLimiter, async (req, res) => {
     };
 
     const project = await tenantStorage.createProject(projectData);
+    const projectEndTime = Date.now();
     
+    console.log('⏱️ PERFORMANCE: Project creation completed in', projectEndTime - projectStartTime, 'ms');
     console.log('✅ PROJECT CREATED:', {
       projectId: project.id,
       projectName: project.name,
@@ -907,6 +920,23 @@ router.post('/:slug/submit', formSubmissionLimiter, async (req, res) => {
 
     // TODO: Send auto-response if template configured
     // TODO: Trigger workflows if configured
+
+    const totalTime = Date.now() - startTime;
+    console.log('⏱️ PERFORMANCE SUMMARY:', {
+      totalTime: totalTime + 'ms',
+      leadTime: (leadEndTime - leadStartTime) + 'ms',
+      contactTime: (contactEndTime - contactStartTime) + 'ms',
+      venueTime: (venueEndTime - venueStartTime) + 'ms',
+      projectTime: (projectEndTime - projectStartTime) + 'ms',
+      breakdown: {
+        leadPercentage: Math.round(((leadEndTime - leadStartTime) / totalTime) * 100) + '%',
+        contactPercentage: Math.round(((contactEndTime - contactStartTime) / totalTime) * 100) + '%',
+        venuePercentage: Math.round(((venueEndTime - venueStartTime) / totalTime) * 100) + '%',
+        projectPercentage: Math.round(((projectEndTime - projectStartTime) / totalTime) * 100) + '%'
+      },
+      slug,
+      tenantId: form.tenantId
+    });
 
     res.json({
       ok: true,

@@ -223,8 +223,9 @@ export class EmailAutoSyncService {
    * Sync emails for a specific user within a tenant context
    */
   private async syncEmailsForTenant(userId: string, tenantId: string): Promise<{ synced: number; skipped: number; errors: string[] }> {
-    const { emailSyncService } = await import('./emailSync');
-    // The emailSyncService should already handle tenant context through user isolation
+    const { EmailSyncService } = await import('./emailSync');
+    // Instantiate EmailSyncService with tenant context
+    const emailSyncService = new EmailSyncService(tenantId);
     return await emailSyncService.syncGmailThreadsToDatabase(userId);
   }
 
@@ -240,7 +241,14 @@ export class EmailAutoSyncService {
       this.inProgressByUser.add(userId);
       console.log(`🔄 Job-triggered email sync for user: ${userId}`);
       
-      const { emailSyncService } = await import('./emailSync');
+      // We need to get the user's tenant to provide proper context
+      const user = await storage.getUserGlobal(userId);
+      if (!user || !user.tenantId) {
+        throw new Error(`Cannot find tenant context for user ${userId}`);
+      }
+      
+      const { EmailSyncService } = await import('./emailSync');
+      const emailSyncService = new EmailSyncService(user.tenantId);
       return await emailSyncService.syncGmailThreadsToDatabase(userId);
       
     } finally {

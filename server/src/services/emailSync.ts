@@ -224,15 +224,11 @@ export class EmailSyncService {
           
           // INGESTION GUARD: Get tenant ID from authenticated session context
           // This is passed from the email sync service call which has session context
-          let tenantId: string;
-          if (this.tenantId) {
-            tenantId = this.tenantId;
-          } else {
-            // Fallback: Lookup user's tenant from database using authenticated userId
-            const userTenant = await storage.getUserTenant(userId);
+          if (!this.tenantId) {
             // SECURITY: Require authenticated tenant context - never fallback to default
             throw new Error(`Email sync requires authenticated tenant context for user ${userId}. Session-based tenant ID must be provided.`);
           }
+          const tenantId = this.tenantId;
           let contactId: string | null = null;
           
           if (direction === 'inbound') {

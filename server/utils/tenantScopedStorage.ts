@@ -215,6 +215,89 @@ export class TenantScopedStorage {
     return this.baseStorage.updateLeadConsent(id, consent, this.tenantId);
   }
 
+  // Calendar Integrations
+  async getCalendarIntegrations() {
+    return this.baseStorage.getCalendarIntegrations(this.tenantId);
+  }
+
+  async getCalendarIntegrationsByTenant() {
+    return this.baseStorage.getCalendarIntegrationsByTenant(this.tenantId);
+  }
+
+  async getCalendarIntegration(id: string) {
+    return this.baseStorage.getCalendarIntegration(id, this.tenantId);
+  }
+
+  async getCalendarIntegrationsByUser(userId: string) {
+    return this.baseStorage.getCalendarIntegrationsByUser(userId, this.tenantId);
+  }
+
+  async getCalendarIntegrationByEmail(email: string, userId: string) {
+    return this.baseStorage.getCalendarIntegrationByEmail(email, userId, this.tenantId);
+  }
+
+  async createCalendarIntegration(integration: any) {
+    return this.baseStorage.createCalendarIntegration(integration, this.tenantId);
+  }
+
+  async updateCalendarIntegration(id: string, integration: any) {
+    return this.baseStorage.updateCalendarIntegration(id, integration, this.tenantId);
+  }
+
+  async deleteCalendarIntegration(id: string) {
+    return this.baseStorage.deleteCalendarIntegration(id, this.tenantId);
+  }
+
+  // Members
+  async getMembers() {
+    return this.baseStorage.getMembers(this.tenantId);
+  }
+
+  async getMember(id: string) {
+    return this.baseStorage.getMember(id, this.tenantId);
+  }
+
+  async getMembersByAvailability() {
+    return this.baseStorage.getMembersByAvailability(this.tenantId);
+  }
+
+  async createMember(member: any) {
+    return this.baseStorage.createMember(member, this.tenantId);
+  }
+
+  async updateMember(id: string, member: any) {
+    return this.baseStorage.updateMember(id, member, this.tenantId);
+  }
+
+  async deleteMember(id: string) {
+    return this.baseStorage.deleteMember(id, this.tenantId);
+  }
+
+  // Venues
+  async getVenues() {
+    return this.baseStorage.getVenues(this.tenantId);
+  }
+
+  async getVenue(id: string) {
+    return this.baseStorage.getVenue(id, this.tenantId);
+  }
+
+  async getVenueByPlaceId(placeId: string) {
+    return this.baseStorage.getVenueByPlaceId(placeId, this.tenantId);
+  }
+
+  async createVenue(venue: any) {
+    return this.baseStorage.createVenue(venue, this.tenantId);
+  }
+
+  async updateVenue(id: string, venue: any) {
+    return this.baseStorage.updateVenue(id, venue, this.tenantId);
+  }
+
+  async deleteVenue(id: string) {
+    return this.baseStorage.deleteVenue(id, this.tenantId);
+  }
+
   // Get the tenant ID for this scope
   get currentTenantId(): string {
     return this.tenantId;

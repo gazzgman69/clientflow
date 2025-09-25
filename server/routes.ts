@@ -3970,16 +3970,17 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   // Members (Musicians)
   app.get("/api/members", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
     try {
-      const members = await storage.getMembers();
+      const members = await storage.getMembers(req.tenantId);
       res.json(members);
     } catch (error) {
+      console.error(`❌ MEMBERS API ERROR:`, error);
       res.status(500).json({ message: "Failed to fetch members" });
     }
   });
 
   app.get("/api/members/:id", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
     try {
-      const member = await storage.getMember(req.params.id);
+      const member = await storage.getMember(req.params.id, req.tenantId);
       if (!member) {
         return res.status(404).json({ message: "Member not found" });
       }

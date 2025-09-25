@@ -1266,20 +1266,24 @@ export class MemStorage implements IStorage {
   }
 
   // Members (Musicians)
-  async getMembers(): Promise<Member[]> {
-    return Array.from(this.members.values()).sort((a, b) => 
-      new Date(b.createdAt!).getTime() - new Date(a.createdAt!).getTime()
-    );
+  async getMembers(tenantId: string): Promise<Member[]> {
+    return Array.from(this.members.values())
+      .filter(member => member.tenantId === tenantId)
+      .sort((a, b) => 
+        new Date(b.createdAt!).getTime() - new Date(a.createdAt!).getTime()
+      );
   }
 
-  async getMember(id: string): Promise<Member | undefined> {
-    return this.members.get(id);
+  async getMember(id: string, tenantId: string): Promise<Member | undefined> {
+    const member = this.members.get(id);
+    return member && member.tenantId === tenantId ? member : undefined;
   }
 
-  async createMember(insertMember: InsertMember): Promise<Member> {
+  async createMember(insertMember: InsertMember, tenantId: string): Promise<Member> {
     const id = randomUUID();
     const member: Member = {
       ...insertMember,
+      tenantId,
       phone: insertMember.phone ?? null,
       instruments: insertMember.instruments ?? null,
       hourlyRate: insertMember.hourlyRate ?? null,
@@ -1297,9 +1301,9 @@ export class MemStorage implements IStorage {
     return member;
   }
 
-  async updateMember(id: string, memberUpdate: Partial<InsertMember>): Promise<Member | undefined> {
+  async updateMember(id: string, memberUpdate: Partial<InsertMember>, tenantId: string): Promise<Member | undefined> {
     const member = this.members.get(id);
-    if (!member) return undefined;
+    if (!member || member.tenantId !== tenantId) return undefined;
     
     const updatedMember: Member = {
       ...member,
@@ -1310,7 +1314,9 @@ export class MemStorage implements IStorage {
     return updatedMember;
   }
 
-  async deleteMember(id: string): Promise<boolean> {
+  async deleteMember(id: string, tenantId: string): Promise<boolean> {
+    const member = this.members.get(id);
+    if (!member || member.tenantId !== tenantId) return false;
     return this.members.delete(id);
   }
 
@@ -3014,27 +3020,27 @@ export class DrizzleStorage implements IStorage {
   }
   
   // Members - PostgreSQL implementation
-  async getMembers(): Promise<Member[]> {
-    return await this.db.select().from(members);
+  async getMembers(tenantId: string): Promise<Member[]> {
+    return await this.db.select().from(members).where(eq(members.tenantId, tenantId));
   }
 
-  async getMember(id: string): Promise<Member | undefined> {
-    const result = await this.db.select().from(members).where(eq(members.id, id));
+  async getMember(id: string, tenantId: string): Promise<Member | undefined> {
+    const result = await this.db.select().from(members).where(and(eq(members.id, id), eq(members.tenantId, tenantId)));
     return result[0];
   }
 
-  async createMember(member: InsertMember): Promise<Member> {
-    const result = await this.db.insert(members).values(member).returning();
+  async createMember(member: InsertMember, tenantId: string): Promise<Member> {
+    const result = await this.db.insert(members).values({ ...member, tenantId }).returning();
     return result[0];
   }
 
-  async updateMember(id: string, member: Partial<InsertMember>): Promise<Member | undefined> {
-    const result = await this.db.update(members).set(member).where(eq(members.id, id)).returning();
+  async updateMember(id: string, member: Partial<InsertMember>, tenantId: string): Promise<Member | undefined> {
+    const result = await this.db.update(members).set(member).where(and(eq(members.id, id), eq(members.tenantId, tenantId))).returning();
     return result[0];
   }
 
-  async deleteMember(id: string): Promise<boolean> {
-    const result = await this.db.delete(members).where(eq(members.id, id));
+  async deleteMember(id: string, tenantId: string): Promise<boolean> {
+    const result = await this.db.delete(members).where(and(eq(members.id, id), eq(members.tenantId, tenantId)));
     return result.rowCount > 0;
   }
   

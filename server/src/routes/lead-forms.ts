@@ -342,44 +342,6 @@ router.post('/public/:slug/submit', formSubmissionLimiter, async (req, res) => {
       });
     }
 
-    // SECURITY: Create submission fingerprint for idempotency checking
-    const submissionKey = crypto
-      .createHash('sha256')
-      .update(JSON.stringify({
-        slug,
-        formId: form.id,
-        email: formData.leadEmail || formData.email,
-        phone: formData.leadPhoneNumber || formData.phone,
-        timestamp: new Date().toDateString(), // Same day submissions considered duplicates
-      }))
-      .digest('hex');
-
-    // Check for duplicate submission using idempotency key - SECURITY: Use tenant-scoped storage
-    try {
-      const existingSubmission = await tenantStorage.getFormSubmissionByKey(submissionKey);
-      if (existingSubmission) {
-        console.log('🔁 DUPLICATE SUBMISSION PREVENTED:', {
-          submissionKey: submissionKey.slice(0, 8) + '***',
-          existingSubmissionId: existingSubmission.id,
-          slug,
-          tenantId: form.tenantId,
-          timestamp: new Date().toISOString()
-        });
-        // Return success with existing lead ID to prevent re-submission attempts
-        return res.json({
-          ok: true,
-          leadId: existingSubmission.leadId,
-          afterSubmit: {
-            type: 'message',
-            message: 'Thank you! We have already received your submission.'
-          }
-        });
-      }
-    } catch (idempotencyError) {
-      console.warn('⚠️ Idempotency check failed, continuing:', idempotencyError);
-      // Continue with submission if idempotency check fails
-    }
-
     // Parse the form questions to get field mappings
     let questions = getDefaultQuestionsForForm();
     try {
@@ -409,6 +371,55 @@ router.post('/public/:slug/submit', formSubmissionLimiter, async (req, res) => {
       allowUnknownKeys: true, // Allow custom fields for now
       enableDeprecationWarnings: true
     });
+
+    // SECURITY: Create submission fingerprint AFTER mapping to use normalized data
+    const submissionFingerprint = {
+      slug,
+      formId: form.id,
+      email: mappingResult.leadData.email || mappingResult.contactData.email || 'no-email',
+      phone: mappingResult.leadData.phone || mappingResult.contactData.phone || 'no-phone',
+      timestamp: new Date().toDateString(), // Same day submissions considered duplicates
+    };
+    
+    console.log('🔍 SUBMISSION FINGERPRINT DEBUG:', {
+      slug,
+      formId: form.id,
+      extractedEmail: submissionFingerprint.email,
+      extractedPhone: submissionFingerprint.phone,
+      mappingResult: JSON.stringify(mappingResult, null, 2),
+      fingerprintData: submissionFingerprint
+    });
+    
+    const submissionKey = crypto
+      .createHash('sha256')
+      .update(JSON.stringify(submissionFingerprint))
+      .digest('hex');
+
+    // Check for duplicate submission using idempotency key - SECURITY: Use tenant-scoped storage
+    try {
+      const existingSubmission = await tenantStorage.getFormSubmissionByKey(submissionKey);
+      if (existingSubmission) {
+        console.log('🔁 DUPLICATE SUBMISSION PREVENTED:', {
+          submissionKey: submissionKey.slice(0, 8) + '***',
+          existingSubmissionId: existingSubmission.id,
+          slug,
+          tenantId: form.tenantId,
+          timestamp: new Date().toISOString()
+        });
+        // Return success with existing lead ID to prevent re-submission attempts
+        return res.json({
+          ok: true,
+          leadId: existingSubmission.leadId,
+          afterSubmit: {
+            type: 'message',
+            message: 'Thank you! We have already received your submission.'
+          }
+        });
+      }
+    } catch (idempotencyError) {
+      console.warn('⚠️ Idempotency check failed, continuing:', idempotencyError);
+      // Continue with submission if idempotency check fails
+    }
 
     // Create lead from mapped data using TENANT-SCOPED storage
     const nameParts = splitFullName(mappingResult.leadData.full_name || '');

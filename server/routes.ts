@@ -1952,6 +1952,66 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
 
+  // Contact deletion preview - shows what will be deleted
+  app.get("/api/contacts/:id/deletion-preview", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
+    try {
+      const contactId = req.params.id;
+      const contact = await storage.getContact(contactId);
+      if (!contact) {
+        return res.status(404).json({ message: "Contact not found" });
+      }
+
+      // Get all related data that will be deleted
+      const relatedProjects = await storage.getProjectsByContact(contactId);
+      const relatedEmails = await storage.getEmailsByContact(contactId);
+      const relatedQuotes = await storage.getQuotesByContact(contactId);
+      const relatedContracts = await storage.getContractsByContact(contactId);
+      const relatedInvoices = await storage.getInvoicesByContact(contactId);
+      
+      // Count related data for each project
+      const projectDetails = await Promise.all(relatedProjects.map(async (project) => {
+        const projectEmails = await storage.getEmailsByProject(project.id);
+        const projectTasks = await storage.getTasksByProject(project.id);
+        const projectQuotes = await storage.getQuotesByProject(project.id);
+        const projectContracts = await storage.getContractsByProject(project.id);
+        const projectInvoices = await storage.getInvoicesByProject(project.id);
+        const projectLeads = await storage.getLeadsByProject(project.id);
+        
+        return {
+          id: project.id,
+          name: project.name,
+          emailCount: projectEmails.length,
+          taskCount: projectTasks.length,
+          quoteCount: projectQuotes.length,
+          contractCount: projectContracts.length,
+          invoiceCount: projectInvoices.length,
+          leadCount: projectLeads.length
+        };
+      }));
+
+      const deletionPreview = {
+        contact: {
+          id: contact.id,
+          name: `${contact.firstName} ${contact.lastName}`.trim() || contact.fullName,
+          email: contact.email
+        },
+        willDelete: {
+          projects: projectDetails,
+          directEmails: relatedEmails.length,
+          directQuotes: relatedQuotes.length,
+          directContracts: relatedContracts.length,
+          directInvoices: relatedInvoices.length,
+          totalItems: projectDetails.length + relatedEmails.length + relatedQuotes.length + relatedContracts.length + relatedInvoices.length
+        }
+      };
+
+      res.json(deletionPreview);
+    } catch (error) {
+      console.error('Error getting contact deletion preview:', error);
+      res.status(500).json({ message: "Failed to get deletion preview" });
+    }
+  });
+
   app.get("/api/contacts/:id", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
     try {
       const contact = await storage.getContact(req.params.id);
@@ -2090,6 +2150,67 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
       res.json(projects);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch projects" });
+    }
+  });
+
+  // Project deletion preview - shows what will be deleted
+  app.get("/api/projects/:id/deletion-preview", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
+    try {
+      const projectId = req.params.id;
+      const project = await storage.getProject(projectId);
+      if (!project) {
+        return res.status(404).json({ message: "Project not found" });
+      }
+
+      // Get all related data that will be deleted
+      const projectEmails = await storage.getEmailsByProject(projectId);
+      const projectTasks = await storage.getTasksByProject(projectId);
+      const projectQuotes = await storage.getQuotesByProject(projectId);
+      const projectContracts = await storage.getContractsByProject(projectId);
+      const projectInvoices = await storage.getInvoicesByProject(projectId);
+      const projectLeads = await storage.getLeadsByProject(projectId);
+      
+      // Get associated contact info
+      let associatedContact = null;
+      if (project.contactId) {
+        const contact = await storage.getContact(project.contactId);
+        if (contact) {
+          // Check if this is the only project for this contact
+          const contactProjects = await storage.getProjectsByContact(project.contactId);
+          const isOnlyProject = contactProjects.length === 1;
+          
+          associatedContact = {
+            id: contact.id,
+            name: `${contact.firstName} ${contact.lastName}`.trim() || contact.fullName,
+            email: contact.email,
+            isOnlyProject,
+            willAlsoBeDeleted: isOnlyProject // If this is the only project, contact will be deleted too
+          };
+        }
+      }
+
+      const deletionPreview = {
+        project: {
+          id: project.id,
+          name: project.name,
+          status: project.status
+        },
+        willDelete: {
+          emails: projectEmails.length,
+          tasks: projectTasks.length,
+          quotes: projectQuotes.length,
+          contracts: projectContracts.length,
+          invoices: projectInvoices.length,
+          leads: projectLeads.length,
+          contact: associatedContact,
+          totalItems: projectEmails.length + projectTasks.length + projectQuotes.length + projectContracts.length + projectInvoices.length + projectLeads.length
+        }
+      };
+
+      res.json(deletionPreview);
+    } catch (error) {
+      console.error('Error getting project deletion preview:', error);
+      res.status(500).json({ message: "Failed to get deletion preview" });
     }
   });
 

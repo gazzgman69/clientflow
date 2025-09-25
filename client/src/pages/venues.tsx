@@ -171,6 +171,7 @@ export default function VenuesPage() {
       return apiRequest("POST", "/api/venues/minimal", payload);
     },
     onSuccess: () => {
+      // Only invalidate venues list for new venue creation
       queryClient.invalidateQueries({ queryKey: ["/api/venues"] });
       setIsDialogOpen(false);
       form.reset();
@@ -224,8 +225,10 @@ export default function VenuesPage() {
       
       return apiRequest("PATCH", `/api/venues/${id}`, payload);
     },
-    onSuccess: () => {
+    onSuccess: (_, { id }) => {
+      // Invalidate both the venues list and any individual venue queries
       queryClient.invalidateQueries({ queryKey: ["/api/venues"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/venues", id] });
       setIsDialogOpen(false);
       setSelectedVenue(null);
       form.reset();
@@ -245,8 +248,10 @@ export default function VenuesPage() {
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => apiRequest("DELETE", `/api/venues/${id}`),
-    onSuccess: () => {
+    onSuccess: (_, id) => {
+      // Invalidate venues list and remove specific venue from cache
       queryClient.invalidateQueries({ queryKey: ["/api/venues"] });
+      queryClient.removeQueries({ queryKey: ["/api/venues", id] });
       toast({
         title: "Success",
         description: "Venue deleted successfully",

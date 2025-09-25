@@ -122,8 +122,10 @@ export default function MembersPage() {
         instruments: data.instruments ? data.instruments.split(",").map(i => i.trim()) : [],
         hourlyRate: data.hourlyRate || undefined,
       }),
-    onSuccess: () => {
+    onSuccess: (_, { id }) => {
+      // Invalidate both members list and specific member queries
       queryClient.invalidateQueries({ queryKey: ["/api/members"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/members", id] });
       setIsDialogOpen(false);
       setSelectedMember(null);
       form.reset();
@@ -143,8 +145,10 @@ export default function MembersPage() {
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => apiRequest(`/api/members/${id}`, "DELETE"),
-    onSuccess: () => {
+    onSuccess: (_, id) => {
+      // Invalidate members list and remove specific member from cache
       queryClient.invalidateQueries({ queryKey: ["/api/members"] });
+      queryClient.removeQueries({ queryKey: ["/api/members", id] });
       toast({
         title: "Success",
         description: "Member deleted successfully",

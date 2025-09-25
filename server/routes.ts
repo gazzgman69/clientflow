@@ -484,7 +484,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
 
   app.delete("/api/leads/:id", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
     try {
-      const deleted = await storage.deleteLead(req.params.id);
+      const deleted = await storage.deleteLead(req.params.id, req.tenantId);
       if (!deleted) {
         return res.status(404).json({ message: "Lead not found" });
       }

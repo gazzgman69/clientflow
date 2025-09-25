@@ -637,7 +637,7 @@ router.post('/public/:slug/submit', formSubmissionLimiter, async (req, res) => {
     }
 
     // Create lead from mapped data using TENANT-SCOPED storage
-    const nameParts = splitFullName(mappingResult.leadData.full_name || '');
+    const nameParts = splitFullName(mappingResult.leadData.fullName || '');
     const leadData = {
       ...mappingResult.leadData,
       email: mappingResult.leadData.email || mappingResult.contactData.email,
@@ -714,12 +714,7 @@ router.post('/public/:slug/submit', formSubmissionLimiter, async (req, res) => {
       ...mappingResult.contactData,
       email: mappingResult.contactData.email || mappingResult.leadData.email,
       phone: mappingResult.leadData.phone, // Transfer phone from lead data
-      // Map venue address from form data 
-      venueAddress: mappingResult.contactData.venue_address,
-      venueCity: mappingResult.contactData.venue_city,
-      venueState: mappingResult.contactData.venue_state,
-      venueZipCode: mappingResult.contactData.venue_zip_code,
-      venueCountry: mappingResult.contactData.venue_country,
+      // Use the correct field names that match Zod schema
       fullName: nameParts.fullName,
       firstName: nameParts.firstName,
       middleName: nameParts.middleName,
@@ -741,13 +736,13 @@ router.post('/public/:slug/submit', formSubmissionLimiter, async (req, res) => {
 
     // Create/update venue if venue information exists with deduplication logic
     let createdVenue = null;
-    if (mappingResult.contactData.venue_address) {
+    if (mappingResult.contactData.venueAddress) {
       try {
         // Build venue details in the format expected by venuesService
         const venueDetails = {
           placeId: formData.eventLocationPlaceId || null,
-          name: mappingResult.contactData.venue_address?.split(',')[0]?.trim() || 'Venue',
-          address1: mappingResult.contactData.venue_address,
+          name: mappingResult.contactData.venueAddress?.split(',')[0]?.trim() || 'Venue',
+          address1: mappingResult.contactData.venueAddress,
           address2: undefined, // Use undefined instead of null for PlaceDetails interface
           city: mappingResult.contactData.venue_city || '',
           state: mappingResult.contactData.venue_state || '',
@@ -841,8 +836,8 @@ router.post('/public/:slug/submit', formSubmissionLimiter, async (req, res) => {
     // Create project from mapped data using TENANT-SCOPED storage
     const projectData = {
       ...mappingResult.projectData,
-      name: `${mappingResult.leadData.event_type || 'Event'} - ${nameParts.fullName || 'Unknown'}`,
-      description: `${mappingResult.leadData.event_type || 'Event'} at ${mappingResult.contactData.venue_address || 'TBD'}`,
+      name: `${mappingResult.leadData.eventType || 'Event'} - ${nameParts.fullName || 'Unknown'}`,
+      description: `${mappingResult.leadData.eventType || 'Event'} at ${mappingResult.contactData.venueAddress || 'TBD'}`,
       contactId: contact.id,
       venueId: createdVenue?.id || null, // Link project to venue if created
       status: 'pending' as const,

@@ -58,7 +58,7 @@ export const FORM_FIELD_REGISTRY: Record<string, FormFieldMapping> = {
   },
   eventLocation: {
     model: 'contacts',
-    field: 'venue_address', 
+    field: 'venueAddress', 
     type: 'text',
     required: false,
     label: 'Event Location',

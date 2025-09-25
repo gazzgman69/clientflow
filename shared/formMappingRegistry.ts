@@ -57,8 +57,8 @@ export const FORM_FIELD_REGISTRY: Record<string, FormFieldMapping> = {
     sanitizer: (value: string) => value?.trim() || '',
   },
   eventLocation: {
-    model: 'leads',
-    field: 'eventLocation', 
+    model: 'contacts',
+    field: 'venue_address', 
     type: 'text',
     required: false,
     label: 'Event Location',

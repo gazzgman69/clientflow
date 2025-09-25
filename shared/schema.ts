@@ -444,6 +444,9 @@ export const venues = pgTable("venues", {
   // Ensure venues belong to same tenant as the user through the user relationship
   userIdIdx: index("venues_user_id_idx").on(table.userId),
   tenantIdIdx: index("venues_tenant_id_idx").on(table.tenantId),
+  // Performance indexes for common query patterns
+  tenantCreatedIdx: index("venues_tenant_created_idx").on(table.tenantId, table.createdAt),
+  tenantNameIdx: index("venues_tenant_name_idx").on(table.tenantId, table.name),
 }));
 
 // Project Members Junction Table

@@ -1943,6 +1943,36 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
 
+  // GET /api/leads - Basic leads listing for frontend
+  app.get("/api/leads", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
+    try {
+      const tenantId = (req as TenantRequest).tenantId;
+      const leads = await storage.getLeads(tenantId);
+      const leadsWithConflicts = await detectConflicts(leads);
+      
+      // Map to LeadCardDTO format for frontend
+      const leadCardDTOs = leadsWithConflicts.map(lead => ({
+        id: lead.id,
+        contactName: `${lead.firstName} ${lead.lastName}`.trim() || 'No Name',
+        email: lead.email,
+        phone: lead.phone,
+        projectId: lead.projectId,
+        projectTitle: lead.projectTitle || null,
+        projectDateISO: lead.projectDate || null,
+        source: lead.leadSource || 'Unknown',
+        createdAtISO: lead.createdAt,
+        status: mapStatusToPipeline(lead.status),
+        hasConflict: lead.hasConflict || false,
+        conflictDetails: lead.conflictDetails
+      }));
+
+      res.json(leadCardDTOs);
+    } catch (error) {
+      console.error('Error fetching leads:', error);
+      res.status(500).json({ message: "Failed to fetch leads" });
+    }
+  });
+
   // Clients
   app.get("/api/contacts", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
     try {

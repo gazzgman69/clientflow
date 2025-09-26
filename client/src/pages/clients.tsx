@@ -472,8 +472,9 @@ export default function Contacts() {
                       <FormControl>
                         <VenueAutocomplete
                           onVenueSelect={(venue) => {
-                            // Set the venue ID and address fields
+                            // Set the venue ID, name and address fields
                             form.setValue('venueId', venue.placeId, { shouldDirty: true, shouldValidate: true });
+                            form.setValue('venueName', venue.name || '', { shouldDirty: true, shouldValidate: true });
                             form.setValue('venueAddress', venue.address || '', { shouldDirty: true, shouldValidate: true });
                             form.setValue('venueCity', venue.city || '', { shouldDirty: true, shouldValidate: true });
                             form.setValue('venueState', venue.state || '', { shouldDirty: true, shouldValidate: true });
@@ -497,9 +498,14 @@ export default function Contacts() {
                 />
                 
                 {/* Display selected venue details */}
-                {(form.watch('venueAddress') || form.watch('venueCity')) && (
+                {(form.watch('venueAddress') || form.watch('venueCity') || form.watch('venueName')) && (
                   <div className="p-3 bg-muted/50 dark:bg-muted/20 rounded-md border">
                     <div className="text-sm font-medium mb-1">Selected Venue:</div>
+                    {form.watch('venueName') && (
+                      <div className="text-sm font-semibold text-foreground mb-1">
+                        {form.watch('venueName')}
+                      </div>
+                    )}
                     <div className="text-sm text-muted-foreground">
                       {[
                         form.watch('venueAddress'),
@@ -516,6 +522,7 @@ export default function Contacts() {
                       className="mt-2 h-6 px-2 text-xs"
                       onClick={() => {
                         form.setValue('venueId', null, { shouldDirty: true, shouldValidate: true });
+                        form.setValue('venueName', '', { shouldDirty: true, shouldValidate: true });
                         form.setValue('venueAddress', '', { shouldDirty: true, shouldValidate: true });
                         form.setValue('venueCity', '', { shouldDirty: true, shouldValidate: true });
                         form.setValue('venueState', '', { shouldDirty: true, shouldValidate: true });

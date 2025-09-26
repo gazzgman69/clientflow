@@ -2176,9 +2176,11 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
       if (req.query.simple === '1') {
         const simpleLimit = Math.min(50, Math.max(1, parseInt(req.query.limit as string) || 10));
         const contactsRaw = await neonClient(`
-          SELECT * FROM contacts 
-          WHERE tenant_id = $1
-          ORDER BY created_at DESC
+          SELECT c.*, v.name as venue_name
+          FROM contacts c
+          LEFT JOIN venues v ON c.venue_id = v.id AND v.tenant_id = c.tenant_id
+          WHERE c.tenant_id = $1
+          ORDER BY c.created_at DESC
           LIMIT ${simpleLimit}
         `, [req.tenantId]);
         
@@ -2207,6 +2209,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
           venueZipCode: contact.venue_zip_code,
           venueCountry: contact.venue_country,
           venueId: contact.venue_id,
+          venueName: contact.venue_name,
           leadId: contact.lead_id,
           tags: contact.tags ? contact.tags.split(',').map((tag: string) => tag.trim()).filter(Boolean) : [],
           leadSource: contact.lead_source,
@@ -2219,10 +2222,13 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
       }
 
       // Don't filter by userId - all contacts in tenant should be visible to authenticated users
+      // Join with venues table to get venue name
       const contactsRaw = await neonClient(`
-        SELECT * FROM contacts 
-        WHERE tenant_id = $1
-        ORDER BY created_at DESC
+        SELECT c.*, v.name as venue_name
+        FROM contacts c
+        LEFT JOIN venues v ON c.venue_id = v.id AND v.tenant_id = c.tenant_id
+        WHERE c.tenant_id = $1
+        ORDER BY c.created_at DESC
         LIMIT ${limit} OFFSET ${offset}
       `, [req.tenantId]);
       
@@ -2251,6 +2257,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
         venueZipCode: contact.venue_zip_code,
         venueCountry: contact.venue_country,
         venueId: contact.venue_id,
+        venueName: contact.venue_name,
         leadId: contact.lead_id,
         tags: contact.tags ? contact.tags.split(',').map((tag: string) => tag.trim()).filter(Boolean) : [],
         leadSource: contact.lead_source,

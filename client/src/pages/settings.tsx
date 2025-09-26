@@ -76,6 +76,18 @@ export default function Settings() {
     },
   });
 
+  // Scope check query - only run if calendar is connected
+  const { data: scopeCheck, isLoading: scopeCheckLoading, refetch: refetchScopeCheck } = useQuery({
+    queryKey: ['/api/auth/google/scope-check'],
+    queryFn: async () => {
+      const response = await fetch('/api/auth/google/scope-check', {
+        credentials: 'include'
+      });
+      return response.json();
+    },
+    enabled: !!calendarStatus?.connected, // Only run if calendar is connected
+  });
+
   // Combined loading state for compatibility
   const statusLoading = gmailStatusLoading || calendarStatusLoading;
 

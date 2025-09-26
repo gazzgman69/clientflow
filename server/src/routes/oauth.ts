@@ -328,6 +328,75 @@ router.post('/auth/google/calendar/start', requireAuth, async (req: any, res) =>
 });
 
 /**
+ * Check scope sufficiency and suggest repair if needed
+ */
+router.get('/auth/google/scope-check', async (req, res) => {
+  try {
+    if (!req.session?.userId || !req.session?.tenantId) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
+
+    const userId = req.session.userId;
+    const tenantId = req.session.tenantId;
+
+    // Get all user's calendar integrations
+    const integrations = await storage.getCalendarIntegrationsByUser(userId, tenantId);
+    const googleIntegrations = integrations.filter(i => i.provider === 'google' && i.isActive);
+
+    console.log('🔍 SCOPE CHECK: Checking scope sufficiency for integrations', {
+      userId,
+      tenantId,
+      integrationCount: googleIntegrations.length
+    });
+
+    const result = {
+      needsRepair: false,
+      integrations: [],
+      insufficientScopes: []
+    };
+
+    for (const integration of googleIntegrations) {
+      try {
+        // Try to create calendar service and make a test call
+        const calendarService = await googleOAuthService.getCalendarService(integration);
+        await calendarService.calendars.get({ calendarId: 'primary' });
+        
+        result.integrations.push({
+          id: integration.id,
+          email: integration.providerAccountId,
+          serviceType: integration.serviceType || 'calendar',
+          status: 'sufficient'
+        });
+      } catch (error: any) {
+        console.log('⚠️ SCOPE CHECK: Insufficient scopes detected', {
+          integrationId: integration.id,
+          email: integration.providerAccountId,
+          error: error.message
+        });
+
+        result.needsRepair = true;
+        result.integrations.push({
+          id: integration.id,
+          email: integration.providerAccountId,
+          serviceType: integration.serviceType || 'calendar',
+          status: 'insufficient',
+          error: error.message
+        });
+
+        if (error.message.includes('insufficient authentication scopes')) {
+          result.insufficientScopes.push(integration.serviceType || 'calendar');
+        }
+      }
+    }
+
+    res.json(result);
+  } catch (error: any) {
+    console.error('Error in scope check:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
  * OAuth callback - Exchange code for tokens
  */
 router.get('/auth/google/callback', async (req, res) => {

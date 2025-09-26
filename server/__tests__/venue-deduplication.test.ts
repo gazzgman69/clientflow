@@ -56,11 +56,11 @@ describe('Venue Deduplication', () => {
     );
   });
 
-  it('should return existing venue when duplicate detected by address', async () => {
+  it('should return existing venue when duplicate detected by exact name+address match', async () => {
     const existingVenue = {
       id: 'venue-456',
       name: 'The Post Barn',
-      address: 'Snelsmore Common, Berkshire',
+      address: 'The Post Barn, Snelsmore Common, Berkshire, RG14 3AL',
       useCount: 2,
       tenantId: testTenantId,
       createdAt: new Date(),
@@ -68,12 +68,12 @@ describe('Venue Deduplication', () => {
     };
 
     const newVenueData: InsertVenue = {
-      name: 'The Post Barn',
-      address: 'Snelsmore Common, Berkshire',
+      name: ' The Post Barn ', // Note: extra spaces to test normalization
+      address: 'The Post Barn, Snelsmore Common, Berkshire, RG14 3AL',
       tenantId: testTenantId,
     };
 
-    // Mock getVenues for findByAddress method
+    // Mock getVenues for findExactVenueMatch method
     mockStorage.getVenues.mockResolvedValue([existingVenue as any]);
     mockStorage.updateVenue.mockResolvedValue({ ...existingVenue, useCount: 3 } as any);
 

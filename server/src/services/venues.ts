@@ -162,13 +162,14 @@ export class VenuesService {
 
   /**
    * Find existing venue or create new one to prevent duplicates
-   * Uses same deduplication logic as lead forms
+   * Uses exact normalized name + address matching for strict deduplication
    */
   async findOrCreateVenue(venueData: InsertVenue, tenantId: string): Promise<Venue> {
     // For Google Places venues, check by place_id first
     if (venueData.placeId) {
       const existingVenue = await this.findByPlaceId(venueData.placeId, tenantId);
       if (existingVenue) {
+        console.log('🔍 VENUE REUSED (Place ID):', { venueId: existingVenue.id, placeId: venueData.placeId });
         // Update usage tracking
         await storage.updateVenue(existingVenue.id, {
           useCount: (existingVenue.useCount || 0) + 1,
@@ -178,27 +179,28 @@ export class VenuesService {
       }
     }
 
-    // For manual venues, check by address/name similarity
-    if (venueData.name || venueData.address) {
-      const searchQuery = `${venueData.name || ''} ${venueData.address || ''}`.trim();
-      if (searchQuery.length > 2) {
-        const existingVenues = await this.findByAddress(searchQuery, tenantId);
-        if (existingVenues.length > 0) {
-          // Use most relevant existing venue (findByAddress already sorts by useCount and lastUsedAt)
-          const existingVenue = existingVenues[0];
-          
-          // Update usage tracking
-          await storage.updateVenue(existingVenue.id, {
-            useCount: (existingVenue.useCount || 0) + 1,
-            lastUsedAt: new Date()
-          }, tenantId);
-          
-          return existingVenue;
-        }
+    // For all venues, check by exact normalized name + address match
+    if (venueData.name && venueData.address) {
+      const exactMatch = await this.findExactVenueMatch(venueData.name, venueData.address, tenantId);
+      if (exactMatch) {
+        console.log('🔍 VENUE REUSED (Exact Match):', {
+          venueId: exactMatch.id,
+          name: exactMatch.name,
+          address: exactMatch.address,
+          inputName: venueData.name,
+          inputAddress: venueData.address
+        });
+        // Update usage tracking
+        await storage.updateVenue(exactMatch.id, {
+          useCount: (exactMatch.useCount || 0) + 1,
+          lastUsedAt: new Date()
+        }, tenantId);
+        return exactMatch;
       }
     }
 
     // No duplicate found, create new venue
+    console.log('✅ VENUE CREATED (New):', { name: venueData.name, address: venueData.address });
     return await storage.createVenue(venueData, tenantId);
   }
 
@@ -372,32 +374,34 @@ export class VenuesService {
   }
 
   /**
-   * Normalize address for cache matching
+   * Normalize text for venue matching (name + address)
    */
-  private normalizeAddress(address: string): string {
-    return address.toLowerCase()
-      .replace(/[^\w\s]/g, ' ') // Remove special chars
-      .replace(/\s+/g, ' ') // Collapse whitespace
+  private normalizeForMatching(text: string): string {
+    return text.toLowerCase()
+      .replace(/[^\w\s]/g, ' ') // Remove punctuation, special chars
+      .replace(/\s+/g, ' ') // Collapse multiple spaces
       .trim();
   }
 
   /**
-   * Find venues by normalized address matching
+   * Find venues by normalized name + address matching for deduplication
    */
   async findByAddress(searchInput: string, tenantId: string): Promise<Venue[]> {
     const venues = await this.getVenues(tenantId);
-    const normalizedInput = this.normalizeAddress(searchInput);
+    const normalizedSearch = this.normalizeForMatching(searchInput);
     
     return venues.filter(venue => {
       if (!venue.name && !venue.address) return false;
       
-      const normalizedName = venue.name ? this.normalizeAddress(venue.name) : '';
-      const normalizedAddress = venue.address ? this.normalizeAddress(venue.address) : '';
+      const normalizedName = venue.name ? this.normalizeForMatching(venue.name) : '';
+      const normalizedAddress = venue.address ? this.normalizeForMatching(venue.address) : '';
       const normalizedFull = `${normalizedName} ${normalizedAddress}`.trim();
       
-      return normalizedName.includes(normalizedInput) || 
-             normalizedAddress.includes(normalizedInput) ||
-             normalizedFull.includes(normalizedInput);
+      // Check for exact matches on normalized text
+      return normalizedName === normalizedSearch || 
+             normalizedAddress === normalizedSearch ||
+             normalizedFull === normalizedSearch ||
+             normalizedFull.includes(normalizedSearch);
     }).sort((a, b) => {
       // Sort by use count descending, then by last used date
       const aUseCount = a.useCount || 0;
@@ -408,6 +412,27 @@ export class VenuesService {
       const bLastUsed = b.lastUsedAt ? new Date(b.lastUsedAt).getTime() : 0;
       return bLastUsed - aLastUsed;
     });
+  }
+  
+  /**
+   * Find exact venue match by normalized name + address for strict deduplication
+   */
+  async findExactVenueMatch(name: string, address: string, tenantId: string): Promise<Venue | null> {
+    const venues = await this.getVenues(tenantId);
+    const normalizedInputName = this.normalizeForMatching(name || '');
+    const normalizedInputAddress = this.normalizeForMatching(address || '');
+    
+    for (const venue of venues) {
+      const normalizedVenueName = this.normalizeForMatching(venue.name || '');
+      const normalizedVenueAddress = this.normalizeForMatching(venue.address || '');
+      
+      // Exact match on both name and address (normalized)
+      if (normalizedVenueName === normalizedInputName && normalizedVenueAddress === normalizedInputAddress) {
+        return venue;
+      }
+    }
+    
+    return null;
   }
 
   /**

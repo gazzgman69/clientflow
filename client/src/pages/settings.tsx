@@ -704,6 +704,25 @@ export default function Settings() {
                             </Alert>
                           )}
 
+                          {/* Token Expiration Check */}
+                          {calendarStatus?.connected && calendarStatus?.syncErrors && (() => {
+                            try {
+                              const errorData = typeof calendarStatus.syncErrors === 'string' 
+                                ? JSON.parse(calendarStatus.syncErrors) 
+                                : calendarStatus.syncErrors;
+                              return errorData?.error === 'invalid_grant' || errorData?.requiresReconnection;
+                            } catch {
+                              return false;
+                            }
+                          })() && (
+                            <Alert>
+                              <AlertTriangle className="h-4 w-4" />
+                              <AlertDescription>
+                                Calendar connection expired — please reconnect to restore sync functionality.
+                              </AlertDescription>
+                            </Alert>
+                          )}
+
                           {/* Action Buttons */}
                           <div className="flex gap-2">
                             {calendarStatus?.connected ? (

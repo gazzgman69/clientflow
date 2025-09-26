@@ -380,9 +380,32 @@ export class GoogleOAuthService {
       return { success: true, syncedCount: events.length };
     } catch (error: any) {
       console.error('Error syncing from Google:', error);
-      await storage.updateCalendarIntegration(integration.id, {
-        syncErrors: error.message
-      });
+      
+      // Handle OAuth token expiration gracefully
+      const isTokenExpired = error.message?.includes('invalid_grant') || 
+                           error.code === 400 && error.response?.data?.error === 'invalid_grant';
+      
+      if (isTokenExpired) {
+        console.log('🔄 OAUTH TOKEN EXPIRED: Marking calendar integration for reconnection');
+        await storage.updateCalendarIntegration(integration.id, {
+          syncErrors: JSON.stringify({
+            error: 'invalid_grant',
+            message: 'OAuth tokens expired - reconnection required',
+            timestamp: new Date().toISOString(),
+            type: 'auto-sync',
+            requiresReconnection: true
+          })
+        });
+      } else {
+        await storage.updateCalendarIntegration(integration.id, {
+          syncErrors: JSON.stringify({
+            error: error.message,
+            timestamp: new Date().toISOString(),
+            type: 'auto-sync'
+          })
+        });
+      }
+      
       throw error;
     }
   }

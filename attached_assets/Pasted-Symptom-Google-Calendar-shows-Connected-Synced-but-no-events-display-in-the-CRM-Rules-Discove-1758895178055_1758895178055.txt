@@ -1,0 +1,83 @@
+Symptom: Google Calendar shows “Connected/Synced”, but no events display in the CRM.
+
+Rules
+
+Discover repo structure; do not assume filenames/tables.
+
+Start read-only: produce a brief plan with file:line evidence before any code.
+
+Keep any fix minimal & additive, tenant-safe, and behind a feature flag (default OFF in prod).
+
+Do not change unrelated systems.
+
+Investigate first (read-only plan)
+
+Token & scopes
+
+Verify tokens are saved (encrypted) for the correct tenant/integration and include required calendar scopes.
+
+Calendar selection
+
+Confirm which calendars are marked “in scope” (primary vs specific IDs); ensure UI isn’t filtering them out.
+
+Sync mechanism
+
+Determine if we use polling (listEvents) or push (watch channel + webhook). Check:
+
+Time range filters (is timeMin in the future? wrong timezone?)
+
+Pagination handling (nextPageToken)
+
+Recurring expansion (singleEvents=true / maxResults)
+
+syncToken usage (handling 410 Gone to reset)
+
+Webhook channel expiration/renewal
+
+Tenant context & RLS
+
+Ensure event writes happen with the correct tenant context and aren’t being blocked by RLS.
+
+DB vs UI
+
+Check if events are written in DB but UI filters hide them (date range, calendar filter, or a contacts-only gate enabled).
+
+Verify any “Contacts-only calendar ingestion” flag isn’t excluding all events (if enabled, confirm at least one participant matches a contact).
+
+Logs
+
+Gather any post-OAuth sync errors (401/403, insufficient scopes, 410 sync token, webhook 404, etc.).
+
+Minimal fixes (only after plan)
+
+If no initial import: enqueue a first full sync after connect (flagged, e.g., CAL_INIT_SYNC=1).
+
+If wrong filters: correct time range/timezone/recurrence expansion to pull visible events (minimal diff).
+
+If syncToken invalid: catch 410 and reset to a full sync path.
+
+If webhook expired: auto-renew watch after connect and via scheduler.
+
+If calendar selection empty: default to primary (or prompt selection) and persist.
+
+If contacts-only is blocking: surface a clear UI notice and allow “All events” toggle; don’t silently drop everything.
+
+Add concise structured logs around: connect → enqueue → fetch → store → UI read.
+
+Deliverables
+
+Read-only plan with exact file:line evidence of the break.
+
+Small PR (feature-flagged) implementing the minimal fix.
+
+Manual verification steps (how to trigger a sync, what to see in logs/UI).
+
+Acceptance
+
+After connect (or “Sync now”), a first batch of events appears in the CRM (e.g., next 30 days).
+
+Ongoing sync works (poll or push). Expired syncToken (410) resets correctly.
+
+Tenant scoping enforced; RLS not blocking.
+
+With the new flag off, behavior is unchanged.

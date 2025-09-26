@@ -491,51 +491,72 @@ router.get('/auth/google/callback', async (req, res) => {
       tenantId
     });
     
-    // Check if integration already exists
-    console.log('🔍 OAUTH DEBUG: Checking for existing integration', {
+    // Tenant-scoped lookup by (tenant_id, provider, provider_account_id)
+    console.log('🔍 OAUTH UPSERT: Starting tenant-scoped integration upsert', {
+      action: 'oauth_upsert',
+      provider: 'google',
+      tenantId,
       email: tokens.email,
       userId,
-      tenantId,
-      timestamp: new Date().toISOString()
-    });
-    let integration = await storage.getCalendarIntegrationByEmail(tokens.email, userId, tenantId);
-    console.log('🔍 OAUTH DEBUG: Existing integration search result', {
-      found: !!integration,
-      integrationId: integration?.id || null,
-      integrationTenantId: integration?.tenantId || null,
-      email: tokens.email,
-      userId,
-      tenantId,
+      serviceType,
       timestamp: new Date().toISOString()
     });
     
-    if (integration) {
-      // Update existing integration with tokens and service type
-      integration = await storage.updateCalendarIntegration(integration.id, {
+    // Get all integrations for this tenant+provider+email combination
+    const existingIntegrations = await storage.getCalendarIntegrationsByUser(userId, tenantId);
+    const duplicateIntegrations = existingIntegrations.filter(i => 
+      i.provider === 'google' && 
+      i.providerAccountId === tokens.email &&
+      i.serviceType === serviceType
+    );
+    
+    let integration;
+    let wasUpdated = false;
+    
+    if (duplicateIntegrations.length > 0) {
+      // Use the first integration and deactivate all others
+      const primaryIntegration = duplicateIntegrations[0];
+      
+      // Deactivate all duplicates except the primary one
+      for (const duplicate of duplicateIntegrations.slice(1)) {
+        await storage.updateCalendarIntegration(duplicate.id, {
+          isActive: false
+        }, tenantId);
+        console.log('🔄 OAUTH UPSERT: Deactivated duplicate integration', {
+          action: 'oauth_upsert',
+          provider: 'google',
+          tenantId,
+          integrationId: duplicate.id,
+          deactivated: true,
+          timestamp: new Date().toISOString()
+        });
+      }
+      
+      // Update the primary integration with new tokens
+      integration = await storage.updateCalendarIntegration(primaryIntegration.id, {
         accessToken: tokens.access_token,
-        refreshToken: tokens.refresh_token || integration.refreshToken,
+        refreshToken: tokens.refresh_token || primaryIntegration.refreshToken,
         providerAccountId: tokens.email,
         serviceType: serviceType,
         isActive: true,
         lastSyncAt: new Date(),
         syncErrors: null // Clear any previous sync errors on successful reconnection
       }, tenantId);
-      console.log('🔐 TOKEN PERSISTENCE: Integration updated', { 
-        operation: 'UPDATE',
-        integrationId: integration.id, 
+      wasUpdated = true;
+      
+      console.log('🔐 OAUTH UPSERT: Integration updated', {
+        action: 'oauth_upsert',
+        provider: 'google',
         tenantId,
+        integrationId: integration.id,
         email: tokens.email,
-        serviceType, 
-        syncErrorsCleared: true,
-        statusFlipped: 'connected',
-        tokensUpdated: {
-          accessToken: !!integration.accessToken,
-          refreshToken: !!integration.refreshToken
-        },
+        serviceType,
+        updated: true,
+        duplicatesDeactivated: duplicateIntegrations.length - 1,
         timestamp: new Date().toISOString()
       });
     } else {
-      // Create new integration with service type - include tenantId in integration object
+      // Create new integration - no duplicates found
       integration = await storage.createCalendarIntegration({
         tenantId, // Explicitly include tenantId in integration object
         userId,
@@ -548,17 +569,15 @@ router.get('/auth/google/callback', async (req, res) => {
         isActive: true,
         syncDirection: 'bidirectional'
       }, tenantId);
-      console.log('🔐 TOKEN PERSISTENCE: New integration created', { 
-        operation: 'CREATE',
-        integrationId: integration.id, 
+      
+      console.log('🔐 OAUTH UPSERT: New integration created', {
+        action: 'oauth_upsert',
+        provider: 'google',
         tenantId,
+        integrationId: integration.id,
         email: tokens.email,
         serviceType,
-        statusFlipped: 'connected',
-        tokensStored: {
-          accessToken: !!integration.accessToken,
-          refreshToken: !!integration.refreshToken
-        },
+        created: true,
         timestamp: new Date().toISOString()
       });
     }

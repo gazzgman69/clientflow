@@ -923,8 +923,8 @@ export default function VenuesPage() {
                                 if (venue.address && venue.address.includes(',')) {
                                   return venue.address;
                                 }
-                                // Otherwise build from components
-                                return [venue.address, venue.city, venue.state]
+                                // Otherwise build from components including postcode
+                                return [venue.address, venue.city, venue.state, venue.zipCode]
                                   .filter(Boolean)
                                   .join(", ");
                               })()}

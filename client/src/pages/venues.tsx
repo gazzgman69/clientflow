@@ -919,12 +919,35 @@ export default function VenuesPage() {
                             <MapPin className="h-3 w-3" />
                             <span data-testid={`text-location-${venue.id}`}>
                               {(() => {
-                                // If address exists and seems to be a formatted address (contains commas), use it
+                                // Helper function to extract postcode from text
+                                const extractPostcode = (text) => {
+                                  if (!text) return null;
+                                  // UK postcode pattern: letter(s) + number(s) + optional letter + space + number + letter(s)
+                                  const postcodeMatch = text.match(/\b[A-Z]{1,2}\d{1,2}[A-Z]?\s?\d[A-Z]{2}\b/g);
+                                  return postcodeMatch ? postcodeMatch[postcodeMatch.length - 1] : null;
+                                };
+
+                                // Get postcode from dedicated fields first, then try extracting from address
+                                let postcodeToShow = venue.zipCode || venue.postalCode;
+                                if (!postcodeToShow) {
+                                  postcodeToShow = extractPostcode(venue.address);
+                                }
+
+                                // If address contains commas and postcode, check if postcode is already included
                                 if (venue.address && venue.address.includes(',')) {
+                                  const addressHasPostcode = extractPostcode(venue.address);
+                                  if (addressHasPostcode) {
+                                    // Address already contains postcode, return as-is
+                                    return venue.address;
+                                  } else if (postcodeToShow) {
+                                    // Address doesn't have postcode, append it
+                                    return `${venue.address}, ${postcodeToShow}`;
+                                  }
                                   return venue.address;
                                 }
-                                // Otherwise build from components including postcode
-                                return [venue.address, venue.city, venue.state, venue.zipCode || venue.postalCode]
+                                
+                                // Build from components
+                                return [venue.address, venue.city, venue.state, postcodeToShow]
                                   .filter(Boolean)
                                   .join(", ");
                               })()}

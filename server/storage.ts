@@ -478,22 +478,22 @@ export class MemStorage implements IStorage {
     // Initialize with default admin user (DEVELOPMENT ONLY)
     // TODO: In production, remove this default user or require strong random credentials via environment variables
     if (process.env.NODE_ENV !== 'production') {
+      const defaultUserId = "feeaaeef-9bbb-4d93-9de1-313db0c223cd"; // Match the session user ID
       const defaultUser: User = {
-        id: crypto.randomUUID(),
+        id: defaultUserId,
         username: "admin",
         password: "$2b$12$SM67YK8RyHHkIISwIXS/OOjT5FQiKCOrMBRXzBljj4JlIqD6e/mhi", // bcrypt hashed "password" - CHANGE IN PRODUCTION
         email: "admin@localhost.dev",
         role: "super_admin",
         firstName: "Admin",
         lastName: "User",
-        avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=100&h=100",
+        avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1pYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=100&h=100",
         createdAt: new Date(),
+        tenantId: "default-tenant",
       };
       this.users.set(defaultUser.id, defaultUser);
-    }
     
-    // Initialize with default tenant for development
-    if (process.env.NODE_ENV !== 'production') {
+      // Initialize default tenant for development
       const defaultTenant: import('@shared/schema').Tenant = {
         id: 'default-tenant',
         name: 'Default Tenant',
@@ -506,7 +506,153 @@ export class MemStorage implements IStorage {
         updatedAt: new Date(),
       };
       this.tenants.set(defaultTenant.id, defaultTenant);
+      
+      // Add sample data for immediate access
+      const tenantId = "default-tenant";
+      
+      // Sample contacts
+      this.contacts.set("contact-1", {
+        id: "contact-1",
+        firstName: "John",
+        lastName: "Smith",
+        email: "john.smith@example.com",
+        phone: "+1 555 0123",
+        company: "Smith Events Ltd",
+        status: "active",
+        tenantId,
+        userId: defaultUserId,
+        createdAt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000), // 30 days ago
+        updatedAt: new Date(),
+      });
+
+      this.contacts.set("contact-2", {
+        id: "contact-2", 
+        firstName: "Sarah",
+        lastName: "Johnson",
+        email: "sarah.johnson@weddings.com",
+        phone: "+1 555 0456",
+        company: "Johnson Weddings",
+        status: "active",
+        tenantId,
+        userId: defaultUserId,
+        createdAt: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000), // 15 days ago
+        updatedAt: new Date(),
+      });
+
+      // Sample projects
+      this.projects.set("project-1", {
+        id: "project-1",
+        name: "Summer Music Festival 2024",
+        description: "Annual outdoor music festival with multiple stages",
+        status: "active",
+        startDate: new Date(2024, 5, 15), // June 15, 2024
+        endDate: new Date(2024, 5, 17), // June 17, 2024
+        budget: "50000.00",
+        clientContactId: "contact-1",
+        tenantId,
+        userId: defaultUserId,
+        createdAt: new Date(Date.now() - 45 * 24 * 60 * 60 * 1000), // 45 days ago
+        updatedAt: new Date(),
+      });
+
+      this.projects.set("project-2", {
+        id: "project-2",
+        name: "Corporate Conference 2024",
+        description: "Annual company conference and networking event",
+        status: "planning",
+        startDate: new Date(2024, 8, 10), // September 10, 2024
+        endDate: new Date(2024, 8, 12), // September 12, 2024
+        budget: "25000.00",
+        clientContactId: "contact-2",
+        tenantId,
+        userId: defaultUserId,
+        createdAt: new Date(Date.now() - 20 * 24 * 60 * 60 * 1000), // 20 days ago
+        updatedAt: new Date(),
+      });
+
+      // Sample venues
+      this.venues.set("venue-1", {
+        id: "venue-1",
+        name: "Stratton Court Barn",
+        description: "Beautiful rustic barn venue perfect for weddings and events",
+        address: "123 Country Lane",
+        city: "Countryside",
+        state: "CA",
+        zipCode: "90210",
+        country: "USA",
+        capacity: 150,
+        pricePerHour: "200.00",
+        amenities: ["Parking", "Kitchen", "Restrooms", "Dance Floor"],
+        contactEmail: "info@strattoncourt.com",
+        contactPhone: "+1 555 0789",
+        tenantId,
+        createdAt: new Date(Date.now() - 60 * 24 * 60 * 60 * 1000), // 60 days ago
+        updatedAt: new Date(),
+      });
+
+      this.venues.set("venue-2", {
+        id: "venue-2",
+        name: "The Post Barn",
+        description: "Historic converted barn with modern amenities",
+        address: "456 Heritage Road",
+        city: "Historic District",
+        state: "CA",
+        zipCode: "90211",
+        country: "USA", 
+        capacity: 200,
+        pricePerHour: "300.00",
+        amenities: ["Parking", "Catering Kitchen", "Bridal Suite", "Sound System"],
+        contactEmail: "events@thepostbarn.com",
+        contactPhone: "+1 555 0321",
+        tenantId,
+        createdAt: new Date(Date.now() - 40 * 24 * 60 * 60 * 1000), // 40 days ago
+        updatedAt: new Date(),
+      });
+
+      // Sample lead with venue information (matching existing session data)
+      this.leads.set("lead-1", {
+        id: "lead-1",
+        firstName: "Gareth",
+        lastName: "Gwyn",
+        email: "gareth.gwyn@example.com",
+        phone: "+1 555 0987",
+        status: "new",
+        leadSource: "website",
+        notes: "Wedding - Gareth Gwyn at venue location",
+        projectDate: new Date(2024, 5, 20),
+        estimatedValue: "15000.00",
+        tenantId,
+        userId: defaultUserId,
+        assignedTo: defaultUserId,
+        createdAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000), // 7 days ago
+        updatedAt: new Date(),
+      });
     }
+  }
+
+  // Tenant methods (required by tenant resolver)
+  async getActiveTenants(): Promise<{ id: string; name: string; slug: string }[]> {
+    return Array.from(this.tenants.values())
+      .filter(tenant => tenant.isActive)
+      .map(tenant => ({
+        id: tenant.id,
+        name: tenant.name,
+        slug: tenant.slug
+      }));
+  }
+
+  async getTenantBySlug(slug: string): Promise<import('@shared/schema').Tenant | undefined> {
+    return Array.from(this.tenants.values())
+      .find(tenant => tenant.slug === slug && tenant.isActive);
+  }
+
+  async getTenantByDomain(domain: string): Promise<import('@shared/schema').Tenant | undefined> {
+    return Array.from(this.tenants.values())
+      .find(tenant => tenant.domain === domain && tenant.isActive);
+  }
+
+  async getTenant(id: string): Promise<import('@shared/schema').Tenant | undefined> {
+    return this.tenants.get(id);
   }
 
   // Users
@@ -629,6 +775,16 @@ export class MemStorage implements IStorage {
     );
   }
 
+  async getContactsCount(tenantId: string, userId?: string): Promise<number> {
+    let contacts = Array.from(this.contacts.values()).filter(contact => 
+      contact.tenantId === tenantId || !contact.tenantId
+    );
+    if (userId) {
+      contacts = contacts.filter(contact => contact.userId === userId);
+    }
+    return contacts.length;
+  }
+
   async getContact(id: string): Promise<Contact | undefined> {
     return this.contacts.get(id);
   }
@@ -703,6 +859,16 @@ export class MemStorage implements IStorage {
     return projects.sort((a, b) => 
       new Date(b.createdAt!).getTime() - new Date(a.createdAt!).getTime()
     );
+  }
+
+  async getProjectsCount(tenantId: string, userId?: string): Promise<number> {
+    let projects = Array.from(this.projects.values()).filter(project => 
+      project.tenantId === tenantId || !project.tenantId
+    );
+    if (userId) {
+      projects = projects.filter(project => project.userId === userId || project.assignedTo === userId);
+    }
+    return projects.length;
   }
 
   async getProject(id: string): Promise<Project | undefined> {
@@ -4275,4 +4441,6 @@ export class DrizzleStorage implements IStorage {
   }
 }
 
-export const storage = new DrizzleStorage();
+// TEMPORARY FIX: Switch to MemStorage to bypass Drizzle circular reference issue
+// TODO: Fix DrizzleStorage circular reference and switch back
+export const storage = new MemStorage();

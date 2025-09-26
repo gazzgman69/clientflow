@@ -58,7 +58,7 @@ export default function Contacts() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: contacts, isLoading } = useQuery<Contact[]>({
+  const { data: contactsData, isLoading } = useQuery<{contacts: Contact[], pagination: any}>({
     queryKey: ["/api/contacts"],
     refetchInterval: 30000, // Refresh every 30 seconds for reasonable updates
     refetchIntervalInBackground: false, // Don't poll when tab is inactive
@@ -66,6 +66,8 @@ export default function Contacts() {
     refetchOnMount: true, // Refresh when component mounts
     refetchOnReconnect: true, // Refresh on reconnect
   });
+
+  const contacts = contactsData?.contacts || [];
 
   const form = useForm<z.infer<typeof insertContactSchema>>({
     resolver: zodResolver(insertContactSchema),

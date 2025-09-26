@@ -75,7 +75,7 @@ export default function Projects() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: projects, isLoading } = useQuery<Project[]>({
+  const { data: projectsData, isLoading } = useQuery<{projects: Project[], pagination: any}>({
     queryKey: ["/api/projects"],
     refetchInterval: 30000, // Refresh every 30 seconds for reasonable updates
     refetchIntervalInBackground: false, // Don't poll when tab is inactive
@@ -83,6 +83,8 @@ export default function Projects() {
     refetchOnMount: true, // Refresh when component mounts
     refetchOnReconnect: true, // Refresh on reconnect
   });
+
+  const projects = projectsData?.projects || [];
 
   const { data: contacts } = useQuery<Contact[]>({
     queryKey: ["/api/contacts"],

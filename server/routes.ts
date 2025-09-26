@@ -234,18 +234,29 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   const { configService } = await import('./src/services/configService');
   const sessionSecret = await configService.getSessionSecret();
   
-  app.use(session({
+  // Environment-specific session cookie configuration
+  // Only use Replit configuration for actual Replit deployment domain requests
+  const sessionConfig = {
     store: enhancedSessionStore,
     secret: sessionSecret,
     resave: false,
     saveUninitialized: false,
     cookie: {
-      sameSite: 'lax',
-      secure: process.env.NODE_ENV === 'production', // Only require HTTPS in production
+      // Use dynamic configuration based on request host
+      sameSite: 'lax' as const,
+      secure: process.env.NODE_ENV === 'production',
       httpOnly: true,
       maxAge: 24 * 60 * 60 * 1000 // 24 hours
+      // Domain will be set dynamically per request if needed
     }
-  }));
+  };
+  
+  console.log('🍪 SESSION CONFIGURATION:', {
+    cookieConfig: sessionConfig.cookie,
+    note: 'Domain will be dynamically set for Replit requests'
+  });
+  
+  app.use(session(sessionConfig));
   
   // JSON parsing middleware
   app.use(express.json());
@@ -1074,16 +1085,48 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
         }
         req.session.tenantId = user.tenantId;
         
-        res.json({ 
-          success: true, 
-          user: { 
-            id: user.id, 
-            username: user.username, 
-            email: user.email, 
-            firstName: user.firstName,
-            lastName: user.lastName,
-            role: user.role
-          } 
+        console.log('🔐 SESSION DATA SAVED:', {
+          sessionId: req.session.id,
+          userId: req.session.userId,
+          tenantId: req.session.tenantId,
+          userTenantId: user.tenantId,
+          cookieSecure: req.session.cookie.secure,
+          cookieHttpOnly: req.session.cookie.httpOnly,
+          sessionSaved: !!req.session.userId
+        });
+        
+        // Explicitly save session to ensure persistence
+        req.session.save((saveErr: any) => {
+          if (saveErr) {
+            console.error('Session save error:', saveErr);
+            return res.status(500).json({ error: 'Session save failed' });
+          }
+          
+          console.log('✅ SESSION EXPLICITLY SAVED');
+          
+          // Debug: Check Set-Cookie header being sent  
+          try {
+            const setCookieHeader = res.getHeader('Set-Cookie');
+            console.log('🍪 SET-COOKIE HEADER DEBUG:', {
+              setCookieHeader: setCookieHeader || 'NONE',
+              sessionId: req.session?.id || 'NO_SESSION_ID',
+              hasSetCookie: !!setCookieHeader
+            });
+          } catch (debugError) {
+            console.log('🚨 DEBUG ERROR:', debugError.message);
+          }
+          
+          res.json({ 
+            success: true, 
+            user: { 
+              id: user.id, 
+              username: user.username, 
+              email: user.email, 
+              firstName: user.firstName,
+              lastName: user.lastName,
+              role: user.role
+            } 
+          });
         });
       });
     } catch (error: any) {
@@ -1684,10 +1727,11 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     res.json({ message: 'Test route next to working route works!', timestamp: new Date().toISOString() });
   });
 
-  app.get('/api/auth/me', ensureUserAuth, async (req, res) => {
+  app.get('/api/auth/me', ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
     try {
       const userId = req.authenticatedUserId;
-      const user = await storage.getUser(userId);
+      const tenantId = (req as any).tenantId;
+      const user = await storage.getUser(userId, tenantId);
       if (!user) {
         return res.status(404).json({ error: 'User not found' });
       }
@@ -2136,6 +2180,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
         }
       });
     } catch (error) {
+      console.error('Error in contacts API:', error);
       res.status(500).json({ message: "Failed to fetch contacts" });
     }
   });
@@ -2365,6 +2410,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
         }
       });
     } catch (error) {
+      console.error('Error in projects API:', error);
       res.status(500).json({ message: "Failed to fetch projects" });
     }
   });

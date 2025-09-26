@@ -79,7 +79,7 @@ export const validateTenantSession = async (req: SecurityRequest, res: Response,
     const { storage } = await import('../storage');
     
     // Validate user exists and belongs to tenant
-    const user = await storage.getUser(req.session.userId);
+    const user = await storage.getUser(req.session.userId, req.tenantId);
     if (!user) {
       console.warn(`🚨 SECURITY: User ${req.session.userId} not found - terminating session`);
       req.session.destroy((err) => {

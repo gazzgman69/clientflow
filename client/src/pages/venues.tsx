@@ -317,6 +317,42 @@ export default function VenuesPage() {
     },
   });
 
+  const enrichMutation = useMutation({
+    mutationFn: (id: string) => apiRequest("POST", `/api/venues/${id}/enrich`),
+    onSuccess: (enrichedVenue: Venue) => {
+      // Invalidate and refetch venues list to show updated data
+      queryClient.invalidateQueries({ queryKey: ["/api/venues"] });
+      queryClient.setQueryData(["/api/venues", enrichedVenue.id], enrichedVenue);
+      
+      // Update the form with new data if this venue is currently being edited
+      if (selectedVenue && selectedVenue.id === enrichedVenue.id) {
+        setSelectedVenue(enrichedVenue);
+        // Update form fields with enriched data
+        if (enrichedVenue.contactPhone && !form.getValues("contactPhone")) {
+          form.setValue("contactPhone", enrichedVenue.contactPhone);
+        }
+        if (enrichedVenue.contactEmail && !form.getValues("contactEmail")) {
+          form.setValue("contactEmail", enrichedVenue.contactEmail);
+        }
+        if (enrichedVenue.website && !form.getValues("website")) {
+          form.setValue("website", enrichedVenue.website);
+        }
+      }
+      
+      toast({
+        title: "Success",
+        description: "Venue enriched with additional information from Google Places",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error", 
+        description: "Failed to enrich venue. No matching Google Places data found.",
+        variant: "destructive",
+      });
+    },
+  });
+
   const handleSubmit = (data: VenueFormData) => {
     if (selectedVenue) {
       updateMutation.mutate({ id: selectedVenue.id, data });
@@ -850,6 +886,20 @@ export default function VenuesPage() {
                   >
                     Cancel
                   </Button>
+                  
+                  {/* Show Enrich button only when editing existing venue */}
+                  {selectedVenue && (
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      onClick={() => enrichMutation.mutate(selectedVenue.id)}
+                      disabled={enrichMutation.isPending || createMutation.isPending || updateMutation.isPending}
+                      data-testid="button-enrich"
+                    >
+                      {enrichMutation.isPending ? "Enriching..." : "Enrich with Google Places"}
+                    </Button>
+                  )}
+                  
                   <Button 
                     type="submit" 
                     disabled={createMutation.isPending || updateMutation.isPending}

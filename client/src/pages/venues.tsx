@@ -26,6 +26,16 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Table,
   TableBody,
   TableCell,
@@ -100,9 +110,27 @@ function getPriceLevelDisplay(priceLevel: number | null | undefined) {
   return symbols[priceLevel - 1] || null;
 }
 
+interface DeletionPreview {
+  venue: {
+    id: string;
+    name: string;
+    address?: string;
+  };
+  associations: {
+    projectCount: number;
+    contactCount: number;
+    totalCount: number;
+  };
+  canDelete: boolean;
+  message: string;
+}
+
 export default function VenuesPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedVenue, setSelectedVenue] = useState<Venue | null>(null);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [venueToDelete, setVenueToDelete] = useState<Venue | null>(null);
+  const [deletionPreview, setDeletionPreview] = useState<DeletionPreview | null>(null);
   const { toast } = useToast();
 
   const { data: venuesData, isLoading } = useQuery<{ venues: Venue[] }>({
@@ -250,6 +278,21 @@ export default function VenuesPage() {
     },
   });
 
+  const deletionPreviewMutation = useMutation({
+    mutationFn: (id: string) => apiRequest("GET", `/api/venues/${id}/deletion-preview`),
+    onSuccess: (preview: DeletionPreview) => {
+      setDeletionPreview(preview);
+      setDeleteConfirmOpen(true);
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to get deletion preview",
+        variant: "destructive",
+      });
+    },
+  });
+
   const deleteMutation = useMutation({
     mutationFn: (id: string) => apiRequest("DELETE", `/api/venues/${id}`),
     onSuccess: (_, id) => {
@@ -257,6 +300,9 @@ export default function VenuesPage() {
       clearVenueAutocompleteCache();
       queryClient.invalidateQueries({ queryKey: ["/api/venues"] });
       queryClient.removeQueries({ queryKey: ["/api/venues", id] });
+      setDeleteConfirmOpen(false);
+      setVenueToDelete(null);
+      setDeletionPreview(null);
       toast({
         title: "Success",
         description: "Venue deleted successfully",
@@ -303,6 +349,11 @@ export default function VenuesPage() {
       notes: venue.notes || "",
     });
     setIsDialogOpen(true);
+  };
+
+  const handleDelete = (venue: Venue) => {
+    setVenueToDelete(venue);
+    deletionPreviewMutation.mutate(venue.id);
   };
 
   const handleDialogClose = (open: boolean) => {
@@ -1020,8 +1071,9 @@ export default function VenuesPage() {
                           size="icon"
                           onClick={(e) => {
                             e.stopPropagation();
-                            deleteMutation.mutate(venue.id);
+                            handleDelete(venue);
                           }}
+                          disabled={deletionPreviewMutation.isPending}
                           data-testid={`button-delete-${venue.id}`}
                         >
                           <Trash className="h-4 w-4" />
@@ -1035,6 +1087,73 @@ export default function VenuesPage() {
           </CardContent>
         </Card>
       )}
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+        <AlertDialogContent data-testid="dialog-delete-confirmation">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Venue</AlertDialogTitle>
+            <AlertDialogDescription>
+              {deletionPreview && (
+                <div className="space-y-3">
+                  <div>
+                    Are you sure you want to delete "<strong>{deletionPreview.venue.name}</strong>"?
+                  </div>
+                  
+                  {deletionPreview.associations.totalCount > 0 ? (
+                    <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3">
+                      <div className="flex items-start gap-2">
+                        <div className="w-4 h-4 rounded-full bg-yellow-400 flex-shrink-0 mt-0.5"></div>
+                        <div className="text-sm">
+                          <div className="font-medium text-yellow-800 mb-1">Warning</div>
+                          <div className="text-yellow-700">
+                            {deletionPreview.message}
+                          </div>
+                          {deletionPreview.associations.contactCount > 0 && (
+                            <div className="mt-2 text-yellow-600">
+                              • {deletionPreview.associations.contactCount} contact(s) will lose their venue association
+                            </div>
+                          )}
+                          {deletionPreview.associations.projectCount > 0 && (
+                            <div className="text-yellow-600">
+                              • {deletionPreview.associations.projectCount} project(s) will lose their venue association
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-muted-foreground">
+                      {deletionPreview.message}
+                    </div>
+                  )}
+                  
+                  <div className="text-sm text-muted-foreground">
+                    This action cannot be undone.
+                  </div>
+                </div>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancel-delete">
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (venueToDelete) {
+                  deleteMutation.mutate(venueToDelete.id);
+                }
+              }}
+              disabled={deleteMutation.isPending}
+              className="bg-red-600 hover:bg-red-700"
+              data-testid="button-confirm-delete"
+            >
+              {deleteMutation.isPending ? "Deleting..." : "Delete Venue"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

@@ -427,15 +427,103 @@ router.put('/:id', async (req, res) => {
   }
 });
 
-// DELETE /api/venues/:id - Delete venue
+// GET /api/venues/:id/deletion-preview - Get venue deletion preview
+router.get('/:id/deletion-preview', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const tenantId = (req as any).tenantId;
+    
+    // Check if venue exists
+    const venue = await venuesService.getVenue(id, tenantId);
+    if (!venue) {
+      return res.status(404).json({ 
+        message: 'Venue not found' 
+      });
+    }
+
+    // Count associated projects and contacts
+    const { default: storage } = await import('../../storage');
+    const neon = await import('@neondatabase/serverless');
+    const neonClient = neon.neon(process.env.DATABASE_URL!);
+    
+    // Count projects using this venue
+    const projectCountResult = await neonClient(`
+      SELECT COUNT(*) as count 
+      FROM projects 
+      WHERE venue_id = $1 AND tenant_id = $2
+    `, [id, tenantId]);
+    const projectCount = parseInt((projectCountResult[0] as any).count);
+    
+    // Count contacts using this venue  
+    const contactCountResult = await neonClient(`
+      SELECT COUNT(*) as count 
+      FROM contacts 
+      WHERE venue_id = $1 AND tenant_id = $2
+    `, [id, tenantId]);
+    const contactCount = parseInt((contactCountResult[0] as any).count);
+    
+    res.json({
+      venue: {
+        id: venue.id,
+        name: venue.name,
+        address: venue.address
+      },
+      associations: {
+        projectCount,
+        contactCount,
+        totalCount: projectCount + contactCount
+      },
+      canDelete: true, // Always allow deletion but show warning
+      message: projectCount + contactCount > 0 
+        ? `This venue is linked to ${contactCount} contact(s) and ${projectCount} project(s). These references will be cleared if you proceed.`
+        : 'This venue can be safely deleted.'
+    });
+  } catch (error) {
+    console.error('Error getting venue deletion preview:', error);
+    res.status(500).json({ 
+      message: 'Failed to get deletion preview' 
+    });
+  }
+});
+
+// DELETE /api/venues/:id - Delete venue  
 router.delete('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const deleted = await venuesService.deleteVenue(id, (req as any).tenantId);
+    const tenantId = (req as any).tenantId;
     
-    if (!deleted) {
+    // Check if venue exists
+    const venue = await venuesService.getVenue(id, tenantId);
+    if (!venue) {
       return res.status(404).json({ 
         message: 'Venue not found' 
+      });
+    }
+
+    // Clear venue references from contacts and projects to avoid foreign key constraint errors
+    const neon = await import('@neondatabase/serverless');
+    const neonClient = neon.neon(process.env.DATABASE_URL!);
+    
+    // Clear venue_id from contacts
+    await neonClient(`
+      UPDATE contacts 
+      SET venue_id = NULL 
+      WHERE venue_id = $1 AND tenant_id = $2
+    `, [id, tenantId]);
+    
+    // Clear venue_id from projects
+    await neonClient(`
+      UPDATE projects 
+      SET venue_id = NULL 
+      WHERE venue_id = $1 AND tenant_id = $2
+    `, [id, tenantId]);
+    
+    // Now delete the venue
+    const deleted = await venuesService.deleteVenue(id, tenantId);
+    
+    if (!deleted) {
+      return res.status(500).json({ 
+        message: 'Failed to delete venue after clearing references' 
       });
     }
     

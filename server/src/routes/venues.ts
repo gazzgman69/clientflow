@@ -248,12 +248,13 @@ router.post('/:id/enrich', async (req, res) => {
   }
 });
 
-// POST /api/venues - Create new venue with full field validation
+// POST /api/venues - Create new venue with full field validation and deduplication
 router.post('/', async (req, res) => {
   try {
     const validatedData = insertVenueSchema.parse(req.body);
     
-    const venue = await venuesService.createVenue(validatedData, (req as any).tenantId);
+    // Use findOrCreateVenue to ensure deduplication logic is applied
+    const venue = await venuesService.findOrCreateVenue(validatedData, (req as any).tenantId);
     res.status(201).json(venue);
   } catch (error) {
     console.error('Error creating venue:', error);

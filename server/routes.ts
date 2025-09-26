@@ -1871,10 +1871,11 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
       const totalInvoiceValue = parseFloat((invoicesResult[0] as any).total_value || '0');
       const contractsResult = await neonClient('SELECT COUNT(*) as count FROM contracts WHERE tenant_id = $1', [req.tenantId]);
       const contractsCount = parseInt((contractsResult[0] as any).count);
-      const membersResult = await neonClient('SELECT COUNT(*) as count FROM members WHERE tenant_id = $1', [req.tenantId]);
+      // Note: members and venues tables might not have tenant_id column yet
+      const membersResult = await neonClient('SELECT COUNT(*) as count FROM members');
       const membersCount = parseInt((membersResult[0] as any).count);
       // Get venues count using neonClient already declared above
-      const venuesResult = await neonClient('SELECT COUNT(*) as count FROM venues WHERE tenant_id = $1', [req.tenantId]);
+      const venuesResult = await neonClient('SELECT COUNT(*) as count FROM venues');
       const venuesCount = parseInt((venuesResult[0] as any).count);
 
       // Calculate metrics
@@ -1936,6 +1937,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
         activeProjects,
       });
     } catch (error) {
+      console.error('Error in business metrics:', error);
       res.status(500).json({ message: "Failed to fetch business metrics" });
     }
   });

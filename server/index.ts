@@ -301,9 +301,9 @@ app.use((req, res, next) => {
       await jobs.enqueueRecurring('calendar-sync', {}, 5 * 60 * 1000);
       console.log('✅ Calendar auto-sync job scheduled (every 5 minutes)');
       
-      // Email auto-sync: every 3 minutes (180000ms)
-      await jobs.enqueueRecurring('email-sync', {}, 3 * 60 * 1000);
-      console.log('✅ Email auto-sync job scheduled (every 3 minutes)');
+      // Email auto-sync: DISABLED for performance (was running every 3 minutes)
+      // await jobs.enqueueRecurring('email-sync', {}, 3 * 60 * 1000);
+      console.log('⏸️ Email auto-sync job DISABLED (was processing 100+ emails every 3 minutes)');
       
       // Lead automation: every 5 minutes (300000ms)
       await jobs.enqueueRecurring('lead-automation', {}, 5 * 60 * 1000);

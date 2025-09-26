@@ -669,49 +669,5 @@ export class GoogleOAuthService {
   }
 }
 
-/**
- * Simple function to get Google auth URL with force consent and service-specific scopes
- */
-export function getGoogleAuthUrl({ 
-  state, 
-  codeChallenge, 
-  codeChallengeMethod,
-  serviceType = 'all'
-}: { 
-  state: string;
-  codeChallenge?: string;
-  codeChallengeMethod?: string;
-  serviceType?: 'gmail' | 'calendar' | 'all';
-}): string {
-  // Select appropriate scopes based on service type
-  let scopes: string[];
-  switch (serviceType) {
-    case 'gmail':
-      scopes = GMAIL_SCOPES;
-      break;
-    case 'calendar':
-      scopes = CALENDAR_SCOPES;
-      break;
-    default:
-      scopes = SCOPES; // Backward compatibility - all scopes
-  }
-
-  const authParams: any = {
-    access_type: 'offline',
-    prompt: 'consent',
-    response_type: 'code',
-    state,
-    scope: scopes,
-  };
-  
-  // Add PKCE parameters if provided
-  if (codeChallenge) {
-    authParams.code_challenge = codeChallenge;
-    authParams.code_challenge_method = codeChallengeMethod || 'S256';
-    console.log(`🔐 SECURITY: getGoogleAuthUrl using PKCE challenge for ${serviceType} service`);
-  }
-  
-  return getOAuth2Client().generateAuthUrl(authParams);
-}
 
 export const googleOAuthService = new GoogleOAuthService();

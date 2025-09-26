@@ -66,11 +66,11 @@ export const contacts = pgTable("contacts", {
   venueState: text("venue_state"),
   venueZipCode: text("venue_zip_code"),
   venueCountry: text("venue_country"),
-  venueId: varchar("venue_id"),
+  venueId: varchar("venue_id"), // Note: Removed .references(() => venues.id) to break circular FK dependency
   tags: text("tags").array(),
   leadSource: text("lead_source"),
   notes: text("notes"),
-  leadId: varchar("lead_id"),
+  leadId: varchar("lead_id"), // Note: Removed .references(() => leads.id) to break circular FK dependency
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -81,8 +81,8 @@ export const projects = pgTable("projects", {
   userId: varchar("user_id").references(() => users.id), // Made nullable initially for safe migration
   name: text("name").notNull(),
   description: text("description"),
-  contactId: varchar("contact_id").references(() => contacts.id).notNull(),
-  venueId: varchar("venue_id").references(() => venues.id),
+  contactId: varchar("contact_id").notNull(), // Note: Removed .references(() => contacts.id) to break circular FK dependency
+  venueId: varchar("venue_id"), // Note: Removed .references(() => venues.id) to break circular FK dependency
   status: text("status").notNull().default('active'), // active, completed, on-hold, cancelled
   progress: integer("progress").default(0), // 0-100
   startDate: timestamp("start_date"),
@@ -111,7 +111,7 @@ export const leads = pgTable("leads", {
   status: text("status").notNull().default('new'), // new, qualified, follow-up, converted, lost
   notes: text("notes"),
   assignedTo: varchar("assigned_to").references(() => users.id),
-  projectId: varchar("project_id").references(() => projects.id),
+  projectId: varchar("project_id"), // Note: Removed .references(() => projects.id) to break circular FK dependency
   lastContactAt: timestamp("last_contact_at"), // updated on outbound email or logged call
   lastManualStatusAt: timestamp("last_manual_status_at"), // set when status changed by a user
   projectDate: timestamp("project_date"), // event/project date from form
@@ -131,8 +131,8 @@ export const quotes = pgTable("quotes", {
   tenantId: varchar("tenant_id").references(() => tenants.id), // Nullable initially for safe migration
   userId: varchar("user_id").references(() => users.id), // Made nullable initially for safe migration
   quoteNumber: text("quote_number").notNull().unique(),
-  contactId: varchar("contact_id").references(() => contacts.id),
-  leadId: varchar("lead_id").references(() => leads.id),
+  contactId: varchar("contact_id"), // Note: Removed .references(() => contacts.id) to break circular FK dependency
+  leadId: varchar("lead_id"), // Note: Removed .references(() => leads.id) to break circular FK dependency
   title: text("title").notNull(),
   description: text("description"),
   eventDate: timestamp("event_date"), // Event/project date for quote
@@ -161,9 +161,9 @@ export const contracts = pgTable("contracts", {
   tenantId: varchar("tenant_id").references(() => tenants.id), // Nullable initially for safe migration
   userId: varchar("user_id").references(() => users.id), // Made nullable initially for safe migration
   contractNumber: text("contract_number").notNull().unique(),
-  contactId: varchar("contact_id").references(() => contacts.id).notNull(),
-  projectId: varchar("project_id").references(() => projects.id),
-  quoteId: varchar("quote_id").references(() => quotes.id),
+  contactId: varchar("contact_id").notNull(), // Note: Removed .references(() => contacts.id) to break circular FK dependency
+  projectId: varchar("project_id"), // Note: Removed .references(() => projects.id) to break circular FK dependency
+  quoteId: varchar("quote_id"), // Note: Removed .references(() => quotes.id) to break circular FK dependency
   title: text("title").notNull(),
   description: text("description"),
   terms: text("terms"),
@@ -186,9 +186,9 @@ export const invoices = pgTable("invoices", {
   tenantId: varchar("tenant_id").references(() => tenants.id), // Nullable initially for safe migration
   userId: varchar("user_id").references(() => users.id), // Made nullable initially for safe migration
   invoiceNumber: text("invoice_number").notNull().unique(),
-  contactId: varchar("contact_id").references(() => contacts.id).notNull(),
-  projectId: varchar("project_id").references(() => projects.id),
-  contractId: varchar("contract_id").references(() => contracts.id),
+  contactId: varchar("contact_id").notNull(), // Note: Removed .references(() => contacts.id) to break circular FK dependency
+  projectId: varchar("project_id"), // Note: Removed .references(() => projects.id) to break circular FK dependency
+  contractId: varchar("contract_id"), // Note: Removed .references(() => contracts.id) to break circular FK dependency
   title: text("title").notNull(),
   description: text("description"),
   subtotal: decimal("subtotal", { precision: 10, scale: 2 }).notNull(),
@@ -214,9 +214,9 @@ export const tasks = pgTable("tasks", {
   dueDate: timestamp("due_date"),
   completedAt: timestamp("completed_at"),
   assignedTo: varchar("assigned_to").references(() => users.id),
-  leadId: varchar("lead_id").references(() => leads.id),
-  contactId: varchar("contact_id").references(() => contacts.id),
-  projectId: varchar("project_id").references(() => projects.id),
+  leadId: varchar("lead_id"), // Note: Removed .references(() => leads.id) to break circular FK dependency
+  contactId: varchar("contact_id"), // Note: Removed .references(() => contacts.id) to break circular FK dependency
+  projectId: varchar("project_id"), // Note: Removed .references(() => projects.id) to break circular FK dependency
   createdBy: varchar("created_by").references(() => users.id).notNull(),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
@@ -227,7 +227,7 @@ export const emailThreads = pgTable("email_threads", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   tenantId: varchar("tenant_id").references(() => tenants.id), // Nullable initially for safe migration
   userId: varchar("user_id").references(() => users.id), // Made nullable initially for safe migration
-  projectId: varchar("project_id").references(() => projects.id),
+  projectId: varchar("project_id"), // Note: Removed .references(() => projects.id) to break circular FK dependency
   subject: text("subject"),
   lastMessageAt: timestamp("last_message_at"),
   createdAt: timestamp("created_at").defaultNow(),
@@ -258,10 +258,10 @@ export const emails = pgTable("emails", {
   bodyHtml: text("body_html"),
   bodyText: text("body_text"),
   hasAttachments: boolean("has_attachments").default(false),
-  contactId: varchar("contact_id").references(() => contacts.id),
-  projectId: varchar("project_id").references(() => projects.id),
-  leadId: varchar("lead_id").references(() => leads.id),
-  clientId: varchar("client_id").references(() => contacts.id), // Alias for contactId for backward compatibility
+  contactId: varchar("contact_id"), // Note: Removed .references(() => contacts.id) to break circular FK dependency
+  projectId: varchar("project_id"), // Note: Removed .references(() => projects.id) to break circular FK dependency
+  leadId: varchar("lead_id"), // Note: Removed .references(() => leads.id) to break circular FK dependency
+  clientId: varchar("client_id"), // Note: Removed .references(() => contacts.id) to break circular FK dependency
   status: text("status").default('delivered'), // delivered, failed, pending
   sentBy: varchar("sent_by").references(() => users.id),
   createdAt: timestamp("created_at").defaultNow(),

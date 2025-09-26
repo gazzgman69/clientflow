@@ -818,6 +818,11 @@ router.delete('/calendar-integrations/:id', requireAuth, async (req: any, res) =
 
 router.get('/api/auth/google/status', requireAuth, async (req: any, res) => {
   try {
+    // Prevent caching to ensure UI gets fresh sync error data
+    res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.set('Pragma', 'no-cache');
+    res.set('Expires', '0');
+    
     const userId = req.authenticatedUserId;
     
     // Check if user has any active Google integrations

@@ -1,0 +1,69 @@
+Prompt — “OAuth Callback Tenant Context Hardening (Popup Safe)“
+
+Problem: Google Calendar reconnect creates new rows with tenant_id = NULL and the UI reads the old row. Fix the OAuth callback so it always updates the correct tenant-scoped integration and never inserts NULL-tenant rows.
+
+Rules
+
+Discover the repo structure; do not assume paths/tables.
+
+Start read-only: produce a short plan with file:line evidence then implement.
+
+Minimal & additive changes only; keep everything tenant/RLS-safe.
+
+Feature-flag any new behavior (default OFF in prod).
+
+Implement
+
+Tenant derivation (don’t rely on session in popup)
+
+Pack tenantId, provider, and returnTo in the OAuth state (signed/HMAC).
+
+On callback, verify and extract tenantId from state. Do not fallback to null/default.
+
+Set DB context (e.g., SET LOCAL app.tenant_id) or use withTenant(tenantId) for all writes.
+
+Correct lookup + upsert (no NULL tenant)
+
+Ensure storage lookup is tenant-scoped: (tenant_id, provider, provider_account_id).
+
+If found → update same row (tokens, status=connected, sync_errors=NULL, last_connected_at).
+
+If not found → insert a row with tenant_id set (never NULL).
+
+Add structured logs: action=oauth_upsert provider=google_calendar tenantId=… integrationId=… updated|created.
+
+Deactivate duplicates & single active row
+
+When upserting, set existing duplicates for the same key to is_active=false; keep just one is_active=true.
+
+Status endpoint & banner logic must read the active row.
+
+Initial sync trigger
+
+After successful save, enqueue a first full sync (behind flag CAL_POST_AUTH_INIT_SYNC=1).
+
+Log: enqueued_initial_sync=true.
+
+Cookie / SameSite in popup
+
+Ensure any session cookie set by callback uses SameSite=None; Secure so cross-site popup works on your domain (no assumption of paths).
+
+If session is absent, rely entirely on verified state tenantId.
+
+Tests (minimal)
+
+Reconnect flow updates existing tenant row (no new row).
+
+Duplicate rows → only one is_active=true; banner hides when status=connected.
+
+Callback with missing/invalid state → safe error, no write.
+
+Acceptance
+
+Callback never writes tenant_id = NULL.
+
+Reconnect updates the same tenant-scoped row; banner disappears; initial sync runs.
+
+Status endpoint returns the updated active row.
+
+With feature flag OFF, behavior unchanged.

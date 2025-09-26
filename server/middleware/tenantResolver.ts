@@ -36,22 +36,46 @@ export const tenantResolver = async (req: TenantRequest, res: Response, next: Ne
     const subdomain = extractSubdomain(host);
     let tenantSlug = 'default'; // Safe default for slug
 
-    // Priority: 1. Session-based tenant (authenticated user), 2. Custom domain, 3. Subdomain
+    // Priority in DEVELOPMENT: 1. Test overrides, 2. Session, 3. Domain, 4. Subdomain  
+    // Priority in PRODUCTION: 1. Session, 2. Domain, 3. Subdomain
     
-    // 1. Check for session-based tenant (authenticated users) - HIGHEST PRIORITY
-    // Add fallback to req.session.user?.tenantId for additional auth patterns
-    let resolvedFromSession = false;
-    try {
-      if (req.session?.tenantId && typeof req.session.tenantId === 'string') {
-        req.tenantId = req.session.tenantId.trim();
-        resolvedFromSession = true;
-      } else if (req.session?.user?.tenantId && typeof req.session.user.tenantId === 'string') {
-        req.tenantId = req.session.user.tenantId.trim();
-        resolvedFromSession = true;
+    // DEVELOPMENT ONLY: Check for test overrides FIRST (before session) 
+    let resolvedFromTestOverride = false;
+    if (process.env.NODE_ENV === 'development') {
+      const testTenant = req.query.tenant || req.get('X-Test-Tenant');
+      if (testTenant && typeof testTenant === 'string') {
+        console.log('🧪 DEVELOPMENT TEST: Tenant override requested:', testTenant);
+        try {
+          const { storage } = await import('../storage');
+          const tenant = await storage.getTenantBySlug(testTenant);
+          if (tenant) {
+            req.tenantId = tenant.id;
+            resolvedFromTestOverride = true;
+            console.log('✅ DEVELOPMENT TEST: Tenant override applied:', { slug: testTenant, id: tenant.id });
+          } else {
+            console.warn('⚠️ DEVELOPMENT TEST: Tenant not found:', testTenant);
+          }
+        } catch (error) {
+          console.error('❌ DEVELOPMENT TEST: Error resolving tenant override:', error);
+        }
       }
-    } catch (sessionError) {
-      console.error('Error reading session data for tenant resolution:', sessionError);
-      // Continue with other resolution methods
+    }
+    
+    // 1. Check for session-based tenant (only if no test override in development)
+    let resolvedFromSession = false;
+    if (!resolvedFromTestOverride) {
+      try {
+        if (req.session?.tenantId && typeof req.session.tenantId === 'string') {
+          req.tenantId = req.session.tenantId.trim();
+          resolvedFromSession = true;
+        } else if (req.session?.user?.tenantId && typeof req.session.user.tenantId === 'string') {
+          req.tenantId = req.session.user.tenantId.trim();
+          resolvedFromSession = true;
+        }
+      } catch (sessionError) {
+        console.error('Error reading session data for tenant resolution:', sessionError);
+        // Continue with other resolution methods
+      }
     }
     
     // 2. Check for custom domain mapping (only if no session tenant)

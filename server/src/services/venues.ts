@@ -283,10 +283,35 @@ export class VenuesService {
       }
     }
 
-    // Build search query from venue data
-    const searchTerms = [venue.name, venue.address, venue.city, venue.state, venue.country]
+    // Build search query from venue data, avoiding duplication
+    const searchParts = [];
+    
+    // Add venue name if available
+    if (venue.name) {
+      searchParts.push(venue.name);
+    }
+    
+    // Add location info, but skip if venue name is already part of address
+    let locationInfo = '';
+    if (venue.address) {
+      // Check if venue name is already in the address to avoid duplication
+      if (venue.name && venue.address.toLowerCase().includes(venue.name.toLowerCase())) {
+        locationInfo = venue.address;
+      } else {
+        locationInfo = `${venue.name ? venue.name + ', ' : ''}${venue.address}`;
+      }
+    }
+    
+    // Add city, state, country if not already in address
+    const additionalLocation = [venue.city, venue.state, venue.country]
       .filter(Boolean)
       .join(', ');
+    
+    if (additionalLocation && !locationInfo.includes(additionalLocation)) {
+      locationInfo = locationInfo ? `${locationInfo}, ${additionalLocation}` : additionalLocation;
+    }
+    
+    const searchTerms = locationInfo || venue.name || '';
     
     if (!searchTerms || searchTerms.length < 5) {
       console.log(`🔍 Insufficient data to enrich venue: ${venue.name}`);
@@ -296,9 +321,9 @@ export class VenuesService {
     try {
       console.log(`🔍 Auto-enriching venue: ${venue.name} with query: "${searchTerms}"`);
       
-      // Search for the venue on Google Places
+      // Search for the venue on Google Places (fix: use only 'establishment' type)
       const predictions = await geocodingService.getPlacePredictions(searchTerms, {
-        types: ['establishment', 'premise']
+        types: ['establishment']
       });
 
       if (!predictions || predictions.length === 0) {

@@ -338,7 +338,7 @@ export default function Contacts() {
                         ) : '-'}
                       </TableCell>
                       <TableCell data-testid={`contact-created-${contact.id}`}>
-                        {formatDistanceToNow(new Date(contact.createdAt!), { addSuffix: true })}
+                        {contact.createdAt ? formatDistanceToNow(new Date(contact.createdAt), { addSuffix: true }) : 'Unknown'}
                       </TableCell>
                       <TableCell onClick={(e) => e.stopPropagation()}>
                         <Button 

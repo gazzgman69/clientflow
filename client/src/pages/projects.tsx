@@ -382,7 +382,7 @@ export default function Projects() {
                         {project.estimatedValue ? `$${parseFloat(project.estimatedValue).toLocaleString()}` : '-'}
                       </TableCell>
                       <TableCell data-testid={`project-created-${project.id}`}>
-                        {format(new Date(project.createdAt!), 'MMM dd, yyyy')}
+                        {project.createdAt ? format(new Date(project.createdAt), 'MMM dd, yyyy') : 'Unknown'}
                       </TableCell>
                       <TableCell onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center space-x-2">

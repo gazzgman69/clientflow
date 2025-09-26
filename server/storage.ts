@@ -3340,18 +3340,21 @@ export class DrizzleStorage implements IStorage {
       throw new Error("SECURITY: tenantId is required to prevent cross-tenant data access");
     }
     
-    // WORKAROUND: Use Neon client directly to bypass Drizzle orderSelectedFields recursion issue
-    const neonClient = neon(process.env.DATABASE_URL!);
+    // Use Drizzle ORM instead of raw SQL to properly map column names to camelCase
+    let query = this.db.select()
+      .from(venues)
+      .where(eq(venues.tenantId, tenantId))
+      .orderBy(desc(venues.createdAt));
     
-    const query = `
-      SELECT * FROM venues 
-      WHERE tenant_id = $1
-      ORDER BY created_at DESC
-      ${limit !== undefined ? `LIMIT ${limit}` : ''}
-      ${offset !== undefined ? `OFFSET ${offset}` : ''}
-    `;
-    const result = await neonClient(query, [tenantId]);
-    return result as Venue[];
+    if (limit !== undefined) {
+      query = query.limit(limit);
+    }
+    
+    if (offset !== undefined) {
+      query = query.offset(offset);
+    }
+    
+    return await query;
   }
 
   async getVenuesCount(tenantId: string): Promise<number> {

@@ -1,4 +1,4 @@
-import { IStorage } from '../storage';
+import { IStorage } from '../types/storage';
 import { withTenant, withTenantAnd, withTenantData } from './tenantQueries';
 
 /**

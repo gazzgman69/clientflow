@@ -70,6 +70,7 @@ import { neon } from '@neondatabase/serverless';
 import { eq, and, desc, or, isNull, isNotNull, leftJoin } from 'drizzle-orm';
 import { secureStore } from './src/services/secureStore';
 import { validateAndCleanVenueAddress } from '@shared/addressUtils';
+import { IStorage } from './types/storage';
 
 // Helper function to omit undefined values to prevent overwriting required fields
 function omitUndefined<T extends Record<string, any>>(obj: T): Partial<T> {
@@ -4459,6 +4460,5 @@ export class DrizzleStorage implements IStorage {
   }
 }
 
-// TEMPORARY FIX: Switch to MemStorage to bypass Drizzle circular reference issue
-// TODO: Fix DrizzleStorage circular reference and switch back
-export const storage = new MemStorage();
+// Fixed circular reference by moving IStorage to separate file
+export const storage = new DrizzleStorage();

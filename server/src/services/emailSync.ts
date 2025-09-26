@@ -186,6 +186,7 @@ export class EmailSyncService {
                 .values({
                   id: threadId,
                   userId, // CRITICAL: Add userId for multi-tenant isolation
+                  tenantId, // CRITICAL: Add tenantId for proper isolation
                   subject: gmailThread.latest.subject,
                   projectId: matchedProjectId,
                   lastMessageAt: new Date(gmailThread.latest.dateISO),

@@ -521,8 +521,8 @@ router.get('/auth/google/callback', async (req, res) => {
     }
     
     // Schedule background sync (don't await - let popup close immediately)
-    // Feature flag: POST_OAUTH_INITIAL_SYNC=1 enables automatic sync after OAuth
-    const shouldAutoSync = process.env.POST_OAUTH_INITIAL_SYNC === '1';
+    // Feature flag: CAL_POST_AUTH_INIT_SYNC=1 enables calendar initial sync after OAuth
+    const shouldAutoSync = process.env.CAL_POST_AUTH_INIT_SYNC === '1';
     if (integration && shouldAutoSync) {
       setImmediate(async () => {
         try {

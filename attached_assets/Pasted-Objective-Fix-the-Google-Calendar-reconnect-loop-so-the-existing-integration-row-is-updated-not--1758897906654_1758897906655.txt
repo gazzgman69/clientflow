@@ -1,0 +1,109 @@
+Objective: Fix the Google Calendar reconnect loop so:
+
+the existing integration row is updated (not a new one),
+
+the banner disappears after reconnect,
+
+an initial sync runs.
+
+Rules
+
+Discover the repo structure; do not assume filenames/tables.
+
+Start read-only: produce a short plan with file:line evidence before code.
+
+Keep changes minimal & additive; tenant/RLS safe; no unrelated systems touched.
+
+Use a feature flag (default OFF in prod) for any new behaviour.
+
+Verify (read-only plan first)
+
+Lookup used by OAuth callback
+
+Show where the callback finds an existing calendar integration (by provider/account).
+
+Confirm the lookup is tenant-scoped and user-scoped if applicable.
+
+If the storage method ignores tenantId, note file:line.
+
+Write path
+
+Show where tokens are persisted (encrypted) and that it updates the existing row instead of inserting a new one.
+
+Confirm it flips status to “connected”, clears sync_errors, sets last_connected_at, etc.
+
+Status source for banner
+
+Show which query the banner and settings UI use.
+
+Confirm they read the active integration row (not a stale/duplicate).
+
+Duplicates present
+
+If duplicates exist for the same (tenant, provider_account, provider), list them and show which one the UI reads.
+
+Initial sync trigger
+
+Show where a first full sync is enqueued after reconnect.
+
+Implement minimal fixes
+
+Fix A: Tenant-scoped lookup
+
+Ensure the storage method used by the callback takes tenantId (and userId if required) and filters accordingly.
+
+Update all call sites to pass tenantId.
+
+Fix B: Upsert same row
+
+Change callback to update the existing integration row when found; otherwise upsert a single row keyed by (tenant, provider, provider_account).
+
+Do not create a new row if one already exists.
+
+Fix C: Active record + status
+
+Ensure only one active integration exists for (tenant, provider, provider_account).
+
+If duplicates exist, mark old ones is_active = false and merge state if needed (minimal safe merge).
+
+Clear sync_errors on successful reconnect; set status = 'connected'.
+
+Make the status endpoint and banner read the active row.
+
+Fix D: Initial sync
+
+After successful token save, enqueue a first sync (behind a flag like CAL_POST_AUTH_INIT_SYNC=1).
+
+Add concise logs: token persisted → status set → job enqueued.
+
+Fix E: Logging & tests
+
+Add structured logs for: lookup keys, row id updated, status flipped, job id queued.
+
+Tests:
+
+Reconnect updates existing row; no new row created.
+
+Banner hides once status=connected.
+
+Duplicate rows → only one is_active=true; UI reads that one.
+
+Initial sync enqueued after reconnect.
+
+Optional (safe guardrails)
+
+Add a unique partial index/constraint (tenant, provider, provider_account, is_active=true) after a small de-dup pass, so future duplicates can’t be created.
+
+Add a maintenance task to deactivate older duplicates safely.
+
+Acceptance
+
+Reconnect does not create a new integration row.
+
+Tokens saved; status flips to connected; sync_errors cleared.
+
+Banner disappears immediately after reconnect (UI reads updated status).
+
+Initial sync runs and events appear.
+
+With flag OFF, behaviour unchanged.

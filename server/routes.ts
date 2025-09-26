@@ -2175,22 +2175,89 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
       // For lead capture forms and similar use cases, provide a simple limit-only option
       if (req.query.simple === '1') {
         const simpleLimit = Math.min(50, Math.max(1, parseInt(req.query.limit as string) || 10));
-        const contacts = await neonClient(`
+        const contactsRaw = await neonClient(`
           SELECT * FROM contacts 
           WHERE tenant_id = $1
           ORDER BY created_at DESC
           LIMIT ${simpleLimit}
         `, [req.tenantId]);
+        
+        // Convert snake_case field names to camelCase for frontend compatibility
+        const contacts = contactsRaw.map((contact: any) => ({
+          id: contact.id,
+          tenantId: contact.tenant_id,
+          userId: contact.user_id,
+          fullName: contact.full_name,
+          firstName: contact.first_name,
+          middleName: contact.middle_name,
+          lastName: contact.last_name,
+          email: contact.email,
+          phone: contact.phone,
+          company: contact.company,
+          jobTitle: contact.job_title,
+          website: contact.website,
+          address: contact.address,
+          city: contact.city,
+          state: contact.state,
+          zipCode: contact.zip_code,
+          country: contact.country,
+          venueAddress: contact.venue_address,
+          venueCity: contact.venue_city,
+          venueState: contact.venue_state,
+          venueZipCode: contact.venue_zip_code,
+          venueCountry: contact.venue_country,
+          venueId: contact.venue_id,
+          leadId: contact.lead_id,
+          tags: contact.tags ? contact.tags.split(',').map((tag: string) => tag.trim()).filter(Boolean) : [],
+          leadSource: contact.lead_source,
+          notes: contact.notes,
+          createdAt: contact.created_at,
+          updatedAt: contact.updated_at
+        }));
+        
         return res.json(contacts);
       }
 
       // Don't filter by userId - all contacts in tenant should be visible to authenticated users
-      const contacts = await neonClient(`
+      const contactsRaw = await neonClient(`
         SELECT * FROM contacts 
         WHERE tenant_id = $1
         ORDER BY created_at DESC
         LIMIT ${limit} OFFSET ${offset}
       `, [req.tenantId]);
+      
+      // Convert snake_case field names to camelCase for frontend compatibility
+      const contacts = contactsRaw.map((contact: any) => ({
+        id: contact.id,
+        tenantId: contact.tenant_id,
+        userId: contact.user_id,
+        fullName: contact.full_name,
+        firstName: contact.first_name,
+        middleName: contact.middle_name,
+        lastName: contact.last_name,
+        email: contact.email,
+        phone: contact.phone,
+        company: contact.company,
+        jobTitle: contact.job_title,
+        website: contact.website,
+        address: contact.address,
+        city: contact.city,
+        state: contact.state,
+        zipCode: contact.zip_code,
+        country: contact.country,
+        venueAddress: contact.venue_address,
+        venueCity: contact.venue_city,
+        venueState: contact.venue_state,
+        venueZipCode: contact.venue_zip_code,
+        venueCountry: contact.venue_country,
+        venueId: contact.venue_id,
+        leadId: contact.lead_id,
+        tags: contact.tags ? contact.tags.split(',').map((tag: string) => tag.trim()).filter(Boolean) : [],
+        leadSource: contact.lead_source,
+        notes: contact.notes,
+        createdAt: contact.created_at,
+        updatedAt: contact.updated_at
+      }));
       
       // Get total count for pagination info
       const countResult = await neonClient('SELECT COUNT(*) as count FROM contacts WHERE tenant_id = $1', [req.tenantId]);

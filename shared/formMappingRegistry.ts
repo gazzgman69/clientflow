@@ -234,6 +234,12 @@ export function applyMapping(
     result.leadData.lead_source = 'Website Form';
   }
 
+  // VENUE DATA FLOW FIX: Map eventLocation to contact's venueAddress
+  // This ensures venue information flows from leads to contacts properly
+  if (result.leadData.eventLocation) {
+    result.contactData.venueAddress = result.leadData.eventLocation;
+  }
+
   return result;
 }
 

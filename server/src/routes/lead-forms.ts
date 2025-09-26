@@ -763,54 +763,22 @@ router.post('/:slug/submit', formSubmissionLimiter, async (req, res) => {
                 tenantId: form.tenantId
               });
             } else {
-              // For manually entered venues, implement deduplication logic
-              const searchQuery = `${venueDetails.name} ${venueDetails.address1}`.trim();
-              const existingVenues = await venuesService.findByAddress(searchQuery);
+              // For manually entered venues, use the robust deduplication logic
+              const venueData = {
+                name: venueDetails.name,
+                address: venueDetails.address1,
+                city: venueDetails.city,
+                state: venueDetails.state,
+                zipCode: venueDetails.postalCode,
+                country: venueDetails.countryCode,
+                latitude: venueDetails.latitude ? venueDetails.latitude.toString() : null,
+                longitude: venueDetails.longitude ? venueDetails.longitude.toString() : null,
+                useCount: 1, // Start with count of 1 since it's being used immediately
+                lastUsedAt: new Date()
+              };
               
-              // Filter by tenant to ensure proper isolation
-              const tenantVenues = existingVenues.filter(v => v.tenantId === form.tenantId);
-              
-              if (tenantVenues.length > 0) {
-                // Use the most relevant existing venue (findByAddress already sorts by useCount and lastUsedAt)
-                createdVenue = tenantVenues[0];
-                
-                // Update venue usage tracking
-                await tenantStorage.updateVenue(createdVenue.id, {
-                  useCount: (createdVenue.useCount || 0) + 1,
-                  lastUsedAt: new Date()
-                });
-                
-                console.log('✅ VENUE REUSED (Deduplication):', {
-                  venueId: createdVenue.id,
-                  venueName: createdVenue.name,
-                  venueAddress: createdVenue.address,
-                  newUseCount: (createdVenue.useCount || 0) + 1,
-                  tenantId: form.tenantId,
-                  searchQuery
-                });
-              } else {
-                // Create new venue since no duplicates found
-                createdVenue = await venuesService.createVenue({
-                  name: venueDetails.name,
-                  tenantId: form.tenantId,
-                  address: venueDetails.address1,
-                  city: venueDetails.city,
-                  state: venueDetails.state,
-                  zipCode: venueDetails.postalCode,
-                  country: venueDetails.countryCode,
-                  latitude: venueDetails.latitude ? venueDetails.latitude.toString() : null,
-                  longitude: venueDetails.longitude ? venueDetails.longitude.toString() : null,
-                  useCount: 1, // Start with count of 1 since it's being used immediately
-                  lastUsedAt: new Date()
-                });
-                
-                console.log('✅ VENUE CREATED (New):', {
-                  venueId: createdVenue.id,
-                  venueName: createdVenue.name,
-                  venueAddress: createdVenue.address,
-                  tenantId: form.tenantId
-                });
-              }
+              // Use findOrCreateVenue which has robust normalization-based deduplication
+              createdVenue = await venuesService.findOrCreateVenue(venueData, form.tenantId);
             }
           }
         } catch (error) {

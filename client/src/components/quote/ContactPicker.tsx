@@ -17,13 +17,16 @@ export default function ContactPicker({ isOpen, onClose, onContactSelect }: Cont
   const [searchTerm, setSearchTerm] = useState("");
 
   // Fetch contacts and clients
-  const { data: contacts } = useQuery<Contact[]>({
+  const { data: contactsData } = useQuery<{ contacts: Contact[] }>({
     queryKey: ["/api/contacts"],
   });
 
-  const { data: clients } = useQuery<Client[]>({
+  const { data: clientsData } = useQuery<{ clients: Client[] }>({
     queryKey: ["/api/clients"],
   });
+
+  const contacts = contactsData?.contacts || [];
+  const clients = clientsData?.clients || [];
 
   // Combine and filter contacts/clients based on search
   const allContacts = [

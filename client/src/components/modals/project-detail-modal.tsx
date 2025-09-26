@@ -1328,13 +1328,35 @@ export default function ProjectDetailModal({ project, isOpen, onClose }: Project
                     <div>
                       <Label className="text-sm font-medium">Created</Label>
                       <p className="text-sm">
-                        {formatDistanceToNow(new Date(project.createdAt!))} ago
+                        {(() => {
+                          // Handle both camelCase and snake_case field names
+                          const dateValue = (project as any).created_at || (project as any).createdAt;
+                          if (!dateValue) return 'Unknown';
+                          try {
+                            const date = new Date(dateValue);
+                            if (isNaN(date.getTime())) return 'Invalid date';
+                            return `${formatDistanceToNow(date)} ago`;
+                          } catch {
+                            return 'Invalid date';
+                          }
+                        })()}
                       </p>
                     </div>
                     <div>
                       <Label className="text-sm font-medium">Last Updated</Label>
                       <p className="text-sm">
-                        {formatDistanceToNow(new Date(project.updatedAt!))} ago
+                        {(() => {
+                          // Handle both camelCase and snake_case field names
+                          const dateValue = (project as any).updated_at || (project as any).updatedAt;
+                          if (!dateValue) return 'Unknown';
+                          try {
+                            const date = new Date(dateValue);
+                            if (isNaN(date.getTime())) return 'Invalid date';
+                            return `${formatDistanceToNow(date)} ago`;
+                          } catch {
+                            return 'Invalid date';
+                          }
+                        })()}
                       </p>
                     </div>
                   </div>

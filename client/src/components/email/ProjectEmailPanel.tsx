@@ -215,13 +215,16 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
   });
 
   // Fetch all contacts to find the one matching the project's contactId
-  const { data: contacts } = useQuery({
+  const { data: contactsResponse } = useQuery({
     queryKey: ['/api/contacts'],
     queryFn: async () => {
       const response = await fetch('/api/contacts');
       return response.json();
     },
   });
+
+  // Extract contacts array from response object
+  const contacts = contactsResponse?.contacts || [];
 
   // Find the contact for this project
   const contact = contacts?.find((c: any) => c.id === project?.contactId);

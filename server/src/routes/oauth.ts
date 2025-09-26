@@ -22,7 +22,7 @@ declare module 'express-session' {
 const router = Router();
 
 /**
- * Simple auth start route - Force consent with Gmail scopes with PKCE
+ * Simple auth start route - Force consent with Gmail scopes with PKCE (backward compatibility)
  */
 router.get('/auth/google', (req, res) => {
   try {
@@ -44,21 +44,109 @@ router.get('/auth/google', (req, res) => {
     req.session.oauth_return_to = returnTo;
     req.session.oauth_origin = origin;
     req.session.pkceCodeVerifier = codeVerifier;
+    req.session.serviceType = 'all'; // Backward compatibility - all services
     
-    // Get Google auth URL with state and PKCE challenge
+    // Get Google auth URL with state and PKCE challenge (all services for backward compatibility)
     const authUrl = getGoogleAuthUrl({ 
       state,
       codeChallenge,
-      codeChallengeMethod: 'S256'
+      codeChallengeMethod: 'S256',
+      serviceType: 'all'
     });
     
-    console.log('🔐 SECURITY: GET /auth/google now using PKCE protection');
+    console.log('🔐 SECURITY: GET /auth/google now using PKCE protection with all services');
     
     // Redirect to Google OAuth
     res.redirect(authUrl);
   } catch (error: any) {
     console.error('Error starting Google OAuth:', error);
     res.status(500).send('Failed to start OAuth flow');
+  }
+});
+
+/**
+ * Gmail-specific OAuth start route
+ */
+router.get('/auth/google/gmail', (req, res) => {
+  try {
+    // Read query parameters
+    const popup = Boolean(req.query.popup);
+    const returnTo = (req.query.returnTo as string) || '/settings';
+    const origin = (req.query.origin as string) || '';
+    
+    // Create a random state for CSRF protection
+    const state = crypto.randomUUID();
+    
+    // Generate PKCE challenge and verifier for security
+    const codeVerifier = crypto.randomBytes(32).toString('base64url');
+    const codeChallenge = crypto.createHash('sha256').update(codeVerifier).digest('base64url');
+    
+    // Save state, popup flag, return URL, origin, and PKCE verifier to session
+    req.session.oauth_state = state;
+    req.session.oauth_popup = popup;
+    req.session.oauth_return_to = returnTo;
+    req.session.oauth_origin = origin;
+    req.session.pkceCodeVerifier = codeVerifier;
+    req.session.serviceType = 'gmail';
+    
+    // Get Google auth URL with Gmail-specific scopes
+    const authUrl = getGoogleAuthUrl({ 
+      state,
+      codeChallenge,
+      codeChallengeMethod: 'S256',
+      serviceType: 'gmail'
+    });
+    
+    console.log('🔐 SECURITY: GET /auth/google/gmail using PKCE protection with Gmail scopes only');
+    
+    // Redirect to Google OAuth
+    res.redirect(authUrl);
+  } catch (error: any) {
+    console.error('Error starting Google Gmail OAuth:', error);
+    res.status(500).send('Failed to start Gmail OAuth flow');
+  }
+});
+
+/**
+ * Calendar-specific OAuth start route
+ */
+router.get('/auth/google/calendar', (req, res) => {
+  try {
+    // Read query parameters
+    const popup = Boolean(req.query.popup);
+    const returnTo = (req.query.returnTo as string) || '/settings';
+    const origin = (req.query.origin as string) || '';
+    
+    // Create a random state for CSRF protection
+    const state = crypto.randomUUID();
+    
+    // Generate PKCE challenge and verifier for security
+    const codeVerifier = crypto.randomBytes(32).toString('base64url');
+    const codeChallenge = crypto.createHash('sha256').update(codeVerifier).digest('base64url');
+    
+    // Save state, popup flag, return URL, origin, and PKCE verifier to session
+    req.session.oauth_state = state;
+    req.session.oauth_popup = popup;
+    req.session.oauth_return_to = returnTo;
+    req.session.oauth_origin = origin;
+    req.session.pkceCodeVerifier = codeVerifier;
+    req.session.serviceType = 'calendar';
+    
+    // Get Google auth URL with Calendar-specific scopes
+    const authUrl = getGoogleAuthUrl({ 
+      state,
+      codeChallenge,
+      codeChallengeMethod: 'S256',
+      serviceType: 'calendar'
+    });
+    
+    console.log('🔐 SECURITY: GET /auth/google/calendar using PKCE protection with Calendar scopes only');
+    
+    // Redirect to Google OAuth
+    res.redirect(authUrl);
+  } catch (error: any) {
+    console.error('Error starting Google Calendar OAuth:', error);
+    res.status(500).send('Failed to start Calendar OAuth flow');
   }
 });
 
@@ -82,7 +170,7 @@ const requireAuth = async (req: any, res: any, next: any) => {
 };
 
 /**
- * Start OAuth flow - Generate auth URL
+ * Start OAuth flow - Generate auth URL (backward compatibility - all services)
  */
 router.post('/auth/google/start', requireAuth, async (req: any, res) => {
   try {
@@ -93,7 +181,7 @@ router.post('/auth/google/start', requireAuth, async (req: any, res) => {
       return res.status(400).json({ error: 'Email is required' });
     }
     
-    // Check if integration already exists
+    // Check if integration already exists (backward compatibility - look for any Google integration)
     const existing = await storage.getCalendarIntegrationByEmail(email, userId, req.tenantId);
     if (existing && existing.refreshToken) {
       return res.json({ 
@@ -115,15 +203,126 @@ router.post('/auth/google/start', requireAuth, async (req: any, res) => {
     req.session.oauth_return_to = returnTo || '/settings';
     req.session.oauth_origin = origin || '';
     req.session.pkceCodeVerifier = codeVerifier;
+    req.session.serviceType = 'all'; // Backward compatibility
     
-    // Generate OAuth URL with PKCE support  
-    const authUrl = googleOAuthService.generateAuthUrl(email, userId, req.session);
+    // Generate OAuth URL with PKCE support (all services for backward compatibility)
+    const authUrl = googleOAuthService.generateAuthUrl(email, userId, req.session, 'all');
     
-    console.log('🔐 SECURITY: POST /auth/google/start now using PKCE protection and popup session data');
+    console.log('🔐 SECURITY: POST /auth/google/start now using PKCE protection with all services');
     
     res.json({ authUrl });
   } catch (error: any) {
     console.error('Error starting OAuth:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * Start Gmail OAuth flow - Generate auth URL for Gmail-specific scopes
+ */
+router.post('/auth/google/gmail/start', requireAuth, async (req: any, res) => {
+  try {
+    const { email, popup, origin, returnTo } = req.body;
+    const userId = req.authenticatedUserId;
+    
+    if (!email) {
+      return res.status(400).json({ error: 'Email is required' });
+    }
+    
+    // Check if Gmail integration already exists for this email
+    const integrations = await storage.getCalendarIntegrationsByUser(userId, req.tenantId);
+    const existing = integrations.find(i => 
+      i.provider === 'google' && 
+      i.providerAccountId === email && 
+      (i.serviceType === 'gmail' || !i.serviceType) && // Handle existing records without serviceType
+      i.refreshToken
+    );
+    
+    if (existing) {
+      return res.json({ 
+        message: 'Gmail already connected',
+        integration: existing 
+      });
+    }
+    
+    // Create a random state for CSRF protection
+    const state = crypto.randomUUID();
+    
+    // Generate PKCE challenge and verifier for security
+    const codeVerifier = crypto.randomBytes(32).toString('base64url');
+    const codeChallenge = crypto.createHash('sha256').update(codeVerifier).digest('base64url');
+    
+    // Save state, popup flag, return URL, origin, and PKCE verifier to session
+    req.session.oauth_state = state;
+    req.session.oauth_popup = popup || true; // Default to popup for POST route
+    req.session.oauth_return_to = returnTo || '/settings';
+    req.session.oauth_origin = origin || '';
+    req.session.pkceCodeVerifier = codeVerifier;
+    req.session.serviceType = 'gmail';
+    
+    // Generate OAuth URL with Gmail-specific scopes
+    const authUrl = googleOAuthService.generateAuthUrl(email, userId, req.session, 'gmail');
+    
+    console.log('🔐 SECURITY: POST /auth/google/gmail/start using Gmail-specific scopes');
+    
+    res.json({ authUrl });
+  } catch (error: any) {
+    console.error('Error starting Gmail OAuth:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * Start Calendar OAuth flow - Generate auth URL for Calendar-specific scopes
+ */
+router.post('/auth/google/calendar/start', requireAuth, async (req: any, res) => {
+  try {
+    const { email, popup, origin, returnTo } = req.body;
+    const userId = req.authenticatedUserId;
+    
+    if (!email) {
+      return res.status(400).json({ error: 'Email is required' });
+    }
+    
+    // Check if Calendar integration already exists for this email
+    const integrations = await storage.getCalendarIntegrationsByUser(userId, req.tenantId);
+    const existing = integrations.find(i => 
+      i.provider === 'google' && 
+      i.providerAccountId === email && 
+      (i.serviceType === 'calendar' || !i.serviceType) && // Handle existing records without serviceType
+      i.refreshToken
+    );
+    
+    if (existing) {
+      return res.json({ 
+        message: 'Calendar already connected',
+        integration: existing 
+      });
+    }
+    
+    // Create a random state for CSRF protection
+    const state = crypto.randomUUID();
+    
+    // Generate PKCE challenge and verifier for security
+    const codeVerifier = crypto.randomBytes(32).toString('base64url');
+    const codeChallenge = crypto.createHash('sha256').update(codeVerifier).digest('base64url');
+    
+    // Save state, popup flag, return URL, origin, and PKCE verifier to session
+    req.session.oauth_state = state;
+    req.session.oauth_popup = popup || true; // Default to popup for POST route
+    req.session.oauth_return_to = returnTo || '/settings';
+    req.session.oauth_origin = origin || '';
+    req.session.pkceCodeVerifier = codeVerifier;
+    req.session.serviceType = 'calendar';
+    
+    // Generate OAuth URL with Calendar-specific scopes
+    const authUrl = googleOAuthService.generateAuthUrl(email, userId, req.session, 'calendar');
+    
+    console.log('🔐 SECURITY: POST /auth/google/calendar/start using Calendar-specific scopes');
+    
+    res.json({ authUrl });
+  } catch (error: any) {
+    console.error('Error starting Calendar OAuth:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -605,6 +804,184 @@ router.get('/api/auth/google/status', requireAuth, async (req: any, res) => {
     
   } catch (error: any) {
     console.error('Error checking Google auth status:', error);
+    res.status(500).json({ ok: false, error: 'Internal server error' });
+  }
+});
+
+/**
+ * Gmail Auth Status - Check if user has connected Gmail specifically
+ */
+router.get('/api/auth/google/gmail/status', requireAuth, async (req: any, res) => {
+  try {
+    const userId = req.authenticatedUserId;
+    
+    // Check if user has active Gmail integrations
+    const integrations = await storage.getCalendarIntegrationsByUser(userId, req.tenantId);
+    const gmailIntegration = integrations.find(i => 
+      i.provider === 'google' && 
+      i.isActive && 
+      (i.serviceType === 'gmail' || (!i.serviceType && i.accessToken)) // Handle legacy records
+    );
+    
+    if (!gmailIntegration || !gmailIntegration.accessToken) {
+      return res.json({ 
+        ok: true, 
+        connected: false, 
+        service: 'gmail',
+        scopes: [] 
+      });
+    }
+    
+    // Test token validity by making a simple API call
+    try {
+      const oauth2Client = new google.auth.OAuth2(
+        process.env.GOOGLE_CLIENT_ID,
+        process.env.GOOGLE_CLIENT_SECRET,
+        process.env.GOOGLE_REDIRECT_URI
+      );
+      
+      oauth2Client.setCredentials({
+        access_token: gmailIntegration.accessToken,
+        refresh_token: gmailIntegration.refreshToken,
+      });
+      
+      // Test the token with a simple API call
+      const oauth2 = google.oauth2({ version: 'v2', auth: oauth2Client });
+      await oauth2.userinfo.get();
+      
+      // If we get here, token is valid - return Gmail-specific scopes
+      const scopes = [
+        'https://www.googleapis.com/auth/userinfo.email',
+        'https://www.googleapis.com/auth/gmail.send',
+        'https://www.googleapis.com/auth/gmail.readonly'
+      ];
+      
+      res.json({ 
+        ok: true, 
+        connected: true,
+        service: 'gmail', 
+        scopes,
+        email: gmailIntegration.providerAccountId,
+        lastSyncAt: gmailIntegration.lastSyncAt
+      });
+      
+    } catch (tokenError: any) {
+      // Token is invalid or expired
+      console.log(`🔒 Gmail token validation failed for user ${userId}:`, tokenError.message);
+      
+      if (tokenError.message && (tokenError.message.includes('invalid_grant') || 
+                                  tokenError.message.includes('invalid_token') ||
+                                  tokenError.message.includes('expired'))) {
+        return res.json({ 
+          ok: true, 
+          connected: false,
+          service: 'gmail', 
+          needsReconnect: true,
+          error: 'Token expired or revoked',
+          scopes: [] 
+        });
+      }
+      
+      return res.json({ 
+        ok: true, 
+        connected: false,
+        service: 'gmail', 
+        error: 'Token validation failed',
+        scopes: [] 
+      });
+    }
+    
+  } catch (error: any) {
+    console.error('Error checking Gmail auth status:', error);
+    res.status(500).json({ ok: false, error: 'Internal server error' });
+  }
+});
+
+/**
+ * Calendar Auth Status - Check if user has connected Google Calendar specifically
+ */
+router.get('/api/auth/google/calendar/status', requireAuth, async (req: any, res) => {
+  try {
+    const userId = req.authenticatedUserId;
+    
+    // Check if user has active Calendar integrations
+    const integrations = await storage.getCalendarIntegrationsByUser(userId, req.tenantId);
+    const calendarIntegration = integrations.find(i => 
+      i.provider === 'google' && 
+      i.isActive && 
+      (i.serviceType === 'calendar' || (!i.serviceType && i.accessToken)) // Handle legacy records
+    );
+    
+    if (!calendarIntegration || !calendarIntegration.accessToken) {
+      return res.json({ 
+        ok: true, 
+        connected: false, 
+        service: 'calendar',
+        scopes: [] 
+      });
+    }
+    
+    // Test token validity by making a simple API call
+    try {
+      const oauth2Client = new google.auth.OAuth2(
+        process.env.GOOGLE_CLIENT_ID,
+        process.env.GOOGLE_CLIENT_SECRET,
+        process.env.GOOGLE_REDIRECT_URI
+      );
+      
+      oauth2Client.setCredentials({
+        access_token: calendarIntegration.accessToken,
+        refresh_token: calendarIntegration.refreshToken,
+      });
+      
+      // Test the token with a simple API call
+      const oauth2 = google.oauth2({ version: 'v2', auth: oauth2Client });
+      await oauth2.userinfo.get();
+      
+      // If we get here, token is valid - return Calendar-specific scopes
+      const scopes = [
+        'https://www.googleapis.com/auth/userinfo.email',
+        'https://www.googleapis.com/auth/calendar.readonly',
+        'https://www.googleapis.com/auth/calendar.events'
+      ];
+      
+      res.json({ 
+        ok: true, 
+        connected: true,
+        service: 'calendar', 
+        scopes,
+        email: calendarIntegration.providerAccountId,
+        lastSyncAt: calendarIntegration.lastSyncAt
+      });
+      
+    } catch (tokenError: any) {
+      // Token is invalid or expired
+      console.log(`🔒 Calendar token validation failed for user ${userId}:`, tokenError.message);
+      
+      if (tokenError.message && (tokenError.message.includes('invalid_grant') || 
+                                  tokenError.message.includes('invalid_token') ||
+                                  tokenError.message.includes('expired'))) {
+        return res.json({ 
+          ok: true, 
+          connected: false,
+          service: 'calendar', 
+          needsReconnect: true,
+          error: 'Token expired or revoked',
+          scopes: [] 
+        });
+      }
+      
+      return res.json({ 
+        ok: true, 
+        connected: false,
+        service: 'calendar', 
+        error: 'Token validation failed',
+        scopes: [] 
+      });
+    }
+    
+  } catch (error: any) {
+    console.error('Error checking Calendar auth status:', error);
     res.status(500).json({ ok: false, error: 'Internal server error' });
   }
 });

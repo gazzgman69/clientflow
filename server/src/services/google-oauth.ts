@@ -1,4 +1,5 @@
 import { google } from 'googleapis';
+import crypto from 'crypto';
 import { storage } from '../../storage';
 import type { CalendarIntegration } from '@shared/schema';
 import { secureStore } from './secureStore';
@@ -48,6 +49,20 @@ function getOAuth2Client(): google.auth.OAuth2 {
   return oauth2Client;
 }
 
+// Separate scopes for different Google services
+const GMAIL_SCOPES = [
+  'https://www.googleapis.com/auth/userinfo.email',
+  'https://www.googleapis.com/auth/gmail.send',
+  'https://www.googleapis.com/auth/gmail.readonly',
+];
+
+const CALENDAR_SCOPES = [
+  'https://www.googleapis.com/auth/userinfo.email',
+  'https://www.googleapis.com/auth/calendar.readonly',
+  'https://www.googleapis.com/auth/calendar.events',
+];
+
+// For backward compatibility, combined scopes (deprecated)
 const SCOPES = [
   'https://www.googleapis.com/auth/userinfo.email',
   'https://www.googleapis.com/auth/calendar.readonly',
@@ -78,9 +93,10 @@ export class GoogleOAuthService {
    * @param email User's email for login hint
    * @param userId User ID in our system
    * @param session Express session to store PKCE verifier
+   * @param serviceType Service type: 'gmail', 'calendar', or 'all' (default: 'all' for backward compatibility)
    */
-  generateAuthUrl(email: string, userId: string, session?: any): string {
-    const state = Buffer.from(JSON.stringify({ email, userId })).toString('base64');
+  generateAuthUrl(email: string, userId: string, session?: any, serviceType: 'gmail' | 'calendar' | 'all' = 'all'): string {
+    const state = Buffer.from(JSON.stringify({ email, userId, serviceType })).toString('base64');
     
     // Generate PKCE challenge and verifier
     const { codeVerifier, codeChallenge } = this.generatePKCEChallenge();
@@ -88,12 +104,26 @@ export class GoogleOAuthService {
     // Store code verifier in session for later verification
     if (session) {
       session.pkceCodeVerifier = codeVerifier;
-      console.log('🔐 PKCE: Code verifier stored in session for OAuth flow');
+      session.serviceType = serviceType; // Store service type for callback processing
+      console.log(`🔐 PKCE: Code verifier stored in session for ${serviceType} OAuth flow`);
+    }
+    
+    // Select appropriate scopes based on service type
+    let scopes: string[];
+    switch (serviceType) {
+      case 'gmail':
+        scopes = GMAIL_SCOPES;
+        break;
+      case 'calendar':
+        scopes = CALENDAR_SCOPES;
+        break;
+      default:
+        scopes = SCOPES; // Backward compatibility
     }
     
     const authUrl = getOAuth2Client().generateAuthUrl({
       access_type: 'offline',
-      scope: SCOPES,
+      scope: scopes,
       prompt: 'consent',
       login_hint: email,
       state: state,
@@ -103,7 +133,7 @@ export class GoogleOAuthService {
       code_challenge_method: 'S256'
     });
     
-    console.log('🔐 SECURITY: Generated OAuth URL with PKCE protection');
+    console.log(`🔐 SECURITY: Generated ${serviceType} OAuth URL with PKCE protection`);
     return authUrl;
   }
 
@@ -530,36 +560,45 @@ export class GoogleOAuthService {
 }
 
 /**
- * Simple function to get Google auth URL with force consent and Gmail scopes
+ * Simple function to get Google auth URL with force consent and service-specific scopes
  */
 export function getGoogleAuthUrl({ 
   state, 
   codeChallenge, 
-  codeChallengeMethod 
+  codeChallengeMethod,
+  serviceType = 'all'
 }: { 
   state: string;
   codeChallenge?: string;
   codeChallengeMethod?: string;
+  serviceType?: 'gmail' | 'calendar' | 'all';
 }): string {
+  // Select appropriate scopes based on service type
+  let scopes: string[];
+  switch (serviceType) {
+    case 'gmail':
+      scopes = GMAIL_SCOPES;
+      break;
+    case 'calendar':
+      scopes = CALENDAR_SCOPES;
+      break;
+    default:
+      scopes = SCOPES; // Backward compatibility - all scopes
+  }
+
   const authParams: any = {
     access_type: 'offline',
     prompt: 'consent',
     response_type: 'code',
     state,
-    scope: [
-      'https://www.googleapis.com/auth/userinfo.email',
-      'https://www.googleapis.com/auth/calendar.readonly',
-      'https://www.googleapis.com/auth/calendar.events',
-      'https://www.googleapis.com/auth/gmail.send',
-      'https://www.googleapis.com/auth/gmail.readonly',
-    ],
+    scope: scopes,
   };
   
   // Add PKCE parameters if provided
   if (codeChallenge) {
     authParams.code_challenge = codeChallenge;
     authParams.code_challenge_method = codeChallengeMethod || 'S256';
-    console.log('🔐 SECURITY: getGoogleAuthUrl using PKCE challenge');
+    console.log(`🔐 SECURITY: getGoogleAuthUrl using PKCE challenge for ${serviceType} service`);
   }
   
   return getOAuth2Client().generateAuthUrl(authParams);

@@ -525,6 +525,7 @@ export const calendarIntegrations = pgTable("calendar_integrations", {
   tenantId: varchar("tenant_id").references(() => tenants.id).notNull(),
   userId: varchar("user_id").references(() => users.id), // Made nullable initially for safe migration
   provider: text("provider").notNull(), // google, outlook, apple, ical
+  serviceType: text("service_type").notNull().default('calendar'), // calendar, gmail - distinguishes Google service type
   providerAccountId: text("provider_account_id"), // External calendar account ID
   calendarId: text("calendar_id"), // Specific calendar ID within the account
   calendarName: text("calendar_name").notNull(),
@@ -543,6 +544,7 @@ export const calendarIntegrations = pgTable("calendar_integrations", {
   // Ensure calendar integrations belong to same tenant as the user through the user relationship
   userIdIdx: index("calendar_integrations_user_id_idx").on(table.userId),
   tenantIdIdx: index("calendar_integrations_tenant_id_idx").on(table.tenantId),
+  providerServiceIdx: index("calendar_integrations_provider_service_idx").on(table.provider, table.serviceType),
 }));
 
 // Calendar Sync Log

@@ -54,30 +54,63 @@ export default function Settings() {
     },
   });
 
-  // Google auth status query
-  const { data: googleStatus, isLoading: statusLoading, refetch: refetchStatus } = useQuery({
-    queryKey: ['/api/auth/google/status'],
+  // Gmail auth status query
+  const { data: gmailStatus, isLoading: gmailStatusLoading, refetch: refetchGmailStatus } = useQuery({
+    queryKey: ['/api/auth/google/gmail/status'],
     queryFn: async () => {
-      const response = await fetch('/api/auth/google/status', {
+      const response = await fetch('/api/auth/google/gmail/status', {
         credentials: 'include' // Use session cookies for authentication
       });
       return response.json();
     },
   });
 
-  // Disconnect Google mutation
-  const disconnectMutation = useMutation({
+  // Calendar auth status query
+  const { data: calendarStatus, isLoading: calendarStatusLoading, refetch: refetchCalendarStatus } = useQuery({
+    queryKey: ['/api/auth/google/calendar/status'],
+    queryFn: async () => {
+      const response = await fetch('/api/auth/google/calendar/status', {
+        credentials: 'include' // Use session cookies for authentication
+      });
+      return response.json();
+    },
+  });
+
+  // Combined loading state for compatibility
+  const statusLoading = gmailStatusLoading || calendarStatusLoading;
+
+  // Disconnect Gmail mutation
+  const disconnectGmailMutation = useMutation({
     mutationFn: async () => {
-      const response = await apiRequest('POST', '/api/auth/google/disconnect', {});
+      const response = await apiRequest('POST', '/api/auth/google/gmail/disconnect', {});
       return response.json();
     },
     onSuccess: () => {
-      toast({ title: 'Google account disconnected successfully' });
-      refetchStatus();
+      toast({ title: 'Gmail account disconnected successfully' });
+      refetchGmailStatus();
     },
     onError: (error: any) => {
       toast({
-        title: 'Failed to disconnect Google account',
+        title: 'Failed to disconnect Gmail account',
+        description: error.message,
+        variant: 'destructive'
+      });
+    },
+  });
+
+  // Disconnect Calendar mutation
+  const disconnectCalendarMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest('POST', '/api/auth/google/calendar/disconnect', {});
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({ title: 'Google Calendar disconnected successfully' });
+      refetchCalendarStatus();
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Failed to disconnect Google Calendar',
         description: error.message,
         variant: 'destructive'
       });
@@ -92,7 +125,9 @@ export default function Settings() {
     },
     onSuccess: () => {
       toast({ title: 'Calendar sync requested successfully' });
-      refetchStatus();
+      // Refresh both Gmail and Calendar status since sync affects both
+      refetchGmailStatus();
+      refetchCalendarStatus();
     },
     onError: (error: any) => {
       toast({
@@ -471,46 +506,46 @@ export default function Settings() {
                       </CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-4">
-                      {statusLoading ? (
+                      {gmailStatusLoading ? (
                         <div className="flex items-center justify-center py-4">
                           <Loader2 className="h-5 w-5 animate-spin mr-2" />
-                          Checking connection status...
+                          Checking Gmail connection status...
                         </div>
                       ) : (
                         <>
                           {/* Status Display */}
                           <div className="flex items-center justify-between p-3 border rounded-lg">
                             <div className="flex items-center gap-3">
-                              {googleStatus?.connected ? (
+                              {gmailStatus?.connected ? (
                                 <CheckCircle className="h-5 w-5 text-green-600" />
                               ) : (
                                 <XCircle className="h-5 w-5 text-red-600" />
                               )}
                               <div>
                                 <p className="font-medium">
-                                  {googleStatus?.connected ? 'Connected' : 'Disconnected'}
+                                  {gmailStatus?.connected ? 'Connected' : 'Disconnected'}
                                 </p>
-                                {googleStatus?.connected && googleStatus?.email && (
-                                  <p className="text-sm text-muted-foreground">{googleStatus.email}</p>
+                                {gmailStatus?.connected && gmailStatus?.email && (
+                                  <p className="text-sm text-muted-foreground">{gmailStatus.email}</p>
                                 )}
-                                {googleStatus?.connected && googleStatus?.lastSyncAt && (
+                                {gmailStatus?.connected && gmailStatus?.lastSyncAt && (
                                   <p className="text-xs text-muted-foreground">
-                                    Last synced: {new Date(googleStatus.lastSyncAt).toLocaleString()}
+                                    Last synced: {new Date(gmailStatus.lastSyncAt).toLocaleString()}
                                   </p>
                                 )}
                               </div>
                             </div>
-                            <Badge variant={googleStatus?.connected ? "default" : "secondary"}>
-                              {googleStatus?.connected ? 'Connected' : 'Disconnected'}
+                            <Badge variant={gmailStatus?.connected ? "default" : "secondary"}>
+                              {gmailStatus?.connected ? 'Connected' : 'Disconnected'}
                             </Badge>
                           </div>
 
                           {/* Gmail Scopes Check */}
-                          {googleStatus?.connected && (!googleStatus?.scopes?.some?.((scope: string) => scope.includes('gmail.send')) || !googleStatus?.scopes?.some?.((scope: string) => scope.includes('gmail.readonly'))) && (
+                          {gmailStatus?.connected && (!gmailStatus?.scopes?.some?.((scope: string) => scope.includes('gmail.send')) || !gmailStatus?.scopes?.some?.((scope: string) => scope.includes('gmail.readonly'))) && (
                             <Alert>
                               <AlertTriangle className="h-4 w-4" />
                               <AlertDescription>
-                                Google email access required — please reconnect to grant Gmail permissions.
+                                Gmail permissions missing — please reconnect to grant Gmail access.
                               </AlertDescription>
                             </Alert>
                           )}
@@ -527,14 +562,14 @@ export default function Settings() {
                                 const features = `popup,width=${w},height=${h},left=${left},top=${top}`;
                                 
                                 const popup = window.open(
-                                  `/auth/google?popup=1&returnTo=${encodeURIComponent(returnTo)}&origin=${encodeURIComponent(origin)}`,
-                                  'oauth',
+                                  `/auth/google/gmail?popup=1&returnTo=${encodeURIComponent(returnTo)}&origin=${encodeURIComponent(origin)}`,
+                                  'gmail-oauth',
                                   features
                                 );
                                 
                                 if (!popup) {
                                   // Fallback if popup blocked
-                                  window.location.href = `/auth/google?returnTo=${encodeURIComponent(returnTo)}&origin=${encodeURIComponent(origin)}`;
+                                  window.location.href = `/auth/google/gmail?returnTo=${encodeURIComponent(returnTo)}&origin=${encodeURIComponent(origin)}`;
                                   return;
                                 }
                                 
@@ -545,14 +580,14 @@ export default function Settings() {
                                   if (event.data.type === 'oauth:success') {
                                     window.removeEventListener('message', handleMessage);
                                     if (popup && !popup.closed) popup.close();
-                                    // Refresh Google status
-                                    refetchStatus();
-                                    toast({ title: 'Google account connected successfully' });
+                                    // Refresh Gmail status
+                                    refetchGmailStatus();
+                                    toast({ title: 'Gmail account connected successfully' });
                                   } else if (event.data.type === 'oauth:error') {
                                     window.removeEventListener('message', handleMessage);
                                     if (popup && !popup.closed) popup.close();
                                     toast({
-                                      title: 'Failed to connect Google account',
+                                      title: 'Failed to connect Gmail account',
                                       description: event.data.error || 'An error occurred',
                                       variant: 'destructive'
                                     });
@@ -561,22 +596,22 @@ export default function Settings() {
                                 
                                 window.addEventListener('message', handleMessage);
                               }}
-                              disabled={statusLoading}
-                              data-testid="button-connect-google"
+                              disabled={gmailStatusLoading}
+                              data-testid="button-connect-gmail"
                             >
-                              {googleStatus?.connected ? 'Reconnect Google' : 'Connect Google'}
+                              {gmailStatus?.connected ? 'Reconnect Gmail' : 'Connect Gmail'}
                             </Button>
-                            {googleStatus?.connected && (
+                            {gmailStatus?.connected && (
                               <Button
                                 variant="outline"
-                                onClick={() => disconnectMutation.mutate()}
-                                disabled={disconnectMutation.isPending}
-                                data-testid="button-disconnect-google"
+                                onClick={() => disconnectGmailMutation.mutate()}
+                                disabled={disconnectGmailMutation.isPending}
+                                data-testid="button-disconnect-gmail"
                               >
-                                {disconnectMutation.isPending ? (
+                                {disconnectGmailMutation.isPending ? (
                                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                                 ) : null}
-                                Disconnect Google
+                                Disconnect Gmail
                               </Button>
                             )}
                           </div>
@@ -605,63 +640,197 @@ export default function Settings() {
                   </Card>
 
                   {/* Calendar Integration */}
-                  <div className="p-4 border rounded-lg space-y-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-3">
-                        <Calendar className="h-8 w-8 text-green-600" />
-                        <div>
-                          <p className="font-medium">Calendar Integration</p>
-                          <p className="text-sm text-muted-foreground">Sync with Google Calendar</p>
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <Calendar className="h-5 w-5 text-green-600" />
+                        Google Calendar Integration
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      {calendarStatusLoading ? (
+                        <div className="flex items-center justify-center py-4">
+                          <Loader2 className="h-5 w-5 animate-spin mr-2" />
+                          Checking Calendar connection status...
                         </div>
-                      </div>
-                      <Badge variant={googleStatus?.connected ? "default" : "secondary"}>
-                        {googleStatus?.connected ? 'Connected' : 'Disconnected'}
-                      </Badge>
-                    </div>
-                    
-                    {googleStatus?.connected ? (
-                      <div className="flex gap-2">
-                        <Button
-                          onClick={() => requestSyncMutation.mutate()}
-                          disabled={requestSyncMutation.isPending}
-                          variant="outline"
-                          size="sm"
-                          data-testid="button-request-sync"
-                        >
-                          {requestSyncMutation.isPending ? (
-                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                          ) : (
-                            <Calendar className="h-4 w-4 mr-2" />
+                      ) : (
+                        <>
+                          {/* Status Display */}
+                          <div className="flex items-center justify-between p-3 border rounded-lg">
+                            <div className="flex items-center gap-3">
+                              {calendarStatus?.connected ? (
+                                <CheckCircle className="h-5 w-5 text-green-600" />
+                              ) : (
+                                <XCircle className="h-5 w-5 text-red-600" />
+                              )}
+                              <div>
+                                <p className="font-medium">
+                                  {calendarStatus?.connected ? 'Connected' : 'Disconnected'}
+                                </p>
+                                {calendarStatus?.connected && calendarStatus?.email && (
+                                  <p className="text-sm text-muted-foreground">{calendarStatus.email}</p>
+                                )}
+                                {calendarStatus?.connected && calendarStatus?.lastSyncAt && (
+                                  <p className="text-xs text-muted-foreground">
+                                    Last synced: {new Date(calendarStatus.lastSyncAt).toLocaleString()}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                            <Badge variant={calendarStatus?.connected ? "default" : "secondary"}>
+                              {calendarStatus?.connected ? 'Connected' : 'Disconnected'}
+                            </Badge>
+                          </div>
+
+                          {/* Calendar Scopes Check */}
+                          {calendarStatus?.connected && (!calendarStatus?.scopes?.some?.((scope: string) => scope.includes('calendar.readonly')) || !calendarStatus?.scopes?.some?.((scope: string) => scope.includes('calendar.events'))) && (
+                            <Alert>
+                              <AlertTriangle className="h-4 w-4" />
+                              <AlertDescription>
+                                Calendar permissions missing — please reconnect to grant Calendar access.
+                              </AlertDescription>
+                            </Alert>
                           )}
-                          Request Sync
-                        </Button>
-                        <Button
-                          onClick={() => disconnectMutation.mutate()}
-                          disabled={disconnectMutation.isPending}
-                          variant="outline"
-                          size="sm"
-                          data-testid="button-disconnect-calendar"
-                        >
-                          {disconnectMutation.isPending ? (
-                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                          ) : null}
-                          Disconnect
-                        </Button>
-                      </div>
-                    ) : (
-                      <div className="flex gap-2">
-                        <Button
-                          onClick={() => setShowGoogleOAuth(true)}
-                          variant="default"
-                          size="sm"
-                          data-testid="button-connect-calendar"
-                        >
-                          <Calendar className="h-4 w-4 mr-2" />
-                          Connect Google Calendar
-                        </Button>
-                      </div>
-                    )}
-                  </div>
+
+                          {/* Action Buttons */}
+                          <div className="flex gap-2">
+                            {calendarStatus?.connected ? (
+                              <>
+                                <Button
+                                  onClick={() => requestSyncMutation.mutate()}
+                                  disabled={requestSyncMutation.isPending}
+                                  variant="outline"
+                                  size="sm"
+                                  data-testid="button-request-sync"
+                                >
+                                  {requestSyncMutation.isPending ? (
+                                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                  ) : (
+                                    <Calendar className="h-4 w-4 mr-2" />
+                                  )}
+                                  Request Sync
+                                </Button>
+                                <Button
+                                  onClick={() => {
+                                    const returnTo = window.location.pathname;
+                                    const origin = window.location.origin;
+                                    const w = 500, h = 650;
+                                    const left = Math.round((screen.width / 2) - (w / 2));
+                                    const top = Math.round((screen.height / 2) - (h / 2));
+                                    const features = `popup,width=${w},height=${h},left=${left},top=${top}`;
+                                    
+                                    const popup = window.open(
+                                      `/auth/google/calendar?popup=1&returnTo=${encodeURIComponent(returnTo)}&origin=${encodeURIComponent(origin)}`,
+                                      'calendar-oauth',
+                                      features
+                                    );
+                                    
+                                    if (!popup) {
+                                      // Fallback if popup blocked
+                                      window.location.href = `/auth/google/calendar?returnTo=${encodeURIComponent(returnTo)}&origin=${encodeURIComponent(origin)}`;
+                                      return;
+                                    }
+                                    
+                                    // Listen for OAuth success/error messages
+                                    const handleMessage = (event: MessageEvent) => {
+                                      if (event.origin !== window.location.origin) return;
+                                      
+                                      if (event.data.type === 'oauth:success') {
+                                        window.removeEventListener('message', handleMessage);
+                                        if (popup && !popup.closed) popup.close();
+                                        // Refresh Calendar status
+                                        refetchCalendarStatus();
+                                        toast({ title: 'Google Calendar connected successfully' });
+                                      } else if (event.data.type === 'oauth:error') {
+                                        window.removeEventListener('message', handleMessage);
+                                        if (popup && !popup.closed) popup.close();
+                                        toast({
+                                          title: 'Failed to connect Google Calendar',
+                                          description: event.data.error || 'An error occurred',
+                                          variant: 'destructive'
+                                        });
+                                      }
+                                    };
+                                    
+                                    window.addEventListener('message', handleMessage);
+                                  }}
+                                  variant="outline"
+                                  size="sm"
+                                  data-testid="button-reconnect-calendar"
+                                >
+                                  Reconnect Calendar
+                                </Button>
+                                <Button
+                                  onClick={() => disconnectCalendarMutation.mutate()}
+                                  disabled={disconnectCalendarMutation.isPending}
+                                  variant="outline"
+                                  size="sm"
+                                  data-testid="button-disconnect-calendar"
+                                >
+                                  {disconnectCalendarMutation.isPending ? (
+                                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                  ) : null}
+                                  Disconnect
+                                </Button>
+                              </>
+                            ) : (
+                              <Button
+                                onClick={() => {
+                                  const returnTo = window.location.pathname;
+                                  const origin = window.location.origin;
+                                  const w = 500, h = 650;
+                                  const left = Math.round((screen.width / 2) - (w / 2));
+                                  const top = Math.round((screen.height / 2) - (h / 2));
+                                  const features = `popup,width=${w},height=${h},left=${left},top=${top}`;
+                                  
+                                  const popup = window.open(
+                                    `/auth/google/calendar?popup=1&returnTo=${encodeURIComponent(returnTo)}&origin=${encodeURIComponent(origin)}`,
+                                    'calendar-oauth',
+                                    features
+                                  );
+                                  
+                                  if (!popup) {
+                                    // Fallback if popup blocked
+                                    window.location.href = `/auth/google/calendar?returnTo=${encodeURIComponent(returnTo)}&origin=${encodeURIComponent(origin)}`;
+                                    return;
+                                  }
+                                  
+                                  // Listen for OAuth success/error messages
+                                  const handleMessage = (event: MessageEvent) => {
+                                    if (event.origin !== window.location.origin) return;
+                                    
+                                    if (event.data.type === 'oauth:success') {
+                                      window.removeEventListener('message', handleMessage);
+                                      if (popup && !popup.closed) popup.close();
+                                      // Refresh Calendar status
+                                      refetchCalendarStatus();
+                                      toast({ title: 'Google Calendar connected successfully' });
+                                    } else if (event.data.type === 'oauth:error') {
+                                      window.removeEventListener('message', handleMessage);
+                                      if (popup && !popup.closed) popup.close();
+                                      toast({
+                                        title: 'Failed to connect Google Calendar',
+                                        description: event.data.error || 'An error occurred',
+                                        variant: 'destructive'
+                                      });
+                                    }
+                                  };
+                                  
+                                  window.addEventListener('message', handleMessage);
+                                }}
+                                variant="default"
+                                size="sm"
+                                data-testid="button-connect-calendar"
+                              >
+                                <Calendar className="h-4 w-4 mr-2" />
+                                Connect Google Calendar
+                              </Button>
+                            )}
+                          </div>
+                        </>
+                      )}
+                    </CardContent>
+                  </Card>
                 </div>
               </CardContent>
             </Card>

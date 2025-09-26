@@ -389,7 +389,18 @@ export default function Projects() {
                         {project.estimatedValue ? `$${parseFloat(project.estimatedValue).toLocaleString()}` : '-'}
                       </TableCell>
                       <TableCell data-testid={`project-created-${project.id}`}>
-                        {project.createdAt ? format(new Date(project.createdAt), 'MMM dd, yyyy') : 'Unknown'}
+                        {(() => {
+                          // Handle both camelCase and snake_case field names
+                          const dateValue = (project as any).created_at || (project as any).createdAt;
+                          if (!dateValue) return 'Unknown';
+                          try {
+                            const date = new Date(dateValue);
+                            if (isNaN(date.getTime())) return 'Invalid date';
+                            return format(date, 'MMM dd, yyyy h:mm a');
+                          } catch {
+                            return 'Invalid date';
+                          }
+                        })()}
                       </TableCell>
                       <TableCell onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center space-x-2">

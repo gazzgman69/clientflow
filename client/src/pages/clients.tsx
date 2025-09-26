@@ -60,11 +60,12 @@ export default function Contacts() {
 
   const { data: contactsData, isLoading } = useQuery<{contacts: Contact[], pagination: any}>({
     queryKey: ["/api/contacts"],
-    refetchInterval: 30000, // Refresh every 30 seconds for reasonable updates
+    refetchInterval: 10000, // Refresh every 10 seconds for better responsiveness
     refetchIntervalInBackground: false, // Don't poll when tab is inactive
     refetchOnWindowFocus: true, // Refresh when tab/window gains focus
     refetchOnMount: true, // Refresh when component mounts
     refetchOnReconnect: true, // Refresh on reconnect
+    staleTime: 5000, // Data stays fresh for 5 seconds
   });
 
   const contacts = contactsData?.contacts || [];

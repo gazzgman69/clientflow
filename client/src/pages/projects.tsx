@@ -77,22 +77,24 @@ export default function Projects() {
 
   const { data: projectsData, isLoading } = useQuery<{projects: Project[], pagination: any}>({
     queryKey: ["/api/projects"],
-    refetchInterval: 30000, // Refresh every 30 seconds for reasonable updates
+    refetchInterval: 10000, // Refresh every 10 seconds for better responsiveness
     refetchIntervalInBackground: false, // Don't poll when tab is inactive
     refetchOnWindowFocus: true, // Refresh when tab/window gains focus
     refetchOnMount: true, // Refresh when component mounts
     refetchOnReconnect: true, // Refresh on reconnect
+    staleTime: 5000, // Data stays fresh for 5 seconds
   });
 
   const projects = projectsData?.projects || [];
 
   const { data: contactsData } = useQuery<{ contacts: Contact[] }>({
     queryKey: ["/api/contacts"],
-    refetchInterval: 30000, // Refresh every 30 seconds for reasonable updates
+    refetchInterval: 10000, // Refresh every 10 seconds for better responsiveness
     refetchIntervalInBackground: false, // Don't poll when tab is inactive
     refetchOnWindowFocus: true, // Refresh when tab/window gains focus
     refetchOnMount: true, // Refresh when component mounts
     refetchOnReconnect: true, // Refresh on reconnect
+    staleTime: 5000, // Data stays fresh for 5 seconds
   });
 
   const contacts = contactsData?.contacts || [];

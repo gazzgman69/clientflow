@@ -2807,6 +2807,10 @@ export class DrizzleStorage implements IStorage {
       throw new Error("SECURITY: tenantId is required to prevent cross-tenant data access");
     }
     
+    // Set default limit for performance - prevent fetching unlimited data
+    const defaultLimit = limit ?? 100;
+    const defaultOffset = offset ?? 0;
+    
     // WORKAROUND: Use Neon client directly to bypass Drizzle orderSelectedFields recursion issue
     const neonClient = neon(process.env.DATABASE_URL!);
     
@@ -2815,8 +2819,8 @@ export class DrizzleStorage implements IStorage {
         SELECT * FROM contacts 
         WHERE tenant_id = $1 AND user_id = $2
         ORDER BY created_at DESC
-        ${limit !== undefined ? `LIMIT ${limit}` : ''}
-        ${offset !== undefined ? `OFFSET ${offset}` : ''}
+        LIMIT ${defaultLimit}
+        OFFSET ${defaultOffset}
       `;
       const result = await neonClient(query, [tenantId, userId]);
       return result as Contact[];
@@ -2825,8 +2829,8 @@ export class DrizzleStorage implements IStorage {
         SELECT * FROM contacts 
         WHERE tenant_id = $1
         ORDER BY created_at DESC
-        ${limit !== undefined ? `LIMIT ${limit}` : ''}
-        ${offset !== undefined ? `OFFSET ${offset}` : ''}
+        LIMIT ${defaultLimit}
+        OFFSET ${defaultOffset}
       `;
       const result = await neonClient(query, [tenantId]);
       return result as Contact[];
@@ -2892,6 +2896,10 @@ export class DrizzleStorage implements IStorage {
       throw new Error("SECURITY: tenantId is required to prevent cross-tenant data access");
     }
     
+    // Set default limit for performance - prevent fetching unlimited data
+    const defaultLimit = limit ?? 100;
+    const defaultOffset = offset ?? 0;
+    
     // WORKAROUND: Use Neon client directly to bypass Drizzle orderSelectedFields recursion issue
     const neonClient = neon(process.env.DATABASE_URL!);
     
@@ -2900,8 +2908,8 @@ export class DrizzleStorage implements IStorage {
         SELECT * FROM projects 
         WHERE tenant_id = $1 AND (user_id = $2 OR assigned_to = $2)
         ORDER BY created_at DESC
-        ${limit !== undefined ? `LIMIT ${limit}` : ''}
-        ${offset !== undefined ? `OFFSET ${offset}` : ''}
+        LIMIT ${defaultLimit}
+        OFFSET ${defaultOffset}
       `;
       const result = await neonClient(query, [tenantId, userId]);
       return result as Project[];
@@ -2910,8 +2918,8 @@ export class DrizzleStorage implements IStorage {
         SELECT * FROM projects 
         WHERE tenant_id = $1
         ORDER BY created_at DESC
-        ${limit !== undefined ? `LIMIT ${limit}` : ''}
-        ${offset !== undefined ? `OFFSET ${offset}` : ''}
+        LIMIT ${defaultLimit}
+        OFFSET ${defaultOffset}
       `;
       const result = await neonClient(query, [tenantId]);
       return result as Project[];

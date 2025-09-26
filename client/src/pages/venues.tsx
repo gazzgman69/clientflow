@@ -1135,43 +1135,53 @@ export default function VenuesPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Venue</AlertDialogTitle>
             <AlertDialogDescription>
-              {deletionPreview && (
-                <div className="space-y-3">
-                  <div>
-                    Are you sure you want to delete "<strong>{deletionPreview.venue.name}</strong>"?
-                  </div>
-                  
-                  {deletionPreview.associations.totalCount > 0 ? (
-                    <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3">
-                      <div className="flex items-start gap-2">
-                        <div className="w-4 h-4 rounded-full bg-yellow-400 flex-shrink-0 mt-0.5"></div>
-                        <div className="text-sm">
-                          <div className="font-medium text-yellow-800 mb-1">Warning</div>
-                          <div className="text-yellow-700">
-                            {deletionPreview.message}
+              {deletionPreview ? (
+                deletionPreview.venue ? (
+                  <div className="space-y-3">
+                    <div>
+                      Are you sure you want to delete "<strong>{deletionPreview.venue.name || 'this venue'}</strong>"?
+                    </div>
+                    
+                    {deletionPreview.associations && deletionPreview.associations.totalCount > 0 ? (
+                      <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3">
+                        <div className="flex items-start gap-2">
+                          <div className="w-4 h-4 rounded-full bg-yellow-400 flex-shrink-0 mt-0.5"></div>
+                          <div className="text-sm">
+                            <div className="font-medium text-yellow-800 mb-1">Warning</div>
+                            <div className="text-yellow-700">
+                              {deletionPreview.message}
+                            </div>
+                            {deletionPreview.associations.contactCount > 0 && (
+                              <div className="mt-2 text-yellow-600">
+                                • {deletionPreview.associations.contactCount} contact(s) will lose their venue association
+                              </div>
+                            )}
+                            {deletionPreview.associations.projectCount > 0 && (
+                              <div className="text-yellow-600">
+                                • {deletionPreview.associations.projectCount} project(s) will lose their venue association
+                              </div>
+                            )}
                           </div>
-                          {deletionPreview.associations.contactCount > 0 && (
-                            <div className="mt-2 text-yellow-600">
-                              • {deletionPreview.associations.contactCount} contact(s) will lose their venue association
-                            </div>
-                          )}
-                          {deletionPreview.associations.projectCount > 0 && (
-                            <div className="text-yellow-600">
-                              • {deletionPreview.associations.projectCount} project(s) will lose their venue association
-                            </div>
-                          )}
                         </div>
                       </div>
+                    ) : (
+                      <div className="text-muted-foreground">
+                        {deletionPreview.message}
+                      </div>
+                    )}
+                    
+                    <div className="text-sm text-muted-foreground">
+                      This action cannot be undone.
                     </div>
-                  ) : (
-                    <div className="text-muted-foreground">
-                      {deletionPreview.message}
-                    </div>
-                  )}
-                  
-                  <div className="text-sm text-muted-foreground">
-                    This action cannot be undone.
                   </div>
+                ) : (
+                  <div className="space-y-3">
+                    <div>Loading venue details...</div>
+                  </div>
+                )
+              ) : (
+                <div className="space-y-3">
+                  <div>Loading deletion preview...</div>
                 </div>
               )}
             </AlertDialogDescription>

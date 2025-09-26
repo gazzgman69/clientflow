@@ -4,6 +4,18 @@ import { storage } from '../../storage';
 import type { CalendarIntegration } from '@shared/schema';
 import { secureStore } from './secureStore';
 
+// HMAC secret for signing OAuth state - use environment variable or fallback
+const OAUTH_STATE_SECRET = process.env.OAUTH_STATE_SECRET || 'default-oauth-secret-change-in-production';
+
+interface OAuthState {
+  tenantId: string;
+  userId: string; 
+  provider: string;
+  serviceType: 'gmail' | 'calendar' | 'all';
+  returnTo?: string;
+  timestamp: number;
+}
+
 // Helper function to get the correct redirect URI
 function getRedirectUri(): string {
   if (process.env.REPLIT_DOMAINS) {
@@ -73,6 +85,53 @@ const SCOPES = [
 
 export class GoogleOAuthService {
   /**
+   * Sign OAuth state with HMAC for tamper protection
+   */
+  private signOAuthState(state: OAuthState): string {
+    const stateJson = JSON.stringify(state);
+    const signature = crypto
+      .createHmac('sha256', OAUTH_STATE_SECRET)
+      .update(stateJson)
+      .digest('hex');
+    
+    const signedState = `${Buffer.from(stateJson).toString('base64')}.${signature}`;
+    return signedState;
+  }
+
+  /**
+   * Verify and extract OAuth state from signed state parameter
+   */
+  private verifyOAuthState(signedState: string): OAuthState {
+    const parts = signedState.split('.');
+    if (parts.length !== 2) {
+      throw new Error('Invalid state format - missing signature');
+    }
+
+    const [stateBase64, signature] = parts;
+    const stateJson = Buffer.from(stateBase64, 'base64').toString('utf8');
+    
+    // Verify signature
+    const expectedSignature = crypto
+      .createHmac('sha256', OAUTH_STATE_SECRET)
+      .update(stateJson)
+      .digest('hex');
+    
+    if (!crypto.timingSafeEqual(Buffer.from(signature, 'hex'), Buffer.from(expectedSignature, 'hex'))) {
+      throw new Error('Invalid state signature - state may have been tampered with');
+    }
+
+    const state: OAuthState = JSON.parse(stateJson);
+    
+    // Check timestamp to prevent replay attacks (24 hour expiry)
+    const maxAge = 24 * 60 * 60 * 1000; // 24 hours
+    if (Date.now() - state.timestamp > maxAge) {
+      throw new Error('OAuth state has expired - please restart the authorization flow');
+    }
+
+    return state;
+  }
+
+  /**
    * Generate code verifier and challenge for PKCE
    */
   private generatePKCEChallenge(): { codeVerifier: string; codeChallenge: string } {
@@ -92,11 +151,30 @@ export class GoogleOAuthService {
    * Generate OAuth URL for user to authenticate with PKCE support
    * @param email User's email for login hint
    * @param userId User ID in our system
+   * @param tenantId Tenant ID for multi-tenant isolation
    * @param session Express session to store PKCE verifier
    * @param serviceType Service type: 'gmail', 'calendar', or 'all' (default: 'all' for backward compatibility)
+   * @param returnTo Optional return URL after OAuth completion
    */
-  generateAuthUrl(email: string, userId: string, session?: any, serviceType: 'gmail' | 'calendar' | 'all' = 'all'): string {
-    const state = Buffer.from(JSON.stringify({ email, userId, serviceType })).toString('base64');
+  generateAuthUrl(
+    email: string, 
+    userId: string, 
+    tenantId: string,
+    session?: any, 
+    serviceType: 'gmail' | 'calendar' | 'all' = 'all',
+    returnTo?: string
+  ): string {
+    // Create signed state with tenant context
+    const oauthState: OAuthState = {
+      tenantId,
+      userId,
+      provider: 'google',
+      serviceType,
+      returnTo,
+      timestamp: Date.now()
+    };
+    
+    const state = this.signOAuthState(oauthState);
     
     // Generate PKCE challenge and verifier
     const { codeVerifier, codeChallenge } = this.generatePKCEChallenge();
@@ -133,8 +211,17 @@ export class GoogleOAuthService {
       code_challenge_method: 'S256'
     });
     
-    console.log(`🔐 SECURITY: Generated ${serviceType} OAuth URL with PKCE protection`);
+    console.log(`🔐 SECURITY: Generated ${serviceType} OAuth URL with PKCE and signed state protection`);
     return authUrl;
+  }
+
+  /**
+   * Verify and extract OAuth state from callback
+   * @param signedState Signed state parameter from OAuth callback
+   * @returns Verified OAuth state with tenant context
+   */
+  verifyCallbackState(signedState: string): OAuthState {
+    return this.verifyOAuthState(signedState);
   }
 
   /**

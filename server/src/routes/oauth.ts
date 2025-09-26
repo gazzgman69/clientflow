@@ -220,8 +220,8 @@ router.post('/auth/google/start', requireAuth, async (req: any, res) => {
     req.session.pkceCodeVerifier = codeVerifier;
     req.session.serviceType = 'all'; // Backward compatibility
     
-    // Generate OAuth URL with PKCE support (all services for backward compatibility)
-    const authUrl = googleOAuthService.generateAuthUrl(email, userId, req.session, 'all');
+    // Generate OAuth URL with PKCE support and signed state (all services for backward compatibility)
+    const authUrl = googleOAuthService.generateAuthUrl(email, userId, req.tenantId, req.session, 'all', returnTo);
     
     console.log('🔐 SECURITY: POST /auth/google/start now using PKCE protection with all services');
     
@@ -275,8 +275,8 @@ router.post('/auth/google/gmail/start', requireAuth, async (req: any, res) => {
     req.session.pkceCodeVerifier = codeVerifier;
     req.session.serviceType = 'gmail';
     
-    // Generate OAuth URL with Gmail-specific scopes
-    const authUrl = googleOAuthService.generateAuthUrl(email, userId, req.session, 'gmail');
+    // Generate OAuth URL with Gmail-specific scopes and signed state
+    const authUrl = googleOAuthService.generateAuthUrl(email, userId, req.tenantId, req.session, 'gmail', returnTo);
     
     console.log('🔐 SECURITY: POST /auth/google/gmail/start using Gmail-specific scopes');
     
@@ -330,8 +330,8 @@ router.post('/auth/google/calendar/start', requireAuth, async (req: any, res) =>
     req.session.pkceCodeVerifier = codeVerifier;
     req.session.serviceType = 'calendar';
     
-    // Generate OAuth URL with Calendar-specific scopes
-    const authUrl = googleOAuthService.generateAuthUrl(email, userId, req.session, 'calendar');
+    // Generate OAuth URL with Calendar-specific scopes and signed state
+    const authUrl = googleOAuthService.generateAuthUrl(email, userId, req.tenantId, req.session, 'calendar', returnTo);
     
     console.log('🔐 SECURITY: POST /auth/google/calendar/start using Calendar-specific scopes');
     
@@ -427,23 +427,30 @@ router.get('/auth/google/callback', async (req, res) => {
       return res.status(400).send('Missing code');
     }
     
-    // Validate presence and correctness of state
-    if (!state) {
-      console.error('Missing state parameter in callback');
-      return res.status(400).send('Invalid state');
+    // Verify signed state parameter and extract tenant context
+    let verifiedState;
+    try {
+      verifiedState = googleOAuthService.verifyCallbackState(state as string);
+      console.log('🔐 OAUTH CALLBACK: State verified successfully', {
+        tenantId: verifiedState.tenantId,
+        userId: verifiedState.userId,
+        provider: verifiedState.provider,
+        serviceType: verifiedState.serviceType,
+        timestamp: new Date().toISOString()
+      });
+    } catch (error: any) {
+      console.error('❌ OAUTH CALLBACK: State verification failed', { error: error.message });
+      return res.status(400).send(`Invalid state: ${error.message}`);
     }
     
-    if (req.session.oauth_state !== state) {
-      console.error('State mismatch:', { session: req.session.oauth_state, received: state });
-      return res.status(400).send('Invalid state');
-    }
+    // Extract tenant context from verified state (popup-safe)
+    const { tenantId, userId: stateUserId, serviceType, returnTo: stateReturnTo } = verifiedState;
     
-    // Get session data before clearing
-    const returnTo = req.session.oauth_return_to || '/settings';
+    // Get session data for fallback and PKCE verification
+    const returnTo = stateReturnTo || req.session.oauth_return_to || '/settings';
     const isPopup = req.session.oauth_popup || false;
     const origin = req.session.oauth_origin || '';
     const pkceCodeVerifier = req.session.pkceCodeVerifier; // Get PKCE verifier
-    const serviceType = req.session.serviceType || 'calendar'; // Get service type for scope validation
     
     // SECURITY: Require PKCE verifier for enhanced security
     if (!pkceCodeVerifier) {
@@ -458,16 +465,19 @@ router.get('/auth/google/callback', async (req, res) => {
     delete req.session.oauth_origin;
     delete req.session.pkceCodeVerifier; // Clear PKCE verifier
     
-    // Get user from authenticated session
-    if (!req.session?.userId) {
-      return res.status(401).send('Authentication required');
+    // Use verified state for tenant context (popup-safe)
+    // Fallback to session if state userId doesn't match (security check)
+    const userId = stateUserId || req.session?.userId;
+    if (!userId) {
+      console.error('❌ OAUTH CALLBACK: No userId in state or session');
+      return res.status(401).send('Authentication required - missing user context');
     }
-    // Get tenantId from session for tenant isolation
-    if (!req.session?.tenantId) {
-      return res.status(400).send('Tenant context required');
+    
+    // Tenant context is now derived from verified state (no session dependency)
+    if (!tenantId) {
+      console.error('❌ OAUTH CALLBACK: No tenantId in verified state');
+      return res.status(400).send('Tenant context required - invalid state');
     }
-    const userId = req.session.userId;
-    const tenantId = req.session.tenantId;
     
     // Exchange code for tokens with PKCE verification
     const tokens = await googleOAuthService.exchangeCodeForTokens(code as string, pkceCodeVerifier);

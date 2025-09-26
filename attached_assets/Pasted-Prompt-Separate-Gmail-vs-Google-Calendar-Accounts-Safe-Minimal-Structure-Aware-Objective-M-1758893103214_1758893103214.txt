@@ -1,0 +1,117 @@
+Prompt — “Separate Gmail vs Google Calendar Accounts (Safe, Minimal, Structure-Aware)”
+
+Objective: Make Gmail and Google Calendar separate connections with independent login/consent, tokens, scopes, jobs, and revoke flows — without changing unrelated features.
+
+Hard rules
+
+Discover repo structure; do not assume filenames, tables, or frameworks.
+
+Start read-only: produce a short plan listing the exact files:lines to touch. Wait for approval before code.
+
+Minimal & additive changes only (no destructive migrations/renames/refactors).
+
+Tenant-safe: all logic must respect existing isolation/RLS and withTenant() patterns.
+
+Feature-flag new behaviour (default OFF in prod), and provide a dry-run where relevant.
+
+Keep current Gmail/Calendar behaviour working until the split is enabled.
+
+Scope
+
+IN: OAuth flows, scopes, token storage, refresh/revoke, webhooks, background jobs, “Connections” UI, per-tenant settings.
+
+OUT: Payments, auth, unrelated email/calendar features, non-Google providers.
+
+Deliverables
+
+Read-only plan
+
+Summarise current coupling (where Gmail + Calendar share scopes/tokens/handlers).
+
+Propose the smallest safe split (1–3 bullets).
+
+List intended edits with file:line evidence.
+
+Identify risks and mitigation (migrations, backfill, rollback).
+
+Independent connections
+
+Ensure there are two distinct providers (e.g., GOOGLE_MAIL, GOOGLE_CALENDAR) in whatever integrations model exists.
+
+Separate scopes (mail scopes only vs calendar scopes only).
+
+Separate token storage rows/fields so one can be connected/revoked without affecting the other.
+
+Independent refresh/revoke paths and webhook subscriptions/handlers.
+
+Connections UI
+
+Show Gmail and Google Calendar as two tiles with their own Connect/Disconnect/Repair/status, following current UI patterns.
+
+No layout overhaul — smallest possible UI change.
+
+Jobs & webhooks
+
+Ensure email sync jobs only require the mail connection; calendar sync/jobs only require the calendar connection.
+
+Webhook handlers must resolve the correct integration record and tenant context; no cross-dependency.
+
+Migration & backfill (additive, idempotent)
+
+If tokens are currently shared, create a safe migration/backfill that:
+
+Splits into two integration records per tenant where needed.
+
+Copies appropriate tokens/scopes to each (or prompts reconnect when scopes are insufficient).
+
+Provide a dry-run mode that logs what would be created/updated without changing data.
+
+Validation & fail-fast
+
+On Gmail actions, require the mail connection; on Calendar actions, require the calendar connection.
+
+Clear, user-facing error when a required connection is missing.
+
+Feature flag & rollback
+
+Gate with e.g. SPLIT_GOOGLE_MAIL_CALENDAR=true.
+
+With the flag off, behaviour is unchanged.
+
+Rollback = toggle flag OFF or revert PR; no data loss.
+
+Tests (minimal but meaningful)
+
+Tenant A: connect mail only → email sync works; calendar does not (clear error).
+
+Tenant B: connect calendar only → calendar sync works; email does not (clear error).
+
+Disconnect mail does not affect calendar, and vice versa.
+
+Webhooks/jobs resolve correct integration per tenant.
+
+Short report in PR
+
+What changed (files/lines), migration notes, flag name, dry-run usage, manual verification steps.
+
+Acceptance (must all pass)
+
+With flag off: identical behaviour to today.
+
+With flag on (staging):
+
+Gmail and Google Calendar show as separate connections with independent status/actions.
+
+Tokens/scopes stored independently; refresh/revoke/webhooks/jobs are decoupled.
+
+Backfill/dry-run works; no data loss; idempotent.
+
+Tests pass for two tenants.
+
+Do not
+
+Do not broaden scopes; only request what each service needs.
+
+Do not change non-Google providers.
+
+Do not remove existing data; only additive migration/backfill.

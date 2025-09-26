@@ -2589,7 +2589,7 @@ export class DrizzleStorage implements IStorage {
     };
   }
 
-  async updateCalendarIntegration(id: string, updates: Partial<InsertCalendarIntegration>): Promise<CalendarIntegration | undefined> {
+  async updateCalendarIntegration(id: string, updates: Partial<InsertCalendarIntegration>, tenantId: string): Promise<CalendarIntegration | undefined> {
     // Encrypt sensitive OAuth tokens if they're being updated
     const secureUpdates = { ...updates };
     if (updates.accessToken !== undefined) {
@@ -2599,7 +2599,10 @@ export class DrizzleStorage implements IStorage {
       secureUpdates.refreshToken = updates.refreshToken ? secureStore.encrypt(updates.refreshToken) : null;
     }
     
-    const result = await db.update(calendarIntegrations).set(secureUpdates).where(eq(calendarIntegrations.id, id)).returning();
+    const result = await db.update(calendarIntegrations).set(secureUpdates).where(and(
+      eq(calendarIntegrations.id, id),
+      eq(calendarIntegrations.tenantId, tenantId)
+    )).returning();
     
     if (!result[0]) return undefined;
     

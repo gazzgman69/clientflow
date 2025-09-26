@@ -480,7 +480,8 @@ router.get('/auth/google/callback', async (req, res) => {
         lastSyncAt: new Date(),
         syncErrors: null // Clear any previous sync errors on successful reconnection
       }, tenantId);
-      console.log('🔐 TOKEN PERSISTENCE: Integration updated successfully', { 
+      console.log('🔐 TOKEN PERSISTENCE: Integration updated', { 
+        operation: 'UPDATE',
         integrationId: integration.id, 
         tenantId,
         email: tokens.email,
@@ -494,8 +495,9 @@ router.get('/auth/google/callback', async (req, res) => {
         timestamp: new Date().toISOString()
       });
     } else {
-      // Create new integration with service type
+      // Create new integration with service type - include tenantId in integration object
       integration = await storage.createCalendarIntegration({
+        tenantId, // Explicitly include tenantId in integration object
         userId,
         provider: 'google',
         serviceType: serviceType,
@@ -507,6 +509,7 @@ router.get('/auth/google/callback', async (req, res) => {
         syncDirection: 'bidirectional'
       }, tenantId);
       console.log('🔐 TOKEN PERSISTENCE: New integration created', { 
+        operation: 'CREATE',
         integrationId: integration.id, 
         tenantId,
         email: tokens.email,

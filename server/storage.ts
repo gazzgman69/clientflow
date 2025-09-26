@@ -2570,10 +2570,16 @@ export class DrizzleStorage implements IStorage {
     };
   }
 
-  async createCalendarIntegration(integration: InsertCalendarIntegration): Promise<CalendarIntegration> {
-    // Encrypt sensitive OAuth tokens before storing
+  async createCalendarIntegration(integration: InsertCalendarIntegration, tenantId: string): Promise<CalendarIntegration> {
+    // Validate tenant isolation - ensure tenantId in integration matches the parameter
+    if (integration.tenantId && integration.tenantId !== tenantId) {
+      throw new Error(`Tenant ID mismatch: integration.tenantId (${integration.tenantId}) !== tenantId parameter (${tenantId})`);
+    }
+
+    // Ensure tenantId is always included in the integration object
     const secureIntegration = {
       ...integration,
+      tenantId, // Always use the parameter to ensure tenant isolation
       accessToken: integration.accessToken ? secureStore.encrypt(integration.accessToken) : null,
       refreshToken: integration.refreshToken ? secureStore.encrypt(integration.refreshToken) : null,
     };

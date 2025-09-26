@@ -359,6 +359,7 @@ router.get('/auth/google/callback', async (req, res) => {
     const isPopup = req.session.oauth_popup || false;
     const origin = req.session.oauth_origin || '';
     const pkceCodeVerifier = req.session.pkceCodeVerifier; // Get PKCE verifier
+    const serviceType = req.session.serviceType || 'calendar'; // Get service type for scope validation
     
     // SECURITY: Require PKCE verifier for enhanced security
     if (!pkceCodeVerifier) {
@@ -387,26 +388,35 @@ router.get('/auth/google/callback', async (req, res) => {
     // Exchange code for tokens with PKCE verification
     const tokens = await googleOAuthService.exchangeCodeForTokens(code as string, pkceCodeVerifier);
     
-    // Log token scopes for verification
-    console.log('Tokens received with scopes:', tokens);
+    // Log token scopes for verification with structured logging
+    console.log('📝 OAUTH CALLBACK: Token exchange completed', {
+      email: tokens.email,
+      hasAccessToken: !!tokens.access_token,
+      hasRefreshToken: !!tokens.refresh_token,
+      userId,
+      tenantId
+    });
     
     // Check if integration already exists
     let integration = await storage.getCalendarIntegrationByEmail(tokens.email, userId, tenantId);
     
     if (integration) {
-      // Update existing integration with tokens and expiry
+      // Update existing integration with tokens and service type
       integration = await storage.updateCalendarIntegration(integration.id, {
         accessToken: tokens.access_token,
         refreshToken: tokens.refresh_token || integration.refreshToken,
         providerAccountId: tokens.email,
+        serviceType: serviceType,
         isActive: true,
         lastSyncAt: new Date()
       }, tenantId);
+      console.log('📝 OAUTH CALLBACK: Integration updated', { integrationId: integration.id, serviceType });
     } else {
-      // Create new integration
+      // Create new integration with service type
       integration = await storage.createCalendarIntegration({
         userId,
         provider: 'google',
+        serviceType: serviceType,
         providerAccountId: tokens.email,
         calendarName: `Google Calendar (${tokens.email})`,
         accessToken: tokens.access_token,
@@ -414,13 +424,20 @@ router.get('/auth/google/callback', async (req, res) => {
         isActive: true,
         syncDirection: 'bidirectional'
       }, tenantId);
+      console.log('📝 OAUTH CALLBACK: Integration created', { integrationId: integration.id, serviceType });
     }
     
     // Schedule background sync (don't await - let popup close immediately)
-    if (integration) {
+    // Feature flag: POST_OAUTH_INITIAL_SYNC=1 enables automatic sync after OAuth
+    const shouldAutoSync = process.env.POST_OAUTH_INITIAL_SYNC === '1';
+    if (integration && shouldAutoSync) {
       setImmediate(async () => {
         try {
-          console.log('🔄 Starting background sync after OAuth...');
+          console.log('🔄 Starting background sync after OAuth (POST_OAUTH_INITIAL_SYNC=1)...', {
+            integrationId: integration.id,
+            serviceType,
+            email: tokens.email
+          });
           
           // Calendar sync in background
           await googleOAuthService.syncFromGoogle(integration);

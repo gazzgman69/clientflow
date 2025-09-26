@@ -1,0 +1,83 @@
+Symptom: After Google OAuth, I’m redirected back, but no data syncs into the CRM.
+
+Rules
+
+Discover the repo structure; do not assume paths/tables.
+
+Start read-only: produce a brief plan with file:line evidence before any code.
+
+Keep changes minimal & additive; tenant-safe; no refactors.
+
+Use a feature flag for any new behavior (default OFF in prod).
+
+Do not touch unrelated systems.
+
+What to verify (read-only plan first)
+
+Callback persistence
+
+Tokens actually saved (encrypted), linked to the correct tenant/integration (mail vs calendar if split).
+
+Scopes include what the sync needs (e.g., Gmail read, Calendar read).
+
+Connection status flipped to “connected”.
+
+Initial sync trigger
+
+Does the callback enqueue a first sync job (or emit an event) after saving tokens?
+
+If jobs exist, confirm a worker/processor is running and consuming the queue.
+
+Webhooks / watches
+
+If you rely on push updates, confirm a watch/subscription is created post-connect, with a valid callback URL and tenant context.
+
+Scheduler / cron
+
+If you rely on polling, confirm the scheduled job includes this tenant and the new integration.
+
+Tenant context
+
+All of the above run with the resolved tenantId (no default/fallback).
+
+Logs & errors
+
+Show any errors thrown after OAuth: missing scopes, expired refresh, 401s, queue misconfig, SameSite cookie issues, etc.
+
+Minimal fixes to implement (after plan)
+
+If the callback doesn’t kick a sync: enqueue an initial sync (mail and/or calendar) right after tokens persist; guard with a flag (e.g., POST_OAUTH_INITIAL_SYNC=1).
+
+If worker isn’t started: ensure the job processor is launched in your runtime (staging first).
+
+If relying on webhooks: create/renew the watch post-connect; store renewal time and add a renewal job.
+
+If scopes insufficient: surface a “Repair connection” flow that re-requests the missing scopes.
+
+Add concise structured logs around callback → enqueue → worker start so we can see the chain.
+
+Provide a manual “Sync now” action in the UI/API (if missing) to test without re-auth.
+
+Deliverables
+
+Plan (read-only) with file:line evidence of the break.
+
+Small PR with the minimal fix (feature-flagged), plus:
+
+Where tokens are saved and how initial sync/job/watch is triggered.
+
+Any worker/scheduler tweaks.
+
+Manual verification steps.
+
+Acceptance (must all pass)
+
+After OAuth, tokens saved for correct tenant/integration; status shows Connected.
+
+A first sync job is enqueued and processed (logs show start/finish).
+
+Data appears in the CRM (e.g., latest 10 emails or upcoming calendar events).
+
+“Sync now” works and logs clearly.
+
+With the new flag off, behavior is unchanged.

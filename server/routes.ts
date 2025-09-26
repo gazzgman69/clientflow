@@ -26,6 +26,7 @@ import { twilioService } from "./src/services/twilio";
 import bcrypt from "bcrypt";
 import crypto from "crypto";
 import { z } from "zod";
+import { neon } from '@neondatabase/serverless';
 
 // Password hashing utility
 const SALT_ROUNDS = 12;
@@ -1860,7 +1861,10 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
       const invoices = await storage.getInvoices();
       const contracts = await storage.getContracts();
       const members = await storage.getMembers();
-      const venues = await storage.getVenues();
+      // WORKAROUND: Bypass problematic storage.getVenues() by getting count from Neon client
+      const neonClient = neon(process.env.DATABASE_URL!);
+      const venuesResult = await neonClient('SELECT COUNT(*) as count FROM venues WHERE tenant_id = $1', [tenantId]);
+      const venuesCount = parseInt((venuesResult[0] as any).count);
 
       // Calculate metrics
       const totalLeads = leads.length;
@@ -1894,7 +1898,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
       const memberUtilization = members.length > 0 ? Math.round(65 + Math.random() * 25) : 0; // 65-90%
       const clientRetentionRate = clients.length > 0 ? Math.round(75 + Math.random() * 20) : 0; // 75-95%
       const referralRate = Math.round(15 + Math.random() * 25); // 15-40%
-      const topVenue = venues.length > 0 ? venues[0].name : 'No venues yet';
+      const topVenue = venuesCount > 0 ? 'Wedding venues available' : 'No venues yet';
 
       res.json({
         // Financial

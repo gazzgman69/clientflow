@@ -3,6 +3,7 @@ import { geocodingService, type PlaceDetails } from './geocoding';
 import type { Venue, InsertVenue } from '@shared/schema';
 import { withTenantData } from '../../utils/tenantQueries';
 import { validateAndCleanVenueAddress, hasAddressDuplication } from '@shared/addressUtils';
+import { neon } from '@neondatabase/serverless';
 
 export interface CreateVenueFromGoogleRequest {
   placeId: string;
@@ -25,7 +26,7 @@ export class VenuesService {
    */
   async upsertFromPlace(details: PlaceDetails, tenantId: string): Promise<Venue> {
     // Check if venue with this place_id already exists
-    const existingVenues = await storage.getVenues(tenantId);
+    const existingVenues = await this.getVenues(tenantId);
     const existingVenue = existingVenues.find(v => v.placeId === details.placeId);
 
     if (existingVenue) {
@@ -323,7 +324,7 @@ export class VenuesService {
    * Find venue by place_id to check cache
    */
   async findByPlaceId(placeId: string, tenantId: string): Promise<Venue | null> {
-    const venues = await storage.getVenues(tenantId);
+    const venues = await this.getVenues(tenantId);
     return venues.find(v => v.placeId === placeId) || null;
   }
 
@@ -341,7 +342,7 @@ export class VenuesService {
    * Find venues by normalized address matching
    */
   async findByAddress(searchInput: string, tenantId: string): Promise<Venue[]> {
-    const venues = await storage.getVenues(tenantId);
+    const venues = await this.getVenues(tenantId);
     const normalizedInput = this.normalizeAddress(searchInput);
     
     return venues.filter(venue => {
@@ -575,11 +576,26 @@ export class VenuesService {
    * Get all venues
    */
   async getVenues(tenantId: string, limit?: number, offset?: number): Promise<Venue[]> {
-    return await storage.getVenues(tenantId, limit, offset);
+    // WORKAROUND: Use direct Neon client to bypass Drizzle orderSelectedFields recursion issue
+    const neonClient = neon(process.env.DATABASE_URL!);
+    
+    const query = `
+      SELECT * FROM venues 
+      WHERE tenant_id = $1
+      ORDER BY created_at DESC
+      ${limit !== undefined ? `LIMIT ${limit}` : ''}
+      ${offset !== undefined ? `OFFSET ${offset}` : ''}
+    `;
+    const result = await neonClient(query, [tenantId]);
+    return result as Venue[];
   }
 
   async getVenuesCount(tenantId: string): Promise<number> {
-    return await storage.getVenuesCount(tenantId);
+    // WORKAROUND: Use direct Neon client to bypass Drizzle orderSelectedFields recursion issue
+    const neonClient = neon(process.env.DATABASE_URL!);
+    
+    const result = await neonClient('SELECT COUNT(*) as count FROM venues WHERE tenant_id = $1', [tenantId]);
+    return parseInt((result[0] as any).count);
   }
 
   /**

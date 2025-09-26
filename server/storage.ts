@@ -67,7 +67,7 @@ import crypto from "crypto";
 import { TenantScopedStorage } from './utils/tenantScopedStorage';
 import { drizzle } from 'drizzle-orm/neon-http';
 import { neon } from '@neondatabase/serverless';
-import { eq, and, desc, or, isNull, isNotNull, leftJoin } from 'drizzle-orm';
+import { eq, and, desc, or, isNull, isNotNull, leftJoin, sql } from 'drizzle-orm';
 import { secureStore } from './src/services/secureStore';
 import { validateAndCleanVenueAddress } from '@shared/addressUtils';
 import { IStorage } from './types/storage';
@@ -2807,23 +2807,30 @@ export class DrizzleStorage implements IStorage {
       throw new Error("SECURITY: tenantId is required to prevent cross-tenant data access");
     }
     
-    let whereCondition = eq(contacts.tenantId, tenantId);
+    // WORKAROUND: Use Neon client directly to bypass Drizzle orderSelectedFields recursion issue
+    const neonClient = neon(process.env.DATABASE_URL!);
+    
     if (userId) {
-      whereCondition = and(eq(contacts.tenantId, tenantId), eq(contacts.userId, userId));
+      const query = `
+        SELECT * FROM contacts 
+        WHERE tenant_id = $1 AND user_id = $2
+        ORDER BY created_at DESC
+        ${limit !== undefined ? `LIMIT ${limit}` : ''}
+        ${offset !== undefined ? `OFFSET ${offset}` : ''}
+      `;
+      const result = await neonClient(query, [tenantId, userId]);
+      return result as Contact[];
+    } else {
+      const query = `
+        SELECT * FROM contacts 
+        WHERE tenant_id = $1
+        ORDER BY created_at DESC
+        ${limit !== undefined ? `LIMIT ${limit}` : ''}
+        ${offset !== undefined ? `OFFSET ${offset}` : ''}
+      `;
+      const result = await neonClient(query, [tenantId]);
+      return result as Contact[];
     }
-    
-    let query = this.db.select().from(contacts)
-      .where(whereCondition)
-      .orderBy(desc(contacts.createdAt));
-    
-    if (limit !== undefined) {
-      query = query.limit(limit);
-    }
-    if (offset !== undefined) {
-      query = query.offset(offset);
-    }
-    
-    return await query;
   }
 
   async getContactsCount(tenantId: string, userId?: string): Promise<number> {
@@ -2885,26 +2892,30 @@ export class DrizzleStorage implements IStorage {
       throw new Error("SECURITY: tenantId is required to prevent cross-tenant data access");
     }
     
-    let whereCondition = eq(projects.tenantId, tenantId);
+    // WORKAROUND: Use Neon client directly to bypass Drizzle orderSelectedFields recursion issue
+    const neonClient = neon(process.env.DATABASE_URL!);
+    
     if (userId) {
-      whereCondition = and(
-        eq(projects.tenantId, tenantId),
-        or(eq(projects.userId, userId), eq(projects.assignedTo, userId))
-      );
+      const query = `
+        SELECT * FROM projects 
+        WHERE tenant_id = $1 AND (user_id = $2 OR assigned_to = $2)
+        ORDER BY created_at DESC
+        ${limit !== undefined ? `LIMIT ${limit}` : ''}
+        ${offset !== undefined ? `OFFSET ${offset}` : ''}
+      `;
+      const result = await neonClient(query, [tenantId, userId]);
+      return result as Project[];
+    } else {
+      const query = `
+        SELECT * FROM projects 
+        WHERE tenant_id = $1
+        ORDER BY created_at DESC
+        ${limit !== undefined ? `LIMIT ${limit}` : ''}
+        ${offset !== undefined ? `OFFSET ${offset}` : ''}
+      `;
+      const result = await neonClient(query, [tenantId]);
+      return result as Project[];
     }
-    
-    let query = this.db.select().from(projects)
-      .where(whereCondition)
-      .orderBy(desc(projects.createdAt));
-    
-    if (limit !== undefined) {
-      query = query.limit(limit);
-    }
-    if (offset !== undefined) {
-      query = query.offset(offset);
-    }
-    
-    return await query;
   }
 
   async getProjectsCount(tenantId: string, userId?: string): Promise<number> {
@@ -3321,18 +3332,18 @@ export class DrizzleStorage implements IStorage {
       throw new Error("SECURITY: tenantId is required to prevent cross-tenant data access");
     }
     
-    let query = this.db.select().from(venues)
-      .where(eq(venues.tenantId, tenantId))
-      .orderBy(desc(venues.createdAt));
+    // WORKAROUND: Use Neon client directly to bypass Drizzle orderSelectedFields recursion issue
+    const neonClient = neon(process.env.DATABASE_URL!);
     
-    if (limit !== undefined) {
-      query = query.limit(limit);
-    }
-    if (offset !== undefined) {
-      query = query.offset(offset);
-    }
-    
-    return await query;
+    const query = `
+      SELECT * FROM venues 
+      WHERE tenant_id = $1
+      ORDER BY created_at DESC
+      ${limit !== undefined ? `LIMIT ${limit}` : ''}
+      ${offset !== undefined ? `OFFSET ${offset}` : ''}
+    `;
+    const result = await neonClient(query, [tenantId]);
+    return result as Venue[];
   }
 
   async getVenuesCount(tenantId: string): Promise<number> {

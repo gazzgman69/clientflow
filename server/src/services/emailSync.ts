@@ -164,6 +164,14 @@ export class EmailSyncService {
             }
           }
 
+          // INGESTION GUARD: Get tenant ID from authenticated session context
+          // This is passed from the email sync service call which has session context
+          if (!this.tenantId) {
+            // SECURITY: Require authenticated tenant context - never fallback to default
+            throw new Error(`Email sync requires authenticated tenant context for user ${userId}. Session-based tenant ID must be provided.`);
+          }
+          const tenantId = this.tenantId;
+
           // RFC-compliant threading: Use Message-ID, In-Reply-To, References for proper threading
           // Note: We need to get the full message details to access RFC headers
           // For quick sync, we'll use Gmail thread ID as fallback, but mark for RFC processing
@@ -223,13 +231,6 @@ export class EmailSyncService {
           const fromEmailParsed = this.extractEmails(gmailThread.latest.from)[0] || '';
           const direction = fromEmailParsed.toLowerCase().includes(userEmail.toLowerCase()) ? 'outbound' : 'inbound';
           
-          // INGESTION GUARD: Get tenant ID from authenticated session context
-          // This is passed from the email sync service call which has session context
-          if (!this.tenantId) {
-            // SECURITY: Require authenticated tenant context - never fallback to default
-            throw new Error(`Email sync requires authenticated tenant context for user ${userId}. Session-based tenant ID must be provided.`);
-          }
-          const tenantId = this.tenantId;
           let contactId: string | null = null;
           
           if (direction === 'inbound') {

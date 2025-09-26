@@ -86,7 +86,7 @@ export default function Projects() {
 
   const projects = projectsData?.projects || [];
 
-  const { data: contacts } = useQuery<Contact[]>({
+  const { data: contactsData } = useQuery<{ contacts: Contact[] }>({
     queryKey: ["/api/contacts"],
     refetchInterval: 30000, // Refresh every 30 seconds for reasonable updates
     refetchIntervalInBackground: false, // Don't poll when tab is inactive
@@ -94,6 +94,8 @@ export default function Projects() {
     refetchOnMount: true, // Refresh when component mounts
     refetchOnReconnect: true, // Refresh on reconnect
   });
+
+  const contacts = contactsData?.contacts || [];
 
   const form = useForm<z.infer<typeof projectFormSchema>>({
     resolver: zodResolver(projectFormSchema),
@@ -244,7 +246,10 @@ export default function Projects() {
   };
 
   const getContactName = (contactId: string) => {
-    const contact = contacts?.find(c => c.id === contactId);
+    if (!contacts || !Array.isArray(contacts)) {
+      return 'Loading...';
+    }
+    const contact = contacts.find(c => c.id === contactId);
     return contact ? `${contact.firstName} ${contact.lastName}` : 'Unknown Contact';
   };
 

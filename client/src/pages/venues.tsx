@@ -105,9 +105,11 @@ export default function VenuesPage() {
   const [selectedVenue, setSelectedVenue] = useState<Venue | null>(null);
   const { toast } = useToast();
 
-  const { data: venues = [], isLoading } = useQuery<Venue[]>({
+  const { data: venuesData, isLoading } = useQuery<{ venues: Venue[] }>({
     queryKey: ["/api/venues"],
   });
+
+  const venues = venuesData?.venues || [];
 
   const form = useForm<VenueFormData>({
     resolver: zodResolver(venueSchema),

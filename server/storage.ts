@@ -492,6 +492,22 @@ export class MemStorage implements IStorage {
         tenantId: "default-tenant",
       };
       this.users.set(defaultUser.id, defaultUser);
+
+      // Add test user for public demo
+      const testUserId = "test-user-id-123";
+      const testUser: User = {
+        id: testUserId,
+        username: "test@example.com", 
+        password: "$2b$12$WTf3VAZeYeOufKqH9T1xQudck3V8mbN6MG88u/a1cwL2hIai8jpR2", // bcrypt hashed "testpass123"
+        email: "test@example.com",
+        role: "admin",
+        firstName: "Test",
+        lastName: "User",
+        avatar: "https://images.unsplash.com/photo-1494790108755-2616b612b739?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=100&h=100",
+        createdAt: new Date(),
+        tenantId: "default-tenant",
+      };
+      this.users.set(testUser.id, testUser);
     
       // Initialize default tenant for development
       const defaultTenant: import('@shared/schema').Tenant = {

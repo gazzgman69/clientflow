@@ -282,17 +282,28 @@ router.get('/', async (req, res) => {
     if (req.query.simple === '1') {
       const simpleLimit = Math.min(50, Math.max(1, parseInt(req.query.limit as string) || 10));
       const venues = await venuesService.getVenues((req as any).tenantId, simpleLimit);
-      return res.json(venues);
+      // Map database field names to frontend expected names
+      const mappedVenues = venues.map(venue => ({
+        ...venue,
+        zipCode: venue.zip_code // Map zip_code to zipCode for frontend compatibility
+      }));
+      return res.json(mappedVenues);
     }
 
     const venues = await venuesService.getVenues((req as any).tenantId, limit, offset);
+    
+    // Map database field names to frontend expected names
+    const mappedVenues = venues.map(venue => ({
+      ...venue,
+      zipCode: venue.zip_code // Map zip_code to zipCode for frontend compatibility
+    }));
     
     // Get total count for pagination info
     const totalCount = await venuesService.getVenuesCount((req as any).tenantId);
     const totalPages = Math.ceil(totalCount / limit);
     
     res.json({
-      venues,
+      venues: mappedVenues,
       pagination: {
         page,
         limit,

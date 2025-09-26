@@ -994,6 +994,11 @@ router.get('/api/auth/google/gmail/status', requireAuth, async (req: any, res) =
  */
 router.get('/api/auth/google/calendar/status', requireAuth, async (req: any, res) => {
   try {
+    // Prevent caching to ensure UI gets fresh sync error data
+    res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.set('Pragma', 'no-cache');
+    res.set('Expires', '0');
+    
     const userId = req.authenticatedUserId;
     
     // Check if user has active Calendar integrations
@@ -1043,7 +1048,8 @@ router.get('/api/auth/google/calendar/status', requireAuth, async (req: any, res
         service: 'calendar', 
         scopes,
         email: calendarIntegration.providerAccountId,
-        lastSyncAt: calendarIntegration.lastSyncAt
+        lastSyncAt: calendarIntegration.lastSyncAt,
+        syncErrors: calendarIntegration.syncErrors
       });
       
     } catch (tokenError: any) {

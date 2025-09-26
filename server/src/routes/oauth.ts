@@ -477,9 +477,14 @@ router.get('/auth/google/callback', async (req, res) => {
         providerAccountId: tokens.email,
         serviceType: serviceType,
         isActive: true,
-        lastSyncAt: new Date()
+        lastSyncAt: new Date(),
+        syncErrors: null // Clear any previous sync errors on successful reconnection
       }, tenantId);
-      console.log('📝 OAUTH CALLBACK: Integration updated', { integrationId: integration.id, serviceType });
+      console.log('📝 OAUTH CALLBACK: Integration updated, syncErrors cleared', { 
+        integrationId: integration.id, 
+        serviceType, 
+        syncErrorsCleared: true 
+      });
     } else {
       // Create new integration with service type
       integration = await storage.createCalendarIntegration({

@@ -44,7 +44,12 @@ router.get('/auth/google', (req, res) => {
     req.session.oauth_return_to = returnTo;
     req.session.oauth_origin = origin;
     req.session.pkceCodeVerifier = codeVerifier;
-    req.session.serviceType = 'all'; // Backward compatibility - all services
+    req.session.serviceType = 'all';
+    
+    // Set default tenant for OAuth sessions (required by TenantAwareSessionStore)
+    if (!req.session.tenantId) {
+      req.session.tenantId = 'default-tenant';
+    }
     
     // Get Google auth URL with state and PKCE challenge (all services for backward compatibility)
     const authUrl = getGoogleAuthUrl({ 
@@ -89,6 +94,11 @@ router.get('/auth/google/gmail', (req, res) => {
     req.session.pkceCodeVerifier = codeVerifier;
     req.session.serviceType = 'gmail';
     
+    // Set default tenant for OAuth sessions (required by TenantAwareSessionStore)
+    if (!req.session.tenantId) {
+      req.session.tenantId = 'default-tenant';
+    }
+    
     // Get Google auth URL with Gmail-specific scopes
     const authUrl = getGoogleAuthUrl({ 
       state,
@@ -131,6 +141,11 @@ router.get('/auth/google/calendar', (req, res) => {
     req.session.oauth_origin = origin;
     req.session.pkceCodeVerifier = codeVerifier;
     req.session.serviceType = 'calendar';
+    
+    // Set default tenant for OAuth sessions (required by TenantAwareSessionStore)
+    if (!req.session.tenantId) {
+      req.session.tenantId = 'default-tenant';
+    }
     
     // Get Google auth URL with Calendar-specific scopes
     const authUrl = getGoogleAuthUrl({ 

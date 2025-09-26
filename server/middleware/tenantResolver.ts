@@ -59,25 +59,40 @@ export const tenantResolver = async (req: TenantRequest, res: Response, next: Ne
       try {
         const { storage } = await import('../storage');
         
-        // Development mode: Use default tenant for localhost and development domains
+        // Development mode: Enable PROPER multi-tenant testing
         if (process.env.NODE_ENV === 'development' && 
             (host === 'localhost' || host === '127.0.0.1' || host.includes('replit.dev'))) {
-          // Try to find a default tenant or create one
-          try {
-            const defaultTenant = await storage.getTenantBySlug('default');
-            if (defaultTenant) {
-              req.tenantId = defaultTenant.id;
-              tenantSlug = defaultTenant.slug;
-            } else {
-              // In development, if no default tenant exists, use a fallback
+          
+          // Check for dev tenant override via query param or header for testing
+          const testTenant = req.query.tenant || req.get('X-Test-Tenant');
+          if (testTenant && typeof testTenant === 'string') {
+            try {
+              const tenant = await storage.getTenantBySlug(testTenant);
+              if (tenant) {
+                req.tenantId = tenant.id;
+                tenantSlug = tenant.slug;
+              }
+            } catch (error) {
+              console.error('Error fetching test tenant:', error);
+            }
+          }
+          
+          // Only fallback to default if no session tenant and no test override
+          if (!req.tenantId) {
+            try {
+              const defaultTenant = await storage.getTenantBySlug('default');
+              if (defaultTenant) {
+                req.tenantId = defaultTenant.id;
+                tenantSlug = defaultTenant.slug;
+              } else {
+                req.tenantId = process.env.DEV_TENANT_ID || 'development-tenant';
+                tenantSlug = 'default';
+              }
+            } catch (devTenantError) {
+              console.error('Error fetching development tenant:', devTenantError);
               req.tenantId = process.env.DEV_TENANT_ID || 'development-tenant';
               tenantSlug = 'default';
             }
-          } catch (devTenantError) {
-            console.error('Error fetching development tenant:', devTenantError);
-            // Enhanced fallback: if DEV_TENANT_ID is set but invalid, still allow development
-            req.tenantId = process.env.DEV_TENANT_ID || 'development-tenant';
-            tenantSlug = 'default';
           }
         } else {
           // Production mode: Check for custom domain first (with www normalization)

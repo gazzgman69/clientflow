@@ -677,12 +677,20 @@ export default function ProjectDetailModal({ project, isOpen, onClose }: Project
                   </div>
                 </div>
                 <div>
-                  <Label className="text-sm font-medium">Start Date</Label>
+                  <Label className="text-sm font-medium">Project Date</Label>
                   <div>
-                    {project.startDate 
-                      ? new Date(project.startDate).toLocaleDateString()
-                      : "Not set"
-                    }
+                    {(() => {
+                      // Handle both camelCase and snake_case field names
+                      const dateValue = (project as any).start_date || (project as any).startDate;
+                      if (!dateValue) return "Not set";
+                      try {
+                        const date = new Date(dateValue);
+                        if (isNaN(date.getTime())) return "Invalid date";
+                        return date.toLocaleDateString();
+                      } catch {
+                        return "Invalid date";
+                      }
+                    })()}
                   </div>
                 </div>
               </div>

@@ -467,7 +467,22 @@ router.get('/auth/google/callback', async (req, res) => {
     });
     
     // Check if integration already exists
+    console.log('🔍 OAUTH DEBUG: Checking for existing integration', {
+      email: tokens.email,
+      userId,
+      tenantId,
+      timestamp: new Date().toISOString()
+    });
     let integration = await storage.getCalendarIntegrationByEmail(tokens.email, userId, tenantId);
+    console.log('🔍 OAUTH DEBUG: Existing integration search result', {
+      found: !!integration,
+      integrationId: integration?.id || null,
+      integrationTenantId: integration?.tenantId || null,
+      email: tokens.email,
+      userId,
+      tenantId,
+      timestamp: new Date().toISOString()
+    });
     
     if (integration) {
       // Update existing integration with tokens and service type

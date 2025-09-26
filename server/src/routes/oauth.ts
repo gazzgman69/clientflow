@@ -480,10 +480,18 @@ router.get('/auth/google/callback', async (req, res) => {
         lastSyncAt: new Date(),
         syncErrors: null // Clear any previous sync errors on successful reconnection
       }, tenantId);
-      console.log('📝 OAUTH CALLBACK: Integration updated, syncErrors cleared', { 
+      console.log('🔐 TOKEN PERSISTENCE: Integration updated successfully', { 
         integrationId: integration.id, 
+        tenantId,
+        email: tokens.email,
         serviceType, 
-        syncErrorsCleared: true 
+        syncErrorsCleared: true,
+        statusFlipped: 'connected',
+        tokensUpdated: {
+          accessToken: !!integration.accessToken,
+          refreshToken: !!integration.refreshToken
+        },
+        timestamp: new Date().toISOString()
       });
     } else {
       // Create new integration with service type
@@ -498,7 +506,18 @@ router.get('/auth/google/callback', async (req, res) => {
         isActive: true,
         syncDirection: 'bidirectional'
       }, tenantId);
-      console.log('📝 OAUTH CALLBACK: Integration created', { integrationId: integration.id, serviceType });
+      console.log('🔐 TOKEN PERSISTENCE: New integration created', { 
+        integrationId: integration.id, 
+        tenantId,
+        email: tokens.email,
+        serviceType,
+        statusFlipped: 'connected',
+        tokensStored: {
+          accessToken: !!integration.accessToken,
+          refreshToken: !!integration.refreshToken
+        },
+        timestamp: new Date().toISOString()
+      });
     }
     
     // Schedule background sync (don't await - let popup close immediately)
@@ -507,10 +526,13 @@ router.get('/auth/google/callback', async (req, res) => {
     if (integration && shouldAutoSync) {
       setImmediate(async () => {
         try {
-          console.log('🔄 Starting background sync after OAuth (POST_OAUTH_INITIAL_SYNC=1)...', {
+          console.log('🔄 SYNC JOB ENQUEUED: Starting background sync after OAuth', {
             integrationId: integration.id,
+            tenantId,
             serviceType,
-            email: tokens.email
+            email: tokens.email,
+            featureFlag: 'POST_OAUTH_INITIAL_SYNC=1',
+            timestamp: new Date().toISOString()
           });
           
           // Calendar sync in background

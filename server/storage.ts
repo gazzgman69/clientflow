@@ -2551,9 +2551,13 @@ export class DrizzleStorage implements IStorage {
     };
   }
 
-  async getCalendarIntegrationByEmail(email: string, userId: string): Promise<CalendarIntegration | undefined> {
+  async getCalendarIntegrationByEmail(email: string, userId: string, tenantId: string): Promise<CalendarIntegration | undefined> {
     const result = await db.select().from(calendarIntegrations)
-      .where(and(eq(calendarIntegrations.providerAccountId, email), eq(calendarIntegrations.userId, userId)));
+      .where(and(
+        eq(calendarIntegrations.providerAccountId, email), 
+        eq(calendarIntegrations.userId, userId),
+        eq(calendarIntegrations.tenantId, tenantId)
+      ));
     
     if (!result[0]) return undefined;
     

@@ -243,9 +243,9 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     resave: false,
     saveUninitialized: false,
     cookie: {
-      // Use dynamic configuration based on request host
-      sameSite: 'lax' as const,
-      secure: process.env.NODE_ENV === 'production',
+      // OAuth popup compatibility: SameSite=None allows cross-site requests
+      sameSite: process.env.NODE_ENV === 'production' ? 'none' as const : 'lax' as const,
+      secure: process.env.NODE_ENV === 'production', // Required for SameSite=none in production
       httpOnly: true,
       maxAge: 24 * 60 * 60 * 1000 // 24 hours
       // Domain will be set dynamically per request if needed

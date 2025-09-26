@@ -586,6 +586,15 @@ router.get('/auth/google/callback', async (req, res) => {
     // Feature flag: CAL_POST_AUTH_INIT_SYNC=1 enables calendar initial sync after OAuth
     const shouldAutoSync = process.env.CAL_POST_AUTH_INIT_SYNC === '1';
     if (integration && shouldAutoSync) {
+      console.log('🔄 OAUTH UPSERT: Initial sync enqueued', {
+        action: 'oauth_upsert',
+        provider: 'google',
+        tenantId,
+        integrationId: integration.id,
+        enqueued_initial_sync: true,
+        timestamp: new Date().toISOString()
+      });
+      
       setImmediate(async () => {
         try {
           console.log('🔄 SYNC JOB ENQUEUED: Starting background sync after OAuth', {
@@ -593,7 +602,7 @@ router.get('/auth/google/callback', async (req, res) => {
             tenantId,
             serviceType,
             email: tokens.email,
-            featureFlag: 'POST_OAUTH_INITIAL_SYNC=1',
+            featureFlag: 'CAL_POST_AUTH_INIT_SYNC=1',
             timestamp: new Date().toISOString()
           });
           

@@ -1,0 +1,123 @@
+VenueAutocomplete.tsx:140  POST https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/api/venues/suggest 500 (Internal Server Error)
+fetchPredictions @ VenueAutocomplete.tsx:140
+(anonymous) @ VenueAutocomplete.tsx:348
+setTimeout
+(anonymous) @ VenueAutocomplete.tsx:347
+commitHookEffectListMount @ chunk-RPCDYKBN.js?v=773266cd:16915
+commitPassiveMountOnFiber @ chunk-RPCDYKBN.js?v=773266cd:18156
+commitPassiveMountEffects_complete @ chunk-RPCDYKBN.js?v=773266cd:18129
+commitPassiveMountEffects_begin @ chunk-RPCDYKBN.js?v=773266cd:18119
+commitPassiveMountEffects @ chunk-RPCDYKBN.js?v=773266cd:18109
+flushPassiveEffectsImpl @ chunk-RPCDYKBN.js?v=773266cd:19490
+flushPassiveEffects @ chunk-RPCDYKBN.js?v=773266cd:19447
+commitRootImpl @ chunk-RPCDYKBN.js?v=773266cd:19416
+commitRoot @ chunk-RPCDYKBN.js?v=773266cd:19277
+performSyncWorkOnRoot @ chunk-RPCDYKBN.js?v=773266cd:18895
+flushSyncCallbacks @ chunk-RPCDYKBN.js?v=773266cd:9119
+flushSync @ chunk-RPCDYKBN.js?v=773266cd:18959
+finishEventHandler @ chunk-RPCDYKBN.js?v=773266cd:3569
+batchedUpdates @ chunk-RPCDYKBN.js?v=773266cd:3582
+dispatchEventForPluginEventSystem @ chunk-RPCDYKBN.js?v=773266cd:7173
+dispatchEventWithEnableCapturePhaseSelectiveHydrationWithoutDiscreteEventReplay @ chunk-RPCDYKBN.js?v=773266cd:5478
+dispatchEvent @ chunk-RPCDYKBN.js?v=773266cd:5472
+dispatchDiscreteEvent @ chunk-RPCDYKBN.js?v=773266cd:5449Understand this error
+VenueAutocomplete.tsx:172 Error fetching place predictions: Error: Failed to fetch predictions
+    at fetchPredictions (VenueAutocomplete.tsx:153:15)
+overrideMethod @ hook.js:608
+fetchPredictions @ VenueAutocomplete.tsx:172
+await in fetchPredictions
+(anonymous) @ VenueAutocomplete.tsx:348
+setTimeout
+(anonymous) @ VenueAutocomplete.tsx:347
+commitHookEffectListMount @ chunk-RPCDYKBN.js?v=773266cd:16915
+commitPassiveMountOnFiber @ chunk-RPCDYKBN.js?v=773266cd:18156
+commitPassiveMountEffects_complete @ chunk-RPCDYKBN.js?v=773266cd:18129
+commitPassiveMountEffects_begin @ chunk-RPCDYKBN.js?v=773266cd:18119
+commitPassiveMountEffects @ chunk-RPCDYKBN.js?v=773266cd:18109
+flushPassiveEffectsImpl @ chunk-RPCDYKBN.js?v=773266cd:19490
+flushPassiveEffects @ chunk-RPCDYKBN.js?v=773266cd:19447
+commitRootImpl @ chunk-RPCDYKBN.js?v=773266cd:19416
+commitRoot @ chunk-RPCDYKBN.js?v=773266cd:19277
+performSyncWorkOnRoot @ chunk-RPCDYKBN.js?v=773266cd:18895
+flushSyncCallbacks @ chunk-RPCDYKBN.js?v=773266cd:9119
+flushSync @ chunk-RPCDYKBN.js?v=773266cd:18959
+finishEventHandler @ chunk-RPCDYKBN.js?v=773266cd:3569
+batchedUpdates @ chunk-RPCDYKBN.js?v=773266cd:3582
+dispatchEventForPluginEventSystem @ chunk-RPCDYKBN.js?v=773266cd:7173
+dispatchEventWithEnableCapturePhaseSelectiveHydrationWithoutDiscreteEventReplay @ chunk-RPCDYKBN.js?v=773266cd:5478
+dispatchEvent @ chunk-RPCDYKBN.js?v=773266cd:5472
+dispatchDiscreteEvent @ chunk-RPCDYKBN.js?v=773266cd:5449Understand this error
+VenueAutocomplete.tsx:140  POST https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/api/venues/suggest 500 (Internal Server Error)
+fetchPredictions @ VenueAutocomplete.tsx:140
+(anonymous) @ VenueAutocomplete.tsx:348
+setTimeout
+(anonymous) @ VenueAutocomplete.tsx:347
+commitHookEffectListMount @ chunk-RPCDYKBN.js?v=773266cd:16915
+commitPassiveMountOnFiber @ chunk-RPCDYKBN.js?v=773266cd:18156
+commitPassiveMountEffects_complete @ chunk-RPCDYKBN.js?v=773266cd:18129
+commitPassiveMountEffects_begin @ chunk-RPCDYKBN.js?v=773266cd:18119
+commitPassiveMountEffects @ chunk-RPCDYKBN.js?v=773266cd:18109
+flushPassiveEffectsImpl @ chunk-RPCDYKBN.js?v=773266cd:19490
+flushPassiveEffects @ chunk-RPCDYKBN.js?v=773266cd:19447
+commitRootImpl @ chunk-RPCDYKBN.js?v=773266cd:19416
+commitRoot @ chunk-RPCDYKBN.js?v=773266cd:19277
+performSyncWorkOnRoot @ chunk-RPCDYKBN.js?v=773266cd:18895
+flushSyncCallbacks @ chunk-RPCDYKBN.js?v=773266cd:9119
+flushSync @ chunk-RPCDYKBN.js?v=773266cd:18959
+finishEventHandler @ chunk-RPCDYKBN.js?v=773266cd:3569
+batchedUpdates @ chunk-RPCDYKBN.js?v=773266cd:3582
+dispatchEventForPluginEventSystem @ chunk-RPCDYKBN.js?v=773266cd:7173
+dispatchEventWithEnableCapturePhaseSelectiveHydrationWithoutDiscreteEventReplay @ chunk-RPCDYKBN.js?v=773266cd:5478
+dispatchEvent @ chunk-RPCDYKBN.js?v=773266cd:5472
+dispatchDiscreteEvent @ chunk-RPCDYKBN.js?v=773266cd:5449Understand this error
+VenueAutocomplete.tsx:172 Error fetching place predictions: Error: Failed to fetch predictions
+    at fetchPredictions (VenueAutocomplete.tsx:153:15)
+overrideMethod @ hook.js:608
+fetchPredictions @ VenueAutocomplete.tsx:172
+await in fetchPredictions
+(anonymous) @ VenueAutocomplete.tsx:348
+setTimeout
+(anonymous) @ VenueAutocomplete.tsx:347
+commitHookEffectListMount @ chunk-RPCDYKBN.js?v=773266cd:16915
+commitPassiveMountOnFiber @ chunk-RPCDYKBN.js?v=773266cd:18156
+commitPassiveMountEffects_complete @ chunk-RPCDYKBN.js?v=773266cd:18129
+commitPassiveMountEffects_begin @ chunk-RPCDYKBN.js?v=773266cd:18119
+commitPassiveMountEffects @ chunk-RPCDYKBN.js?v=773266cd:18109
+flushPassiveEffectsImpl @ chunk-RPCDYKBN.js?v=773266cd:19490
+flushPassiveEffects @ chunk-RPCDYKBN.js?v=773266cd:19447
+commitRootImpl @ chunk-RPCDYKBN.js?v=773266cd:19416
+commitRoot @ chunk-RPCDYKBN.js?v=773266cd:19277
+performSyncWorkOnRoot @ chunk-RPCDYKBN.js?v=773266cd:18895
+flushSyncCallbacks @ chunk-RPCDYKBN.js?v=773266cd:9119
+flushSync @ chunk-RPCDYKBN.js?v=773266cd:18959
+finishEventHandler @ chunk-RPCDYKBN.js?v=773266cd:3569
+batchedUpdates @ chunk-RPCDYKBN.js?v=773266cd:3582
+dispatchEventForPluginEventSystem @ chunk-RPCDYKBN.js?v=773266cd:7173
+dispatchEventWithEnableCapturePhaseSelectiveHydrationWithoutDiscreteEventReplay @ chunk-RPCDYKBN.js?v=773266cd:5478
+dispatchEvent @ chunk-RPCDYKBN.js?v=773266cd:5472
+dispatchDiscreteEvent @ chunk-RPCDYKBN.js?v=773266cd:5449Understand this error
+VenueAutocomplete.tsx:140  POST https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/api/venues/suggest 500 (Internal Server Error)
+fetchPredictions @ VenueAutocomplete.tsx:140
+(anonymous) @ VenueAutocomplete.tsx:348
+setTimeout
+(anonymous) @ VenueAutocomplete.tsx:347
+commitHookEffectListMount @ chunk-RPCDYKBN.js?v=773266cd:16915
+commitPassiveMountOnFiber @ chunk-RPCDYKBN.js?v=773266cd:18156
+commitPassiveMountEffects_complete @ chunk-RPCDYKBN.js?v=773266cd:18129
+commitPassiveMountEffects_begin @ chunk-RPCDYKBN.js?v=773266cd:18119
+commitPassiveMountEffects @ chunk-RPCDYKBN.js?v=773266cd:18109
+flushPassiveEffectsImpl @ chunk-RPCDYKBN.js?v=773266cd:19490
+flushPassiveEffects @ chunk-RPCDYKBN.js?v=773266cd:19447
+commitRootImpl @ chunk-RPCDYKBN.js?v=773266cd:19416
+commitRoot @ chunk-RPCDYKBN.js?v=773266cd:19277
+performSyncWorkOnRoot @ chunk-RPCDYKBN.js?v=773266cd:18895
+flushSyncCallbacks @ chunk-RPCDYKBN.js?v=773266cd:9119
+flushSync @ chunk-RPCDYKBN.js?v=773266cd:18959
+finishEventHandler @ chunk-RPCDYKBN.js?v=773266cd:3569
+batchedUpdates @ chunk-RPCDYKBN.js?v=773266cd:3582
+dispatchEventForPluginEventSystem @ chunk-RPCDYKBN.js?v=773266cd:7173
+dispatchEventWithEnableCapturePhaseSelectiveHydrationWithoutDiscreteEventReplay @ chunk-RPCDYKBN.js?v=773266cd:5478
+dispatchEvent @ chunk-RPCDYKBN.js?v=773266cd:5472
+dispatchDiscreteEvent @ chunk-RPCDYKBN.js?v=773266cd:5449Understand this error
+VenueAutocomplete.tsx:172 Error fetching place predictions: Error: Failed to fetch predictions
+    at fetchPredictions (VenueAutocomplete.tsx:153:15)

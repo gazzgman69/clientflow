@@ -159,7 +159,8 @@ app.post('/api/venues/suggest', async (req, res) => {
       validatedData.input,
       {
         sessionToken: validatedData.sessionToken,
-        types: validatedData.types
+        types: validatedData.types,
+        publicOnly: true // Skip database cache for public requests
       }
     );
     

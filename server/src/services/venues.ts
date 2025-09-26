@@ -395,18 +395,26 @@ export class VenuesService {
     sessionToken?: string;
     types?: string[];
     cacheOnly?: boolean;
+    publicOnly?: boolean; // Skip database search for public forms
   }) {
     const cacheResults: any[] = [];
     const maxCacheResults = 5;
     
-    // First, search cache by address/name matching
-    if (input.length >= 2) {
-      const cachedVenues = await this.findByAddress(input);
-      const limitedCached = cachedVenues.slice(0, maxCacheResults);
-      
-      for (const venue of limitedCached) {
-        cacheResults.push(this.venueToSuggestion(venue));
+    // First, search cache by address/name matching (skip for public requests)
+    if (input.length >= 2 && !options?.publicOnly) {
+      try {
+        const cachedVenues = await this.findByAddress(input);
+        const limitedCached = cachedVenues.slice(0, maxCacheResults);
+        
+        for (const venue of limitedCached) {
+          cacheResults.push(this.venueToSuggestion(venue));
+        }
+      } catch (error) {
+        console.warn('⚠️ Cache search failed (likely no tenant context), skipping cache:', error);
+        // Continue with Google Places API only
       }
+    } else if (options?.publicOnly) {
+      console.log('🌍 PUBLIC MODE: Skipping venue cache search, using Google Places API only');
     }
     
     // Enhanced caching logic:

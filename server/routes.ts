@@ -1850,13 +1850,14 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   });
 
   // Business metrics for analytics
-  app.get("/api/business/metrics", ensureUserAuth, async (req, res) => {
+  app.get("/api/business/metrics", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
     try {
       const userId = req.authenticatedUserId;
-      const leads = await storage.getLeads(req.tenantId, userId);
-      // Get all contacts and projects in tenant for business metrics
       // WORKAROUND: Use direct Neon client to bypass Drizzle recursion issue
       const neonClient = neon(process.env.DATABASE_URL!);
+      const leadsResult = await neonClient('SELECT * FROM leads WHERE tenant_id = $1', [req.tenantId]);
+      const leads = leadsResult;
+      // Get all contacts and projects in tenant for business metrics
       const clientsResult = await neonClient('SELECT COUNT(*) as count FROM contacts WHERE tenant_id = $1', [req.tenantId]);
       const clientsCount = parseInt((clientsResult[0] as any).count);
       const projectsResult = await neonClient('SELECT COUNT(*) as count, SUM(CAST(estimated_value AS DECIMAL)) as total_value FROM projects WHERE tenant_id = $1', [req.tenantId]);

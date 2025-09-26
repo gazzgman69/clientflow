@@ -481,6 +481,7 @@ export default function Contacts() {
                             form.setValue('venueCountry', venue.country || '', { shouldDirty: true, shouldValidate: true });
                           }}
                           placeholder="Search for a venue..."
+                          key={`venue-${form.watch('venueAddress')}-${form.watch('venueCity')}`}
                           initialValue={
                             form.watch('venueAddress') || form.watch('venueCity') 
                               ? `${form.watch('venueAddress') || ''}, ${form.watch('venueCity') || ''}`.trim().replace(/^,\s*/, '')

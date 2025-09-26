@@ -144,7 +144,7 @@ export class VenuesService {
     };
 
     const newVenue: InsertVenue = withTenantData(newVenueData, tenantId);
-    return await storage.createVenue(newVenue, tenantId);
+    return await this.findOrCreateVenue(newVenue, tenantId);
   }
 
   /**
@@ -161,10 +161,53 @@ export class VenuesService {
   }
 
   /**
+   * Find existing venue or create new one to prevent duplicates
+   * Uses same deduplication logic as lead forms
+   */
+  async findOrCreateVenue(venueData: InsertVenue, tenantId: string): Promise<Venue> {
+    // For Google Places venues, check by place_id first
+    if (venueData.placeId) {
+      const existingVenue = await this.findByPlaceId(venueData.placeId, tenantId);
+      if (existingVenue) {
+        // Update usage tracking
+        await storage.updateVenue(existingVenue.id, {
+          useCount: (existingVenue.useCount || 0) + 1,
+          lastUsedAt: new Date()
+        }, tenantId);
+        return existingVenue;
+      }
+    }
+
+    // For manual venues, check by address/name similarity
+    if (venueData.name || venueData.address) {
+      const searchQuery = `${venueData.name || ''} ${venueData.address || ''}`.trim();
+      if (searchQuery.length > 2) {
+        const existingVenues = await this.findByAddress(searchQuery, tenantId);
+        if (existingVenues.length > 0) {
+          // Use most relevant existing venue (findByAddress already sorts by useCount and lastUsedAt)
+          const existingVenue = existingVenues[0];
+          
+          // Update usage tracking
+          await storage.updateVenue(existingVenue.id, {
+            useCount: (existingVenue.useCount || 0) + 1,
+            lastUsedAt: new Date()
+          }, tenantId);
+          
+          return existingVenue;
+        }
+      }
+    }
+
+    // No duplicate found, create new venue
+    return await storage.createVenue(venueData, tenantId);
+  }
+
+  /**
    * Create venue with full venue data (general method)
+   * Now includes duplicate prevention
    */
   async createVenue(venueData: InsertVenue, tenantId: string): Promise<Venue> {
-    return await storage.createVenue(venueData, tenantId);
+    return await this.findOrCreateVenue(venueData, tenantId);
   }
 
   /**
@@ -192,7 +235,7 @@ export class VenuesService {
     };
 
     const venueInsert: InsertVenue = withTenantData(venueData_base, tenantId);
-    const createdVenue = await storage.createVenue(venueInsert, tenantId);
+    const createdVenue = await this.findOrCreateVenue(venueInsert, tenantId);
     
     // Attempt automatic enrichment after creation
     try {

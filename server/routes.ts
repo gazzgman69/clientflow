@@ -2131,6 +2131,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
         phone: lead.phone,
         projectId: lead.projectId,
         projectTitle: lead.projectTitle || lead.eventLocation || null, // Use projectTitle from detectConflicts
+        eventLocation: lead.eventLocation || null, // Add missing eventLocation field
         projectDateISO: lead.projectDate || null,
         source: lead.leadSource || 'Unknown',
         createdAtISO: lead.createdAt,

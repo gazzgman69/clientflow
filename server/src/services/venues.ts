@@ -200,8 +200,20 @@ export class VenuesService {
     }
 
     // No duplicate found, create new venue
-    console.log('✅ VENUE CREATED (New):', { name: venueData.name, address: venueData.address });
-    return await storage.createVenue(venueData, tenantId);
+    // Add normalized fields for future deduplication
+    const normalizedFields = this.generateNormalizedFields(venueData.name || '', venueData.address || '');
+    const venueDataWithNormalized = {
+      ...venueData,
+      ...normalizedFields
+    };
+    
+    console.log('✅ VENUE CREATED (New):', { 
+      name: venueData.name, 
+      address: venueData.address,
+      normalizedName: normalizedFields.normalizedName,
+      normalizedAddress: normalizedFields.normalizedAddress
+    });
+    return await storage.createVenue(venueDataWithNormalized, tenantId);
   }
 
   /**
@@ -375,12 +387,24 @@ export class VenuesService {
 
   /**
    * Normalize text for venue matching (name + address)
+   * Implements robust normalization: lowercase, trim whitespace, collapse spaces
    */
   private normalizeForMatching(text: string): string {
+    if (!text) return '';
     return text.toLowerCase()
       .replace(/[^\w\s]/g, ' ') // Remove punctuation, special chars
       .replace(/\s+/g, ' ') // Collapse multiple spaces
       .trim();
+  }
+
+  /**
+   * Generate normalized fields for database storage
+   */
+  private generateNormalizedFields(name: string, address: string): { normalizedName: string; normalizedAddress: string } {
+    return {
+      normalizedName: this.normalizeForMatching(name || ''),
+      normalizedAddress: this.normalizeForMatching(address || '')
+    };
   }
 
   /**
@@ -416,18 +440,36 @@ export class VenuesService {
   
   /**
    * Find exact venue match by normalized name + address for strict deduplication
+   * Uses database normalized fields for efficient queries
    */
   async findExactVenueMatch(name: string, address: string, tenantId: string): Promise<Venue | null> {
-    const venues = await this.getVenues(tenantId);
-    const normalizedInputName = this.normalizeForMatching(name || '');
-    const normalizedInputAddress = this.normalizeForMatching(address || '');
+    const { normalizedName, normalizedAddress } = this.generateNormalizedFields(name, address);
     
+    // First try direct database query using normalized fields
+    const sql = neon(process.env.DATABASE_URL!);
+    const result = await sql`
+      SELECT * FROM venues 
+      WHERE tenant_id = ${tenantId} 
+        AND normalized_name = ${normalizedName} 
+        AND normalized_address = ${normalizedAddress}
+      LIMIT 1
+    `;
+    
+    if (result.length > 0) {
+      return result[0] as Venue;
+    }
+    
+    // Fallback to in-memory search for venues that don't have normalized fields populated yet
+    const venues = await this.getVenues(tenantId);
     for (const venue of venues) {
+      // Skip venues that already have normalized fields (they were checked above)
+      if (venue.normalizedName || venue.normalizedAddress) continue;
+      
       const normalizedVenueName = this.normalizeForMatching(venue.name || '');
       const normalizedVenueAddress = this.normalizeForMatching(venue.address || '');
       
       // Exact match on both name and address (normalized)
-      if (normalizedVenueName === normalizedInputName && normalizedVenueAddress === normalizedInputAddress) {
+      if (normalizedVenueName === normalizedName && normalizedVenueAddress === normalizedAddress) {
         return venue;
       }
     }

@@ -438,6 +438,9 @@ export const venues = pgTable("venues", {
   tags: text("tags").array(), // venue tags
   meta: text("meta"), // JSON string for free-form extras from Google or custom
   notes: text("notes"),
+  // Normalized fields for deduplication
+  normalizedName: text("normalized_name"), // Lowercase, trimmed, punctuation-free name
+  normalizedAddress: text("normalized_address"), // Lowercase, trimmed, punctuation-free address
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => ({
@@ -447,6 +450,9 @@ export const venues = pgTable("venues", {
   // Performance indexes for common query patterns
   tenantCreatedIdx: index("venues_tenant_created_idx").on(table.tenantId, table.createdAt),
   tenantNameIdx: index("venues_tenant_name_idx").on(table.tenantId, table.name),
+  // Indexes for deduplication queries using normalized fields
+  tenantNormalizedNameIdx: index("venues_tenant_normalized_name_idx").on(table.tenantId, table.normalizedName),
+  tenantNormalizedAddressIdx: index("venues_tenant_normalized_address_idx").on(table.tenantId, table.normalizedAddress),
 }));
 
 // Project Members Junction Table

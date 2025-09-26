@@ -111,7 +111,7 @@ export default function LeadCard({ lead, onClick, draggable = false, onDragStart
 
       {/* Venue/Location */}
       <div className="text-xs text-muted-foreground mb-3">
-        {lead.projectTitle || 'No venue specified'}
+        <span className="font-medium">Venue:</span> {lead.projectTitle || 'Not specified'}
       </div>
 
       {/* Status Badge */}

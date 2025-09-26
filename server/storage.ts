@@ -621,6 +621,8 @@ export class MemStorage implements IStorage {
         notes: "Wedding - Gareth Gwyn at venue location",
         projectDate: new Date(2024, 5, 20),
         estimatedValue: "15000.00",
+        eventLocation: "Stratton Court Barn", // Add venue information
+        eventType: "Wedding",
         tenantId,
         userId: defaultUserId,
         assignedTo: defaultUserId,

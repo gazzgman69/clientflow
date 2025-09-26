@@ -239,7 +239,13 @@ router.post('/:id/enrich', async (req, res) => {
       });
     }
     
-    res.json(enrichedVenue);
+    // Apply same field mapping as venues list endpoint for frontend compatibility
+    const mappedVenue = {
+      ...enrichedVenue,
+      zipCode: enrichedVenue.zip_code // Map zip_code to zipCode for frontend compatibility
+    };
+    
+    res.json(mappedVenue);
   } catch (error) {
     console.error('Error enriching venue:', error);
     res.status(500).json({ 

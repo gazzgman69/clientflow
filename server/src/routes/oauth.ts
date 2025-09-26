@@ -859,7 +859,8 @@ router.get('/api/auth/google/status', requireAuth, async (req: any, res) => {
         connected: true, 
         scopes,
         email: googleIntegration.providerAccountId,
-        lastSyncAt: googleIntegration.lastSyncAt
+        lastSyncAt: googleIntegration.lastSyncAt,
+        syncErrors: googleIntegration.syncErrors
       });
       
     } catch (tokenError: any) {

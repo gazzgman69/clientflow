@@ -914,7 +914,7 @@ export default function VenuesPage() {
                     </TableCell>
                     <TableCell>
                       <div className="space-y-1">
-                        {(venue.address || venue.city || venue.state || venue.zipCode) && (
+                        {(venue.address || venue.city || venue.state || venue.zipCode || venue.postalCode) && (
                           <div className="flex items-center gap-1 text-sm">
                             <MapPin className="h-3 w-3" />
                             <span data-testid={`text-location-${venue.id}`}>
@@ -924,7 +924,7 @@ export default function VenuesPage() {
                                   return venue.address;
                                 }
                                 // Otherwise build from components including postcode
-                                return [venue.address, venue.city, venue.state, venue.zipCode]
+                                return [venue.address, venue.city, venue.state, venue.zipCode || venue.postalCode]
                                   .filter(Boolean)
                                   .join(", ");
                               })()}

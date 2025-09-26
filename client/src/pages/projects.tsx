@@ -19,7 +19,7 @@ import { insertProjectSchema } from "@shared/schema";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { formatDistanceToNow, format } from "date-fns";
-import type { Project, Contact } from "@shared/schema";
+import type { Project, Contact, Venue } from "@shared/schema";
 import { z } from "zod";
 import ProjectDetailModal from "@/components/modals/project-detail-modal";
 import { VenueSelector } from "@/components/venues";
@@ -97,7 +97,18 @@ export default function Projects() {
     staleTime: 5000, // Data stays fresh for 5 seconds
   });
 
+  const { data: venuesData } = useQuery<{ venues: Venue[] }>({
+    queryKey: ["/api/venues"],
+    refetchInterval: 10000,
+    refetchIntervalInBackground: false,
+    refetchOnWindowFocus: true,
+    refetchOnMount: true,
+    refetchOnReconnect: true,
+    staleTime: 5000,
+  });
+
   const contacts = contactsData?.contacts || [];
+  const venues = venuesData?.venues || [];
 
   const form = useForm<z.infer<typeof projectFormSchema>>({
     resolver: zodResolver(projectFormSchema),
@@ -255,6 +266,15 @@ export default function Projects() {
     return contact ? `${contact.firstName} ${contact.lastName}` : 'Unknown Contact';
   };
 
+  const getVenueName = (venueId: string | null) => {
+    if (!venueId) return 'No venue';
+    if (!venues || !Array.isArray(venues)) {
+      return 'Loading...';
+    }
+    const venue = venues.find(v => v.id === venueId);
+    return venue ? venue.name : 'Unknown Venue';
+  };
+
   const sortProjects = (projects: Project[]) => {
     if (!projects) return [];
     
@@ -352,7 +372,7 @@ export default function Projects() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Project Name</TableHead>
-                    <TableHead>Contact</TableHead>
+                    <TableHead>Venue</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Progress</TableHead>
                     <TableHead>Value</TableHead>
@@ -371,8 +391,8 @@ export default function Projects() {
                       <TableCell className="font-medium" data-testid={`project-name-${project.id}`}>
                         {project.name}
                       </TableCell>
-                      <TableCell data-testid={`project-client-${project.id}`}>
-                        {getContactName(project.contactId)}
+                      <TableCell data-testid={`project-venue-${project.id}`}>
+                        {getVenueName((project as any).venue_id || (project as any).venueId)}
                       </TableCell>
                       <TableCell data-testid={`project-status-${project.id}`}>
                         <Badge className={getStatusColor(project.status)}>

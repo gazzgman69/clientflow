@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import crypto from 'crypto';
-import { googleOAuthService, getGoogleAuthUrl } from '../services/google-oauth';
+import { googleOAuthService } from '../services/google-oauth';
 import { microsoftOAuthService } from '../services/microsoft-oauth';
 import { storage } from '../../storage';
 import { google } from 'googleapis';

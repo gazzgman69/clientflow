@@ -31,35 +31,32 @@ router.get('/auth/google', (req, res) => {
     const returnTo = (req.query.returnTo as string) || '/settings';
     const origin = (req.query.origin as string) || '';
     
-    // Create a random state for CSRF protection
-    const state = crypto.randomUUID();
-    
-    // Generate PKCE challenge and verifier for security
-    const codeVerifier = crypto.randomBytes(32).toString('base64url');
-    const codeChallenge = crypto.createHash('sha256').update(codeVerifier).digest('base64url');
-    
-    // Save state, popup flag, return URL, origin, and PKCE verifier to session
-    req.session.oauth_state = state;
+    // Save popup flag, return URL, and origin to session
     req.session.oauth_popup = popup;
     req.session.oauth_return_to = returnTo;
     req.session.oauth_origin = origin;
-    req.session.pkceCodeVerifier = codeVerifier;
-    req.session.serviceType = 'all';
     
     // Set default tenant for OAuth sessions (required by TenantAwareSessionStore)
     if (!req.session.tenantId) {
       req.session.tenantId = 'default-tenant';
     }
     
-    // Get Google auth URL with state and PKCE challenge (all services for backward compatibility)
-    const authUrl = getGoogleAuthUrl({ 
-      state,
-      codeChallenge,
-      codeChallengeMethod: 'S256',
-      serviceType: 'all'
-    });
+    // Require authentication for OAuth flows
+    if (!req.session.userId) {
+      return res.status(401).json({ error: 'Authentication required for OAuth' });
+    }
     
-    console.log('🔐 SECURITY: GET /auth/google now using PKCE protection with all services');
+    // Generate OAuth URL with signed state and PKCE protection
+    const authUrl = googleOAuthService.generateAuthUrl(
+      req.session.user?.email || 'user@example.com',
+      req.session.userId,
+      req.session.tenantId,
+      req.session,
+      'all',
+      returnTo
+    );
+    
+    console.log('🔐 SECURITY: GET /auth/google now using signed state and PKCE protection with all services');
     
     // Redirect to Google OAuth
     res.redirect(authUrl);
@@ -79,35 +76,32 @@ router.get('/auth/google/gmail', (req, res) => {
     const returnTo = (req.query.returnTo as string) || '/settings';
     const origin = (req.query.origin as string) || '';
     
-    // Create a random state for CSRF protection
-    const state = crypto.randomUUID();
-    
-    // Generate PKCE challenge and verifier for security
-    const codeVerifier = crypto.randomBytes(32).toString('base64url');
-    const codeChallenge = crypto.createHash('sha256').update(codeVerifier).digest('base64url');
-    
-    // Save state, popup flag, return URL, origin, and PKCE verifier to session
-    req.session.oauth_state = state;
+    // Save popup flag, return URL, and origin to session
     req.session.oauth_popup = popup;
     req.session.oauth_return_to = returnTo;
     req.session.oauth_origin = origin;
-    req.session.pkceCodeVerifier = codeVerifier;
-    req.session.serviceType = 'gmail';
     
     // Set default tenant for OAuth sessions (required by TenantAwareSessionStore)
     if (!req.session.tenantId) {
       req.session.tenantId = 'default-tenant';
     }
     
-    // Get Google auth URL with Gmail-specific scopes
-    const authUrl = getGoogleAuthUrl({ 
-      state,
-      codeChallenge,
-      codeChallengeMethod: 'S256',
-      serviceType: 'gmail'
-    });
+    // Require authentication for OAuth flows
+    if (!req.session.userId) {
+      return res.status(401).json({ error: 'Authentication required for OAuth' });
+    }
     
-    console.log('🔐 SECURITY: GET /auth/google/gmail using PKCE protection with Gmail scopes only');
+    // Generate OAuth URL with signed state and PKCE protection
+    const authUrl = googleOAuthService.generateAuthUrl(
+      req.session.user?.email || 'user@example.com',
+      req.session.userId,
+      req.session.tenantId,
+      req.session,
+      'gmail',
+      returnTo
+    );
+    
+    console.log('🔐 SECURITY: GET /auth/google/gmail using signed state and PKCE protection with Gmail scopes only');
     
     // Redirect to Google OAuth
     res.redirect(authUrl);
@@ -127,35 +121,32 @@ router.get('/auth/google/calendar', (req, res) => {
     const returnTo = (req.query.returnTo as string) || '/settings';
     const origin = (req.query.origin as string) || '';
     
-    // Create a random state for CSRF protection
-    const state = crypto.randomUUID();
-    
-    // Generate PKCE challenge and verifier for security
-    const codeVerifier = crypto.randomBytes(32).toString('base64url');
-    const codeChallenge = crypto.createHash('sha256').update(codeVerifier).digest('base64url');
-    
-    // Save state, popup flag, return URL, origin, and PKCE verifier to session
-    req.session.oauth_state = state;
+    // Save popup flag, return URL, and origin to session
     req.session.oauth_popup = popup;
     req.session.oauth_return_to = returnTo;
     req.session.oauth_origin = origin;
-    req.session.pkceCodeVerifier = codeVerifier;
-    req.session.serviceType = 'calendar';
     
     // Set default tenant for OAuth sessions (required by TenantAwareSessionStore)
     if (!req.session.tenantId) {
       req.session.tenantId = 'default-tenant';
     }
     
-    // Get Google auth URL with Calendar-specific scopes
-    const authUrl = getGoogleAuthUrl({ 
-      state,
-      codeChallenge,
-      codeChallengeMethod: 'S256',
-      serviceType: 'calendar'
-    });
+    // Require authentication for OAuth flows
+    if (!req.session.userId) {
+      return res.status(401).json({ error: 'Authentication required for OAuth' });
+    }
     
-    console.log('🔐 SECURITY: GET /auth/google/calendar using PKCE protection with Calendar scopes only');
+    // Generate OAuth URL with signed state and PKCE protection
+    const authUrl = googleOAuthService.generateAuthUrl(
+      req.session.user?.email || 'user@example.com',
+      req.session.userId,
+      req.session.tenantId,
+      req.session,
+      'calendar',
+      returnTo
+    );
+    
+    console.log('🔐 SECURITY: GET /auth/google/calendar using signed state and PKCE protection with Calendar scopes only');
     
     // Redirect to Google OAuth
     res.redirect(authUrl);

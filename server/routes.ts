@@ -4531,30 +4531,49 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   });
 
   // Events/Calendar API
-  app.get("/api/events", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
+  app.get("/api/events", ensureUserAuth, tenantResolver, requireTenant, async (req: any, res) => {
     try {
       const { userId, startDate, endDate, clientId } = req.query;
+      const tenantId = req.tenantId;
+      
+      console.log('📅 EVENTS FETCH REQUEST', {
+        action: 'getEvents',
+        tenantId,
+        userId: userId || req.authenticatedUserId,
+        hasDateRange: !!(startDate && endDate),
+        hasClientId: !!clientId,
+        timestamp: new Date().toISOString()
+      });
       
       let events;
       if (startDate && endDate) {
-        events = await storage.getEventsByDateRange(new Date(startDate as string), new Date(endDate as string));
+        events = await storage.getEventsByDateRange(new Date(startDate as string), new Date(endDate as string), tenantId);
       } else if (userId) {
-        events = await storage.getEventsByUser(userId as string);
+        events = await storage.getEventsByUser(userId as string, tenantId);
       } else if (clientId) {
-        events = await storage.getEventsByClient(clientId as string);
+        events = await storage.getEventsByClient(clientId as string, tenantId);
       } else {
-        events = await storage.getEvents();
+        events = await storage.getEvents(tenantId);
       }
+      
+      console.log('📊 EVENTS FETCH RESULTS', {
+        action: 'getEvents',
+        tenantId,
+        eventsCount: events.length,
+        eventsWithTenantId: events.filter(e => e.tenantId).length,
+        timestamp: new Date().toISOString()
+      });
       
       res.json(events);
     } catch (error) {
+      console.error('❌ Events fetch error:', error);
       res.status(500).json({ message: "Failed to fetch events" });
     }
   });
 
-  app.get("/api/events/:id", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
+  app.get("/api/events/:id", ensureUserAuth, tenantResolver, requireTenant, async (req: any, res) => {
     try {
-      const event = await storage.getEvent(req.params.id);
+      const event = await storage.getEvent(req.params.id, req.tenantId);
       if (!event) {
         return res.status(404).json({ message: "Event not found" });
       }
@@ -4594,10 +4613,10 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
 
-  app.patch("/api/events/:id", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
+  app.patch("/api/events/:id", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req: any, res) => {
     try {
       const validatedData = insertEventSchema.partial().parse(req.body);
-      const event = await storage.updateEvent(req.params.id, validatedData);
+      const event = await storage.updateEvent(req.params.id, validatedData, req.tenantId);
       if (!event) {
         return res.status(404).json({ message: "Event not found" });
       }
@@ -4621,10 +4640,10 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
 
-  app.delete("/api/events/:id", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
+  app.delete("/api/events/:id", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req: any, res) => {
     try {
       // Get event before deletion for Google sync
-      const event = await storage.getEvent(req.params.id);
+      const event = await storage.getEvent(req.params.id, req.tenantId);
       if (!event) {
         return res.status(404).json({ message: "Event not found" });
       }

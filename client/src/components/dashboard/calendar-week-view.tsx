@@ -12,20 +12,34 @@ export default function CalendarWeekView() {
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(today, i));
   const [, setLocation] = useLocation();
 
+  // Get current authenticated user
+  const { data: currentUser } = useQuery({
+    queryKey: ['/api/auth/me'],
+    retry: false,
+  });
+
   const { data: tasks } = useQuery<Task[]>({
     queryKey: ["/api/tasks"],
   });
 
   // Fetch real events from database (including Google Calendar events)
+  // Now uses tenant-aware endpoint without hardcoded user
   const { data: events, error: eventsError } = useQuery<Event[]>({
-    queryKey: ['/api/events', 'test-user'],
+    queryKey: ['/api/events'],
     queryFn: async () => {
       try {
-        const response = await fetch('/api/events?userId=test-user');
+        const response = await fetch('/api/events', {
+          credentials: 'include' // Include session cookies for authentication
+        });
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
         }
         const data = await response.json();
+        console.log('📅 Calendar events fetched:', {
+          eventsCount: Array.isArray(data) ? data.length : 0,
+          eventsWithTenantId: Array.isArray(data) ? data.filter((e: any) => e.tenantId).length : 0,
+          timestamp: new Date().toISOString()
+        });
         // Ensure we always return an array
         return Array.isArray(data) ? data : [];
       } catch (error) {
@@ -33,6 +47,7 @@ export default function CalendarWeekView() {
         return [];
       }
     },
+    enabled: !!currentUser, // Only fetch events when user is authenticated
   });
 
   const getEventsForDay = (date: Date) => {

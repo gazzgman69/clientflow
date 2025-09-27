@@ -1802,19 +1802,36 @@ export class MemStorage implements IStorage {
   }
 
   // Events
-  async getEvents(): Promise<Event[]> {
-    return Array.from(this.events.values()).sort((a, b) => 
-      new Date(a.startDate).getTime() - new Date(b.startDate).getTime()
-    );
+  async getEvents(tenantId: string): Promise<Event[]> {
+    console.log('📅 EVENTS FETCH (MemStorage)', {
+      action: 'getEvents',
+      tenantId,
+      timestamp: new Date().toISOString()
+    });
+    
+    const filtered = Array.from(this.events.values())
+      .filter(event => event.tenantId === tenantId)
+      .sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime());
+    
+    console.log('📊 EVENTS FETCH RESULTS (MemStorage)', {
+      action: 'getEvents',
+      tenantId,
+      eventsFound: filtered.length,
+      timestamp: new Date().toISOString()
+    });
+    
+    return filtered;
   }
 
-  async getEvent(id: string): Promise<Event | undefined> {
-    return this.events.get(id);
+  async getEvent(id: string, tenantId: string): Promise<Event | undefined> {
+    const event = this.events.get(id);
+    return (event && event.tenantId === tenantId) ? event : undefined;
   }
 
-  async getEventsByUser(userId: string): Promise<Event[]> {
+  async getEventsByUser(userId: string, tenantId: string): Promise<Event[]> {
     return Array.from(this.events.values()).filter(event => 
-      event.assignedTo === userId || event.createdBy === userId
+      event.tenantId === tenantId &&
+      (event.assignedTo === userId || event.createdBy === userId)
     );
   }
 
@@ -1834,10 +1851,21 @@ export class MemStorage implements IStorage {
     return Array.from(this.events.values()).filter(event => event.calendarIntegrationId === integrationId);
   }
 
-  async createEvent(insertEvent: InsertEvent): Promise<Event> {
+  async createEvent(insertEvent: InsertEvent, tenantId: string): Promise<Event> {
+    // Structured log for tenant-scoped event creation (MemStorage)
+    console.log('📅 EVENT CREATION (MemStorage)', {
+      action: 'createEvent',
+      tenantId,
+      eventTitle: insertEvent.title,
+      eventType: insertEvent.type || 'meeting',
+      calendarIntegrationId: insertEvent.calendarIntegrationId || null,
+      timestamp: new Date().toISOString()
+    });
+    
     const id = randomUUID();
     const event: Event = {
       ...insertEvent,
+      tenantId, // Always include tenantId for tenant isolation
       type: insertEvent.type ?? 'meeting',
       status: insertEvent.status ?? 'confirmed',
       priority: insertEvent.priority ?? 'medium',
@@ -1859,13 +1887,23 @@ export class MemStorage implements IStorage {
       createdAt: new Date(),
       updatedAt: new Date(),
     };
+    
+    console.log('✅ EVENT CREATED (MemStorage)', {
+      action: 'createEvent',
+      tenantId,
+      eventId: event.id,
+      eventTitle: event.title,
+      hasTenantId: !!event.tenantId,
+      timestamp: new Date().toISOString()
+    });
+    
     this.events.set(id, event);
     return event;
   }
 
-  async updateEvent(id: string, eventUpdate: Partial<InsertEvent>): Promise<Event | undefined> {
+  async updateEvent(id: string, eventUpdate: Partial<InsertEvent>, tenantId: string): Promise<Event | undefined> {
     const event = this.events.get(id);
-    if (!event) return undefined;
+    if (!event || event.tenantId !== tenantId) return undefined;
     
     const updatedEvent: Event = {
       ...event,
@@ -2667,37 +2705,99 @@ export class DrizzleStorage implements IStorage {
   }
 
   // Events - Core functionality for calendar events
-  async getEvents(): Promise<Event[]> {
-    return await db.select().from(events);
+  async getEvents(tenantId: string): Promise<Event[]> {
+    console.log('📅 EVENTS FETCH (DrizzleStorage)', {
+      action: 'getEvents',
+      tenantId,
+      timestamp: new Date().toISOString()
+    });
+    
+    const results = await db.select().from(events).where(eq(events.tenantId, tenantId));
+    
+    console.log('📊 EVENTS FETCH RESULTS (DrizzleStorage)', {
+      action: 'getEvents',
+      tenantId,
+      eventsFound: results.length,
+      timestamp: new Date().toISOString()
+    });
+    
+    return results;
   }
 
-  async getEventsByUser(userId: string): Promise<Event[]> {
+  async getEventsByUser(userId: string, tenantId: string): Promise<Event[]> {
     return await db.select().from(events)
-      .where(or(eq(events.createdBy, userId), eq(events.assignedTo, userId)));
+      .where(and(
+        eq(events.tenantId, tenantId),
+        or(eq(events.createdBy, userId), eq(events.assignedTo, userId))
+      ));
   }
 
-  async getEvent(id: string): Promise<Event | undefined> {
-    const result = await db.select().from(events).where(eq(events.id, id));
+  async getEvent(id: string, tenantId: string): Promise<Event | undefined> {
+    const result = await db.select().from(events)
+      .where(and(
+        eq(events.id, id),
+        eq(events.tenantId, tenantId)
+      ));
     return result[0];
   }
 
-  async getEventByExternalId(externalId: string): Promise<Event | undefined> {
-    const result = await db.select().from(events).where(eq(events.externalEventId, externalId));
+  async getEventByExternalId(externalId: string, tenantId: string): Promise<Event | undefined> {
+    const result = await db.select().from(events)
+      .where(and(
+        eq(events.externalEventId, externalId),
+        eq(events.tenantId, tenantId)
+      ));
     return result[0];
   }
 
-  async createEvent(event: InsertEvent): Promise<Event> {
-    const result = await db.insert(events).values(event).returning();
+  async createEvent(event: InsertEvent, tenantId: string): Promise<Event> {
+    // Structured log for tenant-scoped event creation
+    console.log('📅 EVENT CREATION', {
+      action: 'createEvent',
+      tenantId,
+      eventTitle: event.title,
+      eventType: event.type || 'meeting',
+      calendarIntegrationId: event.calendarIntegrationId || null,
+      timestamp: new Date().toISOString()
+    });
+    
+    // Ensure tenantId is always included in the event object
+    const secureEvent = {
+      ...event,
+      tenantId // Always use the parameter to ensure tenant isolation
+    };
+    
+    const result = await db.insert(events).values(secureEvent).returning();
+    
+    console.log('✅ EVENT CREATED', {
+      action: 'createEvent',
+      tenantId,
+      eventId: result[0].id,
+      eventTitle: result[0].title,
+      hasTenantId: !!result[0].tenantId,
+      timestamp: new Date().toISOString()
+    });
+    
     return result[0];
   }
 
-  async updateEvent(id: string, updates: Partial<InsertEvent>): Promise<Event | undefined> {
-    const result = await db.update(events).set(updates).where(eq(events.id, id)).returning();
+  async updateEvent(id: string, updates: Partial<InsertEvent>, tenantId: string): Promise<Event | undefined> {
+    const result = await db.update(events)
+      .set(updates)
+      .where(and(
+        eq(events.id, id),
+        eq(events.tenantId, tenantId)
+      ))
+      .returning();
     return result[0];
   }
 
-  async deleteEvent(id: string): Promise<boolean> {
-    const result = await db.delete(events).where(eq(events.id, id));
+  async deleteEvent(id: string, tenantId: string): Promise<boolean> {
+    const result = await db.delete(events)
+      .where(and(
+        eq(events.id, id),
+        eq(events.tenantId, tenantId)
+      ));
     return result.rowCount > 0;
   }
 

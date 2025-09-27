@@ -524,7 +524,7 @@ router.get('/auth/google/callback', async (req, res) => {
       }
       
       // Update the primary integration with new tokens
-      integration = await storage.updateCalendarIntegration(primaryIntegration.id, {
+      const updateData: any = {
         accessToken: tokens.access_token,
         refreshToken: tokens.refresh_token || primaryIntegration.refreshToken,
         providerAccountId: tokens.email,
@@ -532,7 +532,20 @@ router.get('/auth/google/callback', async (req, res) => {
         isActive: true,
         lastSyncAt: new Date(),
         syncErrors: null // Clear any previous sync errors on successful reconnection
-      }, tenantId);
+      };
+      
+      // Clear sync token to force full sync if CAL_INIT_FULL_SYNC is enabled
+      const shouldInitFullSync = process.env.CAL_INIT_FULL_SYNC === '1';
+      if (shouldInitFullSync) {
+        updateData.syncToken = null;
+        console.log('🔄 OAUTH UPSERT: Clearing sync token for full sync', {
+          integrationId: primaryIntegration.id,
+          tenantId,
+          reason: 'CAL_INIT_FULL_SYNC=1'
+        });
+      }
+      
+      integration = await storage.updateCalendarIntegration(primaryIntegration.id, updateData, tenantId);
       wasUpdated = true;
       
       console.log('🔐 OAUTH UPSERT: Integration updated', {
@@ -574,60 +587,99 @@ router.get('/auth/google/callback', async (req, res) => {
     }
     
     // Schedule background sync (don't await - let popup close immediately)
-    // Feature flag: CAL_POST_AUTH_INIT_SYNC=1 enables calendar initial sync after OAuth
+    // Feature flags: CAL_POST_AUTH_INIT_SYNC=1 (legacy), CAL_INIT_FULL_SYNC=1 (new)
     const shouldAutoSync = process.env.CAL_POST_AUTH_INIT_SYNC === '1';
-    if (integration && shouldAutoSync) {
-      console.log('🔄 OAUTH UPSERT: Initial sync enqueued', {
-        action: 'oauth_upsert',
+    const shouldInitFullSync = process.env.CAL_INIT_FULL_SYNC === '1';
+    
+    if (integration && (shouldAutoSync || shouldInitFullSync)) {
+      console.log('🔄 OAUTH UPSERT: Scheduling background sync', {
+        action: 'oauth_upsert_done',
         provider: 'google',
         tenantId,
         integrationId: integration.id,
-        enqueued_initial_sync: true,
+        syncType: shouldInitFullSync ? 'full_sync' : 'initial_sync',
+        legacyFlag: shouldAutoSync,
+        fullSyncFlag: shouldInitFullSync,
         timestamp: new Date().toISOString()
       });
       
-      setImmediate(async () => {
-        try {
-          console.log('🔄 SYNC JOB ENQUEUED: Starting background sync after OAuth', {
-            integrationId: integration.id,
-            tenantId,
-            serviceType,
-            email: tokens.email,
-            featureFlag: 'CAL_POST_AUTH_INIT_SYNC=1',
-            timestamp: new Date().toISOString()
-          });
-          
-          // Calendar sync in background
-          await googleOAuthService.syncFromGoogle(integration);
-          console.log('✅ Calendar sync completed');
-          
-          // Set up webhook for real-time sync in background
-          await googleOAuthService.setupWebhook(integration);
-          console.log('✅ Webhook setup completed');
-          
-          // Sync Gmail emails to database in background
-          try {
-            const { emailSyncService } = await import('../src/services/emailSync');
-            
-            console.log('🔄 Syncing Gmail emails to database...');
-            
-            // Sync Gmail threads to database for fast access
-            const syncResult = await emailSyncService.syncGmailThreadsToDatabase(userId);
-            console.log(`✅ Gmail sync completed: ${syncResult.synced} synced, ${syncResult.skipped} skipped`);
-            
-            if (syncResult.errors.length > 0) {
-              console.warn('⚠️  Some sync errors occurred:', syncResult.errors);
-            }
-          } catch (emailSyncError) {
-            console.error('❌ Failed to sync Gmail emails:', emailSyncError);
-            // Don't fail the OAuth flow if email sync fails
+      if (shouldInitFullSync) {
+        // Enqueue full import job for 30-90 day window
+        const { jobs } = await import('../../services/jobsService');
+        
+        console.log('📅 OAUTH UPSERT: Enqueuing full calendar import job', {
+          action: 'initial_full_sync_enqueued',
+          integrationId: integration.id,
+          tenantId,
+          email: tokens.email,
+          window: 'past 30 days to next 90 days',
+          timestamp: new Date().toISOString()
+        });
+        
+        await jobs.enqueueHigh('calendar-sync-full', {
+          integrationId: integration.id,
+          tenantId,
+          userId,
+          syncType: 'full',
+          reason: 'oauth_reconnect',
+          dateRange: {
+            startDate: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000), // 30 days ago
+            endDate: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000)    // 90 days ahead
           }
-          
-          console.log('✅ All background OAuth sync tasks completed');
-        } catch (backgroundError) {
-          console.error('❌ Background OAuth sync failed:', backgroundError);
-        }
-      });
+        });
+        
+        // Also enqueue webhook setup
+        await jobs.enqueueLow('calendar-webhook-setup', {
+          integrationId: integration.id,
+          tenantId,
+          userId
+        });
+        
+      } else if (shouldAutoSync) {
+        // Legacy immediate sync behavior
+        setImmediate(async () => {
+          try {
+            console.log('🔄 SYNC JOB ENQUEUED: Starting background sync after OAuth (legacy)', {
+              integrationId: integration.id,
+              tenantId,
+              serviceType,
+              email: tokens.email,
+              featureFlag: 'CAL_POST_AUTH_INIT_SYNC=1',
+              timestamp: new Date().toISOString()
+            });
+            
+            // Calendar sync in background
+            await googleOAuthService.syncFromGoogle(integration);
+            console.log('✅ Calendar sync completed');
+            
+            // Set up webhook for real-time sync in background
+            await googleOAuthService.setupWebhook(integration);
+            console.log('✅ Webhook setup completed');
+            
+            // Sync Gmail emails to database in background
+            try {
+              const { emailSyncService } = await import('../src/services/emailSync');
+              
+              console.log('🔄 Syncing Gmail emails to database...');
+              
+              // Sync Gmail threads to database for fast access
+              const syncResult = await emailSyncService.syncGmailThreadsToDatabase(userId);
+              console.log(`✅ Gmail sync completed: ${syncResult.synced} synced, ${syncResult.skipped} skipped`);
+              
+              if (syncResult.errors.length > 0) {
+                console.warn('⚠️  Some sync errors occurred:', syncResult.errors);
+              }
+            } catch (emailSyncError) {
+              console.error('❌ Failed to sync Gmail emails:', emailSyncError);
+              // Don't fail the OAuth flow if email sync fails
+            }
+            
+            console.log('✅ All background OAuth sync tasks completed');
+          } catch (backgroundError) {
+            console.error('❌ Background OAuth sync failed:', backgroundError);
+          }
+        });
+      }
     }
     
     // Handle popup vs regular flow

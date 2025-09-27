@@ -2712,12 +2712,20 @@ export class DrizzleStorage implements IStorage {
       timestamp: new Date().toISOString()
     });
     
-    const results = await db.select().from(events).where(eq(events.tenantId, tenantId));
+    // Filter by tenantId and exclude orphaned events
+    const results = await db.select().from(events).where(and(
+      eq(events.tenantId, tenantId),
+      or(
+        isNull(events.isOrphaned),
+        eq(events.isOrphaned, false)
+      )
+    ));
     
     console.log('📊 EVENTS FETCH RESULTS (DrizzleStorage)', {
       action: 'getEvents',
       tenantId,
       eventsFound: results.length,
+      orphanedFiltered: true,
       timestamp: new Date().toISOString()
     });
     
@@ -2728,7 +2736,11 @@ export class DrizzleStorage implements IStorage {
     return await db.select().from(events)
       .where(and(
         eq(events.tenantId, tenantId),
-        or(eq(events.createdBy, userId), eq(events.assignedTo, userId))
+        or(eq(events.createdBy, userId), eq(events.assignedTo, userId)),
+        or(
+          isNull(events.isOrphaned),
+          eq(events.isOrphaned, false)
+        )
       ));
   }
 
@@ -2736,7 +2748,11 @@ export class DrizzleStorage implements IStorage {
     const result = await db.select().from(events)
       .where(and(
         eq(events.id, id),
-        eq(events.tenantId, tenantId)
+        eq(events.tenantId, tenantId),
+        or(
+          isNull(events.isOrphaned),
+          eq(events.isOrphaned, false)
+        )
       ));
     return result[0];
   }
@@ -2745,12 +2761,23 @@ export class DrizzleStorage implements IStorage {
     const result = await db.select().from(events)
       .where(and(
         eq(events.externalEventId, externalId),
-        eq(events.tenantId, tenantId)
+        eq(events.tenantId, tenantId),
+        or(
+          isNull(events.isOrphaned),
+          eq(events.isOrphaned, false)
+        )
       ));
     return result[0];
   }
 
   async createEvent(event: InsertEvent, tenantId: string): Promise<Event> {
+    // Defensive check: tenantId is required for all event writes
+    if (!tenantId) {
+      const error = 'SECURITY: tenantId is required for event creation to prevent cross-tenant data access';
+      console.error('❌ EVENT CREATION FAILED', { error, event: event.title });
+      throw new Error(error);
+    }
+    
     // Structured log for tenant-scoped event creation
     console.log('📅 EVENT CREATION', {
       action: 'createEvent',
@@ -2782,6 +2809,21 @@ export class DrizzleStorage implements IStorage {
   }
 
   async updateEvent(id: string, updates: Partial<InsertEvent>, tenantId: string): Promise<Event | undefined> {
+    // Defensive check: tenantId is required for all event updates
+    if (!tenantId) {
+      const error = 'SECURITY: tenantId is required for event updates to prevent cross-tenant data access';
+      console.error('❌ EVENT UPDATE FAILED', { error, eventId: id });
+      throw new Error(error);
+    }
+    
+    console.log('📅 EVENT UPDATE', {
+      action: 'updateEvent',
+      tenantId,
+      eventId: id,
+      updateFields: Object.keys(updates),
+      timestamp: new Date().toISOString()
+    });
+    
     const result = await db.update(events)
       .set(updates)
       .where(and(
@@ -2789,16 +2831,61 @@ export class DrizzleStorage implements IStorage {
         eq(events.tenantId, tenantId)
       ))
       .returning();
+      
+    if (result[0]) {
+      console.log('✅ EVENT UPDATED', {
+        action: 'updateEvent',
+        tenantId,
+        eventId: result[0].id,
+        eventTitle: result[0].title,
+        timestamp: new Date().toISOString()
+      });
+    }
+    
     return result[0];
   }
 
   async deleteEvent(id: string, tenantId: string): Promise<boolean> {
+    // Defensive check: tenantId is required for all event deletions
+    if (!tenantId) {
+      const error = 'SECURITY: tenantId is required for event deletion to prevent cross-tenant data access';
+      console.error('❌ EVENT DELETION FAILED', { error, eventId: id });
+      throw new Error(error);
+    }
+    
+    console.log('📅 EVENT DELETION', {
+      action: 'deleteEvent',
+      tenantId,
+      eventId: id,
+      timestamp: new Date().toISOString()
+    });
+    
     const result = await db.delete(events)
       .where(and(
         eq(events.id, id),
         eq(events.tenantId, tenantId)
       ));
-    return result.rowCount > 0;
+      
+    const deleted = result.rowCount > 0;
+    
+    if (deleted) {
+      console.log('✅ EVENT DELETED', {
+        action: 'deleteEvent',
+        tenantId,
+        eventId: id,
+        timestamp: new Date().toISOString()
+      });
+    } else {
+      console.log('⚠️ EVENT NOT FOUND', {
+        action: 'deleteEvent',
+        tenantId,
+        eventId: id,
+        reason: 'Event not found or access denied',
+        timestamp: new Date().toISOString()
+      });
+    }
+    
+    return deleted;
   }
 
   // All storage methods now use PostgreSQL database

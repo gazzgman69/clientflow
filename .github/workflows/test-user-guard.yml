@@ -1,0 +1,38 @@
+name: Guard Against test-user
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  check-test-user:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Check for hardcoded test-user in source code
+      run: |
+        echo "🔍 Searching for hardcoded 'test-user' in source code..."
+        
+        # Search in client/src and server/src, exclude test files and docs
+        FOUND=$(grep -r "test-user" client/src server/src \
+          --exclude-dir=__tests__ \
+          --exclude="*.test.*" \
+          --exclude="*.spec.*" \
+          --exclude-dir=attached_assets \
+          || true)
+        
+        if [ ! -z "$FOUND" ]; then
+          echo "❌ Found hardcoded 'test-user' references in source code:"
+          echo "$FOUND"
+          echo ""
+          echo "💡 Please use session-based authentication instead:"
+          echo "   - Replace 'user-id': 'test-user' headers with credentials: 'include'"
+          echo "   - Remove hardcoded createdBy: 'test-user' fields"
+          echo "   - Use const { data: currentUser } = useQuery({ queryKey: ['/api/auth/me'] })"
+          exit 1
+        else
+          echo "✅ No hardcoded 'test-user' references found in source code"
+        fi

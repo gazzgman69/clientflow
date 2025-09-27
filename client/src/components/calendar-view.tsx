@@ -356,7 +356,7 @@ export default function CalendarView({ viewMode = 'month' }: CalendarViewProps) 
   };
 
   const getEventsForDay = (day: number) => {
-    if (!events) return [];
+    if (!events || !Array.isArray(events)) return [];
     
     const dayDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), day);
     return events.filter(event => {
@@ -386,7 +386,7 @@ export default function CalendarView({ viewMode = 'month' }: CalendarViewProps) 
   };
 
   const getUpcomingEvents = () => {
-    if (!events) return [];
+    if (!events || !Array.isArray(events)) return [];
     
     const now = new Date();
     return events
@@ -808,7 +808,7 @@ export default function CalendarView({ viewMode = 'month' }: CalendarViewProps) 
           <div className="space-y-4">
             {eventsLoading ? (
               <div className="text-center py-8">Loading events...</div>
-            ) : !events || events.length === 0 ? (
+            ) : !events || !Array.isArray(events) || events.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
                 <CalendarIcon className="h-8 w-8 mx-auto mb-2 opacity-50" />
                 <p>No events found</p>
@@ -850,11 +850,11 @@ export default function CalendarView({ viewMode = 'month' }: CalendarViewProps) 
                 )}
                 
                 {/* Past Events Section */}
-                {events.filter(event => new Date(event.startDate) < new Date()).length > 0 && (
+                {events && Array.isArray(events) && events.filter(event => new Date(event.startDate) < new Date()).length > 0 && (
                   <div>
                     <h3 className="font-medium text-sm text-muted-foreground mb-3">PAST EVENTS</h3>
                     <div className="space-y-2">
-                      {events
+                      {(events || [])
                         .filter(event => new Date(event.startDate) < new Date())
                         .sort((a, b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime())
                         .map((event, index) => (

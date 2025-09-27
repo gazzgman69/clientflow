@@ -118,7 +118,7 @@ router.get('/auth/google/calendar', (req, res) => {
   try {
     // Read query parameters
     const popup = Boolean(req.query.popup);
-    const returnTo = (req.query.returnTo as string) || '/settings';
+    const returnTo = (req.query.returnTo as string) || '/calendar';
     const origin = (req.query.origin as string) || '';
     
     // Save popup flag, return URL, and origin to session

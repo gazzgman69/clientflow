@@ -290,7 +290,7 @@ export default function QuoteEditor({
         total: totals.total,
         status: isDraft ? "draft" : "sent",
         quoteNumber: editingQuote?.quoteNumber || `Q-${Date.now()}`,
-        createdBy: "test-user", // TODO: Get from auth context
+        // createdBy will be determined by session on backend
         selectedPackageId: selectedItems.packageId,
         selectedAddonIds: Array.from(selectedItems.addonIds),
         // Only include projectId if we have a value, preserving existing associations

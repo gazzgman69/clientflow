@@ -67,6 +67,12 @@ export default function EmailThreadsWidget() {
   const queryClient = useQueryClient();
   const replyEditorRef = useRef<RichTextEditorRef>(null);
   
+  // Get current authenticated user
+  const { data: currentUser } = useQuery({
+    queryKey: ['/api/auth/me'],
+    retry: false,
+  });
+  
   // Email composition state
   const [showSignatureDropdown, setShowSignatureDropdown] = useState(false);
   const [showTemplateDropdown, setShowTemplateDropdown] = useState(false);
@@ -75,12 +81,11 @@ export default function EmailThreadsWidget() {
     queryKey: ['/api/email/threads'],
     queryFn: async () => {
       const response = await fetch('/api/email/threads?limit=10', {
-        headers: {
-          'user-id': 'test-user' // TODO: Get from actual auth context
-        }
+        credentials: 'include'
       });
       return response.json();
     },
+    enabled: !!currentUser,
   });
 
   // Fetch signatures for email composition
@@ -88,13 +93,12 @@ export default function EmailThreadsWidget() {
     queryKey: ['/api/signatures'],
     queryFn: async () => {
       const response = await fetch('/api/signatures', {
-        headers: {
-          'user-id': 'test-user'
-        }
+        credentials: 'include'
       });
       if (!response.ok) throw new Error('Failed to fetch signatures');
       return response.json();
-    }
+    },
+    enabled: !!currentUser,
   });
 
   // Fetch email templates
@@ -102,13 +106,12 @@ export default function EmailThreadsWidget() {
     queryKey: ['/api/templates'],
     queryFn: async () => {
       const response = await fetch('/api/templates?type=email', {
-        headers: {
-          'user-id': 'test-user'
-        }
+        credentials: 'include'
       });
       if (!response.ok) throw new Error('Failed to fetch templates');
       return response.json();
-    }
+    },
+    enabled: !!currentUser,
   });
 
   // Helper functions for email composition
@@ -139,9 +142,7 @@ export default function EmailThreadsWidget() {
       const cleanEmail = emailMatch ? emailMatch[1] : email;
       
       const response = await fetch(`/api/contacts?email=${encodeURIComponent(cleanEmail)}`, {
-        headers: {
-          'user-id': 'test-user'
-        }
+        credentials: 'include'
       });
       const contacts = await response.json();
       
@@ -152,9 +153,7 @@ export default function EmailThreadsWidget() {
         // If no direct project, look for projects with this contact
         if (!projectId) {
           const projectsResponse = await fetch(`/api/projects?contactId=${contact.id}`, {
-            headers: {
-              'user-id': 'test-user'
-            }
+            credentials: 'include'
           });
           const projects = await projectsResponse.json();
           if (projects && projects.length > 0) {
@@ -165,9 +164,7 @@ export default function EmailThreadsWidget() {
         // Fetch the full project data and open modal
         if (projectId) {
           const projectResponse = await fetch(`/api/projects/${projectId}`, {
-            headers: {
-              'user-id': 'test-user'
-            }
+            credentials: 'include'
           });
           const project = await projectResponse.json();
           setSelectedProject(project);
@@ -186,9 +183,7 @@ export default function EmailThreadsWidget() {
     setReplyMessage('');
     try {
       const response = await fetch(`/api/email/thread/${threadId}`, {
-        headers: {
-          'user-id': 'test-user'
-        }
+        credentials: 'include'
       });
       const threadDetails = await response.json();
       setSelectedThread(threadDetails);

@@ -67,6 +67,12 @@ export default function ContractEditor({
   const [selectedContactId, setSelectedContactId] = useState(initialContactId || "");
   const [selectedContactName, setSelectedContactName] = useState(initialContactName || "");
   const [saveAsTemplate, setSaveAsTemplate] = useState(false);
+
+  // Get current authenticated user
+  const { data: currentUser } = useQuery({
+    queryKey: ['/api/auth/me'],
+    retry: false,
+  });
   const [livePreview, setLivePreview] = useState("");
   const editorRef = useRef<RichTextEditorRef>(null);
   const businessSignatureRef = useRef<SignaturePadRef>(null);
@@ -131,7 +137,7 @@ export default function ContractEditor({
     queryKey: ['/api/admin/templates'],
     queryFn: async () => {
       const response = await fetch('/api/admin/templates', {
-        headers: { 'user-id': 'test-user' }
+        credentials: 'include'
       });
       if (!response.ok) {
         return [];
@@ -139,6 +145,7 @@ export default function ContractEditor({
       const data = await response.json();
       return Array.isArray(data) ? data.filter((t: Template) => t.type === 'contract') : [];
     },
+    enabled: !!currentUser,
   });
 
   // Fetch available tokens
@@ -146,10 +153,11 @@ export default function ContractEditor({
     queryKey: ['/api/tokens/list'],
     queryFn: async () => {
       const response = await fetch('/api/tokens/list', {
-        headers: { 'user-id': 'test-user' }
+        credentials: 'include'
       });
       return response.json();
     },
+    enabled: !!currentUser,
   });
 
   // Fetch contacts for picker
@@ -157,10 +165,11 @@ export default function ContractEditor({
     queryKey: ['/api/contacts'],
     queryFn: async () => {
       const response = await fetch('/api/contacts', {
-        headers: { 'user-id': 'test-user' }
+        credentials: 'include'
       });
       return response.json();
     },
+    enabled: !!currentUser,
   });
 
   // Create contract mutation

@@ -91,6 +91,12 @@ export default function TemplatesPage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
+  // Get current authenticated user
+  const { data: currentUser } = useQuery({
+    queryKey: ['/api/auth/me'],
+    retry: false,
+  });
+
   const form = useForm<TemplateFormData>({
     resolver: zodResolver(templateFormSchema),
     defaultValues: {
@@ -106,13 +112,14 @@ export default function TemplatesPage() {
     queryKey: ['/api/admin/templates'],
     queryFn: async () => {
       const response = await fetch('/api/admin/templates', {
-        headers: { 'user-id': 'test-user' }
+        credentials: 'include'
       });
       if (!response.ok) {
         return []; // Return empty array if API fails
       }
       return response.json();
     },
+    enabled: !!currentUser,
   });
 
   // Fetch available tokens (old system)
@@ -120,10 +127,11 @@ export default function TemplatesPage() {
     queryKey: ['/api/templates/tokens'],
     queryFn: async () => {
       const response = await fetch('/api/templates/tokens', {
-        headers: { 'user-id': 'test-user' }
+        credentials: 'include'
       });
       return response.json();
     },
+    enabled: !!currentUser,
   });
 
   // Fetch new token system
@@ -131,10 +139,11 @@ export default function TemplatesPage() {
     queryKey: ['/api/tokens/list'],
     queryFn: async () => {
       const response = await fetch('/api/tokens/list', {
-        headers: { 'user-id': 'test-user' }
+        credentials: 'include'
       });
       return response.json();
     },
+    enabled: !!currentUser,
   });
 
   // Fetch contacts for preview selection
@@ -142,10 +151,11 @@ export default function TemplatesPage() {
     queryKey: ['/api/contacts'],
     queryFn: async () => {
       const response = await fetch('/api/contacts', {
-        headers: { 'user-id': 'test-user' }
+        credentials: 'include'
       });
       return response.json();
     },
+    enabled: !!currentUser,
   });
 
   // Fetch projects for preview selection
@@ -153,10 +163,11 @@ export default function TemplatesPage() {
     queryKey: ['/api/projects'],
     queryFn: async () => {
       const response = await fetch('/api/projects', {
-        headers: { 'user-id': 'test-user' }
+        credentials: 'include'
       });
       return response.json();
     },
+    enabled: !!currentUser,
   });
 
   // Fetch signatures for signature dropdown
@@ -164,10 +175,11 @@ export default function TemplatesPage() {
     queryKey: ['/api/signatures'],
     queryFn: async () => {
       const response = await fetch('/api/signatures', {
-        headers: { 'user-id': 'test-user' }
+        credentials: 'include'
       });
       return response.json();
     },
+    enabled: !!currentUser,
   });
 
   // Filter templates by active type

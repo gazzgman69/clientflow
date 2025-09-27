@@ -37,7 +37,7 @@ export function TokenDropdown({
     queryKey: ['/api/tokens/list'],
     queryFn: async () => {
       const response = await fetch('/api/tokens/list', {
-        headers: { 'user-id': 'test-user' }
+        credentials: 'include'
       });
       if (!response.ok) throw new Error('Failed to fetch tokens');
       return response.json();

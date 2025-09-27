@@ -400,8 +400,8 @@ export default function ProjectDetailModal({ project, isOpen, onClose }: Project
         title: `Contract for ${project?.name}`,
         description: `Contract for project: ${project?.name}`,
         amount: "0.00",
-        contractNumber: `C-${Date.now()}`,
-        createdBy: "test-user" // TODO: Get from auth context
+        contractNumber: `C-${Date.now()}`
+        // createdBy will be determined by session on backend
       };
       const response = await apiRequest("POST", "/api/contracts", contractData);
       return response.json();
@@ -431,8 +431,8 @@ export default function ProjectDetailModal({ project, isOpen, onClose }: Project
         description: `Invoice for project: ${project?.name}`,
         subtotal: "0.00",
         total: "0.00",
-        invoiceNumber: `I-${Date.now()}`,
-        createdBy: "test-user" // TODO: Get from auth context
+        invoiceNumber: `I-${Date.now()}`
+        // createdBy will be determined by session on backend
       };
       const response = await apiRequest("POST", "/api/invoices", invoiceData);
       return response.json();

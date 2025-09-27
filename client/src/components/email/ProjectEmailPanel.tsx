@@ -59,6 +59,12 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
   const replyEditorRef = useRef<RichTextEditorRef>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+
+  // Get current authenticated user
+  const { data: currentUser } = useQuery({
+    queryKey: ['/api/auth/me'],
+    retry: false,
+  });
   
   // Email view mode preference
   const { emailViewMode, setEmailViewMode, isSettingViewMode } = useEmailViewMode();
@@ -170,13 +176,12 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
     queryKey: ['/api/signatures'],
     queryFn: async () => {
       const response = await fetch('/api/signatures', {
-        headers: {
-          'user-id': 'test-user' // Using hardcoded user ID for development
-        }
+        credentials: 'include'
       });
       if (!response.ok) throw new Error('Failed to fetch signatures');
       return response.json();
-    }
+    },
+    enabled: !!currentUser,
   });
 
   // Apply signature to compose form
@@ -242,13 +247,11 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
     queryKey: [`/api/email/projects/${projectId}/email-messages`, contact?.email, emails],
     queryFn: async () => {
       const response = await fetch(`/api/email/projects/${projectId}/email-messages`, {
-        headers: {
-          'user-id': 'test-user' // TODO: Get from actual auth context
-        }
+        credentials: 'include'
       });
       return response.json();
     },
-    enabled: !!projectId,
+    enabled: !!projectId && !!currentUser,
     staleTime: 30000,
     refetchInterval: forceRefresh ? 5000 : 60000,
   });
@@ -351,16 +354,14 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
       if (!selectedThreadId) return null;
       console.log(`🔍 Fetching thread details for: ${selectedThreadId}`);
       const response = await fetch(`/api/email-threads/${selectedThreadId}/messages`, {
-        headers: {
-          'user-id': 'test-user'
-        }
+        credentials: 'include'
       });
       const data = await response.json();
       console.log(`📧 Thread details response:`, data);
       console.log(`📧 Messages count:`, data?.messages?.length || 0);
       return data;
     },
-    enabled: !!selectedThreadId,
+    enabled: !!selectedThreadId && !!currentUser,
   });
 
   // Reply email mutation

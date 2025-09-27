@@ -35,27 +35,29 @@ export default function SignatureManagement() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
+  // Get current authenticated user
+  const { data: currentUser } = useQuery({
+    queryKey: ['/api/auth/me'],
+    retry: false,
+  });
+
   // Fetch signatures
   const { data: signatures = [], isLoading } = useQuery<EmailSignature[]>({
     queryKey: ['/api/signatures'],
     queryFn: async () => {
       const response = await fetch('/api/signatures', {
-        headers: {
-          'user-id': 'test-user' // Using hardcoded user ID for development
-        }
+        credentials: 'include'
       });
       if (!response.ok) throw new Error('Failed to fetch signatures');
       return response.json();
-    }
+    },
+    enabled: !!currentUser,
   });
 
   // Create signature mutation
   const createMutation = useMutation({
     mutationFn: async (data: { name: string; content: string; isDefault?: boolean }) => {
-      const response = await apiRequest('POST', '/api/signatures', {
-        ...data,
-        userId: 'test-user'
-      });
+      const response = await apiRequest('POST', '/api/signatures', data);
       return response.json();
     },
     onSuccess: () => {

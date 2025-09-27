@@ -1899,10 +1899,28 @@ export class MemStorage implements IStorage {
     };
   }
 
-  async getCalendarIntegrationsByUser(userId: string): Promise<CalendarIntegration[]> {
+  async getCalendarIntegrationsByUser(userId: string, tenantId: string): Promise<CalendarIntegration[]> {
+    // Structured log for tenant-scoped lookup
+    console.log('🔍 CALENDAR INTEGRATION LOOKUP (MemStorage)', {
+      action: 'getCalendarIntegrationsByUser',
+      userId,
+      tenantId,
+      timestamp: new Date().toISOString()
+    });
+    
+    // Filter by BOTH userId AND tenantId to ensure tenant isolation
     const integrations = Array.from(this.calendarIntegrations.values()).filter(integration => 
-      integration.userId === userId
+      integration.userId === userId && integration.tenantId === tenantId
     );
+    
+    console.log('📊 CALENDAR INTEGRATION LOOKUP RESULTS (MemStorage)', {
+      action: 'getCalendarIntegrationsByUser',
+      userId,
+      tenantId,
+      foundCount: integrations.length,
+      integrationIds: integrations.map(i => i.id),
+      timestamp: new Date().toISOString()
+    });
     
     // Decrypt tokens for use
     return integrations.map(integration => ({
@@ -2526,8 +2544,30 @@ export class DrizzleStorage implements IStorage {
     .where(eq(users.tenantId, tenantId));
   }
 
-  async getCalendarIntegrationsByUser(userId: string): Promise<CalendarIntegration[]> {
-    const integrations = await db.select().from(calendarIntegrations).where(eq(calendarIntegrations.userId, userId));
+  async getCalendarIntegrationsByUser(userId: string, tenantId: string): Promise<CalendarIntegration[]> {
+    // Structured log for tenant-scoped lookup
+    console.log('🔍 CALENDAR INTEGRATION LOOKUP', {
+      action: 'getCalendarIntegrationsByUser',
+      userId,
+      tenantId,
+      timestamp: new Date().toISOString()
+    });
+    
+    // Filter by BOTH userId AND tenantId to ensure tenant isolation
+    const integrations = await db.select().from(calendarIntegrations)
+      .where(and(
+        eq(calendarIntegrations.userId, userId),
+        eq(calendarIntegrations.tenantId, tenantId)
+      ));
+    
+    console.log('📊 CALENDAR INTEGRATION LOOKUP RESULTS', {
+      action: 'getCalendarIntegrationsByUser',
+      userId,
+      tenantId,
+      foundCount: integrations.length,
+      integrationIds: integrations.map(i => i.id),
+      timestamp: new Date().toISOString()
+    });
     
     // Decrypt tokens for use
     return integrations.map(integration => ({

@@ -777,7 +777,9 @@ export class MemStorage implements IStorage {
     return updatedLead;
   }
 
-  async deleteLead(id: string): Promise<boolean> {
+  async deleteLead(id: string, tenantId: string): Promise<boolean> {
+    const lead = this.leads.get(id);
+    if (!lead || lead.tenantId !== tenantId) return false;
     return this.leads.delete(id);
   }
 
@@ -804,8 +806,9 @@ export class MemStorage implements IStorage {
     return contacts.length;
   }
 
-  async getContact(id: string): Promise<Contact | undefined> {
-    return this.contacts.get(id);
+  async getContact(id: string, tenantId: string): Promise<Contact | undefined> {
+    const contact = this.contacts.get(id);
+    return (contact && contact.tenantId === tenantId) ? contact : undefined;
   }
 
   async createContact(insertContact: InsertContact, tenantId: string): Promise<Contact> {
@@ -842,9 +845,9 @@ export class MemStorage implements IStorage {
     return contact;
   }
 
-  async updateContact(id: string, contactUpdate: Partial<InsertContact>): Promise<Contact | undefined> {
+  async updateContact(id: string, contactUpdate: Partial<InsertContact>, tenantId: string): Promise<Contact | undefined> {
     const contact = this.contacts.get(id);
-    if (!contact) return undefined;
+    if (!contact || contact.tenantId !== tenantId) return undefined;
     
     const updatedContact: Contact = {
       ...contact,
@@ -855,16 +858,21 @@ export class MemStorage implements IStorage {
     return updatedContact;
   }
 
-  async deleteContact(id: string): Promise<boolean> {
+  async deleteContact(id: string, tenantId: string): Promise<boolean> {
+    const contact = this.contacts.get(id);
+    if (!contact || contact.tenantId !== tenantId) return false;
     return this.contacts.delete(id);
   }
 
-  async getContactByEmail(email: string): Promise<Contact | undefined> {
-    return Array.from(this.contacts.values()).find(contact => contact.email === email);
+  async getContactByEmail(email: string, tenantId: string): Promise<Contact | undefined> {
+    return Array.from(this.contacts.values()).find(contact => 
+      contact.email === email && contact.tenantId === tenantId
+    );
   }
 
-  async getContactById(id: string): Promise<Contact | undefined> {
-    return this.contacts.get(id);
+  async getContactById(id: string, tenantId: string): Promise<Contact | undefined> {
+    const contact = this.contacts.get(id);
+    return (contact && contact.tenantId === tenantId) ? contact : undefined;
   }
 
   // Projects
@@ -890,12 +898,15 @@ export class MemStorage implements IStorage {
     return projects.length;
   }
 
-  async getProject(id: string): Promise<Project | undefined> {
-    return this.projects.get(id);
+  async getProject(id: string, tenantId: string): Promise<Project | undefined> {
+    const project = this.projects.get(id);
+    return (project && project.tenantId === tenantId) ? project : undefined;
   }
 
-  async getProjectsByContact(contactId: string): Promise<Project[]> {
-    return Array.from(this.projects.values()).filter(project => project.contactId === contactId);
+  async getProjectsByContact(contactId: string, tenantId: string): Promise<Project[]> {
+    return Array.from(this.projects.values()).filter(project => 
+      project.contactId === contactId && project.tenantId === tenantId
+    );
   }
 
   async createProject(insertProject: InsertProject, tenantId: string): Promise<Project> {
@@ -920,9 +931,9 @@ export class MemStorage implements IStorage {
     return project;
   }
 
-  async updateProject(id: string, projectUpdate: Partial<InsertProject>): Promise<Project | undefined> {
+  async updateProject(id: string, projectUpdate: Partial<InsertProject>, tenantId: string): Promise<Project | undefined> {
     const project = this.projects.get(id);
-    if (!project) return undefined;
+    if (!project || project.tenantId !== tenantId) return undefined;
     
     const updatedProject: Project = {
       ...project,
@@ -933,7 +944,9 @@ export class MemStorage implements IStorage {
     return updatedProject;
   }
 
-  async deleteProject(id: string): Promise<boolean> {
+  async deleteProject(id: string, tenantId: string): Promise<boolean> {
+    const project = this.projects.get(id);
+    if (!project || project.tenantId !== tenantId) return false;
     return this.projects.delete(id);
   }
 
@@ -1914,7 +1927,9 @@ export class MemStorage implements IStorage {
     return updatedEvent;
   }
 
-  async deleteEvent(id: string): Promise<boolean> {
+  async deleteEvent(id: string, tenantId: string): Promise<boolean> {
+    const event = this.events.get(id);
+    if (!event || event.tenantId !== tenantId) return false;
     return this.events.delete(id);
   }
 
@@ -2992,8 +3007,8 @@ export class DrizzleStorage implements IStorage {
       projectVenueName: row.venueName,
     } as any));
   }
-  async getLead(id: string): Promise<Lead | undefined> {
-    const result = await db.select().from(leads).where(eq(leads.id, id));
+  async getLead(id: string, tenantId: string): Promise<Lead | undefined> {
+    const result = await db.select().from(leads).where(and(eq(leads.id, id), eq(leads.tenantId, tenantId)));
     return result[0];
   }
   async createLead(insertLead: InsertLead, tenantId: string): Promise<Lead> {
@@ -3009,11 +3024,11 @@ export class DrizzleStorage implements IStorage {
     }).returning();
     return result[0];
   }
-  async updateLead(id: string, leadUpdate: Partial<InsertLead>): Promise<Lead | undefined> {
+  async updateLead(id: string, leadUpdate: Partial<InsertLead>, tenantId: string): Promise<Lead | undefined> {
     const result = await db.update(leads).set({
       ...leadUpdate,
       updatedAt: new Date(),
-    }).where(eq(leads.id, id)).returning();
+    }).where(and(eq(leads.id, id), eq(leads.tenantId, tenantId))).returning();
     return result[0];
   }
   async deleteLead(id: string, tenantId: string): Promise<boolean> {
@@ -3034,11 +3049,11 @@ export class DrizzleStorage implements IStorage {
     const result = await this.db.delete(leads).where(and(eq(leads.id, id), eq(leads.tenantId, tenantId)));
     return result.rowCount > 0;
   }
-  async getLeadsByProject(projectId: string): Promise<Lead[]> {
-    return await db.select().from(leads).where(eq(leads.projectId, projectId));
+  async getLeadsByProject(projectId: string, tenantId: string): Promise<Lead[]> {
+    return await db.select().from(leads).where(and(eq(leads.projectId, projectId), eq(leads.tenantId, tenantId)));
   }
-  async getEmailsByContact(contactId: string): Promise<Email[]> {
-    return await this.db.select().from(emails).where(eq(emails.contactId, contactId));
+  async getEmailsByContact(contactId: string, tenantId: string): Promise<Email[]> {
+    return await this.db.select().from(emails).where(and(eq(emails.contactId, contactId), eq(emails.tenantId, tenantId)));
   }
   
   // Contacts - Using PostgreSQL
@@ -3093,17 +3108,17 @@ export class DrizzleStorage implements IStorage {
     
     return result[0]?.count || 0;
   }
-  async getContactById(id: string): Promise<Contact | undefined> {
-    const result = await this.db.select().from(contacts).where(eq(contacts.id, id));
+  async getContactById(id: string, tenantId: string): Promise<Contact | undefined> {
+    const result = await this.db.select().from(contacts).where(and(eq(contacts.id, id), eq(contacts.tenantId, tenantId)));
     return result[0];
   }
-  async getContact(id: string): Promise<Contact | undefined> {
-    const result = await this.db.select().from(contacts).where(eq(contacts.id, id));
+  async getContact(id: string, tenantId: string): Promise<Contact | undefined> {
+    const result = await this.db.select().from(contacts).where(and(eq(contacts.id, id), eq(contacts.tenantId, tenantId)));
     return result[0];
   }
 
-  async getContactByEmail(email: string): Promise<Contact | undefined> {
-    const result = await this.db.select().from(contacts).where(eq(contacts.email, email));
+  async getContactByEmail(email: string, tenantId: string): Promise<Contact | undefined> {
+    const result = await this.db.select().from(contacts).where(and(eq(contacts.email, email), eq(contacts.tenantId, tenantId)));
     return result[0];
   }
   async createContact(contact: InsertContact, tenantId: string): Promise<Contact> {
@@ -3118,15 +3133,15 @@ export class DrizzleStorage implements IStorage {
     }).returning();
     return result[0];
   }
-  async updateContact(id: string, contactUpdate: Partial<InsertContact>): Promise<Contact | undefined> {
+  async updateContact(id: string, contactUpdate: Partial<InsertContact>, tenantId: string): Promise<Contact | undefined> {
     const result = await this.db.update(contacts).set({
       ...contactUpdate,
       updatedAt: new Date(),
-    }).where(eq(contacts.id, id)).returning();
+    }).where(and(eq(contacts.id, id), eq(contacts.tenantId, tenantId))).returning();
     return result[0];
   }
-  async deleteContact(id: string): Promise<boolean> {
-    const result = await this.db.delete(contacts).where(eq(contacts.id, id));
+  async deleteContact(id: string, tenantId: string): Promise<boolean> {
+    const result = await this.db.delete(contacts).where(and(eq(contacts.id, id), eq(contacts.tenantId, tenantId)));
     return result.rowCount > 0;
   }
   
@@ -3185,12 +3200,12 @@ export class DrizzleStorage implements IStorage {
     
     return result[0]?.count || 0;
   }
-  async getProject(id: string): Promise<Project | undefined> {
-    const result = await this.db.select().from(projects).where(eq(projects.id, id));
+  async getProject(id: string, tenantId: string): Promise<Project | undefined> {
+    const result = await this.db.select().from(projects).where(and(eq(projects.id, id), eq(projects.tenantId, tenantId)));
     return result[0];
   }
-  async getProjectsByContact(contactId: string): Promise<Project[]> {
-    return await this.db.select().from(projects).where(eq(projects.contactId, contactId)).orderBy(desc(projects.createdAt));
+  async getProjectsByContact(contactId: string, tenantId: string): Promise<Project[]> {
+    return await this.db.select().from(projects).where(and(eq(projects.contactId, contactId), eq(projects.tenantId, tenantId))).orderBy(desc(projects.createdAt));
   }
   async createProject(project: InsertProject, tenantId: string): Promise<Project> {
     if (!tenantId) {
@@ -3205,26 +3220,26 @@ export class DrizzleStorage implements IStorage {
     }).returning();
     return result[0];
   }
-  async updateProject(id: string, projectUpdate: Partial<InsertProject>): Promise<Project | undefined> {
+  async updateProject(id: string, projectUpdate: Partial<InsertProject>, tenantId: string): Promise<Project | undefined> {
     const result = await this.db.update(projects).set({
       ...projectUpdate,
       updatedAt: new Date(),
-    }).where(eq(projects.id, id)).returning();
+    }).where(and(eq(projects.id, id), eq(projects.tenantId, tenantId))).returning();
     return result[0];
   }
-  async deleteProject(id: string): Promise<boolean> {
+  async deleteProject(id: string, tenantId: string): Promise<boolean> {
     try {
       // First, remove project references from related tables to avoid foreign key constraint violations
-      await this.db.update(emails).set({ projectId: null }).where(eq(emails.projectId, id));
-      await this.db.update(emailThreads).set({ projectId: null }).where(eq(emailThreads.projectId, id));
-      await this.db.update(leads).set({ projectId: null }).where(eq(leads.projectId, id));
-      await this.db.update(messageThreads).set({ projectId: null }).where(eq(messageThreads.projectId, id));
+      await this.db.update(emails).set({ projectId: null }).where(and(eq(emails.projectId, id), eq(emails.tenantId, tenantId)));
+      await this.db.update(emailThreads).set({ projectId: null }).where(and(eq(emailThreads.projectId, id), eq(emailThreads.tenantId, tenantId)));
+      await this.db.update(leads).set({ projectId: null }).where(and(eq(leads.projectId, id), eq(leads.tenantId, tenantId)));
+      await this.db.update(messageThreads).set({ projectId: null }).where(and(eq(messageThreads.projectId, id), eq(messageThreads.tenantId, tenantId)));
       
-      // Delete contracts entirely since they're project-specific
-      await this.db.delete(contracts).where(eq(contracts.projectId, id));
+      // Delete contracts entirely since they're project-specific - with tenant filtering
+      await this.db.delete(contracts).where(and(eq(contracts.projectId, id), eq(contracts.tenantId, tenantId)));
       
-      // Finally delete the project itself
-      const result = await this.db.delete(projects).where(eq(projects.id, id));
+      // Finally delete the project itself - WITH TENANT ISOLATION
+      const result = await this.db.delete(projects).where(and(eq(projects.id, id), eq(projects.tenantId, tenantId)));
       return result.rowCount > 0;
     } catch (error) {
       console.error('Error deleting project:', error);

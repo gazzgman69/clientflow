@@ -1278,6 +1278,7 @@ export type InsertWebhookEvent = z.infer<typeof insertWebhookEventSchema>;
 // Background Jobs Tables for Persistent Job Queue
 export const jobs = pgTable("jobs", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").references(() => tenants.id).notNull(), // Tenant isolation for background jobs
   type: text("type").notNull(), // Job type (e.g., 'email-sync', 'calendar-sync')
   payload: text("payload").notNull(), // JSON payload
   priority: text("priority").notNull().default('normal'), // 'low', 'normal', 'high', 'critical'
@@ -1293,10 +1294,13 @@ export const jobs = pgTable("jobs", {
   typeIdx: index("jobs_type_idx").on(table.type),
   nextRunAtIdx: index("jobs_next_run_at_idx").on(table.nextRunAt),
   priorityIdx: index("jobs_priority_idx").on(table.priority),
+  tenantIdIdx: index("idx_jobs_tenant_id").on(table.tenantId),
+  tenantStatusIdx: index("idx_jobs_tenant_status").on(table.tenantId, table.status),
 }));
 
 export const jobExecutions = pgTable("job_executions", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").references(() => tenants.id).notNull(), // Tenant isolation for job execution logs
   jobId: varchar("job_id").references(() => jobs.id).notNull(),
   status: text("status").notNull(), // 'running', 'completed', 'failed', 'retrying', 'cancelled'
   startedAt: timestamp("started_at").defaultNow(),
@@ -1308,6 +1312,8 @@ export const jobExecutions = pgTable("job_executions", {
   jobIdIdx: index("job_executions_job_id_idx").on(table.jobId),
   statusIdx: index("job_executions_status_idx").on(table.status),
   startedAtIdx: index("job_executions_started_at_idx").on(table.startedAt),
+  tenantIdIdx: index("idx_job_executions_tenant_id").on(table.tenantId),
+  tenantJobIdx: index("idx_job_executions_tenant_job").on(table.tenantId, table.jobId),
 }));
 
 // Admin Audit Logs for SUPERADMIN impersonation tracking

@@ -4546,19 +4546,34 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
       });
       
       let events;
+      let queryBranch;
       if (startDate && endDate) {
+        queryBranch = 'dateRange';
         events = await storage.getEventsByDateRange(new Date(startDate as string), new Date(endDate as string), tenantId);
       } else if (userId) {
+        queryBranch = 'legacyUserQuery';
+        console.log('⚠️ LEGACY AUTH: Using userId query parameter instead of session-based authentication', {
+          userId,
+          authenticatedUserId: req.authenticatedUserId,
+          warning: 'Frontend should use session-based authentication'
+        });
         events = await storage.getEventsByUser(userId as string, tenantId);
       } else if (clientId) {
+        queryBranch = 'clientFilter';
         events = await storage.getEventsByClient(clientId as string, tenantId);
       } else {
+        queryBranch = 'sessionBased';
+        console.log('✅ SESSION AUTH: Using session-based tenant-scoped query', {
+          tenantId,
+          authenticatedUserId: req.authenticatedUserId
+        });
         events = await storage.getEvents(tenantId);
       }
       
       console.log('📊 EVENTS FETCH RESULTS', {
         action: 'getEvents',
         tenantId,
+        queryBranch,
         eventsCount: events.length,
         eventsWithTenantId: events.filter(e => e.tenantId).length,
         timestamp: new Date().toISOString()

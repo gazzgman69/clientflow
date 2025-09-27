@@ -78,9 +78,22 @@ export default function CalendarView({ viewMode = 'month' }: CalendarViewProps) 
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
+  // Get current authenticated user
+  const { data: currentUser } = useQuery({
+    queryKey: ['/api/auth/me'],
+    retry: false,
+  });
+
   const { data: events, isLoading: eventsLoading } = useQuery<Event[]>({
-    queryKey: ['/api/events', 'test-user'],
-    queryFn: () => fetch('/api/events?userId=test-user').then(res => res.json()),
+    queryKey: ['/api/events'],
+    queryFn: async () => {
+      const response = await fetch('/api/events', {
+        credentials: 'include'
+      });
+      if (!response.ok) throw new Error('Failed to fetch events');
+      return response.json();
+    },
+    enabled: !!currentUser,
   });
 
   const { data: clients } = useQuery<any[]>({
@@ -116,7 +129,7 @@ export default function CalendarView({ viewMode = 'month' }: CalendarViewProps) 
       const eventData = {
         ...data,
         attendees: data.attendees ? data.attendees.split(',').map(email => email.trim()).filter(Boolean) : null,
-        createdBy: 'test-user',
+        createdBy: currentUser?.id || '',
       };
       const response = await fetch('/api/events', {
         method: 'POST',
@@ -134,7 +147,7 @@ export default function CalendarView({ viewMode = 'month' }: CalendarViewProps) 
     },
     onSuccess: () => {
       toast({ title: 'Event created successfully' });
-      queryClient.invalidateQueries({ queryKey: ['/api/events', 'test-user'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/events'] });
       setShowEventModal(false);
       setEditingEvent(null);
       form.reset();
@@ -197,7 +210,7 @@ export default function CalendarView({ viewMode = 'month' }: CalendarViewProps) 
     },
     onSuccess: () => {
       toast({ title: 'Event deleted successfully' });
-      queryClient.invalidateQueries({ queryKey: ['/api/events', 'test-user'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/events'] });
       setShowEventModal(false);
       setEditingEvent(null);
     },

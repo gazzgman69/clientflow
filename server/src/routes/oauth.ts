@@ -1432,7 +1432,30 @@ router.post('/api/auth/google/disconnect', requireAuth, async (req: any, res) =>
  */
 router.post('/api/auth/google/sync', requireAuth, async (req: any, res) => {
   try {
+    // Feature flag: CAL_SYNC_NOW_ENABLED=1 enables manual sync endpoint
+    const syncNowEnabled = process.env.CAL_SYNC_NOW_ENABLED === '1';
+    if (!syncNowEnabled) {
+      console.log('🚫 SYNC NOW: Manual sync endpoint disabled', {
+        featureFlag: 'CAL_SYNC_NOW_ENABLED',
+        currentValue: process.env.CAL_SYNC_NOW_ENABLED,
+        requiredValue: '1',
+        userId: req.authenticatedUserId,
+        tenantId: req.tenantId
+      });
+      return res.status(404).json({ 
+        error: 'Manual sync feature is not available' 
+      });
+    }
+    
     const userId = req.authenticatedUserId;
+    
+    console.log('🔄 SYNC NOW: Manual sync triggered', {
+      action: 'manual_sync_triggered',
+      userId,
+      tenantId: req.tenantId,
+      featureFlag: 'CAL_SYNC_NOW_ENABLED=1',
+      timestamp: new Date().toISOString()
+    });
     
     // Get active Google integrations for this user
     const integrations = await storage.getCalendarIntegrationsByUser(userId, req.tenantId);

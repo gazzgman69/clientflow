@@ -1,0 +1,90 @@
+Problem now:
+Events table contains historical rows with tenant_id = NULL. Since the API/UI now filters by tenant, no events appear. Also, after a successful reconnect we must force a one-time initial full sync.
+
+Rules
+
+Discover repo structure; do not assume file names.
+
+Minimal, additive changes only.
+
+Respect RLS/withTenant() everywhere.
+
+Ship behind flags; default OFF in prod.
+
+Provide a short report (files/lines changed + how to roll back).
+
+Tasks
+
+One-time repair job (idempotent)
+
+Name: repairOrphanCalendarEvents.
+
+Behavior (choose the least-risky option, controlled by env flags):
+
+Default: quarantine events with tenant_id IS NULL by setting a soft flag (e.g., is_orphaned=true) so they are excluded from reads.
+
+If CAL_REPAIR_DELETE_ORPHANS=true: hard-delete only orphan rows (tenant_id IS NULL).
+
+Log counts per tenant (no PII). Must be safe to rerun.
+
+Enforce tenant on new writes
+
+Ensure all event create/upsert paths require a tenantId and fail fast if missing.
+
+If schema allows NULL, add a defensive check in storage/service so inserts with null tenant do not proceed (return error + log).
+
+Optional schema guard (behind flag)
+
+If CAL_ENFORCE_NOT_NULL_TENANT=true, add a non-destructive migration to set tenant_id NOT NULL (only after orphans are gone). If risky, skip and document.
+
+Initial full import after reconnect
+
+After a successful OAuth reconnect (calendar), enqueue a full import (not incremental) when CAL_INIT_FULL_SYNC=1.
+
+Full import window: past 30 days to next 90 days (respect timezone).
+
+If an incremental syncToken exists, detect and reset when doing this initial import.
+
+Add structured logs: oauth_upsert_done → initial_full_sync_enqueued.
+
+“Sync now” action (optional)
+
+If not present, add an admin/tenant “Sync now” endpoint that queues a full import for the selected tenant. Behind CAL_SYNC_NOW_ENABLED=1.
+
+Multi-tenant persistence check
+
+Confirm event upserts always pass tenantId; add a tiny assertion/log when missing.
+
+Ensure UI/queries exclude is_orphaned=true.
+
+Provide a README note: how to run the repair job and verify results.
+
+Acceptance
+
+Running the repair (quarantine or delete) yields 0 rows with tenant_id IS NULL.
+
+Reconnect (or “Sync now”) enqueues a full import and events appear for that tenant within the 30/90-day window.
+
+New event writes cannot occur without a tenantId.
+
+With all flags OFF, behavior is unchanged.
+
+Flags
+
+CAL_REPAIR_DELETE_ORPHANS=false (default: quarantine via is_orphaned).
+
+CAL_INIT_FULL_SYNC=true (enable initial import after reconnect).
+
+CAL_SYNC_NOW_ENABLED=true (optional).
+
+CAL_ENFORCE_NOT_NULL_TENANT=false (enable only after repair verified).
+
+(Do not hardcode paths.) Report back with:
+
+Files and lines changed.
+
+How to run the repair job.
+
+How to trigger the initial full import.
+
+Rollback steps (disable flags; revert PR).

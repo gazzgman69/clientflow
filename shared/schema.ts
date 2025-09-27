@@ -593,6 +593,7 @@ export const events = pgTable("events", {
   calendarIntegrationId: varchar("calendar_integration_id").references(() => calendarIntegrations.id),
   reminderMinutes: integer("reminder_minutes").default(15), // Minutes before event to send reminder
   attendees: text("attendees").array(), // Email addresses of attendees
+  isOrphaned: boolean("is_orphaned").default(false), // Flag for events with tenant_id=NULL (quarantine)
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });

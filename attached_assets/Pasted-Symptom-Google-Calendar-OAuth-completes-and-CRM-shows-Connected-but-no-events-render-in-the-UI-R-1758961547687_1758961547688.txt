@@ -1,0 +1,83 @@
+Symptom: Google Calendar OAuth completes and CRM shows Connected, but no events render in the UI.
+
+Rules
+
+Discover repo structure; do not assume filenames/tables.
+
+Start read-only: produce a short plan with file:line evidence before code.
+
+Keep changes minimal & additive, tenant-safe (RLS / withTenant()), and behind a feature flag (default OFF in prod).
+
+Do not touch unrelated systems.
+
+Phase A — Read-only checks (show exact file:line)
+
+Tokens & scopes
+
+Verify tokens saved for the correct tenant + provider and include calendar.readonly (and events if needed).
+
+Initial import
+
+Confirm whether post-OAuth flow enqueues a first full sync.
+
+Fetcher parameters
+
+Inspect event fetcher: timeMin/timeMax, singleEvents, pagination, syncToken.
+
+Confirm which calendar IDs are being queried (primary vs selection).
+
+Webhook vs polling
+
+If push model, confirm watch channel is created with valid callback URL and expiry renewal.
+
+DB write path
+
+Show where events are inserted/upserted.
+
+✅ Extra step: Confirm tenant_id is always included in the insert/update, and Row-Level Security (RLS) policies apply.
+
+Verify event rows cannot exist without tenant_id.
+
+UI read path
+
+Check the query the UI uses to render events (date window, tenant filtering).
+
+Confirm it filters by tenant_id.
+
+Logs
+
+Gather last sync logs: counts fetched vs stored, any 401/403/410 errors.
+
+Deliver a concise plan: where it breaks (ingestion vs persistence vs display), with file:line evidence.
+
+Phase B — Minimal fixes (after plan)
+
+Implement only what’s needed, behind a feature flag:
+
+If no initial import: enqueue a first full sync immediately after OAuth save.
+
+If syncToken invalid/never set: reset to full sync path on 410.
+
+If time window wrong: default to past 30 days → next 90 days.
+
+If calendar selection empty: default to primary.
+
+If UI filter hides events: add an “All events” view or relax filters.
+
+✅ If tenant_id missing from DB writes: patch persistence layer to always require tenant_id, fail fast otherwise.
+
+Add structured logs: fetched N, stored M (with tenant_id), rendered K.
+
+Acceptance
+
+After reconnect or “Sync now,” CRM shows events for that tenant within the expected window.
+
+DB proves each event has the correct tenant_id.
+
+UI query only surfaces events for that tenant.
+
+410 syncToken errors recover by full sync.
+
+Banner disappears when tokens are valid.
+
+With flag OFF, behaviour unchanged.

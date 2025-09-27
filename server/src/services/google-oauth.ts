@@ -383,24 +383,47 @@ export class GoogleOAuthService {
       console.log('Starting Google → CRM sync...');
       const calendar = await this.getCalendarService(integration);
       
-      // Get primary calendar events (wider range to catch more events)
-      const response = await calendar.events.list({
+      // Build calendar request parameters
+      const requestParams: any = {
         calendarId: 'primary',
-        timeMin: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString(), // Last 90 days
-        timeMax: new Date(Date.now() + 180 * 24 * 60 * 60 * 1000).toISOString(), // Next 180 days
         singleEvents: true,
-        orderBy: 'startTime',
         maxResults: 1000
-      });
+      };
+      
+      // Use incremental sync if sync token is available, otherwise full sync
+      if (integration.syncToken) {
+        console.log('🔄 Using incremental sync with sync token');
+        requestParams.syncToken = integration.syncToken;
+      } else {
+        console.log('🔄 Performing full sync (no sync token)');
+        requestParams.timeMin = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString(); // Last 90 days
+        requestParams.timeMax = new Date(Date.now() + 180 * 24 * 60 * 60 * 1000).toISOString(); // Next 180 days
+        requestParams.orderBy = 'startTime';
+      }
+      
+      const response = await calendar.events.list(requestParams);
       
       const events = response.data.items || [];
-      console.log(`Found ${events.length} events in Google Calendar`);
+      const isIncrementalSync = !!integration.syncToken;
+      
+      if (isIncrementalSync) {
+        console.log(`Found ${events.length} changed events since last sync (incremental)`);
+      } else {
+        console.log(`Found ${events.length} events in Google Calendar (full sync)`);
+      }
 
       // Also sync CRM events TO Google Calendar
       await this.syncToGoogleAll(integration);
       
-      // Get current Google Calendar event IDs for comparison
-      const currentGoogleEventIds = new Set(events.map(e => e.id).filter(id => id));
+      // For deletion checking: only during full sync can we safely determine deletions
+      // During incremental sync, we only have changes, not the complete event list
+      let currentGoogleEventIds: Set<string> | null = null;
+      if (!isIncrementalSync) {
+        currentGoogleEventIds = new Set(events.map(e => e.id).filter(id => id));
+        console.log('Full sync: Will check for deleted events');
+      } else {
+        console.log('Incremental sync: Skipping deletion check (not safe with partial data)');
+      }
 
       for (const googleEvent of events) {
         if (!googleEvent.id || !googleEvent.summary) continue;
@@ -442,20 +465,24 @@ export class GoogleOAuthService {
       }
 
       // Check for events that were completely removed from Google Calendar
-      // (not just cancelled, but deleted entirely)
-      console.log('Checking for events deleted from Google Calendar...');
-      
-      // Get ALL CRM events that have a Google Calendar ID, regardless of origin
-      const allCrmEventsWithGoogleId = await storage.getEventsByUser(integration.userId);
-      const eventsToCheck = allCrmEventsWithGoogleId.filter(e => e.externalEventId);
-      
-      console.log(`Checking ${eventsToCheck.length} CRM events for deletion from Google Calendar...`);
-      
-      for (const crmEvent of eventsToCheck) {
-        if (crmEvent.externalEventId && !currentGoogleEventIds.has(crmEvent.externalEventId)) {
-          console.log(`🗑️ Event "${crmEvent.title}" (ID: ${crmEvent.externalEventId}) no longer exists in Google Calendar, removing from CRM`);
-          await storage.deleteEvent(crmEvent.id);
+      // CRITICAL: Only during full sync - incremental sync only shows changes!
+      if (currentGoogleEventIds !== null) {
+        console.log('Checking for events deleted from Google Calendar (full sync only)...');
+        
+        // Get ALL CRM events that have a Google Calendar ID, filtered by tenant
+        const allCrmEventsWithGoogleId = await storage.getEventsByUser(integration.userId, integration.tenantId!);
+        const eventsToCheck = allCrmEventsWithGoogleId.filter(e => e.externalEventId);
+        
+        console.log(`Checking ${eventsToCheck.length} CRM events for deletion from Google Calendar...`);
+        
+        for (const crmEvent of eventsToCheck) {
+          if (crmEvent.externalEventId && !currentGoogleEventIds.has(crmEvent.externalEventId)) {
+            console.log(`🗑️ Event "${crmEvent.title}" (ID: ${crmEvent.externalEventId}) no longer exists in Google Calendar, removing from CRM`);
+            await storage.deleteEvent(crmEvent.id, integration.tenantId!);
+          }
         }
+      } else {
+        console.log('Skipping deletion check - incremental sync only shows changes, not complete event list');
       }
       
       // Update last sync
@@ -467,6 +494,24 @@ export class GoogleOAuthService {
       return { success: true, syncedCount: events.length };
     } catch (error: any) {
       console.error('Error syncing from Google:', error);
+      
+      // Handle sync token expiration (HTTP 410)
+      const isSyncTokenExpired = error.code === 410 || 
+                                (error.status === 410) ||
+                                error.message?.includes('Sync token is no longer valid');
+      
+      if (isSyncTokenExpired) {
+        console.log('⚠️ SYNC TOKEN EXPIRED: Clearing sync token and retrying with full sync');
+        
+        // Clear the expired sync token and retry with full sync
+        await storage.updateCalendarIntegration(integration.id, {
+          syncToken: null
+        });
+        
+        // Retry sync without sync token (full sync)
+        console.log('🔄 Retrying Google → CRM sync with full sync...');
+        return await this.syncFromGoogle({ ...integration, syncToken: null });
+      }
       
       // Handle OAuth token expiration gracefully
       const isTokenExpired = error.message?.includes('invalid_grant') || 

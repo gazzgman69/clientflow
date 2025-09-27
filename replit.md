@@ -2,9 +2,11 @@
 
 BusinessCRM is a comprehensive customer relationship management system built with a modern full-stack architecture. The application provides lead management, client tracking, project management, quotation system, contract management, invoicing, email integration, calendar functionality, and workflow automation. It's designed to streamline business operations from lead capture through project completion and billing.
 
-## Recent Changes (September 25, 2025)
+## Recent Changes (September 27, 2025)
 
-**Lead Card Venue Display Enhancement**: Modified lead cards to display venue names (e.g., "Stratton Court Barn", "The Post Barn") instead of project descriptions. This improvement enhances the user interface by showing actual venue locations rather than generic project titles, making lead management more intuitive and location-focused.
+**Comprehensive Multi-Tenant Security Audit & Hardening**: Completed critical security audit that identified and resolved 16 major tenant isolation vulnerabilities in the storage layer. Implemented database-level constraints with NOT NULL tenant_id columns and foreign keys across all core tables. Added tenant_id columns to background jobs tables for proper isolation. Verified zero orphaned records in production database. This massive security improvement eliminates cross-tenant data access risks and establishes robust multi-tenant isolation.
+
+**Previous Changes (September 25, 2025)**: Lead Card Venue Display Enhancement - Modified lead cards to display venue names instead of project descriptions for better location-focused lead management.
 
 # User Preferences
 

@@ -586,6 +586,20 @@ router.get('/auth/google/callback', async (req, res) => {
       });
     }
     
+    // Post-OAuth tenant validation safeguard
+    const { db } = await import('../../storage');
+    const { events, isNull } = await import('../../../shared/schema');
+    const orphanedEvents = await db.select().from(events).where(isNull(events.tenantId));
+    
+    if (orphanedEvents.length > 0) {
+      console.error("🚨 CRITICAL: Orphaned events detected after OAuth!", {
+        tenantId,
+        count: orphanedEvents.length,
+        sample: orphanedEvents.slice(0, 3),
+      });
+      throw new Error("TENANT_VALIDATION_FAILED: Orphaned events created after OAuth");
+    }
+    
     // Schedule background sync (don't await - let popup close immediately)
     // Feature flags: CAL_POST_AUTH_INIT_SYNC=1 (legacy), CAL_INIT_FULL_SYNC=1 (new)
     const shouldAutoSync = process.env.CAL_POST_AUTH_INIT_SYNC === '1';

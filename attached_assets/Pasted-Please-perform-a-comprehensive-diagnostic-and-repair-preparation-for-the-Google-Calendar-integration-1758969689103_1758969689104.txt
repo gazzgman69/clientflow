@@ -1,0 +1,120 @@
+Please perform a comprehensive diagnostic and repair preparation for the Google Calendar integration.
+
+Rules
+
+Default to read-only for all queries.
+
+Only prepare UPDATE queries — do not execute without explicit confirmation.
+
+Add automatic checks to prevent this problem recurring.
+
+Phase 1 — Diagnostics
+
+Schema Verification
+
+List all columns in the events table.
+
+Confirm presence of tenant_id, is_orphaned, and any integration_id foreign key.
+
+Event Counts
+
+SELECT tenant_id, COUNT(*) AS event_count
+FROM events
+GROUP BY tenant_id
+ORDER BY event_count DESC;
+
+
+Check for Orphans
+
+SELECT COUNT(*) AS orphaned_count
+FROM events
+WHERE tenant_id IS NULL OR is_orphaned = true;
+
+
+Recent Events for Default Tenant
+
+SELECT COUNT(*) AS recent_events
+FROM events
+WHERE tenant_id = 'default-tenant'
+  AND start_at >= NOW() - INTERVAL '30 days'
+  AND start_at < NOW() + INTERVAL '90 days';
+
+
+UI Query Logic
+
+Locate the event-fetching code (API route + React component).
+
+Show the filters: tenantId, date range, is_orphaned, user.
+
+Phase 2 — Rescue Preparation
+
+If orphaned events are found, prepare these queries (but don’t execute):
+
+-- Rescue option: assign orphans to default tenant
+UPDATE events
+SET tenant_id = 'default-tenant'
+WHERE tenant_id IS NULL;
+
+-- Quarantine option: mark orphans explicitly
+UPDATE events
+SET is_orphaned = true
+WHERE tenant_id IS NULL;
+
+
+Also prepare a dry run count:
+
+SELECT COUNT(*) FROM events WHERE tenant_id IS NULL;
+
+Phase 3 — Automatic Safeguards
+
+Add a Post-OAuth Hook
+
+After OAuth reconnect, check for any new rows with tenant_id IS NULL.
+
+If found, log a CRITICAL warning and refuse to proceed until tenantId is fixed.
+
+Add a Migration Guard
+
+Create a DB constraint or trigger to prevent INSERT INTO events with tenant_id IS NULL.
+
+Example (Postgres):
+
+ALTER TABLE events
+ADD CONSTRAINT events_tenant_not_null CHECK (tenant_id IS NOT NULL);
+
+
+(prepare but don’t run yet).
+
+Add a Unit Test
+
+Ensure any future createEvent() calls require tenantId.
+
+Test fails if tenantId is missing or NULL.
+
+Phase 4 — Structured Report
+
+Return results in a structured format:
+
+✅ Schema columns
+
+📊 Event counts per tenant
+
+🚨 Orphaned event count
+
+📅 Recent events for default tenant
+
+🖥️ UI filtering logic
+
+🚑 Prepared rescue queries (not executed)
+
+🛡️ Safeguards: migration guard + post-OAuth check + unit test suggestion
+
+⚡ With this, you’ll know exactly:
+
+How many events you should be seeing,
+
+How many are “orphaned” and invisible,
+
+The safe SQL to repair them,
+
+And you’ll have protection against it happening again.

@@ -1,0 +1,70 @@
+Goal: Make the Calendar tab fetch events exactly like the Dashboard (session cookie + tenant), and stop passing userId=test-user.
+
+Rules
+
+Discover files yourself; don’t assume paths.
+
+Minimal, targeted edits only; no refactors.
+
+Keep tenant isolation & auth middleware intact.
+
+Don’t change schema or unrelated features.
+
+Tasks
+
+Frontend
+
+Find all Calendar tab components (e.g., calendar.tsx, calendar-view.tsx) that call:
+
+useQuery(['/api/events','test-user'], ...) or fetch('/api/events?userId=test-user')
+
+Replace with the Dashboard pattern:
+
+const { data: events } = useQuery({
+  queryKey: ['/api/events'],                // no userId key
+  queryFn: async () => {
+    const res = await fetch('/api/events', { credentials: 'include' });
+    if (!res.ok) throw new Error('Failed to fetch events');
+    return res.json();
+  },
+  enabled: !!currentUser,                   // only fetch when authed
+});
+
+
+Remove any remaining hardcoded 'test-user' references.
+
+If the Calendar tab needs a date window, use query params startDate/endDate without a userId param (same as Dashboard).
+
+Backend (light safety)
+
+In /api/events handler, ensure that if userId is present, it must equal the authenticated user; otherwise ignore it or return 403.
+
+Default path when no userId: call the tenant-scoped getEvents(tenantId) (which is already working).
+
+Logging (tiny)
+
+Add a structured log in the /api/events route printing which branch was used: list_all_for_tenant | list_by_user | list_by_date_range, with tenantId.
+
+Acceptance
+
+Calendar tab shows the same events the Dashboard shows.
+
+Network tab: Calendar requests GET /api/events (no userId=).
+
+No references to 'test-user' remain.
+
+/api/events logs confirm list_all_for_tenant path when no date range is provided.
+
+Do not
+
+Change schema, migrations, or any integration logic.
+
+Touch payments/auth beyond the minimal /api/events guard.
+
+Report back
+
+Files/lines changed.
+
+Proof (before/after) network calls.
+
+One screenshot/log snippet showing events count > 0 for the Calendar tab.

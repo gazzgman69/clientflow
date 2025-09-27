@@ -1,0 +1,147 @@
+Goal: Prove and enforce full multi-tenant isolation across API, storage, background jobs, webhooks, OAuth, UI, and data.
+Important rules:
+
+Discover the repo structure yourself; don’t assume paths/tables.
+
+Phase A is read-only: produce a short plan with file:line evidence.
+
+Changes must be minimal & additive, behind flags where sensible, and must not touch unrelated features.
+
+Respect existing RLS and withTenant() conventions; fail fast on missing tenant context.
+
+Phase A — Read-only audit (show file:line)
+
+Tenant resolution & propagation
+
+Where is tenantId resolved in requests (middleware)?
+
+How is tenantId passed to storage (withTenant, scoped repos)?
+
+OAuth state contains signed tenantId? Is it verified in callback?
+
+Storage layer
+
+For core entities (users, contacts, projects, leads, emails, events, templates): show create/read methods and confirm tenant filter on every query and tenantId required on writes.
+
+Flag any method that ignores tenantId (e.g., accepts but doesn’t use it).
+
+Database schema & policies
+
+Confirm tenant_id NOT NULL (or guarded) on multi-tenant tables.
+
+List RLS policies per table; confirm USING (tenant_id = current_setting('app.tenant_id')) (or equivalent).
+
+Show unique constraints that should be tenant-scoped (e.g., (tenant_id, external_id)).
+
+Background jobs & schedulers
+
+Show how jobs enumerate tenants; confirm no global job runs without tenant context.
+
+Check email/calendar sync workers set tenant context for every op.
+
+Webhooks
+
+Show Stripe/Google webhook handlers: how do they resolve tenantId and set DB/session context before writes?
+
+UI/API
+
+Confirm all list/detail endpoints and React queries filter by tenant (no dev “test-user” or global fallbacks).
+
+Mem vs Postgres
+
+Verify contacts/projects/integrations/events use Postgres/Drizzle (not MemStorage) in production code.
+
+Admin/impersonation
+
+Confirm impersonation switches tenant context and has audit logs; no cross-tenant leakage.
+
+Backups
+
+Is there a per-tenant export/backup path? Note its current status.
+
+Provide a concise report with green/yellow/red and exact file:line references.
+
+Phase B — Minimal hardening (only what Phase A flags)
+
+Implement only targeted fixes; keep them small and reversible:
+
+B1. Fail-fast tenant guards (storage)
+
+Any create/update that can write without tenantId → add a guard: throw with structured log.
+
+Any read without tenant filter → add tenant scoping.
+
+B2. Enforce schema constraints (flags)
+
+Prepare (don’t execute unless told) migrations:
+
+ALTER TABLE <table> ADD CONSTRAINT <tbl>_tenant_not_null CHECK (tenant_id IS NOT NULL);
+
+Add tenant-scoped unique indexes, e.g.
+CREATE UNIQUE INDEX IF NOT EXISTS uq_events_tenant_ext ON events(tenant_id, external_event_id);
+
+Only auto-apply if TENANT_SCHEMA_ENFORCE=1.
+
+B3. RLS verification hook
+
+In DB init or request middleware, set app.tenant_id per request, and add a self-check that queries pg_policies for required tables; log if missing.
+
+B4. Jobs & webhooks
+
+Ensure workers/webhooks wrap processing with tenant context. If missing, add a lightweight wrapper (no refactor) that sets tenant for the duration of the handler.
+
+B5. OAuth callback hardening
+
+Verify/require tenantId from signed state; remove any fallback to null/default.
+
+Upsert integrations on (tenant_id, provider, provider_account_id); deactivate duplicates; never insert tenant_id = NULL.
+
+B6. UI/API safety
+
+Remove any leftover user/tenant hardcodes; require session + tenant on fetchers.
+
+Add a tiny log in /api/* list routes stating branch + tenantId + count.
+
+B7. CI guard
+
+Add a lightweight CI grep/ESLint block to prevent re-introducing tenantId-less queries or 'test-user' in client/src & server/src.
+
+SQL probes (read-only; include in report, don’t mutate)
+-- Tables expected to be multi-tenant (adjust dynamically based on schema discovery)
+SELECT tablename, rowsecurity
+FROM pg_tables t
+JOIN pg_class c ON c.relname=t.tablename
+JOIN pg_namespace n ON n.oid=c.relnamespace
+WHERE n.nspname='public' AND tablename IN ('users','contacts','projects','leads','emails','events','templates');
+
+-- Orphans by table (should be zero)
+SELECT 'contacts' AS tbl, COUNT(*) FROM contacts WHERE tenant_id IS NULL
+UNION ALL SELECT 'projects', COUNT(*) FROM projects WHERE tenant_id IS NULL
+UNION ALL SELECT 'leads', COUNT(*) FROM leads WHERE tenant_id IS NULL
+UNION ALL SELECT 'emails', COUNT(*) FROM emails WHERE tenant_id IS NULL
+UNION ALL SELECT 'events', COUNT(*) FROM events WHERE tenant_id IS NULL;
+
+-- Events isolation sanity (window example)
+SELECT COUNT(*) AS event_count
+FROM events
+WHERE tenant_id = '<CURRENT_TENANT>'
+  AND start_at >= NOW() - INTERVAL '30 days'
+  AND start_at <  NOW() + INTERVAL '90 days';
+
+Acceptance (must all pass)
+
+All create/read paths for contacts, projects, leads, emails, events, templates are tenant-scoped; no method ignores tenant.
+
+No new records can be written without tenantId (guarded in code).
+
+RLS present for multi-tenant tables; request scope sets app.tenant_id.
+
+Jobs/webhooks run under explicit tenant context.
+
+OAuth integrations upsert per tenant; no tenant_id = NULL rows created.
+
+UI/API have no hardcoded user/tenant; both Dashboard & Calendar show matching tenant data.
+
+CI/lint guard blocks regressions.
+
+Report back with: changed files/lines, flags introduced, and a 10–15 line summary of findings + fixes. Do not touch unrelated features.

@@ -135,7 +135,22 @@ export class GmailService {
    */
   async sendEmail(userId: string, emailRequest: EmailRequest & { projectId?: string; threadId?: string }): Promise<EmailResponse> {
     try {
+      // VERBOSE LOGGING: Log recipient + provider status before sending
+      console.log(`📧 GMAIL SEND START - Provider: Gmail OAuth`);
+      console.log(`📧 GMAIL SEND - To: ${emailRequest.to}`);
+      console.log(`📧 GMAIL SEND - Subject: ${emailRequest.subject}`);
+      console.log(`📧 GMAIL SEND - Project ID: ${emailRequest.projectId || 'None'}`);
+      console.log(`📧 GMAIL SEND - Thread ID: ${emailRequest.threadId || 'New thread'}`);
+      
       const gmail = await this.getGmailService(userId);
+
+      // VERBOSE LOGGING: Get and verify user email for from header check
+      const userEmail = await this.getUserEmail(userId);
+      console.log(`📧 GMAIL SEND - Authenticated account: ${userEmail}`);
+      
+      // VERBOSE LOGGING: From header verification
+      // Note: Gmail API automatically uses authenticated account as sender, no custom from needed
+      console.log(`📧 GMAIL SEND - From header will be: ${userEmail} (auto-set by Gmail API)`);
 
       // Prepare render input - prioritize provided html, then determine from text content
       let finalHtml: string;
@@ -217,10 +232,16 @@ export class GmailService {
       
       const response = await gmail.users.messages.send(sendParams);
 
+      // VERBOSE LOGGING: Log full Gmail API response
+      console.log(`📧 GMAIL API RESPONSE - Status: ${response.status}`);
+      console.log(`📧 GMAIL API RESPONSE - Message ID: ${response.data.id}`);
+      console.log(`📧 GMAIL API RESPONSE - Thread ID: ${response.data.threadId}`);
+      console.log(`📧 GMAIL API RESPONSE - Label IDs: ${JSON.stringify(response.data.labelIds)}`);
+      console.log(`📧 GMAIL SUCCESS - Provider accepted email with Message-ID: ${response.data.id}`);
+
       // Sync to database if successful
       if (response.data.id) {
         try {
-          const userEmail = await this.getUserEmail(userId);
           await emailSyncService.createOutboundEmail(userId, {
             threadId: emailRequest.threadId,
             projectId: emailRequest.projectId,
@@ -230,14 +251,22 @@ export class GmailService {
             bodyHtml: rendered.htmlInlined,
             fromEmail: userEmail,
           });
+          console.log(`📧 GMAIL DB SYNC - Successfully synced sent email to database`);
         } catch (syncError) {
-          console.error('Failed to sync sent email to database:', syncError);
+          console.error('📧 GMAIL DB SYNC ERROR - Failed to sync sent email to database:', syncError);
           // Don't fail the send operation if sync fails
         }
       }
 
-      return { ok: true };
+      return { ok: true, messageId: response.data.id, threadId: response.data.threadId };
     } catch (error: any) {
+      // VERBOSE LOGGING: Log detailed error information
+      console.error('📧 GMAIL SEND ERROR - Raw error object:', JSON.stringify(error, null, 2));
+      console.error('📧 GMAIL SEND ERROR - Error message:', error.message);
+      if (error.response) {
+        console.error('📧 GMAIL SEND ERROR - HTTP Status:', error.response.status);
+        console.error('📧 GMAIL SEND ERROR - Response data:', JSON.stringify(error.response.data, null, 2));
+      }
       return { ok: false, error: error.message || 'Failed to send email' };
     }
   }

@@ -2595,7 +2595,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
 
   app.get("/api/projects/:id", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
     try {
-      const project = await storage.getProject(req.params.id);
+      const project = await storage.getProject(req.params.id, (req as any).tenantId);
       if (!project) {
         return res.status(404).json({ message: "Project not found" });
       }

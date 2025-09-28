@@ -737,20 +737,21 @@ router.post('/:slug/submit', formSubmissionLimiter, async (req, res) => {
       
       if (mappingResult.contactData.venueAddress) {
         try {
-          // Build venue details using structured address fields
+          // Build venue details using structured address fields  
+          // FIXED: Use the correctly mapped venue fields from contactData
           const venueDetails = {
             placeId: formData.eventLocationPlaceId || null,
             name: mappingResult.contactData.venueAddress?.split(',')[0]?.trim() || 'Venue',
             address1: mappingResult.contactData.venueAddress, // Keep full address for reference
             address2: undefined, // Use undefined instead of null for PlaceDetails interface
-            city: mappingResult.contactData.venue_city || '',
-            state: mappingResult.contactData.venue_state || '',
-            postalCode: mappingResult.contactData.venue_zip_code || '',
-            countryCode: mappingResult.contactData.venue_country || 'GB',
+            city: mappingResult.contactData.venue_city || formData.eventLocationCity || '',
+            state: mappingResult.contactData.venue_state || formData.eventLocationState || '',
+            postalCode: mappingResult.contactData.venue_zip_code || formData.eventLocationZipCode || '',
+            countryCode: mappingResult.contactData.venue_country || formData.eventLocationCountry || 'GB',
             latitude: formData.eventLocationLat ? parseFloat(formData.eventLocationLat) : 0,
             longitude: formData.eventLocationLng ? parseFloat(formData.eventLocationLng) : 0,
-            // Include phone number if provided in form
-            contactPhone: formData.eventLocationPhone || null,
+            // Include phone number if provided in form (use mapped field first, then fallback)
+            contactPhone: mappingResult.contactData.venue_phone || formData.eventLocationPhone || null,
           };
 
           console.log('🏢 VENUE CREATION DEBUG:', {

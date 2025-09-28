@@ -259,6 +259,7 @@ function handleVenueAddressComponent(key: string, value: any, result: MappingRes
     'eventLocationState': 'venue_state', 
     'eventLocationZipCode': 'venue_zip_code',
     'eventLocationCountry': 'venue_country',
+    'eventLocationPhone': 'venue_phone', // ADDED: Phone number mapping
   };
 
   const contactField = venueFieldMap[key];

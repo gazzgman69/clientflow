@@ -310,7 +310,7 @@ export class EmailSyncService {
                   bodyHtml: null,
                   sentAt: new Date(gmailThread.latest.dateISO),
                   hasAttachments: false,
-                  contactId, // Always populated now
+                  contactId, // CONTACTS-ONLY GUARD: Always populated by this point
                   projectId: matchedProjectId,
                   createdAt: new Date(),
                   updatedAt: new Date(),

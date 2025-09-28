@@ -1,0 +1,112 @@
+Goal: Confirm the repo truly follows:
+
+DB columns: snake_case
+
+TS/JS code & API JSON: camelCase
+…and then add guards so regressions fail fast.
+
+Rules
+
+Phase A is read-only (show evidence with file:line and sample SQL results).
+
+Make no schema changes unless a violation is found; then propose a minimal migration (don’t run it yet).
+
+Don’t refactor unrelated code.
+
+Phase A — Verify (read-only)
+
+DB scan (snake_case): Run SQL on information_schema to list any columns with uppercase letters or - (should be 0):
+
+SELECT table_name, column_name
+FROM information_schema.columns
+WHERE table_schema='public'
+  AND (column_name ~ '[A-Z]' OR column_name LIKE '%-%')
+ORDER BY table_name, column_name;
+
+
+Schema mapping check: In the ORM schema file(s) (e.g., shared/schema.ts), list 10 examples showing camelCase: type("snake_case"). Note file:line for each.
+
+API contract check: Find 3 representative API handlers and show the JSON shape they return. Confirm keys are camelCase.
+
+Frontend check: Pick 3 consumer components and show they destructure camelCase props (no project_date etc.).
+
+Return a short summary: “Violations found: 0/✓ list”, or list exact violations.
+
+Phase B — Guards (additive, minimal)
+
+If Phase A passes, add these non-disruptive protections:
+
+B1. CI guard for DB migrations (snake_case only)
+
+Add a CI step that fails if new migrations introduce camelCase columns:
+
+# .github/workflows/naming-guard.yml (or your CI)
+# Fail if any added lines in migrations define camelCase column names
+git diff --cached -- 'migrations/**' | \
+  grep -E "^\+.*(ADD COLUMN|RENAME COLUMN|CREATE TABLE).*\"?[a-z]+[A-Z][A-Za-z0-9_]*\"?" && \
+  (echo "❌ CamelCase found in DB migrations. Use snake_case for columns." && exit 1) || true
+
+
+B2. Lint rule for app code (camelCase only)
+
+Enable ESLint camelcase rule (allowing known server payload exceptions if any):
+
+// .eslintrc.*
+{
+  "rules": {
+    "camelcase": ["error", { "properties": "always", "ignoreDestructuring": false }]
+  }
+}
+
+
+B3. API response contract test
+
+Add a lightweight test that asserts keys returned to the frontend are camelCase:
+
+// server/__tests__/api-casing.test.ts
+import { isCamel } from './utils/isCamel';
+test('API responses are camelCase', async () => {
+  const res = await fetchAsTestUser('/api/projects');
+  const body = await res.json();
+  const keys = Object.keys(Array.isArray(body) ? body[0] ?? {} : body);
+  expect(keys.every(isCamel)).toBe(true);
+});
+
+// server/__tests__/utils/isCamel.ts
+export const isCamel = (k: string) => /^[a-z][a-zA-Z0-9]*$/.test(k);
+
+
+B4. Runtime safety (dev only)
+
+In a central API response utility, add a dev-mode assertion that warns if a key is not camelCase (log once per route).
+
+Phase C — If violations are found
+
+For each violating DB column, propose (don’t run) a minimal migration:
+
+If column exists as camelCase (e.g., tenantId):
+
+ALTER TABLE <table> RENAME COLUMN tenantId TO tenant_id;
+
+
+Add a data backfill step only if there are both columns; otherwise rename is enough.
+
+Update ORM mapping (camelCase: type("snake_case")) and any code paths referencing the old name.
+
+Re-run Phase A to confirm 0 violations.
+
+Output
+
+Short report:
+
+DB violations: 0 or list
+
+Schema examples (file:line) proving mappings
+
+API responses verified camelCase
+
+Components consuming camelCase
+
+Confirmation that CI + ESLint guards were added (paths shown)
+
+If violations existed: proposed migrations (SQL only, not executed)

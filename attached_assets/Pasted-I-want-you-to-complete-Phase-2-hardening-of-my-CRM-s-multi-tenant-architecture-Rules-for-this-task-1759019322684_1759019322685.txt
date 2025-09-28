@@ -1,0 +1,133 @@
+I want you to complete Phase 2 hardening of my CRM’s multi-tenant architecture.
+
+Rules for this task:
+
+Do not refactor unrelated features.
+
+Do not remove any existing tenant filtering already fixed.
+
+Apply schema migrations safely (dry-run first, confirm row counts, then update).
+
+Respect withTenant() everywhere.
+
+Any row with missing tenantId → backfill to 'default-tenant'.
+
+Output a structured report of changes, row counts, and test results.
+
+🔧 Task 1 — Background Job Enforcement
+
+Update PostgreSQLJobQueue and any job runner implementations to require tenantId in all enqueue/fetch/update methods.
+
+Reject jobs missing tenantId.
+
+Backfill existing jobs:
+
+UPDATE jobs SET tenant_id = 'default-tenant' WHERE tenant_id IS NULL;
+UPDATE job_executions SET tenant_id = 'default-tenant' WHERE tenant_id IS NULL;
+
+
+Add indexes:
+
+CREATE INDEX IF NOT EXISTS idx_jobs_tenant_id ON jobs(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_job_exec_tenant_id ON job_executions(tenant_id);
+
+🔧 Task 2 — Auxiliary Tables Coverage (SQL Migration Pack)
+
+Run these safe migrations for auxiliary tables currently missing tenant isolation:
+
+-- Members table
+ALTER TABLE members ADD COLUMN IF NOT EXISTS tenant_id varchar;
+UPDATE members SET tenant_id = 'default-tenant' WHERE tenant_id IS NULL;
+ALTER TABLE members ALTER COLUMN tenant_id SET NOT NULL;
+ALTER TABLE members ADD CONSTRAINT members_tenant_fk FOREIGN KEY (tenant_id) REFERENCES tenants(id);
+CREATE INDEX IF NOT EXISTS idx_members_tenant_id ON members(tenant_id);
+
+-- Payment Sessions
+ALTER TABLE payment_sessions ADD COLUMN IF NOT EXISTS tenant_id varchar;
+UPDATE payment_sessions SET tenant_id = 'default-tenant' WHERE tenant_id IS NULL;
+ALTER TABLE payment_sessions ALTER COLUMN tenant_id SET NOT NULL;
+ALTER TABLE payment_sessions ADD CONSTRAINT payment_sessions_tenant_fk FOREIGN KEY (tenant_id) REFERENCES tenants(id);
+CREATE INDEX IF NOT EXISTS idx_payment_sessions_tenant_id ON payment_sessions(tenant_id);
+
+-- Automation Rules
+ALTER TABLE automation_rules ADD COLUMN IF NOT EXISTS tenant_id varchar;
+UPDATE automation_rules SET tenant_id = 'default-tenant' WHERE tenant_id IS NULL;
+ALTER TABLE automation_rules ALTER COLUMN tenant_id SET NOT NULL;
+ALTER TABLE automation_rules ADD CONSTRAINT automation_rules_tenant_fk FOREIGN KEY (tenant_id) REFERENCES tenants(id);
+CREATE INDEX IF NOT EXISTS idx_automation_rules_tenant_id ON automation_rules(tenant_id);
+
+-- Message Templates
+ALTER TABLE message_templates ADD COLUMN IF NOT EXISTS tenant_id varchar;
+UPDATE message_templates SET tenant_id = 'default-tenant' WHERE tenant_id IS NULL;
+ALTER TABLE message_templates ALTER COLUMN tenant_id SET NOT NULL;
+ALTER TABLE message_templates ADD CONSTRAINT message_templates_tenant_fk FOREIGN KEY (tenant_id) REFERENCES tenants(id);
+CREATE INDEX IF NOT EXISTS idx_message_templates_tenant_id ON message_templates(tenant_id);
+
+-- Job Executions (confirm already tenant-scoped)
+ALTER TABLE job_executions ADD COLUMN IF NOT EXISTS tenant_id varchar;
+UPDATE job_executions SET tenant_id = 'default-tenant' WHERE tenant_id IS NULL;
+ALTER TABLE job_executions ALTER COLUMN tenant_id SET NOT NULL;
+ALTER TABLE job_executions ADD CONSTRAINT job_exec_tenant_fk FOREIGN KEY (tenant_id) REFERENCES tenants(id);
+CREATE INDEX IF NOT EXISTS idx_job_exec_tenant_id ON job_executions(tenant_id);
+
+🔧 Task 3 — CI/CD Guards
+
+Add pre-commit / CI check to block unsafe patterns:
+
+git diff --cached | grep -E "^\+.*(test-user|tenantId\s*=\s*['\"])" \
+  && echo "❌ Do not hardcode tenant/user in runtime code" && exit 1 || true
+
+
+Add schema validation script to ensure every table has tenant_id NOT NULL.
+
+🔧 Task 4 — Comprehensive Testing
+
+Unit tests: CRUD methods must reject missing tenantId.
+
+Integration tests: Seed Tenant A + Tenant B, verify no cross-tenant access.
+
+Performance tests: Confirm queries use tenant_id indexes.
+
+🔧 Task 5 — Tenant Parity & Impersonation Validation
+
+Switch-Tenant Parity: Dashboard + Calendar for Tenant A vs B → event counts match, no leakage.
+
+SUPERADMIN Impersonation:
+
+Impersonate Tenant A → see only A’s data.
+
+End impersonation → restore correctly.
+
+Attempt SUPERADMIN→SUPERADMIN → blocked.
+
+Confirm audit logs.
+
+✅ Acceptance Criteria
+
+Background jobs tenant-scoped.
+
+All auxiliary tables carry tenant_id with NOT NULL + FK.
+
+CI/CD guards prevent regressions.
+
+Tests prove isolation (unit + integration).
+
+Dashboard/Calendar parity confirmed.
+
+SUPERADMIN impersonation validated.
+
+📋 Output Report (Required)
+
+Provide:
+
+List of tables updated with tenant_id.
+
+Row counts for backfilled data.
+
+Confirmation of job queue tenant enforcement.
+
+CI guard script snippet.
+
+Test results (isolation, parity, impersonation).
+
+Final verdict: HARDENING COMPLETE or list remaining gaps.

@@ -1,0 +1,118 @@
+Goal: Confirm Gmail is truly multi-tenant and visible in the UI, then add lightweight guards to prevent regressions.
+
+Rules
+
+Phase A is read-only (show file:line + query results).
+
+Make no schema/code changes unless a violation is found; then propose minimal diffs first.
+
+Do not touch Calendar; focus on Gmail.
+
+Dates in output as dd/mm/yyyy.
+
+Phase A — Read-only verification
+
+DB checks
+
+Count Gmail integrations by tenant_id and verify no NULL:
+
+SELECT tenant_id, COUNT(*) AS cnt
+FROM calendar_integrations
+WHERE service_type = 'gmail'
+GROUP BY tenant_id
+ORDER BY cnt DESC;
+SELECT COUNT(*) AS null_integrations
+FROM calendar_integrations
+WHERE service_type = 'gmail' AND tenant_id IS NULL;
+
+
+Emails table isolation & recent window:
+
+SELECT tenant_id, COUNT(*) AS total
+FROM emails
+WHERE provider='gmail'
+GROUP BY tenant_id;
+
+-- last 30 days
+SELECT COUNT(*) AS recent
+FROM emails
+WHERE provider='gmail'
+  AND received_at >= NOW() - INTERVAL '30 days';
+
+
+Storage/API code paths
+
+Show file:line where Gmail OAuth callback updates/creates integrations and confirm it uses tenantId in lookups and writes.
+
+Show file:line for getEmailIntegrationByEmail / getEmailIntegrationsByUser signatures and WHERE clause (must include tenant_id).
+
+Show the Gmail sync job entrypoint and where it enumerates tenants.
+
+Status + UI
+
+Call the Gmail status endpoint the UI uses (e.g. /api/auth/google/gmail/status) and paste JSON (mask tokens).
+
+Identify which UI component renders Gmail threads and confirm it fetches via tenant-scoped API (no hardcoded user/tenant).
+
+Return a short list: violations found (0 or list).
+
+Phase B — End-to-end tenant isolation smoke test
+
+Session A (Tenant A user)
+
+Trigger a manual sync (if supported) or run the scheduled job once.
+
+Fetch /api/email/threads (or equivalent) and report total/first 3 subjects.
+
+Session B (Tenant B user)
+
+Repeat; report totals/first 3 subjects.
+
+Cross-check
+
+Confirm A sees only A, B sees only B; no overlap.
+
+Confirm the Settings banner: shows reconnect only when sync_errors='invalid_grant' and clears after successful reconnect.
+
+Phase C — UI parity & filtering
+
+Verify the Dashboard email widget and the Email page return identical counts for the same time window.
+
+If your product requires contacts-only filtering, confirm list queries include:
+
+JOIN contacts ON emails.from_email = contacts.email AND contacts.tenant_id = :tenantId
+
+or emails.contact_id IS NOT NULL for display queries.
+
+If it’s all mail by tenant, confirm no contact filter is applied.
+
+Phase D — Regression guards (add only if Phase A passes)
+
+CI guard: fail if any Gmail integration/email insert is missing tenant_id:
+
+# scripts/guard-tenant-gmail.sh
+rg -n "INSERT INTO .*emails" server/src | rg -v "tenant_id"
+rg -n "INSERT INTO .*calendar_integrations" server/src | rg -v "tenant_id"
+
+
+Wire into CI to fail on non-zero output.
+
+Runtime assert (prod-safe, log-only): in Gmail OAuth callback and email persist layer, log an error if tenantId is falsy.
+
+Test: add an integration test that enqueues a Gmail sync for Tenant A and asserts Tenant B APIs return 0 of those messages.
+
+Output
+
+Provide:
+
+DB query results (counts, 0 NULL checks).
+
+File:line evidence for tenant-scoped lookups/writes.
+
+Status endpoint JSON (masked).
+
+A/B session counts + parity result.
+
+Note on contacts-only vs all-mail filtering.
+
+Confirmation that CI/runtime guards were added (or proposed if violations found).

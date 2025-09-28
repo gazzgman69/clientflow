@@ -228,7 +228,7 @@ export default function CalendarView({ viewMode = 'month' }: CalendarViewProps) 
     "July", "August", "September", "October", "November", "December"
   ];
 
-  const daysOfWeek = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  const daysOfWeek = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
   const getDaysInMonth = (date: Date) => {
     const year = date.getFullYear();
@@ -236,7 +236,9 @@ export default function CalendarView({ viewMode = 'month' }: CalendarViewProps) 
     const firstDay = new Date(year, month, 1);
     const lastDay = new Date(year, month + 1, 0);
     const daysInMonth = lastDay.getDate();
-    const startingDayOfWeek = firstDay.getDay();
+    // Convert Sunday=0 to Monday=0 format: (getDay() + 6) % 7
+    // This makes Monday=0, Tuesday=1, ..., Sunday=6
+    const startingDayOfWeek = (firstDay.getDay() + 6) % 7;
 
     const days = [];
     

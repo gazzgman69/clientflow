@@ -558,6 +558,25 @@ export default function VenuesPage() {
                           </div>
                         )}
 
+                        {/* Website */}
+                        {selectedVenue.website && (
+                          <div className="space-y-1">
+                            <div className="text-xs text-muted-foreground">Website</div>
+                            <div className="flex items-center gap-2">
+                              <Globe className="h-4 w-4 text-blue-600" />
+                              <a
+                                href={selectedVenue.website}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-blue-600 hover:text-blue-800 hover:underline text-sm font-medium"
+                                data-testid={`link-venue-website-${selectedVenue.id}`}
+                              >
+                                {selectedVenue.website.replace(/^https?:\/\//, '').replace(/\/$/, '')}
+                              </a>
+                            </div>
+                          </div>
+                        )}
+
                         {/* Price Level */}
                         {enrichment.priceLevel && (
                           <div className="space-y-1">

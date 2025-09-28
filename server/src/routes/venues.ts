@@ -302,7 +302,8 @@ router.get('/', async (req, res) => {
     // Map database field names to frontend expected names
     const mappedVenues = venues.map(venue => ({
       ...venue,
-      zipCode: venue.zip_code // Map zip_code to zipCode for frontend compatibility
+      zipCode: venue.zipCode || venue.zip_code, // Handle both camelCase and snake_case
+      contactPhone: venue.contactPhone || venue.contact_phone // FIXED: Map contact_phone to contactPhone
     }));
     
     // Get total count for pagination info

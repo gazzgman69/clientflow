@@ -110,6 +110,13 @@ export default function Projects() {
   const contacts = contactsData?.contacts || [];
   const venues = venuesData?.venues || [];
 
+  // Helper function to get venue name by ID
+  const getVenueName = (venueId: string | undefined | null) => {
+    if (!venueId) return "No venue";
+    const venue = venues.find(v => v.id === venueId);
+    return venue ? venue.name : "No venue";
+  };
+
   const form = useForm<z.infer<typeof projectFormSchema>>({
     resolver: zodResolver(projectFormSchema),
     defaultValues: {
@@ -266,14 +273,6 @@ export default function Projects() {
     return contact ? `${contact.firstName} ${contact.lastName}` : 'Unknown Contact';
   };
 
-  const getVenueName = (venueId: string | null) => {
-    if (!venueId) return 'No venue';
-    if (!venues || !Array.isArray(venues)) {
-      return 'Loading...';
-    }
-    const venue = venues.find(v => v.id === venueId);
-    return venue ? venue.name : 'Unknown Venue';
-  };
 
   const sortProjects = (projects: Project[]) => {
     if (!projects) return [];

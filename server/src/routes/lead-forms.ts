@@ -751,10 +751,27 @@ router.post('/:slug/submit', formSubmissionLimiter, async (req, res) => {
             longitude: formData.eventLocationLng ? parseFloat(formData.eventLocationLng) : 0,
           };
 
+          console.log('🏢 VENUE CREATION DEBUG:', {
+            hasVenueAddress: !!mappingResult.contactData.venueAddress,
+            venueDetails: {
+              name: venueDetails.name,
+              address1: venueDetails.address1,
+              city: venueDetails.city,
+              state: venueDetails.state,
+              postalCode: venueDetails.postalCode,
+              countryCode: venueDetails.countryCode,
+              placeId: venueDetails.placeId
+            },
+            willCreateVenue: !!(venueDetails.address1 || venueDetails.city),
+            tenantId: form.tenantId
+          });
+
           // Only create venue if we have meaningful address information
+          // Enhanced condition: address1 (full address) OR city is sufficient
           if (venueDetails.address1 || venueDetails.city) {
             if (venueDetails.placeId) {
               // For Google Places venues, use upsert which handles deduplication automatically
+              console.log('🔍 CREATING VENUE FROM GOOGLE PLACES:', { placeId: venueDetails.placeId, tenantId: form.tenantId });
               createdVenue = await venuesService.upsertFromPlace(venueDetails, form.tenantId);
               console.log('✅ VENUE UPSERTED (Google Places):', {
                 venueId: createdVenue.id,
@@ -767,19 +784,39 @@ router.post('/:slug/submit', formSubmissionLimiter, async (req, res) => {
               const venueData = {
                 name: venueDetails.name,
                 address: venueDetails.address1,
-                city: venueDetails.city,
-                state: venueDetails.state,
-                zipCode: venueDetails.postalCode,
-                country: venueDetails.countryCode,
+                city: venueDetails.city || '', // Ensure it's a string, not undefined
+                state: venueDetails.state || '',
+                zipCode: venueDetails.postalCode || '',
+                country: venueDetails.countryCode || 'GB',
                 latitude: venueDetails.latitude ? venueDetails.latitude.toString() : null,
                 longitude: venueDetails.longitude ? venueDetails.longitude.toString() : null,
                 useCount: 1, // Start with count of 1 since it's being used immediately
                 lastUsedAt: new Date()
               };
               
+              console.log('🔍 CREATING VENUE FROM MANUAL ENTRY:', { 
+                venueData, 
+                tenantId: form.tenantId,
+                hasNameAndAddress: !!(venueData.name && venueData.address)
+              });
+              
               // Use findOrCreateVenue which has robust normalization-based deduplication
               createdVenue = await venuesService.findOrCreateVenue(venueData, form.tenantId);
+              
+              console.log('✅ VENUE CREATED/FOUND (Manual):', {
+                venueId: createdVenue.id,
+                venueName: createdVenue.name,
+                venueAddress: createdVenue.address,
+                tenantId: form.tenantId
+              });
             }
+          } else {
+            console.log('⚠️ VENUE CREATION SKIPPED - NO ADDRESS DATA:', {
+              address1: venueDetails.address1,
+              city: venueDetails.city,
+              venueAddress: mappingResult.contactData.venueAddress,
+              tenantId: form.tenantId
+            });
           }
         } catch (error) {
           console.error('❌ Failed to create/update venue:', {

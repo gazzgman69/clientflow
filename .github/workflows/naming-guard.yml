@@ -1,0 +1,39 @@
+name: Database Naming Convention Guard
+
+on:
+  pull_request:
+    paths:
+      - 'migrations/**'
+      - 'shared/schema.ts'
+  push:
+    paths:
+      - 'migrations/**' 
+      - 'shared/schema.ts'
+
+jobs:
+  naming-guard:
+    name: Enforce snake_case DB columns
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          
+      - name: Check for camelCase in DB migrations
+        run: |
+          # Fail if any added lines in migrations introduce camelCase column names
+          if git diff --cached -- 'migrations/**' | \
+            grep -E "^\+.*(ADD COLUMN|RENAME COLUMN|CREATE TABLE).*\"?[a-z]+[A-Z][A-Za-z0-9_]*\"?"; then
+            echo "❌ CamelCase found in DB migrations. Use snake_case for columns."
+            exit 1
+          fi
+          
+          # Also check schema file for camelCase column definitions
+          if git diff --cached -- 'shared/schema.ts' | \
+            grep -E "^\+.*\w+\(\"[a-z]+[A-Z][A-Za-z0-9_]*\""; then
+            echo "❌ CamelCase column name found in schema. Use snake_case for database columns."
+            exit 1
+          fi
+          
+          echo "✅ All database column names follow snake_case convention"

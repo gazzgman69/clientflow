@@ -6,6 +6,7 @@ import ConnectPgSimple from "connect-pg-simple";
 import rateLimit from "express-rate-limit";
 import { storage } from "./storage";
 import { createTenantAwareSessionStore } from "./middleware/enhancedSessionStore";
+import { validateResponseCasing } from "./src/utils/devCasingGuard";
 import { db } from './db';
 import { sql } from 'drizzle-orm';
 
@@ -387,7 +388,9 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
         total: leads.length
       };
       
-      res.json({ counts });
+      const response = { counts };
+      validateResponseCasing('/api/leads/summary', response);
+      res.json(response);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch summary data" });
     }

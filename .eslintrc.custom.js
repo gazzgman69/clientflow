@@ -1,5 +1,13 @@
 module.exports = {
   rules: {
+    // Enforce camelCase naming convention for variables and properties
+    'camelcase': ['error', { 
+      'properties': 'always', 
+      'ignoreDestructuring': false,
+      'ignoreImports': false,
+      // Allow snake_case for database column mappings in schema files
+      'allow': ['^[a-z]+_[a-z_]+$']
+    }],
     'no-hardcoded-test-user': {
       create(context) {
         return {

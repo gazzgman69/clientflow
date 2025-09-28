@@ -1,0 +1,109 @@
+Goal:
+Do a comprehensive sweep and repair of naming conventions with full data backfill.
+
+Database (Postgres): all columns must be snake_case
+
+App code (TS/JS, API, React): all properties must be camelCase
+
+ORM (Drizzle schema): must map snake_case DB fields → camelCase app fields
+
+Data backfill: if both snake_case + camelCase exist in DB, migrate & backfill without data loss
+
+Phase A — Discovery (Read-only)
+
+Search the repo for schema definitions (shared/schema.ts, migrations, models).
+
+List all DB columns that are camelCase (❌ e.g., tenantId, projectDate).
+
+List all API responses leaking snake_case (❌ e.g., { project_date: ... }).
+
+Show mismatches: file, line, column name, expected vs actual.
+
+Phase B — Schema Normalisation
+
+For each camelCase DB column:
+
+Rename → snake_case:
+
+ALTER TABLE projects RENAME COLUMN tenantId TO tenant_id;
+ALTER TABLE leads RENAME COLUMN projectDate TO project_date;
+ALTER TABLE venues ADD COLUMN venue_phone text; -- if not present
+
+
+Ensure NOT NULL / FK constraints preserved.
+
+Backfill logic if duplicates exist:
+
+If both columns exist (tenantId + tenant_id):
+
+UPDATE projects SET tenant_id = tenantId WHERE tenant_id IS NULL AND tenantId IS NOT NULL;
+ALTER TABLE projects DROP COLUMN tenantId;
+
+
+Do this safely for each affected table.
+
+Update Drizzle schemas to map correctly:
+
+projectDate: date("project_date"),
+tenantId: varchar("tenant_id"),
+venuePhone: text("venue_phone"),
+
+Phase C — Code Updates
+
+Replace all camelCase DB references in code with mapped fields.
+
+Ensure TS interfaces always use camelCase.
+
+Ensure API responses return camelCase (e.g., { projectDate }).
+
+Add a mapper in API routes to transform DB → camelCase if needed.
+
+Phase D — Verification
+
+Run schema migration (npm run db:push or equivalent).
+
+Query DB directly:
+
+\d projects;
+SELECT * FROM projects LIMIT 1;
+
+
+Confirm only snake_case column names remain.
+
+Submit test lead/project/venue.
+
+DB row → snake_case.
+
+API response → camelCase.
+
+UI → camelCase.
+
+Backfill verification:
+
+SELECT COUNT(*) FROM projects WHERE tenant_id IS NULL;
+
+
+Must be 0.
+
+Phase E — Safeguards
+
+Add ESLint rule: enforce camelCase in JS/TS.
+
+Add schema validation script: fail CI if migration introduces camelCase DB column.
+
+Add test to confirm API responses always camelCase:
+
+expect(Object.keys(apiResponse).every(k => /^[a-z][a-zA-Z0-9]*$/.test(k))).toBe(true);
+
+
+📋 Deliverables Required
+
+List of all columns renamed + backfilled
+
+Updated schema.ts with correct mappings
+
+SQL logs showing successful backfill
+
+Example API response with camelCase only
+
+Confirmation query proving no camelCase DB columns remain

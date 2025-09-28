@@ -2,7 +2,7 @@
 
 /**
  * Schema validation script to ensure all tables have proper tenant_id coverage
- * Run with: node scripts/validate-schema-tenant-coverage.js
+ * Run with: node scripts/validate-schema-tenant-coverage.cjs
  */
 
 const { Client } = require('pg');

@@ -7,6 +7,8 @@ import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { calendarAutoSyncService } from "./src/services/calendar-auto-sync";
 import { tenantResolver } from "./middleware/tenantResolver";
+import { tenantMonitoringMiddleware } from "./src/middleware/tenantMonitoring";
+import { orphanPreventionMiddleware, responseValidationMiddleware } from "./src/middleware/orphanPrevention";
 import { initializeFileStorage } from "./src/services/fileStorageService";
 import { validateProductionSecrets, validateTenantConfiguration } from "./src/services/productionValidation";
 
@@ -203,6 +205,11 @@ app.post('/api/venues/place-details', async (req, res) => {
 
 // Tenant resolution middleware - identifies tenant context from subdomain/domain/user
 app.use('/api', tenantResolver);
+
+// Real-time tenant monitoring and orphan prevention (Task 3 Security)
+app.use('/api', tenantMonitoringMiddleware);
+app.use('/api', orphanPreventionMiddleware);
+app.use('/api', responseValidationMiddleware);
 
 // API response logging middleware - logs API calls with timing
 app.use((req, res, next) => {

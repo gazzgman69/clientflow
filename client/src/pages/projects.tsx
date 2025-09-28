@@ -273,6 +273,22 @@ export default function Projects() {
     return contact ? `${contact.firstName} ${contact.lastName}` : 'Unknown Contact';
   };
 
+  const formatVenueAddress = (project: any) => {
+    // Use the structured venue fields from the query
+    const parts = [];
+    if (project.venue_name) parts.push(project.venue_name);
+    if (project.venue_address) parts.push(project.venue_address);
+    if (project.venue_city) parts.push(project.venue_city);
+    if (project.venue_state) parts.push(project.venue_state);
+    if (project.venue_zip_code) parts.push(project.venue_zip_code);
+    
+    return parts.length > 0 ? parts.join(', ') : 'No venue';
+  };
+
+  const getVenuePhone = (project: any) => {
+    return project.venue_phone || 'No phone number';
+  };
+
 
   const sortProjects = (projects: Project[]) => {
     if (!projects) return [];
@@ -391,7 +407,12 @@ export default function Projects() {
                         {project.name}
                       </TableCell>
                       <TableCell data-testid={`project-venue-${project.id}`}>
-                        {getVenueName((project as any).venue_id || (project as any).venueId)}
+                        <div className="max-w-xs">
+                          <div className="font-medium text-sm">{formatVenueAddress(project)}</div>
+                          {(project as any).venue_phone && (
+                            <div className="text-xs text-muted-foreground">{getVenuePhone(project)}</div>
+                          )}
+                        </div>
                       </TableCell>
                       <TableCell data-testid={`project-status-${project.id}`}>
                         <Badge className={getStatusColor(project.status)}>

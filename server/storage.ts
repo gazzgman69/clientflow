@@ -3160,9 +3160,23 @@ export class DrizzleStorage implements IStorage {
     
     if (userId) {
       const query = `
-        SELECT * FROM projects 
-        WHERE tenant_id = $1 AND (user_id = $2 OR assigned_to = $2)
-        ORDER BY created_at DESC
+        SELECT 
+          p.*,
+          v.name as venue_name,
+          v.address as venue_address,
+          v.city as venue_city,
+          v.state as venue_state,
+          v.zip_code as venue_zip_code,
+          v.country as venue_country,
+          v.contact_phone as venue_phone,
+          c.first_name as contact_first_name,
+          c.last_name as contact_last_name,
+          c.email as contact_email
+        FROM projects p
+        LEFT JOIN venues v ON p.venue_id = v.id AND v.tenant_id = p.tenant_id
+        LEFT JOIN contacts c ON p.contact_id = c.id AND c.tenant_id = p.tenant_id
+        WHERE p.tenant_id = $1 AND (p.user_id = $2 OR p.assigned_to = $2)
+        ORDER BY p.created_at DESC
         LIMIT ${defaultLimit}
         OFFSET ${defaultOffset}
       `;
@@ -3170,9 +3184,23 @@ export class DrizzleStorage implements IStorage {
       return result as Project[];
     } else {
       const query = `
-        SELECT * FROM projects 
-        WHERE tenant_id = $1
-        ORDER BY created_at DESC
+        SELECT 
+          p.*,
+          v.name as venue_name,
+          v.address as venue_address,
+          v.city as venue_city,
+          v.state as venue_state,
+          v.zip_code as venue_zip_code,
+          v.country as venue_country,
+          v.contact_phone as venue_phone,
+          c.first_name as contact_first_name,
+          c.last_name as contact_last_name,
+          c.email as contact_email
+        FROM projects p
+        LEFT JOIN venues v ON p.venue_id = v.id AND v.tenant_id = p.tenant_id
+        LEFT JOIN contacts c ON p.contact_id = c.id AND c.tenant_id = p.tenant_id
+        WHERE p.tenant_id = $1
+        ORDER BY p.created_at DESC
         LIMIT ${defaultLimit}
         OFFSET ${defaultOffset}
       `;

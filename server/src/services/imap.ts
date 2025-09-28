@@ -278,6 +278,7 @@ export class ImapService {
     html?: string;
     cc?: string[];
     bcc?: string[];
+    fromEmail?: string; // For from header verification
   }): Promise<{ success: boolean; messageId?: string; error?: string }> {
     if (!this.isSmtpConfigured() || !this.smtpTransporter) {
       return {
@@ -287,10 +288,35 @@ export class ImapService {
     }
 
     try {
-      console.log('📧 Sending email via SMTP:', { to: emailData.to, subject: emailData.subject });
+      // VERBOSE LOGGING: Log recipient + provider status before sending
+      console.log(`📧 SMTP SEND START - Provider: SMTP (Nodemailer)`);
+      console.log(`📧 SMTP SEND - Host: ${this.smtpConfig!.host}:${this.smtpConfig!.port}`);
+      console.log(`📧 SMTP SEND - Security: ${this.smtpConfig!.secure ? 'SSL/TLS' : 'STARTTLS'}`);
+      console.log(`📧 SMTP SEND - To: ${emailData.to}`);
+      if (emailData.cc && emailData.cc.length > 0) {
+        console.log(`📧 SMTP SEND - CC: ${emailData.cc.join(', ')}`);
+      }
+      if (emailData.bcc && emailData.bcc.length > 0) {
+        console.log(`📧 SMTP SEND - BCC: ${emailData.bcc.join(', ')}`);
+      }
+      console.log(`📧 SMTP SEND - Subject: ${emailData.subject}`);
+      console.log(`📧 SMTP SEND - Content: ${emailData.html ? 'HTML + Text' : 'Text only'}`);
+      
+      // VERBOSE LOGGING: From header verification
+      const authenticatedUser = this.smtpConfig!.user;
+      let fromAddress = authenticatedUser;
+      
+      if (emailData.fromEmail && emailData.fromEmail.toLowerCase() !== authenticatedUser.toLowerCase()) {
+        console.warn(`📧 SMTP SEND WARNING - From header mismatch! Requested: ${emailData.fromEmail}, Authenticated: ${authenticatedUser}`);
+        console.log(`📧 SMTP SEND - Using authenticated account in From header with replyTo fallback`);
+        fromAddress = authenticatedUser;
+      } else {
+        console.log(`📧 SMTP SEND - From header: ${fromAddress}`);
+      }
       
       const mailOptions = {
-        from: this.smtpConfig!.user,
+        from: fromAddress,
+        replyTo: emailData.fromEmail !== authenticatedUser ? emailData.fromEmail : undefined,
         to: emailData.to,
         cc: emailData.cc,
         bcc: emailData.bcc,
@@ -299,8 +325,25 @@ export class ImapService {
         html: emailData.html
       };
 
+      console.log(`📧 SMTP SEND - Calling SMTP server with debug logging enabled...`);
+      
+      // Enable debug logging for this specific send
+      this.smtpTransporter.options.logger = true;
+      this.smtpTransporter.options.debug = true;
+      
       const info = await this.smtpTransporter.sendMail(mailOptions);
-      console.log('✅ SMTP email sent successfully:', info.messageId);
+      
+      // VERBOSE LOGGING: Log full SMTP response
+      console.log(`📧 SMTP API RESPONSE - Message ID: ${info.messageId}`);
+      console.log(`📧 SMTP API RESPONSE - Response: ${info.response}`);
+      console.log(`📧 SMTP API RESPONSE - Envelope:`, JSON.stringify(info.envelope, null, 2));
+      if (info.accepted && info.accepted.length > 0) {
+        console.log(`📧 SMTP API RESPONSE - Accepted: ${info.accepted.join(', ')}`);
+      }
+      if (info.rejected && info.rejected.length > 0) {
+        console.log(`📧 SMTP API RESPONSE - Rejected: ${info.rejected.join(', ')}`);
+      }
+      console.log(`📧 SMTP SUCCESS - Provider accepted email with Message-ID: ${info.messageId}`);
 
       return {
         success: true,
@@ -308,7 +351,16 @@ export class ImapService {
       };
 
     } catch (error) {
-      console.error('❌ SMTP send error:', error);
+      // VERBOSE LOGGING: Log detailed error information
+      console.error('📧 SMTP SEND ERROR - Raw error object:', JSON.stringify(error, null, 2));
+      console.error('📧 SMTP SEND ERROR - Error message:', error instanceof Error ? error.message : 'Unknown error');
+      if (error instanceof Error && 'response' in error) {
+        console.error('📧 SMTP SEND ERROR - Server response:', (error as any).response);
+      }
+      if (error instanceof Error && 'responseCode' in error) {
+        console.error('📧 SMTP SEND ERROR - Response code:', (error as any).responseCode);
+      }
+      
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Unknown SMTP error'

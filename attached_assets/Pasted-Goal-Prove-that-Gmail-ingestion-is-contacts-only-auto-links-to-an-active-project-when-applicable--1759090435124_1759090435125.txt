@@ -1,0 +1,112 @@
+Goal: Prove that Gmail ingestion is contacts-only, auto-links to an active project when applicable, and that no orphaned emails appear in any UI/API. If any check fails, apply the smallest fix and show evidence.
+
+Rules
+
+Phase A is read-only with file:line + SQL evidence.
+
+Do not refactor unrelated code. Keep multi-tenant enforcement.
+
+Use existing filenames/paths (discover them yourself).
+
+Dates shown as dd/mm/yyyy.
+
+Phase A — Verification (read-only)
+
+DB checks
+
+-- A1. No orphans visible
+SELECT COUNT(*) AS orphans FROM emails WHERE contact_id IS NULL;
+-- A2. Linked coverage
+SELECT COUNT(*) AS linked FROM emails WHERE contact_id IS NOT NULL;
+-- A3. Project auto-link coverage
+SELECT COUNT(*) AS with_project FROM emails WHERE contact_id IS NOT NULL AND project_id IS NOT NULL;
+-- A4. Quarantine (if used)
+SELECT to_regclass('public.emails_quarantine') AS quarantine_table;
+-- If table exists:
+-- SELECT COUNT(*) AS quarantined FROM emails_quarantine;
+
+
+API checks (paste file:line):
+
+/api/email/threads and /api/emails routes: show the WHERE clause proving contact_id IS NOT NULL (and tenant scoping).
+
+Show any project filter path returns only emails with correct tenant_id.
+
+Ingestion path (file:line):
+
+Where inbound messages are skipped if no contact match (show the guard).
+
+Where project_id is attached when contact has active projects (show selection rule, e.g. latest active).
+
+UI checks (file:line):
+
+Email list/threads components: confirm they rely on the tenant-scoped APIs (no client-side bypass).
+
+Return a short summary:
+
+Orphans: N
+
+Quarantined: N (or “not used”)
+
+Linked: N
+
+With project: N
+
+Violations: list (or “none”)
+
+Phase B — Minimal Fix (only if any check fails)
+
+If any email without contact_id can still appear via API:
+
+Add/confirm AND contact_id IS NOT NULL filter in the API queries used by UI.
+
+If ingestion still persists or returns orphans:
+
+Ensure ingestion requires a contact; otherwise quarantine (don’t save to emails).
+
+If project auto-link missing:
+
+Add lookup for most recent active project for that contact (same tenant); set project_id if found.
+
+Show small diffs (before/after) for each change.
+
+Phase C — Backfill & Clean (idempotent)
+
+If there are historical records:
+
+-- C1. Backfill contact links
+UPDATE emails e
+SET contact_id = c.id
+FROM contacts c
+WHERE e.tenant_id = c.tenant_id
+  AND e.contact_id IS NULL
+  AND e.from_email = c.email;
+
+-- C2. Backfill project links for active projects
+UPDATE emails e
+SET project_id = p.id
+FROM projects p
+WHERE e.contact_id = p.contact_id
+  AND p.status = 'active'
+  AND e.project_id IS NULL;
+
+
+If still any contact_id IS NULL, move them to quarantine (create it if it doesn’t exist), and remove from emails. Show row counts moved.
+
+Phase D — Proof & Guards
+
+Proof
+
+Re-run Phase A SQL: show orphans = 0 in emails.
+
+Return 5 sample rows from /api/email/threads with contact_id and (when applicable) project_id.
+
+Guards
+
+Runtime: log+skip on missing contactId in ingestion.
+
+Test: “API never returns emails where contact_id IS NULL”.
+
+Multi-tenant: confirm all queries include tenant_id filter/ctx.
+
+Output: One concise report with numbers, file:line evidence, diffs (if any), and final confirmation that only contact-linked emails appear, with auto-project linking working.

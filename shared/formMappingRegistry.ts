@@ -253,13 +253,14 @@ function getTargetData(model: string, result: MappingResult): Record<string, any
 }
 
 function handleVenueAddressComponent(key: string, value: any, result: MappingResult): void {
-  // Map venue address components to contacts model (use snake_case to match current system expectations)
+  // Map venue address components to contacts model (use camelCase to match schema)
   const venueFieldMap: Record<string, string> = {
-    'eventLocationCity': 'venue_city',
-    'eventLocationState': 'venue_state', 
-    'eventLocationZipCode': 'venue_zip_code',
-    'eventLocationCountry': 'venue_country',
-    'eventLocationPhone': 'venue_phone', // ADDED: Phone number mapping
+    'eventLocationCity': 'venueCity',
+    'eventLocationState': 'venueState', 
+    'eventLocationZipCode': 'venueZipCode',
+    'eventLocationCountry': 'venueCountry',
+    // Note: Venue phone should be stored in venues table contact_phone field when venue is created
+    // For now, we don't map eventLocationPhone since contacts schema doesn't have venuePhone field
   };
 
   const contactField = venueFieldMap[key];

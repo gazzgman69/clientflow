@@ -22,7 +22,9 @@ import {
   AlertTriangle,
   Settings,
   Clock,
-  Activity
+  Activity,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
 
 interface MailSettings {
@@ -67,6 +69,7 @@ export default function EmailSettings() {
   });
   const [testEmailError, setTestEmailError] = useState('');
   const [testEmailResult, setTestEmailResult] = useState<any>(null);
+  const [showRawError, setShowRawError] = useState(false);
   const queryClient = useQueryClient();
 
   // Fetch current mail settings
@@ -455,41 +458,101 @@ export default function EmailSettings() {
                             </AlertDescription>
                           </Alert>
                         )}
-                        
-                        <div className="space-y-2 text-sm">
-                          <div className="flex justify-between">
-                            <span className="font-medium">Provider:</span>
-                            <span data-testid="text-result-provider">{testEmailResult.providerResponse?.provider || testEmailResult.testDetails?.provider}</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="font-medium">Status:</span>
-                            <span className={testEmailResult.success ? 'text-green-600' : 'text-red-600'} data-testid="text-result-status">
-                              {testEmailResult.success ? 'SUCCESS' : 'FAILED'}
-                            </span>
-                          </div>
-                          {testEmailResult.providerResponse?.messageId && (
-                            <div className="flex justify-between">
-                              <span className="font-medium">Message ID:</span>
-                              <span className="font-mono text-xs" data-testid="text-result-message-id">
-                                {testEmailResult.providerResponse.messageId}
-                              </span>
+
+                        {/* Success Display */}
+                        {testEmailResult.providerResponse?.ok ? (
+                          <div className="space-y-3">
+                            <div className="flex items-center space-x-2 p-3 bg-green-50 border border-green-200 rounded-lg">
+                              <CheckCircle className="h-5 w-5 text-green-600" />
+                              <div className="flex-1">
+                                <p className="font-medium text-green-800">Email sent successfully!</p>
+                                <p className="text-sm text-green-700">
+                                  Provider: {testEmailResult.providerResponse.provider} • 
+                                  Status: {testEmailResult.providerResponse.status}
+                                </p>
+                              </div>
                             </div>
-                          )}
-                          <div className="flex justify-between">
-                            <span className="font-medium">Sent:</span>
-                            <span data-testid="text-result-timestamp">
-                              {formatDate(testEmailResult.testDetails?.timestamp || new Date().toISOString())}
-                            </span>
-                          </div>
-                          {testEmailResult.providerResponse?.error && (
-                            <div className="mt-2">
-                              <span className="font-medium text-red-600">Error:</span>
-                              <p className="text-red-600 text-xs mt-1" data-testid="text-result-error">
-                                {testEmailResult.providerResponse.error}
-                              </p>
+
+                            <div className="space-y-2 text-sm">
+                              {testEmailResult.providerResponse.messageId && (
+                                <div className="flex justify-between">
+                                  <span className="font-medium">Message ID:</span>
+                                  <span className="font-mono text-xs" data-testid="text-result-message-id">
+                                    {testEmailResult.providerResponse.messageId}
+                                  </span>
+                                </div>
+                              )}
+                              <div className="flex justify-between">
+                                <span className="font-medium">Sent:</span>
+                                <span data-testid="text-result-timestamp">
+                                  {formatDate(testEmailResult.testDetails?.timestamp || new Date().toISOString())}
+                                </span>
+                              </div>
                             </div>
-                          )}
-                        </div>
+                          </div>
+                        ) : (
+                          /* Error Display */
+                          <div className="space-y-3">
+                            <div className="flex items-center space-x-2 p-3 bg-red-50 border border-red-200 rounded-lg">
+                              <XCircle className="h-5 w-5 text-red-600" />
+                              <div className="flex-1">
+                                <p className="font-medium text-red-800">Email delivery failed</p>
+                                <p className="text-sm text-red-700">
+                                  Provider: {testEmailResult.providerResponse?.provider} • 
+                                  Error Type: {testEmailResult.providerResponse?.errorType}
+                                </p>
+                              </div>
+                            </div>
+
+                            <div className="space-y-2 text-sm">
+                              <div className="flex justify-between">
+                                <span className="font-medium">Error Message:</span>
+                                <span className="text-red-600 text-right max-w-xs" data-testid="text-result-error-message">
+                                  {testEmailResult.providerResponse?.errorMessage}
+                                </span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="font-medium">Failed:</span>
+                                <span data-testid="text-result-timestamp">
+                                  {formatDate(testEmailResult.testDetails?.timestamp || new Date().toISOString())}
+                                </span>
+                              </div>
+                            </div>
+
+                            {/* Expandable Raw Error Details */}
+                            {testEmailResult.providerResponse?.raw && (
+                              <div className="border-t pt-3">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => setShowRawError(!showRawError)}
+                                  className="text-xs p-1 h-auto"
+                                  data-testid="button-toggle-raw-error"
+                                >
+                                  {showRawError ? (
+                                    <>
+                                      <ChevronUp className="h-3 w-3 mr-1" />
+                                      Hide raw error details
+                                    </>
+                                  ) : (
+                                    <>
+                                      <ChevronDown className="h-3 w-3 mr-1" />
+                                      Show raw error details
+                                    </>
+                                  )}
+                                </Button>
+                                
+                                {showRawError && (
+                                  <div className="mt-2 p-2 bg-gray-100 rounded text-xs" data-testid="panel-raw-error-details">
+                                    <pre className="whitespace-pre-wrap break-words font-mono">
+                                      {JSON.stringify(testEmailResult.providerResponse.raw, null, 2)}
+                                    </pre>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
                     )}
                   </CardContent>

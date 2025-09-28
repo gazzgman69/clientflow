@@ -1,0 +1,90 @@
+I want you to do a full sweep of the CRM repo to ensure:
+
+Venue Mapping + Phone Number
+
+Audit → fix → verify (as outlined before).
+
+Structured address fields must map correctly from lead form & Google Places into DB + project view.
+
+Add/display phone number field (venue_phone or contactPhone).
+
+Enforce tenantId on all venue create/update.
+
+MemStorage → PostgreSQL Sweep
+
+Phase A — Read-only Discovery
+
+Search entire repo for MemStorage.
+
+Show file:line for each occurrence.
+
+Classify each as: ✅ test-only, ❌ runtime-critical.
+
+Print storage.ts / index.ts logic that decides between MemStorage and DrizzleStorage.
+
+Show current .env/config defaults that may trigger MemStorage.
+
+Phase B — Enforcement
+
+Remove any runtime fallback to MemStorage (keep only in __tests__).
+
+In storage.ts, make Drizzle/Postgres the default:
+
+export const storage = new DrizzleStorage(pgClient);
+
+
+Add runtime guard:
+
+if (process.env.NODE_ENV === 'production' && storage instanceof MemStorage) {
+  throw new Error("🚨 MemStorage is not allowed in production");
+}
+
+
+Add CI/CD script that fails if MemStorage is found in server/src or client/src.
+
+Phase C — Verification
+
+Boot app in prod mode → assert storage is DrizzleStorage.
+
+Submit a lead in test → confirm it lands in Postgres (SELECT * FROM leads LIMIT 1;).
+
+Print log line confirming [StorageInit] DrizzleStorage active tenantId=....
+
+Phase D — Safeguards
+
+Add unit test:
+
+expect(storage).toBeInstanceOf(DrizzleStorage);
+
+
+Add integration test that simulates a lead submission and checks DB row exists.
+
+Ensure tenantId is required in all create/update.
+
+Final Deliverable
+
+Structured report with:
+
+All MemStorage occurrences (before & after cleanup).
+
+Venue mapping mismatches found + fixed.
+
+DB schema diff (if new venue_phone column added).
+
+Screenshot/log proof of venue fields in Project view (name, street, city, postcode, country, phone).
+
+Confirmation query proving no MemStorage is used in runtime (only Postgres).
+
+Add CI/CD guard instructions to repo.
+
+⚠️ Rules
+
+Phase A must be read-only first, with evidence, before making changes.
+
+Do not refactor unrelated modules.
+
+Preserve existing working features.
+
+Always enforce tenantId.
+
+Use dd/mm/yyyy in any sample output.

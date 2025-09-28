@@ -1,0 +1,136 @@
+Goal: Ensure Gmail sync only ingests emails linked to known contacts, and automatically associates them with active projects for that contact. No more “all inbox” behavior.
+
+Phase A — Audit (read-only)
+
+Show me where emails are ingested into the DB (emailSync.ts or equivalent).
+
+Confirm if ingestion currently checks for a contact before persisting.
+
+Show the /api/email/threads and /api/emails routes.
+
+Confirm if they currently filter by contact_id.
+
+Show the logic (if any) that links emails to projects.
+
+Phase B — Fix Implementation
+
+Contacts-Only Ingestion:
+
+Update ingestion to require a matching contact:
+
+If no matching contact found in the same tenant → skip storing (or store in a quarantine table).
+
+Store contact_id with the email record.
+
+Example:
+
+const contact = await storage.getContactByEmail(email.from, tenantId);
+if (!contact) {
+  console.warn("Skipping orphaned email:", email.subject);
+  return;
+}
+await storage.createEmail({
+  tenantId,
+  contactId: contact.id,
+  ...parsedEmail
+});
+
+
+Auto-Link Projects:
+
+When a contact has one or more active projects in the same tenant, automatically set project_id on the email.
+
+If multiple projects are found, link to the most recent active one (by created_at or status).
+
+Example:
+
+const projects = await storage.getActiveProjectsByContact(contact.id, tenantId);
+const projectId = projects.length > 0 ? projects[0].id : null;
+
+await storage.createEmail({
+  tenantId,
+  contactId: contact.id,
+  projectId,
+  ...parsedEmail
+});
+
+
+API Route Filtering:
+
+Update /api/email/threads and /api/emails to **only return emails with contact_id IS NOT NULL`.
+
+Ensure project-linked emails are included when project_id is set.
+
+Backfill Migration:
+
+Run SQL to attach contact_id to existing emails where possible:
+
+UPDATE emails e
+SET contact_id = c.id
+FROM contacts c
+WHERE e.tenant_id = c.tenant_id
+  AND e.contact_id IS NULL
+  AND e.from_email = c.email;
+
+
+Then backfill project_id for any email linked to a contact with an active project:
+
+UPDATE emails e
+SET project_id = p.id
+FROM projects p
+WHERE e.contact_id = p.contact_id
+  AND p.status = 'active'
+  AND e.project_id IS NULL;
+
+
+Quarantine or delete any remaining emails with contact_id IS NULL.
+
+Phase C — Verification
+
+Run SQL:
+
+SELECT COUNT(*) FROM emails WHERE contact_id IS NULL;
+
+
+✅ Expect 0 after backfill + quarantine.
+
+Run SQL:
+
+SELECT COUNT(*) FROM emails WHERE project_id IS NOT NULL;
+
+
+✅ Confirm many emails are now linked to projects.
+
+API verification:
+
+Fetch /api/email/threads → show 5 sample threads with contact_id + project_id populated.
+
+Phase D — Safeguards
+
+Add runtime guard in createEmail:
+
+if (!contactId) {
+  console.warn("Skipped orphaned email:", subject);
+  return;
+}
+
+
+Add integration test:
+
+Assert emails from unknown addresses are not persisted.
+
+Assert emails from known contacts link to both contact + project.
+
+Assert API never returns orphaned emails.
+
+Deliverables
+
+Updated ingestion code with contact/project checks.
+
+SQL migration scripts for backfill + quarantine.
+
+Updated API routes.
+
+Verification logs (counts + API samples).
+
+Regression tests + runtime guards.

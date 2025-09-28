@@ -6,6 +6,10 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Label } from '@/components/ui/label';
 import { MailForm } from '@/components/settings/MailForm';
 import SignatureManagement from '@/components/settings/SignatureManagement';
 import { apiRequest } from '@/lib/queryClient';
@@ -55,6 +59,14 @@ interface AuditLog {
 export default function EmailSettings() {
   const [showForm, setShowForm] = useState(false);
   const [alertMessage, setAlertMessage] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [testEmailData, setTestEmailData] = useState({
+    to: '',
+    subject: 'Test Email from CRM',
+    body: 'This is a test email to verify your email provider configuration is working correctly.',
+    provider: 'gmail' as 'gmail' | 'microsoft' | 'smtp'
+  });
+  const [testEmailError, setTestEmailError] = useState('');
+  const [testEmailResult, setTestEmailResult] = useState<any>(null);
   const queryClient = useQueryClient();
 
   // Fetch current mail settings
@@ -109,6 +121,22 @@ export default function EmailSettings() {
     }
   });
 
+  // Debug test email mutation (calls the new debug endpoint)
+  const debugTestEmailMutation = useMutation({
+    mutationFn: async (data: { to: string; provider: string; fromEmail?: string }) => {
+      const response = await apiRequest('POST', '/api/email/debug/send-test-email', data);
+      return response.json();
+    },
+    onSuccess: (data) => {
+      setTestEmailResult(data);
+      setTestEmailError('');
+    },
+    onError: (error: any) => {
+      setTestEmailError(error.message || 'Failed to send test email');
+      setTestEmailResult(null);
+    }
+  });
+
   const settings = (settingsData as any)?.settings as MailSettings | null;
   const logs = (logsData as any)?.logs as AuditLog[] || [];
 
@@ -134,6 +162,23 @@ export default function EmailSettings() {
     if (result === 'ok') return <CheckCircle className="h-4 w-4 text-green-600" />;
     if (result === 'fail') return <XCircle className="h-4 w-4 text-red-600" />;
     return <Clock className="h-4 w-4 text-gray-400" />;
+  };
+
+  const handleSendTestEmail = () => {
+    // Validate required fields
+    if (!testEmailData.to.trim()) {
+      setTestEmailError('Email address is required');
+      return;
+    }
+    
+    setTestEmailError('');
+    setTestEmailResult(null);
+    
+    debugTestEmailMutation.mutate({
+      to: testEmailData.to,
+      provider: testEmailData.provider,
+      fromEmail: settings?.fromEmail
+    });
   };
 
   // Clear alert after 5 seconds
@@ -308,6 +353,145 @@ export default function EmailSettings() {
                         Send Test Email
                       </Button>
                     </div>
+                  </CardContent>
+                </Card>
+
+                {/* Test Email Card */}
+                <Card data-testid="card-test-email">
+                  <CardHeader>
+                    <CardTitle className="flex items-center space-x-2">
+                      <Send className="h-5 w-5" />
+                      <span>Send Test Email</span>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <p className="text-sm text-gray-600">
+                      Send a test email to verify real provider delivery and see detailed provider responses.
+                    </p>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="test-email-to">To Email Address *</Label>
+                        <Input
+                          id="test-email-to"
+                          type="email"
+                          placeholder="recipient@example.com"
+                          value={testEmailData.to}
+                          onChange={(e) => setTestEmailData(prev => ({ ...prev, to: e.target.value }))}
+                          data-testid="input-test-email-to"
+                        />
+                        {testEmailError && (
+                          <p className="text-sm text-red-600" data-testid="text-test-email-error">
+                            {testEmailError}
+                          </p>
+                        )}
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label htmlFor="test-email-provider">Provider</Label>
+                        <Select 
+                          value={testEmailData.provider} 
+                          onValueChange={(value: 'gmail' | 'microsoft' | 'smtp') => 
+                            setTestEmailData(prev => ({ ...prev, provider: value }))
+                          }
+                        >
+                          <SelectTrigger data-testid="select-test-email-provider">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="gmail">Gmail (OAuth)</SelectItem>
+                            <SelectItem value="microsoft">Microsoft (Graph)</SelectItem>
+                            <SelectItem value="smtp">SMTP</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="test-email-subject">Subject</Label>
+                      <Input
+                        id="test-email-subject"
+                        value={testEmailData.subject}
+                        onChange={(e) => setTestEmailData(prev => ({ ...prev, subject: e.target.value }))}
+                        data-testid="input-test-email-subject"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="test-email-body">Message</Label>
+                      <Textarea
+                        id="test-email-body"
+                        rows={3}
+                        value={testEmailData.body}
+                        onChange={(e) => setTestEmailData(prev => ({ ...prev, body: e.target.value }))}
+                        data-testid="textarea-test-email-body"
+                      />
+                    </div>
+
+                    <Button
+                      onClick={handleSendTestEmail}
+                      disabled={debugTestEmailMutation.isPending}
+                      data-testid="button-send-test-email-debug"
+                    >
+                      {debugTestEmailMutation.isPending ? (
+                        <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                      ) : (
+                        <Send className="h-4 w-4 mr-2" />
+                      )}
+                      Send Test Email
+                    </Button>
+
+                    {/* Result Panel */}
+                    {testEmailResult && (
+                      <div className="mt-4 p-4 bg-gray-50 rounded-lg" data-testid="panel-test-email-result">
+                        <h4 className="font-medium mb-2">Test Result</h4>
+                        
+                        {/* From Mismatch Warning */}
+                        {testEmailResult.appResult?.fromMismatch && (
+                          <Alert className="mb-3 border-yellow-200 bg-yellow-50">
+                            <AlertTriangle className="h-4 w-4 text-yellow-600" />
+                            <AlertDescription className="text-yellow-800">
+                              <strong>From header mismatch:</strong> Using authenticated account with replyTo fallback ({testEmailResult.testDetails?.fromEmailRequested})
+                            </AlertDescription>
+                          </Alert>
+                        )}
+                        
+                        <div className="space-y-2 text-sm">
+                          <div className="flex justify-between">
+                            <span className="font-medium">Provider:</span>
+                            <span data-testid="text-result-provider">{testEmailResult.providerResponse?.provider || testEmailResult.testDetails?.provider}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="font-medium">Status:</span>
+                            <span className={testEmailResult.success ? 'text-green-600' : 'text-red-600'} data-testid="text-result-status">
+                              {testEmailResult.success ? 'SUCCESS' : 'FAILED'}
+                            </span>
+                          </div>
+                          {testEmailResult.providerResponse?.messageId && (
+                            <div className="flex justify-between">
+                              <span className="font-medium">Message ID:</span>
+                              <span className="font-mono text-xs" data-testid="text-result-message-id">
+                                {testEmailResult.providerResponse.messageId}
+                              </span>
+                            </div>
+                          )}
+                          <div className="flex justify-between">
+                            <span className="font-medium">Sent:</span>
+                            <span data-testid="text-result-timestamp">
+                              {formatDate(testEmailResult.testDetails?.timestamp || new Date().toISOString())}
+                            </span>
+                          </div>
+                          {testEmailResult.providerResponse?.error && (
+                            <div className="mt-2">
+                              <span className="font-medium text-red-600">Error:</span>
+                              <p className="text-red-600 text-xs mt-1" data-testid="text-result-error">
+                                {testEmailResult.providerResponse.error}
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               </TabsContent>

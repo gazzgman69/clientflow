@@ -1,0 +1,135 @@
+Goal: Venue data from lead forms must populate the correct structured fields (street, city, postcode/zip, country) and phone number, and display in the Project view (and any Venue detail card) under the right labels.
+
+Rules
+
+Discover code + schema yourself (don’t assume paths/names).
+
+Phase A is read-only: list evidence (file:line) before any change.
+
+Make minimal, targeted edits. Do not change unrelated features or schemas that already work.
+
+Enforce tenant context on all create/update/read.
+
+Use dd/mm/yyyy in any sample output.
+
+Phase A — Read-only audit
+
+Trace the data flow for venue fields from Lead Form submission → server handler → storage/DB → Project view UI.
+
+Show current field mappings (code snippets with file:line) for:
+
+venue name
+
+street/address line
+
+city
+
+state/region (if present)
+
+postcode/zip
+
+country
+
+phone number (from form and from Google Places enrichment, if enabled)
+
+Print the DB column names the app actually writes to (SELECT 1 row of a recent venue for me, masking PII as needed).
+
+Show which query populates the Project view and which props the UI reads for each visible venue field.
+
+Identify the exact mismatch(es): e.g., “writing city → venue_city, but UI expects venueCity”, or phone never persisted/read.
+
+Return a short bullet list of mismatches.
+
+Phase B — Targeted fixes (no broad refactors)
+
+Apply only what Phase A flags:
+
+Submission mapping: ensure each incoming form field maps to the correct DB columns:
+
+venue_name → name
+
+venue_address or components → street/address line
+
+city → city
+
+state/region → state
+
+postcode/zip → postcode/zipCode
+
+country → country
+
+venue_phone (new or existing field) → phone/contactPhone
+
+If Google Places enrichment exists, map Places fields (formatted_address, components, international_phone_number) into the same columns (no duplication).
+
+Persistence: ensure create/update of the venue writes these fields; upsert logic should not wipe phone on subsequent updates.
+
+Project view data: make the venue query return these fields; update the UI bindings so each field shows in the correct box/label.
+
+Multi-tenant: guarantee tenantId is passed on venue create/update/link; no cross-tenant lookups.
+
+Do not change other modules (emails, calendar, payments).
+
+Phase C — Verification (automated + visual)
+
+Seed (in memory or test DB) a test lead submission with:
+
+Name: “The Talbot”
+
+Address components: street/city/postcode/country
+
+Phone: 01865 123456
+
+(If enrichment is on, include a mock Places response with international_phone_number)
+
+Show:
+
+DB row for the created/updated venue (selected fields).
+
+API response feeding the Project view (selected fields).
+
+A screenshot/log proof that the Project view shows:
+
+Name
+
+Street
+
+City
+
+Postcode/Zip
+
+Country
+
+Phone number
+
+Print a tiny mapping table of UI label → source field used.
+
+Phase D — Safeguards
+
+Add a unit test that submits a lead with full venue details (+ optional Places phone) and asserts DB + UI mappings are correct.
+
+Add a duplicate-safe check (exact match on tenant + normalized name + postcode/zip): if venue exists, update missing pieces (e.g., add phone) instead of creating duplicates.
+
+Log a warning if enrichment is enabled but returns no phone, so we know why the box is empty.
+
+Acceptance
+
+Project view shows phone number and each address part in the correct field.
+
+DB contains the structured values exactly once (no conflicting columns).
+
+No cross-tenant leakage; tenantId enforced.
+
+Tests pass.
+
+Return a concise report with:
+
+Mismatches found (before)
+
+Files/lines changed (after)
+
+Sample DB row (masked)
+
+Screenshot/log proof of correct UI
+
+Test added and passing

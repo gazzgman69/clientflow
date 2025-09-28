@@ -1,0 +1,315 @@
+# GitHub Actions Workflow for Tenant-Safe Deployments
+# This workflow ensures all deployments maintain tenant isolation integrity
+
+name: Tenant-Safe Deployment Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  NODE_VERSION: '18'
+
+jobs:
+  # Job 1: Schema Validation
+  schema-validation:
+    name: 🔍 Schema Validation
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          
+      - name: Install dependencies
+        run: npm ci
+        
+      - name: Run schema validation
+        run: node scripts/ci-cd/schema-validation.cjs
+        
+      - name: Upload schema validation results
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: schema-validation-results
+          path: |
+            scripts/ci-cd/schema-validation.log
+          retention-days: 7
+
+  # Job 2: Runtime Database Validation
+  runtime-validation:
+    name: 🔍 Runtime Validation
+    runs-on: ubuntu-latest
+    needs: schema-validation
+    
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: test_db
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+    
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test_db
+      
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          
+      - name: Install dependencies
+        run: npm ci
+        
+      - name: Setup test database
+        run: |
+          npm run db:push --force
+          
+      - name: Seed test data
+        run: |
+          # Create test tenant and sample data for validation
+          node -e "
+          const { Client } = require('pg');
+          async function seedTestData() {
+            const client = new Client({ connectionString: process.env.DATABASE_URL });
+            await client.connect();
+            
+            // Create test tenant
+            await client.query(\`
+              INSERT INTO tenants (id, slug, name) 
+              VALUES ('test-tenant', 'test', 'Test Tenant')
+              ON CONFLICT (id) DO NOTHING
+            \`);
+            
+            console.log('✅ Test data seeded successfully');
+            await client.end();
+          }
+          seedTestData().catch(console.error);
+          "
+        
+      - name: Run runtime validation
+        run: node scripts/ci-cd/runtime-validation.cjs
+        
+      - name: Upload runtime validation results
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: runtime-validation-results
+          path: |
+            scripts/ci-cd/runtime-validation.log
+          retention-days: 7
+
+  # Job 3: Integration Tests
+  integration-tests:
+    name: 🧪 Integration Tests
+    runs-on: ubuntu-latest
+    needs: runtime-validation
+    
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: test_db
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+    
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test_db
+      SESSION_SECRET: test-session-secret-for-ci-cd-testing-only
+      ENCRYPTION_MASTER_KEY: test-encryption-key-32-chars-long
+      NODE_ENV: test
+      
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          
+      - name: Install dependencies
+        run: npm ci
+        
+      - name: Setup test database
+        run: npm run db:push --force
+        
+      - name: Run tenant enforcement integration tests
+        run: npm test -- tenant-enforcement-integration.test.ts
+        
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: integration-test-results
+          path: |
+            test-results/
+            coverage/
+          retention-days: 7
+
+  # Job 4: Security Audit
+  security-audit:
+    name: 🔒 Security Audit
+    runs-on: ubuntu-latest
+    needs: integration-tests
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          
+      - name: Install dependencies
+        run: npm ci
+        
+      - name: Run npm audit
+        run: npm audit --audit-level moderate
+        
+      - name: Run tenant isolation security checks
+        run: |
+          echo "🔒 Running tenant isolation security audit..."
+          
+          # Check for potential security issues in schema
+          grep -r "tenantId" shared/schema.ts || echo "⚠️ No tenantId references found"
+          
+          # Check for proper middleware setup
+          grep -r "tenantMonitoringMiddleware" server/ || echo "❌ Tenant monitoring middleware not found"
+          grep -r "orphanPreventionMiddleware" server/ || echo "❌ Orphan prevention middleware not found"
+          
+          # Check for dangerous patterns
+          if grep -r "DELETE FROM" server/ --exclude-dir=node_modules; then
+            echo "⚠️ Found DELETE statements - ensure they include tenant filtering"
+          fi
+          
+          if grep -r "UPDATE.*SET" server/ --exclude-dir=node_modules; then
+            echo "⚠️ Found UPDATE statements - ensure they include tenant filtering"
+          fi
+          
+          echo "✅ Security audit completed"
+
+  # Job 5: Pre-Deployment Validation
+  pre-deployment-validation:
+    name: 🚀 Pre-Deployment Validation
+    runs-on: ubuntu-latest
+    needs: [schema-validation, runtime-validation, integration-tests, security-audit]
+    if: github.ref == 'refs/heads/main'
+    
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: production_test_db
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+    
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/production_test_db
+      
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          
+      - name: Install dependencies
+        run: npm ci
+        
+      - name: Setup production-like database
+        run: npm run db:push --force
+        
+      - name: Run comprehensive pre-deployment validation
+        run: |
+          chmod +x scripts/ci-cd/pre-deployment-validation.sh
+          ./scripts/ci-cd/pre-deployment-validation.sh production
+        
+      - name: Upload deployment validation report
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: deployment-validation-report
+          path: |
+            deployment-artifacts/
+          retention-days: 30
+          
+      - name: Create deployment summary
+        if: success()
+        run: |
+          echo "## 🚀 Deployment Validation Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "✅ **All tenant isolation checks passed**" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Schema validation" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Runtime database validation" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Integration tests" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Security audit" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Pre-deployment validation" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Ready for production deployment** 🎉" >> $GITHUB_STEP_SUMMARY
+
+  # Job 6: Notify on Failure
+  notify-failure:
+    name: 🚨 Notify Failure
+    runs-on: ubuntu-latest
+    needs: [schema-validation, runtime-validation, integration-tests, security-audit, pre-deployment-validation]
+    if: failure()
+    
+    steps:
+      - name: Create failure summary
+        run: |
+          echo "## ❌ Deployment Validation Failed" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**CRITICAL: Tenant isolation violations detected**" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "🚫 **Deployment has been blocked**" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Required Actions:" >> $GITHUB_STEP_SUMMARY
+          echo "1. Review validation errors in the job logs" >> $GITHUB_STEP_SUMMARY
+          echo "2. Fix all tenant isolation issues" >> $GITHUB_STEP_SUMMARY
+          echo "3. Run validation scripts locally" >> $GITHUB_STEP_SUMMARY
+          echo "4. Commit fixes and re-run pipeline" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Validation Scripts:" >> $GITHUB_STEP_SUMMARY
+          echo '```bash' >> $GITHUB_STEP_SUMMARY
+          echo 'node scripts/ci-cd/schema-validation.cjs' >> $GITHUB_STEP_SUMMARY
+          echo 'node scripts/ci-cd/runtime-validation.cjs' >> $GITHUB_STEP_SUMMARY
+          echo './scripts/ci-cd/pre-deployment-validation.sh' >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY

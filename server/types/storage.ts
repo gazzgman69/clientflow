@@ -82,6 +82,7 @@ export interface IStorage {
   getProjectsCount(tenantId: string, userId?: string): Promise<number>;
   getProject(id: string, tenantId: string): Promise<Project | undefined>;
   getProjectsByContact(contactId: string, tenantId: string): Promise<Project[]>;
+  getActiveProjectsByContact(contactId: string, tenantId: string): Promise<Project[]>;
   createProject(project: InsertProject, tenantId: string): Promise<Project>;
   updateProject(id: string, project: Partial<InsertProject>, tenantId: string): Promise<Project | undefined>;
   deleteProject(id: string, tenantId: string): Promise<boolean>;

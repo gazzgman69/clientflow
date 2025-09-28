@@ -249,6 +249,29 @@ export class EmailSyncService {
             contactId = await this.findOrCreateContact(toEmailParsed, tenantId, matchedProjectId);
           }
           
+          // AUTO-LINK PROJECTS: When contact has active projects, link to most recent
+          if (contactId && !matchedProjectId) {
+            const { db } = await import('../../storage');
+            const { projects } = await import('../../../shared/schema');
+            const { eq, and, desc } = await import('drizzle-orm');
+            
+            const activeProjects = await db
+              .select({ id: projects.id, createdAt: projects.createdAt })
+              .from(projects)
+              .where(and(
+                eq(projects.contactId, contactId),
+                eq(projects.tenantId, tenantId),
+                eq(projects.status, 'active')
+              ))
+              .orderBy(desc(projects.createdAt))
+              .limit(1);
+              
+            if (activeProjects.length > 0) {
+              matchedProjectId = activeProjects[0].id;
+              console.log(`📧 AUTO-LINKED: Email to contact ${contactId} → project ${matchedProjectId}`);
+            }
+          }
+          
           // PII-SAFE LOGGING: Use direction info only
           console.log(`📧 THREAD DIRECTION: ${direction} message (contactId: ${contactId})`);
           

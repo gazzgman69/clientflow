@@ -245,8 +245,8 @@ router.get('/threads', requireAuth, async (req: any, res) => {
       return res.status(400).json({ ok: false, error: 'Tenant context required' });
     }
 
-    // Get email threads using tenant-aware storage method
-    const emails = await storage.getEmails(tenantId, { userId, limit });
+    // Get email threads using tenant-aware storage method - CONTACTS-ONLY FILTERING
+    const emails = await storage.getEmails(tenantId, { userId, limit, contactsOnly: true });
     
     // Transform to threads format with latest message details
     const threadMap = new Map();
@@ -424,22 +424,39 @@ router.get('/thread/:threadId', requireAuth, async (req: any, res) => {
 });
 
 /**
- * List emails (existing endpoint)
+ * List emails (DATABASE-BACKED with CONTACTS-ONLY filtering)
  */
 router.get('/list', requireAuth, async (req: any, res) => {
   try {
     const limit = parseInt(req.query.limit as string) || 10;
     const userId = req.user.id;
     
-    const result = await gmailService.listEmails(userId, limit);
-    
-    if (result.ok) {
-      res.json(result);
-    } else {
-      res.status(500).json(result);
+    // SECURITY FIX: Use tenant-aware storage method with contacts-only filtering
+    const tenantId = req.tenantId;
+    if (!tenantId) {
+      return res.status(400).json({ ok: false, error: 'Tenant context required' });
     }
+
+    // Get emails from database with contacts-only filtering
+    const emails = await storage.getEmails(tenantId, { userId, limit, contactsOnly: true });
+    
+    res.json({
+      ok: true,
+      emails: emails.map(email => ({
+        id: email.id,
+        threadId: email.threadId,
+        from: email.fromEmail,
+        to: email.toEmails,
+        subject: email.subject,
+        snippet: email.snippet || email.bodyText?.substring(0, 100),
+        date: email.sentAt?.toISOString(),
+        contactId: email.contactId,
+        projectId: email.projectId
+      }))
+    });
   } catch (error: any) {
-    res.status(500).json({ ok: false, error: 'Internal server error' });
+    console.error('Error fetching emails from database:', error);
+    res.status(500).json({ ok: false, error: 'Failed to retrieve emails from database' });
   }
 });
 

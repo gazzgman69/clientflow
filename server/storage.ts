@@ -930,6 +930,14 @@ export class MemStorage implements IStorage {
     );
   }
 
+  async getActiveProjectsByContact(contactId: string, tenantId: string): Promise<Project[]> {
+    return Array.from(this.projects.values()).filter(project => 
+      project.contactId === contactId && 
+      project.tenantId === tenantId &&
+      project.status === 'active'
+    );
+  }
+
   async createProject(insertProject: InsertProject, tenantId: string): Promise<Project> {
     const id = randomUUID();
     const project: Project = {
@@ -1207,15 +1215,48 @@ export class MemStorage implements IStorage {
     return this.tasks.delete(id);
   }
 
-  // Emails
-  async getEmails(): Promise<Email[]> {
-    return Array.from(this.emails.values()).sort((a, b) => 
+  // Emails - with optional contacts-only filtering
+  async getEmails(tenantId?: string, options?: { userId?: string; limit?: number; contactsOnly?: boolean }): Promise<Email[]> {
+    let filteredEmails = Array.from(this.emails.values());
+    
+    // Filter by tenant if provided
+    if (tenantId) {
+      filteredEmails = filteredEmails.filter(email => email.tenantId === tenantId);
+    }
+    
+    // Filter by user if provided
+    if (options?.userId) {
+      filteredEmails = filteredEmails.filter(email => email.userId === options.userId);
+    }
+    
+    // CONTACTS-ONLY FILTERING: Only return emails with contact_id
+    if (options?.contactsOnly) {
+      filteredEmails = filteredEmails.filter(email => email.contactId !== null && email.contactId !== undefined);
+    }
+    
+    // Sort by creation date descending
+    filteredEmails.sort((a, b) => 
       new Date(b.createdAt!).getTime() - new Date(a.createdAt!).getTime()
     );
+    
+    // Apply limit if provided
+    if (options?.limit) {
+      filteredEmails = filteredEmails.slice(0, options.limit);
+    }
+    
+    return filteredEmails;
   }
 
-  async getEmail(id: string): Promise<Email | undefined> {
-    return this.emails.get(id);
+  async getEmail(id: string, tenantId?: string): Promise<Email | undefined> {
+    const email = this.emails.get(id);
+    if (!email) return undefined;
+    
+    // Verify tenant access if tenantId provided
+    if (tenantId && email.tenantId !== tenantId) {
+      return undefined;
+    }
+    
+    return email;
   }
 
   async getEmailsByThread(threadId: string): Promise<Email[]> {
@@ -1226,13 +1267,19 @@ export class MemStorage implements IStorage {
     return Array.from(this.emails.values()).filter(email => email.clientId === clientId);
   }
 
-  async createEmail(insertEmail: InsertEmail): Promise<Email> {
+  async createEmail(insertEmail: InsertEmail, tenantId: string): Promise<Email> {
+    // RUNTIME GUARD: Ensure contactId is present for contacts-only ingestion
+    if (!insertEmail.contactId) {
+      console.warn('🚫 INGESTION GUARD: Skipped orphaned email without contact_id:', insertEmail.subject);
+      throw new Error('CONTACTS_ONLY_VIOLATION: contactId required for email creation');
+    }
+    
     const id = randomUUID();
     const email: Email = {
       ...insertEmail,
       status: insertEmail.status ?? 'draft',
       leadId: insertEmail.leadId ?? null,
-      contactId: insertEmail.contactId ?? null,
+      contactId: insertEmail.contactId,
       clientId: insertEmail.clientId ?? null,
       projectId: insertEmail.projectId ?? null,
       threadId: insertEmail.threadId ?? null,
@@ -1240,6 +1287,7 @@ export class MemStorage implements IStorage {
       bccEmails: insertEmail.bccEmails ?? null,
       sentAt: insertEmail.sentAt ?? null,
       sentBy: insertEmail.sentBy ?? null,
+      tenantId,
       id,
       createdAt: new Date(),
       updatedAt: new Date(),
@@ -3255,6 +3303,14 @@ export class DrizzleStorage implements IStorage {
   }
   async getProjectsByContact(contactId: string, tenantId: string): Promise<Project[]> {
     return await this.db.select().from(projects).where(and(eq(projects.contactId, contactId), eq(projects.tenantId, tenantId))).orderBy(desc(projects.createdAt));
+  }
+
+  async getActiveProjectsByContact(contactId: string, tenantId: string): Promise<Project[]> {
+    return await this.db.select().from(projects).where(and(
+      eq(projects.contactId, contactId), 
+      eq(projects.tenantId, tenantId),
+      eq(projects.status, 'active')
+    )).orderBy(desc(projects.createdAt));
   }
   async createProject(project: InsertProject, tenantId: string): Promise<Project> {
     if (!tenantId) {

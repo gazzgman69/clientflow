@@ -1,0 +1,155 @@
+Goal: Add a 17hats-style email provider catalog (Google, Microsoft, iCloud, Yahoo, GoDaddy Office365, GoDaddy Workspace, Bluehost, SiteGround, 1&1/IONOS, AOL, AT&T, BellSouth, Cox Business, SBC Global, Sky, Other). Use OAuth for Google/Microsoft and IMAP/SMTP presets for the rest. Wire into Settings → Email. Keep contacts-only ingestion and multi-tenant isolation. Do not hardcode directories—discover existing files and follow current patterns.
+
+Phase A — Read-only audit (show file:line)
+
+Where the current email settings UI lives and how providers are selected.
+
+Where OAuth connect flows for Google/Microsoft are handled.
+
+Where IMAP/SMTP creds are validated/saved.
+
+Where incoming ingestion and outgoing send happen (confirm contacts-only guard + tenant scoping).
+
+Phase B — Provider registry (new file)
+Create a single source of truth (e.g. client/src/lib/email/providers.ts or a shared location you already use):
+
+export type EmailProvider =
+  | 'gmail'
+  | 'microsoft'
+  | 'icloud'
+  | 'yahoo'
+  | 'godaddy_o365'
+  | 'godaddy_workspace'
+  | 'bluehost'
+  | 'siteground'
+  | 'ionos'
+  | 'aol'
+  | 'att'
+  | 'bellsouth'
+  | 'cox'
+  | 'sbcglobal'
+  | 'sky'
+  | 'other';
+
+export type ProviderType = 'oauth' | 'imap_smtp';
+
+export interface ProviderPreset {
+  id: EmailProvider;
+  label: string;
+  type: ProviderType;
+  notes?: string;                // help text shown in UI
+  imap?: { host?: string; port?: number; secure?: boolean; };
+  smtp?: { host?: string; port?: number; secure?: boolean; };
+  requiresAppPassword?: boolean; // e.g., iCloud
+  supportsOAuthRead?: boolean;
+  supportsOAuthSend?: boolean;
+}
+
+export const EMAIL_PROVIDERS: ProviderPreset[] = [
+  { id: 'gmail', label: 'Google (Gmail / Workspace)', type: 'oauth',
+    supportsOAuthRead: true, supportsOAuthSend: true,
+    notes: 'Use Google OAuth. No app password needed.'
+  },
+  { id: 'microsoft', label: 'Microsoft (Office 365 / Outlook / Hotmail / Live / MSN)', type: 'oauth',
+    supportsOAuthRead: true, supportsOAuthSend: true,
+    notes: 'Use Microsoft OAuth (Graph).'
+  },
+  { id: 'icloud', label: 'iCloud (mac.com / me.com)', type: 'imap_smtp',
+    requiresAppPassword: true,
+    imap: { host: 'imap.mail.me.com', port: 993, secure: true },
+    smtp: { host: 'smtp.mail.me.com', port: 587, secure: false },
+    notes: 'Requires an app-specific password. SMTP uses STARTTLS on 587.'
+  },
+  { id: 'yahoo', label: 'Yahoo', type: 'imap_smtp',
+    imap: { host: 'imap.mail.yahoo.com', port: 993, secure: true },
+    smtp: { host: 'smtp.mail.yahoo.com', port: 465, secure: true }
+  },
+  { id: 'godaddy_o365', label: 'GoDaddy: Office 365', type: 'imap_smtp',
+    notes: 'Some GoDaddy O365 tenants use Microsoft OAuth; otherwise IMAP/SMTP here.'
+  },
+  { id: 'godaddy_workspace', label: 'GoDaddy: Workspace', type: 'imap_smtp',
+    notes: 'Legacy GoDaddy Workspace email.'
+  },
+  { id: 'bluehost', label: 'Bluehost', type: 'imap_smtp' },
+  { id: 'siteground', label: 'SiteGround', type: 'imap_smtp' },
+  { id: 'ionos', label: '1&1 (IONOS)', type: 'imap_smtp',
+    imap: { host: 'imap.ionos.com', port: 993, secure: true },
+    smtp: { host: 'smtp.ionos.com', port: 465, secure: true }
+  },
+  { id: 'aol', label: 'AOL', type: 'imap_smtp',
+    imap: { host: 'imap.aol.com', port: 993, secure: true },
+    smtp: { host: 'smtp.aol.com', port: 465, secure: true }
+  },
+  { id: 'att', label: 'AT&T', type: 'imap_smtp' },
+  { id: 'bellsouth', label: 'BellSouth', type: 'imap_smtp' },
+  { id: 'cox', label: 'Cox Business', type: 'imap_smtp' },
+  { id: 'sbcglobal', label: 'SBC Global', type: 'imap_smtp' },
+  { id: 'sky', label: 'Sky', type: 'imap_smtp' },
+  { id: 'other', label: 'Other (IMAP/SMTP)', type: 'imap_smtp',
+    notes: 'Enter your own IMAP/SMTP server details.'
+  }
+];
+
+
+Phase C — UI wiring
+
+Use EMAIL_PROVIDERS to populate the provider dropdown in Settings → Email (no hardcoded options).
+
+If provider.type === 'oauth': show “Connect Google/Microsoft” buttons wired to existing OAuth routes.
+
+If provider.type === 'imap_smtp': show IMAP/SMTP form prefilled from the preset, but editable.
+
+Persist per-user BCC me and Read receipts toggles; reflect current state.
+
+Phase D — Connect/save handlers
+
+OAuth (Google/Microsoft): keep current flows; ensure tenant_id, user_id persisted; show “Last synced dd/mm/yyyy HH:mm”.
+
+IMAP/SMTP: on save, test connection (IMAP login + SMTP EHLO), then encrypt and store creds. If test fails, do not save.
+
+Phase E — Contacts-only ingestion stays enforced
+
+Confirm (show file:line) that inbound ingestion requires a matching contact; if none, drop (don’t persist) and increment the per-tenant skip counter.
+
+Outbound: if recipient not a known contact and AUTO_CREATE_CONTACT=false, send but don’t persist.
+
+Phase F — Verification
+
+Screenshot/DOM of provider dropdown including all listed providers.
+
+Connect Gmail and Microsoft (OAuth) and one IMAP/SMTP provider; show successful test + saved state.
+
+SQL:
+
+SELECT provider, service_type, COUNT(*)
+FROM calendar_integrations
+WHERE tenant_id = '<current-tenant>'
+GROUP BY provider, service_type;
+
+SELECT COUNT(*) FROM emails
+WHERE tenant_id = '<current-tenant>' AND contact_id IS NULL; -- expect 0 visible
+
+
+Show an inbound email from a known contact appears in the CRM; unknown sender is not stored.
+
+Phase G — Tests & guards
+
+Tests:
+
+“Provider registry renders in UI and drives form controls.”
+
+“Unknown sender → dropped, counter increments.”
+
+“Known contact + active project → email stored with contact_id + project_id.”
+
+CI guard: fail if any insertion path persists emails without contact_id or without tenant_id.
+
+Deliverables
+
+providers.ts registry file.
+
+UI changes (dropdown + conditional forms).
+
+Connect/save handlers (OAuth & IMAP/SMTP).
+
+Tests + brief README section for provider notes (app passwords, typical ports).

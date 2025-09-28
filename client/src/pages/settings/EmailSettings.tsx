@@ -85,13 +85,13 @@ export default function EmailSettings() {
   // Fetch Gmail authentication status
   const { data: gmailAuthData, isLoading: gmailAuthLoading } = useQuery({
     queryKey: ['/api/auth/google/gmail/status'],
-    enabled: settings?.provider === 'gmail'
+    enabled: (settingsData as any)?.settings?.provider === 'gmail'
   });
 
   // Fetch Microsoft authentication status  
   const { data: microsoftAuthData, isLoading: microsoftAuthLoading } = useQuery({
     queryKey: ['/api/auth/microsoft/mail/status'],
-    enabled: settings?.provider === 'microsoft'
+    enabled: (settingsData as any)?.settings?.provider === 'microsoft'
   });
 
   // Test connection mutation
@@ -192,17 +192,17 @@ export default function EmailSettings() {
     debugTestEmailMutation.mutate({
       to: testEmailData.to,
       provider: testEmailData.provider,
-      fromEmail: settings?.fromEmail
+      fromEmail: (settingsData as any)?.settings?.fromEmail
     });
   };
 
   // Re-authenticate with OAuth providers
   const handleReAuthenticate = () => {
-    if (!settings?.provider) return;
+    if (!(settingsData as any)?.settings?.provider) return;
     
     const returnTo = encodeURIComponent('/settings');
     
-    switch (settings.provider) {
+    switch ((settingsData as any)?.settings?.provider) {
       case 'gmail':
         // Redirect to Gmail OAuth with required scopes
         window.location.href = `/auth/google/gmail?returnTo=${returnTo}&popup=false`;
@@ -221,9 +221,9 @@ export default function EmailSettings() {
 
   // Get authentication status for current provider
   const getAuthStatus = () => {
-    if (!settings?.provider) return null;
+    if (!(settingsData as any)?.settings?.provider) return null;
     
-    switch (settings.provider) {
+    switch ((settingsData as any)?.settings?.provider) {
       case 'gmail':
         return gmailAuthData;
       case 'microsoft':  
@@ -240,7 +240,7 @@ export default function EmailSettings() {
     
     const scopes = authStatus.scopes || [];
     
-    if (settings?.provider === 'gmail') {
+    if ((settingsData as any)?.settings?.provider === 'gmail') {
       const requiredScopes = [
         'https://www.googleapis.com/auth/gmail.readonly',
         'https://www.googleapis.com/auth/gmail.send'
@@ -248,7 +248,7 @@ export default function EmailSettings() {
       return !requiredScopes.every(scope => scopes.includes(scope));
     }
     
-    if (settings?.provider === 'microsoft') {
+    if ((settingsData as any)?.settings?.provider === 'microsoft') {
       const requiredScopes = ['Mail.Read', 'Mail.Send'];
       return !requiredScopes.every(scope => scopes.includes(scope));
     }

@@ -561,6 +561,19 @@ router.get('/auth/google/callback', async (req, res) => {
       });
     } else {
       // Create new integration - no duplicates found
+      
+      // RUNTIME ASSERT: Ensure tenantId is present for Gmail OAuth
+      if (!tenantId) {
+        console.error('🚨 CRITICAL: Missing tenantId in Gmail OAuth callback', {
+          action: 'oauth_create_integration',
+          provider: 'google',
+          serviceType,
+          userId,
+          timestamp: new Date().toISOString()
+        });
+        throw new Error('TENANT_ISOLATION_VIOLATION: tenantId required for Gmail integration creation');
+      }
+      
       integration = await storage.createCalendarIntegration({
         tenantId, // Explicitly include tenantId in integration object
         userId,

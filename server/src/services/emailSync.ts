@@ -254,6 +254,19 @@ export class EmailSyncService {
           
           // Only persist if we have a valid contact
           if (contactId) {
+            // RUNTIME ASSERT: Ensure tenantId is present for email persistence
+            if (!tenantId) {
+              console.error('🚨 CRITICAL: Missing tenantId in email persistence', {
+                action: 'email_insert',
+                provider: 'gmail',
+                direction,
+                emailId,
+                userId,
+                timestamp: new Date().toISOString()
+              });
+              throw new Error('TENANT_ISOLATION_VIOLATION: tenantId required for email persistence');
+            }
+            
             await withDbRetry(() =>
               db
                 .insert(emails)

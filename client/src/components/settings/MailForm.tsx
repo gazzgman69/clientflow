@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { apiRequest } from '@/lib/queryClient';
+import { EMAIL_PROVIDERS, getProviderById, type EmailProvider, type ProviderPreset } from '@shared/emailProviders';
 import { 
   Search, 
   RefreshCw, 
@@ -61,15 +62,7 @@ interface MailFormProps {
   onCancel: () => void;
 }
 
-interface ProviderPreset {
-  name: string;
-  imapHost: string;
-  imapPort: number;
-  imapSecurity: string;
-  smtpHost: string;
-  smtpPort: number;
-  smtpSecurity: string;
-}
+// Provider presets are now imported from shared/emailProviders.ts
 
 export function MailForm({ initialData, onSuccess, onCancel }: MailFormProps) {
   const [autoDetectEmail, setAutoDetectEmail] = useState('');
@@ -99,10 +92,10 @@ export function MailForm({ initialData, onSuccess, onCancel }: MailFormProps) {
     }
   });
 
-  // Fetch provider presets
-  const { data: presetsData } = useQuery({
-    queryKey: ['/api/settings/mail/presets']
-  });
+  const [selectedProvider, setSelectedProvider] = useState<EmailProvider | ''>(
+    (initialData?.provider as EmailProvider) || ''
+  );
+  const selectedPreset = selectedProvider ? getProviderById(selectedProvider) : null;
 
   // Auto-detect settings mutation
   const autoDetectMutation = useMutation({
@@ -161,22 +154,53 @@ export function MailForm({ initialData, onSuccess, onCancel }: MailFormProps) {
     }
   });
 
-  const presets = (presetsData as any)?.presets as Record<string, ProviderPreset> || {};
+  // OAuth status queries
+  const { data: googleStatus } = useQuery({
+    queryKey: ['/api/auth/google/status'],
+    enabled: selectedProvider === 'gmail'
+  });
+  
+  const { data: microsoftStatus } = useQuery({
+    queryKey: ['/api/auth/microsoft/status'],
+    enabled: selectedProvider === 'microsoft'
+  });
 
-  const handleProviderSelect = (provider: string) => {
-    const preset = presets[provider];
+  const handleProviderSelect = (providerId: EmailProvider) => {
+    const preset = getProviderById(providerId);
     if (preset) {
-      form.setValue('provider', provider);
-      form.setValue('imapHost', preset.imapHost);
-      form.setValue('imapPort', preset.imapPort);
-      form.setValue('imapSecurity', preset.imapSecurity as any);
-      form.setValue('smtpHost', preset.smtpHost);
-      form.setValue('smtpPort', preset.smtpPort);
-      form.setValue('smtpSecurity', preset.smtpSecurity as any);
+      setSelectedProvider(providerId);
+      form.setValue('provider', providerId);
       
+      if (preset.type === 'imap_smtp' && preset.imap && preset.smtp) {
+        // Apply IMAP/SMTP presets
+        form.setValue('imapHost', preset.imap.host || '');
+        form.setValue('imapPort', preset.imap.port || 993);
+        form.setValue('imapSecurity', preset.imap.secure ? 'ssl' : 'starttls');
+        form.setValue('smtpHost', preset.smtp.host || '');
+        form.setValue('smtpPort', preset.smtp.port || 587);
+        form.setValue('smtpSecurity', preset.smtp.secure ? 'ssl' : 'starttls');
+        
+        setAlertMessage({
+          type: 'success',
+          message: `${preset.label} settings applied! Please enter your credentials.`
+        });
+      } else if (preset.type === 'oauth') {
+        setAlertMessage({
+          type: 'success',
+          message: `${preset.label} selected. Use the Connect button to authorize.`
+        });
+      }
+    }
+  };
+  
+  const handleOAuthConnect = (provider: 'gmail' | 'microsoft') => {
+    if (provider === 'gmail') {
+      window.open('/auth/google/gmail?popup=true', 'gmail-auth', 'width=500,height=600');
+    } else if (provider === 'microsoft') {
+      // Microsoft OAuth flow would go here
       setAlertMessage({
-        type: 'success',
-        message: `${preset.name} settings applied! Please enter your credentials.`
+        type: 'error',
+        message: 'Microsoft OAuth connection coming soon'
       });
     }
   };
@@ -253,20 +277,26 @@ export function MailForm({ initialData, onSuccess, onCancel }: MailFormProps) {
             </div>
           )}
 
-          {/* Provider Presets */}
+          {/* Provider Selection */}
           {!initialData && (
             <div className="border rounded-lg p-4">
-              <h4 className="text-sm font-medium mb-3">Quick Setup</h4>
+              <h4 className="text-sm font-medium mb-3">Select Email Provider</h4>
               <div className="grid grid-cols-2 gap-2">
-                {Object.entries(presets).map(([key, preset]) => (
+                {EMAIL_PROVIDERS.map((provider) => (
                   <Button
-                    key={key}
+                    key={provider.id}
                     type="button"
-                    variant="outline"
-                    onClick={() => handleProviderSelect(key)}
-                    data-testid={`button-preset-${key}`}
+                    variant={selectedProvider === provider.id ? "default" : "outline"}
+                    onClick={() => handleProviderSelect(provider.id)}
+                    data-testid={`button-provider-${provider.id}`}
+                    className="text-left flex flex-col items-start p-3 h-auto"
                   >
-                    {preset.name}
+                    <span className="font-medium">{provider.label}</span>
+                    {provider.notes && (
+                      <span className="text-xs text-muted-foreground mt-1">
+                        {provider.notes}
+                      </span>
+                    )}
                   </Button>
                 ))}
               </div>
@@ -379,8 +409,67 @@ export function MailForm({ initialData, onSuccess, onCancel }: MailFormProps) {
                 </div>
               </div>
 
+              {/* OAuth Connection Section */}
+              {selectedPreset?.type === 'oauth' && (
+                <div className="space-y-4">
+                  <h4 className="text-sm font-medium flex items-center space-x-2">
+                    <Shield className="h-4 w-4" />
+                    <span>OAuth Connection</span>
+                  </h4>
+                  
+                  {selectedProvider === 'gmail' && (
+                    <div className="border rounded-lg p-4 bg-blue-50">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h5 className="font-medium">Google Gmail</h5>
+                          <p className="text-sm text-muted-foreground">
+                            {googleStatus?.connected 
+                              ? `Connected as ${googleStatus.email}` 
+                              : 'Connect your Google account to send and receive emails'
+                            }
+                          </p>
+                        </div>
+                        <Button
+                          type="button"
+                          onClick={() => handleOAuthConnect('gmail')}
+                          disabled={googleStatus?.connected}
+                          data-testid="button-connect-gmail"
+                        >
+                          {googleStatus?.connected ? 'Connected' : 'Connect Gmail'}
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {selectedProvider === 'microsoft' && (
+                    <div className="border rounded-lg p-4 bg-blue-50">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h5 className="font-medium">Microsoft Outlook</h5>
+                          <p className="text-sm text-muted-foreground">
+                            {microsoftStatus?.connected 
+                              ? 'Connected to Microsoft' 
+                              : 'Connect your Microsoft account to send and receive emails'
+                            }
+                          </p>
+                        </div>
+                        <Button
+                          type="button"
+                          onClick={() => handleOAuthConnect('microsoft')}
+                          disabled={microsoftStatus?.connected}
+                          data-testid="button-connect-microsoft"
+                        >
+                          {microsoftStatus?.connected ? 'Connected' : 'Connect Microsoft'}
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* IMAP Settings */}
-              <div className="space-y-4">
+              {selectedPreset?.type === 'imap_smtp' && (
+                <div className="space-y-4">
                 <h4 className="text-sm font-medium flex items-center space-x-2">
                   <Server className="h-4 w-4" />
                   <span>IMAP Settings (Incoming Mail)</span>
@@ -486,14 +575,13 @@ export function MailForm({ initialData, onSuccess, onCancel }: MailFormProps) {
                     )}
                   />
                 </div>
-              </div>
 
-              {/* SMTP Settings */}
-              <div className="space-y-4">
-                <h4 className="text-sm font-medium flex items-center space-x-2">
-                  <Shield className="h-4 w-4" />
-                  <span>SMTP Settings (Outgoing Mail)</span>
-                </h4>
+                {/* SMTP Settings */}
+                <div className="space-y-4">
+                  <h4 className="text-sm font-medium flex items-center space-x-2">
+                    <Shield className="h-4 w-4" />
+                    <span>SMTP Settings (Outgoing Mail)</span>
+                  </h4>
                 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <FormField
@@ -595,7 +683,9 @@ export function MailForm({ initialData, onSuccess, onCancel }: MailFormProps) {
                     )}
                   />
                 </div>
+                </div>
               </div>
+              )}
 
               {/* Account Status */}
               <div className="space-y-4">

@@ -156,6 +156,49 @@ router.get('/auth/google/calendar', (req, res) => {
   }
 });
 
+/**
+ * Microsoft Mail OAuth start route
+ */
+router.get('/auth/microsoft/mail', (req, res) => {
+  try {
+    // Read query parameters
+    const popup = Boolean(req.query.popup);
+    const returnTo = (req.query.returnTo as string) || '/settings';
+    const origin = (req.query.origin as string) || '';
+    
+    // Save popup flag, return URL, and origin to session
+    req.session.oauth_popup = popup;
+    req.session.oauth_return_to = returnTo;
+    req.session.oauth_origin = origin;
+    
+    // Set default tenant for OAuth sessions (required by TenantAwareSessionStore)
+    if (!req.session.tenantId) {
+      req.session.tenantId = 'default-tenant';
+    }
+    
+    // Require authentication for OAuth flows
+    if (!req.session.userId) {
+      return res.status(401).json({ error: 'Authentication required for OAuth' });
+    }
+    
+    // For now, redirect to Microsoft connector setup since full OAuth isn't implemented yet
+    // This maintains the user's expectation of re-authentication
+    const connectorUrl = process.env.REPLIT_CONNECTORS_HOSTNAME 
+      ? `https://${process.env.REPLIT_CONNECTORS_HOSTNAME}/outlook`
+      : '/settings';
+    
+    console.log('🔐 SECURITY: GET /auth/microsoft/mail redirecting to Microsoft connector setup');
+    console.log('🔐 NOTE: Full Microsoft OAuth implementation pending - using connector approach');
+    
+    // For development, show a message about Microsoft OAuth
+    res.redirect(`${returnTo}?message=${encodeURIComponent('Microsoft re-authentication requires setup through Microsoft connector')}`);
+    
+  } catch (error: any) {
+    console.error('Error starting Microsoft Mail OAuth:', error);
+    res.status(500).send('Failed to start Microsoft Mail OAuth flow');
+  }
+});
+
 // Authentication middleware for OAuth routes
 const requireAuth = async (req: any, res: any, next: any) => {
   if (!req.session?.userId) {

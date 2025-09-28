@@ -82,6 +82,18 @@ export default function EmailSettings() {
     queryKey: ['/api/settings/mail/logs?limit=20']
   });
 
+  // Fetch Gmail authentication status
+  const { data: gmailAuthData, isLoading: gmailAuthLoading } = useQuery({
+    queryKey: ['/api/auth/google/gmail/status'],
+    enabled: settings?.provider === 'gmail'
+  });
+
+  // Fetch Microsoft authentication status  
+  const { data: microsoftAuthData, isLoading: microsoftAuthLoading } = useQuery({
+    queryKey: ['/api/auth/microsoft/mail/status'],
+    enabled: settings?.provider === 'microsoft'
+  });
+
   // Test connection mutation
   const testConnectionMutation = useMutation({
     mutationFn: async () => {
@@ -182,6 +194,66 @@ export default function EmailSettings() {
       provider: testEmailData.provider,
       fromEmail: settings?.fromEmail
     });
+  };
+
+  // Re-authenticate with OAuth providers
+  const handleReAuthenticate = () => {
+    if (!settings?.provider) return;
+    
+    const returnTo = encodeURIComponent('/settings');
+    
+    switch (settings.provider) {
+      case 'gmail':
+        // Redirect to Gmail OAuth with required scopes
+        window.location.href = `/auth/google/gmail?returnTo=${returnTo}&popup=false`;
+        break;
+      case 'microsoft':
+        // Redirect to Microsoft OAuth with mail scopes  
+        window.location.href = `/auth/microsoft/mail?returnTo=${returnTo}&popup=false`;
+        break;
+      default:
+        setAlertMessage({
+          type: 'error',
+          message: 'Re-authentication not available for this provider'
+        });
+    }
+  };
+
+  // Get authentication status for current provider
+  const getAuthStatus = () => {
+    if (!settings?.provider) return null;
+    
+    switch (settings.provider) {
+      case 'gmail':
+        return gmailAuthData;
+      case 'microsoft':  
+        return microsoftAuthData;
+      default:
+        return null;
+    }
+  };
+
+  // Check if scopes are missing
+  const hasMissingScopes = () => {
+    const authStatus = getAuthStatus();
+    if (!authStatus || !authStatus.connected) return false;
+    
+    const scopes = authStatus.scopes || [];
+    
+    if (settings?.provider === 'gmail') {
+      const requiredScopes = [
+        'https://www.googleapis.com/auth/gmail.readonly',
+        'https://www.googleapis.com/auth/gmail.send'
+      ];
+      return !requiredScopes.every(scope => scopes.includes(scope));
+    }
+    
+    if (settings?.provider === 'microsoft') {
+      const requiredScopes = ['Mail.Read', 'Mail.Send'];
+      return !requiredScopes.every(scope => scopes.includes(scope));
+    }
+    
+    return false;
   };
 
   // Clear alert after 5 seconds
@@ -286,6 +358,61 @@ export default function EmailSettings() {
                         <p className="text-sm" data-testid="text-sync-interval">{settings.syncIntervalMinutes} minutes</p>
                       </div>
                     </div>
+
+                    <Separator />
+
+                    {/* OAuth Status Warning for Missing Scopes */}
+                    {(settings.provider === 'gmail' || settings.provider === 'microsoft') && hasMissingScopes() && (
+                      <Alert className="border-yellow-200 bg-yellow-50">
+                        <AlertTriangle className="h-4 w-4 text-yellow-600" />
+                        <AlertDescription className="text-yellow-800">
+                          <strong>Missing permissions:</strong> Some email features may not work correctly. 
+                          Please re-authenticate to grant all required permissions.
+                        </AlertDescription>
+                      </Alert>
+                    )}
+
+                    {/* OAuth Authentication Status */}
+                    {(settings.provider === 'gmail' || settings.provider === 'microsoft') && (
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-2">
+                          {getAuthStatus()?.connected ? (
+                            <CheckCircle className="h-4 w-4 text-green-600" />
+                          ) : getAuthStatus()?.needsReconnect ? (
+                            <AlertTriangle className="h-4 w-4 text-yellow-600" />
+                          ) : (
+                            <XCircle className="h-4 w-4 text-red-600" />
+                          )}
+                          <span className="text-sm font-medium">OAuth Authentication</span>
+                        </div>
+                        <div className="flex items-center space-x-3">
+                          <div className="text-right">
+                            {getAuthStatus()?.connected ? (
+                              <p className="text-sm text-green-600" data-testid="text-oauth-status">
+                                Connected
+                              </p>
+                            ) : getAuthStatus()?.needsReconnect ? (
+                              <p className="text-sm text-yellow-600" data-testid="text-oauth-status">
+                                Needs Re-authentication
+                              </p>
+                            ) : (
+                              <p className="text-sm text-red-600" data-testid="text-oauth-status">
+                                Not Connected
+                              </p>
+                            )}
+                          </div>
+                          <Button
+                            onClick={handleReAuthenticate}
+                            variant="outline"
+                            size="sm"
+                            data-testid="button-re-authenticate"
+                          >
+                            <RefreshCw className="h-4 w-4 mr-2" />
+                            Re-Authenticate
+                          </Button>
+                        </div>
+                      </div>
+                    )}
 
                     <Separator />
 

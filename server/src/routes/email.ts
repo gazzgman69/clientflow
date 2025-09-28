@@ -4,6 +4,8 @@ import { attachmentsService } from '../services/attachments';
 import { emailSyncService } from '../services/emailSync';
 import { templatesService } from '../services/templates';
 import { tokenResolverService } from '../services/token-resolver';
+import { microsoftMailService } from '../services/microsoft-mail';
+import { imapService } from '../services/imap';
 import { z } from 'zod';
 import { storage } from '../../storage';
 import { db } from '../../db';
@@ -36,6 +38,15 @@ const sendEmailSchema = z.object({
   return (data.templateId) || (data.subject && (data.text || data.html));
 }, {
   message: 'Either templateId or both subject and (text or html) are required'
+});
+
+// Debug test email schema
+const debugTestEmailSchema = z.object({
+  to: z.string().email('Invalid email address'),
+  provider: z.enum(['gmail', 'microsoft', 'smtp'], {
+    errorMap: () => ({ message: 'Provider must be gmail, microsoft, or smtp' })
+  }),
+  fromEmail: z.string().email().optional() // For from header verification testing
 });
 
 // Middleware to require proper authentication - SESSION ONLY
@@ -1201,6 +1212,164 @@ router.post('/sync', requireAuth, async (req: any, res) => {
       success: false, 
       error: 'Email sync failed',
       message: 'Please check your email provider connections'
+    });
+  }
+});
+
+/**
+ * DEBUG TEST ENDPOINT: Send test email with provider selection and detailed logging
+ */
+router.post('/debug/send-test-email', requireAuth, async (req: any, res) => {
+  try {
+    const { to, provider, fromEmail } = debugTestEmailSchema.parse(req.body);
+    const userId = req.user.id;
+    const userEmail = req.user.email;
+    
+    console.log('🧪 DEBUG TEST EMAIL - Starting test send');
+    console.log('🧪 DEBUG TEST - Requested provider:', provider);
+    console.log('🧪 DEBUG TEST - Target email:', to);
+    console.log('🧪 DEBUG TEST - From email (if specified):', fromEmail || 'Not specified');
+    console.log('🧪 DEBUG TEST - Authenticated user:', userEmail);
+    
+    const testSubject = 'Test Email from CRM - Email Provider Debug Test';
+    const testText = `This is a test email sent from the CRM email provider debug endpoint.
+    
+Provider Used: ${provider}
+Sent At: ${new Date().toISOString()}
+Authenticated User: ${userEmail}
+Target Recipient: ${to}
+
+If you received this email, the ${provider} email provider is working correctly!
+
+This email was sent for debugging purposes. You can ignore this message.`;
+    
+    let result: any;
+    let providerResponse: any = null;
+    
+    try {
+      switch (provider) {
+        case 'gmail':
+          console.log('🧪 DEBUG TEST - Routing to Gmail service...');
+          result = await gmailService.sendEmail(userId, {
+            to,
+            subject: testSubject,
+            text: testText,
+            preheader: 'CRM Email Provider Debug Test'
+          });
+          providerResponse = {
+            provider: 'Gmail OAuth API',
+            messageId: result.messageId,
+            threadId: result.threadId,
+            success: result.ok
+          };
+          break;
+          
+        case 'microsoft':
+          console.log('🧪 DEBUG TEST - Routing to Microsoft Graph service...');
+          const microsoftResult = await microsoftMailService.sendEmail({
+            to: [to],
+            subject: testSubject,
+            body: testText,
+            isHtml: false,
+            fromEmail
+          });
+          result = { ok: microsoftResult.success, error: microsoftResult.error };
+          providerResponse = {
+            provider: 'Microsoft Graph API',
+            messageId: microsoftResult.messageId,
+            success: microsoftResult.success,
+            error: microsoftResult.error
+          };
+          break;
+          
+        case 'smtp':
+          console.log('🧪 DEBUG TEST - Routing to SMTP service...');
+          const smtpResult = await imapService.sendViaSmtp({
+            to,
+            subject: testSubject,
+            text: testText,
+            fromEmail
+          });
+          result = { ok: smtpResult.success, error: smtpResult.error };
+          providerResponse = {
+            provider: 'SMTP (Nodemailer)',
+            messageId: smtpResult.messageId,
+            success: smtpResult.success,
+            error: smtpResult.error
+          };
+          break;
+          
+        default:
+          throw new Error(`Unknown provider: ${provider}`);
+      }
+      
+      console.log('🧪 DEBUG TEST COMPLETE - Final result:', JSON.stringify(result, null, 2));
+      console.log('🧪 DEBUG TEST COMPLETE - Provider response:', JSON.stringify(providerResponse, null, 2));
+      
+      // Return comprehensive debug information
+      res.json({
+        success: result.ok,
+        message: result.ok 
+          ? `Test email sent successfully via ${provider}` 
+          : `Test email failed via ${provider}`,
+        testDetails: {
+          to,
+          subject: testSubject,
+          provider,
+          fromEmailRequested: fromEmail,
+          authenticatedUser: userEmail,
+          timestamp: new Date().toISOString()
+        },
+        appResult: result,
+        providerResponse,
+        logs: {
+          note: 'Check console logs for detailed SMTP conversation, API responses, and provider status messages'
+        }
+      });
+      
+    } catch (providerError: any) {
+      console.error('🧪 DEBUG TEST ERROR - Provider-specific error:', providerError);
+      
+      res.status(500).json({
+        success: false,
+        message: `Test email failed via ${provider}`,
+        testDetails: {
+          to,
+          subject: testSubject,
+          provider,
+          fromEmailRequested: fromEmail,
+          authenticatedUser: userEmail,
+          timestamp: new Date().toISOString()
+        },
+        appResult: { ok: false, error: providerError.message },
+        providerResponse: {
+          provider: provider.toUpperCase(),
+          success: false,
+          error: providerError.message
+        },
+        logs: {
+          note: 'Check console logs for detailed error information and provider responses'
+        }
+      });
+    }
+    
+  } catch (error: any) {
+    console.error('🧪 DEBUG TEST VALIDATION ERROR:', error);
+    
+    if (error.issues) {
+      return res.status(400).json({
+        success: false,
+        message: 'Validation error',
+        error: error.issues[0].message,
+        logs: { note: 'Request validation failed' }
+      });
+    }
+    
+    res.status(500).json({
+      success: false,
+      message: 'Debug test endpoint error',
+      error: error.message || 'Unknown error',
+      logs: { note: 'Internal server error in debug endpoint' }
     });
   }
 });

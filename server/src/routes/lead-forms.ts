@@ -794,7 +794,8 @@ router.post('/:slug/submit', formSubmissionLimiter, async (req, res) => {
                 latitude: venueDetails.latitude ? venueDetails.latitude.toString() : null,
                 longitude: venueDetails.longitude ? venueDetails.longitude.toString() : null,
                 useCount: 1, // Start with count of 1 since it's being used immediately
-                lastUsedAt: new Date()
+                lastUsedAt: new Date(),
+                tenantId: form.tenantId // Add required tenantId
               };
               
               console.log('🔍 CREATING VENUE FROM MANUAL ENTRY:', { 

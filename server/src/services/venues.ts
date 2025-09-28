@@ -345,10 +345,19 @@ export class VenuesService {
       // Update venue with enriched data, preserving manual edits
       const updates: Partial<InsertVenue> = {};
       
-      // Only update fields that are empty
+      // Only update fields that are empty - preserve manual edits
       if (!venue.contactPhone && placeDetails.phone) updates.contactPhone = placeDetails.phone;
       if (!venue.website && placeDetails.website) updates.website = placeDetails.website;
       if (!venue.placeId) updates.placeId = placeDetails.placeId;
+      
+      // Update structured address fields if empty (Google Places API provides these)
+      if (!venue.city && placeDetails.city) updates.city = placeDetails.city;
+      if (!venue.state && placeDetails.state) updates.state = placeDetails.state;
+      if (!venue.zipCode && placeDetails.postalCode) updates.zipCode = placeDetails.postalCode;
+      // Google Places provides country as countryCode, not country
+      if (!venue.country && placeDetails.countryCode) updates.country = placeDetails.countryCode;
+      // Use formatted_address from Google Places
+      if (!venue.address && placeDetails.formatted_address) updates.address = placeDetails.formatted_address;
       
       // Store enrichment data in meta
       const enrichmentData = {

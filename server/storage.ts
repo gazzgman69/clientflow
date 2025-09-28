@@ -3776,27 +3776,47 @@ export class DrizzleStorage implements IStorage {
     return result.rowCount > 0;
   }
   
-  // Message Threads - PostgreSQL implementation
-  async getMessageThreads() { 
-    return await this.db.select().from(messageThreads).orderBy(desc(messageThreads.createdAt));
+  // Message Threads - PostgreSQL implementation (TENANT SECURE)
+  async getMessageThreads(tenantId: string) { 
+    return await this.db.select().from(messageThreads)
+      .where(eq(messageThreads.tenantId, tenantId))
+      .orderBy(desc(messageThreads.createdAt));
   }
-  async getMessageThread(id: string) { 
-    const result = await this.db.select().from(messageThreads).where(eq(messageThreads.id, id));
+  async getMessageThread(id: string, tenantId: string) { 
+    const result = await this.db.select().from(messageThreads)
+      .where(and(
+        eq(messageThreads.id, id),
+        eq(messageThreads.tenantId, tenantId)
+      ));
     return result[0];
   }
   async createMessageThread(thread: InsertMessageThread) { 
+    // tenantId must be included in thread data for security
+    if (!thread.tenantId) {
+      throw new Error('tenantId is required for message thread creation');
+    }
     const result = await this.db.insert(messageThreads).values({
       ...thread,
       createdAt: new Date(),
     }).returning();
     return result[0];
   }
-  async updateMessageThread(id: string, thread: Partial<InsertMessageThread>) { 
-    const result = await this.db.update(messageThreads).set(thread).where(eq(messageThreads.id, id)).returning();
+  async updateMessageThread(id: string, thread: Partial<InsertMessageThread>, tenantId: string) { 
+    const result = await this.db.update(messageThreads)
+      .set(thread)
+      .where(and(
+        eq(messageThreads.id, id),
+        eq(messageThreads.tenantId, tenantId)
+      ))
+      .returning();
     return result[0];
   }
-  async deleteMessageThread(id: string) { 
-    const result = await this.db.delete(messageThreads).where(eq(messageThreads.id, id));
+  async deleteMessageThread(id: string, tenantId: string) { 
+    const result = await this.db.delete(messageThreads)
+      .where(and(
+        eq(messageThreads.id, id),
+        eq(messageThreads.tenantId, tenantId)
+      ));
     return result.rowCount > 0;
   }
   
@@ -4207,14 +4227,21 @@ export class DrizzleStorage implements IStorage {
     return result.rowCount > 0;
   }
 
-  // Quote Items (line items for quotes)
-  async getQuoteItems(quoteId: string): Promise<QuoteItem[]> {
+  // Quote Items (line items for quotes) - TENANT SECURE
+  async getQuoteItems(quoteId: string, tenantId: string): Promise<QuoteItem[]> {
     return await this.db.select().from(quoteItems)
-      .where(eq(quoteItems.quoteId, quoteId))
+      .where(and(
+        eq(quoteItems.quoteId, quoteId),
+        eq(quoteItems.tenantId, tenantId)
+      ))
       .orderBy(quoteItems.createdAt);
   }
 
   async createQuoteItem(item: InsertQuoteItem): Promise<QuoteItem> {
+    // tenantId must be included for security
+    if (!item.tenantId) {
+      throw new Error('tenantId is required for quote item creation');
+    }
     const result = await this.db.insert(quoteItems).values({
       ...item,
       createdAt: new Date(),
@@ -4222,13 +4249,23 @@ export class DrizzleStorage implements IStorage {
     return result[0];
   }
 
-  async updateQuoteItem(id: string, item: Partial<InsertQuoteItem>): Promise<QuoteItem | undefined> {
-    const result = await this.db.update(quoteItems).set(item).where(eq(quoteItems.id, id)).returning();
+  async updateQuoteItem(id: string, item: Partial<InsertQuoteItem>, tenantId: string): Promise<QuoteItem | undefined> {
+    const result = await this.db.update(quoteItems)
+      .set(item)
+      .where(and(
+        eq(quoteItems.id, id),
+        eq(quoteItems.tenantId, tenantId)
+      ))
+      .returning();
     return result[0];
   }
 
-  async deleteQuoteItem(id: string): Promise<boolean> {
-    const result = await this.db.delete(quoteItems).where(eq(quoteItems.id, id));
+  async deleteQuoteItem(id: string, tenantId: string): Promise<boolean> {
+    const result = await this.db.delete(quoteItems)
+      .where(and(
+        eq(quoteItems.id, id),
+        eq(quoteItems.tenantId, tenantId)
+      ));
     return result.rowCount > 0;
   }
 

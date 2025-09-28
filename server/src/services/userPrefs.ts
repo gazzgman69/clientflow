@@ -6,12 +6,16 @@ export class UserPrefsService {
   /**
    * Get a specific user preference by key
    */
-  async getUserPref(userId: string, key: string): Promise<string | null> {
+  async getUserPref(userId: string, tenantId: string, key: string): Promise<string | null> {
     try {
       const [pref] = await db
         .select()
         .from(userPrefs)
-        .where(and(eq(userPrefs.userId, userId), eq(userPrefs.key, key)))
+        .where(and(
+          eq(userPrefs.userId, userId), 
+          eq(userPrefs.tenantId, tenantId),
+          eq(userPrefs.key, key)
+        ))
         .limit(1);
       
       return pref?.value || null;
@@ -24,12 +28,15 @@ export class UserPrefsService {
   /**
    * Get multiple user preferences by keys
    */
-  async getUserPrefs(userId: string, keys?: string[]): Promise<Record<string, string>> {
+  async getUserPrefs(userId: string, tenantId: string, keys?: string[]): Promise<Record<string, string>> {
     try {
       const query = db
         .select()
         .from(userPrefs)
-        .where(eq(userPrefs.userId, userId));
+        .where(and(
+          eq(userPrefs.userId, userId),
+          eq(userPrefs.tenantId, tenantId)
+        ));
       
       const prefs = await query;
       
@@ -51,11 +58,12 @@ export class UserPrefsService {
   /**
    * Set a user preference (upsert operation)
    */
-  async setUserPref(userId: string, key: string, value: string): Promise<boolean> {
+  async setUserPref(userId: string, tenantId: string, key: string, value: string): Promise<boolean> {
     try {
       await db
         .insert(userPrefs)
         .values({
+          tenantId,
           userId,
           key,
           value,
@@ -79,11 +87,15 @@ export class UserPrefsService {
   /**
    * Delete a user preference
    */
-  async deleteUserPref(userId: string, key: string): Promise<boolean> {
+  async deleteUserPref(userId: string, tenantId: string, key: string): Promise<boolean> {
     try {
       await db
         .delete(userPrefs)
-        .where(and(eq(userPrefs.userId, userId), eq(userPrefs.key, key)));
+        .where(and(
+          eq(userPrefs.userId, userId), 
+          eq(userPrefs.tenantId, tenantId),
+          eq(userPrefs.key, key)
+        ));
       
       return true;
     } catch (error) {
@@ -95,11 +107,14 @@ export class UserPrefsService {
   /**
    * Delete all user preferences for a user
    */
-  async deleteAllUserPrefs(userId: string): Promise<boolean> {
+  async deleteAllUserPrefs(userId: string, tenantId: string): Promise<boolean> {
     try {
       await db
         .delete(userPrefs)
-        .where(eq(userPrefs.userId, userId));
+        .where(and(
+          eq(userPrefs.userId, userId),
+          eq(userPrefs.tenantId, tenantId)
+        ));
       
       return true;
     } catch (error) {

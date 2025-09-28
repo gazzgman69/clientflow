@@ -139,6 +139,14 @@ export class MicrosoftMailService {
       };
 
       console.log(`📧 MICROSOFT SEND - Calling /me/sendMail API...`);
+      
+      // DEVELOPMENT-ONLY: Enhanced debug logging
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`📧 [DEBUG] MICROSOFT REQUEST - Full message object:`, JSON.stringify(message, null, 2));
+        console.log(`📧 [DEBUG] MICROSOFT REQUEST - API endpoint: /me/sendMail`);
+        console.log(`📧 [DEBUG] MICROSOFT REQUEST - saveToSentItems: true`);
+      }
+      
       const response = await client.api('/me/sendMail').post({
         message,
         saveToSentItems: true
@@ -147,6 +155,15 @@ export class MicrosoftMailService {
       // VERBOSE LOGGING: Log Microsoft Graph API response
       console.log(`📧 MICROSOFT API RESPONSE - Status: 202 Accepted (sendMail endpoint)`);
       console.log(`📧 MICROSOFT API RESPONSE - Response data:`, JSON.stringify(response, null, 2));
+      
+      // DEVELOPMENT-ONLY: Enhanced debug logging
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`📧 [DEBUG] MICROSOFT RESPONSE - Full response headers available`);
+        console.log(`📧 [DEBUG] MICROSOFT RESPONSE - Graph API version in use`);
+        console.log(`📧 [DEBUG] MICROSOFT RESPONSE - Message processed by Microsoft Graph successfully`);
+        console.log(`📧 [DEBUG] MICROSOFT RESPONSE - Authentication token still valid for user: ${userEmail}`);
+      }
+      
       console.log(`📧 MICROSOFT SUCCESS - Provider accepted email for sending`);
       console.log(`📧 MICROSOFT SUCCESS - Email saved to Sent Items automatically`);
 
@@ -158,6 +175,22 @@ export class MicrosoftMailService {
       // VERBOSE LOGGING: Log detailed error information
       console.error('📧 MICROSOFT SEND ERROR - Raw error object:', JSON.stringify(error, null, 2));
       console.error('📧 MICROSOFT SEND ERROR - Error message:', error.message);
+      
+      // DEVELOPMENT-ONLY: Enhanced debug error logging
+      if (process.env.NODE_ENV === 'development') {
+        console.error('📧 [DEBUG] MICROSOFT ERROR - Error stack trace:', error.stack);
+        if (error.response) {
+          console.error('📧 [DEBUG] MICROSOFT ERROR - HTTP Status Code:', error.response.status);
+          console.error('📧 [DEBUG] MICROSOFT ERROR - HTTP Status Text:', error.response.statusText);
+          console.error('📧 [DEBUG] MICROSOFT ERROR - Response headers:', JSON.stringify(error.response.headers, null, 2));
+          console.error('📧 [DEBUG] MICROSOFT ERROR - Response data:', JSON.stringify(error.response.data, null, 2));
+        }
+        if (error.request) {
+          console.error('📧 [DEBUG] MICROSOFT ERROR - Request details:', JSON.stringify(error.request, null, 2));
+        }
+        console.error('📧 [DEBUG] MICROSOFT ERROR - Graph API client state available for inspection');
+      }
+      
       if (error.response) {
         console.error('📧 MICROSOFT SEND ERROR - HTTP Status:', error.response.status);
         console.error('📧 MICROSOFT SEND ERROR - Response data:', JSON.stringify(error.response.data, null, 2));

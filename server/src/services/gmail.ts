@@ -230,6 +230,13 @@ export class GmailService {
         console.log(`📧 Sending email in thread: ${emailRequest.threadId}`);
       }
       
+      // DEVELOPMENT-ONLY: Enhanced debug logging
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`📧 [DEBUG] GMAIL REQUEST - Full API call parameters:`, JSON.stringify(sendParams, null, 2));
+        console.log(`📧 [DEBUG] GMAIL REQUEST - Raw message preview (first 500 chars):`, emailContent.substring(0, 500));
+        console.log(`📧 [DEBUG] GMAIL REQUEST - Encoded message length: ${encodedMessage.length} characters`);
+      }
+      
       const response = await gmail.users.messages.send(sendParams);
 
       // VERBOSE LOGGING: Log full Gmail API response
@@ -237,6 +244,14 @@ export class GmailService {
       console.log(`📧 GMAIL API RESPONSE - Message ID: ${response.data.id}`);
       console.log(`📧 GMAIL API RESPONSE - Thread ID: ${response.data.threadId}`);
       console.log(`📧 GMAIL API RESPONSE - Label IDs: ${JSON.stringify(response.data.labelIds)}`);
+      
+      // DEVELOPMENT-ONLY: Enhanced debug logging
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`📧 [DEBUG] GMAIL RESPONSE - Full API response headers:`, JSON.stringify(response.headers, null, 2));
+        console.log(`📧 [DEBUG] GMAIL RESPONSE - Complete response data:`, JSON.stringify(response.data, null, 2));
+        console.log(`📧 [DEBUG] GMAIL RESPONSE - Response config:`, JSON.stringify(response.config?.url, null, 2));
+      }
+      
       console.log(`📧 GMAIL SUCCESS - Provider accepted email with Message-ID: ${response.data.id}`);
 
       // Sync to database if successful
@@ -262,6 +277,19 @@ export class GmailService {
     } catch (error: any) {
       // VERBOSE LOGGING: Log detailed error information
       console.error('📧 GMAIL SEND ERROR - Raw error object:', JSON.stringify(error, null, 2));
+      
+      // DEVELOPMENT-ONLY: Enhanced debug error logging
+      if (process.env.NODE_ENV === 'development') {
+        console.error('📧 [DEBUG] GMAIL ERROR - Error stack trace:', error.stack);
+        if (error.response) {
+          console.error('📧 [DEBUG] GMAIL ERROR - Response status:', error.response.status);
+          console.error('📧 [DEBUG] GMAIL ERROR - Response headers:', JSON.stringify(error.response.headers, null, 2));
+          console.error('📧 [DEBUG] GMAIL ERROR - Response data:', JSON.stringify(error.response.data, null, 2));
+        }
+        if (error.request) {
+          console.error('📧 [DEBUG] GMAIL ERROR - Request that failed:', JSON.stringify(error.request, null, 2));
+        }
+      }
       console.error('📧 GMAIL SEND ERROR - Error message:', error.message);
       if (error.response) {
         console.error('📧 GMAIL SEND ERROR - HTTP Status:', error.response.status);

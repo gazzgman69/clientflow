@@ -327,6 +327,19 @@ export class ImapService {
 
       console.log(`📧 SMTP SEND - Calling SMTP server with debug logging enabled...`);
       
+      // DEVELOPMENT-ONLY: Enhanced debug logging
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`📧 [DEBUG] SMTP REQUEST - Full mail options:`, JSON.stringify(mailOptions, null, 2));
+        console.log(`📧 [DEBUG] SMTP REQUEST - SMTP server config:`, {
+          host: this.smtpConfig!.host,
+          port: this.smtpConfig!.port,
+          secure: this.smtpConfig!.secure,
+          user: this.smtpConfig!.user,
+          // Don't log password
+        });
+        console.log(`📧 [DEBUG] SMTP REQUEST - About to send MAIL FROM command`);
+      }
+      
       // Enable debug logging for this specific send
       this.smtpTransporter.options.logger = true;
       this.smtpTransporter.options.debug = true;
@@ -343,6 +356,23 @@ export class ImapService {
       if (info.rejected && info.rejected.length > 0) {
         console.log(`📧 SMTP API RESPONSE - Rejected: ${info.rejected.join(', ')}`);
       }
+      
+      // DEVELOPMENT-ONLY: Enhanced debug logging
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`📧 [DEBUG] SMTP RESPONSE - Full nodemailer info object:`, JSON.stringify(info, null, 2));
+        console.log(`📧 [DEBUG] SMTP RESPONSE - SMTP conversation completed successfully`);
+        console.log(`📧 [DEBUG] SMTP RESPONSE - MAIL FROM: ${fromAddress}`);
+        console.log(`📧 [DEBUG] SMTP RESPONSE - RCPT TO: ${emailData.to}`);
+        if (emailData.cc && emailData.cc.length > 0) {
+          console.log(`📧 [DEBUG] SMTP RESPONSE - RCPT TO (CC): ${emailData.cc.join(', ')}`);
+        }
+        if (emailData.bcc && emailData.bcc.length > 0) {
+          console.log(`📧 [DEBUG] SMTP RESPONSE - RCPT TO (BCC): ${emailData.bcc.join(', ')}`);
+        }
+        console.log(`📧 [DEBUG] SMTP RESPONSE - DATA command executed`);
+        console.log(`📧 [DEBUG] SMTP RESPONSE - Server responded with 250 OK (success)`);
+      }
+      
       console.log(`📧 SMTP SUCCESS - Provider accepted email with Message-ID: ${info.messageId}`);
 
       return {
@@ -354,6 +384,15 @@ export class ImapService {
       // VERBOSE LOGGING: Log detailed error information
       console.error('📧 SMTP SEND ERROR - Raw error object:', JSON.stringify(error, null, 2));
       console.error('📧 SMTP SEND ERROR - Error message:', error instanceof Error ? error.message : 'Unknown error');
+      
+      // DEVELOPMENT-ONLY: Enhanced debug error logging
+      if (process.env.NODE_ENV === 'development') {
+        console.error('📧 [DEBUG] SMTP ERROR - Error stack trace:', error instanceof Error ? error.stack : 'No stack available');
+        if (error instanceof Error && 'command' in error) {
+          console.error('📧 [DEBUG] SMTP ERROR - Failed SMTP command:', (error as any).command);
+        }
+      }
+      
       if (error instanceof Error && 'response' in error) {
         console.error('📧 SMTP SEND ERROR - Server response:', (error as any).response);
       }

@@ -737,11 +737,11 @@ router.post('/:slug/submit', formSubmissionLimiter, async (req, res) => {
       
       if (mappingResult.contactData.venueAddress) {
         try {
-          // Build venue details in the format expected by venuesService
+          // Build venue details using structured address fields
           const venueDetails = {
             placeId: formData.eventLocationPlaceId || null,
             name: mappingResult.contactData.venueAddress?.split(',')[0]?.trim() || 'Venue',
-            address1: mappingResult.contactData.venueAddress,
+            address1: mappingResult.contactData.venueAddress, // Keep full address for reference
             address2: undefined, // Use undefined instead of null for PlaceDetails interface
             city: mappingResult.contactData.venue_city || '',
             state: mappingResult.contactData.venue_state || '',
@@ -749,6 +749,8 @@ router.post('/:slug/submit', formSubmissionLimiter, async (req, res) => {
             countryCode: mappingResult.contactData.venue_country || 'GB',
             latitude: formData.eventLocationLat ? parseFloat(formData.eventLocationLat) : 0,
             longitude: formData.eventLocationLng ? parseFloat(formData.eventLocationLng) : 0,
+            // Include phone number if provided in form
+            contactPhone: formData.eventLocationPhone || null,
           };
 
           console.log('🏢 VENUE CREATION DEBUG:', {
@@ -788,6 +790,7 @@ router.post('/:slug/submit', formSubmissionLimiter, async (req, res) => {
                 state: venueDetails.state || '',
                 zipCode: venueDetails.postalCode || '',
                 country: venueDetails.countryCode || 'GB',
+                contactPhone: venueDetails.contactPhone || null, // Include phone number
                 latitude: venueDetails.latitude ? venueDetails.latitude.toString() : null,
                 longitude: venueDetails.longitude ? venueDetails.longitude.toString() : null,
                 useCount: 1, // Start with count of 1 since it's being used immediately

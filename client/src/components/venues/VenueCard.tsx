@@ -2,8 +2,35 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { MapPin, ExternalLink, Loader2, Map, Navigation } from 'lucide-react';
+import { MapPin, ExternalLink, Loader2, Map, Navigation, Star, Globe } from 'lucide-react';
 import { cn, formatVenueDisplay } from '@/lib/utils';
+
+// Helper function to parse enriched venue metadata
+function parseVenueEnrichment(meta: string | null) {
+  if (!meta) return null;
+  try {
+    const parsed = JSON.parse(meta);
+    return {
+      rating: parsed.rating,
+      userRatingsTotal: parsed.userRatingsTotal,
+      priceLevel: parsed.priceLevel,
+      businessStatus: parsed.businessStatus,
+      openingHours: parsed.openingHours,
+      lastEnriched: parsed.lastEnriched,
+      autoEnriched: parsed.autoEnriched,
+      confidence: parsed.confidence
+    };
+  } catch {
+    return null;
+  }
+}
+
+// Helper function to get price level display
+function getPriceLevelDisplay(priceLevel: number | null | undefined) {
+  if (!priceLevel) return null;
+  const symbols = ['$', '$$', '$$$', '$$$$'];
+  return symbols[priceLevel - 1] || null;
+}
 
 interface VenueCardProps {
   venue: {
@@ -21,6 +48,8 @@ interface VenueCardProps {
     placeId?: string | null;
     formattedAddress?: string | null;
     placeTypes?: string[] | null;
+    website?: string | null;
+    meta?: string | null;
   };
   showMap?: boolean;
   mapWidth?: number;
@@ -160,6 +189,54 @@ export function VenueCard({
     ));
   };
 
+  // Get venue enrichment data for rating and price display
+  const enrichmentData = parseVenueEnrichment(venue.meta);
+
+  // Render star rating
+  const renderStarRating = () => {
+    if (!enrichmentData?.rating) return null;
+
+    const rating = enrichmentData.rating;
+    const userRatingsTotal = enrichmentData.userRatingsTotal;
+    
+    return (
+      <div className="flex items-center gap-1 text-sm">
+        <div className="flex items-center">
+          <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
+          <span className="ml-1 font-medium">{rating.toFixed(1)}</span>
+        </div>
+        {userRatingsTotal && (
+          <span className="text-muted-foreground">({userRatingsTotal})</span>
+        )}
+        {enrichmentData.priceLevel && (
+          <span className="ml-2 text-green-600 font-medium">
+            {getPriceLevelDisplay(enrichmentData.priceLevel)}
+          </span>
+        )}
+      </div>
+    );
+  };
+
+  // Render website link
+  const renderWebsiteLink = () => {
+    if (!venue.website) return null;
+
+    return (
+      <div className="flex items-center gap-2 text-sm">
+        <Globe className="h-4 w-4 text-muted-foreground" />
+        <a
+          href={venue.website}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-blue-600 hover:text-blue-800 hover:underline"
+          data-testid={`link-venue-website-${venue.id}`}
+        >
+          {venue.website.replace(/^https?:\/\//, '').replace(/\/$/, '')}
+        </a>
+      </div>
+    );
+  };
+
   const hasCoordinates = venue.latitude && venue.longitude;
 
   return (
@@ -182,6 +259,12 @@ export function VenueCard({
               </Button>
             )}
           </div>
+          
+          {/* Google place rating */}
+          {renderStarRating()}
+          
+          {/* Website link */}
+          {renderWebsiteLink()}
           
           {/* Place type badges */}
           <div className="flex flex-wrap gap-1">

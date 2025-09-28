@@ -293,7 +293,9 @@ router.get('/', async (req, res) => {
       const mappedVenues = venues.map(venue => ({
         ...venue,
         zipCode: venue.zipCode || venue.zip_code, // Handle both camelCase and snake_case
-        contactPhone: venue.contactPhone || venue.contact_phone // FIXED: Map contact_phone to contactPhone
+        contactPhone: venue.contactPhone || venue.contact_phone, // Map contact_phone to contactPhone
+        website: venue.website, // Include website field
+        meta: venue.meta // Include meta field for rating/enrichment data
       }));
       return res.json(mappedVenues);
     }
@@ -304,7 +306,9 @@ router.get('/', async (req, res) => {
     const mappedVenues = venues.map(venue => ({
       ...venue,
       zipCode: venue.zipCode || venue.zip_code, // Handle both camelCase and snake_case
-      contactPhone: venue.contactPhone || venue.contact_phone // FIXED: Map contact_phone to contactPhone
+      contactPhone: venue.contactPhone || venue.contact_phone, // Map contact_phone to contactPhone
+      website: venue.website, // Include website field
+      meta: venue.meta // Include meta field for rating/enrichment data
     }));
     
     // Get total count for pagination info

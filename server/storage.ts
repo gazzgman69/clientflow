@@ -883,7 +883,28 @@ export class MemStorage implements IStorage {
     if (userId) {
       projects = projects.filter(project => project.userId === userId || project.assignedTo === userId);
     }
-    return projects.sort((a, b) => 
+    
+    // Include venue information by joining with venues
+    const projectsWithVenues = projects.map(project => {
+      if (project.venueId) {
+        const venue = this.venues.get(project.venueId);
+        if (venue && venue.tenantId === tenantId) {
+          return {
+            ...project,
+            venue_name: venue.name,
+            venue_address: venue.address,
+            venue_city: venue.city,
+            venue_state: venue.state,
+            venue_zip_code: venue.zipCode,
+            venue_country: venue.country,
+            venue_phone: venue.contactPhone
+          } as any;
+        }
+      }
+      return project;
+    });
+    
+    return projectsWithVenues.sort((a, b) => 
       new Date(b.createdAt!).getTime() - new Date(a.createdAt!).getTime()
     );
   }

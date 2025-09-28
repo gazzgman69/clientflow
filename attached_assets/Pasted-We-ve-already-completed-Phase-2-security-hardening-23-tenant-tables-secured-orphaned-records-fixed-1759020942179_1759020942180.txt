@@ -1,0 +1,83 @@
+We’ve already completed Phase 2 security hardening (23 tenant tables secured, orphaned records fixed, CI/CD guards active). Now I need you to finish the last 3 open tasks:
+
+🔧 Task 1 — Remaining Table Hardening
+
+Apply tenant isolation to these tables that are still vulnerable:
+
+lead_automation_rules
+
+quote_items
+
+project_files
+
+user_prefs
+
+lead_capture_forms
+
+message_threads
+
+Required:
+
+Add tenant_id varchar NOT NULL column if missing
+
+Backfill NULL values to 'default-tenant'
+
+Add foreign key constraints: REFERENCES tenants(id)
+
+Add indexes for performance: CREATE INDEX idx_<table>_tenant_id
+
+Update storage + CRUD methods to require tenantId
+
+🔧 Task 2 — Background Jobs Enforcement (Code-Level)
+
+We already enforced schema for jobs and job_executions. Now enforce at the code layer:
+
+Require tenantId parameter for all job enqueue/fetch/update/delete methods
+
+Throw an error if tenantId is missing
+
+Add integration test: enqueue job with Tenant A → ensure Tenant B cannot fetch/execute
+
+Update any background job workers to scope by tenantId at query level
+
+🔧 Task 3 — Real-Time Monitoring & Alerts
+
+Add runtime safeguards so regressions can’t silently create orphaned records:
+
+Middleware: before any create* operation, assert tenantId !== null
+
+Structured logging: log 🚨 Orphan insert blocked with tenantId + table name if violation attempted
+
+Optional alert hook (e.g. console.error or send to monitoring system)
+
+🔧 Task 4 — Safeguard CI/CD Extensions
+
+We already added CI/CD guards. Extend with:
+
+Schema check: every table must have a NOT NULL tenant_id column
+
+Runtime check: add a test that inserts without tenantId and assert it fails
+
+Ensure warnings for the 26 flagged tables are reduced to 0
+
+✅ Acceptance Criteria
+
+All 6 remaining tables secured with tenantId (NOT NULL + FK + index)
+
+Background jobs fully tenant-enforced at the code layer
+
+Real-time guard prevents orphan inserts in production
+
+CI/CD extended so no new tables slip through
+
+Final structured report produced with:
+
+Tables updated
+
+Row counts backfilled
+
+Confirmation of test pass/fail
+
+Logs showing orphan prevention in action
+
+👉 Output: Provide me a final hardening report confirming completion of all 4 tasks, with SQL migration results and test logs.

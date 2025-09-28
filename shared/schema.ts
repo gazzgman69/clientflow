@@ -31,12 +31,14 @@ export const users = pgTable("users", {
 
 export const userPrefs = pgTable("user_prefs", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").references(() => tenants.id).notNull(),
   userId: varchar("user_id").references(() => users.id), // Made nullable initially for safe migration
   key: text("key").notNull(), // e.g., "emailViewMode"
   value: text("value").notNull(), // "unified" | "rfc"
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => {
   return {
+    tenantIdIdx: index("user_prefs_tenant_id_idx").on(table.tenantId),
     userKeyUnique: unique().on(table.userId, table.key)
   };
 });
@@ -614,7 +616,7 @@ export const templates = pgTable("templates", {
 // Lead Capture Forms table
 export const leadCaptureForms = pgTable("lead_capture_forms", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  tenantId: varchar("tenant_id").references(() => tenants.id), // Added for tenant isolation
+  tenantId: varchar("tenant_id").references(() => tenants.id).notNull(), // Added for tenant isolation
   name: text("name").notNull(),
   slug: text("slug").notNull(), // unique constraint removed temporarily
   questions: text("questions"), // JSON string of form questions
@@ -706,6 +708,7 @@ export const quoteAddons = pgTable("quote_addons", {
 
 export const quoteItems = pgTable("quote_items", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").references(() => tenants.id).notNull(),
   quoteId: varchar("quote_id").references(() => quotes.id).notNull(),
   type: text("type").notNull(), // 'package' or 'addon'
   packageId: varchar("package_id").references(() => quotePackages.id),
@@ -719,6 +722,7 @@ export const quoteItems = pgTable("quote_items", {
   createdAt: timestamp("created_at").defaultNow(),
 }, (table) => ({
   // Ensure quote items belong to same tenant as the quote through the quote relationship
+  tenantIdIdx: index("quote_items_tenant_id_idx").on(table.tenantId),
   quoteIdIdx: index("quote_items_quote_id_idx").on(table.quoteId),
 }));
 
@@ -1042,6 +1046,7 @@ export const leadStatusHistory = pgTable("lead_status_history", {
 
 export const leadAutomationRules = pgTable("lead_automation_rules", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").references(() => tenants.id).notNull(),
   name: text("name").notNull(),
   enabled: boolean("enabled").default(true).notNull(),
   fromStatus: text("from_status"), // null = any status
@@ -1053,7 +1058,9 @@ export const leadAutomationRules = pgTable("lead_automation_rules", {
   actionEmailTemplateId: varchar("action_email_template_id").references(() => messageTemplates.id),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
-});
+}, (table) => ({
+  tenantIdIdx: index("lead_automation_rules_tenant_id_idx").on(table.tenantId),
+}));
 
 // Insert schemas
 export const insertLeadStatusHistorySchema = createInsertSchema(leadStatusHistory);

@@ -298,15 +298,15 @@ app.use((req, res, next) => {
       console.log('📅 Scheduling recurring background jobs...');
       
       // Calendar auto-sync: every 5 minutes (300000ms)
-      await jobs.enqueueRecurring('calendar-sync', {}, 5 * 60 * 1000);
+      await jobs.enqueueRecurring('calendar-sync', {}, 5 * 60 * 1000, { tenantId: 'default-tenant' });
       console.log('✅ Calendar auto-sync job scheduled (every 5 minutes)');
       
       // Email auto-sync: DISABLED for performance (was running every 3 minutes)
-      // await jobs.enqueueRecurring('email-sync', {}, 3 * 60 * 1000);
+      // await jobs.enqueueRecurring('email-sync', {}, 3 * 60 * 1000, { tenantId: 'default-tenant' });
       console.log('⏸️ Email auto-sync job DISABLED (was processing 100+ emails every 3 minutes)');
       
       // Lead automation: every 5 minutes (300000ms)
-      await jobs.enqueueRecurring('lead-automation', {}, 5 * 60 * 1000);
+      await jobs.enqueueRecurring('lead-automation', {}, 5 * 60 * 1000, { tenantId: 'default-tenant' });
       console.log('✅ Lead automation job scheduled (every 5 minutes)');
       
       // Daily encrypted database backup: 02:00 Europe/London

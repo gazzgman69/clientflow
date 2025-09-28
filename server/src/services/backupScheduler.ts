@@ -40,7 +40,8 @@ export async function scheduleDailyBackup(): Promise<void> {
     // Schedule the recurring backup job
     await jobs.enqueue('daily-backup', {}, {
       delay: delayUntilFirst,
-      schedule: { type: 'interval', value: dailyInterval }
+      schedule: { type: 'interval', value: dailyInterval },
+      tenantId: 'default-tenant' // SECURITY: System-level backup job
     });
     
     console.log('✅ Daily backup scheduled for 02:00 Europe/London');

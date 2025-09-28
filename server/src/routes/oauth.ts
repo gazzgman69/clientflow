@@ -640,14 +640,14 @@ router.get('/auth/google/callback', async (req, res) => {
             startDate: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000), // 30 days ago
             endDate: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000)    // 90 days ahead
           }
-        });
+        }, { tenantId }); // SECURITY: Pass tenantId for isolation
         
         // Also enqueue webhook setup
         await jobs.enqueueLow('calendar-webhook-setup', {
           integrationId: integration.id,
           tenantId,
           userId
-        });
+        }, { tenantId }); // SECURITY: Pass tenantId for isolation
         
       } else if (shouldAutoSync) {
         // Legacy immediate sync behavior

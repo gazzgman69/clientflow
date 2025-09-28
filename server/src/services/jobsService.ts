@@ -29,7 +29,7 @@ class JobsService {
    * Enqueue a background job for processing
    * @param type Job type (e.g., 'email-sync', 'calendar-sync', 'send-email')
    * @param payload Job data
-   * @param options Job options
+   * @param options Job options including tenantId for isolation
    * @returns Job ID
    */
   async enqueue(
@@ -40,6 +40,7 @@ class JobsService {
       maxRetries?: number;
       delay?: number; // Delay in milliseconds
       schedule?: JobSchedule; // For recurring jobs
+      tenantId?: string; // SECURITY: Required for tenant isolation
     } = {}
   ): Promise<string> {
     return await jobQueue.enqueue(type, payload, options);

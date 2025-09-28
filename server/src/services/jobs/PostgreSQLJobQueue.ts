@@ -32,7 +32,7 @@ import {
 import crypto from 'crypto';
 import { db } from '../../../db';
 import { jobs, jobExecutions } from '@shared/schema';
-import { eq, and, or, sql, lt, desc, asc, isNotNull } from 'drizzle-orm';
+import { eq, and, or, sql, lt, desc, asc, isNotNull, ne } from 'drizzle-orm';
 
 export class PostgreSQLJobQueue implements IJobQueue {
   private handlers = new Map<string, JobHandler>();
@@ -65,10 +65,16 @@ export class PostgreSQLJobQueue implements IJobQueue {
       maxRetries?: number;
       delay?: number;
       schedule?: JobSchedule;
+      tenantId?: string;
     } = {}
   ): Promise<string> {
     const jobId = crypto.randomUUID();
     const now = new Date();
+
+    // SECURITY: Require tenantId for multi-tenant isolation
+    if (!options.tenantId) {
+      throw new JobError('tenantId is required for job enqueueing', 'MISSING_TENANT_ID', false);
+    }
 
     // Calculate next run time
     let nextRunAt = now;
@@ -76,7 +82,7 @@ export class PostgreSQLJobQueue implements IJobQueue {
       nextRunAt = new Date(now.getTime() + options.delay);
     }
 
-    // Insert job into database
+    // Insert job into database with tenant isolation
     await db.insert(jobs).values({
       id: jobId,
       type,
@@ -87,6 +93,7 @@ export class PostgreSQLJobQueue implements IJobQueue {
       schedule: options.schedule ? JSON.stringify(options.schedule) : null,
       status: 'pending',
       nextRunAt,
+      tenantId: options.tenantId, // SECURITY: Add tenant isolation
       createdAt: now,
       updatedAt: now,
     });
@@ -323,12 +330,14 @@ export class PostgreSQLJobQueue implements IJobQueue {
     const availableSlots = this.config.maxConcurrentJobs - this.runningJobs.size;
     if (availableSlots <= 0) return;
 
+    // SECURITY: Only process jobs that have a tenantId (skip orphaned jobs)
     const pendingJobs = await db
       .select()
       .from(jobs)
       .where(
         and(
           eq(jobs.status, 'pending'),
+          ne(jobs.tenantId, null), // SECURITY: Only process jobs with valid tenant
           or(
             eq(jobs.nextRunAt, null),
             lt(jobs.nextRunAt, new Date())
@@ -372,13 +381,14 @@ export class PostgreSQLJobQueue implements IJobQueue {
 
     const attempt = (previousAttempts[0]?.count || 0) + 1;
 
-    // Create execution record
+    // Create execution record with tenant isolation
     await db.insert(jobExecutions).values({
       id: executionId,
       jobId: job.id,
       status: 'running',
       startedAt: new Date(),
       attempt,
+      tenantId: job.tenantId, // SECURITY: Maintain tenant isolation in executions
     });
 
     try {

@@ -242,17 +242,59 @@ router.post('/send', requireAuth, async (req: any, res) => {
       }
     }
     
-    // Send email via Gmail service (which handles database sync automatically)
-    const result = await gmailService.sendEmail(userId, {
+    // Get tenant ID from session
+    const tenantId = req.tenantId;
+    if (!tenantId) {
+      return res.status(400).json({ ok: false, error: 'Tenant context required' });
+    }
+
+    // Dispatch email using OAuth provider
+    const { emailDispatcher } = await import('../services/email-dispatcher');
+    const result = await emailDispatcher.dispatchEmail(userId, tenantId, {
       to: emailData.to,
       subject: finalSubject,
       text: finalText,
       html: emailData.html,
-      preheader: emailData.preheader,
-      projectId: projectId
+      cc: emailData.cc,
+      bcc: emailData.bcc,
+      replyTo: emailData.replyTo
     });
     
-    res.json(result);
+    if (!result.ok) {
+      return res.status(500).json(result);
+    }
+    
+    // Store sent email in database for thread tracking
+    if (projectId && result.messageId) {
+      try {
+        await storage.createEmail({
+          tenantId,
+          userId,
+          threadId: result.messageId,
+          fromEmail: result.fromEmail || req.user?.email || '',
+          toEmails: [emailData.to],
+          ccEmails: emailData.cc ? [emailData.cc] : [],
+          bccEmails: emailData.bcc ? [emailData.bcc] : [],
+          subject: finalSubject,
+          bodyText: finalText,
+          bodyHtml: emailData.html,
+          sentAt: new Date(),
+          projectId,
+          isSent: true,
+          snippet: finalText?.substring(0, 100)
+        }, tenantId);
+      } catch (dbError) {
+        console.error('Failed to store sent email in DB:', dbError);
+        // Continue - email was sent successfully
+      }
+    }
+    
+    res.json({ 
+      ok: true, 
+      messageId: result.messageId,
+      provider: result.provider,
+      warning: result.warning 
+    });
   } catch (error: any) {
     if (error.issues) {
       res.status(400).json({ ok: false, error: error.issues[0].message });

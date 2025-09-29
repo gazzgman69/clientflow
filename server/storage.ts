@@ -2347,6 +2347,28 @@ export class MemStorage implements IStorage {
     return undefined;
   }
 
+  async seedEmailProviders(providers: Omit<EmailProviderCatalog, 'id' | 'createdAt' | 'updatedAt'>[]): Promise<void> {
+    // No-op for MemStorage - seeding should happen in DB
+    return;
+  }
+
+  async getTenantEmailPrefs(tenantId: string): Promise<TenantEmailPrefs | null> {
+    // Return null for MemStorage - prefs should be in DB
+    return null;
+  }
+
+  async upsertTenantEmailPrefs(tenantId: string, prefs: Partial<InsertTenantEmailPrefs>): Promise<TenantEmailPrefs> {
+    // Return default prefs for MemStorage
+    return {
+      tenantId,
+      bccSelf: prefs.bccSelf ?? false,
+      readReceipts: prefs.readReceipts ?? false,
+      showOnDashboard: prefs.showOnDashboard ?? true,
+      contactsOnly: prefs.contactsOnly ?? true,
+      updatedAt: new Date()
+    };
+  }
+
   // Email Provider Configurations
   async getEmailProviderConfigs(tenantId: string, userId?: string): Promise<EmailProviderConfig[]> {
     return Array.from(this.emailProviderConfigs.values())
@@ -5092,6 +5114,47 @@ export class DrizzleStorage implements IStorage {
       .from(emailProviderCatalog)
       .where(eq(emailProviderCatalog.code, code))
       .limit(1);
+    return result[0];
+  }
+
+  async seedEmailProviders(providers: Omit<EmailProviderCatalog, 'id' | 'createdAt' | 'updatedAt'>[]): Promise<void> {
+    // Insert providers, skip if they already exist (based on unique code constraint)
+    for (const provider of providers) {
+      try {
+        await this.db
+          .insert(emailProviderCatalog)
+          .values(provider)
+          .onConflictDoNothing({ target: emailProviderCatalog.code });
+      } catch (error) {
+        console.error(`Error seeding provider ${provider.code}:`, error);
+      }
+    }
+  }
+
+  async getTenantEmailPrefs(tenantId: string): Promise<TenantEmailPrefs | null> {
+    const result = await this.db
+      .select()
+      .from(tenantEmailPrefs)
+      .where(eq(tenantEmailPrefs.tenantId, tenantId))
+      .limit(1);
+    return result[0] || null;
+  }
+
+  async upsertTenantEmailPrefs(tenantId: string, prefs: Partial<InsertTenantEmailPrefs>): Promise<TenantEmailPrefs> {
+    const result = await this.db
+      .insert(tenantEmailPrefs)
+      .values({
+        tenantId,
+        ...prefs
+      })
+      .onConflictDoUpdate({
+        target: tenantEmailPrefs.tenantId,
+        set: {
+          ...omitUndefined(prefs),
+          updatedAt: new Date()
+        }
+      })
+      .returning();
     return result[0];
   }
 

@@ -1183,6 +1183,43 @@ export const insertEmailSignatureSchema = createInsertSchema(emailSignatures).om
 export type EmailSignature = typeof emailSignatures.$inferSelect;
 export type InsertEmailSignature = z.infer<typeof insertEmailSignatureSchema>;
 
+// Email Provider Catalog table (global, not tenant-scoped)
+export const emailProviderCatalog = pgTable("email_provider_catalog", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  code: text("code").notNull().unique(), // gmail, office365, icloud, yahoo, etc.
+  displayName: text("display_name").notNull(), // "Google Gmail", "Office 365", etc.
+  authType: text("auth_type").notNull(), // oauth, imap_smtp, api_only
+  
+  // IMAP Settings (null for OAuth providers)
+  imapHost: text("imap_host"),
+  imapPort: integer("imap_port"),
+  imapSecure: boolean("imap_secure"), // TLS enabled
+  
+  // SMTP Settings (null for OAuth providers)
+  smtpHost: text("smtp_host"),
+  smtpPort: integer("smtp_port"),
+  smtpSecure: boolean("smtp_secure"), // TLS enabled
+  
+  // Help text for users
+  helpBlurb: text("help_blurb"), // Provider-specific setup instructions
+  
+  // Status
+  isActive: boolean("is_active").default(true),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Insert schemas and types for email provider catalog
+export const insertEmailProviderCatalogSchema = createInsertSchema(emailProviderCatalog).omit({ 
+  id: true, 
+  createdAt: true, 
+  updatedAt: true 
+});
+
+export type EmailProviderCatalog = typeof emailProviderCatalog.$inferSelect;
+export type InsertEmailProviderCatalog = z.infer<typeof insertEmailProviderCatalogSchema>;
+
 // Email Provider Configurations table
 export const emailProviderConfigs = pgTable("email_provider_configs", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),

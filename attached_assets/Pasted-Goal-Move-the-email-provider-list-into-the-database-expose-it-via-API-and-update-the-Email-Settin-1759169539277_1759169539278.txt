@@ -1,0 +1,198 @@
+Goal:
+Move the email provider list into the database, expose it via API, and update the Email Settings page to load and render it (with help blurbs). Also fix the current “Failed to load email provider configurations” error by implementing the missing storage methods. Keep Gmail/Office365 using OAuth; others use IMAP/SMTP. Maintain contacts-only ingestion, BCC toggle, and multi-tenant safety.
+
+1) Schema & Seeding
+
+Create a new table (global, not tenant-scoped): email_provider_catalog
+
+id uuid pk default gen_random_uuid()
+
+code text unique not null // e.g. gmail, office365, icloud, yahoo, godaddy_workspace, cox_business, att, aol, 1and1, hotmail_live, siteground, sky, zoho, etc.
+
+display_name text not null // “Google Gmail”, “Office 365”, …
+
+auth_type text not null // enum: oauth, imap_smtp
+
+imap_host text null
+
+imap_port int null
+
+imap_secure boolean null // TLS true/false
+
+smtp_host text null
+
+smtp_port int null
+
+smtp_secure boolean null
+
+help_blurb text null // short provider-specific tips
+
+is_active boolean default true
+
+created_at timestamptz default now()
+
+updated_at timestamptz default now()
+
+Seed rows for the providers visible in the screenshots (match 17hats list as closely as possible). Examples:
+
+gmail (OAuth; no IMAP/SMTP hosts in catalog; help: “Gmail uses OAuth. No app password needed.”)
+
+office365 (OAuth; help: “Office 365 uses Microsoft Sign-In (Graph).”)
+
+icloud (imap.mail.me.com:993, smtp.mail.me.com:587, TLS; help: “Requires app-specific password.”)
+
+yahoo (imap.mail.yahoo.com:993, smtp.mail.yahoo.com:465/587; help: “App password often required.”)
+
+hotmail_live (Outlook/Live/Hotmail: outlook.office365.com IMAP 993, SMTP smtp.office365.com 587; help: “Use modern auth where possible.”)
+
+1and1, aol, att, bellsouth, cox_business, sbcglobal, sky, siteground, godaddy_office365, godaddy_workspace, bluehost, zoho (fill typical IMAP/SMTP; add help blurbs like “Check provider help for ports or app passwords.”)
+
+(Optional future) Add email_provider_overrides (tenant-scoped) for custom hosts; not required now—just leave a TODO.
+
+2) Storage Interface (fix the error)
+
+In server/storage.ts (and interface):
+
+Add:
+
+getEmailProviderCatalog(): Promise<EmailProviderCatalog[]>;
+getActiveEmailProviders(): Promise<EmailProviderCatalog[]>;
+
+
+Implement in DrizzleStorage to select from email_provider_catalog where is_active = true ordered by display_name.
+
+MemStorage: return empty array (or small sample) to satisfy interface in dev.
+
+Replace any calls to getEmailProviderConfigs with getActiveEmailProviders (that’s the function the Email Settings page expects). This resolves “is not a function”.
+
+3) API
+
+Add routes (secured; superadmin or authenticated user as needed):
+
+GET /api/email/providers → returns getActiveEmailProviders()
+
+(Optional admin) POST /api/email/providers to upsert; not required for now.
+
+Ensure responses include: code, displayName, authType, imap/smtp fields, helpBlurb.
+
+4) Services Wiring
+
+Sending:
+
+If user’s chosen provider for outgoing is gmail → use Gmail OAuth send.
+
+If office365 → Microsoft Graph send.
+
+Else → SMTP via catalog host/port/secure (user’s saved credentials).
+
+Sync (incoming):
+
+Gmail: Gmail API (OAuth) as now.
+
+Office365: Graph as now.
+
+Others: IMAP using catalog host/port/secure. Respect contacts-only ingestion guard already in place.
+
+Keep multi-tenant isolation: all user/provider linkage remains tenant-scoped; catalog is global read-only.
+
+5) Email Settings UI (match 17hats layout)
+
+Update client/src/pages/settings/EmailSettings.tsx (or equivalent) to this structure:
+
+Tabs: Email Providers, Overview, Activity Logs, Signatures, Edit Settings.
+
+Overview tab:
+
+Card “About Email Settings” (description text).
+
+Incoming Email card:
+
+“Connect Account” button (launch OAuth for Google/Office365; IMAP modal for others)
+
+“Last synced …” (tenant/user scoped)
+
+Checkbox: “Show emails from contacts on dashboard” (already supported).
+
+Outgoing Email card:
+
+“Email Sent As” (readonly from profile or selected identity)
+
+“Outgoing Server” (shows provider summary)
+
+Toggle: “BCC me on all outgoing mail” (persist to tenant/user prefs)
+
+Toggle: “Enable read receipts” with help text.
+
+Email Help card:
+
+Dropdown that loads from /api/email/providers
+
+When selected, show helpBlurb + host/port/secure for IMAP/SMTP.
+
+Email Providers tab:
+
+Two sections: “Incoming providers” and “Outgoing providers” listing all catalog items (checkbox enabled, future proof).
+
+Use the same catalog data; read-only for now.
+
+Connect/Change Modals:
+
+For authType = oauth: “Connect Google”, “Connect Microsoft” → existing OAuth flows.
+
+For imap_smtp: modal with fields: login, password/app-password, IMAP host/port/TLS pre-filled from catalog but editable; SMTP ditto. Save to the user’s mail settings record (tenant-scoped).
+
+6) Provider Help Blurbs (examples to seed)
+
+Gmail: “Sign in with Google. No app password needed.”
+
+Office 365: “Sign in with Microsoft. Uses Graph API.”
+
+iCloud: “Requires app-specific password from appleid.apple.com.”
+
+Yahoo: “Enable app passwords in your Yahoo account security settings.”
+
+AOL: “Use app password; legacy accounts may need special ports.”
+
+Hotmail/Live/Outlook: “Prefer Microsoft sign-in where available; else IMAP/SMTP.”
+
+GoDaddy Workspace: “Hosts vary; defaults provided—override if your DNS differs.”
+
+AT&T/BellSouth/SBCGlobal: “Some legacy domains require secure ports and app passwords.”
+
+SiteGround/BlueHost: “Use mailbox credentials; ports often 993/465 or 587.”
+
+Zoho: “Enable IMAP in Zoho Mail settings; consider app passwords.”
+
+7) UX Notes
+
+Keep contacts-only toggle ON by default (ingestion guard active).
+
+After successful OAuth/IMAP connect:
+
+Clear any reconnect banners for that integration.
+
+Kick off initial sync (flag-gated) and show “Last synced …”.
+
+Keep BCC and Read Receipts toggles persisted per user (tenant-scoped).
+
+8) Tests & Acceptance
+
+API: GET /api/email/providers returns seeded list; no auth leakage; no tenant data in catalog.
+
+UI: Email Settings → Overview loads without “Failed to load” error; provider dropdown populates from API.
+
+Connect flow: Gmail + Office365 OAuth still work; an IMAP provider can be saved and used for SMTP send.
+
+Send Test Email panel: still works; shows provider code and success or provider error.
+
+Contacts-only: Ingestion skips unknown senders; dashboard shows only contact/project-linked threads.
+
+9) Don’t break existing behavior
+
+Do not remove existing OAuth code paths.
+
+Keep memstorage stubs minimal, but production must use Postgres.
+
+Maintain all multi-tenant guards and session auth on routes.
+
+That’s it. Please implement exactly as above, using our existing Drizzle schema style (DB snake_case, TS camelCase), storage patterns, and UI component library.

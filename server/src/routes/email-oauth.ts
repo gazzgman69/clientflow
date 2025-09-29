@@ -262,7 +262,7 @@ router.get('/auth/microsoft/status', async (req, res) => {
 /**
  * Microsoft OAuth Disconnect
  */
-router.post('/auth/microsoft/disconnect', async (req, res) => {
+router.post('/auth/microsoft/mail/disconnect', async (req, res) => {
   try {
     if (!req.session?.userId || !req.session?.tenantId) {
       return res.status(401).json({ error: 'Authentication required' });

@@ -157,10 +157,10 @@ export default function EmailSettings() {
   const disconnectProviderMutation = useMutation({
     mutationFn: async () => {
       if (connectedProvider === 'gmail') {
-        const response = await apiRequest('POST', '/api/auth/google/disconnect', {});
+        const response = await apiRequest('POST', '/api/auth/google/gmail/disconnect', {});
         return response.json();
       } else if (connectedProvider === 'microsoft') {
-        const response = await apiRequest('POST', '/api/auth/microsoft/disconnect', {});
+        const response = await apiRequest('POST', '/api/auth/microsoft/mail/disconnect', {});
         return response.json();
       }
       throw new Error('No provider connected');

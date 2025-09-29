@@ -5043,6 +5043,203 @@ export class DrizzleStorage implements IStorage {
     return result[0];
   }
 
+  // Email Provider Configurations
+  async getEmailProviderConfigs(tenantId: string, userId?: string): Promise<EmailProviderConfig[]> {
+    let query = this.db
+      .select()
+      .from(emailProviderConfigs)
+      .where(eq(emailProviderConfigs.tenantId, tenantId));
+    
+    if (userId) {
+      query = query.where(and(
+        eq(emailProviderConfigs.tenantId, tenantId),
+        eq(emailProviderConfigs.userId, userId)
+      ));
+    }
+    
+    return await query.orderBy(desc(emailProviderConfigs.updatedAt));
+  }
+
+  async getEmailProviderConfig(id: string, tenantId: string): Promise<EmailProviderConfig | undefined> {
+    const result = await this.db
+      .select()
+      .from(emailProviderConfigs)
+      .where(and(
+        eq(emailProviderConfigs.id, id),
+        eq(emailProviderConfigs.tenantId, tenantId)
+      ))
+      .limit(1);
+    
+    return result[0];
+  }
+
+  async getPrimaryEmailProviderConfig(tenantId: string): Promise<EmailProviderConfig | undefined> {
+    const result = await this.db
+      .select()
+      .from(emailProviderConfigs)
+      .where(and(
+        eq(emailProviderConfigs.tenantId, tenantId),
+        eq(emailProviderConfigs.isPrimary, true),
+        eq(emailProviderConfigs.isActive, true)
+      ))
+      .limit(1);
+    
+    return result[0];
+  }
+
+  async getEmailProviderConfigByName(name: string, tenantId: string): Promise<EmailProviderConfig | undefined> {
+    const result = await this.db
+      .select()
+      .from(emailProviderConfigs)
+      .where(and(
+        eq(emailProviderConfigs.name, name),
+        eq(emailProviderConfigs.tenantId, tenantId)
+      ))
+      .limit(1);
+    
+    return result[0];
+  }
+
+  async createEmailProviderConfig(config: InsertEmailProviderConfig, tenantId: string): Promise<EmailProviderConfig> {
+    // If this is set as primary, clear other primary configs for this tenant
+    if (config.isPrimary) {
+      await this.db
+        .update(emailProviderConfigs)
+        .set({ 
+          isPrimary: false, 
+          updatedAt: new Date() 
+        })
+        .where(and(
+          eq(emailProviderConfigs.tenantId, tenantId),
+          eq(emailProviderConfigs.isPrimary, true)
+        ));
+    }
+
+    const result = await this.db
+      .insert(emailProviderConfigs)
+      .values({
+        ...config,
+        tenantId,
+      })
+      .returning();
+    
+    return result[0];
+  }
+
+  async updateEmailProviderConfig(id: string, config: Partial<InsertEmailProviderConfig>, tenantId: string): Promise<EmailProviderConfig | undefined> {
+    // If this is being set as primary, clear other primary configs for this tenant
+    if (config.isPrimary) {
+      await this.db
+        .update(emailProviderConfigs)
+        .set({ 
+          isPrimary: false, 
+          updatedAt: new Date() 
+        })
+        .where(and(
+          eq(emailProviderConfigs.tenantId, tenantId),
+          eq(emailProviderConfigs.isPrimary, true)
+        ));
+    }
+
+    const result = await this.db
+      .update(emailProviderConfigs)
+      .set({ 
+        ...omitUndefined(config), 
+        updatedAt: new Date() 
+      })
+      .where(and(
+        eq(emailProviderConfigs.id, id),
+        eq(emailProviderConfigs.tenantId, tenantId)
+      ))
+      .returning();
+    
+    return result[0];
+  }
+
+  async deleteEmailProviderConfig(id: string, tenantId: string): Promise<boolean> {
+    const result = await this.db
+      .delete(emailProviderConfigs)
+      .where(and(
+        eq(emailProviderConfigs.id, id),
+        eq(emailProviderConfigs.tenantId, tenantId)
+      ))
+      .returning();
+    
+    return result.length > 0;
+  }
+
+  async setPrimaryEmailProviderConfig(id: string, tenantId: string): Promise<boolean> {
+    // First clear all primary flags for this tenant
+    await this.db
+      .update(emailProviderConfigs)
+      .set({ 
+        isPrimary: false, 
+        updatedAt: new Date() 
+      })
+      .where(and(
+        eq(emailProviderConfigs.tenantId, tenantId),
+        eq(emailProviderConfigs.isPrimary, true)
+      ));
+
+    // Then set the specified config as primary
+    const result = await this.db
+      .update(emailProviderConfigs)
+      .set({ 
+        isPrimary: true, 
+        updatedAt: new Date() 
+      })
+      .where(and(
+        eq(emailProviderConfigs.id, id),
+        eq(emailProviderConfigs.tenantId, tenantId)
+      ))
+      .returning();
+    
+    return result.length > 0;
+  }
+
+  async updateEmailProviderConfigHealth(id: string, isHealthy: boolean, consecutiveFailures: number, tenantId: string): Promise<boolean> {
+    const result = await this.db
+      .update(emailProviderConfigs)
+      .set({ 
+        isHealthy, 
+        consecutiveFailures,
+        lastHealthCheckAt: new Date(),
+        updatedAt: new Date() 
+      })
+      .where(and(
+        eq(emailProviderConfigs.id, id),
+        eq(emailProviderConfigs.tenantId, tenantId)
+      ))
+      .returning();
+    
+    return result.length > 0;
+  }
+
+  async updateEmailProviderConfigUsage(id: string, messagesSent?: number, messagesReceived?: number, tenantId: string): Promise<boolean> {
+    const updates: any = {
+      lastUsedAt: new Date(),
+      updatedAt: new Date()
+    };
+    
+    if (messagesSent !== undefined) {
+      updates.messagesSent = messagesSent;
+    }
+    if (messagesReceived !== undefined) {
+      updates.messagesReceived = messagesReceived;
+    }
+
+    const result = await this.db
+      .update(emailProviderConfigs)
+      .set(updates)
+      .where(and(
+        eq(emailProviderConfigs.id, id),
+        eq(emailProviderConfigs.tenantId, tenantId)
+      ))
+      .returning();
+    
+    return result.length > 0;
+  }
+
   // Tenant-scoped storage wrapper
   withTenant(tenantId: string): TenantScopedStorage {
     return new TenantScopedStorage(this, tenantId);

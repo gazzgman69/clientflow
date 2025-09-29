@@ -1,0 +1,156 @@
+Goal: The Email Providers tab must load provider configurations without errors and allow add/update/delete/verify for each provider.
+Constraints:
+
+Do not hardcode paths; discover files/components already used.
+
+Keep multi-tenant isolation (every call requires tenantId).
+
+Reuse existing encryption/secure store.
+
+Preserve contacts-only ingestion and existing send/trace features.
+
+0) Diagnose first (no edits)
+
+Search for the call site that triggers the banner “Failed to load email provider configurations”. Identify the fetch in the Email Settings → “Email Providers” tab component.
+
+Confirm the backend route it calls (likely /api/email/providers or similar) and the handler.
+
+Grep for getEmailProviderConfigs in the repository. If missing in the storage layer, that’s the source of is not a function.
+
+Log what you find (file + line) before changing anything.
+
+1) Storage interface + implementations
+
+Add these methods to the storage interface and implement in DrizzleStorage and MemStorage. All require tenantId and must be tenant-scoped:
+
+// Read all saved configs for the tenant
+getEmailProviderConfigs(tenantId: string): Promise<EmailProviderConfig[]>;
+
+// Insert or update a provider config (upsert by (tenantId, providerCode))
+upsertEmailProviderConfig(input: {
+  tenantId: string;
+  providerCode: string;       // e.g., 'gmail','microsoft','icloud','yahoo','custom','sendgrid',...
+  authMode: 'oauth' | 'appPassword' | 'apiKey';
+  isActive: boolean;
+  config: Record<string, unknown>; // encrypted at rest where sensitive
+}): Promise<EmailProviderConfig>;
+
+// Delete provider config
+deleteEmailProviderConfig(tenantId: string, providerCode: string): Promise<void>;
+
+// Optional: lightweight credential check
+verifyEmailProviderConfig(tenantId: string, providerCode: string): Promise<{ ok: boolean; message?: string }>;
+
+Schema (migrate if table is missing)
+
+Create or confirm a table (discover naming, don’t duplicate) like email_provider_configs with:
+
+id uuid pk
+
+tenant_id (FK → tenants.id) NOT NULL
+
+provider_code text NOT NULL
+
+auth_mode text NOT NULL
+
+is_active boolean default false
+
+config_json jsonb NOT NULL (store non-secret bits here)
+
+created_at, updated_at timestamps
+
+Unique (tenant_id, provider_code)
+
+Secrets (app passwords, API keys, OAuth refresh tokens) must use the existing secure/encrypted store (e.g., secureStore/KMS) referenced from config_json by key name only.
+
+2) API routes
+
+Add/confirm REST endpoints (under the existing email router; don’t create a new top-level router):
+
+GET /api/email/providers
+
+middleware: ensureUserAuth, tenantResolver, requireTenant
+
+returns array from getEmailProviderConfigs(tenantId)
+
+PUT /api/email/providers/:providerCode
+
+body: { authMode, isActive, config } (non-secret fields only)
+
+upserts via upsertEmailProviderConfig
+
+any secrets in the payload must be written via secure store and not echoed back
+
+DELETE /api/email/providers/:providerCode
+
+calls deleteEmailProviderConfig
+
+POST /api/email/providers/:providerCode/verify
+
+calls verifyEmailProviderConfig (uses the adapter to check connectivity minimally)
+
+respond { ok, message }
+
+All endpoints must read tenantId from the resolved request context and never accept it from the client.
+
+3) Provider catalog & adapter plumbing (read-only in this step)
+
+Expose a read-only provider catalog (already discussed) for UI display: code, displayName, authModes, capabilities, defaults, helpKey. Keep this in a discoverable module (no hardcoded path). This step should not break existing Gmail/Microsoft flows—just expose a list for the UI.
+
+4) UI — Email Providers tab
+
+Update the Email Providers tab component to:
+
+On mount, call GET /api/email/providers and render the list.
+
+For each provider card:
+
+Show status badge (Active/Disabled), auth mode, last updated.
+
+Buttons: Configure, Verify, Delete.
+
+“Configure” opens a modal:
+
+Render dynamic fields based on provider + authMode.
+
+Save posts to PUT /api/email/providers/:providerCode.
+
+“Verify” calls POST /api/email/providers/:providerCode/verify and toasts result.
+
+Replace the red error banner path with the new GET call and robust error handling:
+
+If 401 → show “Please sign in”
+
+If other → show error message and log the fetch/route path
+
+Important: Do not hardcode /api/email/providers paths if the app uses a central API helper—reuse it.
+
+5) Logging & errors
+
+Add structured logs for each route with { tenantId, providerCode, action }.
+
+Return meaningful errors from storage and map to user-friendly messages.
+
+In dev only, log stack traces; in prod, log codes.
+
+6) Tests / smoke checks
+
+Unit test getEmailProviderConfigs (MemStorage + DrizzleStorage).
+
+Endpoint smoke test for GET and PUT happy path.
+
+Verify unique constraint blocks duplicate provider for the same tenant.
+
+7) Success criteria (print at end)
+
+After changes, print a short summary including:
+
+The file path of the UI component calling the providers API.
+
+Confirmed route mount (file + line) and middleware chain.
+
+Table name used for configs and whether a migration ran.
+
+A sample JSON of GET /api/email/providers response (with secrets redacted).
+
+Do not rename/move existing files; discover and extend. Keep all operations tenant-scoped and secrets encrypted.

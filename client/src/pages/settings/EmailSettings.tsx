@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Label } from '@/components/ui/label';
 import { MailForm } from '@/components/settings/MailForm';
 import SignatureManagement from '@/components/settings/SignatureManagement';
+import EmailProviderList from '@/components/settings/EmailProviderList';
 import { apiRequest } from '@/lib/queryClient';
 import { 
   Mail, 
@@ -24,7 +25,8 @@ import {
   Clock,
   Activity,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  Layers
 } from 'lucide-react';
 
 interface MailSettings {
@@ -312,14 +314,23 @@ export default function EmailSettings() {
         )}
 
         {/* Settings Display */}
-        <Tabs defaultValue={settings ? "overview" : "signatures"} className="space-y-6">
+        <Tabs defaultValue="providers" className="space-y-6">
           <TabsList>
+            <TabsTrigger value="providers">
+              <Layers className="h-4 w-4 mr-2" />
+              Email Providers
+            </TabsTrigger>
             {settings && <TabsTrigger value="overview">Overview</TabsTrigger>}
             {settings && <TabsTrigger value="logs">Activity Logs</TabsTrigger>}
             <TabsTrigger value="signatures">Signatures</TabsTrigger>
             {settings && <TabsTrigger value="edit">Edit Settings</TabsTrigger>}
             {!settings && <TabsTrigger value="setup">Setup Email</TabsTrigger>}
           </TabsList>
+
+          {/* Email Providers Tab */}
+          <TabsContent value="providers" className="space-y-6">
+            <EmailProviderList />
+          </TabsContent>
 
           {settings && (
             <>

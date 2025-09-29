@@ -87,14 +87,14 @@ export default function EmailProviderList() {
 
   // Fetch email provider configurations
   const { data: configs, isLoading, error } = useQuery({
-    queryKey: ['/api/email-providers'],
+    queryKey: ['/api/email-provider-configs'],
     select: (data: any) => data.configs as EmailProviderConfig[]
   });
 
   // Delete configuration mutation
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      const response = await apiRequest('DELETE', `/api/email-providers/${id}`);
+      const response = await apiRequest('DELETE', `/api/email-provider-configs/${id}`);
       return response.json();
     },
     onSuccess: () => {
@@ -102,7 +102,7 @@ export default function EmailProviderList() {
         title: 'Success',
         description: 'Email provider configuration deleted successfully'
       });
-      queryClient.invalidateQueries({ queryKey: ['/api/email-providers'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/email-provider-configs'] });
     },
     onError: (error: any) => {
       toast({
@@ -116,7 +116,7 @@ export default function EmailProviderList() {
   // Set primary mutation
   const setPrimaryMutation = useMutation({
     mutationFn: async (id: string) => {
-      const response = await apiRequest('PUT', `/api/email-providers/${id}/primary`);
+      const response = await apiRequest('POST', `/api/email-provider-configs/${id}/primary`);
       return response.json();
     },
     onSuccess: () => {
@@ -124,7 +124,7 @@ export default function EmailProviderList() {
         title: 'Success',
         description: 'Primary email provider updated successfully'
       });
-      queryClient.invalidateQueries({ queryKey: ['/api/email-providers'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/email-provider-configs'] });
     },
     onError: (error: any) => {
       toast({
@@ -138,7 +138,7 @@ export default function EmailProviderList() {
   // Test configuration mutation
   const testMutation = useMutation({
     mutationFn: async (id: string) => {
-      const response = await apiRequest('POST', `/api/email-providers/${id}/test`);
+      const response = await apiRequest('POST', `/api/email-provider-configs/${id}/test`);
       return response.json();
     },
     onSuccess: (data) => {
@@ -147,7 +147,7 @@ export default function EmailProviderList() {
         description: data.message || (data.success ? 'Connection test passed' : 'Connection test failed'),
         variant: data.success ? 'default' : 'destructive'
       });
-      queryClient.invalidateQueries({ queryKey: ['/api/email-providers'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/email-provider-configs'] });
     },
     onError: (error: any) => {
       toast({

@@ -231,9 +231,9 @@ export default function EmailProviderConfigForm({
   const saveConfigMutation = useMutation({
     mutationFn: async (data: any) => {
       const url = existingConfig 
-        ? `/api/email-providers/${existingConfig.id}`
-        : '/api/email-providers';
-      const method = existingConfig ? 'PUT' : 'POST';
+        ? `/api/email-provider-configs/${existingConfig.id}`
+        : '/api/email-provider-configs';
+      const method = existingConfig ? 'PATCH' : 'POST';
       
       const payload = {
         ...data,
@@ -250,7 +250,7 @@ export default function EmailProviderConfigForm({
           ? 'Email provider configuration updated successfully'
           : 'Email provider configuration created successfully'
       });
-      queryClient.invalidateQueries({ queryKey: ['/api/email-providers'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/email-provider-configs'] });
       onSave();
     },
     onError: (error: any) => {
@@ -265,7 +265,7 @@ export default function EmailProviderConfigForm({
   // Verify credentials mutation
   const verifyMutation = useMutation({
     mutationFn: async (data: any) => {
-      const response = await apiRequest('POST', '/api/email-providers/verify', {
+      const response = await apiRequest('POST', '/api/email-provider-configs/verify', {
         providerCode,
         ...data
       });

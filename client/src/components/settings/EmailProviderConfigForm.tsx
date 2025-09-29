@@ -22,6 +22,7 @@ import {
 } from '@/components/ui/form';
 import { apiRequest } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
+import EmailProviderHelp from './EmailProviderHelp';
 import {
   Save,
   TestTube,
@@ -338,6 +339,9 @@ export default function EmailProviderConfigForm({
         </CardTitle>
       </CardHeader>
       <CardContent>
+        {/* Provider Help Guide */}
+        <EmailProviderHelp providerCode={providerCode} />
+        
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
             {/* Basic Configuration */}

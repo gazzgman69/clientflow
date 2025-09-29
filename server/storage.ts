@@ -371,6 +371,11 @@ export interface IStorage {
   getEmailProviderCatalog(): Promise<EmailProviderCatalog[]>;
   getActiveEmailProviders(): Promise<EmailProviderCatalog[]>;
   getEmailProviderByCode(code: string): Promise<EmailProviderCatalog | undefined>;
+  seedEmailProviders(providers: Omit<EmailProviderCatalog, 'id' | 'createdAt' | 'updatedAt'>[]): Promise<void>;
+
+  // Tenant Email Preferences  
+  getTenantEmailPrefs(tenantId: string): Promise<TenantEmailPrefs | null>;
+  upsertTenantEmailPrefs(tenantId: string, prefs: Partial<InsertTenantEmailPrefs>): Promise<TenantEmailPrefs>;
 
   // Email Provider Configurations
   getEmailProviderConfigs(tenantId: string, userId?: string): Promise<EmailProviderConfig[]>;

@@ -1,0 +1,136 @@
+Goal:
+Support a broad set of email providers (Gmail, Microsoft 365/Outlook, iCloud, Yahoo, AOL, Fastmail, Proton via Bridge/SMTP, Zoho, and generic IMAP/SMTP + optional outbound-only services like SendGrid/Mailgun/Postmark) using a clean adapter layer, per-tenant configuration, encrypted secrets, and a simple UI picker with provider-specific help. Discover files/components; do not hardcode directories. Keep all operations tenant-scoped.
+
+Provider Catalog (capabilities + auth modes)
+
+Create a central catalog the app can query (code, displayName, capabilities, authMode, defaultPorts):
+
+gmail (OAuth, IMAP+SMTP, send+receive)
+
+microsoft (OAuth/Graph, send+receive)
+
+icloud (App password, IMAP+SMTP, send+receive)
+
+yahoo (App password, IMAP+SMTP, send+receive)
+
+aol (App password, IMAP+SMTP, send+receive)
+
+fastmail (App password, IMAP+SMTP, send+receive)
+
+proton (Bridge or IMAP+SMTP with app creds, send+receive)
+
+zoho (App password or OAuth if available, IMAP+SMTP, send+receive)
+
+custom (User-specified IMAP/SMTP, send+receive)
+
+sendgrid|mailgun|postmark (API, send only; mark as outbound-only)
+
+Each entry should include:
+
+code, displayName
+
+authModes: ['oauth'|'appPassword'|'apiKey']
+
+capabilities: { send: true/false, receive: true/false }
+
+defaults: { imapHost, imapPort, imapSecure, smtpHost, smtpPort, smtpSecure } where relevant
+
+helpKey to drive UI help blurbs
+
+Adapter Interface
+
+Define a provider-agnostic mail adapter interface used by send/sync flows:
+
+connect(auth, tenantContext)
+
+send({from, to, cc, bcc, subject, text, html, replyTo, headers}) -> { messageId, providerId }
+
+fetchThreads / fetchMessages (for receive-capable providers)
+
+verifyCredentials() (returns a minimal sanity check)
+
+Optional webhookSetup() for providers that support it (outbound-only services skip receive)
+
+Implement adapters:
+
+Reuse existing Gmail & Microsoft implementations behind this interface
+
+Implement Generic IMAP/SMTP adapter; parameterize with server settings
+
+Add Outbound-only adapters (SendGrid/Mailgun/Postmark) that implement send() only
+
+Secrets & Multi-Tenant
+
+Store provider config per tenant with encrypted secrets (reusing your secureStore).
+
+Validation: block saving configs without required fields by provider/authMode.
+
+Never read/write outside a tenant context; all storage methods must require tenantId.
+
+UI: Provider Picker + Config Forms
+
+In Email Settings (discover the screen), add:
+
+Provider dropdown backed by the catalog
+
+Dynamic form fields per provider/authMode:
+
+OAuth providers: just “Connect” button (Gmail/Microsoft)
+
+App-password providers: email, app password, optionally IMAP/SMTP override, “Verify & Save”
+
+Custom: full IMAP/SMTP host/port/secure + user/pass, “Verify & Save”
+
+Outbound-only: API key + sender domain/settings, “Verify & Save”
+
+Show capabilities (Send/Receive) and a badge if outbound-only
+
+Add Re-Authenticate buttons (Gmail scopes: gmail.readonly, gmail.send; Microsoft scopes: Mail.Read, Mail.Send)
+
+Integrate with the Send Test Email and Trace Delivery features already built:
+
+Use the selected provider/adapter to send tests
+
+If provider is receive-capable, allow a quick Verify Receive ping (e.g., verifyCredentials())
+
+Help Blurbs (expand/collapse)
+
+Attach provider-specific help (no external links required):
+
+Gmail (OAuth): Needs gmail.readonly + gmail.send. “Send as” alias required for non-account From; otherwise fallback to replyTo.
+
+Microsoft (Graph): Needs Mail.Read + Mail.Send. Some tenants need admin consent.
+
+iCloud: Requires app-specific password from Apple ID; IMAP+SMTP enabled.
+
+Yahoo/AOL: Requires app password (legacy “less secure apps” deprecated).
+
+Fastmail: Use app password; strong spam filters—keep tests minimal.
+
+Proton: Use Proton Bridge or IMAP credentials for paid plans; sending via SMTP with app creds; may need custom ports.
+
+Zoho: App password recommended; OAuth may be tenant-restricted.
+
+Custom IMAP/SMTP: Use your server settings; From must match authenticated account unless server allows arbitrary From; replyTo fallback is safer.
+
+SendGrid/Mailgun/Postmark: Outbound only; add SPF/DKIM later for deliverability.
+
+Safety & Fallbacks
+
+Enforce contacts-only listing in UI/APIs (superadmin override allowed).
+
+On From alias mismatch, keep the safe fallback: send as authenticated account + set replyTo, with a clear UI warning.
+
+Keep dev-only verbose logs for SMTP/Gmail/Graph (prefixed 📧 [DEBUG]).
+
+Respect your date formatting (dd/mm/yyyy HH:mm) in all new UI timestamps.
+
+Tests & Success Criteria
+
+Unit tests for adapter send() on each mode (mocked).
+
+Integration test: save config → verifyCredentials → send test → trace shows placement or at least accepted+ID.
+
+I can: pick a provider, configure, click Verify, send a test, and Trace Delivery; errors return detailed JSON (not generic “failed”).
+
+Do not reshape directories; discover and extend existing files only. Keep everything tenant-scoped and encrypted where appropriate.

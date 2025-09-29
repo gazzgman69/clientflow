@@ -1,0 +1,282 @@
+Goal
+Replace placeholder provider connections with production OAuth connectors for:
+
+Google Gmail (Gmail API for send/sync)
+
+Microsoft 365 / Outlook (Microsoft Graph for send/sync)
+
+Everything must be tenant-scoped, support send + contacts-only sync, and expose Connect / Reconnect / Disconnect / Status from Email Settings → Incoming Email. Outgoing email should use provider APIs (not raw SMTP) when available.
+
+0) ENV & Secrets
+
+Add these env vars (use your existing secret manager). Fail fast if missing.
+
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+GOOGLE_OAUTH_REDIRECT_URL=https://<app-domain>/api/auth/google/gmail/callback
+
+MS_CLIENT_ID=
+MS_CLIENT_SECRET=
+MS_OAUTH_REDIRECT_URL=https://<app-domain>/api/auth/microsoft/callback
+MS_TENANT=common   # allow work/school & personal; change to 'organizations' if needed
+
+1) Database: provider integrations (multi-tenant)
+
+If not present, create/extend a table to track provider auth per user+tenant:
+
+-- email_provider_integrations
+id (pk, uuid)
+tenant_id (text not null references tenants(id))
+user_id (text not null references users(id))
+provider (text not null)          -- 'google' | 'microsoft'
+status (text not null)            -- 'connected' | 'disconnected' | 'error'
+account_email (text)              -- primary email returned by provider
+scopes (text[])                   -- granted scopes
+access_token_enc (text)           -- encrypted at rest
+refresh_token_enc (text)
+expires_at (timestamptz)
+metadata (jsonb)                  -- e.g. token_type, idp ids
+created_at (timestamptz default now())
+updated_at (timestamptz default now())
+unique (tenant_id, user_id, provider)
+
+
+Add a CHECK that tenant_id is not null.
+
+Create an index on (tenant_id, user_id, provider).
+
+2) Provider registry (typed, DB-backed)
+
+Add a small provider catalog (seeded in DB) so UI reads choices from DB:
+
+providers:
+- key: google
+  name: Google Gmail
+  type: oauth
+  incoming: true
+  outgoing: true
+- key: microsoft
+  name: Microsoft 365 / Outlook
+  type: oauth
+  incoming: true
+  outgoing: true
+
+
+Expose GET /api/email/providers to return this list (tenant-agnostic but authenticated).
+
+3) OAuth routes & services
+3.1 Google Gmail
+
+Scopes:
+
+https://www.googleapis.com/auth/gmail.modify (read + labels + basic write)
+
+https://www.googleapis.com/auth/gmail.send (send)
+
+Routes:
+
+GET /api/auth/google/gmail → start OAuth (state includes tenantId, userId, returnTo)
+
+GET /api/auth/google/gmail/callback → exchange code, store tokens (per tenant/user), set status='connected'
+
+GET /api/auth/google/gmail/status → {connected, accountEmail, lastSyncedAt, scopes}
+
+POST /api/auth/google/gmail/disconnect → revoke, clear tokens, set status='disconnected'
+
+Service:
+
+gmailService.refreshIfNeeded(integration)
+
+gmailService.sendEmail({to, subject, html, text, replyTo}) via gmail.users.messages.send
+
+gmailService.syncContactsOnly({since, pageToken}):
+
+List messages via gmail.users.messages.list
+
+For each message, fetch headers; ingest only if sender/recipient matches an existing Contact in current tenant
+
+Map threadId/messageId → store email rows with tenant_id, contact_id, project_id?
+
+Save and reuse historyId/nextPageToken to do incremental sync
+
+Token store encrypt/decrypt, and persist expires_at.
+
+3.2 Microsoft 365 (Graph)
+
+Scopes (delegated):
+
+Mail.Read
+
+Mail.Send
+
+offline_access
+
+(optional) MailboxSettings.Read for time zone / locale
+
+Routes:
+
+GET /api/auth/microsoft → start OAuth (PKCE recommended)
+
+GET /api/auth/microsoft/callback → exchange token; store per tenant/user
+
+GET /api/auth/microsoft/status
+
+POST /api/auth/microsoft/disconnect
+
+Service:
+
+msService.refreshIfNeeded(integration)
+
+msService.sendEmail() via POST /me/sendMail
+
+msService.syncContactsOnly() via /me/messages?$select=internetMessageHeaders,from,toRecipients,ccRecipients,replyTo,receivedDateTime,conversationId,subject,bodyPreview
+
+Important: both services must validate from-address on send; if mismatch, use provider default sender and set replyTo to requested address. Log a warning in the response the UI can surface.
+
+4) Email Settings UI (one page, no tabs like 17hats)
+
+Incoming Email block:
+
+Shows: status pill, account email, last sync.
+
+Provider selector (Google / Microsoft). When provider changes, the CTA row updates.
+
+CTAs:
+
+Not connected: Connect [Provider]
+
+Connected: Reconnect, Disconnect
+
+Toggle: “Show emails from contacts on dashboard” (persist in user_prefs per tenant)
+
+Read receipts + BCC toggles persist per tenant (outgoing config).
+
+Outgoing Email block:
+
+If connected via OAuth (Google/Microsoft): use API send.
+
+If disconnected, show disabled state and helper text (“Connect above to enable sending”).
+
+APIs used by UI:
+
+GET /api/email/providers → list
+
+GET /api/auth/<provider>/status
+
+GET /api/auth/<provider> (navigate to OAuth)
+
+POST /api/auth/<provider>/disconnect
+
+State rules:
+
+Only one active incoming provider per user per tenant at once.
+
+If connecting a different provider, show a confirm modal: “Switch provider? Existing connection will be disconnected.”
+
+5) Sending pipeline
+
+Outgoing email route should dispatch by active provider:
+
+If provider='google' → Gmail API
+
+If provider='microsoft' → Graph API
+
+Save a send log row per tenant/user with provider response (messageId/graph id), status, error (if any).
+
+Respect BCC me + Read receipts toggles (store headers appropriately):
+
+Gmail read receipts are limited; if unsupported, gracefully ignore and note in response.
+
+For “BCC me”, add user’s email as BCC when sending (configurable per tenant).
+
+6) Sync worker (contacts-only)
+
+Create/extend a periodic job:
+
+Enumerate email_provider_integrations where status='connected' per tenant.
+
+For each, call the right service’s syncContactsOnly.
+
+Contacts-only rule: only ingest emails where any participant matches a contact email in this tenant.
+
+Link to the most recent open project for that contact when possible (fallback: contact only).
+
+Do not ingest if no contact → skip; (optional) increment a “skipped_no_contact” metric.
+
+Store nextSyncCursor (Gmail historyId / Graph deltaLink if you add delta later).
+
+7) Security & tenancy
+
+All routes behind ensureUserAuth, tenantResolver, requireTenant.
+
+All storage calls must include tenantId; add asserts to throw if missing.
+
+Encrypt tokens at rest; never return tokens to the client.
+
+When disconnecting, attempt provider revoke and wipe local tokens.
+
+8) Error surfaces & telemetry
+
+Status endpoint should include a user-safe warning when:
+
+Token expired & refresh failed
+
+From-address mismatch detected on last send
+
+Log structured events:
+
+email_oauth_connected, email_oauth_refreshed, email_oauth_disconnected
+
+email_send_success, email_send_error
+
+email_sync_ingested, email_sync_skipped_no_contact
+
+9) Tests
+
+Unit tests for:
+
+OAuth callback parses state (tenantId, userId), persists tokens, sets status.
+
+dispatchSend routes to correct provider based on active integration.
+
+Contacts-only ingestion skips unknown senders and accepts known.
+
+Integration test:
+
+Fake provider responses; assert DB write with proper tenant_id.
+
+UI tests:
+
+Incoming Email renders Connect vs Reconnect/Disconnect based on status payload.
+
+Provider switch modal appears and calls disconnect+connect.
+
+10) Migration plan
+
+Backfill: ensure a single active integration row per (tenantId, userId); mark others disconnected.
+
+If you previously had calendar_integrations reused for email, migrate to email_provider_integrations or create a clean namespace and update routes.
+
+11) Done criteria (visible)
+
+In Settings → Email, I can choose Google or Microsoft and press Connect.
+
+After OAuth, Incoming Email shows Connected, my account email, and Last synced.
+
+I can send an email; provider returns message id; UI shows success.
+
+The sync job brings in recent contact-linked emails only; dashboard email widgets show them.
+
+Switching to the other provider works (prompts to disconnect the first).
+
+All records store tenant_id and pass isolation checks.
+
+Helpful implementation notes
+
+Google sender: always the authenticated account; if UI requests a different From, set it as replyTo and return a warning.
+
+Microsoft behaves similarly via Graph; use /me/sendMail.
+
+Prefer incremental cursors (Gmail historyId, Graph delta) to minimize API cost; add exponential backoff on 429/5xx.
+
+Please implement the above. If any referenced file/module doesn’t exist, create it in the closest matching location and follow the existing project patterns for API handlers, services, and React query hooks.

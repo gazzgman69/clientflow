@@ -28,6 +28,7 @@ import {
   type EmailSignature, type InsertEmailSignature,
   type EmailProviderCatalog, type InsertEmailProviderCatalog,
   type EmailProviderConfig, type InsertEmailProviderConfig,
+  type TenantEmailPrefs, type InsertTenantEmailPrefs,
   type PortalForm, type InsertPortalForm,
   type PaymentSession, type InsertPaymentSession,
   type WebhookEvent, type InsertWebhookEvent,
@@ -53,7 +54,7 @@ import {
   users, leads, contacts, projects, quotes, contracts, invoices, tasks, emails, emailThreads, activities, automations, 
   members, venues, projectMembers, memberAvailability, projectFiles, projectNotes, smsMessages, 
   messageTemplates, messageThreads, events, calendarIntegrations, calendarSyncLog, templates, leadCaptureForms,
-  leadStatusHistory, emailSignatures, emailProviderCatalog, emailProviderConfigs, portalForms, paymentSessions, webhookEvents, tenants,
+  leadStatusHistory, emailSignatures, emailProviderCatalog, emailProviderConfigs, tenantEmailPrefs, portalForms, paymentSessions, webhookEvents, tenants,
   // Enhanced Quotes System tables
   quotePackages, quoteAddons, quoteItems, quoteTokens, quoteSignatures,
   // Quote Extra Info System tables

@@ -10,6 +10,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { apiRequest } from '@/lib/queryClient';
 import { 
   Mail, 
@@ -70,6 +71,8 @@ interface MailSettings {
 export default function EmailSettings() {
   const [alertMessage, setAlertMessage] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [selectedProvider, setSelectedProvider] = useState<string>('');
+  const [showConnectDialog, setShowConnectDialog] = useState(false);
+  const [selectedProviderToConnect, setSelectedProviderToConnect] = useState<EmailProvider | null>(null);
   const [testEmailData, setTestEmailData] = useState({
     to: '',
     subject: 'Test Email from BusinessCRM',
@@ -244,10 +247,128 @@ export default function EmailSettings() {
               <div className="text-center py-8">
                 <Mail className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
                 <p className="text-muted-foreground mb-4">No email account connected</p>
-                <Button data-testid="button-connect-email">
-                  <Settings className="h-4 w-4 mr-2" />
-                  Connect Email Account
-                </Button>
+                <Dialog open={showConnectDialog} onOpenChange={setShowConnectDialog}>
+                  <DialogTrigger asChild>
+                    <Button data-testid="button-connect-email">
+                      <Settings className="h-4 w-4 mr-2" />
+                      Connect Email Account
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+                    <DialogHeader>
+                      <DialogTitle>Connect Email Provider</DialogTitle>
+                      <DialogDescription>
+                        Select your email provider to configure your email settings
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4">
+                      {providersLoading ? (
+                        <p className="text-center py-4">Loading providers...</p>
+                      ) : selectedProviderToConnect ? (
+                        <div className="space-y-4">
+                          <div className="flex items-center space-x-3 p-3 bg-muted rounded-lg">
+                            <Mail className="h-5 w-5" />
+                            <div>
+                              <p className="font-medium">{selectedProviderToConnect.displayName}</p>
+                              <p className="text-sm text-muted-foreground capitalize">{selectedProviderToConnect.authType.replace('_', ' ')}</p>
+                            </div>
+                          </div>
+                          {selectedProviderToConnect.authType === 'oauth' ? (
+                            <div className="space-y-4">
+                              <Alert>
+                                <Info className="h-4 w-4" />
+                                <AlertDescription>
+                                  You'll be redirected to {selectedProviderToConnect.displayName} to authorize access to your email account.
+                                </AlertDescription>
+                              </Alert>
+                              <Button className="w-full" onClick={() => {
+                                if (selectedProviderToConnect.code === 'gmail' || selectedProviderToConnect.code === 'google') {
+                                  window.location.href = '/api/auth/google';
+                                } else if (selectedProviderToConnect.code === 'microsoft' || selectedProviderToConnect.code === 'office365') {
+                                  window.location.href = '/api/auth/microsoft';
+                                }
+                              }}>
+                                Connect with {selectedProviderToConnect.displayName}
+                              </Button>
+                            </div>
+                          ) : (
+                            <div className="space-y-4">
+                              <Alert>
+                                <Info className="h-4 w-4" />
+                                <AlertDescription>
+                                  Enter your IMAP/SMTP credentials to connect your email account.
+                                </AlertDescription>
+                              </Alert>
+                              <div className="grid gap-4">
+                                <div className="space-y-2">
+                                  <Label htmlFor="email-address">Email Address</Label>
+                                  <Input id="email-address" type="email" placeholder="your@email.com" />
+                                </div>
+                                <div className="space-y-2">
+                                  <Label htmlFor="email-password">Password or App Password</Label>
+                                  <Input id="email-password" type="password" />
+                                </div>
+                                <div className="grid grid-cols-2 gap-4">
+                                  <div className="space-y-2">
+                                    <Label htmlFor="imap-server">IMAP Server</Label>
+                                    <Input id="imap-server" placeholder="imap.example.com" />
+                                  </div>
+                                  <div className="space-y-2">
+                                    <Label htmlFor="imap-port">IMAP Port</Label>
+                                    <Input id="imap-port" placeholder="993" />
+                                  </div>
+                                </div>
+                                <div className="grid grid-cols-2 gap-4">
+                                  <div className="space-y-2">
+                                    <Label htmlFor="smtp-server">SMTP Server</Label>
+                                    <Input id="smtp-server" placeholder="smtp.example.com" />
+                                  </div>
+                                  <div className="space-y-2">
+                                    <Label htmlFor="smtp-port">SMTP Port</Label>
+                                    <Input id="smtp-port" placeholder="465" />
+                                  </div>
+                                </div>
+                                <Button className="w-full">
+                                  Connect Email Account
+                                </Button>
+                              </div>
+                            </div>
+                          )}
+                          <Button variant="outline" onClick={() => setSelectedProviderToConnect(null)}>
+                            Back to Providers
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-1 gap-3">
+                          {providers.map((provider: EmailProvider) => (
+                            <button
+                              key={provider.id}
+                              onClick={() => setSelectedProviderToConnect(provider)}
+                              className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted transition-colors text-left"
+                              data-testid={`provider-option-${provider.code}`}
+                            >
+                              <div className="flex items-center space-x-3">
+                                <Mail className="h-5 w-5 text-muted-foreground" />
+                                <div>
+                                  <p className="font-medium">{provider.displayName}</p>
+                                  <p className="text-sm text-muted-foreground capitalize">{provider.authType.replace('_', ' ')}</p>
+                                </div>
+                              </div>
+                              <div className="flex gap-2">
+                                {provider.supportsReceive && (
+                                  <Badge variant="secondary" className="text-xs">Incoming</Badge>
+                                )}
+                                {provider.supportsSend && (
+                                  <Badge variant="secondary" className="text-xs">Outgoing</Badge>
+                                )}
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </DialogContent>
+                </Dialog>
               </div>
             )}
           </CardContent>

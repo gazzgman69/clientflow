@@ -303,18 +303,6 @@ export default function EmailSettings() {
                       onCheckedChange={(checked) => updatePrefsMutation.mutate({ readReceipts: checked })}
                     />
                   </div>
-
-                  <div className="flex items-center justify-between">
-                    <div className="space-y-0.5">
-                      <Label htmlFor="contacts-only">Only sync emails from contacts</Label>
-                      <p className="text-xs text-muted-foreground">Filter inbox to known contacts only</p>
-                    </div>
-                    <Switch
-                      id="contacts-only"
-                      checked={prefs?.contactsOnly ?? true}
-                      onCheckedChange={(checked) => updatePrefsMutation.mutate({ contactsOnly: checked })}
-                    />
-                  </div>
                 </div>
 
                 <Button variant="outline" data-testid="button-change-server">

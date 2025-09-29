@@ -26,6 +26,7 @@ import {
   type LeadCaptureForm, type InsertLeadCaptureForm,
   type LeadStatusHistory, type InsertLeadStatusHistory,
   type EmailSignature, type InsertEmailSignature,
+  type EmailProviderCatalog, type InsertEmailProviderCatalog,
   type EmailProviderConfig, type InsertEmailProviderConfig,
   type PortalForm, type InsertPortalForm,
   type PaymentSession, type InsertPaymentSession,
@@ -52,7 +53,7 @@ import {
   users, leads, contacts, projects, quotes, contracts, invoices, tasks, emails, emailThreads, activities, automations, 
   members, venues, projectMembers, memberAvailability, projectFiles, projectNotes, smsMessages, 
   messageTemplates, messageThreads, events, calendarIntegrations, calendarSyncLog, templates, leadCaptureForms,
-  leadStatusHistory, emailSignatures, emailProviderConfigs, portalForms, paymentSessions, webhookEvents, tenants,
+  leadStatusHistory, emailSignatures, emailProviderCatalog, emailProviderConfigs, portalForms, paymentSessions, webhookEvents, tenants,
   // Enhanced Quotes System tables
   quotePackages, quoteAddons, quoteItems, quoteTokens, quoteSignatures,
   // Quote Extra Info System tables
@@ -365,6 +366,11 @@ export interface IStorage {
   updateSignature(id: string, userId: string, signature: Partial<InsertEmailSignature>, tenantId: string): Promise<EmailSignature | null>;
   deleteSignature(id: string, userId: string, tenantId: string): Promise<boolean>;
   clearDefaultSignatures(userId: string, tenantId: string): Promise<void>;
+
+  // Email Provider Catalog (global provider list)
+  getEmailProviderCatalog(): Promise<EmailProviderCatalog[]>;
+  getActiveEmailProviders(): Promise<EmailProviderCatalog[]>;
+  getEmailProviderByCode(code: string): Promise<EmailProviderCatalog | undefined>;
 
   // Email Provider Configurations
   getEmailProviderConfigs(tenantId: string, userId?: string): Promise<EmailProviderConfig[]>;
@@ -2318,6 +2324,22 @@ export class MemStorage implements IStorage {
           updatedAt: new Date()
         });
       });
+  }
+
+  // Email Provider Catalog (global)
+  async getEmailProviderCatalog(): Promise<EmailProviderCatalog[]> {
+    // Return empty array for MemStorage - this is a global catalog that should be loaded from DB
+    return [];
+  }
+
+  async getActiveEmailProviders(): Promise<EmailProviderCatalog[]> {
+    // Return empty array for MemStorage - this is a global catalog that should be loaded from DB
+    return [];
+  }
+
+  async getEmailProviderByCode(code: string): Promise<EmailProviderCatalog | undefined> {
+    // Return undefined for MemStorage - this is a global catalog that should be loaded from DB
+    return undefined;
   }
 
   // Email Provider Configurations
@@ -5040,6 +5062,31 @@ export class DrizzleStorage implements IStorage {
         eq(leadConsents.tenantId, tenantId)
       ))
       .returning();
+    return result[0];
+  }
+
+  // Email Provider Catalog (global)
+  async getEmailProviderCatalog(): Promise<EmailProviderCatalog[]> {
+    return await this.db
+      .select()
+      .from(emailProviderCatalog)
+      .orderBy(emailProviderCatalog.displayName);
+  }
+
+  async getActiveEmailProviders(): Promise<EmailProviderCatalog[]> {
+    return await this.db
+      .select()
+      .from(emailProviderCatalog)
+      .where(eq(emailProviderCatalog.isActive, true))
+      .orderBy(emailProviderCatalog.displayName);
+  }
+
+  async getEmailProviderByCode(code: string): Promise<EmailProviderCatalog | undefined> {
+    const result = await this.db
+      .select()
+      .from(emailProviderCatalog)
+      .where(eq(emailProviderCatalog.code, code))
+      .limit(1);
     return result[0];
   }
 

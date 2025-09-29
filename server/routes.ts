@@ -111,6 +111,7 @@ import {
   insertQuoteExtraInfoConfigSchema,
   insertQuoteExtraInfoResponseSchema,
   insertAdminAuditLogSchema,
+  insertEmailProviderConfigSchema,
   signupSchema,
   loginSchema,
   requestPasswordResetSchema,
@@ -3853,6 +3854,120 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
       res.status(201).json(email);
     } catch (error) {
       res.status(400).json({ message: "Invalid email data" });
+    }
+  });
+
+  // Email Provider Configurations
+  app.get("/api/email-provider-configs", ensureUserAuth, tenantResolver, requireTenant, async (req: TenantRequest, res) => {
+    try {
+      const { userId } = req.query;
+      const configs = await storage.getEmailProviderConfigs(req.tenantId, userId as string);
+      res.json({ configs });
+    } catch (error) {
+      console.error('Error fetching email provider configs:', error);
+      res.status(500).json({ message: "Failed to fetch email provider configurations" });
+    }
+  });
+
+  app.post("/api/email-provider-configs", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req: TenantRequest, res) => {
+    try {
+      const configData = insertEmailProviderConfigSchema.parse(req.body);
+      // SECURITY: Override any client-provided tenantId with the authenticated tenant
+      configData.tenantId = req.tenantId;
+      const config = await storage.createEmailProviderConfig(configData, req.tenantId);
+      res.status(201).json(config);
+    } catch (error) {
+      console.error('Error creating email provider config:', error);
+      res.status(400).json({ message: "Invalid email provider configuration data" });
+    }
+  });
+
+  app.patch("/api/email-provider-configs/:id", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req: TenantRequest, res) => {
+    try {
+      const configData = insertEmailProviderConfigSchema.partial().parse(req.body);
+      const config = await storage.updateEmailProviderConfig(req.params.id, configData, req.tenantId);
+      if (!config) {
+        return res.status(404).json({ message: "Email provider configuration not found" });
+      }
+      res.json(config);
+    } catch (error) {
+      console.error('Error updating email provider config:', error);
+      res.status(400).json({ message: "Invalid email provider configuration data" });
+    }
+  });
+
+  app.delete("/api/email-provider-configs/:id", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req: TenantRequest, res) => {
+    try {
+      const success = await storage.deleteEmailProviderConfig(req.params.id, req.tenantId);
+      if (!success) {
+        return res.status(404).json({ message: "Email provider configuration not found" });
+      }
+      res.status(204).send();
+    } catch (error) {
+      console.error('Error deleting email provider config:', error);
+      res.status(500).json({ message: "Failed to delete email provider configuration" });
+    }
+  });
+
+  app.post("/api/email-provider-configs/:id/primary", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req: TenantRequest, res) => {
+    try {
+      const success = await storage.setPrimaryEmailProviderConfig(req.params.id, req.tenantId);
+      if (!success) {
+        return res.status(404).json({ message: "Email provider configuration not found" });
+      }
+      res.json({ success: true, message: "Primary email provider updated successfully" });
+    } catch (error) {
+      console.error('Error setting primary email provider config:', error);
+      res.status(500).json({ message: "Failed to set primary email provider" });
+    }
+  });
+
+  app.post("/api/email-provider-configs/:id/test", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req: TenantRequest, res) => {
+    try {
+      // Get the configuration
+      const config = await storage.getEmailProviderConfig(req.params.id, req.tenantId);
+      if (!config) {
+        return res.status(404).json({ message: "Email provider configuration not found" });
+      }
+
+      // TODO: Implement actual connection testing based on provider type
+      // For now, just return success to allow UI testing
+      res.json({ 
+        success: true, 
+        message: "Connection test passed (mock implementation)" 
+      });
+    } catch (error) {
+      console.error('Error testing email provider config:', error);
+      res.status(500).json({ 
+        success: false, 
+        message: "Failed to test email provider configuration" 
+      });
+    }
+  });
+
+  app.post("/api/email-provider-configs/verify", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req: TenantRequest, res) => {
+    try {
+      const { providerCode, ...credentials } = req.body;
+      
+      if (!providerCode) {
+        return res.status(400).json({ 
+          success: false, 
+          message: "Provider code is required" 
+        });
+      }
+
+      // TODO: Implement actual credential verification based on provider type
+      // For now, just return success to allow UI testing
+      res.json({ 
+        success: true, 
+        message: "Credentials verified successfully (mock implementation)" 
+      });
+    } catch (error) {
+      console.error('Error verifying email provider credentials:', error);
+      res.status(500).json({ 
+        success: false, 
+        message: "Failed to verify credentials" 
+      });
     }
   });
 

@@ -1,0 +1,68 @@
+You are provided screenshots of 17hats Email Settings. 
+Study them to deduce the required UI layout and workflows. 
+Replicate the functionality in our CRM but improve the design with Tailwind + shadcn components, keeping it clean and modern.
+
+**Requirements:**
+
+1. **Unified Connect Flow**
+   - One "Connect Email Account" button opens a modal. 
+   - User selects provider (from DB-backed catalog), enters credentials, and we set up both incoming + outgoing in one go. 
+   - Backend stores them separately (`incoming_config`, `outgoing_config`) for flexibility.
+
+2. **Provider Catalog**
+   - Providers must be stored in DB table `email_providers`:
+     - id, name, type (imap/smtp/api), oauth_supported (bool), help_text (string).
+   - Seed with all providers from screenshots: Gmail, Office365, Yahoo, GoDaddy Office365, GoDaddy Workspace, iCloud, Hotmail/MSN/Outlook/Live, AOL, 1and1, AT&T, BlueHost, SiteGround, Sky, Cox, BellSouth, SBC Global, Other.
+   - UI dropdown loads providers dynamically from this DB.
+
+3. **Help Section**
+   - "Email Help" panel: dropdown to choose provider → display help_text (stored in DB).
+   - Example blurbs:
+     - iCloud → "Requires an app-specific password generated in Apple ID settings."
+     - Gmail → "Enable OAuth or generate an app password if 2FA is on."
+     - Yahoo → "May require enabling 'allow less secure apps' or app-specific password."
+   - Load this dynamically.
+
+4. **Preferences**
+   - Tenant-level settings:
+     - BCC toggle (default off).
+     - Read receipts toggle (default off).
+     - "Show emails on dashboard" toggle.
+   - Store in `tenant_email_prefs` table with tenantId.
+
+5. **UI Layout**
+   - Tabs across top: Overview | Email Providers | Signatures | Activity Logs | Edit Settings.
+   - Overview:
+     - Connected account status (last synced, email address).
+     - Outgoing server + “Change” button.
+     - Preferences toggles (BCC, Read Receipts, Show Emails).
+     - "Send Test Email" form (to/subject/body) → calls `/api/email/debug/send-test-email`.
+     - Results panel shows provider, status, messageId, timestamp.
+   - Email Providers:
+     - List connected providers.
+     - Add/Edit/Delete buttons (opens Connect modal).
+   - Signatures:
+     - Editable signatures (per tenant, not per user).
+   - Activity Logs:
+     - Log of syncs, errors, and outgoing mail attempts.
+
+6. **Backend Integration**
+   - Connect flow → saves provider + credentials to `email_accounts` table keyed by tenantId.
+   - Outgoing uses SMTP/Graph/Gmail API depending on provider.
+   - Incoming uses IMAP or API for sync.
+   - Debug endpoint `/api/email/debug/send-test-email` must be integrated.
+   - Provider responses logged to console + returned to frontend.
+
+7. **Multi-Tenant Safety**
+   - One global email account per tenant.
+   - Superadmin can view/change all tenant configs.
+   - Regular users see status + can use account but cannot modify.
+
+8. **Design Notes**
+   - Use shadcn/ui cards for sections (Incoming Email, Outgoing Email, Preferences, Help).
+   - Replace 17hats’ heavy styling with modern, minimal Tailwind (white background, rounded-xl, shadow-md).
+   - Use Alerts for warnings (e.g. mismatched from header).
+   - Keep layout compact and mobile-friendly.
+
+**Do not remove working code. Extend incrementally.**
+Ask for clarification if a screenshot detail is ambiguous.

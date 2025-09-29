@@ -1238,6 +1238,40 @@ export const insertTenantEmailPrefsSchema = createInsertSchema(tenantEmailPrefs)
 export type TenantEmailPrefs = typeof tenantEmailPrefs.$inferSelect;
 export type InsertTenantEmailPrefs = z.infer<typeof insertTenantEmailPrefsSchema>;
 
+// Email Provider Integrations table (OAuth tokens per user+tenant)
+export const emailProviderIntegrations = pgTable("email_provider_integrations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").notNull().references(() => tenants.id),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  provider: text("provider").notNull(), // 'google' | 'microsoft'
+  status: text("status").notNull().default('connected'), // 'connected' | 'disconnected' | 'error'
+  accountEmail: text("account_email"), // primary email returned by provider
+  scopes: text("scopes").array(), // granted scopes
+  accessTokenEnc: text("access_token_enc"), // encrypted at rest
+  refreshTokenEnc: text("refresh_token_enc"), // encrypted at rest
+  expiresAt: timestamp("expires_at"),
+  metadata: text("metadata"), // JSONB - e.g. token_type, idp ids
+  lastSyncedAt: timestamp("last_synced_at"),
+  nextSyncCursor: text("next_sync_cursor"), // Gmail historyId / Graph deltaLink
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  tenantUserProviderUnique: unique("email_provider_integrations_tenant_user_provider_unique").on(table.tenantId, table.userId, table.provider),
+  tenantIdIdx: index("email_provider_integrations_tenant_id_idx").on(table.tenantId),
+  userIdIdx: index("email_provider_integrations_user_id_idx").on(table.userId),
+  statusIdx: index("email_provider_integrations_status_idx").on(table.status),
+}));
+
+// Insert schemas and types for email provider integrations
+export const insertEmailProviderIntegrationSchema = createInsertSchema(emailProviderIntegrations).omit({ 
+  id: true, 
+  createdAt: true, 
+  updatedAt: true 
+});
+
+export type EmailProviderIntegration = typeof emailProviderIntegrations.$inferSelect;
+export type InsertEmailProviderIntegration = z.infer<typeof insertEmailProviderIntegrationSchema>;
+
 // Email Provider Configurations table
 export const emailProviderConfigs = pgTable("email_provider_configs", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),

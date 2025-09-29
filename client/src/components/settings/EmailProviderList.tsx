@@ -78,6 +78,21 @@ const providerDisplayInfo = {
   postmark: { name: 'Postmark', icon: Globe, color: 'bg-yellow-500' }
 };
 
+interface EmailProviderCatalog {
+  id: string;
+  code: string;
+  displayName: string;
+  authType: string;
+  imapHost?: string;
+  imapPort?: number;
+  imapSecure?: boolean;
+  smtpHost?: string;
+  smtpPort?: number;
+  smtpSecure?: boolean;
+  helpBlurb?: string;
+  isActive: boolean;
+}
+
 export default function EmailProviderList() {
   const [showPicker, setShowPicker] = useState(false);
   const [editingConfig, setEditingConfig] = useState<EmailProviderConfig | null>(null);
@@ -85,7 +100,13 @@ export default function EmailProviderList() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  // Fetch email provider configurations
+  // Fetch email provider catalog (global list)
+  const { data: providersData, isLoading: providersLoading } = useQuery({
+    queryKey: ['/api/email/providers'],
+    select: (data: any) => data.providers as EmailProviderCatalog[]
+  });
+
+  // Fetch email provider configurations (user's configured providers)
   const { data: configs, isLoading, error } = useQuery({
     queryKey: ['/api/email-provider-configs'],
     select: (data: any) => data.configs as EmailProviderConfig[]

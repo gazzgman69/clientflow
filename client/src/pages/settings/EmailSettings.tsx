@@ -1,22 +1,18 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
-import { MailForm } from '@/components/settings/MailForm';
-import SignatureManagement from '@/components/settings/SignatureManagement';
-import EmailOverviewTab from '@/components/settings/EmailOverviewTab';
+import { Switch } from '@/components/ui/switch';
 import { apiRequest } from '@/lib/queryClient';
 import { 
   Mail, 
-  RefreshCw, 
   Send, 
   CheckCircle, 
   XCircle, 
@@ -24,13 +20,35 @@ import {
   Settings,
   Clock,
   Activity,
-  ChevronDown,
-  ChevronUp,
-  Layers,
-  FileText,
-  Edit,
-  Info
+  Info,
+  HelpCircle,
+  RefreshCw,
+  Server,
+  Eye,
+  Copy
 } from 'lucide-react';
+
+interface EmailProvider {
+  id: string;
+  code: string;
+  displayName: string;
+  category: string;
+  authType: string;
+  supportsReceive: boolean;
+  supportsSend: boolean;
+  helpUrl?: string;
+  setupComplexity: string;
+  isActive: boolean;
+}
+
+interface TenantEmailPrefs {
+  tenantId: string;
+  bccSelf: boolean;
+  readReceipts: boolean;
+  showOnDashboard: boolean;
+  contactsOnly: boolean;
+  updatedAt: Date;
+}
 
 interface MailSettings {
   id: string;
@@ -44,123 +62,80 @@ interface MailSettings {
   syncIntervalMinutes: number;
   lastTestedAt?: string;
   lastTestResult?: 'ok' | 'fail';
-  lastTestError?: string;
-  quotaUsed: number;
-  quotaLimit: number;
-  quotaResetAt?: string;
   consecutiveFailures: number;
   createdAt: string;
   updatedAt: string;
 }
 
-interface AuditLog {
-  id: string;
-  kind: string;
-  ok: boolean;
-  error?: string;
-  durationMs: number;
-  createdAt: string;
-  meta?: string;
-}
-
 export default function EmailSettings() {
-  const [showForm, setShowForm] = useState(false);
   const [alertMessage, setAlertMessage] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [selectedProvider, setSelectedProvider] = useState<string>('');
   const [testEmailData, setTestEmailData] = useState({
     to: '',
-    subject: 'Test Email from CRM',
-    body: 'This is a test email to verify your email provider configuration is working correctly.',
+    subject: 'Test Email from BusinessCRM',
+    body: 'This is a test email to verify your email configuration is working correctly.',
     provider: 'gmail' as 'gmail' | 'microsoft' | 'smtp'
   });
-  const [testEmailError, setTestEmailError] = useState('');
   const [testEmailResult, setTestEmailResult] = useState<any>(null);
-  const [showRawError, setShowRawError] = useState(false);
   const queryClient = useQueryClient();
 
+  // Fetch email providers catalog
+  const { data: providersData, isLoading: providersLoading } = useQuery({
+    queryKey: ['/api/email/provider-catalog/active']
+  });
+
+  // Fetch tenant email preferences
+  const { data: prefsData } = useQuery({
+    queryKey: ['/api/email/tenant-prefs']
+  });
+
   // Fetch current mail settings
-  const { data: settingsData, isLoading: settingsLoading, error: settingsError } = useQuery({
+  const { data: settingsData } = useQuery({
     queryKey: ['/api/settings/mail/current']
   });
 
-  // Fetch audit logs
-  const { data: logsData, isLoading: logsLoading } = useQuery({
-    queryKey: ['/api/settings/mail/logs?limit=20']
-  });
+  const providers = (providersData as any)?.providers || [];
+  const prefs = (prefsData as any)?.prefs as TenantEmailPrefs;
+  const settings = (settingsData as any)?.settings as MailSettings | null;
 
-  // Fetch Gmail authentication status
-  const { data: gmailAuthData, isLoading: gmailAuthLoading } = useQuery({
-    queryKey: ['/api/auth/google/gmail/status'],
-    enabled: (settingsData as any)?.settings?.provider === 'gmail'
-  });
-
-  // Fetch Microsoft authentication status  
-  const { data: microsoftAuthData, isLoading: microsoftAuthLoading } = useQuery({
-    queryKey: ['/api/auth/microsoft/mail/status'],
-    enabled: (settingsData as any)?.settings?.provider === 'microsoft'
-  });
-
-  // Test connection mutation
-  const testConnectionMutation = useMutation({
-    mutationFn: async () => {
-      const response = await apiRequest('POST', '/api/settings/mail/test');
+  // Update preferences mutation
+  const updatePrefsMutation = useMutation({
+    mutationFn: async (updates: Partial<TenantEmailPrefs>) => {
+      const response = await apiRequest('PUT', '/api/email/tenant-prefs', updates);
       return response.json();
     },
-    onSuccess: (data) => {
-      setAlertMessage({
-        type: data.success ? 'success' : 'error',
-        message: data.message || (data.success ? 'Connection test successful' : 'Connection test failed')
-      });
-      queryClient.invalidateQueries({ queryKey: ['mail-settings'] });
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/email/tenant-prefs'] });
+      setAlertMessage({ type: 'success', message: 'Preferences updated successfully' });
     },
-    onError: (error) => {
-      setAlertMessage({
-        type: 'error',
-        message: 'Failed to test connection'
-      });
+    onError: () => {
+      setAlertMessage({ type: 'error', message: 'Failed to update preferences' });
     }
   });
 
   // Send test email mutation
   const sendTestMutation = useMutation({
-    mutationFn: async () => {
-      const response = await apiRequest('POST', '/api/settings/mail/send-test');
-      return response.json();
-    },
-    onSuccess: (data) => {
-      setAlertMessage({
-        type: data.success ? 'success' : 'error',
-        message: data.message || (data.success ? 'Test email sent successfully' : 'Failed to send test email')
-      });
-      queryClient.invalidateQueries({ queryKey: ['mail-settings'] });
-    },
-    onError: (error) => {
-      setAlertMessage({
-        type: 'error',
-        message: 'Failed to send test email'
-      });
-    }
-  });
-
-  // Debug test email mutation (calls the new debug endpoint)
-  const debugTestEmailMutation = useMutation({
     mutationFn: async (data: { to: string; provider: string; fromEmail?: string }) => {
       const response = await apiRequest('POST', '/api/email/debug/send-test-email', data);
       return response.json();
     },
     onSuccess: (data) => {
       setTestEmailResult(data);
-      setTestEmailError('');
+      if (data.success) {
+        setAlertMessage({ type: 'success', message: 'Test email sent successfully' });
+      }
     },
     onError: (error: any) => {
-      setTestEmailError(error.message || 'Failed to send test email');
-      setTestEmailResult(null);
+      setAlertMessage({ type: 'error', message: 'Failed to send test email' });
     }
   });
 
-  const settings = (settingsData as any)?.settings as MailSettings | null;
-  const logs = (logsData as any)?.logs as AuditLog[] || [];
+  // Get selected provider details
+  const selectedProviderDetails = providers.find((p: EmailProvider) => p.code === selectedProvider);
 
-  const formatDate = (dateString: string) => {
+  // Format date
+  const formatDate = (dateString?: string) => {
+    if (!dateString) return 'Never';
     return new Date(dateString).toLocaleDateString('en-GB', {
       day: '2-digit',
       month: '2-digit',
@@ -171,96 +146,6 @@ export default function EmailSettings() {
     });
   };
 
-  const getQuotaColor = (used: number, limit: number) => {
-    const percentage = (used / limit) * 100;
-    if (percentage >= 90) return 'text-red-600';
-    if (percentage >= 80) return 'text-orange-600';
-    return 'text-green-600';
-  };
-
-  const getStatusIcon = (result?: string) => {
-    if (result === 'ok') return <CheckCircle className="h-4 w-4 text-green-600" />;
-    if (result === 'fail') return <XCircle className="h-4 w-4 text-red-600" />;
-    return <Clock className="h-4 w-4 text-gray-400" />;
-  };
-
-  const handleSendTestEmail = () => {
-    // Validate required fields
-    if (!testEmailData.to.trim()) {
-      setTestEmailError('Email address is required');
-      return;
-    }
-    
-    setTestEmailError('');
-    setTestEmailResult(null);
-    
-    debugTestEmailMutation.mutate({
-      to: testEmailData.to,
-      provider: testEmailData.provider,
-      fromEmail: (settingsData as any)?.settings?.fromEmail
-    });
-  };
-
-  // Re-authenticate with OAuth providers
-  const handleReAuthenticate = () => {
-    if (!(settingsData as any)?.settings?.provider) return;
-    
-    const returnTo = encodeURIComponent('/settings');
-    
-    switch ((settingsData as any)?.settings?.provider) {
-      case 'gmail':
-        // Redirect to Gmail OAuth with required scopes
-        window.location.href = `/auth/google/gmail?returnTo=${returnTo}&popup=false`;
-        break;
-      case 'microsoft':
-        // Redirect to Microsoft OAuth with mail scopes  
-        window.location.href = `/auth/microsoft/mail?returnTo=${returnTo}&popup=false`;
-        break;
-      default:
-        setAlertMessage({
-          type: 'error',
-          message: 'Re-authentication not available for this provider'
-        });
-    }
-  };
-
-  // Get authentication status for current provider
-  const getAuthStatus = () => {
-    if (!(settingsData as any)?.settings?.provider) return null;
-    
-    switch ((settingsData as any)?.settings?.provider) {
-      case 'gmail':
-        return gmailAuthData;
-      case 'microsoft':  
-        return microsoftAuthData;
-      default:
-        return null;
-    }
-  };
-
-  // Check if scopes are missing
-  const hasMissingScopes = () => {
-    const authStatus = getAuthStatus();
-    if (!authStatus || !authStatus.connected) return false;
-    
-    const scopes = authStatus.scopes || [];
-    
-    if ((settingsData as any)?.settings?.provider === 'gmail') {
-      const requiredScopes = [
-        'https://www.googleapis.com/auth/gmail.readonly',
-        'https://www.googleapis.com/auth/gmail.send'
-      ];
-      return !requiredScopes.every(scope => scopes.includes(scope));
-    }
-    
-    if ((settingsData as any)?.settings?.provider === 'microsoft') {
-      const requiredScopes = ['Mail.Read', 'Mail.Send'];
-      return !requiredScopes.every(scope => scopes.includes(scope));
-    }
-    
-    return false;
-  };
-
   // Clear alert after 5 seconds
   useEffect(() => {
     if (alertMessage) {
@@ -269,46 +154,29 @@ export default function EmailSettings() {
     }
   }, [alertMessage]);
 
-  if (settingsLoading) {
-    return (
-      <div className="p-6">
-        <div className="max-w-4xl mx-auto">
-          <div className="flex items-center space-x-2 mb-6">
-            <Mail className="h-6 w-6" />
-            <h1 className="text-2xl font-bold">Email Settings</h1>
-          </div>
-          <div className="animate-pulse">
-            <div className="h-32 bg-gray-200 rounded mb-4"></div>
-            <div className="h-24 bg-gray-200 rounded"></div>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  // Copy to clipboard
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
+    setAlertMessage({ type: 'success', message: 'Copied to clipboard' });
+  };
 
   return (
     <div className="p-6 overflow-y-auto" data-testid="email-settings-page">
-      <div className="max-w-4xl mx-auto">
+      <div className="max-w-5xl mx-auto space-y-6">
         {/* Header */}
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center space-x-2">
-            <Mail className="h-6 w-6" />
-            <h1 className="text-2xl font-bold">Email Settings</h1>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-3">
+            <Mail className="h-8 w-8 text-primary" />
+            <div>
+              <h1 className="text-3xl font-bold">Email Settings</h1>
+              <p className="text-muted-foreground">Manage your email integration and preferences</p>
+            </div>
           </div>
-          {!settings && (
-            <Button 
-              onClick={() => setShowForm(true)} 
-              data-testid="button-add-email-account"
-            >
-              <Settings className="h-4 w-4 mr-2" />
-              Add Email Account
-            </Button>
-          )}
         </div>
 
         {/* Alert Messages */}
         {alertMessage && (
-          <Alert className={`mb-6 ${alertMessage.type === 'error' ? 'border-red-200 bg-red-50' : 'border-green-200 bg-green-50'}`}>
+          <Alert className={`${alertMessage.type === 'error' ? 'border-red-200 bg-red-50' : 'border-green-200 bg-green-50'}`}>
             <AlertTriangle className="h-4 w-4" />
             <AlertDescription className={alertMessage.type === 'error' ? 'text-red-800' : 'text-green-800'}>
               {alertMessage.message}
@@ -316,153 +184,346 @@ export default function EmailSettings() {
           </Alert>
         )}
 
-        {/* Settings Display */}
-        <Tabs defaultValue="overview" className="space-y-6">
-          <TabsList>
-            <TabsTrigger value="overview">
-              <Info className="h-4 w-4 mr-2" />
-              Overview
-            </TabsTrigger>
-            <TabsTrigger value="logs">
-              <Activity className="h-4 w-4 mr-2" />
-              Activity Logs
-            </TabsTrigger>
-            <TabsTrigger value="signatures">
-              <FileText className="h-4 w-4 mr-2" />
-              Signatures
-            </TabsTrigger>
-            {settings && (
-              <TabsTrigger value="edit">
-                <Edit className="h-4 w-4 mr-2" />
-                Edit Settings
-              </TabsTrigger>
-            )}
-            {!settings && (
-              <TabsTrigger value="setup">
-                <Settings className="h-4 w-4 mr-2" />
-                Setup Email
-              </TabsTrigger>
-            )}
-          </TabsList>
+        {/* About Email Settings */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center">
+              <Info className="h-5 w-5 mr-2" />
+              About Email Settings
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            <p className="text-sm text-muted-foreground">
+              Connect your email account to sync conversations, send emails directly from BusinessCRM, and enable automated workflows.
+            </p>
+            <p className="text-sm text-muted-foreground">
+              We support Google Workspace, Microsoft 365, iCloud, Yahoo, and many other providers with secure OAuth or IMAP/SMTP connections.
+            </p>
+          </CardContent>
+        </Card>
 
-          {/* Overview Tab - 17hats style */}
-          <TabsContent value="overview" className="space-y-6">
-            <EmailOverviewTab />
-          </TabsContent>
+        {/* Incoming Email */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center">
+              <Mail className="h-5 w-5 mr-2" />
+              Incoming Email
+            </CardTitle>
+            <CardDescription>
+              {settings ? `Last synced: ${formatDate(settings.updatedAt)}` : 'No email account connected'}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {settings ? (
+              <>
+                <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
+                  <div className="flex items-center space-x-3">
+                    <CheckCircle className="h-5 w-5 text-green-600" />
+                    <div>
+                      <p className="font-medium">{settings.name}</p>
+                      <p className="text-sm text-muted-foreground">{settings.fromEmail}</p>
+                    </div>
+                  </div>
+                  <Badge variant={settings.isActive ? 'default' : 'secondary'}>
+                    {settings.isActive ? 'Active' : 'Inactive'}
+                  </Badge>
+                </div>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-2">
+                    <Eye className="h-4 w-4 text-muted-foreground" />
+                    <Label htmlFor="show-dashboard">Show emails on dashboard</Label>
+                  </div>
+                  <Switch
+                    id="show-dashboard"
+                    checked={prefs?.showOnDashboard ?? true}
+                    onCheckedChange={(checked) => updatePrefsMutation.mutate({ showOnDashboard: checked })}
+                  />
+                </div>
+              </>
+            ) : (
+              <div className="text-center py-8">
+                <Mail className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
+                <p className="text-muted-foreground mb-4">No email account connected</p>
+                <Button data-testid="button-connect-email">
+                  <Settings className="h-4 w-4 mr-2" />
+                  Connect Email Account
+                </Button>
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
-          {/* Activity Logs Tab */}
-          <TabsContent value="logs" className="space-y-6">
-            <Card data-testid="card-activity-logs">
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <Activity className="h-5 w-5 mr-2" />
-                  Recent Activity
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {logsLoading ? (
-                  <div className="animate-pulse space-y-2">
-                    {[1, 2, 3].map(i => (
-                      <div key={i} className="h-12 bg-gray-200 rounded"></div>
-                    ))}
+        {/* Outgoing Email */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center">
+              <Send className="h-5 w-5 mr-2" />
+              Outgoing Email
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {settings ? (
+              <>
+                <div className="grid gap-3">
+                  <div className="flex justify-between">
+                    <span className="text-sm font-medium">Email Sent As:</span>
+                    <span className="text-sm text-muted-foreground">{settings.fromEmail}</span>
                   </div>
-                ) : logs.length > 0 ? (
-                  <div className="space-y-2">
-                    {logs.map((log) => (
-                      <div 
-                        key={log.id} 
-                        className="flex items-center justify-between p-3 border rounded-lg"
-                        data-testid={`log-entry-${log.kind}`}
-                      >
-                        <div className="flex items-center space-x-3">
-                          {log.ok ? (
-                            <CheckCircle className="h-4 w-4 text-green-600" />
-                          ) : (
-                            <XCircle className="h-4 w-4 text-red-600" />
-                          )}
-                          <div>
-                            <p className="text-sm font-medium capitalize">
-                              {log.kind.replace(/([A-Z])/g, ' $1').toLowerCase()}
-                            </p>
-                            {log.error && (
-                              <p className="text-xs text-red-600">{log.error}</p>
-                            )}
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-xs text-gray-500" data-testid="text-log-time">
-                            {formatDate(log.createdAt)}
-                          </p>
-                          {log.durationMs > 0 && (
-                            <p className="text-xs text-gray-400">{log.durationMs}ms</p>
-                          )}
-                        </div>
-                      </div>
-                    ))}
+                  <div className="flex justify-between">
+                    <span className="text-sm font-medium">Outgoing Server:</span>
+                    <span className="text-sm text-muted-foreground capitalize">
+                      {settings.provider || 'Not configured'}
+                    </span>
                   </div>
-                ) : (
-                  <p className="text-gray-500 text-center py-8" data-testid="text-no-logs">
-                    No activity logs found
+                </div>
+
+                <Separator />
+
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <Label htmlFor="bcc-self">BCC you on all outgoing mail</Label>
+                      <p className="text-xs text-muted-foreground">Receive a copy of every email you send</p>
+                    </div>
+                    <Switch
+                      id="bcc-self"
+                      checked={prefs?.bccSelf ?? false}
+                      onCheckedChange={(checked) => updatePrefsMutation.mutate({ bccSelf: checked })}
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <Label htmlFor="read-receipts">Enable Read Receipts</Label>
+                      <p className="text-xs text-muted-foreground">May increase spam score</p>
+                    </div>
+                    <Switch
+                      id="read-receipts"
+                      checked={prefs?.readReceipts ?? false}
+                      onCheckedChange={(checked) => updatePrefsMutation.mutate({ readReceipts: checked })}
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <Label htmlFor="contacts-only">Only sync emails from contacts</Label>
+                      <p className="text-xs text-muted-foreground">Filter inbox to known contacts only</p>
+                    </div>
+                    <Switch
+                      id="contacts-only"
+                      checked={prefs?.contactsOnly ?? true}
+                      onCheckedChange={(checked) => updatePrefsMutation.mutate({ contactsOnly: checked })}
+                    />
+                  </div>
+                </div>
+
+                <Button variant="outline" data-testid="button-change-server">
+                  <Server className="h-4 w-4 mr-2" />
+                  Change Outgoing Server
+                </Button>
+              </>
+            ) : (
+              <p className="text-sm text-muted-foreground text-center py-4">
+                Connect an email account to configure outgoing settings
+              </p>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Email Help */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center">
+              <HelpCircle className="h-5 w-5 mr-2" />
+              Email Help
+            </CardTitle>
+            <CardDescription>Select your email provider to view setup instructions</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label>Select Your Email Provider</Label>
+              <Select value={selectedProvider} onValueChange={setSelectedProvider}>
+                <SelectTrigger data-testid="select-email-provider">
+                  <SelectValue placeholder="Choose a provider..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {providersLoading ? (
+                    <SelectItem value="loading" disabled>Loading providers...</SelectItem>
+                  ) : providers.length > 0 ? (
+                    providers.map((provider: EmailProvider) => (
+                      <SelectItem key={provider.id} value={provider.code}>
+                        {provider.displayName}
+                      </SelectItem>
+                    ))
+                  ) : (
+                    <SelectItem value="none" disabled>No providers available</SelectItem>
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {selectedProviderDetails && (
+              <div className="p-4 bg-muted rounded-lg space-y-3">
+                <h4 className="font-medium">{selectedProviderDetails.displayName}</h4>
+                
+                {selectedProviderDetails.helpUrl && (
+                  <p className="text-sm text-muted-foreground">
+                    {selectedProviderDetails.helpUrl}
                   </p>
                 )}
-              </CardContent>
-            </Card>
-          </TabsContent>
 
-          {/* Signatures Tab */}
-          <TabsContent value="signatures">
-            <SignatureManagement />
-          </TabsContent>
+                <div className="grid grid-cols-2 gap-3 text-sm">
+                  <div className="flex justify-between items-center p-2 bg-background rounded">
+                    <span className="font-medium">Auth Type:</span>
+                    <Badge variant="outline" className="capitalize">
+                      {selectedProviderDetails.authType}
+                    </Badge>
+                  </div>
+                  <div className="flex justify-between items-center p-2 bg-background rounded">
+                    <span className="font-medium">Complexity:</span>
+                    <Badge variant="outline" className="capitalize">
+                      {selectedProviderDetails.setupComplexity}
+                    </Badge>
+                  </div>
+                </div>
 
-          {/* Edit Settings Tab */}
-          {settings && (
-            <TabsContent value="edit">
-              <MailForm 
-                initialData={settings} 
-                onSuccess={() => {
-                  setAlertMessage({ type: 'success', message: 'Email settings updated successfully' });
-                  queryClient.invalidateQueries({ queryKey: ['mail-settings'] });
-                }} 
-                onCancel={() => {}}
-              />
-            </TabsContent>
-          )}
+                <div className="flex gap-2 text-xs text-muted-foreground">
+                  {selectedProviderDetails.supportsReceive && (
+                    <Badge variant="secondary">Incoming ✓</Badge>
+                  )}
+                  {selectedProviderDetails.supportsSend && (
+                    <Badge variant="secondary">Outgoing ✓</Badge>
+                  )}
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
-          {/* Setup Tab (when no settings) */}
-          {!settings && (
-            <TabsContent value="setup">
-              <Card data-testid="card-no-settings">
-                <CardContent className="text-center py-12">
-                  <Mail className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-                  <h3 className="text-lg font-semibold mb-2">No Email Account Configured</h3>
-                  <p className="text-gray-600 mb-6">
-                    Set up your email account to enable email sync, sending, and automated workflows.
-                  </p>
-                  <Button 
-                    onClick={() => setShowForm(true)}
-                    size="lg"
-                    data-testid="button-setup-email"
-                  >
-                    <Settings className="h-4 w-4 mr-2" />
-                    Setup Email Account
-                  </Button>
-                </CardContent>
-              </Card>
-            </TabsContent>
-          )}
-        </Tabs>
+        {/* Send Test Email */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center">
+              <Send className="h-5 w-5 mr-2" />
+              Send Test Email
+            </CardTitle>
+            <CardDescription>Test your email configuration by sending a test message</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="test-email-to">Recipient Email</Label>
+                <Input
+                  id="test-email-to"
+                  type="email"
+                  placeholder="recipient@example.com"
+                  value={testEmailData.to}
+                  onChange={(e) => setTestEmailData({ ...testEmailData, to: e.target.value })}
+                  data-testid="input-test-email-to"
+                />
+              </div>
 
-        {/* Email Setup Form Modal */}
-        {showForm && (
-          <MailForm 
-            onSuccess={() => {
-              setShowForm(false);
-              setAlertMessage({ type: 'success', message: 'Email account configured successfully' });
-              queryClient.invalidateQueries({ queryKey: ['mail-settings'] });
-            }} 
-            onCancel={() => setShowForm(false)}
-          />
-        )}
+              <div className="space-y-2">
+                <Label htmlFor="test-email-subject">Subject</Label>
+                <Input
+                  id="test-email-subject"
+                  value={testEmailData.subject}
+                  onChange={(e) => setTestEmailData({ ...testEmailData, subject: e.target.value })}
+                  data-testid="input-test-email-subject"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="test-email-body">Message</Label>
+                <Textarea
+                  id="test-email-body"
+                  value={testEmailData.body}
+                  onChange={(e) => setTestEmailData({ ...testEmailData, body: e.target.value })}
+                  rows={4}
+                  data-testid="textarea-test-email-body"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="test-email-provider">Provider</Label>
+                <Select 
+                  value={testEmailData.provider} 
+                  onValueChange={(value: any) => setTestEmailData({ ...testEmailData, provider: value })}
+                >
+                  <SelectTrigger id="test-email-provider" data-testid="select-test-provider">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="gmail">Gmail</SelectItem>
+                    <SelectItem value="microsoft">Microsoft</SelectItem>
+                    <SelectItem value="smtp">SMTP</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <Button
+              onClick={() => sendTestMutation.mutate({
+                to: testEmailData.to,
+                provider: testEmailData.provider,
+                fromEmail: settings?.fromEmail
+              })}
+              disabled={!testEmailData.to || sendTestMutation.isPending}
+              data-testid="button-send-test-email"
+            >
+              {sendTestMutation.isPending ? (
+                <>
+                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                  Sending...
+                </>
+              ) : (
+                <>
+                  <Send className="h-4 w-4 mr-2" />
+                  Send Test Email
+                </>
+              )}
+            </Button>
+
+            {testEmailResult && (
+              <div className={`p-4 rounded-lg ${testEmailResult.success ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'}`}>
+                <div className="flex items-start space-x-3">
+                  {testEmailResult.success ? (
+                    <CheckCircle className="h-5 w-5 text-green-600 mt-0.5" />
+                  ) : (
+                    <XCircle className="h-5 w-5 text-red-600 mt-0.5" />
+                  )}
+                  <div className="flex-1 space-y-2">
+                    <p className={`font-medium ${testEmailResult.success ? 'text-green-900' : 'text-red-900'}`}>
+                      {testEmailResult.message}
+                    </p>
+                    {testEmailResult.testDetails && (
+                      <div className="text-sm space-y-1">
+                        <p><span className="font-medium">Provider:</span> {testEmailResult.testDetails.provider}</p>
+                        <p><span className="font-medium">Timestamp:</span> {formatDate(testEmailResult.testDetails.timestamp)}</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Activity Logs (Optional) */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center">
+              <Activity className="h-5 w-5 mr-2" />
+              Recent Activity
+            </CardTitle>
+            <CardDescription>Email sync and delivery logs</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground text-center py-4">
+              Activity logs will appear here
+            </p>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );

@@ -105,10 +105,21 @@ export default function EmailSettings() {
     queryKey: ['/api/auth/google/gmail/status']
   });
 
+  // Fetch Microsoft connection status
+  const { data: microsoftStatusData, isLoading: microsoftStatusLoading } = useQuery({
+    queryKey: ['/api/auth/microsoft/status']
+  });
+
   const providers = (providersData as any)?.providers || [];
   const prefs = (prefsData as any)?.prefs as TenantEmailPrefs;
   const settings = (settingsData as any)?.settings as MailSettings | null;
   const gmailStatus = (gmailStatusData as any) || { ok: false, connected: false };
+  const microsoftStatus = (microsoftStatusData as any) || { ok: false, connected: false };
+  
+  // Determine which provider is connected (including needs reconnect state)
+  const connectedProvider = (gmailStatus.connected || gmailStatus.needsReconnect) ? 'gmail' : (microsoftStatus.connected || microsoftStatus.needsReconnect) ? 'microsoft' : null;
+  const providerStatus = connectedProvider === 'gmail' ? gmailStatus : connectedProvider === 'microsoft' ? microsoftStatus : { ok: false, connected: false };
+  const providerLoading = gmailStatusLoading || microsoftStatusLoading;
 
   // Update preferences mutation
   const updatePrefsMutation = useMutation({
@@ -142,18 +153,25 @@ export default function EmailSettings() {
     }
   });
 
-  // Disconnect Gmail mutation
-  const disconnectGmailMutation = useMutation({
+  // Disconnect provider mutation
+  const disconnectProviderMutation = useMutation({
     mutationFn: async () => {
-      const response = await apiRequest('POST', '/api/auth/google/disconnect', {});
-      return response.json();
+      if (connectedProvider === 'gmail') {
+        const response = await apiRequest('POST', '/api/auth/google/disconnect', {});
+        return response.json();
+      } else if (connectedProvider === 'microsoft') {
+        const response = await apiRequest('POST', '/api/auth/microsoft/disconnect', {});
+        return response.json();
+      }
+      throw new Error('No provider connected');
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/auth/google/gmail/status'] });
-      setAlertMessage({ type: 'success', message: 'Gmail disconnected successfully' });
+      queryClient.invalidateQueries({ queryKey: ['/api/auth/microsoft/status'] });
+      setAlertMessage({ type: 'success', message: `${connectedProvider === 'gmail' ? 'Gmail' : 'Microsoft'} disconnected successfully` });
     },
     onError: () => {
-      setAlertMessage({ type: 'error', message: 'Failed to disconnect Gmail' });
+      setAlertMessage({ type: 'error', message: 'Failed to disconnect provider' });
     }
   });
 
@@ -241,30 +259,30 @@ export default function EmailSettings() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            {/* Gmail Connection Section */}
+            {/* Email Provider Connection Section */}
             <div className="border rounded-lg p-4 space-y-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-3">
                   <Mail className="h-5 w-5 text-muted-foreground" />
                   <div>
-                    <p className="font-medium">Gmail Connection</p>
+                    <p className="font-medium">Email Provider</p>
                     <div className="flex items-center gap-2 mt-1">
-                      {gmailStatusLoading ? (
+                      {providerLoading ? (
                         <Badge variant="outline">Checking...</Badge>
-                      ) : gmailStatus.connected ? (
+                      ) : providerStatus.connected ? (
                         <>
                           <Badge variant="default" className="bg-green-600">
                             <CheckCircle className="h-3 w-3 mr-1" />
-                            Connected
+                            {connectedProvider === 'gmail' ? 'Gmail' : 'Microsoft'} Connected
                           </Badge>
-                          {gmailStatus.email && (
-                            <span className="text-sm text-muted-foreground">{gmailStatus.email}</span>
+                          {providerStatus.email && (
+                            <span className="text-sm text-muted-foreground">{providerStatus.email}</span>
                           )}
                         </>
-                      ) : gmailStatus.needsReconnect ? (
+                      ) : providerStatus.needsReconnect ? (
                         <Badge variant="destructive">
                           <AlertTriangle className="h-3 w-3 mr-1" />
-                          Needs Reconnect
+                          {connectedProvider === 'gmail' ? 'Gmail' : 'Microsoft'} - Needs Reconnect
                         </Badge>
                       ) : (
                         <Badge variant="outline">Not connected</Badge>
@@ -273,7 +291,7 @@ export default function EmailSettings() {
                   </div>
                 </div>
                 <div className="flex gap-2">
-                  {gmailStatus.connected ? (
+                  {(providerStatus.connected || providerStatus.needsReconnect) ? (
                     <>
                       <TooltipProvider>
                         <Tooltip>
@@ -281,79 +299,263 @@ export default function EmailSettings() {
                             <Button
                               variant="outline"
                               size="sm"
-                              onClick={() => window.location.href = '/api/auth/google/gmail'}
-                              data-testid="button-reconnect-gmail"
+                              onClick={() => {
+                                if (connectedProvider === 'gmail') {
+                                  window.location.href = '/api/auth/google/gmail';
+                                } else if (connectedProvider === 'microsoft') {
+                                  window.location.href = '/api/auth/microsoft/mail';
+                                }
+                              }}
+                              data-testid="button-reconnect-provider"
                             >
                               <RefreshCw className="h-4 w-4 mr-2" />
                               Reconnect
                             </Button>
                           </TooltipTrigger>
                           <TooltipContent>
-                            <p>Re-authenticate with Gmail</p>
+                            <p>Re-authenticate with {connectedProvider === 'gmail' ? 'Gmail' : 'Microsoft'}</p>
                           </TooltipContent>
                         </Tooltip>
                       </TooltipProvider>
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => disconnectGmailMutation.mutate()}
-                        disabled={disconnectGmailMutation.isPending}
-                        data-testid="button-disconnect-gmail"
+                        onClick={() => disconnectProviderMutation.mutate()}
+                        disabled={disconnectProviderMutation.isPending}
+                        data-testid="button-disconnect-provider"
                       >
                         <Unlink className="h-4 w-4 mr-2" />
                         Disconnect
                       </Button>
                     </>
                   ) : (
-                    <Button
-                      size="sm"
-                      onClick={() => window.location.href = '/api/auth/google/gmail'}
-                      data-testid="button-connect-gmail"
-                    >
-                      <LinkIcon className="h-4 w-4 mr-2" />
-                      Connect Gmail
-                    </Button>
+                    <Dialog open={showConnectDialog} onOpenChange={setShowConnectDialog}>
+                      <DialogTrigger asChild>
+                        <Button size="sm" data-testid="button-connect-provider">
+                          <LinkIcon className="h-4 w-4 mr-2" />
+                          Connect Provider
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+                        <DialogHeader>
+                          <DialogTitle>Connect Email Provider</DialogTitle>
+                          <DialogDescription>
+                            Select your email provider to configure incoming email
+                          </DialogDescription>
+                        </DialogHeader>
+                        <div className="space-y-4">
+                          {providersLoading ? (
+                            <p className="text-center py-4">Loading providers...</p>
+                          ) : selectedProviderToConnect ? (
+                            <div className="space-y-4">
+                              <div className="flex items-center space-x-3 p-3 bg-muted rounded-lg">
+                                <Mail className="h-5 w-5" />
+                                <div>
+                                  <p className="font-medium">{selectedProviderToConnect.displayName}</p>
+                                  <p className="text-sm text-muted-foreground capitalize">{selectedProviderToConnect.authType.replace('_', ' ')}</p>
+                                </div>
+                              </div>
+                              {selectedProviderToConnect.authType === 'oauth' ? (
+                                <div className="space-y-4">
+                                  <Alert>
+                                    <Info className="h-4 w-4" />
+                                    <AlertDescription>
+                                      You'll be redirected to {selectedProviderToConnect.displayName} to authorize access to your email account.
+                                    </AlertDescription>
+                                  </Alert>
+                                  <Button className="w-full" onClick={() => {
+                                    if (selectedProviderToConnect.code === 'gmail' || selectedProviderToConnect.code === 'google') {
+                                      window.location.href = '/api/auth/google/gmail';
+                                    } else if (selectedProviderToConnect.code === 'microsoft' || selectedProviderToConnect.code === 'office365') {
+                                      window.location.href = '/api/auth/microsoft/mail';
+                                    }
+                                  }}>
+                                    Connect with {selectedProviderToConnect.displayName}
+                                  </Button>
+                                </div>
+                              ) : (
+                                <div className="space-y-4">
+                                  <Alert>
+                                    <Info className="h-4 w-4" />
+                                    <AlertDescription>
+                                      Enter your IMAP/SMTP credentials to connect your email account.
+                                    </AlertDescription>
+                                  </Alert>
+                                  <div className="grid gap-4">
+                                    <div className="space-y-2">
+                                      <Label htmlFor="email-address">Email Address</Label>
+                                      <Input id="email-address" type="email" placeholder="your@email.com" />
+                                    </div>
+                                    <div className="space-y-2">
+                                      <Label htmlFor="email-password">Password or App Password</Label>
+                                      <Input id="email-password" type="password" />
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-4">
+                                      <div className="space-y-2">
+                                        <Label htmlFor="imap-server">IMAP Server</Label>
+                                        <Input id="imap-server" placeholder="imap.example.com" />
+                                      </div>
+                                      <div className="space-y-2">
+                                        <Label htmlFor="imap-port">IMAP Port</Label>
+                                        <Input id="imap-port" placeholder="993" />
+                                      </div>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-4">
+                                      <div className="space-y-2">
+                                        <Label htmlFor="smtp-server">SMTP Server</Label>
+                                        <Input id="smtp-server" placeholder="smtp.example.com" />
+                                      </div>
+                                      <div className="space-y-2">
+                                        <Label htmlFor="smtp-port">SMTP Port</Label>
+                                        <Input id="smtp-port" placeholder="465" />
+                                      </div>
+                                    </div>
+                                    <Button className="w-full">
+                                      Connect Email Account
+                                    </Button>
+                                  </div>
+                                </div>
+                              )}
+                              <Button variant="outline" onClick={() => setSelectedProviderToConnect(null)}>
+                                Back to Providers
+                              </Button>
+                            </div>
+                          ) : (
+                            <div className="grid grid-cols-1 gap-3">
+                              {providers.map((provider: EmailProvider) => (
+                                <button
+                                  key={provider.id}
+                                  onClick={() => setSelectedProviderToConnect(provider)}
+                                  className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted transition-colors text-left"
+                                  data-testid={`provider-option-${provider.code}`}
+                                >
+                                  <div className="flex items-center space-x-3">
+                                    <Mail className="h-5 w-5 text-muted-foreground" />
+                                    <div>
+                                      <p className="font-medium">{provider.displayName}</p>
+                                      <p className="text-sm text-muted-foreground capitalize">{provider.authType.replace('_', ' ')}</p>
+                                    </div>
+                                  </div>
+                                  <div className="flex gap-2">
+                                    {provider.supportsReceive && (
+                                      <Badge variant="secondary" className="text-xs">Incoming</Badge>
+                                    )}
+                                    {provider.supportsSend && (
+                                      <Badge variant="secondary" className="text-xs">Outgoing</Badge>
+                                    )}
+                                  </div>
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </DialogContent>
+                    </Dialog>
                   )}
                 </div>
               </div>
               
-              {gmailStatus.connected && (
-                <div className="flex items-center gap-4 text-xs text-muted-foreground pt-2 border-t">
-                  <div className="flex items-center gap-1">
-                    <Clock className="h-3 w-3" />
-                    <span>Last synced: {gmailStatus.lastSyncAt ? formatDate(gmailStatus.lastSyncAt) : 'Never'}</span>
+              {(providerStatus.connected || providerStatus.needsReconnect) && (
+                <>
+                  <div className="flex items-center gap-4 text-xs text-muted-foreground pt-2 border-t">
+                    <div className="flex items-center gap-1">
+                      <Clock className="h-3 w-3" />
+                      <span>Last synced: {providerStatus.lastSyncAt ? formatDate(providerStatus.lastSyncAt) : 'Never'}</span>
+                    </div>
+                    {providerStatus.scopes && providerStatus.scopes.length > 0 && (
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <div className="flex items-center gap-1 cursor-help">
+                              <Info className="h-3 w-3" />
+                              <span>{providerStatus.scopes.length} permissions</span>
+                            </div>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <div className="space-y-1">
+                              <p className="font-medium">{connectedProvider === 'gmail' ? 'Gmail' : 'Microsoft'} Permissions:</p>
+                              {providerStatus.scopes.map((scope: string, idx: number) => (
+                                <p key={idx} className="text-xs">{scope.split('/').pop()}</p>
+                              ))}
+                            </div>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    )}
                   </div>
-                  {gmailStatus.scopes && gmailStatus.scopes.length > 0 && (
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <div className="flex items-center gap-1 cursor-help">
-                            <Info className="h-3 w-3" />
-                            <span>{gmailStatus.scopes.length} permissions</span>
-                          </div>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <div className="space-y-1">
-                            <p className="font-medium">Gmail Permissions:</p>
-                            {gmailStatus.scopes.map((scope: string, idx: number) => (
-                              <p key={idx} className="text-xs">{scope.split('/').pop()}</p>
-                            ))}
-                          </div>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  )}
-                </div>
+                  <div className="flex items-center gap-2 pt-2 border-t">
+                    <Dialog>
+                      <DialogTrigger asChild>
+                        <Button variant="link" size="sm" className="h-auto p-0 text-xs">
+                          Use a different provider instead
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+                        <DialogHeader>
+                          <DialogTitle>Switch Email Provider</DialogTitle>
+                          <DialogDescription>
+                            Disconnect {connectedProvider === 'gmail' ? 'Gmail' : 'Microsoft'} and connect a different email provider
+                          </DialogDescription>
+                        </DialogHeader>
+                        <div className="space-y-4">
+                          <Alert>
+                            <AlertTriangle className="h-4 w-4" />
+                            <AlertDescription>
+                              Switching providers will disconnect your current {connectedProvider === 'gmail' ? 'Gmail' : 'Microsoft'} account. Make sure to save any important settings.
+                            </AlertDescription>
+                          </Alert>
+                          {providersLoading ? (
+                            <p className="text-center py-4">Loading providers...</p>
+                          ) : (
+                            <div className="grid grid-cols-1 gap-3">
+                              {providers.filter((p: EmailProvider) => {
+                                const currentProviderCodes = connectedProvider === 'gmail' ? ['gmail', 'google'] : ['microsoft', 'office365'];
+                                return !currentProviderCodes.includes(p.code);
+                              }).map((provider: EmailProvider) => (
+                                <button
+                                  key={provider.id}
+                                  onClick={() => {
+                                    disconnectProviderMutation.mutate();
+                                    setSelectedProviderToConnect(provider);
+                                    setShowConnectDialog(true);
+                                  }}
+                                  className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted transition-colors text-left"
+                                  data-testid={`switch-provider-${provider.code}`}
+                                >
+                                  <div className="flex items-center space-x-3">
+                                    <Mail className="h-5 w-5 text-muted-foreground" />
+                                    <div>
+                                      <p className="font-medium">{provider.displayName}</p>
+                                      <p className="text-sm text-muted-foreground capitalize">{provider.authType.replace('_', ' ')}</p>
+                                    </div>
+                                  </div>
+                                  <div className="flex gap-2">
+                                    {provider.supportsReceive && (
+                                      <Badge variant="secondary" className="text-xs">Incoming</Badge>
+                                    )}
+                                    {provider.supportsSend && (
+                                      <Badge variant="secondary" className="text-xs">Outgoing</Badge>
+                                    )}
+                                  </div>
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </DialogContent>
+                    </Dialog>
+                  </div>
+                </>
               )}
               
-              {!gmailStatus.connected && (
+              {!providerStatus.connected && (
                 <p className="text-xs text-muted-foreground">
-                  Connect your Gmail to sync messages from contacts and projects. You'll be asked to sign in with Google.
+                  Connect your email provider to sync messages from contacts and projects. Supports Gmail, Microsoft, iCloud, Yahoo, and {providers.length > 4 ? `${providers.length - 4} more providers` : 'more'}.
                 </p>
               )}
             </div>
 
-            {settings ? (
+            {(providerStatus.connected || providerStatus.needsReconnect || settings) && (
               <>
                 <Separator />
                 <div className="flex items-center justify-between">
@@ -368,133 +570,6 @@ export default function EmailSettings() {
                   />
                 </div>
               </>
-            ) : (
-              <div className="text-center py-8">
-                <Mail className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
-                <p className="text-muted-foreground mb-4">No email account connected</p>
-                <Dialog open={showConnectDialog} onOpenChange={setShowConnectDialog}>
-                  <DialogTrigger asChild>
-                    <Button data-testid="button-connect-email">
-                      <Settings className="h-4 w-4 mr-2" />
-                      Connect Email Account
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
-                    <DialogHeader>
-                      <DialogTitle>Connect Email Provider</DialogTitle>
-                      <DialogDescription>
-                        Select your email provider to configure your email settings
-                      </DialogDescription>
-                    </DialogHeader>
-                    <div className="space-y-4">
-                      {providersLoading ? (
-                        <p className="text-center py-4">Loading providers...</p>
-                      ) : selectedProviderToConnect ? (
-                        <div className="space-y-4">
-                          <div className="flex items-center space-x-3 p-3 bg-muted rounded-lg">
-                            <Mail className="h-5 w-5" />
-                            <div>
-                              <p className="font-medium">{selectedProviderToConnect.displayName}</p>
-                              <p className="text-sm text-muted-foreground capitalize">{selectedProviderToConnect.authType.replace('_', ' ')}</p>
-                            </div>
-                          </div>
-                          {selectedProviderToConnect.authType === 'oauth' ? (
-                            <div className="space-y-4">
-                              <Alert>
-                                <Info className="h-4 w-4" />
-                                <AlertDescription>
-                                  You'll be redirected to {selectedProviderToConnect.displayName} to authorize access to your email account.
-                                </AlertDescription>
-                              </Alert>
-                              <Button className="w-full" onClick={() => {
-                                if (selectedProviderToConnect.code === 'gmail' || selectedProviderToConnect.code === 'google') {
-                                  window.location.href = '/api/auth/google';
-                                } else if (selectedProviderToConnect.code === 'microsoft' || selectedProviderToConnect.code === 'office365') {
-                                  window.location.href = '/api/auth/microsoft';
-                                }
-                              }}>
-                                Connect with {selectedProviderToConnect.displayName}
-                              </Button>
-                            </div>
-                          ) : (
-                            <div className="space-y-4">
-                              <Alert>
-                                <Info className="h-4 w-4" />
-                                <AlertDescription>
-                                  Enter your IMAP/SMTP credentials to connect your email account.
-                                </AlertDescription>
-                              </Alert>
-                              <div className="grid gap-4">
-                                <div className="space-y-2">
-                                  <Label htmlFor="email-address">Email Address</Label>
-                                  <Input id="email-address" type="email" placeholder="your@email.com" />
-                                </div>
-                                <div className="space-y-2">
-                                  <Label htmlFor="email-password">Password or App Password</Label>
-                                  <Input id="email-password" type="password" />
-                                </div>
-                                <div className="grid grid-cols-2 gap-4">
-                                  <div className="space-y-2">
-                                    <Label htmlFor="imap-server">IMAP Server</Label>
-                                    <Input id="imap-server" placeholder="imap.example.com" />
-                                  </div>
-                                  <div className="space-y-2">
-                                    <Label htmlFor="imap-port">IMAP Port</Label>
-                                    <Input id="imap-port" placeholder="993" />
-                                  </div>
-                                </div>
-                                <div className="grid grid-cols-2 gap-4">
-                                  <div className="space-y-2">
-                                    <Label htmlFor="smtp-server">SMTP Server</Label>
-                                    <Input id="smtp-server" placeholder="smtp.example.com" />
-                                  </div>
-                                  <div className="space-y-2">
-                                    <Label htmlFor="smtp-port">SMTP Port</Label>
-                                    <Input id="smtp-port" placeholder="465" />
-                                  </div>
-                                </div>
-                                <Button className="w-full">
-                                  Connect Email Account
-                                </Button>
-                              </div>
-                            </div>
-                          )}
-                          <Button variant="outline" onClick={() => setSelectedProviderToConnect(null)}>
-                            Back to Providers
-                          </Button>
-                        </div>
-                      ) : (
-                        <div className="grid grid-cols-1 gap-3">
-                          {providers.map((provider: EmailProvider) => (
-                            <button
-                              key={provider.id}
-                              onClick={() => setSelectedProviderToConnect(provider)}
-                              className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted transition-colors text-left"
-                              data-testid={`provider-option-${provider.code}`}
-                            >
-                              <div className="flex items-center space-x-3">
-                                <Mail className="h-5 w-5 text-muted-foreground" />
-                                <div>
-                                  <p className="font-medium">{provider.displayName}</p>
-                                  <p className="text-sm text-muted-foreground capitalize">{provider.authType.replace('_', ' ')}</p>
-                                </div>
-                              </div>
-                              <div className="flex gap-2">
-                                {provider.supportsReceive && (
-                                  <Badge variant="secondary" className="text-xs">Incoming</Badge>
-                                )}
-                                {provider.supportsSend && (
-                                  <Badge variant="secondary" className="text-xs">Outgoing</Badge>
-                                )}
-                              </div>
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  </DialogContent>
-                </Dialog>
-              </div>
             )}
           </CardContent>
         </Card>

@@ -17,6 +17,26 @@ import { google } from 'googleapis';
 
 const router = Router();
 
+/**
+ * Get available email providers from catalog (OAuth-enabled only)
+ */
+router.get('/providers', async (req, res) => {
+  try {
+    if (!req.session?.userId || !req.session?.tenantId) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
+
+    // Get all OAuth providers from catalog
+    const providers = await storage.getEmailProviderCatalog();
+    const oauthProviders = providers.filter(p => p.type === 'oauth');
+
+    res.json({ ok: true, providers: oauthProviders });
+  } catch (error: any) {
+    console.error('❌ Failed to fetch email providers:', error);
+    res.status(500).json({ ok: false, error: error.message });
+  }
+});
+
 // Configure multer for file uploads (temporary storage)
 const upload = multer({ 
   dest: path.join(process.cwd(), 'temp-uploads'),

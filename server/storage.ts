@@ -28,6 +28,7 @@ import {
   type EmailSignature, type InsertEmailSignature,
   type EmailProviderCatalog, type InsertEmailProviderCatalog,
   type EmailProviderConfig, type InsertEmailProviderConfig,
+  type EmailProviderIntegration, type InsertEmailProviderIntegration,
   type TenantEmailPrefs, type InsertTenantEmailPrefs,
   type PortalForm, type InsertPortalForm,
   type PaymentSession, type InsertPaymentSession,
@@ -54,7 +55,7 @@ import {
   users, leads, contacts, projects, quotes, contracts, invoices, tasks, emails, emailThreads, activities, automations, 
   members, venues, projectMembers, memberAvailability, projectFiles, projectNotes, smsMessages, 
   messageTemplates, messageThreads, events, calendarIntegrations, calendarSyncLog, templates, leadCaptureForms,
-  leadStatusHistory, emailSignatures, emailProviderCatalog, emailProviderConfigs, tenantEmailPrefs, portalForms, paymentSessions, webhookEvents, tenants,
+  leadStatusHistory, emailSignatures, emailProviderCatalog, emailProviderConfigs, emailProviderIntegrations, tenantEmailPrefs, portalForms, paymentSessions, webhookEvents, tenants,
   // Enhanced Quotes System tables
   quotePackages, quoteAddons, quoteItems, quoteTokens, quoteSignatures,
   // Quote Extra Info System tables
@@ -386,6 +387,12 @@ export interface IStorage {
   createEmailProviderConfig(config: InsertEmailProviderConfig, tenantId: string): Promise<EmailProviderConfig>;
   updateEmailProviderConfig(id: string, config: Partial<InsertEmailProviderConfig>, tenantId: string): Promise<EmailProviderConfig | undefined>;
   deleteEmailProviderConfig(id: string, tenantId: string): Promise<boolean>;
+
+  // Email Provider OAuth Integrations
+  getActiveEmailProvider(userId: string, tenantId: string): Promise<EmailProviderIntegration | null>;
+  getEmailProviderIntegration(userId: string, tenantId: string, provider: string): Promise<EmailProviderIntegration | null>;
+  upsertEmailProviderIntegration(integration: InsertEmailProviderIntegration, tenantId: string): Promise<EmailProviderIntegration>;
+  disconnectEmailProvider(userId: string, tenantId: string, provider: string): Promise<boolean>;
   setPrimaryEmailProviderConfig(id: string, tenantId: string): Promise<boolean>;
   updateEmailProviderConfigHealth(id: string, isHealthy: boolean, consecutiveFailures: number, tenantId: string): Promise<boolean>;
   updateEmailProviderConfigUsage(id: string, messagesSent?: number, messagesReceived?: number, tenantId: string): Promise<boolean>;
@@ -5350,6 +5357,140 @@ export class DrizzleStorage implements IStorage {
       .where(and(
         eq(emailProviderConfigs.id, id),
         eq(emailProviderConfigs.tenantId, tenantId)
+      ))
+      .returning();
+    
+    return result.length > 0;
+  }
+
+  // Email Provider OAuth Integrations
+  async getActiveEmailProvider(userId: string, tenantId: string): Promise<EmailProviderIntegration | null> {
+    const result = await this.db
+      .select()
+      .from(emailProviderIntegrations)
+      .where(and(
+        eq(emailProviderIntegrations.tenantId, tenantId),
+        eq(emailProviderIntegrations.userId, userId),
+        eq(emailProviderIntegrations.status, 'connected')
+      ))
+      .orderBy(desc(emailProviderIntegrations.updatedAt))
+      .limit(1);
+    
+    if (!result[0]) return null;
+
+    // Decrypt tokens
+    const integration = result[0];
+    if (integration.accessTokenEnc) {
+      integration.accessTokenEnc = secureStore.decrypt(integration.accessTokenEnc);
+    }
+    if (integration.refreshTokenEnc) {
+      integration.refreshTokenEnc = secureStore.decrypt(integration.refreshTokenEnc);
+    }
+    
+    return integration;
+  }
+
+  async getEmailProviderIntegration(userId: string, tenantId: string, provider: string): Promise<EmailProviderIntegration | null> {
+    const result = await this.db
+      .select()
+      .from(emailProviderIntegrations)
+      .where(and(
+        eq(emailProviderIntegrations.tenantId, tenantId),
+        eq(emailProviderIntegrations.userId, userId),
+        eq(emailProviderIntegrations.provider, provider)
+      ))
+      .limit(1);
+    
+    if (!result[0]) return null;
+
+    // Decrypt tokens
+    const integration = result[0];
+    if (integration.accessTokenEnc) {
+      integration.accessTokenEnc = secureStore.decrypt(integration.accessTokenEnc);
+    }
+    if (integration.refreshTokenEnc) {
+      integration.refreshTokenEnc = secureStore.decrypt(integration.refreshTokenEnc);
+    }
+    
+    return integration;
+  }
+
+  async upsertEmailProviderIntegration(integration: InsertEmailProviderIntegration, tenantId: string): Promise<EmailProviderIntegration> {
+    // Ensure tenant scoping
+    if (!tenantId) {
+      throw new Error('tenantId is required for email provider integration operations');
+    }
+
+    // When connecting a new provider, set all other providers for this user/tenant to 'disconnected'
+    if (integration.status === 'connected') {
+      await this.db
+        .update(emailProviderIntegrations)
+        .set({ 
+          status: 'disconnected',
+          updatedAt: new Date()
+        })
+        .where(and(
+          eq(emailProviderIntegrations.tenantId, tenantId),
+          eq(emailProviderIntegrations.userId, integration.userId)
+        ));
+    }
+
+    // Encrypt tokens before storage
+    const encryptedIntegration = { ...integration };
+    if (encryptedIntegration.accessTokenEnc) {
+      encryptedIntegration.accessTokenEnc = secureStore.encrypt(encryptedIntegration.accessTokenEnc);
+    }
+    if (encryptedIntegration.refreshTokenEnc) {
+      encryptedIntegration.refreshTokenEnc = secureStore.encrypt(encryptedIntegration.refreshTokenEnc);
+    }
+
+    // Upsert (insert or update if exists)
+    const result = await this.db
+      .insert(emailProviderIntegrations)
+      .values({
+        ...encryptedIntegration,
+        tenantId,
+        updatedAt: new Date()
+      })
+      .onConflictDoUpdate({
+        target: [
+          emailProviderIntegrations.tenantId,
+          emailProviderIntegrations.userId,
+          emailProviderIntegrations.provider
+        ],
+        set: {
+          ...omitUndefined(encryptedIntegration),
+          updatedAt: new Date()
+        }
+      })
+      .returning();
+
+    const savedIntegration = result[0];
+
+    // Decrypt tokens for return
+    if (savedIntegration.accessTokenEnc) {
+      savedIntegration.accessTokenEnc = secureStore.decrypt(savedIntegration.accessTokenEnc);
+    }
+    if (savedIntegration.refreshTokenEnc) {
+      savedIntegration.refreshTokenEnc = secureStore.decrypt(savedIntegration.refreshTokenEnc);
+    }
+
+    return savedIntegration;
+  }
+
+  async disconnectEmailProvider(userId: string, tenantId: string, provider: string): Promise<boolean> {
+    const result = await this.db
+      .update(emailProviderIntegrations)
+      .set({ 
+        status: 'disconnected',
+        accessTokenEnc: null,
+        refreshTokenEnc: null,
+        updatedAt: new Date()
+      })
+      .where(and(
+        eq(emailProviderIntegrations.tenantId, tenantId),
+        eq(emailProviderIntegrations.userId, userId),
+        eq(emailProviderIntegrations.provider, provider)
       ))
       .returning();
     

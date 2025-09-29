@@ -51,6 +51,7 @@ import { googleCalendarService } from "./src/services/google-calendar";
 import { googleOAuthService } from "./src/services/google-oauth";
 import { icalService } from "./src/services/ical";
 import oauthRoutes from "./src/routes/oauth";
+import emailOAuthRoutes from "./src/routes/email-oauth";
 import emailRoutes from "./src/routes/email";
 import templatesRoutes from "./src/routes/templates";
 import mailSettingsRoutes from "./src/routes/mailSettings";
@@ -266,6 +267,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   
   // OAuth routes (must be after session middleware) - no CSRF for OAuth flows
   app.use(oauthRoutes);
+  app.use('/api', emailOAuthRoutes);
   
   // Apply CSRF protection to state-changing routes if provided
   const csrf = csrfProtection || ((req: any, res: any, next: any) => next());

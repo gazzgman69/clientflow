@@ -2,11 +2,18 @@
 
 BusinessCRM is a comprehensive customer relationship management system built with a modern full-stack architecture. The application provides lead management, client tracking, project management, quotation system, contract management, invoicing, email integration, calendar functionality, and workflow automation. It's designed to streamline business operations from lead capture through project completion and billing.
 
-## Recent Changes (September 27, 2025)
+## Recent Changes (September 29, 2025)
 
-**Comprehensive Multi-Tenant Security Audit & Hardening**: Completed critical security audit that identified and resolved 16 major tenant isolation vulnerabilities in the storage layer. Implemented database-level constraints with NOT NULL tenant_id columns and foreign keys across all core tables. Added tenant_id columns to background jobs tables for proper isolation. Verified zero orphaned records in production database. This massive security improvement eliminates cross-tenant data access risks and establishes robust multi-tenant isolation.
+**Email Provider OAuth Integration System**: Built comprehensive 17hats-style email provider catalog with production OAuth connectors for Google Gmail and Microsoft 365/Outlook. Implemented secure token storage with encryption, multi-tenant provider management, contacts-only email sync worker, and outgoing email dispatch with provider fallback. The system includes:
+- Production Gmail and Microsoft OAuth flows with PKCE security
+- Secure encrypted token storage (access/refresh tokens)
+- Tenant-scoped provider integrations (one active provider per tenant)
+- Background sync worker for contacts-only email ingestion
+- Email dispatcher with Gmail→Microsoft fallback logic
+- Updated Email Settings UI with OAuth connection management
+- Structured logging for sync operations and error tracking
 
-**Previous Changes (September 25, 2025)**: Lead Card Venue Display Enhancement - Modified lead cards to display venue names instead of project descriptions for better location-focused lead management.
+**Previous Changes (September 27, 2025)**: Comprehensive Multi-Tenant Security Audit & Hardening - Completed critical security audit that identified and resolved 16 major tenant isolation vulnerabilities in the storage layer. Implemented database-level constraints with NOT NULL tenant_id columns and foreign keys across all core tables.
 
 # User Preferences
 
@@ -73,6 +80,29 @@ The application uses PostgreSQL as the primary database with:
 - **Migrations**: Drizzle Kit for database schema migrations
 
 The database schema includes comprehensive tables for users, leads, clients, projects, quotes, contracts, invoices, tasks, emails, activities, and automations with proper foreign key relationships.
+
+## Email Provider OAuth Integration
+The system includes a comprehensive email provider integration system modeled after 17hats:
+
+- **Provider Catalog**: Database-backed email provider catalog with support for Gmail, Microsoft 365/Outlook
+- **OAuth Flows**: Production OAuth 2.0 with PKCE for Gmail and Microsoft Graph API
+- **Secure Token Storage**: Encrypted access/refresh token storage using AES-256-GCM
+- **Multi-Tenant Support**: Tenant-scoped provider integrations with one-active-provider-per-tenant enforcement
+- **Email Dispatch**: Outgoing email service with provider fallback (Gmail → Microsoft)
+- **Background Sync**: Periodic email sync worker for contacts-only email ingestion
+- **Provider Services**: 
+  - `EmailProviderGmail`: Gmail API integration with OAuth, send, and contacts-only sync
+  - `EmailProviderMicrosoft`: Microsoft Graph integration with OAuth, send, and contacts-only sync
+  - `EmailDispatcher`: Provider-aware email dispatch with fallback logic
+  - `EmailSyncWorker`: Background worker for periodic email ingestion
+
+**Key Features:**
+- PKCE-based OAuth flows for enhanced security
+- Tenant isolation at database and service layers
+- Automatic token refresh on expiration
+- Structured JSON logging for monitoring
+- Per-tenant email preferences and quotas
+- Status tracking (connected/disconnected/error)
 
 ## Authentication & Session Management
 While authentication routes aren't fully implemented in the current codebase, the architecture includes:

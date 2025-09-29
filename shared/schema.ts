@@ -1220,6 +1220,24 @@ export const insertEmailProviderCatalogSchema = createInsertSchema(emailProvider
 export type EmailProviderCatalog = typeof emailProviderCatalog.$inferSelect;
 export type InsertEmailProviderCatalog = z.infer<typeof insertEmailProviderCatalogSchema>;
 
+// Tenant Email Preferences table (per-tenant email settings)
+export const tenantEmailPrefs = pgTable("tenant_email_prefs", {
+  tenantId: varchar("tenant_id").primaryKey().notNull().references(() => tenants.id),
+  bccSelf: boolean("bcc_self").notNull().default(false),
+  readReceipts: boolean("read_receipts").notNull().default(false),
+  showOnDashboard: boolean("show_on_dashboard").notNull().default(true),
+  contactsOnly: boolean("contacts_only").notNull().default(true),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Insert schemas and types for tenant email preferences
+export const insertTenantEmailPrefsSchema = createInsertSchema(tenantEmailPrefs).omit({ 
+  updatedAt: true 
+});
+
+export type TenantEmailPrefs = typeof tenantEmailPrefs.$inferSelect;
+export type InsertTenantEmailPrefs = z.infer<typeof insertTenantEmailPrefsSchema>;
+
 // Email Provider Configurations table
 export const emailProviderConfigs = pgTable("email_provider_configs", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),

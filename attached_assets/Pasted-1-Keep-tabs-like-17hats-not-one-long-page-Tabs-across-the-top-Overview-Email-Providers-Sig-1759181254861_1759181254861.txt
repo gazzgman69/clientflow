@@ -1,0 +1,212 @@
+1) Keep tabs (like 17hats), not one long page
+
+Tabs across the top: Overview | Email Providers | Signatures | Activity Logs | Edit Settings.
+
+Use shadcn/ui Tabs, each tab is a Card-based section.
+
+2) Provider selection = full modal (not popover)
+
+Button: “Connect Email Account” (visible on Overview + Email Providers tabs).
+
+Clicking opens a modal dialog wizard:
+
+Choose Provider (dropdown from DB)
+
+Auth method (OAuth for Gmail/Microsoft; username/password for others)
+
+Incoming (IMAP/API) + Outgoing (SMTP/Graph/Gmail API) summary
+
+Save → creates/updates tenant’s single global account (both incoming & outgoing).
+
+3) Fix the provider catalog (DB-backed) + API
+
+Create two tables and wire them end-to-end so the UI stops showing “Failed to load email provider configurations”.
+
+Schema
+
+email_providers
+
+id (pk, uuid)
+
+slug (text, unique)
+
+display_name (text)
+
+supports_incoming (bool)
+
+supports_outgoing (bool)
+
+incoming_auth (enum: 'oauth' | 'password' | 'none')
+
+outgoing_auth (enum: 'oauth' | 'password' | 'none')
+
+default_imap_host (text, nullable)
+
+default_imap_port (int, nullable)
+
+default_imap_secure (bool, nullable)
+
+default_smtp_host (text, nullable)
+
+default_smtp_port (int, nullable)
+
+default_smtp_secure (bool, nullable)
+
+help_text (text)
+
+tenant_email_prefs
+
+tenant_id (fk → tenants.id, pk)
+
+bcc_self (bool, default false)
+
+read_receipts (bool, default false)
+
+show_on_dashboard (bool, default true)
+
+updated_at (timestamp)
+
+Backend endpoints
+
+GET /api/email/providers → list email_providers
+
+POST /api/email/providers/seed (dev-only) → seed the list below
+
+GET /api/email/prefs (tenant-scoped) → returns tenant_email_prefs
+
+PUT /api/email/prefs (tenant-scoped) → upsert prefs
+
+Storage interface (must exist & be implemented)
+
+getEmailProviders(): Promise<EmailProvider[]>
+
+seedEmailProviders(providers: EmailProviderSeed[]): Promise<void>
+
+getTenantEmailPrefs(tenantId: string): Promise<TenantEmailPrefs>
+
+upsertTenantEmailPrefs(tenantId: string, prefs: Partial<TenantEmailPrefs>): Promise<void>
+
+4) Seed the provider list (from the screenshots)
+
+Seed these (you can add more later). Provide sensible defaults; unknowns can be null.
+
+google – “Google: GSuite, Gmail”
+incoming: oauth (Gmail API) or imap.gmail.com:993/SSL, outgoing: smtp.gmail.com:465/SSL
+help: “Use OAuth. If using password auth, enable 2FA and create an app password.”
+
+microsoft – “Office 365”
+incoming: oauth (Graph/IMAP outlook.office365.com:993/SSL), outgoing: smtp.office365.com:587/TLS
+help: “Preferred: Microsoft OAuth (Graph API).”
+
+hotmail – “Hotmail/MSN/Outlook/Live.com”
+IMAP: outlook.office365.com:993/SSL, SMTP: smtp.office365.com:587/TLS
+help: “Use your Microsoft account. IMAP/SMTP supported.”
+
+icloud – “iCloud / Mac.com / Me.com”
+IMAP: imap.mail.me.com:993/SSL, SMTP: smtp.mail.me.com:587/TLS
+help: “Requires an app-specific password in Apple ID.”
+
+yahoo – “Yahoo!”
+IMAP: imap.mail.yahoo.com:993/SSL, SMTP: smtp.mail.yahoo.com:465/SSL
+help: “Enable 2FA and create an app password.”
+
+godaddy_o365 – “GoDaddy: Office365”
+Use Microsoft settings above; auth via Microsoft OAuth or IMAP/SMTP.
+
+godaddy_workspace – “GoDaddy: Workspace”
+IMAP: imap.secureserver.net:993/SSL, SMTP: smtpout.secureserver.net:465/SSL
+help: “Some plans require ‘SSL’ and full email as username.”
+
+bluehost – “BlueHost”
+IMAP: mail.yourdomain.com:993/SSL, SMTP: mail.yourdomain.com:465/SSL
+help: “Use cPanel email. Replace host with your domain.”
+
+siteground – “SiteGround”
+IMAP: mail.yourdomain.com:993/SSL, SMTP: mail.yourdomain.com:465/SSL
+
+1and1 – “1and1 / IONOS”
+IMAP: imap.ionos.com:993/SSL, SMTP: smtp.ionos.com:465/SSL
+
+att – “AT&T”
+IMAP: imap.mail.att.net:993/SSL, SMTP: smtp.mail.att.net:465/SSL
+
+bellsouth – “BellSouth”
+IMAP/SMTP similar to AT&T; legacy accounts.
+
+cox – “Cox Business”
+IMAP: imap.cox.net:993/SSL, SMTP: smtp.cox.net:465/SSL
+
+sbcglobal – “SBC Global”
+Legacy AT&T settings.
+
+sky – “Sky”
+IMAP: imap.tools.sky.com:993/SSL, SMTP: smtp.tools.sky.com:465/SSL
+
+aol – “AOL”
+IMAP: imap.aol.com:993/SSL, SMTP: smtp.aol.com:465/SSL
+
+aim – “AIM”
+Legacy; treat like AOL.
+
+zoho – “Zoho”
+IMAP: imap.zoho.com:993/SSL, SMTP: smtp.zoho.com:465/SSL
+help: “May require app password.”
+
+other – “Other…”
+No defaults; show custom host/port fields.
+
+(Mark supports_incoming=true, supports_outgoing=true for most; set incoming_auth='oauth' for google/microsoft.)
+
+5) Overview tab (copy 17hats, cleaner UI)
+
+Cards:
+
+About Email Settings (static text)
+
+Incoming Email: connected status, last synced, “Connect Account” (opens wizard)
+
+Outgoing Email: “Email Sent As” (from), “Outgoing Server” (provider name), Change button
+
+Preferences: toggles bound to tenant_email_prefs (BCC self, Read receipts, Show emails on dashboard)
+
+Email Help: provider dropdown → shows help_text
+
+Send Test Email: To/Subject/Body + Provider (auto-selected from connected). Show result panel with provider, HTTP status, messageId, timestamp, and any from-mismatch warnings.
+
+6) Email Providers tab
+
+Table of the tenant’s configured account (just one row per your rule).
+
+Actions: Connect / Change / Disconnect (all open the same modal).
+
+Surface validation errors (e.g., OAuth expired).
+
+7) Wire preferences (per tenant)
+
+Frontend calls GET/PUT /api/email/prefs.
+
+Persist toggles to tenant_email_prefs.
+
+Respect BCC and read-receipts at send time.
+
+8) Unified connect flow under the hood
+
+On successful connect, create/update a single tenant record (your existing integration table is fine) and persist both incoming + outgoing configs.
+
+Keep internal separation (incoming vs outgoing) so we can swap either later, but UI stays unified.
+
+9) Acceptance criteria
+
+Email Settings loads without errors; provider list is fetched from DB.
+
+Help blurbs change when different providers are selected.
+
+Connect modal can set up Gmail OAuth and standard IMAP/SMTP providers.
+
+Preferences save and survive page reload.
+
+Send Test Email reports provider + messageId; respects BCC and read-receipts.
+
+Superadmin can view/modify for any tenant; regular users see status only.
+
+If anything is unclear from the screenshots (spacing, copy, iconography), match the structure of 17hats but use our Tailwind/shadcn aesthetic (rounded-xl, shadow, subtle dividers).

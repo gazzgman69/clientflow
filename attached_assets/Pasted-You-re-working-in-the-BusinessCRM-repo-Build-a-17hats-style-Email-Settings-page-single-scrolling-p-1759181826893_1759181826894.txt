@@ -1,0 +1,374 @@
+You’re working in the BusinessCRM repo. Build a 17hats-style Email Settings page (single scrolling page, no tabs), backed by a database provider catalog and per-tenant preferences. Also fix the “Failed to load email provider configurations” error by replacing any old getEmailProviderConfigs calls with the new storage and API outlined here. Keep everything tenant-isolated and do NOT use MemStorage paths.
+
+0) Guardrails
+
+Multi-tenant: all reads/writes require tenantId from middleware.
+
+Postgres/Drizzle only; remove/ignore memstorage implementations for this feature.
+
+Contacts-only ingestion remains the default (already implemented); keep the toggle.
+
+One global incoming/outgoing email setup per tenant (not per user), but allow Superadmin to view/change for any tenant.
+
+1) Database: add catalog + prefs (Drizzle + SQL)
+
+Drizzle schema (TS):
+
+// shared/schema.email.ts
+import { pgTable, text, boolean, integer, timestamp, uuid } from "drizzle-orm/pg-core";
+export const emailProviders = pgTable("email_providers", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  slug: text("slug").notNull().unique(),
+  displayName: text("display_name").notNull(),
+  supportsIncoming: boolean("supports_incoming").notNull().default(true),
+  supportsOutgoing: boolean("supports_outgoing").notNull().default(true),
+  incomingAuth: text("incoming_auth").notNull(), // 'oauth' | 'password' | 'none'
+  outgoingAuth: text("outgoing_auth").notNull(), // 'oauth' | 'password' | 'none'
+  defaultImapHost: text("default_imap_host"),
+  defaultImapPort: integer("default_imap_port"),
+  defaultImapSecure: boolean("default_imap_secure"),
+  defaultSmtpHost: text("default_smtp_host"),
+  defaultSmtpPort: integer("default_smtp_port"),
+  defaultSmtpSecure: boolean("default_smtp_secure"),
+  helpText: text("help_text"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const tenantEmailPrefs = pgTable("tenant_email_prefs", {
+  tenantId: text("tenant_id").primaryKey().notNull(), // FK to tenants.id (already enforced elsewhere)
+  bccSelf: boolean("bcc_self").notNull().default(false),
+  readReceipts: boolean("read_receipts").notNull().default(false),
+  showOnDashboard: boolean("show_on_dashboard").notNull().default(true),
+  contactsOnly: boolean("contacts_only").notNull().default(true),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+
+SQL migration (if you prefer raw SQL):
+
+CREATE TABLE IF NOT EXISTS email_providers (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  slug text UNIQUE NOT NULL,
+  display_name text NOT NULL,
+  supports_incoming boolean NOT NULL DEFAULT true,
+  supports_outgoing boolean NOT NULL DEFAULT true,
+  incoming_auth text NOT NULL,
+  outgoing_auth text NOT NULL,
+  default_imap_host text,
+  default_imap_port int,
+  default_imap_secure boolean,
+  default_smtp_host text,
+  default_smtp_port int,
+  default_smtp_secure boolean,
+  help_text text,
+  created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS tenant_email_prefs (
+  tenant_id text PRIMARY KEY,
+  bcc_self boolean NOT NULL DEFAULT false,
+  read_receipts boolean NOT NULL DEFAULT false,
+  show_on_dashboard boolean NOT NULL DEFAULT true,
+  contacts_only boolean NOT NULL DEFAULT true,
+  updated_at timestamptz DEFAULT now()
+);
+
+2) Seed provider catalog (dev-only seed route + code)
+
+Providers to seed (from screenshots; reasonable defaults):
+
+// server/src/seeds/emailProviders.seed.ts
+export const EMAIL_PROVIDER_SEED = [
+  {
+    slug: "google", displayName: "Google: GSuite, Gmail",
+    incomingAuth: "oauth", outgoingAuth: "oauth",
+    defaultImapHost: "imap.gmail.com", defaultImapPort: 993, defaultImapSecure: true,
+    defaultSmtpHost: "smtp.gmail.com", defaultSmtpPort: 465, defaultSmtpSecure: true,
+    helpText: "Use Google OAuth. If using password auth, enable 2FA and create an app password."
+  },
+  {
+    slug: "microsoft", displayName: "Office 365",
+    incomingAuth: "oauth", outgoingAuth: "oauth",
+    defaultImapHost: "outlook.office365.com", defaultImapPort: 993, defaultImapSecure: true,
+    defaultSmtpHost: "smtp.office365.com", defaultSmtpPort: 587, defaultSmtpSecure: false,
+    helpText: "Preferred: Microsoft OAuth (Graph API)."
+  },
+  {
+    slug: "hotmail", displayName: "Hotmail/MSN/Outlook/Live.com",
+    incomingAuth: "password", outgoingAuth: "password",
+    defaultImapHost: "outlook.office365.com", defaultImapPort: 993, defaultImapSecure: true,
+    defaultSmtpHost: "smtp.office365.com", defaultSmtpPort: 587, defaultSmtpSecure: false,
+    helpText: "Use your Microsoft account with IMAP/SMTP."
+  },
+  {
+    slug: "icloud", displayName: "iCloud / Mac.com / Me.com",
+    incomingAuth: "password", outgoingAuth: "password",
+    defaultImapHost: "imap.mail.me.com", defaultImapPort: 993, defaultImapSecure: true,
+    defaultSmtpHost: "smtp.mail.me.com", defaultSmtpPort: 587, defaultSmtpSecure: false,
+    helpText: "Requires an Apple **app-specific password**."
+  },
+  {
+    slug: "yahoo", displayName: "Yahoo!",
+    incomingAuth: "password", outgoingAuth: "password",
+    defaultImapHost: "imap.mail.yahoo.com", defaultImapPort: 993, defaultImapSecure: true,
+    defaultSmtpHost: "smtp.mail.yahoo.com", defaultSmtpPort: 465, defaultSmtpSecure: true,
+    helpText: "Enable 2FA and use an **app password**."
+  },
+  {
+    slug: "godaddy_o365", displayName: "GoDaddy: Office365",
+    incomingAuth: "oauth", outgoingAuth: "oauth",
+    defaultImapHost: "outlook.office365.com", defaultImapPort: 993, defaultImapSecure: true,
+    defaultSmtpHost: "smtp.office365.com", defaultSmtpPort: 587, defaultSmtpSecure: false,
+    helpText: "Uses Microsoft settings; OAuth supported."
+  },
+  {
+    slug: "godaddy_workspace", displayName: "GoDaddy: Workspace",
+    incomingAuth: "password", outgoingAuth: "password",
+    defaultImapHost: "imap.secureserver.net", defaultImapPort: 993, defaultImapSecure: true,
+    defaultSmtpHost: "smtpout.secureserver.net", defaultSmtpPort: 465, defaultSmtpSecure: true,
+    helpText: "Use full email as username; SSL required on many plans."
+  },
+  {
+    slug: "bluehost", displayName: "BlueHost",
+    incomingAuth: "password", outgoingAuth: "password",
+    defaultImapHost: "mail.yourdomain.com", defaultImapPort: 993, defaultImapSecure: true,
+    defaultSmtpHost: "mail.yourdomain.com", defaultSmtpPort: 465, defaultSmtpSecure: true,
+    helpText: "cPanel mail; replace host with your domain."
+  },
+  {
+    slug: "siteground", displayName: "SiteGround",
+    incomingAuth: "password", outgoingAuth: "password",
+    defaultImapHost: "mail.yourdomain.com", defaultImapPort: 993, defaultImapSecure: true,
+    defaultSmtpHost: "mail.yourdomain.com", defaultSmtpPort: 465, defaultSmtpSecure: true,
+    helpText: "Use Site Tools mail settings."
+  },
+  {
+    slug: "ionos", displayName: "1and1 / IONOS",
+    incomingAuth: "password", outgoingAuth: "password",
+    defaultImapHost: "imap.ionos.com", defaultImapPort: 993, defaultImapSecure: true,
+    defaultSmtpHost: "smtp.ionos.com", defaultSmtpPort: 465, defaultSmtpSecure: true,
+    helpText: "May require SSL and full email username."
+  },
+  { slug: "att", displayName: "AT&T",
+    incomingAuth: "password", outgoingAuth: "password",
+    defaultImapHost: "imap.mail.att.net", defaultImapPort: 993, defaultImapSecure: true,
+    defaultSmtpHost: "smtp.mail.att.net", defaultSmtpPort: 465, defaultSmtpSecure: true,
+    helpText: "Legacy providers may need app passwords."
+  },
+  { slug: "bellsouth", displayName: "BellSouth", incomingAuth: "password", outgoingAuth: "password",
+    defaultImapHost: "imap.mail.att.net", defaultImapPort: 993, defaultImapSecure: true,
+    defaultSmtpHost: "smtp.mail.att.net", defaultSmtpPort: 465, defaultSmtpSecure: true,
+    helpText: "Legacy AT&T settings."
+  },
+  { slug: "cox", displayName: "Cox Business", incomingAuth: "password", outgoingAuth: "password",
+    defaultImapHost: "imap.cox.net", defaultImapPort: 993, defaultImapSecure: true,
+    defaultSmtpHost: "smtp.cox.net", defaultSmtpPort: 465, defaultSmtpSecure: true,
+    helpText: "IMAP/SMTP per Cox documentation."
+  },
+  { slug: "sbcglobal", displayName: "SBC Global", incomingAuth: "password", outgoingAuth: "password",
+    defaultImapHost: "imap.mail.att.net", defaultImapPort: 993, defaultImapSecure: true,
+    defaultSmtpHost: "smtp.mail.att.net", defaultSmtpPort: 465, defaultSmtpSecure: true,
+    helpText: "Legacy AT&T domain."
+  },
+  { slug: "sky", displayName: "Sky",
+    incomingAuth: "password", outgoingAuth: "password",
+    defaultImapHost: "imap.tools.sky.com", defaultImapPort: 993, defaultImapSecure: true,
+    defaultSmtpHost: "smtp.tools.sky.com", defaultSmtpPort: 465, defaultSmtpSecure: true,
+    helpText: "Use Sky tools mail settings."
+  },
+  { slug: "aol", displayName: "AOL",
+    incomingAuth: "password", outgoingAuth: "password",
+    defaultImapHost: "imap.aol.com", defaultImapPort: 993, defaultImapSecure: true,
+    defaultSmtpHost: "smtp.aol.com", defaultSmtpPort: 465, defaultSmtpSecure: true,
+    helpText: "App password recommended."
+  },
+  { slug: "aim", displayName: "AIM",
+    incomingAuth: "password", outgoingAuth: "password",
+    defaultImapHost: "imap.aol.com", defaultImapPort: 993, defaultImapSecure: true,
+    defaultSmtpHost: "smtp.aol.com", defaultSmtpPort: 465, defaultSmtpSecure: true,
+    helpText: "Legacy AOL settings."
+  },
+  { slug: "zoho", displayName: "Zoho",
+    incomingAuth: "password", outgoingAuth: "password",
+    defaultImapHost: "imap.zoho.com", defaultImapPort: 993, defaultImapSecure: true,
+    defaultSmtpHost: "smtp.zoho.com", defaultSmtpPort: 465, defaultSmtpSecure: true,
+    helpText: "May require app password."
+  },
+  { slug: "other", displayName: "Other…",
+    incomingAuth: "password", outgoingAuth: "password",
+    helpText: "Enter your custom IMAP/SMTP hostnames, ports, and SSL settings."
+  }
+];
+
+
+Storage interface + implementation:
+
+// server/storage.ts (interface)
+getEmailProviders(): Promise<EmailProvider[]>;
+seedEmailProviders(data: EmailProviderSeed[]): Promise<void>;
+getTenantEmailPrefs(tenantId: string): Promise<TenantEmailPrefs | null>;
+upsertTenantEmailPrefs(tenantId: string, prefs: Partial<TenantEmailPrefs>): Promise<void>;
+
+
+Implement above in Drizzle storage. Do not reference MemStorage.
+
+Routes (tenant-scoped):
+
+// server/src/routes/email-providers.ts
+router.get("/email/providers", requireTenant, async (req, res) => {
+  const providers = await storage.getEmailProviders();
+  res.json({ ok: true, providers });
+});
+
+// dev-only seed
+router.post("/email/providers/seed", async (req, res) => {
+  await storage.seedEmailProviders(EMAIL_PROVIDER_SEED);
+  res.json({ ok: true });
+});
+
+// prefs
+router.get("/email/prefs", requireTenant, async (req: any, res) => {
+  const prefs = await storage.getTenantEmailPrefs(req.tenantId);
+  res.json({ ok: true, prefs });
+});
+router.put("/email/prefs", requireTenant, async (req: any, res) => {
+  await storage.upsertTenantEmailPrefs(req.tenantId, req.body);
+  res.json({ ok: true });
+});
+
+
+Replace any usage of storage.getEmailProviderConfigs with storage.getEmailProviders() and wire the GET /api/email/providers endpoint.
+
+3) UI — Single scrolling page (no tabs), match 17hats sections
+
+File: client/src/pages/settings/EmailSettings.tsx
+
+Render these Cards, top-to-bottom:
+
+About Email Settings — static copy.
+
+Incoming Email
+
+Status line: “Last synced <account> <timestamp>” (from existing status endpoint).
+
+Button: Connect Account → opens Connect Email Account modal (wizard below).
+
+Checkbox: Show emails on dashboard → prefs.showOnDashboard.
+
+Outgoing Email
+
+“Email Sent As”: show current from address.
+
+“Outgoing Server”: show provider name (gmail/microsoft/smtp host).
+
+Toggles (persist with PUT /api/email/prefs):
+
+BCC you on all outgoing mail → prefs.bccSelf.
+
+Enable Read Receipts → prefs.readReceipts (with note about spam score).
+
+Button: Change Outgoing Server → opens same modal (wizard).
+
+Email Help
+
+Dropdown: Select Your Email Provider (sourced from /api/email/providers).
+
+On select, show provider’s helpText + default IMAP/SMTP host/port.
+
+Send Test Email
+
+Inputs: To / Subject / Body.
+
+Provider select defaults to the connected provider; allow change.
+
+Button: Send Test Email → POST /api/email/debug/send-test-email.
+
+Result panel: provider, HTTP status, messageId, timestamp, any from-mismatch warning.
+
+(Optional) Activity Logs
+
+Reuse existing logs feed if available (send attempts, failures, OAuth expiry).
+
+Styling: Tailwind/shadcn cards, rounded-xl, soft shadow, section headings like the screenshots; spacing consistent; no tabs.
+
+4) Connect Email Account — modal wizard
+
+Create client/src/components/email/ConnectEmailModal.tsx:
+
+Step 1: Choose Provider (from /api/email/providers).
+
+If provider is google or microsoft → show OAuth connect button(s) for incoming and outgoing, but save as one tenant-wide configuration.
+
+Otherwise show fields for IMAP (host/port/SSL, username, password) and SMTP (host/port/SSL, username, password). Pre-fill with provider defaults; allow override.
+
+Save: upsert tenant’s single email configuration (use your existing integrations table and service layer; keep a single row per tenant for email with incoming/outgoing details). On success, update status on the Overview cards.
+
+5) Preferences plumbing (per tenant)
+
+Wire the toggles and “Show on dashboard” to GET/PUT /api/email/prefs.
+
+On send, apply bccSelf and readReceipts behavior in send services (Gmail/Graph/SMTP) — you already added debug logging; extend to include BCC/read-receipt headers when toggled.
+
+6) Help blurbs (UI copy to display under Email Help)
+
+Google: GSuite, Gmail — “Use Google OAuth. If using password auth, enable 2FA and create an app password. IMAP: imap.gmail.com:993 (SSL), SMTP: smtp.gmail.com:465 (SSL).”
+
+Office 365 — “Preferred: Microsoft OAuth (Graph). IMAP: outlook.office365.com:993 (SSL), SMTP: smtp.office365.com:587 (STARTTLS).”
+
+iCloud — “Requires an Apple app-specific password. IMAP: imap.mail.me.com:993 (SSL), SMTP: smtp.mail.me.com:587 (STARTTLS).”
+
+Yahoo! — “Enable 2FA and generate an app password. IMAP: imap.mail.yahoo.com:993 (SSL), SMTP: smtp.mail.yahoo.com:465 (SSL).”
+
+GoDaddy Office365 — “Same as Office 365; OAuth works if enabled on your tenant.”
+
+GoDaddy Workspace — “IMAP: imap.secureserver.net:993 (SSL), SMTP: smtpout.secureserver.net:465 (SSL). Use full email as username.”
+
+BlueHost / SiteGround — “Use your domain hostnames (mail.yourdomain.com).”
+
+1and1 / IONOS — “IMAP: imap.ionos.com:993 (SSL), SMTP: smtp.ionos.com:465 (SSL).”
+
+Hotmail/MSN/Outlook/Live.com — “Use Microsoft servers; password auth supported.”
+
+AT&T / BellSouth / SBC Global — “Legacy accounts may require app passwords; use AT&T server settings.”
+
+Cox Business / Sky / AOL / AIM / Zoho — “Use listed IMAP/SMTP; many require app passwords.”
+
+7) Fix the current error & wire UI to API
+
+Replace any storage.getEmailProviderConfigs with storage.getEmailProviders.
+
+Add GET /api/email/providers handler & mount in server router.
+
+On EmailSettings load, fetch providers; if none, call dev seed once.
+
+Ensure the page no longer shows “Failed to load provider configurations”.
+
+8) Acceptance tests
+
+Page renders as a single scrollable page with sections: About, Incoming, Outgoing, Preferences (toggles), Email Help, Send Test Email.
+
+Provider dropdown loads from DB and shows help text on select.
+
+Connect Account modal can configure OAuth (Google/Microsoft) or IMAP/SMTP; saving updates both cards.
+
+PUT /api/email/prefs persists toggles; they survive reload.
+
+Send Test Email returns provider + messageId; logs verbose provider responses on server.
+
+Contacts-only ingestion remains default; dashboard “show emails” toggle reflects prefs.showOnDashboard.
+
+Superadmin can see/edit any tenant; regular users limited to their tenant.
+
+All routes require tenant and session; no MemStorage calls.
+
+9) Nice-to-haves (if quick)
+
+In “Outgoing Email”, if from-address mismatches provider account, show a yellow inline warning with suggested fix.
+
+In “Email Help”, show copyable host/port/SSL values with small “Copy” buttons.
+
+Deliver this end-to-end. Ping me in the console when the seed is done and the Email Settings page shows the provider list and help text correctly.
+
+END PROMPT

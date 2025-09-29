@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { apiRequest } from '@/lib/queryClient';
 import { 
   Mail, 
@@ -26,7 +27,9 @@ import {
   RefreshCw,
   Server,
   Eye,
-  Copy
+  Copy,
+  Link as LinkIcon,
+  Unlink
 } from 'lucide-react';
 
 interface EmailProvider {
@@ -97,9 +100,15 @@ export default function EmailSettings() {
     queryKey: ['/api/settings/mail/current']
   });
 
+  // Fetch Gmail connection status
+  const { data: gmailStatusData, isLoading: gmailStatusLoading } = useQuery({
+    queryKey: ['/api/auth/google/gmail/status']
+  });
+
   const providers = (providersData as any)?.providers || [];
   const prefs = (prefsData as any)?.prefs as TenantEmailPrefs;
   const settings = (settingsData as any)?.settings as MailSettings | null;
+  const gmailStatus = (gmailStatusData as any) || { ok: false, connected: false };
 
   // Update preferences mutation
   const updatePrefsMutation = useMutation({
@@ -130,6 +139,21 @@ export default function EmailSettings() {
     },
     onError: (error: any) => {
       setAlertMessage({ type: 'error', message: 'Failed to send test email' });
+    }
+  });
+
+  // Disconnect Gmail mutation
+  const disconnectGmailMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest('POST', '/api/auth/google/disconnect', {});
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/auth/google/gmail/status'] });
+      setAlertMessage({ type: 'success', message: 'Gmail disconnected successfully' });
+    },
+    onError: () => {
+      setAlertMessage({ type: 'error', message: 'Failed to disconnect Gmail' });
     }
   });
 
@@ -213,24 +237,125 @@ export default function EmailSettings() {
               Incoming Email
             </CardTitle>
             <CardDescription>
-              {settings ? `Last synced: ${formatDate(settings.updatedAt)}` : 'No email account connected'}
+              Connect your email to sync messages from contacts and projects
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            {settings ? (
-              <>
-                <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
-                  <div className="flex items-center space-x-3">
-                    <CheckCircle className="h-5 w-5 text-green-600" />
-                    <div>
-                      <p className="font-medium">{settings.name}</p>
-                      <p className="text-sm text-muted-foreground">{settings.fromEmail}</p>
+            {/* Gmail Connection Section */}
+            <div className="border rounded-lg p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  <Mail className="h-5 w-5 text-muted-foreground" />
+                  <div>
+                    <p className="font-medium">Gmail Connection</p>
+                    <div className="flex items-center gap-2 mt-1">
+                      {gmailStatusLoading ? (
+                        <Badge variant="outline">Checking...</Badge>
+                      ) : gmailStatus.connected ? (
+                        <>
+                          <Badge variant="default" className="bg-green-600">
+                            <CheckCircle className="h-3 w-3 mr-1" />
+                            Connected
+                          </Badge>
+                          {gmailStatus.email && (
+                            <span className="text-sm text-muted-foreground">{gmailStatus.email}</span>
+                          )}
+                        </>
+                      ) : gmailStatus.needsReconnect ? (
+                        <Badge variant="destructive">
+                          <AlertTriangle className="h-3 w-3 mr-1" />
+                          Needs Reconnect
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline">Not connected</Badge>
+                      )}
                     </div>
                   </div>
-                  <Badge variant={settings.isActive ? 'default' : 'secondary'}>
-                    {settings.isActive ? 'Active' : 'Inactive'}
-                  </Badge>
                 </div>
+                <div className="flex gap-2">
+                  {gmailStatus.connected ? (
+                    <>
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => window.location.href = '/api/auth/google/gmail'}
+                              data-testid="button-reconnect-gmail"
+                            >
+                              <RefreshCw className="h-4 w-4 mr-2" />
+                              Reconnect
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>Re-authenticate with Gmail</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => disconnectGmailMutation.mutate()}
+                        disabled={disconnectGmailMutation.isPending}
+                        data-testid="button-disconnect-gmail"
+                      >
+                        <Unlink className="h-4 w-4 mr-2" />
+                        Disconnect
+                      </Button>
+                    </>
+                  ) : (
+                    <Button
+                      size="sm"
+                      onClick={() => window.location.href = '/api/auth/google/gmail'}
+                      data-testid="button-connect-gmail"
+                    >
+                      <LinkIcon className="h-4 w-4 mr-2" />
+                      Connect Gmail
+                    </Button>
+                  )}
+                </div>
+              </div>
+              
+              {gmailStatus.connected && (
+                <div className="flex items-center gap-4 text-xs text-muted-foreground pt-2 border-t">
+                  <div className="flex items-center gap-1">
+                    <Clock className="h-3 w-3" />
+                    <span>Last synced: {gmailStatus.lastSyncAt ? formatDate(gmailStatus.lastSyncAt) : 'Never'}</span>
+                  </div>
+                  {gmailStatus.scopes && gmailStatus.scopes.length > 0 && (
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <div className="flex items-center gap-1 cursor-help">
+                            <Info className="h-3 w-3" />
+                            <span>{gmailStatus.scopes.length} permissions</span>
+                          </div>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <div className="space-y-1">
+                            <p className="font-medium">Gmail Permissions:</p>
+                            {gmailStatus.scopes.map((scope: string, idx: number) => (
+                              <p key={idx} className="text-xs">{scope.split('/').pop()}</p>
+                            ))}
+                          </div>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  )}
+                </div>
+              )}
+              
+              {!gmailStatus.connected && (
+                <p className="text-xs text-muted-foreground">
+                  Connect your Gmail to sync messages from contacts and projects. You'll be asked to sign in with Google.
+                </p>
+              )}
+            </div>
+
+            {settings ? (
+              <>
+                <Separator />
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-2">
                     <Eye className="h-4 w-4 text-muted-foreground" />

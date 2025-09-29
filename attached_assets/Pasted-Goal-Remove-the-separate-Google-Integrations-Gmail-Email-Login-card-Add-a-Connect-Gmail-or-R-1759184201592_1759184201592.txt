@@ -1,0 +1,127 @@
+Goal
+
+Remove the separate “Google Integrations → Gmail Email Login” card.
+
+Add a Connect Gmail (or Reconnect/Disconnect) button row directly inside Settings → Email Settings → Incoming Email.
+
+Keep the calendar section unchanged.
+
+Preserve all existing OAuth + sync logic; we are only changing where the controls are rendered and how state is surfaced.
+
+Acceptance criteria
+
+The Incoming Email panel shows:
+
+Status pill (Connected / Not connected), connected account email, last synced.
+
+Primary action button: Connect Gmail (when not connected) or Reconnect Gmail (when connected).
+
+Secondary Disconnect button when connected.
+
+A mini “Last synced” timestamp and scope list on hover or subtext.
+
+The old top-level Gmail Email Login card is completely removed from the page.
+
+All actions call the existing endpoints:
+
+Connect/Reconnect → GET /api/auth/google/gmail (OAuth start)
+
+Disconnect → POST /api/auth/google/gmail/disconnect
+
+Status → GET /api/auth/google/gmail/status
+
+Multi-tenant safe: requests carry session and tenant middleware as they do today.
+
+If provider is not Google (future: Office 365/SMTP), the Incoming Email block still renders, but shows a provider switch link (“Use Microsoft/IMAP instead”) without breaking Gmail flow.
+
+No visual regressions to Outgoing Email, BCC toggle, Read Receipts toggle.
+
+Unit test: render Incoming Email when connected vs not, buttons call correct handlers.
+
+Where to change (suggested)
+
+client/src/pages/settings/EmailSettings.tsx
+
+Remove/disable the “Google Integrations → Gmail Email Login” card section.
+
+In the Email Settings area, inside Incoming Email card, add a new “Gmail Connection Row”.
+
+client/src/components/settings/email/IncomingEmailCard.tsx (create if missing)
+
+Props: { status, accountEmail, lastSyncedAt, onConnect, onReconnect, onDisconnect, isLoading }
+
+Renders stateful CTA(s) + status.
+
+client/src/api/email.ts (or wherever fetch helpers live)
+
+Expose:
+
+getGmailStatus(): Promise<{ connected: boolean; email?: string; lastSyncedAt?: string; scopes?: string[] }>
+
+startGmailOAuth(): void (navigate to /api/auth/google/gmail)
+
+disconnectGmail(): Promise<{ ok: boolean }>
+
+State wiring
+
+On mount of Email Settings, call getGmailStatus() with credentials: 'include'.
+
+Button handlers:
+
+Connect/Reconnect → window.location.href = '/api/auth/google/gmail'
+
+Disconnect → await disconnectGmail(); refetchStatus();
+
+Remove old block
+
+Delete (or // TODO remove) the JSX that renders Gmail Email Login under “Google Integrations”.
+
+If there’s a feature flag like SHOW_GOOGLE_INTEGRATIONS_CARD, set it false by default.
+
+UX details
+
+Status line examples:
+
+Connected · skinnycheck@gmail.com
+Last synced: 27/09/2025, 12:09
+
+Not connected
+Connect your Gmail to sync messages from contacts/projects.
+
+Buttons:
+
+When connected: primary = Reconnect Gmail, ghost = Disconnect
+
+When not connected: primary = Connect Gmail
+
+Loading/disabled states during requests; show inline error toast if status.ok === false.
+
+Edge cases
+
+If status endpoint returns 401, show “Not connected” state with Connect Gmail and a small note: “You’ll be asked to sign in with Google.”
+
+If connected === true but email missing, still show Reconnect Gmail and a warning icon that email unknown.
+
+If tenant mismatch or no tenant, show non-blocking inline error: “No tenant context; please reload.”
+
+Tests (lightweight)
+
+React test: render IncomingEmailCard with connected=false → shows Connect Gmail.
+
+Render with connected=true → shows Reconnect + Disconnect.
+
+Clicking Disconnect calls disconnectGmail mock and refetches.
+
+Do not change
+
+Calendar integration card and flows.
+
+Backend OAuth routes—reuse them exactly as-is.
+
+Stretch (optional, if quick)
+
+In the Incoming Email card, show a tiny “Scopes” tooltip populated from status.scopes.
+
+Emit an analytics event email_gmail_disconnect when disconnect succeeds.
+
+Please implement the above and remove any references in the UI to the old standalone Gmail card. The only place users should connect Gmail is inside Email Settings → Incoming Email.

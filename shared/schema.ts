@@ -1183,6 +1183,64 @@ export const insertEmailSignatureSchema = createInsertSchema(emailSignatures).om
 export type EmailSignature = typeof emailSignatures.$inferSelect;
 export type InsertEmailSignature = z.infer<typeof insertEmailSignatureSchema>;
 
+// Email Provider Configurations table
+export const emailProviderConfigs = pgTable("email_provider_configs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").references(() => tenants.id).notNull(),
+  userId: varchar("user_id").references(() => users.id), // Made nullable initially for safe migration
+  name: text("name").notNull(), // "Primary Gmail", "Support Email", etc.
+  providerCode: text("provider_code").notNull(), // gmail, microsoft, icloud, etc.
+  isActive: boolean("is_active").default(true),
+  isPrimary: boolean("is_primary").default(false), // Only one primary config per tenant
+  
+  // Authentication Configuration (encrypted/secured)
+  authConfig: text("auth_config").notNull(), // JSON - encrypted sensitive auth data
+  
+  // Provider Identity Settings
+  fromEmail: text("from_email"), // Sending email address
+  fromName: text("from_name"), // Sending name
+  replyToEmail: text("reply_to_email"), // Reply-to address
+  
+  // Provider Capabilities & Status
+  capabilities: text("capabilities"), // JSON - canSend, canReceive, supportsWebhooks, etc.
+  isVerified: boolean("is_verified").default(false), // Whether credentials have been verified
+  lastVerifiedAt: timestamp("last_verified_at"),
+  verificationError: text("verification_error"), // Last verification error if any
+  
+  // Usage Tracking
+  lastUsedAt: timestamp("last_used_at"),
+  messagesSent: integer("messages_sent").default(0),
+  messagesReceived: integer("messages_received").default(0),
+  
+  // Health Monitoring
+  isHealthy: boolean("is_healthy").default(true),
+  lastHealthCheckAt: timestamp("last_health_check_at"),
+  consecutiveFailures: integer("consecutive_failures").default(0),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  tenantIdIdx: index("email_provider_configs_tenant_id_idx").on(table.tenantId),
+  tenantPrimaryUnique: unique("email_provider_configs_tenant_primary_unique").on(table.tenantId, table.isPrimary),
+  tenantProviderNameUnique: unique("email_provider_configs_tenant_provider_name_unique").on(table.tenantId, table.name),
+}));
+
+// Insert schemas and types for email provider configurations
+export const insertEmailProviderConfigSchema = createInsertSchema(emailProviderConfigs).omit({ 
+  id: true, 
+  createdAt: true, 
+  updatedAt: true,
+  lastVerifiedAt: true,
+  lastUsedAt: true,
+  lastHealthCheckAt: true,
+  messagesSent: true,
+  messagesReceived: true,
+  consecutiveFailures: true
+});
+
+export type EmailProviderConfig = typeof emailProviderConfigs.$inferSelect;
+export type InsertEmailProviderConfig = z.infer<typeof insertEmailProviderConfigSchema>;
+
 export const insertUserPrefSchema = createInsertSchema(userPrefs).omit({ 
   id: true, 
   updatedAt: true 

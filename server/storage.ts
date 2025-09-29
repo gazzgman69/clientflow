@@ -26,6 +26,7 @@ import {
   type LeadCaptureForm, type InsertLeadCaptureForm,
   type LeadStatusHistory, type InsertLeadStatusHistory,
   type EmailSignature, type InsertEmailSignature,
+  type EmailProviderConfig, type InsertEmailProviderConfig,
   type PortalForm, type InsertPortalForm,
   type PaymentSession, type InsertPaymentSession,
   type WebhookEvent, type InsertWebhookEvent,
@@ -51,7 +52,7 @@ import {
   users, leads, contacts, projects, quotes, contracts, invoices, tasks, emails, emailThreads, activities, automations, 
   members, venues, projectMembers, memberAvailability, projectFiles, projectNotes, smsMessages, 
   messageTemplates, messageThreads, events, calendarIntegrations, calendarSyncLog, templates, leadCaptureForms,
-  leadStatusHistory, emailSignatures, portalForms, paymentSessions, webhookEvents, tenants,
+  leadStatusHistory, emailSignatures, emailProviderConfigs, portalForms, paymentSessions, webhookEvents, tenants,
   // Enhanced Quotes System tables
   quotePackages, quoteAddons, quoteItems, quoteTokens, quoteSignatures,
   // Quote Extra Info System tables
@@ -365,6 +366,18 @@ export interface IStorage {
   deleteSignature(id: string, userId: string, tenantId: string): Promise<boolean>;
   clearDefaultSignatures(userId: string, tenantId: string): Promise<void>;
 
+  // Email Provider Configurations
+  getEmailProviderConfigs(tenantId: string, userId?: string): Promise<EmailProviderConfig[]>;
+  getEmailProviderConfig(id: string, tenantId: string): Promise<EmailProviderConfig | undefined>;
+  getPrimaryEmailProviderConfig(tenantId: string): Promise<EmailProviderConfig | undefined>;
+  getEmailProviderConfigByName(name: string, tenantId: string): Promise<EmailProviderConfig | undefined>;
+  createEmailProviderConfig(config: InsertEmailProviderConfig, tenantId: string): Promise<EmailProviderConfig>;
+  updateEmailProviderConfig(id: string, config: Partial<InsertEmailProviderConfig>, tenantId: string): Promise<EmailProviderConfig | undefined>;
+  deleteEmailProviderConfig(id: string, tenantId: string): Promise<boolean>;
+  setPrimaryEmailProviderConfig(id: string, tenantId: string): Promise<boolean>;
+  updateEmailProviderConfigHealth(id: string, isHealthy: boolean, consecutiveFailures: number, tenantId: string): Promise<boolean>;
+  updateEmailProviderConfigUsage(id: string, messagesSent?: number, messagesReceived?: number, tenantId: string): Promise<boolean>;
+
   // Lead Capture Forms
   getLeadCaptureForms(tenantId: string): Promise<LeadCaptureForm[]>;
   getLeadCaptureForm(id: string, tenantId: string): Promise<LeadCaptureForm | undefined>;
@@ -469,6 +482,7 @@ export class MemStorage implements IStorage {
   private templates: Map<string, Template> = new Map();
   private leadCaptureForms: Map<string, LeadCaptureForm> = new Map();
   private emailSignatures: Map<string, EmailSignature> = new Map();
+  private emailProviderConfigs: Map<string, EmailProviderConfig> = new Map();
   private adminAuditLogs: Map<string, AdminAuditLog> = new Map();
   private tenants: Map<string, import('@shared/schema').Tenant> = new Map();
   // Security and compliance storage
@@ -2304,6 +2318,162 @@ export class MemStorage implements IStorage {
           updatedAt: new Date()
         });
       });
+  }
+
+  // Email Provider Configurations
+  async getEmailProviderConfigs(tenantId: string, userId?: string): Promise<EmailProviderConfig[]> {
+    return Array.from(this.emailProviderConfigs.values())
+      .filter(config => config.tenantId === tenantId && (!userId || config.userId === userId))
+      .sort((a, b) => (b.updatedAt ? new Date(b.updatedAt).getTime() : 0) - (a.updatedAt ? new Date(a.updatedAt).getTime() : 0));
+  }
+
+  async getEmailProviderConfig(id: string, tenantId: string): Promise<EmailProviderConfig | undefined> {
+    const config = this.emailProviderConfigs.get(id);
+    if (!config || config.tenantId !== tenantId) return undefined;
+    return config;
+  }
+
+  async getPrimaryEmailProviderConfig(tenantId: string): Promise<EmailProviderConfig | undefined> {
+    return Array.from(this.emailProviderConfigs.values())
+      .find(config => config.tenantId === tenantId && config.isPrimary && config.isActive);
+  }
+
+  async getEmailProviderConfigByName(name: string, tenantId: string): Promise<EmailProviderConfig | undefined> {
+    return Array.from(this.emailProviderConfigs.values())
+      .find(config => config.tenantId === tenantId && config.name === name);
+  }
+
+  async createEmailProviderConfig(insertConfig: InsertEmailProviderConfig, tenantId: string): Promise<EmailProviderConfig> {
+    const id = randomUUID();
+    
+    // If this is set as primary, clear other primary configs for this tenant
+    if (insertConfig.isPrimary) {
+      Array.from(this.emailProviderConfigs.values())
+        .filter(config => config.tenantId === tenantId && config.isPrimary)
+        .forEach(config => {
+          this.emailProviderConfigs.set(config.id, {
+            ...config,
+            isPrimary: false,
+            updatedAt: new Date()
+          });
+        });
+    }
+
+    const config: EmailProviderConfig = {
+      ...insertConfig,
+      tenantId,
+      id,
+      isActive: insertConfig.isActive ?? true,
+      isPrimary: insertConfig.isPrimary ?? false,
+      isVerified: insertConfig.isVerified ?? false,
+      isHealthy: insertConfig.isHealthy ?? true,
+      messagesSent: insertConfig.messagesSent ?? 0,
+      messagesReceived: insertConfig.messagesReceived ?? 0,
+      consecutiveFailures: insertConfig.consecutiveFailures ?? 0,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    
+    this.emailProviderConfigs.set(id, config);
+    return config;
+  }
+
+  async updateEmailProviderConfig(id: string, updateData: Partial<InsertEmailProviderConfig>, tenantId: string): Promise<EmailProviderConfig | undefined> {
+    const existing = this.emailProviderConfigs.get(id);
+    if (!existing || existing.tenantId !== tenantId) return undefined;
+
+    // If setting as primary, clear other primary configs for this tenant
+    if (updateData.isPrimary) {
+      Array.from(this.emailProviderConfigs.values())
+        .filter(config => config.tenantId === tenantId && config.isPrimary && config.id !== id)
+        .forEach(config => {
+          this.emailProviderConfigs.set(config.id, {
+            ...config,
+            isPrimary: false,
+            updatedAt: new Date()
+          });
+        });
+    }
+
+    const updated: EmailProviderConfig = {
+      ...existing,
+      ...updateData,
+      updatedAt: new Date()
+    };
+    
+    this.emailProviderConfigs.set(id, updated);
+    return updated;
+  }
+
+  async deleteEmailProviderConfig(id: string, tenantId: string): Promise<boolean> {
+    const config = this.emailProviderConfigs.get(id);
+    if (!config || config.tenantId !== tenantId) return false;
+    return this.emailProviderConfigs.delete(id);
+  }
+
+  async setPrimaryEmailProviderConfig(id: string, tenantId: string): Promise<boolean> {
+    const config = this.emailProviderConfigs.get(id);
+    if (!config || config.tenantId !== tenantId) return false;
+
+    // Clear all primary configs for this tenant
+    Array.from(this.emailProviderConfigs.values())
+      .filter(c => c.tenantId === tenantId && c.isPrimary)
+      .forEach(c => {
+        this.emailProviderConfigs.set(c.id, {
+          ...c,
+          isPrimary: false,
+          updatedAt: new Date()
+        });
+      });
+
+    // Set this config as primary
+    this.emailProviderConfigs.set(id, {
+      ...config,
+      isPrimary: true,
+      updatedAt: new Date()
+    });
+
+    return true;
+  }
+
+  async updateEmailProviderConfigHealth(id: string, isHealthy: boolean, consecutiveFailures: number, tenantId: string): Promise<boolean> {
+    const config = this.emailProviderConfigs.get(id);
+    if (!config || config.tenantId !== tenantId) return false;
+
+    this.emailProviderConfigs.set(id, {
+      ...config,
+      isHealthy,
+      consecutiveFailures,
+      lastHealthCheckAt: new Date(),
+      updatedAt: new Date()
+    });
+
+    return true;
+  }
+
+  async updateEmailProviderConfigUsage(id: string, messagesSent?: number, messagesReceived?: number, tenantId: string): Promise<boolean> {
+    const config = this.emailProviderConfigs.get(id);
+    if (!config || config.tenantId !== tenantId) return false;
+
+    const updates: Partial<EmailProviderConfig> = {
+      lastUsedAt: new Date(),
+      updatedAt: new Date()
+    };
+
+    if (messagesSent !== undefined) {
+      updates.messagesSent = (config.messagesSent || 0) + messagesSent;
+    }
+
+    if (messagesReceived !== undefined) {
+      updates.messagesReceived = (config.messagesReceived || 0) + messagesReceived;
+    }
+
+    this.emailProviderConfigs.set(id, {
+      ...config,
+      ...updates
+    });
+
+    return true;
   }
 
   // Lead Capture Forms

@@ -1425,4 +1425,106 @@ This email was sent for debugging purposes. You can ignore this message.`;
   }
 });
 
+/**
+ * GET /api/email/provider-catalog
+ * Get all email providers from the global catalog
+ */
+router.get('/provider-catalog', requireAuth, async (req: any, res) => {
+  try {
+    const providers = await storage.getEmailProviderCatalog();
+    res.json({ ok: true, providers });
+  } catch (error: any) {
+    console.error('Error fetching email provider catalog:', error);
+    res.status(500).json({ ok: false, error: 'Failed to fetch provider catalog' });
+  }
+});
+
+/**
+ * GET /api/email/provider-catalog/active
+ * Get only active email providers from the catalog
+ */
+router.get('/provider-catalog/active', requireAuth, async (req: any, res) => {
+  try {
+    const providers = await storage.getActiveEmailProviders();
+    res.json({ ok: true, providers });
+  } catch (error: any) {
+    console.error('Error fetching active providers:', error);
+    res.status(500).json({ ok: false, error: 'Failed to fetch active providers' });
+  }
+});
+
+/**
+ * POST /api/email/provider-catalog/seed
+ * Seed the email provider catalog (admin only - for initial setup)
+ */
+router.post('/provider-catalog/seed', requireAuth, async (req: any, res) => {
+  try {
+    const { emailProviderSeeds } = await import('../../emailProviderSeeds');
+    await storage.seedEmailProviders(emailProviderSeeds);
+    res.json({ ok: true, message: 'Email provider catalog seeded successfully' });
+  } catch (error: any) {
+    console.error('Error seeding email providers:', error);
+    res.status(500).json({ ok: false, error: 'Failed to seed provider catalog' });
+  }
+});
+
+/**
+ * GET /api/email/tenant-prefs
+ * Get tenant email preferences (BCC, read receipts, dashboard settings)
+ */
+router.get('/tenant-prefs', requireAuth, async (req: any, res) => {
+  try {
+    const tenantId = req.tenantId;
+    if (!tenantId) {
+      return res.status(400).json({ ok: false, error: 'Tenant context required' });
+    }
+
+    let prefs = await storage.getTenantEmailPrefs(tenantId);
+    
+    // Return defaults if no preferences exist yet
+    if (!prefs) {
+      prefs = {
+        tenantId,
+        bccSelf: false,
+        readReceipts: false,
+        showOnDashboard: true,
+        contactsOnly: true,
+        updatedAt: new Date()
+      };
+    }
+    
+    res.json({ ok: true, prefs });
+  } catch (error: any) {
+    console.error('Error fetching tenant email prefs:', error);
+    res.status(500).json({ ok: false, error: 'Failed to fetch preferences' });
+  }
+});
+
+/**
+ * PUT /api/email/tenant-prefs
+ * Update tenant email preferences
+ */
+router.put('/tenant-prefs', requireAuth, async (req: any, res) => {
+  try {
+    const tenantId = req.tenantId;
+    if (!tenantId) {
+      return res.status(400).json({ ok: false, error: 'Tenant context required' });
+    }
+
+    const { bccSelf, readReceipts, showOnDashboard, contactsOnly } = req.body;
+    
+    const prefs = await storage.upsertTenantEmailPrefs(tenantId, {
+      bccSelf,
+      readReceipts,
+      showOnDashboard,
+      contactsOnly
+    });
+    
+    res.json({ ok: true, prefs });
+  } catch (error: any) {
+    console.error('Error updating tenant email prefs:', error);
+    res.status(500).json({ ok: false, error: 'Failed to update preferences' });
+  }
+});
+
 export default router;

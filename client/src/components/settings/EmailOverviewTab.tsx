@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { apiRequest } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -18,7 +19,8 @@ import {
   Clock,
   AlertTriangle,
   HelpCircle,
-  Settings
+  Settings,
+  ChevronDown
 } from 'lucide-react';
 
 interface EmailProviderCatalog {
@@ -41,6 +43,8 @@ export default function EmailOverviewTab() {
   const [showContactsOnly, setShowContactsOnly] = useState(true);
   const [bccMe, setBccMe] = useState(false);
   const [enableReadReceipts, setEnableReadReceipts] = useState(false);
+  const [incomingPopoverOpen, setIncomingPopoverOpen] = useState(false);
+  const [outgoingPopoverOpen, setOutgoingPopoverOpen] = useState(false);
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
@@ -70,17 +74,34 @@ export default function EmailOverviewTab() {
   const providers = providersData || [];
   const selectedProviderData = providers.find(p => p.code === selectedProvider);
 
-  const handleConnectAccount = () => {
-    // Navigate to provider connection based on type
-    if (!settings) {
-      window.location.href = '/settings/email?tab=setup';
+  const handleProviderSelect = (providerCode: string, isOutgoing: boolean = false) => {
+    const provider = providers.find(p => p.code === providerCode);
+    if (!provider) return;
+
+    setIncomingPopoverOpen(false);
+    setOutgoingPopoverOpen(false);
+
+    // Handle OAuth providers
+    if (provider.authType === 'oauth') {
+      if (providerCode === 'gmail') {
+        window.location.href = '/api/auth/google/gmail';
+      } else if (providerCode === 'microsoft') {
+        window.location.href = '/api/auth/microsoft/mail';
+      }
     } else {
-      toast({
-        title: 'Email Account Connected',
-        description: 'Your email account is already configured'
-      });
+      // For IMAP/SMTP or API providers, navigate to setup form
+      window.location.href = `/settings/email?tab=setup&provider=${providerCode}`;
     }
   };
+
+  // Separate incoming and outgoing providers
+  const incomingProviders = providers.filter(p => 
+    p.authType === 'oauth' || p.authType === 'imap_smtp'
+  );
+  
+  const outgoingProviders = providers.filter(p => 
+    p.authType === 'api' || p.authType === 'smtp_only'
+  );
 
   const getAuthStatus = () => {
     if (!settings?.provider) return null;
@@ -139,14 +160,40 @@ export default function EmailOverviewTab() {
                 {settings ? `${settings.fromEmail || 'Not configured'}` : 'No account connected'}
               </p>
             </div>
-            <Button
-              onClick={handleConnectAccount}
-              variant={settings ? 'outline' : 'default'}
-              data-testid="button-connect-account"
-            >
-              <Mail className="h-4 w-4 mr-2" />
-              {settings ? 'Change Account' : 'Connect Account'}
-            </Button>
+            <Popover open={incomingPopoverOpen} onOpenChange={setIncomingPopoverOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant={settings ? 'outline' : 'default'}
+                  data-testid="button-connect-account"
+                >
+                  <Mail className="h-4 w-4 mr-2" />
+                  {settings ? 'Change Account' : 'Connect Account'}
+                  <ChevronDown className="h-4 w-4 ml-2" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-80" align="end">
+                <div className="space-y-3">
+                  <h4 className="font-semibold text-sm">Select Email Provider</h4>
+                  <p className="text-xs text-gray-600 dark:text-gray-400">
+                    Choose your email provider to connect for incoming emails
+                  </p>
+                  <div className="space-y-1">
+                    {incomingProviders.map((provider) => (
+                      <Button
+                        key={provider.id}
+                        variant="ghost"
+                        className="w-full justify-start"
+                        onClick={() => handleProviderSelect(provider.code, false)}
+                        data-testid={`provider-option-${provider.code}`}
+                      >
+                        <Mail className="h-4 w-4 mr-2" />
+                        {provider.displayName}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+              </PopoverContent>
+            </Popover>
           </div>
 
           {settings && (
@@ -196,20 +243,78 @@ export default function EmailOverviewTab() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <Label className="text-base font-medium">Outgoing Email Provider</Label>
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                {settings ? `${settings.provider || 'Custom SMTP'}` : 'No provider configured'}
+              </p>
+            </div>
+            <Popover open={outgoingPopoverOpen} onOpenChange={setOutgoingPopoverOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant={settings ? 'outline' : 'default'}
+                  data-testid="button-configure-outgoing"
+                >
+                  <Send className="h-4 w-4 mr-2" />
+                  {settings ? 'Change Provider' : 'Configure Provider'}
+                  <ChevronDown className="h-4 w-4 ml-2" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-80" align="end">
+                <div className="space-y-3">
+                  <h4 className="font-semibold text-sm">Select Outgoing Provider</h4>
+                  <p className="text-xs text-gray-600 dark:text-gray-400">
+                    Choose a service for sending emails (SMTP or API-based)
+                  </p>
+                  <div className="space-y-1">
+                    {/* Current provider (IMAP/SMTP) */}
+                    {incomingProviders.map((provider) => (
+                      <Button
+                        key={provider.id}
+                        variant="ghost"
+                        className="w-full justify-start"
+                        onClick={() => handleProviderSelect(provider.code, true)}
+                        data-testid={`outgoing-provider-${provider.code}`}
+                      >
+                        <Send className="h-4 w-4 mr-2" />
+                        {provider.displayName}
+                      </Button>
+                    ))}
+                    {/* API-only providers */}
+                    {outgoingProviders.length > 0 && (
+                      <>
+                        <Separator className="my-2" />
+                        <p className="text-xs font-semibold text-gray-500 px-2">API Services</p>
+                        {outgoingProviders.map((provider) => (
+                          <Button
+                            key={provider.id}
+                            variant="ghost"
+                            className="w-full justify-start"
+                            onClick={() => handleProviderSelect(provider.code, true)}
+                            data-testid={`outgoing-provider-${provider.code}`}
+                          >
+                            <Send className="h-4 w-4 mr-2" />
+                            {provider.displayName}
+                          </Button>
+                        ))}
+                      </>
+                    )}
+                  </div>
+                </div>
+              </PopoverContent>
+            </Popover>
+          </div>
+
           {settings ? (
             <>
+              <Separator />
+
               <div>
                 <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">Email Sent As</Label>
                 <p className="text-sm font-medium">
                   {settings.fromName ? `${settings.fromName} <${settings.fromEmail}>` : settings.fromEmail}
                 </p>
-              </div>
-
-              <Separator />
-
-              <div>
-                <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">Outgoing Server</Label>
-                <p className="text-sm">{settings.provider || 'Custom SMTP'}</p>
               </div>
 
               <Separator />

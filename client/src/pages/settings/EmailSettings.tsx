@@ -12,9 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Label } from '@/components/ui/label';
 import { MailForm } from '@/components/settings/MailForm';
 import SignatureManagement from '@/components/settings/SignatureManagement';
-import EmailProviderList from '@/components/settings/EmailProviderList';
 import EmailOverviewTab from '@/components/settings/EmailOverviewTab';
-import EmailProvidersTab from '@/components/settings/EmailProvidersTab';
 import { apiRequest } from '@/lib/queryClient';
 import { 
   Mail, 
@@ -325,10 +323,6 @@ export default function EmailSettings() {
               <Info className="h-4 w-4 mr-2" />
               Overview
             </TabsTrigger>
-            <TabsTrigger value="providers">
-              <Layers className="h-4 w-4 mr-2" />
-              Providers
-            </TabsTrigger>
             <TabsTrigger value="logs">
               <Activity className="h-4 w-4 mr-2" />
               Activity Logs
@@ -354,11 +348,6 @@ export default function EmailSettings() {
           {/* Overview Tab - 17hats style */}
           <TabsContent value="overview" className="space-y-6">
             <EmailOverviewTab />
-          </TabsContent>
-
-          {/* Email Providers Tab - Catalog Display */}
-          <TabsContent value="providers" className="space-y-6">
-            <EmailProvidersTab />
           </TabsContent>
 
           {/* Activity Logs Tab */}

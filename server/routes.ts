@@ -3857,6 +3857,17 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
 
+  // Email Provider Catalog (global provider list)
+  app.get("/api/email/providers", ensureUserAuth, async (req, res) => {
+    try {
+      const providers = await storage.getActiveEmailProviders();
+      res.json({ providers });
+    } catch (error) {
+      console.error('Error fetching email provider catalog:', error);
+      res.status(500).json({ message: "Failed to fetch email providers" });
+    }
+  });
+
   // Email Provider Configurations
   app.get("/api/email-provider-configs", ensureUserAuth, tenantResolver, requireTenant, async (req: TenantRequest, res) => {
     try {

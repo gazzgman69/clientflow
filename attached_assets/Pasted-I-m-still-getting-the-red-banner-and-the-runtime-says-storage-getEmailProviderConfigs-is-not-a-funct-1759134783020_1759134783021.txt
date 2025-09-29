@@ -1,0 +1,103 @@
+I’m still getting the red banner and the runtime says storage.getEmailProviderConfigs is not a function. Please run this exact plan and stop at the first failing step with findings. Keep everything tenant-scoped and don’t move files.
+
+A) Prove what the UI is calling (no edits)
+
+Find the Email Providers tab component (the one showing the red banner).
+
+Print the fetch URL, method, and the imported API helper it uses.
+
+Paste the file path + lines.
+
+Confirm the backend route it should hit. Search server routes for a handler that returns provider configs. Paste file path + HTTP verb + path + middleware chain.
+
+B) Confirm route actually runs and what it calls (add TEMP logs only)
+
+In the server route that should serve the providers list:
+
+Log at the top: console.log("PROVIDERS_ROUTE_HIT", { tenantId: req.tenantId }).
+
+Log right before calling storage:
+console.log("PROVIDERS_STORAGE_METHODS", Object.keys(storage).filter(k=>k.includes("EmailProvider")));
+
+Wrap the storage call in try/catch; on catch, log console.error("PROVIDERS_ERR", err?.message) and rethrow.
+
+Hot-reload and hit the UI. Paste the three log lines that appear (or say which one didn’t).
+
+C) Identify why the function is “missing”
+
+Search for the method in all storage layers:
+
+Interface: the main storage interface/type (usually in server/storage.ts or a nearby interface).
+
+Paste the method signature for getEmailProviderConfigs(tenantId: string): Promise<...> if present, or state “missing”.
+
+DrizzleStorage implementation: does it implement that exact method name/signature? Paste its function signature (or “missing”).
+
+MemStorage implementation: same check. Paste signature (or “missing”).
+
+Export: find where the app creates/exports the storage instance that routes import. Paste that file + the concrete class used.
+
+If any of the four bullets are missing/mismatched → fix as follows (and show diffs):
+
+C1) Interface (add if missing)
+// IStorage (or equivalent)
+getEmailProviderConfigs(tenantId: string): Promise<EmailProviderConfig[]>;
+upsertEmailProviderConfig(input: {
+  tenantId: string;
+  providerCode: string;
+  authMode: 'oauth'|'appPassword'|'apiKey';
+  isActive: boolean;
+  config: Record<string, unknown>;
+}): Promise<EmailProviderConfig>;
+deleteEmailProviderConfig(tenantId: string, providerCode: string): Promise<void>;
+verifyEmailProviderConfig(tenantId: string, providerCode: string): Promise<{ok:boolean; message?:string;}>;
+
+C2) DrizzleStorage (add implementations)
+
+Use the existing email_provider_configs table if it exists; otherwise create a migration (NOT NULL tenant_id, UNIQUE (tenant_id, provider_code), config_json jsonb). Secrets must stay in the secure store (re-use existing encryptor). All queries filter by tenantId.
+
+C3) MemStorage (add no-op in-memory implementations)
+
+Mirror the Drizzle signatures so the exported storage has the methods in both modes.
+
+C4) Exported instance
+
+Ensure the exported storage (the one routes import) is the class that implements the methods (Drizzle in production, Mem in tests/dev). If routes are importing a different instance, fix the import so the same instance is used everywhere.
+
+D) Verify the wire-up end-to-end (temp logs)
+
+In the route, log typeof storage.getEmailProviderConfigs and storage.constructor.name.
+
+Call it with the resolved tenantId and log the array length returned.
+
+Remove logs after success.
+
+E) UI: point to the correct route & handle errors
+
+Make the Email Providers tab call the confirmed path (don’t hardcode; use the shared API helper if used elsewhere).
+
+On non-200, show the server error message; on 200, render the list.
+
+No schema assumptions; render whatever the API returns in each card (providerCode, authMode, isActive, updatedAt).
+
+F) Success criteria (print at end)
+
+Console shows PROVIDERS_ROUTE_HIT and PROVIDERS_STORAGE_METHODS includes getEmailProviderConfigs.
+
+storage.constructor.name printed once, and typeof storage.getEmailProviderConfigs === 'function'.
+
+UI renders provider cards (or empty state) without the red error.
+
+POST/PUT/DELETE/VERIFY endpoints (if present) are tenant-scoped and not erroring.
+
+If anything still fails, paste:
+
+The exact route path the UI is calling,
+
+The route file path + code snippet for its handler,
+
+The storage export file path + class name,
+
+The Object.keys(storage) filter output.
+
+Do not add new routers or change directory structure; fix the wiring so the existing page works.

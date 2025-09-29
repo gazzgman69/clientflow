@@ -391,11 +391,14 @@ export interface IStorage {
   // Email Provider OAuth Integrations
   getActiveEmailProvider(userId: string, tenantId: string): Promise<EmailProviderIntegration | null>;
   getEmailProviderIntegration(userId: string, tenantId: string, provider: string): Promise<EmailProviderIntegration | null>;
+  getAllActiveEmailIntegrations(): Promise<EmailProviderIntegration[]>;
   upsertEmailProviderIntegration(integration: InsertEmailProviderIntegration, tenantId: string): Promise<EmailProviderIntegration>;
   disconnectEmailProvider(userId: string, tenantId: string, provider: string): Promise<boolean>;
   setPrimaryEmailProviderConfig(id: string, tenantId: string): Promise<boolean>;
   updateEmailProviderConfigHealth(id: string, isHealthy: boolean, consecutiveFailures: number, tenantId: string): Promise<boolean>;
   updateEmailProviderConfigUsage(id: string, messagesSent?: number, messagesReceived?: number, tenantId: string): Promise<boolean>;
+  updateEmailIntegrationLastSync(userId: string, tenantId: string, provider: string): Promise<boolean>;
+  updateEmailIntegrationStatus(userId: string, tenantId: string, provider: string, status: string): Promise<boolean>;
 
   // Lead Capture Forms
   getLeadCaptureForms(tenantId: string): Promise<LeadCaptureForm[]>;
@@ -5485,6 +5488,53 @@ export class DrizzleStorage implements IStorage {
         status: 'disconnected',
         accessTokenEnc: null,
         refreshTokenEnc: null,
+        updatedAt: new Date()
+      })
+      .where(and(
+        eq(emailProviderIntegrations.tenantId, tenantId),
+        eq(emailProviderIntegrations.userId, userId),
+        eq(emailProviderIntegrations.provider, provider)
+      ))
+      .returning();
+    
+    return result.length > 0;
+  }
+
+  async getAllActiveEmailIntegrations(): Promise<EmailProviderIntegration[]> {
+    const integrations = await this.db
+      .select()
+      .from(emailProviderIntegrations)
+      .where(eq(emailProviderIntegrations.status, 'connected'));
+    
+    return integrations.map(integration => ({
+      ...integration,
+      accessTokenEnc: secureStore.decrypt(integration.accessTokenEnc),
+      refreshTokenEnc: integration.refreshTokenEnc ? secureStore.decrypt(integration.refreshTokenEnc) : null
+    }));
+  }
+
+  async updateEmailIntegrationLastSync(userId: string, tenantId: string, provider: string): Promise<boolean> {
+    const result = await this.db
+      .update(emailProviderIntegrations)
+      .set({ 
+        lastSyncedAt: new Date(),
+        updatedAt: new Date()
+      })
+      .where(and(
+        eq(emailProviderIntegrations.tenantId, tenantId),
+        eq(emailProviderIntegrations.userId, userId),
+        eq(emailProviderIntegrations.provider, provider)
+      ))
+      .returning();
+    
+    return result.length > 0;
+  }
+
+  async updateEmailIntegrationStatus(userId: string, tenantId: string, provider: string, status: string): Promise<boolean> {
+    const result = await this.db
+      .update(emailProviderIntegrations)
+      .set({ 
+        status,
         updatedAt: new Date()
       })
       .where(and(

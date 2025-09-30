@@ -1,0 +1,226 @@
+Make Google and Microsoft OAuth run in a popup. On callback, postMessage to the opener and close the popup (no CRM loading inside the popup). Keep all token/storage/DB logic unchanged.
+
+Do NOT change database schema or existing token persistence. Only adjust:
+
+UI openers (use window.open)
+
+OAuth state (carry popup + origin)
+
+Callback response (HTML that postMessages + window.close())
+
+1) Add URL-safe state helpers
+
+Create server/oauth/state.ts (or similar):
+
+export function encodeState(obj: unknown): string {
+  return Buffer.from(JSON.stringify(obj), "utf8").toString("base64url");
+}
+
+export function decodeState<T = any>(s?: string | string[] | null): T | null {
+  if (!s || Array.isArray(s)) return null;
+  try { return JSON.parse(Buffer.from(s, "base64url").toString("utf8")) as T; }
+  catch {
+    try { return JSON.parse(Buffer.from(s, "base64").toString("utf8")) as T; }
+    catch { return null; }
+  }
+}
+
+2) UI: open popups + listen once
+
+In the unified email connect component:
+
+function connectGoogleWithPopup() {
+  const origin = window.location.origin;
+  const popup = window.open(
+    `/auth/google/start?popup=1&origin=${encodeURIComponent(origin)}`,
+    "oauth-google",
+    "width=520,height=700,menubar=0,toolbar=0,status=0"
+  );
+  const onMsg = (ev: MessageEvent) => {
+    if (!ev?.data || ev.data.type !== "oauth:connected" || ev.data.provider !== "google") return;
+    window.removeEventListener("message", onMsg);
+    try { popup?.close(); } catch {}
+    location.reload(); // or refetch connected accounts
+  };
+  window.addEventListener("message", onMsg, { once: true });
+}
+
+function connectMicrosoftWithPopup(providerKey: "microsoft" | "hotmail_msn_outlook_live" = "microsoft") {
+  const origin = window.location.origin;
+  const popup = window.open(
+    `/auth/microsoft/start?popup=1&origin=${encodeURIComponent(origin)}&provider=${providerKey}`,
+    "oauth-microsoft",
+    "width=520,height=700,menubar=0,toolbar=0,status=0"
+  );
+  const onMsg = (ev: MessageEvent) => {
+    if (!ev?.data || ev.data.type !== "oauth:connected" || ev.data.provider !== "microsoft") return;
+    window.removeEventListener("message", onMsg);
+    try { popup?.close(); } catch {}
+    location.reload();
+  };
+  window.addEventListener("message", onMsg, { once: true });
+}
+
+
+Wire buttons:
+
+Google card → onClick={connectGoogleWithPopup}
+
+Microsoft card → onClick={() => connectMicrosoftWithPopup('microsoft')}
+
+Hotmail/MSN/Outlook/Live card → onClick={() => connectMicrosoftWithPopup('hotmail_msn_outlook_live')}
+
+3) Google start route: embed popup metadata in state
+
+In /auth/google/start:
+
+import { OAuth2Client } from "google-auth-library";
+import { encodeState } from "../oauth/state";
+
+const oauth2 = new OAuth2Client(process.env.GOOGLE_CLIENT_ID!, process.env.GOOGLE_CLIENT_SECRET!, process.env.GOOGLE_REDIRECT_URI!);
+
+const GOOGLE_SCOPES = [
+  "https://www.googleapis.com/auth/gmail.modify",
+  "https://www.googleapis.com/auth/contacts.readonly",
+  "openid","email","profile"
+];
+
+app.get("/auth/google/start", (req, res) => {
+  const stateObj = {
+    tenantId: (req as any).userTenantId ?? null,
+    userId: (req as any).userId ?? null,
+    popup: req.query.popup === "1",
+    origin: (req.query.origin as string) || `${req.protocol}://${req.get("host")}`,
+    returnTo: "/settings/email-and-calendar"
+  };
+  const url = oauth2.generateAuthUrl({
+    access_type: "offline",
+    prompt: "consent",
+    include_granted_scopes: true,
+    scope: GOOGLE_SCOPES,
+    state: encodeState(stateObj)
+  });
+  res.redirect(url);
+});
+
+4) Google callback: postMessage + close, NO redirect inside popup
+
+In /auth/google/callback (after exchanging code, saving tokens, etc.):
+
+import { decodeState } from "../oauth/state";
+
+app.get("/auth/google/callback", async (req, res) => {
+  const parsed = decodeState<any>(req.query.state);
+  // ...exchange code → tokens, get email, upsert email_accounts (unchanged)...
+
+  if (parsed?.popup) {
+    res.setHeader("Content-Type", "text/html; charset=utf-8");
+    return res.send(`<!doctype html><html><body><script>
+      (function(){
+        try { window.opener && window.opener.postMessage({type:'oauth:connected', provider:'google', ok:true}, '*'); } catch(e) {}
+        try { window.close(); } catch(e) {}
+        setTimeout(function(){ if (!window.closed) document.body.innerHTML='Connected. You can close this window.'; }, 150);
+      })();
+    </script></body></html>`);
+  }
+
+  return res.redirect(parsed?.returnTo || "/settings/email-and-calendar");
+});
+
+
+Important: Use return after res.send(...) so no middleware performs a redirect that would load your CRM inside the popup.
+
+5) Microsoft start/callback mirror
+
+Start /auth/microsoft/start:
+
+import { encodeState } from "../oauth/state";
+
+app.get("/auth/microsoft/start", (req, res) => {
+  const stateObj = {
+    tenantId: (req as any).userTenantId ?? null,
+    userId: (req as any).userId ?? null,
+    popup: req.query.popup === "1",
+    origin: (req.query.origin as string) || `${req.protocol}://${req.get("host")}`,
+    returnTo: "/settings/email-and-calendar",
+    provider: (req.query.provider as string) || "microsoft"
+  };
+  const state = encodeState(stateObj);
+
+  const params = new URLSearchParams({
+    client_id: process.env.MS_CLIENT_ID!,
+    response_type: "code",
+    redirect_uri: process.env.MS_REDIRECT_URI!,
+    response_mode: "query",
+    scope: [
+      "openid","email","profile","offline_access",
+      "Mail.Read","Mail.Send","Contacts.Read"
+    ].join(" "),
+    prompt: "consent",
+    state
+  });
+
+  res.redirect(`https://login.microsoftonline.com/common/oauth2/v2.0/authorize?${params.toString()}`);
+});
+
+
+Callback /auth/microsoft/callback (after token exchange/upsert):
+
+import { decodeState } from "../oauth/state";
+
+app.get("/auth/microsoft/callback", async (req, res) => {
+  const parsed = decodeState<any>(req.query.state);
+  // ...exchange tokens, get email via Graph, upsert account (unchanged)...
+
+  if (parsed?.popup) {
+    res.setHeader("Content-Type", "text/html; charset=utf-8");
+    return res.send(`<!doctype html><html><body><script>
+      (function(){
+        try { window.opener && window.opener.postMessage({type:'oauth:connected', provider:'microsoft', ok:true}, '*'); } catch(e) {}
+        try { window.close(); } catch(e) {}
+        setTimeout(function(){ if (!window.closed) document.body.innerHTML='Connected. You can close this window.'; }, 150);
+      })();
+    </script></body></html>`);
+  }
+
+  return res.redirect(parsed?.returnTo || "/settings/email-and-calendar");
+});
+
+6) Env + redirect URIs (verify)
+
+Set and use:
+
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+GOOGLE_REDIRECT_URI=https://<your-app-domain>/auth/google/callback
+
+MS_CLIENT_ID=
+MS_CLIENT_SECRET=
+MS_REDIRECT_URI=https://<your-app-domain>/auth/microsoft/callback
+
+
+Add the exact callback URLs in Google Cloud OAuth and Azure App Registration.
+
+7) Acceptance (manual)
+
+Click Connect Google → popup to Google → after consent, popup closes; parent reloads → Google account connected.
+
+Click Connect Microsoft / Hotmail/MSN/Outlook/Live → identical popup behavior, connected afterward.
+
+No instance of your CRM ever renders inside the popup.
+
+8) Quick debug (temporary)
+
+Log decoded state once in callbacks:
+
+console.info("google-callback-state", decodeState(req.query.state));
+console.info("ms-callback-state", decodeState(req.query.state));
+
+
+Confirm { popup: true }. If not present, ensure the UI uses window.open(...?popup=1&origin=...).
+
+Notes
+
+Using '*' in postMessage is intentional for Replit dev where origins change. Lock it down to your exact origin in production.
+
+Do not print tokens in logs. Only minimal state logs during debugging.

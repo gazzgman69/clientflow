@@ -339,15 +339,7 @@ export default function EmailSettings() {
       setAlertMessage({ type: 'success', message: 'Gmail connected successfully!' });
       location.reload();
     }
-    window.addEventListener('message', onMsg);
-
-    // Safety: if the popup is blocked/closed, fall back
-    const timer = setInterval(() => {
-      if (!w || w.closed) {
-        window.removeEventListener('message', onMsg);
-        clearInterval(timer);
-      }
-    }, 500);
+    window.addEventListener('message', onMsg, { once: true });
   };
 
   // Connect Microsoft with popup and postMessage
@@ -371,15 +363,7 @@ export default function EmailSettings() {
       setAlertMessage({ type: 'success', message: 'Microsoft account connected successfully!' });
       location.reload();
     }
-    window.addEventListener('message', onMsg);
-
-    // Safety: if the popup is blocked/closed, fall back
-    const timer = setInterval(() => {
-      if (!w || w.closed) {
-        window.removeEventListener('message', onMsg);
-        clearInterval(timer);
-      }
-    }, 500);
+    window.addEventListener('message', onMsg, { once: true });
   };
 
   // Handle email sync connect

@@ -477,10 +477,11 @@ export class PostgreSQLJobQueue implements IJobQueue {
     const scheduleNextRun = () => {
       if (!this.isStarted) return;
 
-      // Create new job instance for execution
+      // Create new job instance for execution with tenant isolation
       this.enqueue(job.type, job.payload, {
         priority: job.priority,
         maxRetries: job.maxRetries,
+        tenantId: job.tenantId, // Pass tenantId for multi-tenant isolation
       }).catch(console.error);
 
       // Schedule next run
@@ -526,6 +527,7 @@ export class PostgreSQLJobQueue implements IJobQueue {
       maxRetries: row.maxRetries,
       delay: row.delay,
       schedule: row.schedule ? JSON.parse(row.schedule) : undefined,
+      tenantId: row.tenantId, // Include tenantId for multi-tenant isolation
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
     };

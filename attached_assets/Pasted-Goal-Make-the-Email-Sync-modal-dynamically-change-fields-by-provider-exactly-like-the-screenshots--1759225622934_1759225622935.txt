@@ -1,0 +1,156 @@
+Goal
+Make the Email Sync modal dynamically change fields by provider (exactly like the screenshots). Fix the provider <select> binding and mode detection. Keep all existing OAuth routes and DB code.
+
+Do NOT change any back-end routes or schema.
+
+Tasks
+
+Fix provider select binding
+
+In the Email Sync modal component, keep state:
+
+const [providers, setProviders] = useState<Provider[]>([]);
+const [selectedKey, setSelectedKey] = useState<string>("");
+const selected = providers.find(p => p.key === selectedKey) || null;
+
+
+Render as a proper <select>:
+
+<select
+  aria-label="Email Provider"
+  value={selectedKey}
+  onChange={(e) => setSelectedKey(e.target.value)}
+>
+  {providers.map(p => (
+    <option key={p.key} value={p.key}>{p.display_name}</option>
+  ))}
+</select>
+
+
+Bug to remove: anywhere we set the select value to providers.map(...).join(...) or pass the array itself. The value must be the single selectedKey.
+
+Normalize provider shape from API
+Ensure GET /api/email/providers?status=active returns (or map client-side to) this shape:
+
+type Provider = {
+  key: string;                       // e.g. 'google', 'microsoft', 'yahoo', 'other'
+  display_name: string;
+  category: 'oauth' | 'imap_smtp';
+  imap?: { host?: string; port?: number; secure?: boolean };
+  smtp?: { host?: string; port?: number; secure?: boolean };
+};
+
+
+If your API uses other field names, map them client-side when setting state.
+
+Add reliable mode detection
+
+type Mode = 'oauth' | 'preconfigured' | 'generic';
+
+function getProviderMode(p?: Provider | null): Mode {
+  if (!p) return 'generic';
+  if (['google','microsoft','hotmail_msn_outlook_live'].includes(p.key)) return 'oauth';
+  if (p.category === 'imap_smtp') {
+    const preset = !!(p.imap?.host && typeof p.imap.port === 'number');
+    return preset ? 'preconfigured' : 'generic';
+  }
+  return 'generic';
+}
+
+
+Render fields by mode (match screenshots)
+
+const mode = getProviderMode(selected);
+
+// Common: Email Provider select + (optional) Login
+<LoginInput visible={mode !== 'oauth' ? true : true /* keep visible but optional for OAuth */} />
+
+{mode === 'oauth' && (
+  // No password/server fields
+  <ConnectButton onClick={() => {
+    if (selected?.key === 'google') window.location.href = '/auth/google/start';
+    else if (selected?.key === 'microsoft' || selected?.key === 'hotmail_msn_outlook_live')
+      window.location.href = '/auth/microsoft/start';
+  }} />
+)}
+
+{mode === 'preconfigured' && (
+  // Login + Password ONLY (no server fields)
+  <>
+    <PasswordInput />
+    <ConnectButton onClick={submitWithCatalogDefaults} />
+  </>
+)}
+
+{mode === 'generic' && (
+  // Login + Password + IMAP host/port/SSL (+ SMTP if outgoing)
+  <>
+    <PasswordInput />
+    <ImapHostPortSSL defaults={selected?.imap} />
+    {selected?.smtp && <SmtpHostPortSSL defaults={selected.smtp} />}
+    <ConnectButton onClick={submitWithManualValues} />
+  </>
+)}
+
+
+Submit handlers
+
+Preconfigured / Generic should POST /api/email/accounts:
+
+await fetch('/api/email/accounts', {
+  method: 'POST',
+  headers: {'Content-Type':'application/json'},
+  body: JSON.stringify({
+    type: 'imap_smtp',
+    providerKey: selectedKey,
+    settings: {
+      imap: { host, port, secure, user: login, pass: password },
+      smtp: smtpEnabled ? { host, port, secure, user: login, pass: password } : null
+    }
+  })
+});
+
+
+Use catalog defaults for preconfigured providers (host/port/secure from selected.imap/selected.smtp).
+
+Reset form when provider changes
+
+useEffect(() => {
+  // clear password/host/port when switching providers to avoid stale fields
+  setForm({ login: '', password: '', imap:{}, smtp:{} });
+}, [selectedKey]);
+
+
+Remove legacy Gmail card (display only)
+Stop rendering the old Gmail/Google card; keep rollback flag:
+
+{process.env.NEXT_PUBLIC_FEATURE_LEGACY_EMAIL === 'true' && <GmailEmailLoginCard />}
+
+
+Set NEXT_PUBLIC_FEATURE_LEGACY_EMAIL=false.
+
+Acceptance Criteria
+
+Select shows one provider at a time (no long concatenated string).
+
+Google / Microsoft / Hotmail-MSN-Outlook-Live → Modal shows Email Provider + Login only, Connect redirects to their existing OAuth start URLs.
+
+Yahoo, iCloud, Zoho, Fastmail, etc. → Modal shows Login + Password only (no server fields).
+
+Other → Modal shows Login + Password + IMAP Server + Port + SSL (and SMTP if configured).
+
+Posting IMAP/SMTP uses catalog defaults for preconfigured providers and user-entered values for Other.
+
+Existing Gmail/Microsoft functionality still works.
+
+Quick Playwright smoke (optional)
+
+Assert no legacy Gmail card.
+
+For Google, clicking Connect triggers a request to /auth/google/start.
+
+For Microsoft & Hotmail/MSN/Outlook/Live, Connect triggers /auth/microsoft/start.
+
+For Yahoo, Connect posts to /api/email/accounts with type:'imap_smtp' and providerKey:'yahoo'.
+
+For Other, all manual fields are present.

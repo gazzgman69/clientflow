@@ -45,6 +45,17 @@ interface EmailProvider {
   isActive: boolean;
 }
 
+// Normalized provider type matching spec
+type Provider = {
+  key: string;                       // e.g. 'google', 'microsoft', 'yahoo', 'other'
+  display_name: string;
+  category: 'oauth' | 'imap_smtp';
+  imap?: { host?: string; port?: number; secure?: boolean };
+  smtp?: { host?: string; port?: number; secure?: boolean };
+};
+
+type Mode = 'oauth' | 'preconfigured' | 'generic';
+
 interface TenantEmailPrefs {
   tenantId: string;
   bccSelf: boolean;
@@ -71,11 +82,45 @@ interface MailSettings {
   updatedAt: string;
 }
 
+// Normalize provider from API response to match spec
+function normalizeProvider(p: EmailProvider): Provider {
+  return {
+    key: p.code,
+    display_name: p.displayName,
+    category: p.category === 'oauth' ? 'oauth' : 'imap_smtp',
+    imap: p.category === 'imap_smtp' ? { 
+      host: undefined, // Will be populated from catalog if available
+      port: 993, 
+      secure: true 
+    } : undefined,
+    smtp: p.category === 'imap_smtp' ? { 
+      host: undefined, 
+      port: 465, 
+      secure: true 
+    } : undefined,
+  };
+}
+
+// Reliable mode detection matching spec
+function getProviderMode(p?: Provider | null): Mode {
+  if (!p) return 'generic';
+  if (['google','microsoft','hotmail_msn_outlook_live'].includes(p.key)) return 'oauth';
+  if (p.category === 'imap_smtp') {
+    const preset = !!(p.imap?.host && typeof p.imap.port === 'number');
+    return preset ? 'preconfigured' : 'generic';
+  }
+  return 'generic';
+}
+
 export default function EmailSettings() {
   const [alertMessage, setAlertMessage] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [selectedProvider, setSelectedProvider] = useState<string>('');
   const [showConnectDialog, setShowConnectDialog] = useState(false);
-  const [selectedProviderToConnect, setSelectedProviderToConnect] = useState<EmailProvider | null>(null);
+  
+  // Normalized providers state
+  const [providers, setProviders] = useState<Provider[]>([]);
+  const [selectedKey, setSelectedKey] = useState<string>('');
+  const selected = providers.find(p => p.key === selectedKey) || null;
   
   // Form state for email sync modal
   const [emailSyncForm, setEmailSyncForm] = useState({
@@ -123,27 +168,33 @@ export default function EmailSettings() {
     queryKey: ['/api/auth/microsoft/status']
   });
 
-  const providers = (providersData as any)?.providers || [];
+  const rawProviders = (providersData as any)?.providers || [];
   const prefs = (prefsData as any)?.prefs as TenantEmailPrefs;
   const settings = (settingsData as any)?.settings as MailSettings | null;
   
-  // Determine modal mode based on provider
-  const getProviderMode = (provider: EmailProvider | null): 'oauth' | 'preconfigured' | 'other' => {
-    if (!provider) return 'other';
-    
-    // Mode A - OAuth providers
-    const oauthProviders = ['google', 'gmail', 'microsoft', 'office365', 'hotmail_msn_outlook_live'];
-    if (oauthProviders.includes(provider.code)) return 'oauth';
-    
-    // Mode B - Preconfigured IMAP/SMTP providers
-    const preconfiguredProviders = ['yahoo', 'icloud', 'zoho', 'fastmail', 'outlook_imap', 'ionos', 'bluehost', 'siteground', 'aol', 'att', 'sky', 'cox', 'bellsouth', 'sbcglobal'];
-    if (preconfiguredProviders.includes(provider.code)) return 'preconfigured';
-    
-    // Mode C - Other/Generic
-    return 'other';
-  };
+  // Normalize providers from API response
+  useEffect(() => {
+    if (rawProviders.length > 0) {
+      const normalized = rawProviders.map(normalizeProvider);
+      setProviders(normalized);
+    }
+  }, [rawProviders]);
   
-  const modalMode = getProviderMode(selectedProviderToConnect);
+  // Reset form when provider changes
+  useEffect(() => {
+    setEmailSyncForm({
+      login: '',
+      password: '',
+      imapServer: '',
+      imapPort: '993',
+      ssl: true,
+      smtpServer: '',
+      smtpPort: '465',
+      smtpSsl: true
+    });
+  }, [selectedKey]);
+  
+  const mode = getProviderMode(selected);
   const gmailStatus = (gmailStatusData as any) || { ok: false, connected: false };
   const microsoftStatus = (microsoftStatusData as any) || { ok: false, connected: false };
   
@@ -216,7 +267,7 @@ export default function EmailSettings() {
       queryClient.invalidateQueries({ queryKey: ['/api/auth/google/gmail/status'] });
       queryClient.invalidateQueries({ queryKey: ['/api/auth/microsoft/status'] });
       setShowConnectDialog(false);
-      setSelectedProviderToConnect(null);
+      setSelectedKey('');
       setEmailSyncForm({
         login: '',
         password: '',
@@ -234,8 +285,8 @@ export default function EmailSettings() {
     }
   });
 
-  // Get selected provider details
-  const selectedProviderDetails = providers.find((p: EmailProvider) => p.code === selectedProvider);
+  // Get selected provider details for help section
+  const selectedProviderDetails = rawProviders.find((p: EmailProvider) => p.code === selectedProvider);
 
   // Format date
   const formatDate = (dateString?: string) => {
@@ -266,41 +317,65 @@ export default function EmailSettings() {
   
   // Handle email sync connect
   const handleEmailSyncConnect = async () => {
-    if (!selectedProviderToConnect) return;
+    if (!selected) return;
     
-    const mode = getProviderMode(selectedProviderToConnect);
+    const currentMode = getProviderMode(selected);
     
     // Mode A - OAuth: redirect to OAuth flow
-    if (mode === 'oauth') {
-      if (selectedProviderToConnect.code === 'gmail' || selectedProviderToConnect.code === 'google') {
-        window.location.href = '/auth/google/gmail';
-      } else if (selectedProviderToConnect.code === 'microsoft' || selectedProviderToConnect.code === 'office365') {
-        window.location.href = '/auth/microsoft/mail';
-      } else if (selectedProviderToConnect.code === 'hotmail_msn_outlook_live') {
-        window.location.href = '/auth/microsoft/mail';
+    if (currentMode === 'oauth') {
+      if (selected.key === 'google') {
+        window.location.href = '/auth/google/start';
+      } else if (selected.key === 'microsoft' || selected.key === 'hotmail_msn_outlook_live') {
+        window.location.href = '/auth/microsoft/start';
       }
       return;
     }
     
-    // Mode B & C - IMAP/SMTP: create account via API
+    // Mode B - Preconfigured: use catalog defaults
+    if (currentMode === 'preconfigured') {
+      const accountData = {
+        type: 'imap_smtp',
+        providerKey: selected.key,
+        settings: {
+          imap: {
+            host: selected.imap?.host,
+            port: selected.imap?.port || 993,
+            secure: selected.imap?.secure ?? true,
+            user: emailSyncForm.login,
+            pass: emailSyncForm.password
+          },
+          smtp: selected.smtp ? {
+            host: selected.smtp.host,
+            port: selected.smtp.port || 465,
+            secure: selected.smtp.secure ?? true,
+            user: emailSyncForm.login,
+            pass: emailSyncForm.password
+          } : null
+        }
+      };
+      connectEmailAccountMutation.mutate(accountData);
+      return;
+    }
+    
+    // Mode C - Generic: use manual values
     const accountData = {
       type: 'imap_smtp',
-      providerKey: selectedProviderToConnect.code,
+      providerKey: selected.key,
       settings: {
         imap: {
-          host: mode === 'preconfigured' ? selectedProviderToConnect.code : emailSyncForm.imapServer,
-          port: mode === 'preconfigured' ? 993 : parseInt(emailSyncForm.imapPort),
-          secure: mode === 'preconfigured' ? true : emailSyncForm.ssl,
+          host: emailSyncForm.imapServer,
+          port: parseInt(emailSyncForm.imapPort),
+          secure: emailSyncForm.ssl,
           user: emailSyncForm.login,
           pass: emailSyncForm.password
         },
-        smtp: mode === 'preconfigured' ? null : {
+        smtp: emailSyncForm.smtpServer ? {
           host: emailSyncForm.smtpServer,
           port: parseInt(emailSyncForm.smtpPort),
           secure: emailSyncForm.smtpSsl,
           user: emailSyncForm.login,
           pass: emailSyncForm.password
-        }
+        } : null
       }
     };
     
@@ -448,29 +523,21 @@ export default function EmailSettings() {
                         
                         {providersLoading ? (
                           <div className="py-8 text-center text-muted-foreground">Loading providers...</div>
-                        ) : !selectedProviderToConnect ? (
+                        ) : !selectedKey ? (
                           <div className="grid grid-cols-1 gap-3">
-                            {providers.map((provider: EmailProvider) => (
+                            {providers.map((provider: Provider) => (
                               <button
-                                key={provider.id}
-                                onClick={() => setSelectedProviderToConnect(provider)}
+                                key={provider.key}
+                                onClick={() => setSelectedKey(provider.key)}
                                 className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted transition-colors text-left"
-                                data-testid={`provider-option-${provider.code}`}
+                                data-testid={`provider-option-${provider.key}`}
                               >
                                 <div className="flex items-center space-x-3">
                                   <Mail className="h-5 w-5 text-muted-foreground" />
                                   <div>
-                                    <p className="font-medium">{provider.displayName}</p>
-                                    <p className="text-sm text-muted-foreground capitalize">{provider.authType?.replace('_', ' ') || 'Unknown'}</p>
+                                    <p className="font-medium">{provider.display_name}</p>
+                                    <p className="text-sm text-muted-foreground capitalize">{provider.category?.replace('_', ' ') || 'Unknown'}</p>
                                   </div>
-                                </div>
-                                <div className="flex gap-2">
-                                  {provider.supportsReceive && (
-                                    <Badge variant="secondary" className="text-xs">Incoming</Badge>
-                                  )}
-                                  {provider.supportsSend && (
-                                    <Badge variant="secondary" className="text-xs">Outgoing</Badge>
-                                  )}
                                 </div>
                               </button>
                             ))}
@@ -480,24 +547,18 @@ export default function EmailSettings() {
                             {/* Email Provider Selector */}
                             <div className="space-y-2">
                               <Label htmlFor="email-provider" className="text-base font-semibold">Email Provider</Label>
-                              <Select 
-                                value={selectedProviderToConnect.code} 
-                                onValueChange={(code) => {
-                                  const provider = providers.find((p: EmailProvider) => p.code === code);
-                                  if (provider) setSelectedProviderToConnect(provider);
-                                }}
+                              <select
+                                id="email-provider"
+                                aria-label="Email Provider"
+                                value={selectedKey}
+                                onChange={(e) => setSelectedKey(e.target.value)}
+                                className="w-full h-10 px-3 py-2 text-sm bg-background border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                                data-testid="select-email-provider"
                               >
-                                <SelectTrigger id="email-provider" className="w-full">
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {providers.map((provider: EmailProvider) => (
-                                    <SelectItem key={provider.id} value={provider.code}>
-                                      {provider.displayName}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
+                                {providers.map(p => (
+                                  <option key={p.key} value={p.key}>{p.display_name}</option>
+                                ))}
+                              </select>
                             </div>
 
                             {/* Login Field (shown in all modes) */}
@@ -506,15 +567,15 @@ export default function EmailSettings() {
                               <Input 
                                 id="login" 
                                 type="email" 
-                                placeholder={modalMode === 'oauth' ? 'Optional' : 'This is usually your email address'}
+                                placeholder={mode === 'oauth' ? 'Optional' : 'This is usually your email address'}
                                 value={emailSyncForm.login}
                                 onChange={(e) => setEmailSyncForm({ ...emailSyncForm, login: e.target.value })}
                                 data-testid="input-login"
                               />
                             </div>
 
-                            {/* Password Field (shown in preconfigured and other modes) */}
-                            {(modalMode === 'preconfigured' || modalMode === 'other') && (
+                            {/* Password Field (shown in preconfigured and generic modes) */}
+                            {(mode === 'preconfigured' || mode === 'generic') && (
                               <div className="space-y-2">
                                 <Label htmlFor="password" className="text-base font-semibold">Password</Label>
                                 <Input 
@@ -527,8 +588,8 @@ export default function EmailSettings() {
                               </div>
                             )}
 
-                            {/* Manual IMAP/SMTP Fields (shown only in 'other' mode) */}
-                            {modalMode === 'other' && (
+                            {/* Manual IMAP/SMTP Fields (shown only in 'generic' mode) */}
+                            {mode === 'generic' && (
                               <>
                                 <div className="space-y-2">
                                   <Label htmlFor="imap-server" className="text-base font-semibold">IMAP Server</Label>
@@ -572,7 +633,7 @@ export default function EmailSettings() {
                                 variant="outline" 
                                 className="flex-1" 
                                 onClick={() => {
-                                  setSelectedProviderToConnect(null);
+                                  setSelectedKey('');
                                   setEmailSyncForm({
                                     login: '',
                                     password: '',
@@ -658,34 +719,26 @@ export default function EmailSettings() {
                             <p className="text-center py-4">Loading providers...</p>
                           ) : (
                             <div className="grid grid-cols-1 gap-3">
-                              {providers.filter((p: EmailProvider) => {
+                              {providers.filter((p: Provider) => {
                                 const currentProviderCodes = connectedProvider === 'gmail' ? ['gmail', 'google'] : ['microsoft', 'office365'];
-                                return !currentProviderCodes.includes(p.code);
-                              }).map((provider: EmailProvider) => (
+                                return !currentProviderCodes.includes(p.key);
+                              }).map((provider: Provider) => (
                                 <button
-                                  key={provider.id}
+                                  key={provider.key}
                                   onClick={() => {
                                     disconnectProviderMutation.mutate();
-                                    setSelectedProviderToConnect(provider);
+                                    setSelectedKey(provider.key);
                                     setShowConnectDialog(true);
                                   }}
                                   className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted transition-colors text-left"
-                                  data-testid={`switch-provider-${provider.code}`}
+                                  data-testid={`switch-provider-${provider.key}`}
                                 >
                                   <div className="flex items-center space-x-3">
                                     <Mail className="h-5 w-5 text-muted-foreground" />
                                     <div>
-                                      <p className="font-medium">{provider.displayName}</p>
-                                      <p className="text-sm text-muted-foreground capitalize">{provider.authType?.replace('_', ' ') || 'Unknown'}</p>
+                                      <p className="font-medium">{provider.display_name}</p>
+                                      <p className="text-sm text-muted-foreground capitalize">{provider.category?.replace('_', ' ') || 'Unknown'}</p>
                                     </div>
-                                  </div>
-                                  <div className="flex gap-2">
-                                    {provider.supportsReceive && (
-                                      <Badge variant="secondary" className="text-xs">Incoming</Badge>
-                                    )}
-                                    {provider.supportsSend && (
-                                      <Badge variant="secondary" className="text-xs">Outgoing</Badge>
-                                    )}
                                   </div>
                                 </button>
                               ))}

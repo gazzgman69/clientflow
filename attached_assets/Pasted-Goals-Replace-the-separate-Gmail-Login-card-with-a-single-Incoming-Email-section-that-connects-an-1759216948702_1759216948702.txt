@@ -1,0 +1,250 @@
+Goals
+
+Replace the separate “Gmail Login” card with a single Incoming Email section that connects any provider.
+
+Support Google (OAuth), Microsoft 365/Outlook (OAuth) and a long list of IMAP/SMTP providers with presets.
+
+Store a DB-backed catalog of provider recipes (future-proof), show help blurbs, and create connect / status / disconnect / send / sync endpoints that automatically route by provider.
+
+Keep contacts-only ingestion, multi-tenant isolation, encrypted secrets, and a Send Test button.
+
+0) Environment (fail-fast)
+
+Add/require:
+
+GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_OAUTH_REDIRECT_URL
+MS_CLIENT_ID, MS_CLIENT_SECRET, MS_OAUTH_REDIRECT_URL, MS_TENANT=common
+ENCRYPTION_KEY (AES-256-GCM)
+
+
+The app must refuse to boot if any are missing.
+
+1) Database schema (Drizzle / SQL)
+a) email_provider_catalog (global recipes)
+id (uuid pk)
+key text unique            -- 'google','microsoft','yahoo','icloud','zoho','bluehost','godaddy_workspace','godaddy_o365','siteground','ionos','aol','att','sky','cox','bellsouth','sbcglobal','other'
+display_name text
+category text              -- 'oauth' | 'imap_smtp'
+incoming boolean, outgoing boolean
+oauth_scopes jsonb         -- for oauth providers (optional)
+imap jsonb                 -- {host, port, secure, auth: 'basic' | 'xoauth2'}
+smtp jsonb                 -- {host, port, secure, auth: 'basic' | 'xoauth2'}
+help_blurb text            -- short provider-specific note
+created_at, updated_at
+
+
+Seed with these presets (secure defaults):
+
+google (OAuth): Gmail scopes gmail.modify, gmail.send.
+
+microsoft (OAuth): Graph scopes offline_access Mail.Read Mail.Send.
+
+icloud (IMAP/SMTP): imap.mail.me.com:993 SSL, smtp.mail.me.com:587 STARTTLS; blurb “Requires app-specific password.”
+
+yahoo (IMAP/SMTP): imap.mail.yahoo.com:993 SSL, smtp.mail.yahoo.com:465 SSL / 587 STARTTLS; blurb “Use app password.”
+
+zoho (IMAP/SMTP): imap.zoho.com:993 SSL, smtp.zoho.com:465/587; blurb “May require IMAP access enabled.”
+
+bluehost (IMAP/SMTP): mail.<domain>:993, mail.<domain>:465/587.
+
+godaddy_workspace (IMAP/SMTP): imap.secureserver.net:993, smtpout.secureserver.net:465/587.
+
+godaddy_o365 → alias to microsoft OAuth (show different label).
+
+siteground (IMAP/SMTP): mail.<domain>:993, mail.<domain>:465/587.
+
+ionos (1&1) (IMAP/SMTP): imap.ionos.com:993, smtp.ionos.com:465/587.
+
+aol (IMAP/SMTP): imap.aol.com:993, smtp.aol.com:465.
+
+att (IMAP/SMTP): imap.mail.att.net:993, smtp.mail.att.net:465.
+
+sky (IMAP/SMTP): imap.tools.sky.com:993, smtp.tools.sky.com:465/587 (use best-known).
+
+cox (IMAP/SMTP): imap.cox.net:993, smtp.cox.net:465/587.
+
+bellsouth (IMAP/SMTP): ATT legacy; use att settings + blurb.
+
+sbcglobal (IMAP/SMTP): ATT legacy; use att settings + blurb.
+
+other (IMAP/SMTP): blank hosts; user must fill.
+
+b) email_accounts (per-user/tenant connection)
+id (uuid pk)
+tenant_id (not null, fk)      -- index
+user_id   (not null, fk)
+provider_key text              -- fk to email_provider_catalog.key
+status text                    -- 'connected' | 'error' | 'disconnected'
+account_email text
+auth_type text                 -- 'oauth' | 'basic'
+secrets_enc text               -- encrypted {access_token, refresh_token, expires_at} | {username,password}
+expires_at timestamptz
+last_synced_at timestamptz
+metadata jsonb                 -- cursor/historyId, error codes, etc.
+created_at, updated_at
+unique(tenant_id,user_id,provider_key)
+
+c) Preferences (per tenant)
+email_prefs (tenant_id pk, bcc_me boolean default false, read_receipts boolean default false)
+
+
+All tables: NOT NULL tenant_id where applicable, FK to tenants, indexes on (tenant_id, user_id).
+
+2) Server routes (auth + tenant middleware on all)
+Catalog
+
+GET /api/email/providers → list from email_provider_catalog (no secrets).
+
+Connect (Incoming Email)
+
+OAuth providers
+
+GET /api/email/connect/:providerKey → redirect to provider auth (google/microsoft).
+
+GET /api/email/callback/:providerKey → exchange code, store encrypted tokens in email_accounts, set status='connected', account_email, expires_at.
+
+IMAP/SMTP providers
+
+POST /api/email/connect/:providerKey with body:
+
+{ username, password, custom?: {imapHost,imapPort,imapSecure,smtpHost,smtpPort,smtpSecure} }
+
+
+Validate by:
+
+Try SMTP EHLO + AUTH (nodemailer transport) then NOOP, and IMAP LOGIN then LIST root.
+
+On success, save encrypted username/password, status='connected'. On fail, return {code, providerMessage}.
+
+Status / Disconnect
+
+GET /api/email/status → {connectedProviders:[...], active:{providerKey,accountEmail,lastSyncedAt}}
+
+POST /api/email/disconnect/:providerKey → revoke OAuth (where applicable), delete secrets, set status='disconnected'.
+
+Send / Sync
+
+POST /api/email/send → dispatcher (see §4) sends via active account; respects tenant prefs (BCC me, read receipts flag header).
+
+POST /api/email/sync → triggers contacts-only ingestion for the active account.
+
+Debug
+
+POST /api/email/debug/send-test → {to,subject,body,providerKey?}; if missing, use active. Return provider id/accepted + provider diagnostic.
+
+GET /api/email/debug/health/:providerKey → attempts small IMAP/SMTP login or token refresh and reports.
+
+3) Provider services
+
+Create services/emailProviders/:
+
+google.ts (OAuth Gmail): send via gmail.users.messages.send, incremental sync using historyId; contacts-only filter.
+
+microsoft.ts (Graph): POST /me/sendMail, paging on /me/messages; contacts-only filter.
+
+imapSmtp.ts: generic:
+
+send using nodemailer SMTP (TLS/STARTTLS based on recipe).
+
+sync via IMAP (node-imap/imapflow): select INBOX, fetch headers/bodies; only ingest messages where any participant matches a Contact email in this tenant; store cursor (UIDVALIDITY + last UID).
+
+Support IDLE or periodic poll (configurable).
+
+All services must:
+
+encrypt/decrypt secrets via ENCRYPTION_KEY
+
+refresh tokens where applicable
+
+never return secrets to the client
+
+return structured results:
+
+{ ok: true, provider: 'google'|'microsoft'|'imap_smtp', messageId?, internetMessageId?, warnings?[] }
+
+4) Dispatcher
+
+Create emailDispatcher.ts:
+
+getActiveAccount(tenantId, userId) -> email_accounts row or null
+sendEmail(tenantId, userId, payload) -> routes to google/microsoft/imapSmtp
+syncContactsOnly(tenantId, userId, opts) -> routes accordingly
+
+
+If payload.from != account_email, set replyTo and include a warning.
+
+5) UI (Settings → Email) — one scrollable page (no tabs)
+
+Replace existing with 3 cards:
+
+A. About Email Settings (static copy)
+
+B. Incoming Email
+
+Provider select (data from /api/email/providers) with search.
+
+When provider chosen:
+
+OAuth → “Connect <Provider>” button → GET /api/email/connect/:providerKey (full-page redirect).
+
+IMAP/SMTP → show fields: Login, Password, and a “Customize servers” accordion with prefilled host/port/secure from catalog; submit to POST /api/email/connect/:providerKey.
+
+When connected: show status pill, accountEmail, Last synced, Reconnect / Disconnect.
+
+Send Test Email mini-form that posts to /api/email/debug/send-test.
+
+C. Outgoing Email Preferences (per tenant)
+
+Toggles: BCC me on all outgoing, Enable read receipts (save to email_prefs).
+
+Display “Sending via <Provider>” when an account is connected.
+
+Email Help panel underneath: show help_blurb for the selected provider (e.g., iCloud/Yahoo app-password notes; GoDaddy Workspace vs O365 note; “Other…” says “Ask your host for IMAP/SMTP and ports”).
+
+6) Contacts-only ingest & data hygiene
+
+Keep the existing contacts-only rule.
+
+For IMAP, fetch headers first; only download full body when a participant matches a Contact to avoid bloat.
+
+Store trimmed bodies (plain + HTML) and attachments metadata; lazy-fetch attachments on demand.
+
+7) Multi-tenant + security
+
+Every storage/service method requires tenantId; throw if missing.
+
+Unique (tenant_id,user_id,provider_key) ensures one connection per provider per user.
+
+Secrets at rest: AES-256-GCM with random IV; rotate on reconnect.
+
+Add a CI check that forbids inserts to email_accounts without tenant_id.
+
+8) Seed catalog & blurbs
+
+Seed email_provider_catalog with all providers above and these example blurbs:
+
+iCloud: “Create an app-specific password at appleid.apple.com; IMAP must be enabled.”
+
+Yahoo: “Use a Yahoo app password (Account Security → Generate app password).”
+
+Zoho: “Ensure IMAP Access enabled. Use Zoho app password if 2FA.”
+
+GoDaddy Workspace: “Legacy Workspace email; for Microsoft 365 choose Office 365 instead.”
+
+BlueHost/SiteGround/Other: “Use your host’s mail.<domain> or the settings in cPanel; SSL preferred.”
+
+9) Done criteria
+
+I can pick any provider from the list and connect successfully (OAuth or IMAP/SMTP).
+
+/api/email/status shows the active account, email, last synced.
+
+/api/email/send sends using the active account (Gmail/M365 via API; others via SMTP).
+
+/api/email/sync ingests contacts-only mail; IMAP download of bodies is deferred until matched.
+
+“Send Test Email” returns provider message id / SMTP 250 acceptance and I can receive it.
+
+UI is one page, no tabs, 17hats-style flow with provider help blurbs.
+
+If any file is missing, create it following the existing folder conventions (server/src/routes, server/src/services, server/src/storage, client/src/pages/settings/EmailSettings.tsx). Keep types strict and add unit tests for dispatcher + IMAP quick connect.

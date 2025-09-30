@@ -2,16 +2,17 @@
 
 BusinessCRM is a comprehensive customer relationship management system built with a modern full-stack architecture. The application provides lead management, client tracking, project management, quotation system, contract management, invoicing, email integration, calendar functionality, and workflow automation. It's designed to streamline business operations from lead capture through project completion and billing.
 
-## Recent Changes (September 29, 2025)
+## Recent Changes (September 30, 2025)
 
-**Email Provider OAuth Integration System**: Built comprehensive 17hats-style email provider catalog with production OAuth connectors for Google Gmail and Microsoft 365/Outlook. Implemented secure token storage with encryption, multi-tenant provider management, contacts-only email sync worker, and outgoing email dispatch with provider fallback. The system includes:
-- Production Gmail and Microsoft OAuth flows with PKCE security
-- Secure encrypted token storage (access/refresh tokens)
-- Tenant-scoped provider integrations (one active provider per tenant)
-- Background sync worker for contacts-only email ingestion
-- Email dispatcher with Gmail→Microsoft fallback logic
-- Updated Email Settings UI with OAuth connection management
-- Structured logging for sync operations and error tracking
+**Email Provider Storage Layer Migration**: Completed migration from email_provider_integrations to email_accounts table with new unified schema supporting both OAuth and IMAP/SMTP providers. Key accomplishments:
+- Migrated all storage methods to use email_accounts table with providerKey column
+- Implemented JSON-based secrets_enc encryption for unified credential storage
+- Added legacy compatibility layer mapping providerKey→provider for backward compatibility
+- Created and seeded email_providers catalog with 20 providers (OAuth + IMAP/SMTP)
+- All OAuth flows (Gmail, Microsoft) continue working without interruption
+- Production-ready storage layer with architect approval
+
+**Previous Changes (September 29, 2025)**: Email Provider OAuth Integration System - Built comprehensive 17hats-style email provider catalog with production OAuth connectors for Google Gmail and Microsoft 365/Outlook. Implemented secure token storage with encryption, multi-tenant provider management, contacts-only email sync worker, and outgoing email dispatch with provider fallback.
 
 **Previous Changes (September 27, 2025)**: Comprehensive Multi-Tenant Security Audit & Hardening - Completed critical security audit that identified and resolved 16 major tenant isolation vulnerabilities in the storage layer. Implemented database-level constraints with NOT NULL tenant_id columns and foreign keys across all core tables.
 

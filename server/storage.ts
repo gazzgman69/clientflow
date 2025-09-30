@@ -5370,52 +5370,72 @@ export class DrizzleStorage implements IStorage {
   async getActiveEmailProvider(userId: string, tenantId: string): Promise<EmailProviderIntegration | null> {
     const result = await this.db
       .select()
-      .from(emailProviderIntegrations)
+      .from(emailAccounts)
       .where(and(
-        eq(emailProviderIntegrations.tenantId, tenantId),
-        eq(emailProviderIntegrations.userId, userId),
-        eq(emailProviderIntegrations.status, 'connected')
+        eq(emailAccounts.tenantId, tenantId),
+        eq(emailAccounts.userId, userId),
+        eq(emailAccounts.status, 'connected')
       ))
-      .orderBy(desc(emailProviderIntegrations.updatedAt))
+      .orderBy(desc(emailAccounts.updatedAt))
       .limit(1);
     
     if (!result[0]) return null;
 
-    // Decrypt tokens
-    const integration = result[0];
-    if (integration.accessTokenEnc) {
-      integration.accessTokenEnc = secureStore.decrypt(integration.accessTokenEnc);
-    }
-    if (integration.refreshTokenEnc) {
-      integration.refreshTokenEnc = secureStore.decrypt(integration.refreshTokenEnc);
+    // Always map to legacy format for backward compatibility
+    const account = result[0];
+    const legacyAccount: any = {
+      ...account,
+      provider: account.providerKey,
+      accessTokenEnc: null,
+      refreshTokenEnc: null,
+      scopes: []
+    };
+
+    // Decrypt secrets if present
+    if (account.secretsEnc) {
+      const decrypted = secureStore.decrypt(account.secretsEnc);
+      const secrets = JSON.parse(decrypted);
+      legacyAccount.accessTokenEnc = secrets.access_token;
+      legacyAccount.refreshTokenEnc = secrets.refresh_token;
+      legacyAccount.scopes = secrets.scopes || [];
     }
     
-    return integration;
+    return legacyAccount as EmailProviderIntegration;
   }
 
   async getEmailProviderIntegration(userId: string, tenantId: string, provider: string): Promise<EmailProviderIntegration | null> {
     const result = await this.db
       .select()
-      .from(emailProviderIntegrations)
+      .from(emailAccounts)
       .where(and(
-        eq(emailProviderIntegrations.tenantId, tenantId),
-        eq(emailProviderIntegrations.userId, userId),
-        eq(emailProviderIntegrations.provider, provider)
+        eq(emailAccounts.tenantId, tenantId),
+        eq(emailAccounts.userId, userId),
+        eq(emailAccounts.providerKey, provider)
       ))
       .limit(1);
     
     if (!result[0]) return null;
 
-    // Decrypt tokens
-    const integration = result[0];
-    if (integration.accessTokenEnc) {
-      integration.accessTokenEnc = secureStore.decrypt(integration.accessTokenEnc);
-    }
-    if (integration.refreshTokenEnc) {
-      integration.refreshTokenEnc = secureStore.decrypt(integration.refreshTokenEnc);
+    // Always map to legacy format for backward compatibility
+    const account = result[0];
+    const legacyAccount: any = {
+      ...account,
+      provider: account.providerKey,
+      accessTokenEnc: null,
+      refreshTokenEnc: null,
+      scopes: []
+    };
+
+    // Decrypt secrets if present
+    if (account.secretsEnc) {
+      const decrypted = secureStore.decrypt(account.secretsEnc);
+      const secrets = JSON.parse(decrypted);
+      legacyAccount.accessTokenEnc = secrets.access_token;
+      legacyAccount.refreshTokenEnc = secrets.refresh_token;
+      legacyAccount.scopes = secrets.scopes || [];
     }
     
-    return integration;
+    return legacyAccount as EmailProviderIntegration;
   }
 
   async upsertEmailProviderIntegration(integration: InsertEmailProviderIntegration, tenantId: string): Promise<EmailProviderIntegration> {
@@ -5427,73 +5447,85 @@ export class DrizzleStorage implements IStorage {
     // When connecting a new provider, set all other providers for this user/tenant to 'disconnected'
     if (integration.status === 'connected') {
       await this.db
-        .update(emailProviderIntegrations)
+        .update(emailAccounts)
         .set({ 
           status: 'disconnected',
           updatedAt: new Date()
         })
         .where(and(
-          eq(emailProviderIntegrations.tenantId, tenantId),
-          eq(emailProviderIntegrations.userId, integration.userId)
+          eq(emailAccounts.tenantId, tenantId),
+          eq(emailAccounts.userId, integration.userId)
         ));
     }
 
-    // Encrypt tokens before storage
-    const encryptedIntegration = { ...integration };
-    if (encryptedIntegration.accessTokenEnc) {
-      encryptedIntegration.accessTokenEnc = secureStore.encrypt(encryptedIntegration.accessTokenEnc);
-    }
-    if (encryptedIntegration.refreshTokenEnc) {
-      encryptedIntegration.refreshTokenEnc = secureStore.encrypt(encryptedIntegration.refreshTokenEnc);
-    }
+    // Prepare account data with encrypted secrets
+    const accountData: any = {
+      tenantId,
+      userId: integration.userId,
+      providerKey: integration.provider || integration.providerKey, // Support legacy field
+      status: integration.status,
+      accountEmail: integration.accountEmail,
+      authType: 'oauth',
+      expiresAt: integration.expiresAt,
+      metadata: integration.metadata,
+      updatedAt: new Date()
+    };
+
+    // Create encrypted secrets JSON
+    const secrets: any = {
+      access_token: integration.accessTokenEnc,
+      refresh_token: integration.refreshTokenEnc,
+      scopes: integration.scopes || []
+    };
+    accountData.secretsEnc = secureStore.encrypt(JSON.stringify(secrets));
 
     // Upsert (insert or update if exists)
     const result = await this.db
-      .insert(emailProviderIntegrations)
-      .values({
-        ...encryptedIntegration,
-        tenantId,
-        updatedAt: new Date()
-      })
+      .insert(emailAccounts)
+      .values(accountData)
       .onConflictDoUpdate({
         target: [
-          emailProviderIntegrations.tenantId,
-          emailProviderIntegrations.userId,
-          emailProviderIntegrations.provider
+          emailAccounts.tenantId,
+          emailAccounts.userId,
+          emailAccounts.providerKey
         ],
         set: {
-          ...omitUndefined(encryptedIntegration),
+          ...omitUndefined(accountData),
           updatedAt: new Date()
         }
       })
       .returning();
 
-    const savedIntegration = result[0];
+    const savedAccount = result[0];
 
-    // Decrypt tokens for return
-    if (savedIntegration.accessTokenEnc) {
-      savedIntegration.accessTokenEnc = secureStore.decrypt(savedIntegration.accessTokenEnc);
-    }
-    if (savedIntegration.refreshTokenEnc) {
-      savedIntegration.refreshTokenEnc = secureStore.decrypt(savedIntegration.refreshTokenEnc);
+    // Decrypt and map to legacy format for return
+    if (savedAccount.secretsEnc) {
+      const decrypted = secureStore.decrypt(savedAccount.secretsEnc);
+      const parsedSecrets = JSON.parse(decrypted);
+      return {
+        ...savedAccount,
+        provider: savedAccount.providerKey,
+        accessTokenEnc: parsedSecrets.access_token,
+        refreshTokenEnc: parsedSecrets.refresh_token,
+        scopes: parsedSecrets.scopes || []
+      } as EmailProviderIntegration;
     }
 
-    return savedIntegration;
+    return savedAccount as EmailProviderIntegration;
   }
 
   async disconnectEmailProvider(userId: string, tenantId: string, provider: string): Promise<boolean> {
     const result = await this.db
-      .update(emailProviderIntegrations)
+      .update(emailAccounts)
       .set({ 
         status: 'disconnected',
-        accessTokenEnc: null,
-        refreshTokenEnc: null,
+        secretsEnc: null,
         updatedAt: new Date()
       })
       .where(and(
-        eq(emailProviderIntegrations.tenantId, tenantId),
-        eq(emailProviderIntegrations.userId, userId),
-        eq(emailProviderIntegrations.provider, provider)
+        eq(emailAccounts.tenantId, tenantId),
+        eq(emailAccounts.userId, userId),
+        eq(emailAccounts.providerKey, provider)
       ))
       .returning();
     
@@ -5501,29 +5533,45 @@ export class DrizzleStorage implements IStorage {
   }
 
   async getAllActiveEmailIntegrations(): Promise<EmailProviderIntegration[]> {
-    const integrations = await this.db
+    const accounts = await this.db
       .select()
-      .from(emailProviderIntegrations)
-      .where(eq(emailProviderIntegrations.status, 'connected'));
+      .from(emailAccounts)
+      .where(eq(emailAccounts.status, 'connected'));
     
-    return integrations.map(integration => ({
-      ...integration,
-      accessTokenEnc: secureStore.decrypt(integration.accessTokenEnc),
-      refreshTokenEnc: integration.refreshTokenEnc ? secureStore.decrypt(integration.refreshTokenEnc) : null
-    }));
+    return accounts.map(account => {
+      // Always map to legacy format for backward compatibility
+      const legacyAccount: any = {
+        ...account,
+        provider: account.providerKey,
+        accessTokenEnc: null,
+        refreshTokenEnc: null,
+        scopes: []
+      };
+
+      // Decrypt secrets if present
+      if (account.secretsEnc) {
+        const decrypted = secureStore.decrypt(account.secretsEnc);
+        const secrets = JSON.parse(decrypted);
+        legacyAccount.accessTokenEnc = secrets.access_token;
+        legacyAccount.refreshTokenEnc = secrets.refresh_token;
+        legacyAccount.scopes = secrets.scopes || [];
+      }
+
+      return legacyAccount as EmailProviderIntegration;
+    });
   }
 
   async updateEmailIntegrationLastSync(userId: string, tenantId: string, provider: string): Promise<boolean> {
     const result = await this.db
-      .update(emailProviderIntegrations)
+      .update(emailAccounts)
       .set({ 
         lastSyncedAt: new Date(),
         updatedAt: new Date()
       })
       .where(and(
-        eq(emailProviderIntegrations.tenantId, tenantId),
-        eq(emailProviderIntegrations.userId, userId),
-        eq(emailProviderIntegrations.provider, provider)
+        eq(emailAccounts.tenantId, tenantId),
+        eq(emailAccounts.userId, userId),
+        eq(emailAccounts.providerKey, provider)
       ))
       .returning();
     
@@ -5532,15 +5580,15 @@ export class DrizzleStorage implements IStorage {
 
   async updateEmailIntegrationStatus(userId: string, tenantId: string, provider: string, status: string): Promise<boolean> {
     const result = await this.db
-      .update(emailProviderIntegrations)
+      .update(emailAccounts)
       .set({ 
         status,
         updatedAt: new Date()
       })
       .where(and(
-        eq(emailProviderIntegrations.tenantId, tenantId),
-        eq(emailProviderIntegrations.userId, userId),
-        eq(emailProviderIntegrations.provider, provider)
+        eq(emailAccounts.tenantId, tenantId),
+        eq(emailAccounts.userId, userId),
+        eq(emailAccounts.providerKey, provider)
       ))
       .returning();
     

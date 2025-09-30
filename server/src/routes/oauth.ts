@@ -561,13 +561,14 @@ router.get('/auth/google/callback', async (req, res) => {
     
     // Decode state parameter
     const parsed = decodeState<any>(state);
-    console.info('google-callback-state', parsed);
+    console.log('🔐 Google OAuth callback - State decoded:', JSON.stringify(parsed, null, 2));
     
     if (!parsed) {
       return res.status(400).send('Invalid state');
     }
     
     const { tenantId, userId, popup, returnTo } = parsed;
+    console.log('🔐 Google OAuth callback - Popup mode:', popup, '(type:', typeof popup, ')');
     
     if (!userId || !tenantId) {
       return res.status(401).send('Authentication required');

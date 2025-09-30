@@ -1,0 +1,203 @@
+Goal
+Use the unified email connect flow, but render provider-specific modals to match the screenshots. Keep all existing OAuth/back-end behavior. Remove the legacy Gmail card from Settings.
+
+Don’ts
+
+❌ Do NOT change any back-end routes, token logic, or DB schema.
+
+❌ Do NOT alter existing OAuth handlers (/auth/google/start, /auth/google/callback, /auth/microsoft/start, …).
+
+Do
+
+Remove the legacy Gmail UI card from Settings → Email & Calendar. Keep a rollback flag:
+
+{process.env.NEXT_PUBLIC_FEATURE_LEGACY_EMAIL === "true" && <GmailEmailLoginCard />}
+
+
+Default NEXT_PUBLIC_FEATURE_LEGACY_EMAIL=false.
+
+Unified list → provider-specific modal (exact visuals)
+
+Use GET /api/email/providers?status=active to list providers.
+
+Clicking Connect opens a modal titled “Email Sync” with:
+
+Email Provider (select, pre-selected to the provider).
+
+Login field behaviour per mode below.
+
+Cancel and Connect buttons.
+
+Modes (match screenshots exactly)
+
+Mode A – OAuth (Google & Microsoft 365 & Hotmail/MSN/Outlook/Live.com)
+
+Show Email Provider select and Login input (optional; not required by OAuth).
+
+No Password or server fields.
+
+Connect behaviour:
+
+google → redirect to /auth/google/start
+
+microsoft → redirect to /auth/microsoft/start
+
+hotmail_msn_outlook_live → also redirect to /auth/microsoft/start
+
+If a value is typed in Login, store it in local state so we can pre-fill account_email post-callback if that code already supports it; otherwise ignore.
+
+Mode B – Preconfigured IMAP/SMTP (e.g., yahoo, icloud, zoho, fastmail, outlook_imap, ionos, bluehost, siteground, aol, att, sky, cox, bellsouth, sbcglobal)
+
+Show Login and Password only (no server fields visible).
+
+On Connect, POST:
+
+{
+  "type":"imap_smtp",
+  "providerKey":"<key>",
+  "settings":{
+    "imap":{"host":"<catalog>", "port":<catalog>, "secure":<catalog>, "user":"<login>", "pass":"<password>"},
+    "smtp":{"host":"<catalog or null>", "port":<catalog or null>, "secure":<catalog or null>, "user":"<login>", "pass":"<password>"}
+  }
+}
+
+
+If /api/email/accounts/test exists, hit it first and show pass/fail.
+
+Mode C – Other/Generic
+
+Show Login, Password, IMAP Server, Port, SSL (checkbox).
+
+(If outgoing=true, also show SMTP host/port/SSL, username/password).
+
+On Connect, POST same JSON shape, using the typed values.
+
+Mapping:
+
+Treat google as OAuth (Mode A).
+
+Treat microsoft and hotmail_msn_outlook_live as OAuth (Mode A).
+
+Treat other as Mode C.
+
+Everything else listed above as Mode B.
+
+Keep account creation exactly as before
+
+OAuth flows keep writing to email_accounts as they already do.
+
+IMAP/SMTP uses your new email_accounts.secrets_enc path.
+
+Acceptance Criteria
+
+Settings shows no legacy Gmail card (unless flag true).
+
+Clicking Google shows modal with Email Provider + Login only (no password/server). Connect goes to /auth/google/start.
+
+Clicking Microsoft 365 shows the same minimal modal. Connect goes to /auth/microsoft/start.
+
+Clicking Hotmail/MSN/Outlook/Live.com shows the same minimal modal and also goes to /auth/microsoft/start.
+
+Clicking Yahoo shows Login + Password only (no server fields).
+
+Clicking Other shows Login + Password + IMAP host/port/SSL (and SMTP if enabled).
+
+After connecting, accounts behave as before (send/list/refresh unaffected).
+
+Add Playwright tests (e2e smoke)
+
+Create tests/email-connect.spec.ts:
+
+Legacy card absent
+
+test("no legacy gmail card", async ({ page }) => {
+  await page.goto("/settings/email-and-calendar");
+  await expect(page.getByText("Gmail Email Login")).toHaveCount(0);
+  await expect(page.getByText("Google Integrations")).toHaveCount(0);
+});
+
+
+Google → OAuth start
+
+test("google modal + oauth redirect", async ({ page, context }) => {
+  await page.goto("/settings/email-and-calendar");
+  await page.getByRole("button", { name: /connect google/i }).click();
+  const modal = page.getByRole("dialog", { name: /email sync/i });
+  await expect(modal).toBeVisible();
+  await expect(modal.getByLabel("Email Provider")).toBeVisible();
+  await expect(modal.getByLabel("Login")).toBeVisible();           // present but optional
+  const [req] = await Promise.all([
+    context.waitForEvent("request", r => r.url().includes("/auth/google/start")),
+    modal.getByRole("button", { name: /^connect$/i }).click(),
+  ]);
+  expect(req.url()).toContain("/auth/google/start");
+});
+
+
+Microsoft & Hotmail → OAuth start
+
+test("microsoft modal + oauth redirect", async ({ page, context }) => {
+  await page.goto("/settings/email-and-calendar");
+  await page.getByRole("button", { name: /connect microsoft/i }).click();
+  const modal = page.getByRole("dialog", { name: /email sync/i });
+  const [req] = await Promise.all([
+    context.waitForEvent("request", r => r.url().includes("/auth/microsoft/start")),
+    modal.getByRole("button", { name: /^connect$/i }).click(),
+  ]);
+  expect(req.url()).toContain("/auth/microsoft/start");
+});
+
+test("hotmail/msn/outlook/live modal + oauth redirect", async ({ page, context }) => {
+  await page.goto("/settings/email-and-calendar");
+  await page.getByRole("button", { name: /connect hotmail|msn|outlook|live/i }).click();
+  const modal = page.getByRole("dialog", { name: /email sync/i });
+  const [req] = await Promise.all([
+    context.waitForEvent("request", r => r.url().includes("/auth/microsoft/start")),
+    modal.getByRole("button", { name: /^connect$/i }).click(),
+  ]);
+  expect(req.url()).toContain("/auth/microsoft/start");
+});
+
+
+Yahoo → Login + Password only and POST to accounts
+
+test("yahoo modal posts imap_smtp with catalog servers", async ({ page, context }) => {
+  await page.goto("/settings/email-and-calendar");
+  await page.getByRole("button", { name: /connect yahoo/i }).click();
+  const modal = page.getByRole("dialog", { name: /email sync/i });
+  await expect(modal.getByLabel("Login")).toBeVisible();
+  await expect(modal.getByLabel("Password")).toBeVisible();
+  await expect(modal.getByLabel(/imap server/i)).toHaveCount(0);
+  const [req] = await Promise.all([
+    context.waitForEvent("request", r => r.url().endsWith("/api/email/accounts")),
+    modal.getByRole("button", { name: /^connect$/i }).click(),
+  ]);
+  const body = JSON.parse(req.postData() || "{}");
+  expect(body.type).toBe("imap_smtp");
+  expect(body.providerKey).toMatch(/yahoo/i);
+});
+
+
+Other → shows full manual fields
+
+test("other modal shows manual fields", async ({ page }) => {
+  await page.goto("/settings/email-and-calendar");
+  await page.getByRole("button", { name: /connect other/i }).click();
+  const modal = page.getByRole("dialog", { name: /email sync/i });
+  await expect(modal.getByLabel("Login")).toBeVisible();
+  await expect(modal.getByLabel("Password")).toBeVisible();
+  await expect(modal.getByLabel(/imap server/i)).toBeVisible();
+  await expect(modal.getByLabel(/port/i)).toBeVisible();
+  await expect(modal.getByLabel(/ssl/i)).toBeVisible();
+});
+
+
+Configure Playwright if needed (npx playwright install). Use route interception/mocks where live OAuth redirects aren’t feasible.
+
+Visual details
+
+Modal title: Email Sync
+
+Fields labeled exactly: Email Provider, Login, Password, IMAP Server, Port, SSL.
+
+Buttons: Cancel (secondary) and Connect (primary).

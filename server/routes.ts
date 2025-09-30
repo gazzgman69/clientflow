@@ -3869,6 +3869,69 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
       res.status(500).json({ message: "Failed to fetch email providers" });
     }
   });
+  
+  // Create email account (IMAP/SMTP)
+  app.post("/api/email/accounts", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req: TenantRequest, res) => {
+    try {
+      const { type, providerKey, settings } = req.body;
+      const userId = req.session.userId;
+      const tenantId = req.tenantId;
+      
+      if (!userId) {
+        return res.status(401).json({ message: "User authentication required" });
+      }
+      
+      if (!type || !providerKey || !settings) {
+        return res.status(400).json({ message: "Missing required fields: type, providerKey, settings" });
+      }
+      
+      // For IMAP/SMTP connections, encrypt credentials and store in email_accounts table
+      if (type === 'imap_smtp') {
+        const { imap, smtp } = settings;
+        
+        if (!imap || !imap.user || !imap.pass) {
+          return res.status(400).json({ message: "IMAP settings with user and pass are required" });
+        }
+        
+        // Store encrypted credentials in email_accounts using the existing storage method
+        const account = await storage.createEmailAccount({
+          tenantId,
+          userId,
+          providerKey,
+          status: 'connected',
+          accountEmail: imap.user,
+          authType: 'basic',
+          secretsEnc: JSON.stringify({
+            imap: {
+              host: imap.host,
+              port: imap.port,
+              secure: imap.secure,
+              user: imap.user,
+              pass: imap.pass
+            },
+            smtp: smtp ? {
+              host: smtp.host,
+              port: smtp.port,
+              secure: smtp.secure,
+              user: smtp.user,
+              pass: smtp.pass
+            } : null
+          })
+        });
+        
+        return res.status(201).json({ 
+          success: true, 
+          account,
+          message: "Email account connected successfully" 
+        });
+      }
+      
+      return res.status(400).json({ message: "Unsupported account type" });
+    } catch (error: any) {
+      console.error('Error creating email account:', error);
+      res.status(500).json({ message: error.message || "Failed to create email account" });
+    }
+  });
 
   // Email Provider Configurations
   app.get("/api/email-provider-configs", ensureUserAuth, tenantResolver, requireTenant, async (req: TenantRequest, res) => {

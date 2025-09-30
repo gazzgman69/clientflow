@@ -76,6 +76,19 @@ export default function EmailSettings() {
   const [selectedProvider, setSelectedProvider] = useState<string>('');
   const [showConnectDialog, setShowConnectDialog] = useState(false);
   const [selectedProviderToConnect, setSelectedProviderToConnect] = useState<EmailProvider | null>(null);
+  
+  // Form state for email sync modal
+  const [emailSyncForm, setEmailSyncForm] = useState({
+    login: '',
+    password: '',
+    imapServer: '',
+    imapPort: '993',
+    ssl: true,
+    smtpServer: '',
+    smtpPort: '465',
+    smtpSsl: true
+  });
+  
   const [testEmailData, setTestEmailData] = useState({
     to: '',
     subject: 'Test Email from BusinessCRM',
@@ -113,6 +126,24 @@ export default function EmailSettings() {
   const providers = (providersData as any)?.providers || [];
   const prefs = (prefsData as any)?.prefs as TenantEmailPrefs;
   const settings = (settingsData as any)?.settings as MailSettings | null;
+  
+  // Determine modal mode based on provider
+  const getProviderMode = (provider: EmailProvider | null): 'oauth' | 'preconfigured' | 'other' => {
+    if (!provider) return 'other';
+    
+    // Mode A - OAuth providers
+    const oauthProviders = ['google', 'gmail', 'microsoft', 'office365', 'hotmail_msn_outlook_live'];
+    if (oauthProviders.includes(provider.code)) return 'oauth';
+    
+    // Mode B - Preconfigured IMAP/SMTP providers
+    const preconfiguredProviders = ['yahoo', 'icloud', 'zoho', 'fastmail', 'outlook_imap', 'ionos', 'bluehost', 'siteground', 'aol', 'att', 'sky', 'cox', 'bellsouth', 'sbcglobal'];
+    if (preconfiguredProviders.includes(provider.code)) return 'preconfigured';
+    
+    // Mode C - Other/Generic
+    return 'other';
+  };
+  
+  const modalMode = getProviderMode(selectedProviderToConnect);
   const gmailStatus = (gmailStatusData as any) || { ok: false, connected: false };
   const microsoftStatus = (microsoftStatusData as any) || { ok: false, connected: false };
   
@@ -174,6 +205,34 @@ export default function EmailSettings() {
       setAlertMessage({ type: 'error', message: 'Failed to disconnect provider' });
     }
   });
+  
+  // Connect email account mutation (for IMAP/SMTP)
+  const connectEmailAccountMutation = useMutation({
+    mutationFn: async (data: any) => {
+      const response = await apiRequest('POST', '/api/email/accounts', data);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/auth/google/gmail/status'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/auth/microsoft/status'] });
+      setShowConnectDialog(false);
+      setSelectedProviderToConnect(null);
+      setEmailSyncForm({
+        login: '',
+        password: '',
+        imapServer: '',
+        imapPort: '993',
+        ssl: true,
+        smtpServer: '',
+        smtpPort: '465',
+        smtpSsl: true
+      });
+      setAlertMessage({ type: 'success', message: 'Email account connected successfully' });
+    },
+    onError: (error: any) => {
+      setAlertMessage({ type: 'error', message: error.message || 'Failed to connect email account' });
+    }
+  });
 
   // Get selected provider details
   const selectedProviderDetails = providers.find((p: EmailProvider) => p.code === selectedProvider);
@@ -203,6 +262,49 @@ export default function EmailSettings() {
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
     setAlertMessage({ type: 'success', message: 'Copied to clipboard' });
+  };
+  
+  // Handle email sync connect
+  const handleEmailSyncConnect = async () => {
+    if (!selectedProviderToConnect) return;
+    
+    const mode = getProviderMode(selectedProviderToConnect);
+    
+    // Mode A - OAuth: redirect to OAuth flow
+    if (mode === 'oauth') {
+      if (selectedProviderToConnect.code === 'gmail' || selectedProviderToConnect.code === 'google') {
+        window.location.href = '/auth/google/gmail';
+      } else if (selectedProviderToConnect.code === 'microsoft' || selectedProviderToConnect.code === 'office365') {
+        window.location.href = '/auth/microsoft/mail';
+      } else if (selectedProviderToConnect.code === 'hotmail_msn_outlook_live') {
+        window.location.href = '/auth/microsoft/mail';
+      }
+      return;
+    }
+    
+    // Mode B & C - IMAP/SMTP: create account via API
+    const accountData = {
+      type: 'imap_smtp',
+      providerKey: selectedProviderToConnect.code,
+      settings: {
+        imap: {
+          host: mode === 'preconfigured' ? selectedProviderToConnect.code : emailSyncForm.imapServer,
+          port: mode === 'preconfigured' ? 993 : parseInt(emailSyncForm.imapPort),
+          secure: mode === 'preconfigured' ? true : emailSyncForm.ssl,
+          user: emailSyncForm.login,
+          pass: emailSyncForm.password
+        },
+        smtp: mode === 'preconfigured' ? null : {
+          host: emailSyncForm.smtpServer,
+          port: parseInt(emailSyncForm.smtpPort),
+          secure: emailSyncForm.smtpSsl,
+          user: emailSyncForm.login,
+          pass: emailSyncForm.password
+        }
+      }
+    };
+    
+    connectEmailAccountMutation.mutate(accountData);
   };
 
   return (
@@ -336,119 +438,167 @@ export default function EmailSettings() {
                           Connect Provider
                         </Button>
                       </DialogTrigger>
-                      <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+                      <DialogContent className="max-w-lg">
                         <DialogHeader>
-                          <DialogTitle>Connect Email Provider</DialogTitle>
-                          <DialogDescription>
-                            Select your email provider to configure incoming email
-                          </DialogDescription>
+                          <div className="flex items-center gap-3">
+                            <Mail className="h-6 w-6 text-muted-foreground" />
+                            <DialogTitle className="text-2xl">Email Sync</DialogTitle>
+                          </div>
                         </DialogHeader>
-                        <div className="space-y-4">
-                          {providersLoading ? (
-                            <p className="text-center py-4">Loading providers...</p>
-                          ) : selectedProviderToConnect ? (
-                            <div className="space-y-4">
-                              <div className="flex items-center space-x-3 p-3 bg-muted rounded-lg">
-                                <Mail className="h-5 w-5" />
-                                <div>
-                                  <p className="font-medium">{selectedProviderToConnect.displayName}</p>
-                                  <p className="text-sm text-muted-foreground capitalize">{selectedProviderToConnect.authType.replace('_', ' ')}</p>
-                                </div>
-                              </div>
-                              {selectedProviderToConnect.authType === 'oauth' ? (
-                                <div className="space-y-4">
-                                  <Alert>
-                                    <Info className="h-4 w-4" />
-                                    <AlertDescription>
-                                      You'll be redirected to {selectedProviderToConnect.displayName} to authorize access to your email account.
-                                    </AlertDescription>
-                                  </Alert>
-                                  <Button className="w-full" onClick={() => {
-                                    if (selectedProviderToConnect.code === 'gmail' || selectedProviderToConnect.code === 'google') {
-                                      window.location.href = '/api/auth/google/gmail';
-                                    } else if (selectedProviderToConnect.code === 'microsoft' || selectedProviderToConnect.code === 'office365') {
-                                      window.location.href = '/api/auth/microsoft/mail';
-                                    }
-                                  }}>
-                                    Connect with {selectedProviderToConnect.displayName}
-                                  </Button>
-                                </div>
-                              ) : (
-                                <div className="space-y-4">
-                                  <Alert>
-                                    <Info className="h-4 w-4" />
-                                    <AlertDescription>
-                                      Enter your IMAP/SMTP credentials to connect your email account.
-                                    </AlertDescription>
-                                  </Alert>
-                                  <div className="grid gap-4">
-                                    <div className="space-y-2">
-                                      <Label htmlFor="email-address">Email Address</Label>
-                                      <Input id="email-address" type="email" placeholder="your@email.com" />
-                                    </div>
-                                    <div className="space-y-2">
-                                      <Label htmlFor="email-password">Password or App Password</Label>
-                                      <Input id="email-password" type="password" />
-                                    </div>
-                                    <div className="grid grid-cols-2 gap-4">
-                                      <div className="space-y-2">
-                                        <Label htmlFor="imap-server">IMAP Server</Label>
-                                        <Input id="imap-server" placeholder="imap.example.com" />
-                                      </div>
-                                      <div className="space-y-2">
-                                        <Label htmlFor="imap-port">IMAP Port</Label>
-                                        <Input id="imap-port" placeholder="993" />
-                                      </div>
-                                    </div>
-                                    <div className="grid grid-cols-2 gap-4">
-                                      <div className="space-y-2">
-                                        <Label htmlFor="smtp-server">SMTP Server</Label>
-                                        <Input id="smtp-server" placeholder="smtp.example.com" />
-                                      </div>
-                                      <div className="space-y-2">
-                                        <Label htmlFor="smtp-port">SMTP Port</Label>
-                                        <Input id="smtp-port" placeholder="465" />
-                                      </div>
-                                    </div>
-                                    <Button className="w-full">
-                                      Connect Email Account
-                                    </Button>
+                        
+                        {providersLoading ? (
+                          <div className="py-8 text-center text-muted-foreground">Loading providers...</div>
+                        ) : !selectedProviderToConnect ? (
+                          <div className="grid grid-cols-1 gap-3">
+                            {providers.map((provider: EmailProvider) => (
+                              <button
+                                key={provider.id}
+                                onClick={() => setSelectedProviderToConnect(provider)}
+                                className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted transition-colors text-left"
+                                data-testid={`provider-option-${provider.code}`}
+                              >
+                                <div className="flex items-center space-x-3">
+                                  <Mail className="h-5 w-5 text-muted-foreground" />
+                                  <div>
+                                    <p className="font-medium">{provider.displayName}</p>
+                                    <p className="text-sm text-muted-foreground capitalize">{provider.authType?.replace('_', ' ') || 'Unknown'}</p>
                                   </div>
                                 </div>
-                              )}
-                              <Button variant="outline" onClick={() => setSelectedProviderToConnect(null)}>
-                                Back to Providers
+                                <div className="flex gap-2">
+                                  {provider.supportsReceive && (
+                                    <Badge variant="secondary" className="text-xs">Incoming</Badge>
+                                  )}
+                                  {provider.supportsSend && (
+                                    <Badge variant="secondary" className="text-xs">Outgoing</Badge>
+                                  )}
+                                </div>
+                              </button>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="space-y-6">
+                            {/* Email Provider Selector */}
+                            <div className="space-y-2">
+                              <Label htmlFor="email-provider" className="text-base font-semibold">Email Provider</Label>
+                              <Select 
+                                value={selectedProviderToConnect.code} 
+                                onValueChange={(code) => {
+                                  const provider = providers.find((p: EmailProvider) => p.code === code);
+                                  if (provider) setSelectedProviderToConnect(provider);
+                                }}
+                              >
+                                <SelectTrigger id="email-provider" className="w-full">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {providers.map((provider: EmailProvider) => (
+                                    <SelectItem key={provider.id} value={provider.code}>
+                                      {provider.displayName}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+
+                            {/* Login Field (shown in all modes) */}
+                            <div className="space-y-2">
+                              <Label htmlFor="login" className="text-base font-semibold">Login</Label>
+                              <Input 
+                                id="login" 
+                                type="email" 
+                                placeholder={modalMode === 'oauth' ? 'Optional' : 'This is usually your email address'}
+                                value={emailSyncForm.login}
+                                onChange={(e) => setEmailSyncForm({ ...emailSyncForm, login: e.target.value })}
+                                data-testid="input-login"
+                              />
+                            </div>
+
+                            {/* Password Field (shown in preconfigured and other modes) */}
+                            {(modalMode === 'preconfigured' || modalMode === 'other') && (
+                              <div className="space-y-2">
+                                <Label htmlFor="password" className="text-base font-semibold">Password</Label>
+                                <Input 
+                                  id="password" 
+                                  type="password"
+                                  value={emailSyncForm.password}
+                                  onChange={(e) => setEmailSyncForm({ ...emailSyncForm, password: e.target.value })}
+                                  data-testid="input-password"
+                                />
+                              </div>
+                            )}
+
+                            {/* Manual IMAP/SMTP Fields (shown only in 'other' mode) */}
+                            {modalMode === 'other' && (
+                              <>
+                                <div className="space-y-2">
+                                  <Label htmlFor="imap-server" className="text-base font-semibold">IMAP Server</Label>
+                                  <Input 
+                                    id="imap-server" 
+                                    placeholder="imap.mail.yahoo.com"
+                                    value={emailSyncForm.imapServer}
+                                    onChange={(e) => setEmailSyncForm({ ...emailSyncForm, imapServer: e.target.value })}
+                                    data-testid="input-imap-server"
+                                  />
+                                </div>
+
+                                <div className="space-y-2">
+                                  <Label htmlFor="port" className="text-base font-semibold">Port</Label>
+                                  <Input 
+                                    id="port" 
+                                    placeholder="993"
+                                    value={emailSyncForm.imapPort}
+                                    onChange={(e) => setEmailSyncForm({ ...emailSyncForm, imapPort: e.target.value })}
+                                    data-testid="input-port"
+                                  />
+                                </div>
+
+                                <div className="flex items-center space-x-2">
+                                  <input
+                                    type="checkbox"
+                                    id="ssl"
+                                    checked={emailSyncForm.ssl}
+                                    onChange={(e) => setEmailSyncForm({ ...emailSyncForm, ssl: e.target.checked })}
+                                    className="h-4 w-4 rounded border-gray-300"
+                                    data-testid="input-ssl"
+                                  />
+                                  <Label htmlFor="ssl" className="text-base font-semibold cursor-pointer">SSL</Label>
+                                </div>
+                              </>
+                            )}
+
+                            {/* Action Buttons */}
+                            <div className="flex gap-3 pt-4">
+                              <Button 
+                                variant="outline" 
+                                className="flex-1" 
+                                onClick={() => {
+                                  setSelectedProviderToConnect(null);
+                                  setEmailSyncForm({
+                                    login: '',
+                                    password: '',
+                                    imapServer: '',
+                                    imapPort: '993',
+                                    ssl: true,
+                                    smtpServer: '',
+                                    smtpPort: '465',
+                                    smtpSsl: true
+                                  });
+                                }}
+                                data-testid="button-cancel"
+                              >
+                                Cancel
+                              </Button>
+                              <Button 
+                                className="flex-1 bg-green-700 hover:bg-green-800" 
+                                onClick={handleEmailSyncConnect}
+                                disabled={connectEmailAccountMutation.isPending}
+                                data-testid="button-connect"
+                              >
+                                Connect
                               </Button>
                             </div>
-                          ) : (
-                            <div className="grid grid-cols-1 gap-3">
-                              {providers.map((provider: EmailProvider) => (
-                                <button
-                                  key={provider.id}
-                                  onClick={() => setSelectedProviderToConnect(provider)}
-                                  className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted transition-colors text-left"
-                                  data-testid={`provider-option-${provider.code}`}
-                                >
-                                  <div className="flex items-center space-x-3">
-                                    <Mail className="h-5 w-5 text-muted-foreground" />
-                                    <div>
-                                      <p className="font-medium">{provider.displayName}</p>
-                                      <p className="text-sm text-muted-foreground capitalize">{provider.authType?.replace('_', ' ') || 'Unknown'}</p>
-                                    </div>
-                                  </div>
-                                  <div className="flex gap-2">
-                                    {provider.supportsReceive && (
-                                      <Badge variant="secondary" className="text-xs">Incoming</Badge>
-                                    )}
-                                    {provider.supportsSend && (
-                                      <Badge variant="secondary" className="text-xs">Outgoing</Badge>
-                                    )}
-                                  </div>
-                                </button>
-                              ))}
-                            </div>
-                          )}
-                        </div>
+                          </div>
+                        )}
                       </DialogContent>
                     </Dialog>
                   )}

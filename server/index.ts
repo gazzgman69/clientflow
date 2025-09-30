@@ -247,6 +247,37 @@ app.use((req, res, next) => {
 (async () => {
   const server = await registerRoutes(app, csrfProtection);
 
+  // DEBUG: Express route dump (only when DEBUG_OAUTH=1)
+  if (process.env.DEBUG_OAUTH === '1') {
+    function listRoutes(app: any) {
+      const routes: any[] = [];
+      app._router?.stack?.forEach((mw: any) => {
+        if (mw.route) {
+          routes.push({ method: Object.keys(mw.route.methods)[0]?.toUpperCase(), path: mw.route.path });
+        } else if (mw.name === "router" && mw.handle?.stack) {
+          mw.handle.stack.forEach((h: any) => {
+            if (h.route) {
+              routes.push({ method: Object.keys(h.route.methods)[0]?.toUpperCase(), path: h.route.path });
+            }
+          });
+        }
+      });
+      console.info("[ROUTES]", JSON.stringify(routes, null, 2));
+    }
+    listRoutes(app);
+    
+    // Environment sanity check
+    console.info("\n📋 OAUTH ENVIRONMENT CHECK:");
+    console.info(`GOOGLE_CLIENT_ID: ${process.env.GOOGLE_CLIENT_ID ? '✅' : '❌'}`);
+    console.info(`GOOGLE_CLIENT_SECRET: ${process.env.GOOGLE_CLIENT_SECRET ? '✅' : '❌'}`);
+    console.info(`GOOGLE_REDIRECT_URI: ${process.env.GOOGLE_REDIRECT_URI || 'Not set (will use dynamic)'}`);
+    console.info(`MICROSOFT_CLIENT_ID: ${process.env.MICROSOFT_CLIENT_ID ? '✅' : '❌'}`);
+    console.info(`MICROSOFT_CLIENT_SECRET: ${process.env.MICROSOFT_CLIENT_SECRET ? '✅' : '❌'}`);
+    console.info(`MICROSOFT_REDIRECT_URI: ${process.env.MICROSOFT_REDIRECT_URI || 'Not set (will use dynamic)'}`);
+    console.info(`DEBUG_OAUTH: ${process.env.DEBUG_OAUTH || '❌'}`);
+    console.info("\n");
+  }
+
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";

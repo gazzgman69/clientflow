@@ -23,6 +23,32 @@ declare module 'express-session' {
 
 const router = Router();
 
+// DEBUG: Safe state decoder for logging
+function decodeStateSafe(s?: string) {
+  try { 
+    return JSON.parse(Buffer.from(String(s), "base64url").toString("utf8")); 
+  } catch { 
+    try { 
+      return JSON.parse(Buffer.from(String(s || ""), "base64").toString("utf8")); 
+    } catch { 
+      return null; 
+    } 
+  }
+}
+
+// DEBUG: Probe endpoints (only when DEBUG_OAUTH=1)
+if (process.env.DEBUG_OAUTH === '1') {
+  router.get("/auth/google/callback-probe", (req, res) => {
+    res.type("text").send("GOOGLE CALLBACK OWNED BY SERVER");
+  });
+  
+  router.get("/auth/microsoft/callback-probe", (req, res) => {
+    res.type("text").send("MICROSOFT CALLBACK OWNED BY SERVER");
+  });
+  
+  console.log('🐛 DEBUG_OAUTH: Probe endpoints registered');
+}
+
 // Gmail OAuth scopes
 const GMAIL_SCOPES = [
   'https://www.googleapis.com/auth/gmail.modify',
@@ -559,6 +585,12 @@ router.get('/auth/google/scope-check', async (req, res) => {
  * OAuth callback - Exchange code for tokens
  */
 router.get('/api/auth/google/callback', async (req, res) => {
+  // DEBUG: Log callback hit
+  if (process.env.DEBUG_OAUTH === '1') {
+    console.info("[OAUTH] google callback HIT", req.method, req.url, req.query);
+    console.info("[OAUTH] google callback STATE", decodeStateSafe(req.query.state as any));
+  }
+  
   try {
     const { code, state } = req.query;
     
@@ -671,6 +703,12 @@ router.get('/api/auth/google/callback', async (req, res) => {
  * Microsoft OAuth callback - Handle OAuth redirect from Microsoft
  */
 router.get('/api/auth/microsoft/callback', async (req, res) => {
+  // DEBUG: Log callback hit
+  if (process.env.DEBUG_OAUTH === '1') {
+    console.info("[OAUTH] microsoft callback HIT", req.method, req.url, req.query);
+    console.info("[OAUTH] microsoft callback STATE", decodeStateSafe(req.query.state as any));
+  }
+  
   try {
     const { code, state } = req.query;
     

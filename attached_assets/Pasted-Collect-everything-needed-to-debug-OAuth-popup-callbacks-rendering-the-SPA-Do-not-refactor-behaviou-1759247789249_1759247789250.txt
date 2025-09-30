@@ -1,0 +1,159 @@
+Collect everything needed to debug OAuth popup callbacks rendering the SPA. Do not refactor behaviour yet. Add temporary probes/logs, show route ordering, and confirm which handler serves /auth/*.
+
+Safety
+
+Don’t print secrets. When showing env vars, print only the names and whether they’re set (✅/❌).
+
+Keep all changes behind a DEBUG_OAUTH=1 flag where possible.
+
+1) Identify framework & server entry
+
+Search for the server entry and routing files; print matches with context:
+
+server.ts, app.ts, index.ts, src/server/*, pages/api/*, app/api/*, next.config.js, vite.config.*, vercel.json.
+
+Show the full contents of: server entry, auth routes, any catch-all like app.get("*", ...), static hosting (e.g., express.static), and Next.js handlers.
+
+If Next.js: show next.config.js (especially rewrites, redirects).
+
+2) Show current Google/Microsoft routes
+
+Print the full source of handlers & mounts (where they’re app.get(...) or API routes):
+
+/auth/google/start
+
+/auth/google/callback
+
+/auth/microsoft/start
+
+/auth/microsoft/callback
+Also show where they are mounted relative to any SPA/catch-all.
+
+3) Add probe endpoints (temporary)
+
+Add these (guard with if (process.env.DEBUG_OAUTH) { … }) before any catch-all:
+
+app.get("/auth/google/callback-probe", (req,res)=>res.type("text").send("GOOGLE CALLBACK OWNED BY SERVER"));
+app.get("/auth/microsoft/callback-probe", (req,res)=>res.type("text").send("MICROSOFT CALLBACK OWNED BY SERVER"));
+
+
+Run the dev server and open both URLs in the running app. Report what renders (exact text or the SPA).
+
+4) Log route hits & decoded state (temporary)
+
+At the first line of each callback, add:
+
+console.info("[OAUTH] google callback HIT", req.method, req.url, req.query);
+
+
+and decode state safely:
+
+function decodeStateSafe(s?: string){
+  try { return JSON.parse(Buffer.from(String(s),"base64url").toString("utf8")); }
+  catch{ try { return JSON.parse(Buffer.from(String(s||""),"base64").toString("utf8")); } catch { return null; } }
+}
+console.info("[OAUTH] google callback STATE", decodeStateSafe(req.query.state as any));
+
+
+(Do the same for Microsoft.)
+Show the console output after a real attempt.
+
+5) Dump Express/Router stack (ordering)
+
+If using Express, on startup log the route table once:
+
+function listRoutes(app:any){
+  const routes:any[]=[];
+  app._router?.stack?.forEach((mw:any)=>{
+    if (mw.route){
+      routes.push({method:Object.keys(mw.route.methods)[0], path:mw.route.path});
+    } else if (mw.name==="router" && mw.handle?.stack){
+      mw.handle.stack.forEach((h:any)=>{ if(h.route){ routes.push({method:Object.keys(h.route.methods)[0], path:h.route.path}); }});
+    }
+  });
+  console.info("[ROUTES]", routes);
+}
+if (process.env.DEBUG_OAUTH) listRoutes(app);
+
+
+Paste the printed "[ROUTES]" array here.
+
+6) Catch-all & static order
+
+Show the exact lines where:
+
+express.static(...) (or similar) is mounted.
+
+Any app.get("*", ...) or framework catch-all is mounted.
+We need to see whether these mount before or after the /auth/* routes.
+
+7) UI openers (verify popup path)
+
+Show the code used by the Connect buttons:
+
+Google: confirm it uses window.open("/auth/google/start?popup=1&origin="+encodeURIComponent(location.origin), ...).
+
+Microsoft (+ Hotmail/MSN/Outlook/Live): confirm window.open("/auth/microsoft/start?popup=1&origin=...&provider=...").
+Paste those functions.
+
+8) Start handlers (verify state)
+
+Show the code that generates the Google/Microsoft auth URLs. Confirm state includes:
+
+{ "popup": true, "origin": "<parent-origin>", "returnTo": "/settings/email-and-calendar", "tenantId": "...", "userId": "..." }
+
+
+Paste the exact generateAuthUrl (Google) and the Microsoft authorize URL builder, with the state value printed to logs once (masking PII).
+
+9) Callback finish (confirm popup HTML)
+
+Show the exact callback branch that should run when popup===true. It must:
+
+res.setHeader("Content-Type","text/html; charset=utf-8")
+
+res.send("<script>window.opener.postMessage(...); window.close();</script>")
+
+Return immediately (no further redirect, no next()).
+
+10) Env sanity (mask values)
+
+Print a table like:
+
+GOOGLE_CLIENT_ID: ✅
+GOOGLE_CLIENT_SECRET: ✅
+GOOGLE_REDIRECT_URI: https://<your-domain>/auth/google/callback
+MS_CLIENT_ID: ✅
+MS_CLIENT_SECRET: ✅
+MS_REDIRECT_URI: https://<your-domain>/auth/microsoft/callback
+DEBUG_OAUTH: 1
+
+
+(Only show whether set, and the exact redirect URIs.)
+
+11) Results to return (copy/paste back)
+
+Which probe pages returned text vs. SPA?
+
+Console lines: "[OAUTH] google callback HIT" and "[OAUTH] google callback STATE …".
+
+The printed "[ROUTES]" list.
+
+Snippets showing where the /auth/* routes are registered vs. catch-all/static.
+
+The UI opener functions for Google/Microsoft.
+
+The start handlers with the built state.
+
+The callback popup branch (the HTML and the early return).
+
+The env presence table.
+
+Acceptance for this diagnostics task
+
+We can definitively see whether the server or the SPA owns /auth/*.
+
+We have ordering of routes and catch-alls.
+
+We’ve verified state.popup===true reaches the callback.
+
+We can confirm whether the popup HTML branch actually runs and returns (vs. accidental redirect).

@@ -32,7 +32,7 @@ import {
 import crypto from 'crypto';
 import { db } from '../../../db';
 import { jobs, jobExecutions } from '@shared/schema';
-import { eq, and, or, sql, lt, desc, asc, isNotNull, ne } from 'drizzle-orm';
+import { eq, and, or, sql, lt, desc, asc, isNotNull, ne, inArray } from 'drizzle-orm';
 
 export class PostgreSQLJobQueue implements IJobQueue {
   private handlers = new Map<string, JobHandler>();
@@ -286,23 +286,10 @@ export class PostgreSQLJobQueue implements IJobQueue {
     const cutoffDate = new Date(Date.now() - this.config.maxJobAge);
     let cleanedCount = 0;
 
-    // Clean up old completed executions
-    const deletedExecutions = await db
-      .delete(jobExecutions)
-      .where(
-        and(
-          lt(jobExecutions.startedAt, cutoffDate),
-          or(
-            eq(jobExecutions.status, 'completed'),
-            eq(jobExecutions.status, 'failed'),
-            eq(jobExecutions.status, 'cancelled')
-          )
-        )
-      );
-
-    // Clean up old completed jobs that have no running executions
-    const deletedJobs = await db
-      .delete(jobs)
+    // First, identify old jobs to clean
+    const oldJobs = await db
+      .select({ id: jobs.id })
+      .from(jobs)
       .where(
         and(
           lt(jobs.createdAt, cutoffDate),
@@ -313,6 +300,22 @@ export class PostgreSQLJobQueue implements IJobQueue {
           )
         )
       );
+
+    if (oldJobs.length === 0) {
+      return 0;
+    }
+
+    const oldJobIds = oldJobs.map(j => j.id);
+
+    // Delete all executions for these jobs first (to avoid foreign key constraint violation)
+    const deletedExecutions = await db
+      .delete(jobExecutions)
+      .where(inArray(jobExecutions.jobId, oldJobIds));
+
+    // Now safely delete the jobs
+    const deletedJobs = await db
+      .delete(jobs)
+      .where(inArray(jobs.id, oldJobIds));
 
     cleanedCount = (deletedExecutions.rowCount || 0) + (deletedJobs.rowCount || 0);
 

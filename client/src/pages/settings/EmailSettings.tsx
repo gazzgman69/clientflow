@@ -544,37 +544,21 @@ export default function EmailSettings() {
                           </div>
                         ) : (
                           <div className="space-y-6">
-                            {/* Selected Provider Display */}
-                            <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
-                              <div className="flex items-center gap-3">
-                                <Mail className="h-5 w-5 text-muted-foreground" />
-                                <div>
-                                  <p className="font-medium">{providers.find(p => p.key === selectedKey)?.display_name}</p>
-                                  <p className="text-xs text-muted-foreground capitalize">
-                                    {providers.find(p => p.key === selectedKey)?.category?.replace('_', ' ') || 'Unknown'}
-                                  </p>
-                                </div>
-                              </div>
-                              <Button 
-                                variant="ghost" 
-                                size="sm"
-                                onClick={() => {
-                                  setSelectedKey('');
-                                  setEmailSyncForm({
-                                    login: '',
-                                    password: '',
-                                    imapServer: '',
-                                    imapPort: '993',
-                                    ssl: true,
-                                    smtpServer: '',
-                                    smtpPort: '465',
-                                    smtpSsl: true
-                                  });
-                                }}
-                                data-testid="button-change-provider"
+                            {/* Email Provider Selector */}
+                            <div className="space-y-2">
+                              <Label htmlFor="email-provider" className="text-base font-semibold">Email Provider</Label>
+                              <select
+                                id="email-provider"
+                                aria-label="Email Provider"
+                                value={selectedKey}
+                                onChange={(e) => setSelectedKey(e.target.value)}
+                                className="w-full h-10 px-3 py-2 text-sm bg-background border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                                data-testid="select-email-provider"
                               >
-                                Change
-                              </Button>
+                                {providers.map(p => (
+                                  <option key={p.key} value={p.key}>{p.display_name}</option>
+                                ))}
+                              </select>
                             </div>
 
                             {/* Login Field (shown in all modes) */}
@@ -646,12 +630,32 @@ export default function EmailSettings() {
                             {/* Action Buttons */}
                             <div className="flex gap-3 pt-4">
                               <Button 
+                                variant="outline" 
+                                className="flex-1" 
+                                onClick={() => {
+                                  setSelectedKey('');
+                                  setEmailSyncForm({
+                                    login: '',
+                                    password: '',
+                                    imapServer: '',
+                                    imapPort: '993',
+                                    ssl: true,
+                                    smtpServer: '',
+                                    smtpPort: '465',
+                                    smtpSsl: true
+                                  });
+                                }}
+                                data-testid="button-cancel"
+                              >
+                                Cancel
+                              </Button>
+                              <Button 
                                 className="flex-1 bg-green-700 hover:bg-green-800" 
                                 onClick={handleEmailSyncConnect}
                                 disabled={connectEmailAccountMutation.isPending}
                                 data-testid="button-connect"
                               >
-                                {connectEmailAccountMutation.isPending ? 'Connecting...' : 'Connect'}
+                                Connect
                               </Button>
                             </div>
                           </div>

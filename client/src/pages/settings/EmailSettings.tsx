@@ -320,6 +320,9 @@ export default function EmailSettings() {
   
   // Connect Google with popup and postMessage
   const connectGoogleWithPopup = () => {
+    // Close dialog immediately
+    setShowConnectDialog(false);
+    
     const origin = window.location.origin;
     const w = window.open(
       `/api/auth/google/start?popup=1&origin=${encodeURIComponent(origin)}`,
@@ -336,7 +339,6 @@ export default function EmailSettings() {
       // Refresh connected state (or refetch accounts)
       queryClient.invalidateQueries({ queryKey: ['/api/auth/google/status'] });
       queryClient.invalidateQueries({ queryKey: ['/api/email/provider-catalog/active'] });
-      setShowConnectDialog(false);
       setAlertMessage({ type: 'success', message: 'Gmail connected successfully!' });
     }
     window.addEventListener('message', onMsg, { once: true });
@@ -344,6 +346,9 @@ export default function EmailSettings() {
 
   // Connect Microsoft with popup and postMessage
   const connectMicrosoftWithPopup = () => {
+    // Close dialog immediately
+    setShowConnectDialog(false);
+    
     const origin = window.location.origin;
     const w = window.open(
       `/api/auth/microsoft/start?popup=1&origin=${encodeURIComponent(origin)}`,
@@ -360,7 +365,6 @@ export default function EmailSettings() {
       // Refresh connected state (or refetch accounts)
       queryClient.invalidateQueries({ queryKey: ['/api/auth/microsoft/status'] });
       queryClient.invalidateQueries({ queryKey: ['/api/email/provider-catalog/active'] });
-      setShowConnectDialog(false);
       setAlertMessage({ type: 'success', message: 'Microsoft account connected successfully!' });
     }
     window.addEventListener('message', onMsg, { once: true });

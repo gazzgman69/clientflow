@@ -1090,11 +1090,18 @@ router.get('/api/auth/google/status', requireAuth, async (req: any, res) => {
     
     const userId = req.authenticatedUserId;
     
-    // Check if user has any active Google integrations
-    const integrations = await storage.getCalendarIntegrationsByUser(userId, req.tenantId);
-    const googleIntegration = integrations.find(i => i.provider === 'google' && i.isActive);
+    // Check email_accounts table for Google OAuth connection
+    const emailAccounts = await storage.getEmailAccountsByUser(userId, req.tenantId);
+    const googleAccount = emailAccounts.find(acc => acc.providerKey === 'google' && acc.status === 'connected');
     
-    if (!googleIntegration || !googleIntegration.accessToken) {
+    if (!googleAccount) {
+      return res.json({ ok: true, connected: false, scopes: [] });
+    }
+    
+    // Decrypt the tokens
+    const decrypted = await storage.decryptEmailAccountSecrets(googleAccount.secretsEnc);
+    
+    if (!decrypted || !decrypted.accessToken) {
       return res.json({ ok: true, connected: false, scopes: [] });
     }
     
@@ -1107,8 +1114,8 @@ router.get('/api/auth/google/status', requireAuth, async (req: any, res) => {
       );
       
       oauth2Client.setCredentials({
-        access_token: googleIntegration.accessToken,
-        refresh_token: googleIntegration.refreshToken,
+        access_token: decrypted.accessToken,
+        refresh_token: decrypted.refreshToken,
       });
       
       // Test the token with a simple API call
@@ -1116,21 +1123,20 @@ router.get('/api/auth/google/status', requireAuth, async (req: any, res) => {
       await oauth2.userinfo.get();
       
       // If we get here, token is valid
-      const scopes = [
+      const scopes = decrypted.scopes || [
         'https://www.googleapis.com/auth/userinfo.email',
-        'https://www.googleapis.com/auth/calendar.readonly', 
-        'https://www.googleapis.com/auth/calendar.events',
-        'https://www.googleapis.com/auth/gmail.send',
-        'https://www.googleapis.com/auth/gmail.readonly'
+        'https://www.googleapis.com/auth/userinfo.profile',
+        'https://www.googleapis.com/auth/gmail.modify',
+        'https://www.googleapis.com/auth/contacts.readonly'
       ];
       
       res.json({ 
         ok: true, 
         connected: true, 
         scopes,
-        email: googleIntegration.providerAccountId,
-        lastSyncAt: googleIntegration.lastSyncAt,
-        syncErrors: googleIntegration.syncErrors
+        email: googleAccount.accountEmail,
+        lastSyncAt: googleAccount.lastSyncedAt,
+        provider: 'gmail'
       });
       
     } catch (tokenError: any) {

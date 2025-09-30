@@ -5595,6 +5595,34 @@ export class DrizzleStorage implements IStorage {
     return result.length > 0;
   }
 
+  async getEmailAccountsByUser(userId: string, tenantId: string): Promise<any[]> {
+    return await this.db
+      .select()
+      .from(emailAccounts)
+      .where(and(
+        eq(emailAccounts.tenantId, tenantId),
+        eq(emailAccounts.userId, userId)
+      ))
+      .orderBy(desc(emailAccounts.updatedAt));
+  }
+
+  async decryptEmailAccountSecrets(secretsEnc: string | null): Promise<{ accessToken?: string; refreshToken?: string; scopes?: string[] } | null> {
+    if (!secretsEnc) return null;
+    
+    try {
+      const decrypted = secureStore.decrypt(secretsEnc);
+      const secrets = JSON.parse(decrypted);
+      return {
+        accessToken: secrets.access_token,
+        refreshToken: secrets.refresh_token,
+        scopes: secrets.scopes || []
+      };
+    } catch (error) {
+      console.error('Error decrypting email account secrets:', error);
+      return null;
+    }
+  }
+
   // Tenant-scoped storage wrapper
   withTenant(tenantId: string): TenantScopedStorage {
     return new TenantScopedStorage(this, tenantId);

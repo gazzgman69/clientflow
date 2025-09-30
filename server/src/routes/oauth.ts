@@ -664,10 +664,9 @@ async function googleCallbackHandler(req: any, res: any) {
       tenantId
     });
     
-    await storage.upsertEmailProvider(tenantId, {
+    await storage.upsertEmailProviderIntegration({
       userId,
       provider: 'google',
-      providerKey: 'google',
       status: 'connected',
       accountEmail: tokens.email,
       accessTokenEnc: tokens.access_token,
@@ -676,7 +675,7 @@ async function googleCallbackHandler(req: any, res: any) {
       metadata: {
         connectedAt: new Date().toISOString()
       }
-    });
+    } as any, tenantId);
     
     console.log('✅ GMAIL OAUTH: Successfully saved to email_accounts');
     

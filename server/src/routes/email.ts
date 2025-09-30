@@ -1508,7 +1508,20 @@ router.get('/provider-catalog', requireAuth, async (req: any, res) => {
 router.get('/provider-catalog/active', requireAuth, async (req: any, res) => {
   try {
     const providers = await storage.getActiveEmailProviders();
-    res.json({ ok: true, providers });
+    // Map database fields to frontend interface (key → code, incoming → supportsReceive, outgoing → supportsSend)
+    const mappedProviders = providers.map(p => ({
+      id: p.id,
+      code: p.key,  // Map key to code for frontend compatibility
+      displayName: p.displayName,
+      category: p.category,
+      authType: p.category,  // Use category as authType for simplicity
+      supportsReceive: p.incoming,
+      supportsSend: p.outgoing,
+      helpUrl: p.helpBlurb,
+      setupComplexity: p.category === 'oauth' ? 'simple' : 'moderate',
+      isActive: p.isActive
+    }));
+    res.json({ ok: true, providers: mappedProviders });
   } catch (error: any) {
     console.error('Error fetching active providers:', error);
     res.status(500).json({ ok: false, error: 'Failed to fetch active providers' });

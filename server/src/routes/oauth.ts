@@ -35,7 +35,7 @@ const GMAIL_SCOPES = [
 /**
  * Unified Gmail OAuth start route - Use this for email provider modal
  */
-router.get('/auth/google/start', (req, res) => {
+router.get('/api/auth/google/start', (req, res) => {
   try {
     // Require authentication for OAuth flows
     if (!req.session.userId) {
@@ -67,7 +67,7 @@ router.get('/auth/google/start', (req, res) => {
     const oauth2 = new OAuth2Client(
       process.env.GOOGLE_CLIENT_ID!,
       process.env.GOOGLE_CLIENT_SECRET!,
-      process.env.GOOGLE_REDIRECT_URI || `${req.protocol}://${req.get('host')}/auth/google/callback`
+      process.env.GOOGLE_REDIRECT_URI || `${req.protocol}://${req.get('host')}/api/auth/google/callback`
     );
     
     const url = oauth2.generateAuthUrl({
@@ -89,7 +89,7 @@ router.get('/auth/google/start', (req, res) => {
 /**
  * Unified Microsoft OAuth start route - Use this for email provider modal
  */
-router.get('/auth/microsoft/start', (req, res) => {
+router.get('/api/auth/microsoft/start', (req, res) => {
   try {
     // Require authentication for OAuth flows
     if (!req.session.userId) {
@@ -113,7 +113,7 @@ router.get('/auth/microsoft/start', (req, res) => {
     const params = new URLSearchParams({
       client_id: process.env.MICROSOFT_CLIENT_ID!,
       response_type: 'code',
-      redirect_uri: process.env.MICROSOFT_REDIRECT_URI || `${req.protocol}://${req.get('host')}/auth/microsoft/callback`,
+      redirect_uri: process.env.MICROSOFT_REDIRECT_URI || `${req.protocol}://${req.get('host')}/api/auth/microsoft/callback`,
       response_mode: 'query',
       scope: [
         'openid', 'email', 'profile', 'offline_access',
@@ -558,7 +558,7 @@ router.get('/auth/google/scope-check', async (req, res) => {
 /**
  * OAuth callback - Exchange code for tokens
  */
-router.get('/auth/google/callback', async (req, res) => {
+router.get('/api/auth/google/callback', async (req, res) => {
   try {
     const { code, state } = req.query;
     
@@ -595,7 +595,7 @@ router.get('/auth/google/callback', async (req, res) => {
     const oauth2 = new OAuth2Client(
       process.env.GOOGLE_CLIENT_ID!,
       process.env.GOOGLE_CLIENT_SECRET!,
-      process.env.GOOGLE_REDIRECT_URI || `${req.protocol}://${req.get('host')}/auth/google/callback`
+      process.env.GOOGLE_REDIRECT_URI || `${req.protocol}://${req.get('host')}/api/auth/google/callback`
     );
     
     // Exchange code for tokens
@@ -670,7 +670,7 @@ router.get('/auth/google/callback', async (req, res) => {
 /**
  * Microsoft OAuth callback - Handle OAuth redirect from Microsoft
  */
-router.get('/auth/microsoft/callback', async (req, res) => {
+router.get('/api/auth/microsoft/callback', async (req, res) => {
   try {
     const { code, state } = req.query;
     

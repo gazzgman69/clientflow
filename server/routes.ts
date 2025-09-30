@@ -266,8 +266,8 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   app.use(express.json());
   
   // OAuth routes (must be after session middleware) - no CSRF for OAuth flows
-  app.use('/api', oauthRoutes);
-  app.use('/api', emailOAuthRoutes);
+  app.use(oauthRoutes);
+  app.use(emailOAuthRoutes);
   
   // Apply CSRF protection to state-changing routes if provided
   const csrf = csrfProtection || ((req: any, res: any, next: any) => next());

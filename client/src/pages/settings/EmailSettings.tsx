@@ -322,7 +322,7 @@ export default function EmailSettings() {
   const connectGoogleWithPopup = () => {
     const origin = window.location.origin;
     const w = window.open(
-      `/auth/google/start?popup=1&origin=${encodeURIComponent(origin)}`,
+      `/api/auth/google/start?popup=1&origin=${encodeURIComponent(origin)}`,
       'oauth-google',
       'width=520,height=700,menubar=0,toolbar=0,status=0'
     );
@@ -346,7 +346,7 @@ export default function EmailSettings() {
   const connectMicrosoftWithPopup = () => {
     const origin = window.location.origin;
     const w = window.open(
-      `/auth/microsoft/start?popup=1&origin=${encodeURIComponent(origin)}`,
+      `/api/auth/microsoft/start?popup=1&origin=${encodeURIComponent(origin)}`,
       'oauth-microsoft',
       'width=520,height=700,menubar=0,toolbar=0,status=0'
     );

@@ -668,6 +668,135 @@ router.get('/auth/google/callback', async (req, res) => {
 });
 
 /**
+ * Microsoft OAuth callback - Handle OAuth redirect from Microsoft
+ */
+router.get('/auth/microsoft/callback', async (req, res) => {
+  try {
+    const { code, state } = req.query;
+    
+    if (!code) {
+      console.error('Missing authorization code in Microsoft callback');
+      return res.status(400).send('Missing code');
+    }
+    
+    const parsed = decodeState<any>(state);
+    console.log('🔐 Microsoft OAuth callback - State decoded:', JSON.stringify(parsed, null, 2));
+    
+    if (!parsed) {
+      return res.status(400).send('Invalid state');
+    }
+    
+    const { tenantId, userId, popup: popupRaw, returnTo, provider } = parsed;
+    const popup = popupRaw === true || popupRaw === 'true' || popupRaw === '1';
+    
+    console.log('🔐 Microsoft OAuth callback - Popup:', { 
+      popupRaw, 
+      popupType: typeof popupRaw,
+      popupFinal: popup,
+      provider,
+      parsed: JSON.stringify(parsed)
+    });
+    
+    if (!userId || !tenantId) {
+      return res.status(401).send('Authentication required');
+    }
+    
+    // Exchange code for tokens
+    const tokenEndpoint = 'https://login.microsoftonline.com/common/oauth2/v2.0/token';
+    const redirectUri = process.env.MICROSOFT_REDIRECT_URI || `${req.protocol}://${req.get('host')}/api/auth/microsoft/callback`;
+    
+    const tokenParams = new URLSearchParams({
+      client_id: process.env.MICROSOFT_CLIENT_ID!,
+      client_secret: process.env.MICROSOFT_CLIENT_SECRET!,
+      code: code as string,
+      redirect_uri: redirectUri,
+      grant_type: 'authorization_code'
+    });
+    
+    const tokenResponse = await fetch(tokenEndpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: tokenParams.toString()
+    });
+    
+    if (!tokenResponse.ok) {
+      const errorText = await tokenResponse.text();
+      console.error('Microsoft token exchange failed:', errorText);
+      return res.status(400).send('Failed to exchange code for tokens');
+    }
+    
+    const tokenData = await tokenResponse.json();
+    
+    if (!tokenData.access_token) {
+      return res.status(400).send('Failed to get access token');
+    }
+    
+    // Get user profile to get email
+    const profileResponse = await fetch('https://graph.microsoft.com/v1.0/me', {
+      headers: { 'Authorization': `Bearer ${tokenData.access_token}` }
+    });
+    
+    if (!profileResponse.ok) {
+      console.error('Failed to get Microsoft user profile');
+      return res.status(400).send('Failed to get user profile');
+    }
+    
+    const profile = await profileResponse.json();
+    const email = profile.mail || profile.userPrincipalName || '';
+    
+    console.log('📝 MICROSOFT OAUTH CALLBACK: Token exchange completed', {
+      email,
+      hasAccessToken: !!tokenData.access_token,
+      hasRefreshToken: !!tokenData.refresh_token,
+      userId,
+      tenantId,
+      provider
+    });
+    
+    // Save to email_accounts table
+    console.log('📧 MICROSOFT OAUTH: Saving to email_accounts table', {
+      email,
+      userId,
+      tenantId,
+      provider
+    });
+    
+    await storage.upsertEmailProvider(tenantId, {
+      userId,
+      provider: provider || 'microsoft',
+      providerKey: provider || 'microsoft',
+      status: 'connected',
+      accountEmail: email,
+      accessTokenEnc: tokenData.access_token,
+      refreshTokenEnc: tokenData.refresh_token || undefined,
+      scopes: ['openid', 'email', 'profile', 'offline_access', 'Mail.Read', 'Mail.Send', 'Contacts.Read'],
+      metadata: {
+        connectedAt: new Date().toISOString()
+      }
+    });
+    
+    console.log('✅ MICROSOFT OAUTH: Successfully saved to email_accounts');
+    
+    // Handle popup response
+    if (popup) {
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      return res.send(`<!doctype html><html><body><script>
+        (function(){
+          try { window.opener && window.opener.postMessage({type:'oauth:connected', provider:'microsoft', ok:true}, '*'); } catch(e) {}
+          try { window.close(); } catch(e) {}
+          setTimeout(function(){ if (!window.closed) document.body.innerHTML='Connected. You can close this window.'; }, 150);
+        })();
+      </script></body></html>`);
+    }
+    
+    return res.redirect(returnTo || '/settings/email-and-calendar');
+  } catch (error: any) {
+    console.error('Microsoft OAuth callback error:', error);
+    res.status(500).send('OAuth failed');
+  }
+});
+
+/**
  * Manual sync trigger
  */
 router.post('/calendar-integrations/:id/sync', requireAuth, async (req: any, res) => {
@@ -692,14 +821,10 @@ router.post('/calendar-integrations/:id/sync', requireAuth, async (req: any, res
   }
 });
 
-/** START TEMP CODE TO DELETE **/
-function TEMP_DEADCODE() {
-    // Tenant-scoped lookup by (tenant_id, provider, provider_account_id)
-
 /**
- * Manual sync trigger
+ * Gmail Auth Status - Check if user has connected Gmail specifically
  */
-router.post('/calendar-integrations/:id/sync', requireAuth, async (req: any, res) => {
+router.get('/api/auth/google/gmail/status', requireAuth, async (req: any, res) => {
   try {
     const integration = await storage.getCalendarIntegration(req.params.id, req.tenantId);
     

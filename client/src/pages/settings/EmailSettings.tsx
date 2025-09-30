@@ -318,50 +318,84 @@ export default function EmailSettings() {
     setAlertMessage({ type: 'success', message: 'Copied to clipboard' });
   };
   
+  // Connect Google with popup and postMessage
+  const connectGoogleWithPopup = () => {
+    const origin = window.location.origin;
+    const w = window.open(
+      `/auth/google/start?popup=1&origin=${encodeURIComponent(origin)}`,
+      'oauth-google',
+      'width=520,height=700,menubar=0,toolbar=0,status=0'
+    );
+
+    function onMsg(ev: MessageEvent) {
+      if (ev.origin !== origin) return;
+      if (ev.data?.type === 'oauth:connected' && ev.data?.provider === 'google') {
+        window.removeEventListener('message', onMsg);
+        try { w?.close(); } catch {}
+        
+        // Refresh connected state
+        queryClient.invalidateQueries({ queryKey: ['/api/auth/google/status'] });
+        setShowConnectDialog(false);
+        setAlertMessage({ type: 'success', message: 'Gmail connected successfully!' });
+        window.location.reload();
+      }
+    }
+    window.addEventListener('message', onMsg);
+
+    // Safety: if the popup is blocked/closed, fall back
+    const timer = setInterval(() => {
+      if (!w || w.closed) {
+        window.removeEventListener('message', onMsg);
+        clearInterval(timer);
+      }
+    }, 500);
+  };
+
+  // Connect Microsoft with popup and postMessage
+  const connectMicrosoftWithPopup = () => {
+    const origin = window.location.origin;
+    const w = window.open(
+      `/auth/microsoft/start?popup=1&origin=${encodeURIComponent(origin)}`,
+      'oauth-microsoft',
+      'width=520,height=700,menubar=0,toolbar=0,status=0'
+    );
+
+    function onMsg(ev: MessageEvent) {
+      if (ev.origin !== origin) return;
+      if (ev.data?.type === 'oauth:connected' && ev.data?.provider === 'microsoft') {
+        window.removeEventListener('message', onMsg);
+        try { w?.close(); } catch {}
+        
+        // Refresh connected state
+        queryClient.invalidateQueries({ queryKey: ['/api/auth/microsoft/status'] });
+        setShowConnectDialog(false);
+        setAlertMessage({ type: 'success', message: 'Microsoft account connected successfully!' });
+        window.location.reload();
+      }
+    }
+    window.addEventListener('message', onMsg);
+
+    // Safety: if the popup is blocked/closed, fall back
+    const timer = setInterval(() => {
+      if (!w || w.closed) {
+        window.removeEventListener('message', onMsg);
+        clearInterval(timer);
+      }
+    }, 500);
+  };
+
   // Handle email sync connect
   const handleEmailSyncConnect = async () => {
     if (!selected) return;
     
     const currentMode = getProviderMode(selected);
     
-    // Mode A - OAuth: open popup window for OAuth flow
+    // Mode A - OAuth: open popup window for OAuth flow with postMessage
     if (currentMode === 'oauth') {
-      const returnTo = '/settings/email-and-calendar';
-      let oauthUrl = '';
-      
       if (selected.key === 'google') {
-        oauthUrl = `/auth/google/start?returnTo=${encodeURIComponent(returnTo)}`;
+        connectGoogleWithPopup();
       } else if (selected.key === 'microsoft' || selected.key === 'hotmail_msn_outlook_live') {
-        oauthUrl = `/auth/microsoft/start?returnTo=${encodeURIComponent(returnTo)}`;
-      }
-      
-      if (oauthUrl) {
-        const width = 600;
-        const height = 700;
-        const left = window.screenX + (window.outerWidth - width) / 2;
-        const top = window.screenY + (window.outerHeight - height) / 2;
-        
-        const popup = window.open(
-          oauthUrl,
-          'oauth-popup',
-          `width=${width},height=${height},left=${left},top=${top},popup=1`
-        );
-        
-        if (popup) {
-          const checkPopup = setInterval(() => {
-            try {
-              if (popup.closed) {
-                clearInterval(checkPopup);
-                queryClient.invalidateQueries({ queryKey: ['/api/auth/google/status'] });
-                queryClient.invalidateQueries({ queryKey: ['/api/auth/microsoft/status'] });
-                setShowConnectDialog(false);
-                setAlertMessage({ type: 'success', message: 'Email account connected successfully' });
-              }
-            } catch (e) {
-              // Ignore cross-origin errors
-            }
-          }, 500);
-        }
+        connectMicrosoftWithPopup();
       }
       return;
     }

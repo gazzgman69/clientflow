@@ -36,7 +36,14 @@ const GMAIL_SCOPES = [
 router.get('/auth/google/start', (req, res) => {
   try {
     // Read query parameters
+    const popup = req.query.popup === '1';
+    const origin = (req.query.origin as string) || '';
     const returnTo = (req.query.returnTo as string) || '/settings/email-and-calendar';
+    
+    // Save popup flag, return URL, and origin to session
+    req.session.oauth_popup = popup;
+    req.session.oauth_return_to = returnTo;
+    req.session.oauth_origin = origin;
     
     // Set default tenant for OAuth sessions (required by TenantAwareSessionStore)
     if (!req.session.tenantId) {
@@ -58,13 +65,57 @@ router.get('/auth/google/start', (req, res) => {
       returnTo
     );
     
-    console.log('🔐 SECURITY: GET /auth/google/start using signed state and PKCE protection with Gmail+Contacts scopes');
+    console.log('🔐 SECURITY: GET /auth/google/start using signed state and PKCE protection with Gmail+Contacts scopes', {
+      popup,
+      hasOrigin: !!origin
+    });
     
     // Redirect to Google OAuth
     res.redirect(authUrl);
   } catch (error: any) {
     console.error('Error starting Google OAuth:', error);
     res.status(500).send('Failed to start OAuth flow');
+  }
+});
+
+/**
+ * Unified Microsoft OAuth start route - Use this for email provider modal
+ */
+router.get('/auth/microsoft/start', (req, res) => {
+  try {
+    // Read query parameters
+    const popup = req.query.popup === '1';
+    const origin = (req.query.origin as string) || '';
+    const returnTo = (req.query.returnTo as string) || '/settings/email-and-calendar';
+    
+    // Save popup flag, return URL, and origin to session
+    req.session.oauth_popup = popup;
+    req.session.oauth_return_to = returnTo;
+    req.session.oauth_origin = origin;
+    
+    // Set default tenant for OAuth sessions (required by TenantAwareSessionStore)
+    if (!req.session.tenantId) {
+      req.session.tenantId = 'default-tenant';
+    }
+    
+    // Require authentication for OAuth flows
+    if (!req.session.userId) {
+      return res.status(401).json({ error: 'Authentication required for OAuth' });
+    }
+    
+    console.log('🔐 SECURITY: GET /auth/microsoft/start with popup support', {
+      popup,
+      hasOrigin: !!origin,
+      userId: req.session.userId,
+      tenantId: req.session.tenantId
+    });
+    
+    // For now, redirect to settings with a message since Microsoft OAuth isn't fully implemented
+    // TODO: Implement full Microsoft OAuth flow similar to Google
+    return res.redirect(`${returnTo}?message=${encodeURIComponent('Microsoft OAuth is not yet implemented. Please use the connector approach.')}`);
+  } catch (error: any) {
+    console.error('Error starting Microsoft OAuth:', error);
+    res.status(500).send('Failed to start Microsoft OAuth flow');
   }
 });
 
@@ -598,89 +649,45 @@ router.get('/auth/google/callback', async (req, res) => {
       
       console.log('✅ GMAIL OAUTH: Successfully saved to email_accounts');
       
-      // Return HTML page that closes popup window
-      return res.send(`
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <title>OAuth Success</title>
-          <style>
-            body {
-              font-family: system-ui, -apple-system, sans-serif;
-              display: flex;
-              align-items: center;
-              justify-content: center;
-              height: 100vh;
-              margin: 0;
-              background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            }
-            .container {
-              text-align: center;
-              padding: 2rem;
-              background: white;
-              border-radius: 8px;
-              box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            }
-            .checkmark {
-              width: 80px;
-              height: 80px;
-              margin: 0 auto 1rem;
-              border-radius: 50%;
-              display: block;
-              stroke-width: 2;
-              stroke: #4bb543;
-              stroke-miterlimit: 10;
-              animation: fill .4s ease-in-out .4s forwards, scale .3s ease-in-out .9s both;
-            }
-            .checkmark-circle {
-              stroke-dasharray: 166;
-              stroke-dashoffset: 166;
-              stroke-width: 2;
-              stroke-miterlimit: 10;
-              stroke: #4bb543;
-              fill: none;
-              animation: stroke 0.6s cubic-bezier(0.65, 0, 0.45, 1) forwards;
-            }
-            .checkmark-check {
-              transform-origin: 50% 50%;
-              stroke-dasharray: 48;
-              stroke-dashoffset: 48;
-              animation: stroke 0.3s cubic-bezier(0.65, 0, 0.45, 1) 0.8s forwards;
-            }
-            @keyframes stroke {
-              100% { stroke-dashoffset: 0; }
-            }
-            @keyframes scale {
-              0%, 100% { transform: none; }
-              50% { transform: scale3d(1.1, 1.1, 1); }
-            }
-            h1 { color: #333; margin: 0 0 0.5rem; }
-            p { color: #666; margin: 0; }
-          </style>
-        </head>
-        <body>
-          <div class="container">
-            <svg class="checkmark" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 52 52">
-              <circle class="checkmark-circle" cx="26" cy="26" r="25" fill="none"/>
-              <path class="checkmark-check" fill="none" d="M14.1 27.2l7.1 7.2 16.7-16.8"/>
-            </svg>
-            <h1>Connected Successfully!</h1>
-            <p>Your Gmail account has been connected.</p>
-            <p style="margin-top: 1rem; font-size: 14px;">This window will close automatically...</p>
-          </div>
-          <script>
-            // Close popup after 1.5 seconds
-            setTimeout(() => {
-              if (window.opener) {
-                window.close();
-              } else {
-                window.location.href = '${returnTo}?connected=google';
-              }
-            }, 1500);
-          </script>
-        </body>
-        </html>
-      `);
+      // Check if this is a popup flow
+      if (isPopup && origin) {
+        // Validate origin for security - must match app origin
+        const appOrigin = `${req.protocol}://${req.get('host')}`;
+        const targetOrigin = origin === appOrigin ? origin : appOrigin;
+        
+        // Prepare postMessage payload (no tokens!)
+        const payload = {
+          type: 'oauth:connected',
+          provider: 'google',
+          ok: true,
+          accountEmail: tokens.email || null
+        };
+        
+        console.log('📤 GMAIL OAUTH: Sending postMessage to popup opener', {
+          targetOrigin,
+          hasEmail: !!tokens.email
+        });
+        
+        // Return HTML page that posts message to opener and closes
+        res.setHeader('Content-Type', 'text/html; charset=utf-8');
+        return res.send(`<!doctype html><html><head><meta charset="utf-8">
+        <title>Connecting…</title></head><body>
+        <script>
+          (function(){
+            try {
+              var data = ${JSON.stringify(payload)};
+              window.opener && window.opener.postMessage(data, ${JSON.stringify(targetOrigin)});
+            } catch (e) {}
+            // close quickly; fallback redirect if blocked
+            try { window.close(); } catch(e) {}
+            setTimeout(function(){ location.replace(${JSON.stringify(returnTo)}); }, 800);
+          })();
+        </script>
+        </body></html>`);
+      }
+      
+      // Non-popup fallback: redirect as before
+      return res.redirect(returnTo);
     }
     
     // Tenant-scoped lookup by (tenant_id, provider, provider_account_id)

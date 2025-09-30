@@ -4,6 +4,14 @@ BusinessCRM is a comprehensive customer relationship management system built wit
 
 ## Recent Changes (September 30, 2025)
 
+**Gmail OAuth Integration for Email Accounts**: Completed full Google OAuth flow for Gmail email provider with direct integration to email_accounts table. Implementation includes:
+- Updated Gmail scopes: gmail.modify, contacts.readonly, openid, email, profile
+- Created GET /auth/google/start route with PKCE protection and signed state parameters
+- Modified /auth/google/callback to save Gmail tokens to email_accounts table (provider_key='google')
+- Integrated with existing GmailEmailProvider service for token refresh
+- Modal UI bypasses provider selection, goes directly to dropdown+form with OAuth redirect
+- Production-ready OAuth flow with environment variable validation (GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET)
+
 **Email Provider Storage Layer Migration**: Completed migration from email_provider_integrations to email_accounts table with new unified schema supporting both OAuth and IMAP/SMTP providers. Key accomplishments:
 - Migrated all storage methods to use email_accounts table with providerKey column
 - Implemented JSON-based secrets_enc encryption for unified credential storage

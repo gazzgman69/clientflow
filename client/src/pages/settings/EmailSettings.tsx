@@ -335,9 +335,9 @@ export default function EmailSettings() {
       
       // Refresh connected state (or refetch accounts)
       queryClient.invalidateQueries({ queryKey: ['/api/auth/google/status'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/email/provider-catalog/active'] });
       setShowConnectDialog(false);
       setAlertMessage({ type: 'success', message: 'Gmail connected successfully!' });
-      location.reload();
     }
     window.addEventListener('message', onMsg, { once: true });
   };
@@ -359,9 +359,9 @@ export default function EmailSettings() {
       
       // Refresh connected state (or refetch accounts)
       queryClient.invalidateQueries({ queryKey: ['/api/auth/microsoft/status'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/email/provider-catalog/active'] });
       setShowConnectDialog(false);
       setAlertMessage({ type: 'success', message: 'Microsoft account connected successfully!' });
-      location.reload();
     }
     window.addEventListener('message', onMsg, { once: true });
   };

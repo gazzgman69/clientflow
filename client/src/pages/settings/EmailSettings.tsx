@@ -172,13 +172,17 @@ export default function EmailSettings() {
   const prefs = (prefsData as any)?.prefs as TenantEmailPrefs;
   const settings = (settingsData as any)?.settings as MailSettings | null;
   
-  // Normalize providers from API response
+  // Normalize providers from API response and set default selection
   useEffect(() => {
     if (rawProviders.length > 0) {
       const normalized = rawProviders.map(normalizeProvider);
       setProviders(normalized);
+      // Initialize with first provider if none selected
+      if (!selectedKey && normalized.length > 0) {
+        setSelectedKey(normalized[0].key);
+      }
     }
-  }, [rawProviders]);
+  }, [rawProviders, selectedKey]);
   
   // Reset form when provider changes
   useEffect(() => {
@@ -267,7 +271,6 @@ export default function EmailSettings() {
       queryClient.invalidateQueries({ queryKey: ['/api/auth/google/gmail/status'] });
       queryClient.invalidateQueries({ queryKey: ['/api/auth/microsoft/status'] });
       setShowConnectDialog(false);
-      setSelectedKey('');
       setEmailSyncForm({
         login: '',
         password: '',
@@ -523,25 +526,6 @@ export default function EmailSettings() {
                         
                         {providersLoading ? (
                           <div className="py-8 text-center text-muted-foreground">Loading providers...</div>
-                        ) : !selectedKey ? (
-                          <div className="grid grid-cols-1 gap-3">
-                            {providers.map((provider: Provider) => (
-                              <button
-                                key={provider.key}
-                                onClick={() => setSelectedKey(provider.key)}
-                                className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted transition-colors text-left"
-                                data-testid={`provider-option-${provider.key}`}
-                              >
-                                <div className="flex items-center space-x-3">
-                                  <Mail className="h-5 w-5 text-muted-foreground" />
-                                  <div>
-                                    <p className="font-medium">{provider.display_name}</p>
-                                    <p className="text-sm text-muted-foreground capitalize">{provider.category?.replace('_', ' ') || 'Unknown'}</p>
-                                  </div>
-                                </div>
-                              </button>
-                            ))}
-                          </div>
                         ) : (
                           <div className="space-y-6">
                             {/* Email Provider Selector */}
@@ -633,7 +617,7 @@ export default function EmailSettings() {
                                 variant="outline" 
                                 className="flex-1" 
                                 onClick={() => {
-                                  setSelectedKey('');
+                                  setShowConnectDialog(false);
                                   setEmailSyncForm({
                                     login: '',
                                     password: '',

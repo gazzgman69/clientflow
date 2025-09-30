@@ -1,0 +1,148 @@
+Replit Agent prompt (read-only, no edits)
+
+Mission
+Produce a complete OAuth popup diagnostics bundle for Google & Microsoft.
+Absolutely no code or config changes. No “optimizations,” no refactors, no memory tuning.
+
+Non-negotiables
+
+❌ Do not write/modify/delete/move files.
+
+❌ Do not install/uninstall packages.
+
+❌ Do not start/stop servers. If the server is already running, you may do GET requests only.
+
+✅ Only read, list, and print file contents; and optionally run GET requests.
+
+✅ If a step would write, respond with: skipped (write).
+
+✅ Print outputs inline, grouped by sections A → K exactly.
+
+A) Repo map (server & routes)
+
+Print a concise tree (max 2 levels) for these roots if present:
+server/ src/server/ api/ routes/ pages/api/ app/api/ plus next.config.* vite.config.* vercel.json
+
+Then list absolute paths of likely files:
+
+server entry (e.g., server/index.*, src/server.*, app.ts, index.server.*)
+
+oauth routes (*auth*google*.*, *oauth*google*.*, *auth*microsoft*.*, *oauth*microsoft*.*)
+
+central router mounts (routes.*, router.*)
+
+Output: tree + bullet list of file paths.
+
+B) Exact handlers & mounts (print full contents)
+
+For any file that contains these, print full contents:
+
+/auth/google/start or /api/auth/google/start
+
+/auth/google/callback or /api/auth/google/callback
+
+/auth/microsoft/start or /api/auth/microsoft/start
+
+/auth/microsoft/callback or /api/auth/microsoft/callback
+
+Any app.use( / router.use( mounts, any app.get("*", any express.static(, and Vite/Next middleware.
+
+Output: one code block per file with the file path as the caption.
+
+C) Catch-all & static order (evidence)
+
+From B’s files, quote the exact lines (with line numbers) where:
+
+express.static(...) (or similar) is mounted
+
+app.get("*", ...) catch-all(s)
+
+Vite/Next dev middleware is mounted
+Then state: Do auth routes mount before these? (Yes/No with line refs)
+
+D) UI openers (front-end)
+
+Search and print the full function bodies + file paths for:
+
+window.open(/api/auth/google/start… with?popup=1&origin=`
+
+window.open(/api/auth/microsoft/start… with?popup=1&origin=(and optionalprovider=`)
+
+Any window.addEventListener('message', …) handler that closes the popup & reloads.
+
+Output: code blocks per function + path.
+
+E) Start handlers (state build)
+
+Print the entire Google & Microsoft start handlers where the OAuth URLs are created. Include the exact state construction. If helpers like encodeState/decodeState exist, print their full source.
+
+Output: code blocks.
+
+F) Callback handlers (popup branch)
+
+Print the entire Google & Microsoft callback handlers. Highlight (with comments) the branch executed when popup===true and include the exact HTML sent (the postMessage + window.close() snippet). Confirm there is an immediate return after res.send(...) by quoting that line.
+
+Output: code blocks + 1–2 line confirmation note per handler.
+
+G) Grep cross-check (quick patterns)
+
+Run a repo search and print matched lines (as file:line:match) for:
+
+/auth/google/callback
+/api/auth/google/callback
+postMessage(
+generateAuthUrl
+login.microsoftonline.com
+window.close(
+base64url
+Buffer.from(,"base64url")
+
+H) Optional runtime probes (GET-only)
+
+Only if the dev server is already running. Perform GET requests and print status + first 100 bytes of body for:
+
+/api/auth/google/callback?state=bogus
+
+/auth/google/callback?state=bogus
+
+/api/auth/microsoft/callback?state=bogus
+
+/auth/microsoft/callback?state=bogus
+Then say which handler likely responded (server vs SPA) based on the body/headers.
+
+If server isn’t running: skipped (server not running).
+
+I) Next/Vite config
+
+If present, print full contents of next.config.*, vite.config.*, and vercel.json.
+Call out any rewrites/redirects that involve /auth/* or /api/auth/*.
+
+J) Env sanity (masked)
+
+Print exactly this table (✅/❌ for presence; show full value only for redirect URIs):
+
+GOOGLE_CLIENT_ID: ✅/❌
+GOOGLE_CLIENT_SECRET: ✅/❌
+GOOGLE_REDIRECT_URI: <exact-url-or-❌>
+MS_CLIENT_ID: ✅/❌
+MS_CLIENT_SECRET: ✅/❌
+MS_REDIRECT_URI: <exact-url-or-❌>
+DEBUG_OAUTH: ✅/❌
+
+K) Final summary (2–5 bullets)
+
+Based on the evidence above, state:
+
+Whether auth routes appear before catch-alls/static.
+
+Whether UI uses window.open(...?popup=1&origin=...) to /api/auth/.../start.
+
+Whether callbacks have the popup HTML branch and immediate return.
+
+Whether /api/auth/.../callback looks server-handled while /auth/.../callback looks SPA-handled (from H).
+
+Output format
+Return a single response containing sections A → K in order. Use fenced code blocks for files and snippets.
+If a section has nothing to show, include it and write none found.
+
+Reminder: This is a read-only task. Any attempt to edit must be skipped with skipped (write).

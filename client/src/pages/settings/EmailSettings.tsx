@@ -433,7 +433,7 @@ export default function EmailSettings() {
                                     <Mail className="h-5 w-5 text-muted-foreground" />
                                     <div>
                                       <p className="font-medium">{provider.displayName}</p>
-                                      <p className="text-sm text-muted-foreground capitalize">{provider.authType.replace('_', ' ')}</p>
+                                      <p className="text-sm text-muted-foreground capitalize">{provider.authType?.replace('_', ' ') || 'Unknown'}</p>
                                     </div>
                                   </div>
                                   <div className="flex gap-2">
@@ -526,7 +526,7 @@ export default function EmailSettings() {
                                     <Mail className="h-5 w-5 text-muted-foreground" />
                                     <div>
                                       <p className="font-medium">{provider.displayName}</p>
-                                      <p className="text-sm text-muted-foreground capitalize">{provider.authType.replace('_', ' ')}</p>
+                                      <p className="text-sm text-muted-foreground capitalize">{provider.authType?.replace('_', ' ') || 'Unknown'}</p>
                                     </div>
                                   </div>
                                   <div className="flex gap-2">

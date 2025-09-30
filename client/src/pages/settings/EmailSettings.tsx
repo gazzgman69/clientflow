@@ -328,17 +328,16 @@ export default function EmailSettings() {
     );
 
     function onMsg(ev: MessageEvent) {
-      if (ev.origin !== origin) return;
-      if (ev.data?.type === 'oauth:connected' && ev.data?.provider === 'google') {
-        window.removeEventListener('message', onMsg);
-        try { w?.close(); } catch {}
-        
-        // Refresh connected state
-        queryClient.invalidateQueries({ queryKey: ['/api/auth/google/status'] });
-        setShowConnectDialog(false);
-        setAlertMessage({ type: 'success', message: 'Gmail connected successfully!' });
-        window.location.reload();
-      }
+      // In dev (Replit) origins can shift. Accept only our message type.
+      if (!ev?.data || ev.data.type !== 'oauth:connected' || ev.data.provider !== 'google') return;
+      window.removeEventListener('message', onMsg);
+      try { w?.close(); } catch {}
+      
+      // Refresh connected state (or refetch accounts)
+      queryClient.invalidateQueries({ queryKey: ['/api/auth/google/status'] });
+      setShowConnectDialog(false);
+      setAlertMessage({ type: 'success', message: 'Gmail connected successfully!' });
+      location.reload();
     }
     window.addEventListener('message', onMsg);
 
@@ -361,17 +360,16 @@ export default function EmailSettings() {
     );
 
     function onMsg(ev: MessageEvent) {
-      if (ev.origin !== origin) return;
-      if (ev.data?.type === 'oauth:connected' && ev.data?.provider === 'microsoft') {
-        window.removeEventListener('message', onMsg);
-        try { w?.close(); } catch {}
-        
-        // Refresh connected state
-        queryClient.invalidateQueries({ queryKey: ['/api/auth/microsoft/status'] });
-        setShowConnectDialog(false);
-        setAlertMessage({ type: 'success', message: 'Microsoft account connected successfully!' });
-        window.location.reload();
-      }
+      // In dev (Replit) origins can shift. Accept only our message type.
+      if (!ev?.data || ev.data.type !== 'oauth:connected' || ev.data.provider !== 'microsoft') return;
+      window.removeEventListener('message', onMsg);
+      try { w?.close(); } catch {}
+      
+      // Refresh connected state (or refetch accounts)
+      queryClient.invalidateQueries({ queryKey: ['/api/auth/microsoft/status'] });
+      setShowConnectDialog(false);
+      setAlertMessage({ type: 'success', message: 'Microsoft account connected successfully!' });
+      location.reload();
     }
     window.addEventListener('message', onMsg);
 

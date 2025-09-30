@@ -650,37 +650,36 @@ router.get('/auth/google/callback', async (req, res) => {
       console.log('✅ GMAIL OAUTH: Successfully saved to email_accounts');
       
       // Check if this is a popup flow
-      if (isPopup && origin) {
-        // Validate origin for security - must match app origin
-        const appOrigin = `${req.protocol}://${req.get('host')}`;
-        const targetOrigin = origin === appOrigin ? origin : appOrigin;
-        
+      if (isPopup) {
         // Prepare postMessage payload (no tokens!)
         const payload = {
           type: 'oauth:connected',
           provider: 'google',
-          ok: true,
-          accountEmail: tokens.email || null
+          ok: true
         };
         
-        console.log('📤 GMAIL OAUTH: Sending postMessage to popup opener', {
-          targetOrigin,
-          hasEmail: !!tokens.email
-        });
+        console.log('📤 GMAIL OAUTH: Sending postMessage to popup opener (dev-friendly: using * target)');
         
         // Return HTML page that posts message to opener and closes
+        // Dev-friendly: use '*' as target to avoid Replit origin mismatches
+        // Parent handler filters by message type/provider for security
         res.setHeader('Content-Type', 'text/html; charset=utf-8');
         return res.send(`<!doctype html><html><head><meta charset="utf-8">
-        <title>Connecting…</title></head><body>
+        <title>Connected</title></head><body>
         <script>
           (function(){
             try {
               var data = ${JSON.stringify(payload)};
-              window.opener && window.opener.postMessage(data, ${JSON.stringify(targetOrigin)});
+              // Dev-friendly: broadcast to any origin; parent handler will filter by message type/provider.
+              window.opener && window.opener.postMessage(data, '*');
             } catch (e) {}
-            // close quickly; fallback redirect if blocked
             try { window.close(); } catch(e) {}
-            setTimeout(function(){ location.replace(${JSON.stringify(returnTo)}); }, 800);
+            // If the window didn't close (popup blocked), show a minimal UI:
+            setTimeout(function(){
+              if (!window.closed) {
+                document.body.innerHTML = '<p style="font-family: system-ui; padding: 2rem; text-align: center;">Connected. You can close this window.</p>';
+              }
+            }, 200);
           })();
         </script>
         </body></html>`);

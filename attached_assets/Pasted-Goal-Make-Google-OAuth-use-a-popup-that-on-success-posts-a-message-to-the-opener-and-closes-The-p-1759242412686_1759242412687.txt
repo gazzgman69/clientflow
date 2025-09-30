@@ -1,0 +1,103 @@
+Goal
+Make Google OAuth use a popup that, on success, posts a message to the opener and closes. The popup must not redirect the app inside itself.
+
+Do not change DB schema or token logic.
+
+1) Parent: open popup + listen
+
+In the unified email modal code path for Google, replace the handler with:
+
+function connectGoogleWithPopup() {
+  const origin = window.location.origin; // parent origin (may vary per Replit run)
+  const popup = window.open(
+    `/auth/google/start?popup=1&origin=${encodeURIComponent(origin)}`,
+    'oauth-google',
+    'width=520,height=700,menubar=0,toolbar=0,status=0'
+  );
+
+  function onMsg(ev: MessageEvent) {
+    // In dev (Replit) origins can shift. Accept only our message type.
+    if (!ev?.data || ev.data.type !== 'oauth:connected' || ev.data.provider !== 'google') return;
+    window.removeEventListener('message', onMsg);
+    try { popup?.close(); } catch {}
+    // Refresh connected state (or refetch accounts)
+    location.reload();
+  }
+  window.addEventListener('message', onMsg);
+
+  // Cleanup if user closes popup manually
+  const t = setInterval(() => {
+    if (!popup || popup.closed) { window.removeEventListener('message', onMsg); clearInterval(t); }
+  }, 500);
+}
+
+
+The Google Connect button should call connectGoogleWithPopup().
+
+2) Start route must carry popup flag in state
+
+In /auth/google/start, read popup and origin from query and embed in the OAuth state JSON:
+
+const stateObj = {
+  tenantId: req.userTenantId,
+  userId: req.userId,
+  popup: req.query.popup === '1',
+  origin: (req.query.origin as string) || `${req.protocol}://${req.get('host')}`,
+  returnTo: '/settings/email-and-calendar'
+};
+const state = Buffer.from(JSON.stringify(stateObj)).toString('base64');
+const url = oauth2.generateAuthUrl({
+  access_type: 'offline',
+  prompt: 'consent',
+  include_granted_scopes: true,
+  scope: [
+    'https://www.googleapis.com/auth/gmail.modify',
+    'https://www.googleapis.com/auth/contacts.readonly',
+    'openid','email','profile'
+  ],
+  state
+});
+return res.redirect(url);
+
+3) Callback: postMessage + close, no redirect fallback
+
+In /auth/google/callback, after saving tokens, if parsed.popup===true do not redirect. Send a tiny HTML page that posts to the opener and closes. Use '*' as target in dev to avoid Replit origin mismatches.
+
+if (parsed.popup) {
+  const payload = { type: 'oauth:connected', provider: 'google', ok: true };
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  return res.send(`<!doctype html><html><head><meta charset="utf-8"><title>Connected</title></head>
+  <body><script>
+    (function () {
+      try {
+        var data = ${JSON.stringify(payload)};
+        // Dev-friendly: broadcast to any origin; parent handler will filter by message type/provider.
+        window.opener && window.opener.postMessage(data, '*');
+      } catch (e) {}
+      try { window.close(); } catch (e) {}
+      // If the window didn't close (popup blocked), show a minimal UI:
+      setTimeout(function () {
+        if (!window.closed) { document.body.innerHTML = '<p>Connected. You can close this window.</p>'; }
+      }, 200);
+    })();
+  </script></body></html>`);
+}
+// Non-popup flows keep existing redirect:
+return res.redirect(parsed.returnTo || '/settings/email-and-calendar');
+
+
+Note: In production, you can tighten postMessage with a fixed origin. In Replit dev, '*' avoids subdomain churn.
+
+4) Verify wiring end-to-end
+
+Ensure unified modal’s Google path actually opens /auth/google/start?popup=1&origin=<parent-origin>.
+
+Log state decoding in callback once (console.info("google-callback-state", parsed)) to confirm popup:true.
+
+5) Acceptance tests (manual)
+
+Open Settings → Email & Calendar → Connect Google.
+
+Popup goes to Google; after consent, popup closes (no CRM UI inside).
+
+Parent page reloads and shows Google connected.

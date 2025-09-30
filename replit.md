@@ -4,6 +4,15 @@ BusinessCRM is a comprehensive customer relationship management system built wit
 
 ## Recent Changes (September 30, 2025)
 
+**Gmail OAuth Popup Flow with PostMessage**: Completed popup-based OAuth flow replacing full-page redirects with seamless popup windows. Implementation includes:
+- **Frontend**: `connectGoogleWithPopup()` opens centered popup (520x700px) with postMessage listener
+- **Backend Start Route**: `/auth/google/start` captures `popup=1` and `origin` parameters in session
+- **Backend Callback**: Returns minimal HTML that posts `{type: 'oauth:connected', provider: 'google'}` to opener using `'*'` target for Replit dev-friendliness
+- **Security**: Parent window filters messages by type/provider (no origin checking to avoid Replit subdomain mismatches)
+- **User Experience**: Popup closes automatically on success, parent reloads to show connection status
+- **Fallback**: Shows "Connected. You can close this window." if auto-close fails
+- **Microsoft**: Similar route created at `/auth/microsoft/start` (ready for full implementation)
+
 **Gmail OAuth Integration for Email Accounts**: Completed full Google OAuth flow for Gmail email provider with direct integration to email_accounts table. Implementation includes:
 - Updated Gmail scopes: gmail.modify, contacts.readonly, openid, email, profile
 - Created GET /auth/google/start route with PKCE protection and signed state parameters

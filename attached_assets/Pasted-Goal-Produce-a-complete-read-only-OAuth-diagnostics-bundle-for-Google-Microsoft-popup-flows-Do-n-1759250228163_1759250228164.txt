@@ -1,0 +1,143 @@
+Goal
+Produce a complete, read-only OAuth diagnostics bundle for Google & Microsoft popup flows.
+Do not modify any files, configs, or env. Do not “optimize” anything. Only search, read, run GET requests, and print results inline.
+
+Hard rules
+
+❌ No writes/edits/renames/migrations. If a step would write, skip and say “skipped (write)”.
+
+✅ Only search/list/read repository files and (optionally) run GET requests against the dev server if it’s already running.
+
+✅ When showing envs, print only names and whether they are set (✅/❌). For redirect URIs, you may print their exact URL value.
+
+✅ Return outputs grouped by the sections below, with each section heading present even if empty.
+
+A) Repo map (server & routes)
+
+Print a concise tree of likely server/route files (max 2 levels) for:
+
+server/, src/server/, api/, routes/, pages/api/, app/api/, next.config.*, vite.config.*, vercel.json
+
+Then list absolute file paths for any files that look like:
+
+server entry: server/index.*, src/server.*, app.ts, index.server.*
+
+oauth routes: *auth*google*.*, *oauth*google*.*, *auth*microsoft*.*, *oauth*microsoft*.*
+
+central router mounts: routes.*, router.*
+
+B) Exact handlers & mounts (print full contents)
+
+For each file found above, print its full contents (no truncation) if it contains any of:
+
+/auth/google/start, /auth/google/callback, /api/auth/google/*
+
+/auth/microsoft/start, /auth/microsoft/callback, /api/auth/microsoft/*
+
+app.use(, router.use(, app.get("*", express.static(, Vite/Next middleware
+Label each block with the file path.
+
+C) Catch-all & static order (evidence)
+
+From printed files, highlight the exact lines where:
+
+express.static(...) (or static middleware) is mounted
+
+any app.get("*", ...) catch-all is mounted
+
+Vite/Next dev middleware is mounted
+
+State whether the auth routes are mounted before these (based on the code you printed). Quote line numbers.
+
+D) UI openers (front-end)
+
+Search the repo for these patterns and print the full function bodies and file paths where they occur:
+
+window.open(/auth/google/startor/api/auth/google/start`
+
+window.open(/auth/microsoft/startor/api/auth/microsoft/start`
+
+any usage of ?popup=1 and origin=
+
+Also print any postMessage( listeners in the parent window (the handler that closes the popup and reloads).
+
+E) Start handlers (state build)
+
+Print the entire Google start handler and Microsoft start handler where the OAuth URL is built.
+
+Show the exact state value computation (including helper functions if any).
+
+If there’s a helper like encodeState/decodeState, print its full source.
+
+F) Callback handlers (popup branch)
+
+Print the entire Google callback and Microsoft callback handlers.
+
+In each, highlight the branch that should run when popup===true and print the exact HTML being res.send’d (the postMessage + window.close() snippet).
+
+Confirm (by quoting code) that there is an immediate return right after res.send(...).
+
+G) Grep cross-check (quick patterns)
+
+Run a repo search and print the matched lines (with file:line):
+
+/auth/google/callback
+
+/api/auth/google/callback
+
+postMessage(
+
+generateAuthUrl
+
+login.microsoftonline.com
+
+window.close(
+
+base64url or Buffer.from(…, "base64url")
+
+H) Optional runtime probes (GET-only; no code edits)
+
+If the dev server is running:
+
+GET /api/auth/google/callback?state=bogus and print status + first 20 response bytes.
+
+GET /auth/google/callback?state=bogus (without /api) and print status + first 20 bytes.
+
+Repeat both for Microsoft.
+
+Explain which responder likely handled each (server vs SPA), based on bodies/headers.
+
+(If server isn’t running, say “skipped (server not running)”. Do not start it unless it’s already running as part of Replit’s current session.)
+
+I) Next/Vite config
+
+If present, print next.config.* (full), vite.config.* (full), and vercel.json (full).
+
+Call out any rewrites/redirects for /auth/* or /api/auth/*.
+
+J) Env sanity (masked)
+
+Print a table exactly like this (✅/❌ for presence; only show full value for redirect URIs):
+
+GOOGLE_CLIENT_ID: ✅/❌
+GOOGLE_CLIENT_SECRET: ✅/❌
+GOOGLE_REDIRECT_URI: <exact-url-or-❌>
+MS_CLIENT_ID: ✅/❌
+MS_CLIENT_SECRET: ✅/❌
+MS_REDIRECT_URI: <exact-url-or-❌>
+DEBUG_OAUTH: ✅/❌
+
+K) Final summary (2–5 bullets)
+
+Based on the evidence you printed, state:
+
+Whether auth routes appear before catch-alls/static.
+
+Whether UI uses window.open(...?popup=1&origin=...) to /api/auth/.../start.
+
+Whether callbacks have the popup HTML branch and immediate return.
+
+Whether /api/auth/.../callback GET looks server-handled while /auth/.../callback looks SPA-handled (if probed).
+
+Deliverable format
+Return a single response containing sections A → K in order, with code blocks and file paths. Do not change any files. If a section is empty, include it and say “none found”.

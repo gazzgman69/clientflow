@@ -1,0 +1,220 @@
+Goal
+Restore the full Google OAuth flow and keep it identical to our app’s contract:
+
+Start: GET /auth/google/start (or POST → 302)
+
+Callback: GET /auth/google/callback
+
+Provider key in DB/catalog: google (category oauth)
+
+Unified modal’s Connect Google button must redirect to /auth/google/start.
+
+Do not change DB schema or existing storage helpers. Keep Microsoft flow untouched.
+
+1) Env + Google Cloud prerequisites
+
+Ensure these env vars exist and are loaded in server:
+
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+GOOGLE_REDIRECT_URI=https://<app-domain>/auth/google/callback
+
+
+Scopes we need (array):
+
+https://www.googleapis.com/auth/gmail.modify
+
+https://www.googleapis.com/auth/contacts.readonly
+
+openid
+
+email
+
+profile
+
+The OAuth consent screen + OAuth client must list the exact redirect URI above.
+
+2) Start handler: /auth/google/start
+
+Create/verify a route that:
+
+Builds an OAuth URL with the scopes above, access_type=offline, prompt=consent, include_granted_scopes=true.
+
+Adds a state payload (JSON, base64 or JWT) containing { tenantId, userId, returnTo:'/settings/email-and-calendar' }.
+
+Redirects the browser to Google.
+
+Implementation guidance (Node/TS):
+
+Use google-auth-library or googleapis OAuth2Client.
+
+Example:
+
+const oauth2 = new OAuth2Client(
+  process.env.GOOGLE_CLIENT_ID!,
+  process.env.GOOGLE_CLIENT_SECRET!,
+  process.env.GOOGLE_REDIRECT_URI!
+);
+
+const scopes = [
+  'https://www.googleapis.com/auth/gmail.modify',
+  'https://www.googleapis.com/auth/contacts.readonly',
+  'openid','email','profile'
+];
+
+app.get('/auth/google/start', (req, res) => {
+  const state = Buffer.from(JSON.stringify({
+    tenantId: req.userTenantId, userId: req.userId, returnTo: '/settings/email-and-calendar'
+  })).toString('base64');
+
+  const url = oauth2.generateAuthUrl({
+    access_type: 'offline',
+    prompt: 'consent',
+    include_granted_scopes: true,
+    scope: scopes,
+    state
+  });
+  res.redirect(url);
+});
+
+3) Callback handler: /auth/google/callback
+
+Create/verify a route that:
+
+Reads code and state.
+
+Exchanges code for tokens (access_token, refresh_token, expiry_date).
+
+Retrieves the user’s email (prefer id_token claims; fallback to Gmail profile API).
+
+Upserts an email_accounts row with:
+
+provider_key: 'google'
+
+auth_type: 'oauth'
+
+tenant_id, user_id from state
+
+account_email from id token or Gmail profile
+
+secrets_enc: encrypted JSON
+
+{
+  "provider": "google",
+  "access_token": "...",
+  "refresh_token": "...",
+  "expires_at": 1735689600000,
+  "token_type": "Bearer",
+  "scopes": ["gmail.modify","contacts.readonly","openid","email","profile"]
+}
+
+
+Optionally set capabilities: ["send","receive","list","contacts_sync"]
+
+Redirects to state.returnTo with a flash like ?connected=google.
+
+Example snippets:
+
+app.get('/auth/google/callback', async (req, res, next) => {
+  const { code, state } = req.query as { code: string; state?: string };
+  const parsed = state ? JSON.parse(Buffer.from(state, 'base64').toString()) : {};
+  const { tokens } = await oauth2.getToken(code);
+  oauth2.setCredentials(tokens);
+
+  // Prefer id_token for email
+  let email = undefined as string|undefined;
+  if (tokens.id_token) {
+    const payload = JSON.parse(Buffer.from(tokens.id_token.split('.')[1], 'base64').toString());
+    email = payload?.email;
+  }
+  if (!email) {
+    // fallback to Gmail profile
+    const resp = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/profile', {
+      headers: { Authorization: `Bearer ${tokens.access_token}` }
+    });
+    const prof = await resp.json();
+    email = prof?.emailAddress;
+  }
+
+  // Persist using existing storage helper
+  await storage.upsertEmailAccount(parsed.tenantId, {
+    provider_key: 'google',
+    auth_type: 'oauth',
+    user_id: parsed.userId,
+    account_email: email || '',
+    secrets_enc: await encryptSecrets({
+      provider: 'google',
+      access_token: tokens.access_token,
+      refresh_token: tokens.refresh_token,          // may be undefined if not first consent
+      expires_at: tokens.expiry_date ?? null,
+      token_type: tokens.token_type ?? 'Bearer',
+      scopes
+    }),
+    is_active: true
+  });
+
+  res.redirect(parsed.returnTo || '/settings/email-and-calendar');
+});
+
+
+Important: Google only returns refresh_token the first time per client/user/scope set or when prompt=consent is used. We already set prompt=consent in /start.
+
+4) Token refresh helper (used by adapters/workers)
+
+Add/verify a refresh utility:
+
+If Date.now() > expires_at - 60_000, use oauth2.refreshAccessToken() (or getAccessToken() with set credentials) to get a new access token.
+
+Update secrets_enc.access_token and expires_at in DB.
+
+Never log tokens.
+
+5) Health check for Google accounts
+
+POST /api/email/accounts/:id/test for a Google account should:
+
+Read decrypted tokens.
+
+Call GET https://gmail.googleapis.com/gmail/v1/users/me/profile with bearer token.
+
+Return {status:'ok'} on 200; else {status:'error', detail}.
+
+6) UI hook-up (unified modal)
+
+Ensure the unified modal’s Connect Google button does:
+
+if (selectedKey === 'google') window.location.href = '/auth/google/start';
+
+
+Keep the Login field visible but optional (as per screenshots). Do not block Connect on it.
+
+7) Provider catalog sanity
+
+Confirm a row exists:
+
+key='google', category='oauth', display_name='Google Gmail', is_active=true
+
+
+(logo/help blurb optional).
+
+8) Minimal tests (Playwright smoke)
+
+Start: From Settings, click Connect Google → assert navigation to a URL starting with https://accounts.google.com/o/oauth2/v2/auth (use route interception if needed).
+
+Callback: Mock Google token response; hit /auth/google/callback?code=...&state=... and assert email_accounts upserted with provider_key='google' and auth_type='oauth'.
+
+Health: Call /api/email/accounts/:id/test and assert ok when token is mocked.
+
+Acceptance Criteria
+
+/auth/google/start redirects to Google with the specified scopes and state.
+
+/auth/google/callback exchanges the code, saves tokens into email_accounts.secrets_enc, sets auth_type='oauth', and records account_email.
+
+Unified modal redirects correctly; legacy Gmail card is removed.
+
+Health test returns ok for a valid Google account.
+
+Microsoft flow continues to work unchanged.
+
+If the Agent finds any older paths (e.g., /api/auth/google/*), keep backward-compat redirects to /auth/google/* so the UI contract remains stable.

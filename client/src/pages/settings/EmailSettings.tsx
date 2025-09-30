@@ -12,7 +12,7 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { apiRequest } from '@/lib/queryClient';
+import { apiRequest, queryClient } from '@/lib/queryClient';
 import { 
   Mail, 
   Send, 
@@ -324,12 +324,44 @@ export default function EmailSettings() {
     
     const currentMode = getProviderMode(selected);
     
-    // Mode A - OAuth: redirect to OAuth flow
+    // Mode A - OAuth: open popup window for OAuth flow
     if (currentMode === 'oauth') {
+      const returnTo = '/settings/email-and-calendar';
+      let oauthUrl = '';
+      
       if (selected.key === 'google') {
-        window.location.href = '/auth/google/start';
+        oauthUrl = `/auth/google/start?returnTo=${encodeURIComponent(returnTo)}`;
       } else if (selected.key === 'microsoft' || selected.key === 'hotmail_msn_outlook_live') {
-        window.location.href = '/auth/microsoft/start';
+        oauthUrl = `/auth/microsoft/start?returnTo=${encodeURIComponent(returnTo)}`;
+      }
+      
+      if (oauthUrl) {
+        const width = 600;
+        const height = 700;
+        const left = window.screenX + (window.outerWidth - width) / 2;
+        const top = window.screenY + (window.outerHeight - height) / 2;
+        
+        const popup = window.open(
+          oauthUrl,
+          'oauth-popup',
+          `width=${width},height=${height},left=${left},top=${top},popup=1`
+        );
+        
+        if (popup) {
+          const checkPopup = setInterval(() => {
+            try {
+              if (popup.closed) {
+                clearInterval(checkPopup);
+                queryClient.invalidateQueries({ queryKey: ['/api/auth/google/status'] });
+                queryClient.invalidateQueries({ queryKey: ['/api/auth/microsoft/status'] });
+                setShowConnectDialog(false);
+                setAlertMessage({ type: 'success', message: 'Email account connected successfully' });
+              }
+            } catch (e) {
+              // Ignore cross-origin errors
+            }
+          }, 500);
+        }
       }
       return;
     }

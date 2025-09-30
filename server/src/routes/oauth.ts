@@ -598,8 +598,89 @@ router.get('/auth/google/callback', async (req, res) => {
       
       console.log('✅ GMAIL OAUTH: Successfully saved to email_accounts');
       
-      // Redirect to return URL with success flag
-      return res.redirect(`${returnTo}?connected=google`);
+      // Return HTML page that closes popup window
+      return res.send(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>OAuth Success</title>
+          <style>
+            body {
+              font-family: system-ui, -apple-system, sans-serif;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              height: 100vh;
+              margin: 0;
+              background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            }
+            .container {
+              text-align: center;
+              padding: 2rem;
+              background: white;
+              border-radius: 8px;
+              box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            }
+            .checkmark {
+              width: 80px;
+              height: 80px;
+              margin: 0 auto 1rem;
+              border-radius: 50%;
+              display: block;
+              stroke-width: 2;
+              stroke: #4bb543;
+              stroke-miterlimit: 10;
+              animation: fill .4s ease-in-out .4s forwards, scale .3s ease-in-out .9s both;
+            }
+            .checkmark-circle {
+              stroke-dasharray: 166;
+              stroke-dashoffset: 166;
+              stroke-width: 2;
+              stroke-miterlimit: 10;
+              stroke: #4bb543;
+              fill: none;
+              animation: stroke 0.6s cubic-bezier(0.65, 0, 0.45, 1) forwards;
+            }
+            .checkmark-check {
+              transform-origin: 50% 50%;
+              stroke-dasharray: 48;
+              stroke-dashoffset: 48;
+              animation: stroke 0.3s cubic-bezier(0.65, 0, 0.45, 1) 0.8s forwards;
+            }
+            @keyframes stroke {
+              100% { stroke-dashoffset: 0; }
+            }
+            @keyframes scale {
+              0%, 100% { transform: none; }
+              50% { transform: scale3d(1.1, 1.1, 1); }
+            }
+            h1 { color: #333; margin: 0 0 0.5rem; }
+            p { color: #666; margin: 0; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <svg class="checkmark" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 52 52">
+              <circle class="checkmark-circle" cx="26" cy="26" r="25" fill="none"/>
+              <path class="checkmark-check" fill="none" d="M14.1 27.2l7.1 7.2 16.7-16.8"/>
+            </svg>
+            <h1>Connected Successfully!</h1>
+            <p>Your Gmail account has been connected.</p>
+            <p style="margin-top: 1rem; font-size: 14px;">This window will close automatically...</p>
+          </div>
+          <script>
+            // Close popup after 1.5 seconds
+            setTimeout(() => {
+              if (window.opener) {
+                window.close();
+              } else {
+                window.location.href = '${returnTo}?connected=google';
+              }
+            }, 1500);
+          </script>
+        </body>
+        </html>
+      `);
     }
     
     // Tenant-scoped lookup by (tenant_id, provider, provider_account_id)

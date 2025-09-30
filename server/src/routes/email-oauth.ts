@@ -83,26 +83,26 @@ router.get('/auth/google/gmail/callback', async (req, res) => {
 router.get('/auth/google/gmail/status', async (req, res) => {
   try {
     if (!req.session?.userId || !req.session?.tenantId) {
-      return res.json({ ok: true, connected: false });
+      return res.json({ ok: true, connected: false, scopes: [] });
     }
 
-    const integration = await storage.getEmailProviderIntegration(
-      req.session.userId,
-      req.session.tenantId,
-      'google'
-    );
+    // Check email_accounts table for Google OAuth connection
+    const emailAccounts = await storage.getEmailAccountsByUser(req.session.userId, req.session.tenantId);
+    const googleAccount = emailAccounts.find(acc => acc.providerKey === 'google' && acc.status === 'connected');
 
-    if (!integration || integration.status !== 'connected') {
-      return res.json({ ok: true, connected: false });
+    if (!googleAccount) {
+      return res.json({ ok: true, connected: false, scopes: [] });
     }
+
+    // Decrypt the tokens to get scopes
+    const decrypted = await storage.decryptEmailAccountSecrets(googleAccount.secretsEnc);
 
     res.json({
       ok: true,
       connected: true,
-      accountEmail: integration.accountEmail,
-      lastSyncedAt: integration.lastSyncedAt,
-      scopes: integration.scopes,
-      needsReconnect: integration.status === 'error'
+      email: googleAccount.accountEmail,
+      lastSyncAt: googleAccount.lastSyncAt,
+      scopes: decrypted.scopes || []
     });
   } catch (error: any) {
     console.error('❌ Gmail status check failed:', error);

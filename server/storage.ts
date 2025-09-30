@@ -55,7 +55,7 @@ import {
   users, leads, contacts, projects, quotes, contracts, invoices, tasks, emails, emailThreads, activities, automations, 
   members, venues, projectMembers, memberAvailability, projectFiles, projectNotes, smsMessages, 
   messageTemplates, messageThreads, events, calendarIntegrations, calendarSyncLog, templates, leadCaptureForms,
-  leadStatusHistory, emailSignatures, emailProviderCatalog, emailProviderConfigs, emailProviderIntegrations, tenantEmailPrefs, portalForms, paymentSessions, webhookEvents, tenants,
+  leadStatusHistory, emailSignatures, emailProviderCatalog, emailProviderConfigs, emailAccounts, emailProviderIntegrations, tenantEmailPrefs, portalForms, paymentSessions, webhookEvents, tenants,
   // Enhanced Quotes System tables
   quotePackages, quoteAddons, quoteItems, quoteTokens, quoteSignatures,
   // Quote Extra Info System tables

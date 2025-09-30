@@ -1,0 +1,85 @@
+Goal
+Remove the legacy “Google Integrations → Gmail Email Login” UI card from Settings while keeping ALL existing Google OAuth functionality. The unified “Connect Email” list must show Google with a “Connect” button that triggers the SAME /auth/google/start flow as before.
+
+Do NOT change any backend routes/logic:
+
+Keep /auth/google/start, /auth/google/callback, token refresh, send/list, and storage exactly as-is.
+
+Do not modify DB schema or migrations.
+
+Tasks
+
+Find & remove the legacy Gmail card component from the Settings UI
+
+Likely files: app/(settings)/email-and-calendar/page.tsx, pages/settings/email-and-calendar.tsx, or similar.
+
+Component names to look for and remove from the render tree (do not delete files yet):
+GmailEmailLoginCard, GoogleEmailLogin, GoogleIntegrationsCard, or any JSX block rendering “Gmail Email Login”.
+
+If present, gate it with a flag and set default OFF:
+
+{process.env.NEXT_PUBLIC_FEATURE_LEGACY_EMAIL === "true" && <GmailEmailLoginCard />}
+
+
+and add .env with NEXT_PUBLIC_FEATURE_LEGACY_EMAIL=false.
+
+Ensure the unified “Connect Email” component is rendered in its place
+
+Import and render the unified component (e.g., UnifiedEmailConnect) in the same Settings section.
+
+If the component does not exist, generate one that:
+
+Calls GET /api/email/providers?status=active and renders provider cards.
+
+For category==='oauth', show a Connect button.
+
+For category==='imap_smtp', show IMAP/SMTP fields + Test + Save (can be stubbed if already implemented elsewhere).
+
+Wire Google into the unified component using existing OAuth routes
+
+When user clicks Connect Google, redirect to exactly /auth/google/start.
+
+Do the same for Microsoft if present: /auth/microsoft/start.
+
+Example inside UnifiedEmailConnect:
+
+const startOAuth = (key: string) => {
+  if (key === "google") { window.location.href = "/auth/google/start"; return; }
+  if (key === "microsoft") { window.location.href = "/auth/microsoft/start"; return; }
+  // other providers handled as needed
+};
+
+
+Catalog check
+
+Confirm a row exists in email_provider_catalog with key='google' and category='oauth'.
+
+The providers API must return it so it appears in the unified list.
+
+Acceptance Criteria
+
+Settings → Email & Calendar shows only the unified provider list (no legacy “Google Integrations / Gmail Email Login” card).
+
+The unified list contains a Google card with a Connect button.
+
+Clicking Connect Google uses /auth/google/start and completes the same OAuth flow as before; callback persists the account as it currently does.
+
+No backend route changes. No schema changes. No references to the removed Gmail card remain in the Settings render tree.
+
+Feature flag NEXT_PUBLIC_FEATURE_LEGACY_EMAIL=false hides the old card; setting it to true would show it again (for rollback).
+
+Deliverables
+
+Updated Settings UI file(s) with the legacy card removed/flagged and unified component rendered.
+
+If needed, created/updated UnifiedEmailConnect component with the startOAuth logic above.
+
+Small smoke test: from the Settings page, click Connect Google, complete OAuth, then confirm an email account is created/updated and marked connected.
+
+Notes
+
+Keep styling consistent with current UI (shadcn/tailwind if used).
+
+Do not leak secrets to logs.
+
+Keep all Google send/list/refresh code paths untouched—this is a UI swap only.

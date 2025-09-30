@@ -503,6 +503,7 @@ export default function Settings() {
           {/* Email & Calendar Settings */}
           <TabsContent value="email" className="space-y-6">
             {/* Google Integrations */}
+            {import.meta.env.VITE_FEATURE_LEGACY_EMAIL === 'true' && (
             <Card data-testid="google-integrations-card">
               <CardHeader>
                 <CardTitle>Google Integrations</CardTitle>
@@ -865,6 +866,7 @@ export default function Settings() {
                 </div>
               </CardContent>
             </Card>
+            )}
 
             {/* Email Settings */}
             <EmailSettings />

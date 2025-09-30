@@ -864,30 +864,6 @@ router.post('/calendar-integrations/:id/sync', requireAuth, async (req: any, res
   }
 });
 
-/**
- * Gmail Auth Status - Check if user has connected Gmail specifically
- */
-router.get('/api/auth/google/gmail/status', requireAuth, async (req: any, res) => {
-  try {
-    const integration = await storage.getCalendarIntegration(req.params.id, req.tenantId);
-    
-    if (!integration) {
-      return res.status(404).json({ error: 'Integration not found' });
-    }
-    
-    if (integration.provider !== 'google') {
-      return res.status(400).json({ error: 'Only Google Calendar sync is supported' });
-    }
-    
-    // Sync from Google
-    const result = await googleOAuthService.syncFromGoogle(integration);
-    
-    res.json(result);
-  } catch (error: any) {
-    console.error('Sync error:', error);
-    res.status(500).json({ error: error.message });
-  }
-});
 
 /**
  * Sync single event to Google
@@ -1176,83 +1152,32 @@ router.get('/api/auth/google/status', requireAuth, async (req: any, res) => {
  */
 router.get('/api/auth/google/gmail/status', requireAuth, async (req: any, res) => {
   try {
+    // Prevent caching to ensure UI gets fresh sync error data
+    res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.set('Pragma', 'no-cache');
+    res.set('Expires', '0');
+    
     const userId = req.authenticatedUserId;
     
-    // Check if user has active Gmail integrations
-    const integrations = await storage.getCalendarIntegrationsByUser(userId, req.tenantId);
-    const gmailIntegration = integrations.find(i => 
-      i.provider === 'google' && 
-      i.isActive && 
-      (i.serviceType === 'gmail' || (!i.serviceType && i.accessToken)) // Handle legacy records
-    );
+    // Check email_accounts table for Google OAuth connection
+    const emailAccounts = await storage.getEmailAccountsByUser(userId, req.tenantId);
+    const googleAccount = emailAccounts.find(acc => acc.providerKey === 'google' && acc.status === 'connected');
     
-    if (!gmailIntegration || !gmailIntegration.accessToken) {
-      return res.json({ 
-        ok: true, 
-        connected: false, 
-        service: 'gmail',
-        scopes: [] 
-      });
+    if (!googleAccount) {
+      return res.json({ ok: true, connected: false, scopes: [] });
     }
     
-    // Test token validity by making a simple API call
-    try {
-      const oauth2Client = new google.auth.OAuth2(
-        process.env.GOOGLE_CLIENT_ID,
-        process.env.GOOGLE_CLIENT_SECRET,
-        process.env.GOOGLE_REDIRECT_URI
-      );
-      
-      oauth2Client.setCredentials({
-        access_token: gmailIntegration.accessToken,
-        refresh_token: gmailIntegration.refreshToken,
-      });
-      
-      // Test the token with a simple API call
-      const oauth2 = google.oauth2({ version: 'v2', auth: oauth2Client });
-      await oauth2.userinfo.get();
-      
-      // If we get here, token is valid - return Gmail-specific scopes
-      const scopes = [
-        'https://www.googleapis.com/auth/userinfo.email',
-        'https://www.googleapis.com/auth/gmail.send',
-        'https://www.googleapis.com/auth/gmail.readonly'
-      ];
-      
-      res.json({ 
-        ok: true, 
-        connected: true,
-        service: 'gmail', 
-        scopes,
-        email: gmailIntegration.providerAccountId,
-        lastSyncAt: gmailIntegration.lastSyncAt
-      });
-      
-    } catch (tokenError: any) {
-      // Token is invalid or expired
-      console.log(`🔒 Gmail token validation failed for user ${userId}:`, tokenError.message);
-      
-      if (tokenError.message && (tokenError.message.includes('invalid_grant') || 
-                                  tokenError.message.includes('invalid_token') ||
-                                  tokenError.message.includes('expired'))) {
-        return res.json({ 
-          ok: true, 
-          connected: false,
-          service: 'gmail', 
-          needsReconnect: true,
-          error: 'Token expired or revoked',
-          scopes: [] 
-        });
-      }
-      
-      return res.json({ 
-        ok: true, 
-        connected: false,
-        service: 'gmail', 
-        error: 'Token validation failed',
-        scopes: [] 
-      });
-    }
+    // Decrypt the tokens
+    const decrypted = await storage.decryptEmailAccountSecrets(googleAccount.secretsEnc);
+    
+    // Return Gmail connection info
+    res.json({ 
+      ok: true, 
+      connected: true,
+      email: googleAccount.accountEmail,
+      scopes: decrypted.scopes || [],
+      lastSyncAt: googleAccount.lastSyncAt
+    });
     
   } catch (error: any) {
     console.error('Error checking Gmail auth status:', error);

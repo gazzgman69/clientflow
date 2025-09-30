@@ -861,8 +861,8 @@ export default function EmailSettings() {
                 <SelectContent>
                   {providersLoading ? (
                     <SelectItem value="loading" disabled>Loading providers...</SelectItem>
-                  ) : providers.length > 0 ? (
-                    providers.map((provider: EmailProvider) => (
+                  ) : rawProviders.length > 0 ? (
+                    rawProviders.map((provider: EmailProvider) => (
                       <SelectItem key={provider.id} value={provider.code}>
                         {provider.displayName}
                       </SelectItem>

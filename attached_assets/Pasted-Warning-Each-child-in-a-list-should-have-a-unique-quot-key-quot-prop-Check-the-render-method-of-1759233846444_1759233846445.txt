@@ -1,0 +1,29 @@
+Warning: Each child in a list should have a unique &quot;key&quot; prop.
+
+Check the render method of `EmailSettings`. See https://reactjs.org/link/warning-keys for more information.
+    at _c1 (https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/src/components/ui/select.tsx:208:12)
+    at EmailSettings (https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/src/pages/settings/EmailSettings.tsx?t=1759225863343:78:43)
+    at div
+    at https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-AXMZZQ2X.js?v=773266cd:42:13
+    at Presence (https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-DI3MHBAI.js?v=773266cd:24:11)
+    at https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-tabs.js?v=773266cd:177:13
+    at _c5 (https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/src/components/ui/tabs.tsx:72:12)
+    at div
+    at https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-AXMZZQ2X.js?v=773266cd:42:13
+    at Provider (https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-OXZDJRWN.js?v=773266cd:38:15)
+    at https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-tabs.js?v=773266cd:55:7
+    at main
+    at Settings (https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/src/pages/settings.tsx?t=1759225863343:61:22)
+    at Route (https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=773266cd:191:16)
+    at Switch (https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=773266cd:247:17)
+    at div
+    at div
+    at AuthWrapper (https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/src/App.tsx?t=1759225863343&v=RsK6Abh2N7A_FBLBOTdmp:50:24)
+    at Route (https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=773266cd:191:16)
+    at Switch (https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=773266cd:247:17)
+    at Router
+    at Provider (https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-OXZDJRWN.js?v=773266cd:38:15)
+    at TooltipProvider (https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-tooltip.js?v=773266cd:65:5)
+    at QueryClientProvider (https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@tanstack_react-query.js?v=773266cd:2805:3)
+    at App
+Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.

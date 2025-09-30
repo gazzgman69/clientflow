@@ -21,6 +21,53 @@ declare module 'express-session' {
 
 const router = Router();
 
+// Gmail OAuth scopes
+const GMAIL_SCOPES = [
+  'https://www.googleapis.com/auth/gmail.modify',
+  'https://www.googleapis.com/auth/contacts.readonly',
+  'openid',
+  'email',
+  'profile',
+];
+
+/**
+ * Unified Gmail OAuth start route - Use this for email provider modal
+ */
+router.get('/auth/google/start', (req, res) => {
+  try {
+    // Read query parameters
+    const returnTo = (req.query.returnTo as string) || '/settings/email-and-calendar';
+    
+    // Set default tenant for OAuth sessions (required by TenantAwareSessionStore)
+    if (!req.session.tenantId) {
+      req.session.tenantId = 'default-tenant';
+    }
+    
+    // Require authentication for OAuth flows
+    if (!req.session.userId) {
+      return res.status(401).json({ error: 'Authentication required for OAuth' });
+    }
+    
+    // Generate OAuth URL with signed state and PKCE protection for Gmail
+    const authUrl = googleOAuthService.generateAuthUrl(
+      req.session.user?.email || 'user@example.com',
+      req.session.userId,
+      req.session.tenantId,
+      req.session,
+      'gmail',
+      returnTo
+    );
+    
+    console.log('🔐 SECURITY: GET /auth/google/start using signed state and PKCE protection with Gmail+Contacts scopes');
+    
+    // Redirect to Google OAuth
+    res.redirect(authUrl);
+  } catch (error: any) {
+    console.error('Error starting Google OAuth:', error);
+    res.status(500).send('Failed to start OAuth flow');
+  }
+});
+
 /**
  * Simple auth start route - Force consent with Gmail scopes with PKCE (backward compatibility)
  */
@@ -524,6 +571,36 @@ router.get('/auth/google/callback', async (req, res) => {
       userId,
       tenantId
     });
+    
+    // Handle Gmail OAuth - save to email_accounts table
+    if (serviceType === 'gmail') {
+      console.log('📧 GMAIL OAUTH: Saving to email_accounts table', {
+        email: tokens.email,
+        userId,
+        tenantId,
+        timestamp: new Date().toISOString()
+      });
+      
+      // Upsert to email_accounts table with encrypted secrets
+      await storage.upsertEmailProvider(tenantId, {
+        userId,
+        provider: 'google',
+        providerKey: 'google',
+        status: 'connected',
+        accountEmail: tokens.email,
+        accessTokenEnc: tokens.access_token,
+        refreshTokenEnc: tokens.refresh_token || undefined,
+        scopes: GMAIL_SCOPES,
+        metadata: {
+          connectedAt: new Date().toISOString()
+        }
+      });
+      
+      console.log('✅ GMAIL OAUTH: Successfully saved to email_accounts');
+      
+      // Redirect to return URL with success flag
+      return res.redirect(`${returnTo}?connected=google`);
+    }
     
     // Tenant-scoped lookup by (tenant_id, provider, provider_account_id)
     console.log('🔍 OAUTH UPSERT: Starting tenant-scoped integration upsert', {

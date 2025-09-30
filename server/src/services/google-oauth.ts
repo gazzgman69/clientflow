@@ -63,9 +63,11 @@ function getOAuth2Client(): google.auth.OAuth2 {
 
 // Separate scopes for different Google services
 const GMAIL_SCOPES = [
-  'https://www.googleapis.com/auth/userinfo.email',
-  'https://www.googleapis.com/auth/gmail.send',
-  'https://www.googleapis.com/auth/gmail.readonly',
+  'https://www.googleapis.com/auth/gmail.modify',
+  'https://www.googleapis.com/auth/contacts.readonly',
+  'openid',
+  'email',
+  'profile',
 ];
 
 const CALENDAR_SCOPES = [

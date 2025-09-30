@@ -1,0 +1,101 @@
+Mission
+Fix Google OAuth popup staying open by ensuring both callback paths use the same server handler with the popup HTML branch:
+
+/api/auth/google/callback ✅ (already correct)
+
+/auth/google/callback ➜ must use the same handler
+
+Constraints
+
+Only edit server/src/routes/oauth.ts.
+
+Do not change token exchange, storage, or schema.
+
+Do not touch Microsoft.
+
+Keep all existing logic inside the Google callback unchanged.
+
+1) Extract the existing Google callback into a named handler
+
+In server/src/routes/oauth.ts, find the current route:
+
+router.get('/api/auth/google/callback', async (req, res) => {
+  // ... existing body ...
+});
+
+
+Replace it with:
+
+// Keep the body EXACTLY the same as it is today.
+async function googleCallbackHandler(req: any, res: any) {
+  // ... paste the exact current body from the anonymous handler ...
+}
+
+// Mount BOTH paths to the same handler
+router.get('/api/auth/google/callback', googleCallbackHandler);
+router.get('/auth/google/callback', googleCallbackHandler);
+
+
+If there is an older/legacy handler already registered for /auth/google/callback, remove it and mount the line above instead. We must have exactly one implementation, shared by both paths.
+
+Important: Do not alter the popup branch. It must remain:
+
+if (popup) {
+  res.setHeader('Content-Type','text/html; charset=utf-8');
+  return res.send(`<!doctype html><html><body><script>
+    (function(){
+      try { window.opener && window.opener.postMessage({type:'oauth:connected', provider:'google', ok:true}, '*'); } catch(e) {}
+      try { window.close(); } catch(e) {}
+      setTimeout(function(){ if (!window.closed) document.body.innerHTML='Connected. You can close this window.'; }, 150);
+    })();
+  </script></body></html>`);
+}
+
+
+The return after res.send(...) is required.
+
+2) Do not modify anything else
+
+Do not change /api/auth/google/start or how state is encoded.
+
+Do not add middleware or move router mounts.
+
+Do not change env usage.
+
+3) Quick verification (probes)
+
+After the change, hit these URLs in the running app (no auth needed):
+
+GET /api/auth/google/callback?state=bogus → 400 Missing code (server text)
+
+GET /auth/google/callback?state=bogus → 400 Missing code (server text)
+
+If /auth/google/callback returns your SPA HTML, the alias didn’t apply—check for any leftover legacy handler and replace it with googleCallbackHandler.
+
+4) Manual acceptance
+
+In the UI, click Connect Google (opens popup).
+
+Complete consent.
+
+Expected: popup posts message, closes itself, parent page refreshes/updates to show connected.
+
+No instance of the CRM renders inside the popup.
+
+5) (Optional but recommended outside of code)
+
+Ensure both redirect URIs are allowed in Google Cloud OAuth client (you can keep both during transition):
+
+https://<your-domain>/api/auth/google/callback
+
+https://<your-domain>/auth/google/callback
+
+(Code already prefers the /api/… URI; the alias just makes you robust if Google ever hits the legacy path.)
+
+Success criteria
+
+Both callback paths hit the same server handler.
+
+Popup no longer loads the app; it closes after consent.
+
+No changes to token logic, DB, or other providers.

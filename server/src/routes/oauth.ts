@@ -582,9 +582,9 @@ router.get('/auth/google/scope-check', async (req, res) => {
 });
 
 /**
- * OAuth callback - Exchange code for tokens
+ * Google OAuth callback handler - shared by both /api/auth/google/callback and /auth/google/callback
  */
-router.get('/api/auth/google/callback', async (req, res) => {
+async function googleCallbackHandler(req: any, res: any) {
   // DEBUG: Log callback hit
   if (process.env.DEBUG_OAUTH === '1') {
     console.info("[OAUTH] google callback HIT", req.method, req.url, req.query);
@@ -697,7 +697,13 @@ router.get('/api/auth/google/callback', async (req, res) => {
     console.error('OAuth callback error:', error);
     res.status(500).send('OAuth failed');
   }
-});
+}
+
+/**
+ * Mount BOTH callback paths to the same handler
+ */
+router.get('/api/auth/google/callback', googleCallbackHandler);
+router.get('/auth/google/callback', googleCallbackHandler);
 
 /**
  * Microsoft OAuth callback - Handle OAuth redirect from Microsoft

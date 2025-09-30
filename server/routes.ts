@@ -3863,7 +3863,20 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   app.get("/api/email/providers", ensureUserAuth, async (req, res) => {
     try {
       const providers = await storage.getActiveEmailProviders();
-      res.json({ providers });
+      // Map database fields to frontend interface (key → code, incoming → supportsReceive, outgoing → supportsSend)
+      const mappedProviders = providers.map(p => ({
+        id: p.id,
+        code: p.key,  // Map key to code for frontend compatibility
+        displayName: p.displayName,
+        category: p.category,
+        authType: p.category,  // Use category as authType for simplicity
+        supportsReceive: p.incoming,
+        supportsSend: p.outgoing,
+        helpUrl: p.helpBlurb,
+        setupComplexity: p.category === 'oauth' ? 'simple' : 'moderate',
+        isActive: p.isActive
+      }));
+      res.json({ providers: mappedProviders });
     } catch (error) {
       console.error('Error fetching email provider catalog:', error);
       res.status(500).json({ message: "Failed to fetch email providers" });

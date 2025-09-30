@@ -576,8 +576,16 @@ router.get('/auth/google/callback', async (req, res) => {
       return res.status(400).send('Invalid state');
     }
     
-    const { tenantId, userId, popup, returnTo } = parsed;
-    console.log('🔐 Google OAuth callback - Popup mode:', popup, '(type:', typeof popup, ')');
+    const { tenantId, userId, popup: popupRaw, returnTo } = parsed;
+    // Ensure popup is a proper boolean (handle string "true" or boolean true)
+    const popup = popupRaw === true || popupRaw === 'true' || popupRaw === '1';
+    
+    console.log('🔐 Google OAuth callback - Popup:', { 
+      popupRaw, 
+      popupType: typeof popupRaw,
+      popupFinal: popup,
+      parsed: JSON.stringify(parsed)
+    });
     
     if (!userId || !tenantId) {
       return res.status(401).send('Authentication required');

@@ -46,13 +46,22 @@ router.get('/auth/google/start', (req, res) => {
     const userId = req.session.userId;
     
     // Build state object with popup metadata
+    const popupValue = req.query.popup === '1';
     const stateObj = {
       tenantId,
       userId,
-      popup: req.query.popup === '1',
+      popup: popupValue,
       origin: (req.query.origin as string) || `${req.protocol}://${req.get('host')}`,
       returnTo: '/settings/email-and-calendar'
     };
+    
+    console.log('🔐 Google OAuth START:', { 
+      popupQuery: req.query.popup, 
+      popupValue,
+      userId, 
+      tenantId,
+      stateObj: JSON.stringify(stateObj)
+    });
     
     // Create OAuth2 client
     const oauth2 = new OAuth2Client(
@@ -69,7 +78,7 @@ router.get('/auth/google/start', (req, res) => {
       state: encodeState(stateObj)
     });
     
-    console.log('🔐 Google OAuth start:', { popup: stateObj.popup, userId, tenantId });
+    console.log('🔐 Redirecting to Google OAuth with encoded state');
     res.redirect(url);
   } catch (error: any) {
     console.error('Error starting Google OAuth:', error);

@@ -1186,19 +1186,28 @@ export type InsertEmailSignature = z.infer<typeof insertEmailSignatureSchema>;
 // Email Provider Catalog table (global, not tenant-scoped)
 export const emailProviderCatalog = pgTable("email_provider_catalog", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  code: text("code").notNull().unique(), // gmail, office365, icloud, yahoo, etc.
-  displayName: text("display_name").notNull(), // "Google Gmail", "Office 365", etc.
-  authType: text("auth_type").notNull(), // oauth, imap_smtp, api_only
+  key: text("key").notNull().unique(), // google, microsoft, yahoo, icloud, zoho, etc.
+  displayName: text("display_name").notNull(), // "Google Gmail", "Microsoft 365", etc.
+  category: text("category").notNull(), // 'oauth' | 'imap_smtp'
   
-  // IMAP Settings (null for OAuth providers)
+  // Capabilities
+  incoming: boolean("incoming").notNull().default(true),
+  outgoing: boolean("outgoing").notNull().default(true),
+  
+  // OAuth settings (for oauth providers)
+  oauthScopes: text("oauth_scopes"), // JSON array as text: ["gmail.send", "gmail.modify"]
+  
+  // IMAP Settings (for imap_smtp providers)
   imapHost: text("imap_host"),
   imapPort: integer("imap_port"),
   imapSecure: boolean("imap_secure"), // TLS enabled
+  imapAuth: text("imap_auth"), // 'basic' | 'xoauth2'
   
-  // SMTP Settings (null for OAuth providers)
+  // SMTP Settings (for imap_smtp providers)
   smtpHost: text("smtp_host"),
   smtpPort: integer("smtp_port"),
   smtpSecure: boolean("smtp_secure"), // TLS enabled
+  smtpAuth: text("smtp_auth"), // 'basic' | 'xoauth2'
   
   // Help text for users
   helpBlurb: text("help_blurb"), // Provider-specific setup instructions
@@ -1238,39 +1247,50 @@ export const insertTenantEmailPrefsSchema = createInsertSchema(tenantEmailPrefs)
 export type TenantEmailPrefs = typeof tenantEmailPrefs.$inferSelect;
 export type InsertTenantEmailPrefs = z.infer<typeof insertTenantEmailPrefsSchema>;
 
-// Email Provider Integrations table (OAuth tokens per user+tenant)
-export const emailProviderIntegrations = pgTable("email_provider_integrations", {
+// Email Accounts table (per-user/tenant connection - OAuth or IMAP/SMTP)
+export const emailAccounts = pgTable("email_accounts", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   tenantId: varchar("tenant_id").notNull().references(() => tenants.id),
   userId: varchar("user_id").notNull().references(() => users.id),
-  provider: text("provider").notNull(), // 'google' | 'microsoft'
+  providerKey: text("provider_key").notNull(), // FK to email_provider_catalog.key
   status: text("status").notNull().default('connected'), // 'connected' | 'disconnected' | 'error'
-  accountEmail: text("account_email"), // primary email returned by provider
-  scopes: text("scopes").array(), // granted scopes
-  accessTokenEnc: text("access_token_enc"), // encrypted at rest
-  refreshTokenEnc: text("refresh_token_enc"), // encrypted at rest
+  accountEmail: text("account_email"), // primary email for this connection
+  authType: text("auth_type").notNull(), // 'oauth' | 'basic'
+  
+  // Encrypted secrets (access/refresh tokens OR username/password)
+  secretsEnc: text("secrets_enc"), // encrypted {access_token, refresh_token, expires_at} | {username,password}
   expiresAt: timestamp("expires_at"),
-  metadata: text("metadata"), // JSONB - e.g. token_type, idp ids
+  
+  // Sync tracking
   lastSyncedAt: timestamp("last_synced_at"),
-  nextSyncCursor: text("next_sync_cursor"), // Gmail historyId / Graph deltaLink
+  metadata: text("metadata"), // JSONB - cursor/historyId, error codes, etc.
+  
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => ({
-  tenantUserProviderUnique: unique("email_provider_integrations_tenant_user_provider_unique").on(table.tenantId, table.userId, table.provider),
-  tenantIdIdx: index("email_provider_integrations_tenant_id_idx").on(table.tenantId),
-  userIdIdx: index("email_provider_integrations_user_id_idx").on(table.userId),
-  statusIdx: index("email_provider_integrations_status_idx").on(table.status),
+  tenantUserProviderUnique: unique("email_accounts_tenant_user_provider_unique").on(table.tenantId, table.userId, table.providerKey),
+  tenantIdIdx: index("email_accounts_tenant_id_idx").on(table.tenantId),
+  userIdIdx: index("email_accounts_user_id_idx").on(table.userId),
+  statusIdx: index("email_accounts_status_idx").on(table.status),
 }));
 
-// Insert schemas and types for email provider integrations
-export const insertEmailProviderIntegrationSchema = createInsertSchema(emailProviderIntegrations).omit({ 
+// Keep old name as alias for backward compatibility during migration
+export const emailProviderIntegrations = emailAccounts;
+
+// Insert schemas and types for email accounts
+export const insertEmailAccountSchema = createInsertSchema(emailAccounts).omit({ 
   id: true, 
   createdAt: true, 
   updatedAt: true 
 });
 
-export type EmailProviderIntegration = typeof emailProviderIntegrations.$inferSelect;
-export type InsertEmailProviderIntegration = z.infer<typeof insertEmailProviderIntegrationSchema>;
+export type EmailAccount = typeof emailAccounts.$inferSelect;
+export type InsertEmailAccount = z.infer<typeof insertEmailAccountSchema>;
+
+// Legacy types for backward compatibility
+export const insertEmailProviderIntegrationSchema = insertEmailAccountSchema;
+export type EmailProviderIntegration = EmailAccount;
+export type InsertEmailProviderIntegration = InsertEmailAccount;
 
 // Email Provider Configurations table
 export const emailProviderConfigs = pgTable("email_provider_configs", {

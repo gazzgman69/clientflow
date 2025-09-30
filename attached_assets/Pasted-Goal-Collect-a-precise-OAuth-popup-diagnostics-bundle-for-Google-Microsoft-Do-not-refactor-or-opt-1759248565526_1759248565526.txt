@@ -1,0 +1,204 @@
+Goal
+Collect a precise OAuth popup diagnostics bundle for Google & Microsoft. Do not refactor or optimize anything. Only add temporary, guarded logs/probes and return the requested outputs inline.
+
+Hard rules
+
+Do not rename/move files, change schemas, or “optimize agent memory”.
+
+Guard any new logs with DEBUG_OAUTH=1.
+
+After printing outputs, leave the app runnable as-is.
+
+0) Prep
+
+Ensure DEBUG_OAUTH=1 is available to the server (Replit secrets or .env).
+
+Restart the dev server after setting the env so logs appear.
+
+Return:
+
+DEBUG_OAUTH present: ✅/❌ and where it’s set.
+
+1) Framework & entrypoints (PRINT FILES)
+
+Locate and print the full contents (no truncation) of these if they exist:
+
+Server entry (e.g. server/index.ts, src/server.ts, app.ts, api/index.ts).
+
+OAuth routes files (e.g. routes/auth-google.*, routes/auth-microsoft.*, server/src/routes/oauth.*).
+
+Central router mount (e.g. server/routes.ts).
+
+Any SPA/catch-all or static mounts (e.g. app.get("*", ...), express.static, Vite/Next adapters).
+
+If Next.js: next.config.js (rewrites/redirects), any app/api/* or pages/api/* for /api/auth/*.
+
+Return:
+
+File paths and their full contents.
+
+2) Exact OAuth routes (PRINT HANDLERS & MOUNTS)
+
+Print the entire source where these handlers are defined and mounted:
+
+/auth/google/start and /auth/google/callback (or /api/auth/google/*).
+
+/auth/microsoft/start and /auth/microsoft/callback (or /api/auth/microsoft/*).
+
+Show where these routers are mounted relative to any catch-all/static/Vite/Next middleware.
+
+Return:
+
+Code blocks for handlers and the app.use(...)/mount lines with file/line refs.
+
+3) Temporary probes (ADD + PRINT RESPONSES)
+
+Add two temporary GET routes guarded by DEBUG_OAUTH and matching your real prefix (if your actual paths are /api/auth/..., use that):
+
+if (process.env.DEBUG_OAUTH === '1') {
+  app.get('/api/auth/google/callback-probe', (req,res)=>res.type('text').send('GOOGLE CALLBACK OWNED BY SERVER'));
+  app.get('/api/auth/microsoft/callback-probe', (req,res)=>res.type('text').send('MICROSOFT CALLBACK OWNED BY SERVER'));
+}
+
+
+Restart the server and request both probe URLs.
+Return:
+
+The exact HTTP status and body for each probe URL.
+
+4) Route ordering dump (ADD + PRINT)
+
+Add this helper and call it after routes are registered (only if DEBUG_OAUTH=1):
+
+function listRoutes(app:any){
+  const out:any[]=[];
+  const stack = app?._router?.stack || [];
+  for (const mw of stack){
+    if (mw.route){
+      out.push({ method:Object.keys(mw.route.methods)[0], path:mw.route.path });
+    } else if (mw.name==='router' && mw.handle?.stack){
+      mw.handle.stack.forEach((h:any)=>{
+        if (h.route) out.push({ method:Object.keys(h.route.methods)[0], path:h.route.path });
+      });
+    }
+  }
+  console.info('[ROUTES]', JSON.stringify(out, null, 2));
+}
+if (process.env.DEBUG_OAUTH === '1') listRoutes(app);
+
+
+Return:
+
+The full [ROUTES] printout from server logs.
+
+5) Callback hit + state logs (ADD + PRINT)
+
+At the first line of each callback handler, add:
+
+if (process.env.DEBUG_OAUTH === '1') {
+  console.info('[OAUTH] google callback HIT', req.method, req.url, req.query);
+  try {
+    const s = String(req.query.state ?? '');
+    const b64u = JSON.parse(Buffer.from(s, 'base64url').toString('utf8'));
+    console.info('[OAUTH] google callback STATE (b64url)', b64u);
+  } catch { try {
+    const b64 = JSON.parse(Buffer.from(String(req.query.state ?? ''), 'base64').toString('utf8'));
+    console.info('[OAUTH] google callback STATE (b64)', b64);
+  } catch { console.info('[OAUTH] google callback STATE (unparsed)'); } }
+}
+
+
+(Do the same for Microsoft.)
+
+Without completing real OAuth, hit the callback URLs directly (they’ll error on missing code, that’s fine).
+Return:
+
+The console output lines that start with [OAUTH].
+
+6) Popup finish branch (PRINT EXACT HTML + RETURN)
+
+Locate the popup branch in each callback (when popup===true).
+Print the exact HTML string sent (the bit that does postMessage + window.close()), and the surrounding function body to confirm there is a return immediately after res.send(...).
+
+Return:
+
+The printed code with line numbers if possible.
+
+7) UI opener functions (PRINT)
+
+Find and print the functions actually wired to buttons for:
+
+Google (should call window.open("/api/auth/google/start?popup=1&origin="+encodeURIComponent(location.origin), ...) or equivalent).
+
+Microsoft (same with /api/auth/microsoft/start?... and optional provider query).
+
+Return:
+
+The full function bodies and where they’re imported/used.
+
+8) Start handlers + state (PRINT)
+
+Print the code that builds the Google & Microsoft auth URLs. Include the line where state is set.
+If state is created via helper, print that helper.
+Add a one-time console.info('[OAUTH] google start STATE', state) (masked, not containing secrets).
+
+Return:
+
+The start handler code and the log line output (what state looks like).
+
+9) SPA/catch-all/static order (PRINT)
+
+Print the exact lines mounting:
+
+Any express.static or Vite/Next dev middleware.
+
+Any app.get("*", ...) catch-all.
+
+Confirm these mount after the auth routes.
+
+Return:
+
+Those lines with file/line refs.
+
+10) Env sanity (PRINT MASKED)
+
+Print a table (names only; mark set/not set; show redirect URIs exact):
+
+GOOGLE_CLIENT_ID: ✅
+GOOGLE_CLIENT_SECRET: ✅
+GOOGLE_REDIRECT_URI: https://<domain>/api/auth/google/callback
+MS_CLIENT_ID: ✅
+MS_CLIENT_SECRET: ✅
+MS_REDIRECT_URI: https://<domain>/api/auth/microsoft/callback
+DEBUG_OAUTH: 1
+
+
+Return:
+
+The table exactly as above with your actual redirect URIs.
+
+Deliverables (return all of this inline)
+
+✅ DEBUG_OAUTH presence line
+
+✅ Full file contents from step 1
+
+✅ Handler + mount code from step 2
+
+✅ Probe responses (status + body) from step 3
+
+✅ [ROUTES] dump from step 4
+
+✅ [OAUTH] ... console lines from step 5
+
+✅ Popup HTML branch & return proof from step 6
+
+✅ UI opener function code from step 7
+
+✅ Start handler code + [OAUTH] ... STATE line from step 8
+
+✅ Catch-all/static mount lines from step 9
+
+✅ Env table from step 10
+
+Do not modify behavior beyond adding these guards/logs. After returning the outputs, leave everything in place so we can review.

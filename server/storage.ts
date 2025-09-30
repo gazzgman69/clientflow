@@ -372,7 +372,7 @@ export interface IStorage {
   // Email Provider Catalog (global provider list)
   getEmailProviderCatalog(): Promise<EmailProviderCatalog[]>;
   getActiveEmailProviders(): Promise<EmailProviderCatalog[]>;
-  getEmailProviderByCode(code: string): Promise<EmailProviderCatalog | undefined>;
+  getEmailProviderByKey(key: string): Promise<EmailProviderCatalog | undefined>;
   seedEmailProviders(providers: Omit<EmailProviderCatalog, 'id' | 'createdAt' | 'updatedAt'>[]): Promise<void>;
 
   // Tenant Email Preferences  
@@ -2353,7 +2353,7 @@ export class MemStorage implements IStorage {
     return [];
   }
 
-  async getEmailProviderByCode(code: string): Promise<EmailProviderCatalog | undefined> {
+  async getEmailProviderByKey(key: string): Promise<EmailProviderCatalog | undefined> {
     // Return undefined for MemStorage - this is a global catalog that should be loaded from DB
     return undefined;
   }
@@ -5119,11 +5119,11 @@ export class DrizzleStorage implements IStorage {
       .orderBy(emailProviderCatalog.displayName);
   }
 
-  async getEmailProviderByCode(code: string): Promise<EmailProviderCatalog | undefined> {
+  async getEmailProviderByKey(key: string): Promise<EmailProviderCatalog | undefined> {
     const result = await this.db
       .select()
       .from(emailProviderCatalog)
-      .where(eq(emailProviderCatalog.code, code))
+      .where(eq(emailProviderCatalog.key, key))
       .limit(1);
     return result[0];
   }

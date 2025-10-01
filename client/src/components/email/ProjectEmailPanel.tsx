@@ -390,7 +390,7 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
     },
     onSuccess: () => {
       toast({ title: 'Reply sent successfully!' });
-      setShowReplyForm(false);
+      setShowReplyDialog(false);
       setReplyMessage('');
       // Refresh threads to show the new reply
       queryClient.invalidateQueries({ queryKey: [`/api/email/projects/${projectId}/email-messages`] });
@@ -901,7 +901,7 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
       {/* Thread Details Modal */}
       <Dialog open={!!selectedThreadId} onOpenChange={() => {
         setSelectedThreadId(null);
-        setShowReplyForm(false);
+        setShowReplyDialog(false);
         setReplyMessage('');
       }}>
         <DialogContent className="max-w-4xl max-h-[80vh] overflow-hidden flex flex-col">

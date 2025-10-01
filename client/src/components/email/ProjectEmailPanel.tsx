@@ -408,24 +408,20 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
     },
   });
 
-  const replyFormRef = React.useRef<HTMLDivElement>(null);
+  const replyFormRef = useRef<HTMLDivElement>(null);
 
   const handleReply = (originalMessage: any) => {
-    console.log('🔵 handleReply called with:', originalMessage);
     // Set reply details based on the original message
     const replyToEmail = originalMessage.fromEmail.includes('<') 
       ? originalMessage.fromEmail.match(/<(.+)>/)?.[1] || originalMessage.fromEmail
       : originalMessage.fromEmail;
     
-    console.log('🔵 Setting reply to:', replyToEmail);
-    console.log('🔵 Setting showReplyForm to true');
     setReplyTo(replyToEmail);
     const subject = originalMessage.subject || '';
     setReplySubject(subject.startsWith('Re:') 
       ? subject 
       : `Re: ${subject}`);
     setShowReplyForm(true);
-    console.log('🔵 showReplyForm should now be true');
     
     // Scroll to reply form after it renders
     setTimeout(() => {

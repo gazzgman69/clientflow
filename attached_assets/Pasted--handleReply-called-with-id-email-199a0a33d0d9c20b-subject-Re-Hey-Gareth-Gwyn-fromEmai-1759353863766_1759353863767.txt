@@ -1,0 +1,131 @@
+🔵 handleReply called with: 
+{id: 'email_199a0a33d0d9c20b', subject: 'Re: Hey Gareth Gwyn', fromEmail: 'gareth gwyn <gazzgwyn@me.com>', direction: 'inbound', toEmails: Array(1), …}
+Console.js:61 🔵 Setting reply to: gazzgwyn@me.com
+Console.js:61 🔵 Setting showReplyForm to true
+Console.js:61 🔵 showReplyForm should now be true
+ProjectEmailPanel.ts…t=1759353535391:328 Uncaught ReferenceError: React is not defined
+    at ProjectEmailPanel (ProjectEmailPanel.ts…759353535391:328:24)
+ProjectEmailPanel.ts…t=1759353535391:328 Uncaught ReferenceError: React is not defined
+    at ProjectEmailPanel (ProjectEmailPanel.ts…759353535391:328:24)
+Console.js:61 The above error occurred in the <ProjectEmailPanel> component:
+
+    at ProjectEmailPanel (https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/src/components/email/ProjectEmailPanel.tsx?t=1759353535391:34:45)
+    at div
+    at https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.repli…unner/workspace/node_modules/.vite/deps/chunk-AXMZZQ2X.js?v=773266cd:42:13
+    at Presence (https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.repli…unner/workspace/node_modules/.vite/deps/chunk-DI3MHBAI.js?v=773266cd:24:11)
+    at https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.repli…orkspace/node_modules/.vite/deps/@radix-ui_react-tabs.js?v=773266cd:177:13
+    at _c5 (https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/src/components/ui/tabs.tsx:72:12)
+    at div
+    at https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.repli…unner/workspace/node_modules/.vite/deps/chunk-AXMZZQ2X.js?v=773266cd:42:13
+    at Provider (https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.repli…unner/workspace/node_modules/.vite/deps/chunk-OXZDJRWN.js?v=773266cd:38:15)
+    at https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.repli…/workspace/node_modules/.vite/deps/@radix-ui_react-tabs.js?v=773266cd:55:7
+    at div
+    at div
+    at https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.repli…unner/workspace/node_modules/.vite/deps/chunk-AXMZZQ2X.js?v=773266cd:42:13
+    at https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.repli…runner/workspace/node_modules/.vite/deps/chunk-P42JY36W.js?v=773266cd:63:7
+    at https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.repli…unner/workspace/node_modules/.vite/deps/chunk-2K77HOHX.js?v=773266cd:79:13
+    at https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.repli…unner/workspace/node_modules/.vite/deps/chunk-2K77HOHX.js?v=773266cd:56:13
+    at https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.repli…unner/workspace/node_modules/.vite/deps/chunk-AXMZZQ2X.js?v=773266cd:42:13
+    at https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.repli…runner/workspace/node_modules/.vite/deps/chunk-MERT2IGA.js?v=773266cd:29:5
+    at https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.repli…nner/workspace/node_modules/.vite/deps/chunk-CVKNLISW.js?v=773266cd:235:13
+    at https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.repli…nner/workspace/node_modules/.vite/deps/chunk-CVKNLISW.js?v=773266cd:158:58
+    at Presence (https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.repli…unner/workspace/node_modules/.vite/deps/chunk-DI3MHBAI.js?v=773266cd:24:11)
+    at https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.repli…nner/workspace/node_modules/.vite/deps/chunk-CVKNLISW.js?v=773266cd:149:64
+    at https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.repli…unner/workspace/node_modules/.vite/deps/chunk-2K77HOHX.js?v=773266cd:79:13
+    at https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.repli…unner/workspace/node_modules/.vite/deps/chunk-2K77HOHX.js?v=773266cd:56:13
+    at https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.repli…unner/workspace/node_modules/.vite/deps/chunk-AXMZZQ2X.js?v=773266cd:42:13
+    at https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.repli…nner/workspace/node_modules/.vite/deps/chunk-P42JY36W.js?v=773266cd:262:22
+    at Presence (https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.repli…unner/workspace/node_modules/.vite/deps/chunk-DI3MHBAI.js?v=773266cd:24:11)
+    at Provider (https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.repli…unner/workspace/node_modules/.vite/deps/chunk-OXZDJRWN.js?v=773266cd:38:15)
+    at DialogPortal (https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.repli…nner/workspace/node_modules/.vite/deps/chunk-CVKNLISW.js?v=773266cd:111:11)
+    at _c3 (https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/src/components/ui/dialog.tsx:52:12)
+    at Provider (https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.repli…unner/workspace/node_modules/.vite/deps/chunk-OXZDJRWN.js?v=773266cd:38:15)
+    at Dialog (https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.repli…runner/workspace/node_modules/.vite/deps/chunk-CVKNLISW.js?v=773266cd:52:5)
+    at ProjectDetailModal (https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/src/components/modals/project-detail-modal.tsx:111:46)
+    at Projects (https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/src/pages/projects.tsx:47:51)
+    at Route (https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.repli…/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=773266cd:191:16)
+    at Switch (https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.repli…/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=773266cd:247:17)
+    at div
+    at div
+    at AuthWrapper (https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/src/App.tsx?v=_vSRdw-Erojp6qnfhFn0f:50:24)
+    at Route (https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.repli…/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=773266cd:191:16)
+    at Switch (https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.repli…/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=773266cd:247:17)
+    at Router
+    at Provider (https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.repli…unner/workspace/node_modules/.vite/deps/chunk-OXZDJRWN.js?v=773266cd:38:15)
+    at TooltipProvider (https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.repli…rkspace/node_modules/.vite/deps/@radix-ui_react-tooltip.js?v=773266cd:65:5)
+    at QueryClientProvider (https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.repli…rkspace/node_modules/.vite/deps/@tanstack_react-query.js?v=773266cd:2805:3)
+    at App
+
+Consider adding an error boundary to your tree to customize error handling behavior.
+Visit https://reactjs.org/link/error-boundaries to learn more about error boundaries.
+ProjectEmailPanel.ts…t=1759353535391:328 Uncaught (in promise) ReferenceError: React is not defined
+    at ProjectEmailPanel (ProjectEmailPanel.ts…759353535391:328:24)
+injected.js:278 
+ GET https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/api/admin/impersonate/status 403 (Forbidden)
+injected.js:278 
+ GET https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/api/admin/impersonate/status 403 (Forbidden)
+injected.js:278 
+ GET https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/api/admin/extra-info-fields 403 (Forbidden)
+injected.js:278 
+ GET https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/api/projects/5446397b-8630-4911-8920-802d4b54b373/notes 500 (Internal Server Error)
+injected.js:278 
+ GET https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/api/projects/5446397b-8630-4911-8920-802d4b54b373/members 500 (Internal Server Error)
+injected.js:278 
+ GET https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/api/admin/extra-info-fields 403 (Forbidden)
+ProjectEmailPanel.tsx:411 Uncaught ReferenceError: React is not defined
+    at ProjectEmailPanel (ProjectEmailPanel.tsx:411:24)
+ProjectEmailPanel.tsx:411 Uncaught ReferenceError: React is not defined
+    at ProjectEmailPanel (ProjectEmailPanel.tsx:411:24)
+Console.js:61 The above error occurred in the <ProjectEmailPanel> component:
+
+    at ProjectEmailPanel (https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/src/components/email/ProjectEmailPanel.tsx?t=1759353573797:34:45)
+    at div
+    at https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.repli…unner/workspace/node_modules/.vite/deps/chunk-AXMZZQ2X.js?v=773266cd:42:13
+    at Presence (https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.repli…unner/workspace/node_modules/.vite/deps/chunk-DI3MHBAI.js?v=773266cd:24:11)
+    at https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.repli…orkspace/node_modules/.vite/deps/@radix-ui_react-tabs.js?v=773266cd:177:13
+    at _c5 (https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/src/components/ui/tabs.tsx:72:12)
+    at div
+    at https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.repli…unner/workspace/node_modules/.vite/deps/chunk-AXMZZQ2X.js?v=773266cd:42:13
+    at Provider (https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.repli…unner/workspace/node_modules/.vite/deps/chunk-OXZDJRWN.js?v=773266cd:38:15)
+    at https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.repli…/workspace/node_modules/.vite/deps/@radix-ui_react-tabs.js?v=773266cd:55:7
+    at div
+    at div
+    at https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.repli…unner/workspace/node_modules/.vite/deps/chunk-AXMZZQ2X.js?v=773266cd:42:13
+    at https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.repli…runner/workspace/node_modules/.vite/deps/chunk-P42JY36W.js?v=773266cd:63:7
+    at https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.repli…unner/workspace/node_modules/.vite/deps/chunk-2K77HOHX.js?v=773266cd:79:13
+    at https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.repli…unner/workspace/node_modules/.vite/deps/chunk-2K77HOHX.js?v=773266cd:56:13
+    at https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.repli…unner/workspace/node_modules/.vite/deps/chunk-AXMZZQ2X.js?v=773266cd:42:13
+    at https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.repli…runner/workspace/node_modules/.vite/deps/chunk-MERT2IGA.js?v=773266cd:29:5
+    at https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.repli…nner/workspace/node_modules/.vite/deps/chunk-CVKNLISW.js?v=773266cd:235:13
+    at https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.repli…nner/workspace/node_modules/.vite/deps/chunk-CVKNLISW.js?v=773266cd:158:58
+    at Presence (https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.repli…unner/workspace/node_modules/.vite/deps/chunk-DI3MHBAI.js?v=773266cd:24:11)
+    at https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.repli…nner/workspace/node_modules/.vite/deps/chunk-CVKNLISW.js?v=773266cd:149:64
+    at https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.repli…unner/workspace/node_modules/.vite/deps/chunk-2K77HOHX.js?v=773266cd:79:13
+    at https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.repli…unner/workspace/node_modules/.vite/deps/chunk-2K77HOHX.js?v=773266cd:56:13
+    at https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.repli…unner/workspace/node_modules/.vite/deps/chunk-AXMZZQ2X.js?v=773266cd:42:13
+    at https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.repli…nner/workspace/node_modules/.vite/deps/chunk-P42JY36W.js?v=773266cd:262:22
+    at Presence (https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.repli…unner/workspace/node_modules/.vite/deps/chunk-DI3MHBAI.js?v=773266cd:24:11)
+    at Provider (https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.repli…unner/workspace/node_modules/.vite/deps/chunk-OXZDJRWN.js?v=773266cd:38:15)
+    at DialogPortal (https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.repli…nner/workspace/node_modules/.vite/deps/chunk-CVKNLISW.js?v=773266cd:111:11)
+    at _c3 (https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/src/components/ui/dialog.tsx:52:12)
+    at Provider (https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.repli…unner/workspace/node_modules/.vite/deps/chunk-OXZDJRWN.js?v=773266cd:38:15)
+    at Dialog (https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.repli…runner/workspace/node_modules/.vite/deps/chunk-CVKNLISW.js?v=773266cd:52:5)
+    at ProjectDetailModal (https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/src/components/modals/project-detail-modal.tsx:111:46)
+    at Projects (https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/src/pages/projects.tsx:47:51)
+    at Route (https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.repli…/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=773266cd:191:16)
+    at Switch (https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.repli…/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=773266cd:247:17)
+    at div
+    at div
+    at AuthWrapper (https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/src/App.tsx?v=_vSRdw-Erojp6qnfhFn0f:50:24)
+    at Route (https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.repli…/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=773266cd:191:16)
+    at Switch (https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.repli…/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=773266cd:247:17)
+    at Router
+    at Provider (https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.repli…unner/workspace/node_modules/.vite/deps/chunk-OXZDJRWN.js?v=773266cd:38:15)
+    at TooltipProvider (https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.repli…rkspace/node_modules/.vite/deps/@radix-ui_react-tooltip.js?v=773266cd:65:5)
+    at QueryClientProvider (https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.repli…rkspace/node_modules/.vite/deps/@tanstack_react-query.js?v=773266cd:2805:3)
+    at App
+
+Consider adding an error boundary to your tree to customize error handling behavior.
+Visit https://reactjs.org/link/error-boundaries to learn more about error boundaries.
+chunk-RPCDYKBN.js?v=773266cd:9129 Uncaught ReferenceError: React is not defined
+    at ProjectEmailPanel (ProjectEmailPanel.tsx:411:24)

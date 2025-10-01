@@ -173,12 +173,17 @@ router.post('/send', requireAuth, async (req: any, res) => {
     let projectId = emailData.projectId;
     
     // If contactId not provided, try to find contact by email
+    // SECURITY FIX: Added tenant scoping to prevent cross-tenant contact access
     if (!contactId && emailData.to) {
+      const tenantId = req.tenantId || 'default-tenant';
       try {
         const [contact] = await db
           .select({ id: contacts.id })
           .from(contacts)
-          .where(eq(contacts.email, emailData.to))
+          .where(and(
+            eq(contacts.tenantId, tenantId),
+            eq(contacts.email, emailData.to)
+          ))
           .limit(1);
         if (contact) {
           contactId = contact.id;
@@ -189,12 +194,17 @@ router.post('/send', requireAuth, async (req: any, res) => {
     }
     
     // If projectId not provided but we have contactId, try to find project
+    // SECURITY FIX: Added tenant scoping to prevent cross-tenant project access
     if (!projectId && contactId) {
+      const tenantId = req.tenantId || 'default-tenant';
       try {
         const [project] = await db
           .select({ id: projects.id })
           .from(projects)
-          .where(eq(projects.contactId, contactId))
+          .where(and(
+            eq(projects.tenantId, tenantId),
+            eq(projects.contactId, contactId)
+          ))
           .limit(1);
         if (project) {
           projectId = project.id;
@@ -253,20 +263,28 @@ router.post('/send', requireAuth, async (req: any, res) => {
     }
     
     // Use the projectId we already determined above
+    // SECURITY FIX: Added tenant scoping to all database queries
     if (!projectId && emailData.to) {
+      const tenantId = req.tenantId || 'default-tenant';
       // Try to find project by contact email
       try {
         const [contact] = await db
           .select({ id: contacts.id })
           .from(contacts)
-          .where(eq(contacts.email, emailData.to))
+          .where(and(
+            eq(contacts.tenantId, tenantId),
+            eq(contacts.email, emailData.to)
+          ))
           .limit(1);
           
         if (contact) {
           const [project] = await db
             .select({ id: projects.id })
             .from(projects)
-            .where(eq(projects.contactId, contact.id))
+            .where(and(
+              eq(projects.tenantId, tenantId),
+              eq(projects.contactId, contact.id)
+            ))
             .limit(1);
             
           if (project) {

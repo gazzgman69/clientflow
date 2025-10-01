@@ -120,8 +120,8 @@ const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(
         attributes: {
           class: cn(
             'prose prose-sm dark:prose-invert max-w-none focus:outline-none',
-            'w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background',
-            'focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2',
+            'w-full rounded-md border border-input bg-background px-3 py-2 text-sm',
+            'focus-within:border-primary',
             disabled && 'cursor-not-allowed opacity-50'
           ),
           style: `min-height: ${minHeight};`,

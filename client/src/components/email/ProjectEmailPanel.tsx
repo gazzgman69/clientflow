@@ -408,6 +408,8 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
     },
   });
 
+  const replyFormRef = React.useRef<HTMLDivElement>(null);
+
   const handleReply = (originalMessage: any) => {
     console.log('🔵 handleReply called with:', originalMessage);
     // Set reply details based on the original message
@@ -424,6 +426,11 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
       : `Re: ${subject}`);
     setShowReplyForm(true);
     console.log('🔵 showReplyForm should now be true');
+    
+    // Scroll to reply form after it renders
+    setTimeout(() => {
+      replyFormRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }, 100);
   };
 
   const handleSendReply = () => {
@@ -974,7 +981,7 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
 
                 {/* Reply Form */}
                 {showReplyForm && (
-                  <Card className="border-2 border-primary/20 bg-primary/5">
+                  <Card ref={replyFormRef} className="border-2 border-primary/20 bg-primary/5">
                     <CardHeader>
                       <CardTitle className="text-lg">Reply to Thread</CardTitle>
                     </CardHeader>

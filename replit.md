@@ -4,6 +4,14 @@ BusinessCRM is a comprehensive customer relationship management system built wit
 
 ## Recent Changes (October 1, 2025)
 
+**Project Email Visibility Fix - Multi-User Collaboration**: Fixed critical visibility bug where project emails were only visible to the user who sent them. Implementation includes:
+- **Query Fix**: Changed GET `/api/email/projects/:projectId/email-messages` to filter by `tenantId` instead of `userId`, allowing all team members with project access to view ALL emails for that project
+- **Access Control**: Project ownership verification (assignedTo or userId match) ensures users can only access emails for projects they have access to
+- **Tenant Isolation**: Maintained strict multi-tenant security with tenantId filtering on all email queries
+- **Diagnostic Logging**: Added email storage logging to track when emails are stored successfully or skipped (missing projectId/messageId)
+- **Frontend Verification**: Confirmed UI uses correct endpoint `/api/email/projects/${projectId}/email-messages`
+- **Security Pattern**: All email queries now use tenantId scoping with proper access verification before database query execution
+
 **Email Send Pipeline with Proper MIME & Token Resolution**: Fixed critical email body and token issues with production-ready MIME formatting. Implementation includes:
 - **Proper MIME Formatting**: Implemented RFC-compliant multipart/alternative MIME messages with quoted-printable encoding for both text/plain and text/html parts
 - **Gmail Send Service**: Created dedicated `gmail-send.ts` with proper boundary handling, subject encoding, and base64url encoding for Gmail API

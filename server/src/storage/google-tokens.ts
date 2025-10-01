@@ -1,6 +1,7 @@
 import { db } from '../../db';
 import { emailAccounts } from '@shared/schema';
 import { and, eq } from 'drizzle-orm';
+import { secureStore } from '../services/secureStore';
 
 /**
  * Get Google OAuth tokens for a specific user from email_accounts table
@@ -31,8 +32,9 @@ export async function getUserGoogleTokens(userId: string): Promise<{
     
     const account = gmailAccounts[0];
     
-    // Parse encrypted secrets to get tokens
-    const secrets = account.secretsEnc ? JSON.parse(account.secretsEnc) : {};
+    // Decrypt and parse encrypted secrets to get tokens
+    const decryptedSecrets = account.secretsEnc ? secureStore.decrypt(account.secretsEnc) : '{}';
+    const secrets = JSON.parse(decryptedSecrets);
     
     return {
       access_token: secrets.accessToken || undefined,

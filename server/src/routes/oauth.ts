@@ -670,12 +670,12 @@ async function googleCallbackHandler(req: any, res: any) {
       status: 'connected',
       accountEmail: tokens.email,
       accessTokenEnc: tokens.access_token,
-      refreshTokenEnc: tokens.refresh_token || undefined,
+      refreshTokenEnc: tokens.refresh_token || '',
       scopes: GMAIL_SCOPES,
-      metadata: {
+      metadata: JSON.stringify({
         connectedAt: new Date().toISOString()
-      }
-    } as any, tenantId);
+      })
+    }, tenantId);
     
     console.log('✅ GMAIL OAUTH: Successfully saved to email_accounts');
     

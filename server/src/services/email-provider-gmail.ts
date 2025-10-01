@@ -106,8 +106,8 @@ export class GmailEmailProvider {
    */
   async sendEmail(integration: EmailProviderIntegration, params: SendEmailParams): Promise<{ messageId: string; warning?: string }> {
     // Decrypt secrets if using new format
-    let access_token = integration.accessToken || '';
-    let refresh_token = integration.refreshToken || '';
+    let access_token = integration.accessTokenEnc || '';
+    let refresh_token = integration.refreshTokenEnc || '';
     
     if (integration.secretsEnc) {
       const decrypted = await storage.decryptEmailAccountSecrets(integration.secretsEnc);

@@ -393,6 +393,7 @@ export class GmailService {
       // Get message list with address filter - search both INBOX and SENT
       // Use OR query instead of labelIds to avoid AND filtering issues
       const enhancedQuery = `(${q}) AND (in:inbox OR in:sent)`;
+      console.log(`📬 Gmail query: "${enhancedQuery}"`);
       const listResponse = await gmail.users.messages.list({
         userId: 'me',
         maxResults: limit * 3, // Get more messages to account for threading
@@ -401,6 +402,7 @@ export class GmailService {
       });
 
       const messages = listResponse.data.messages || [];
+      console.log(`📬 Gmail returned ${messages.length} messages for query`);
       const threadMap = new Map<string, EmailListItem[]>();
 
       // Get details for each message and group by threadId

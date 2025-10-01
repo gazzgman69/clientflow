@@ -105,6 +105,16 @@ export class GmailEmailProvider {
    * Send email via Gmail API
    */
   async sendEmail(integration: EmailProviderIntegration, params: SendEmailParams): Promise<{ messageId: string; warning?: string }> {
+    // Decrypt secrets if using new format
+    let access_token = integration.accessToken;
+    let refresh_token = integration.refreshToken;
+    
+    if (integration.secretsEnc) {
+      const decrypted = await storage.decryptEmailAccountSecrets(integration.secretsEnc);
+      access_token = decrypted.access_token;
+      refresh_token = decrypted.refresh_token;
+    }
+    
     // Refresh token if needed
     const activeIntegration = await this.refreshTokenIfNeeded(integration);
 
@@ -128,8 +138,8 @@ export class GmailEmailProvider {
 
     // Set credentials
     oauth2Client.setCredentials({
-      access_token: activeIntegration.accessTokenEnc,
-      refresh_token: activeIntegration.refreshTokenEnc
+      access_token,
+      refresh_token
     });
 
     // Create Gmail API client

@@ -39,12 +39,30 @@ export class EmailDispatcher {
     params: DispatchEmailParams
   ): Promise<DispatchEmailResult> {
     try {
-      // Check for Google integration
-      const googleIntegration = await storage.getEmailProviderIntegration(
-        userId,
-        tenantId,
-        'google'
-      );
+      // Check for Google integration using new email_accounts table
+      const emailAccounts = await storage.getEmailAccountsByUser(userId, tenantId);
+      const googleAccount = emailAccounts.find(acc => acc.providerKey === 'google' && acc.status === 'connected');
+      
+      // Convert to legacy format for provider compatibility
+      const googleIntegration = googleAccount ? {
+        id: googleAccount.id,
+        createdAt: null,
+        updatedAt: null,
+        userId: googleAccount.userId,
+        tenantId: googleAccount.tenantId,
+        provider: 'google' as const,
+        providerKey: googleAccount.providerKey,
+        accountEmail: googleAccount.accountEmail,
+        status: googleAccount.status as 'connected',
+        authType: googleAccount.authType,
+        accessToken: '', // Will be decrypted by provider
+        refreshToken: '', // Will be decrypted by provider
+        scopes: [],
+        secretsEnc: googleAccount.secretsEnc,
+        lastSyncedAt: googleAccount.lastSyncAt,
+        expiresAt: googleAccount.expiresAt,
+        metadata: googleAccount.metadata
+      } : null;
 
       if (googleIntegration && googleIntegration.status === 'connected') {
         try {
@@ -69,11 +87,28 @@ export class EmailDispatcher {
         } catch (gmailError: any) {
           console.error('❌ Gmail dispatch failed:', gmailError);
           // Try Microsoft fallback before giving up
-          const microsoftIntegration = await storage.getEmailProviderIntegration(
-            userId,
-            tenantId,
-            'microsoft'
-          );
+          const microsoftAccount = emailAccounts.find(acc => acc.providerKey === 'microsoft' && acc.status === 'connected');
+          
+          // Convert to legacy format for provider compatibility
+          const microsoftIntegration = microsoftAccount ? {
+            id: microsoftAccount.id,
+            createdAt: null,
+            updatedAt: null,
+            userId: microsoftAccount.userId,
+            tenantId: microsoftAccount.tenantId,
+            provider: 'microsoft' as const,
+            providerKey: microsoftAccount.providerKey,
+            accountEmail: microsoftAccount.accountEmail,
+            status: microsoftAccount.status as 'connected',
+            authType: microsoftAccount.authType,
+            accessToken: '', // Will be decrypted by provider
+            refreshToken: '', // Will be decrypted by provider
+            scopes: [],
+            secretsEnc: microsoftAccount.secretsEnc,
+            lastSyncedAt: microsoftAccount.lastSyncAt,
+            expiresAt: microsoftAccount.expiresAt,
+            metadata: microsoftAccount.metadata
+          } : null;
           
           if (microsoftIntegration && microsoftIntegration.status === 'connected') {
             try {
@@ -114,11 +149,28 @@ export class EmailDispatcher {
       }
 
       // If no Gmail, check for Microsoft as primary
-      const microsoftIntegration = await storage.getEmailProviderIntegration(
-        userId,
-        tenantId,
-        'microsoft'
-      );
+      const microsoftAccount = emailAccounts.find(acc => acc.providerKey === 'microsoft' && acc.status === 'connected');
+      
+      // Convert to legacy format for provider compatibility
+      const microsoftIntegration = microsoftAccount ? {
+        id: microsoftAccount.id,
+        createdAt: null,
+        updatedAt: null,
+        userId: microsoftAccount.userId,
+        tenantId: microsoftAccount.tenantId,
+        provider: 'microsoft' as const,
+        providerKey: microsoftAccount.providerKey,
+        accountEmail: microsoftAccount.accountEmail,
+        status: microsoftAccount.status as 'connected',
+        authType: microsoftAccount.authType,
+        accessToken: '', // Will be decrypted by provider
+        refreshToken: '', // Will be decrypted by provider
+        scopes: [],
+        secretsEnc: microsoftAccount.secretsEnc,
+        lastSyncedAt: microsoftAccount.lastSyncAt,
+        expiresAt: microsoftAccount.expiresAt,
+        metadata: microsoftAccount.metadata
+      } : null;
 
       if (microsoftIntegration && microsoftIntegration.status === 'connected') {
         try {

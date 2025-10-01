@@ -274,15 +274,8 @@ export default function Projects() {
   };
 
   const formatVenueAddress = (project: any) => {
-    // Use the structured venue fields from the query
-    const parts = [];
-    if (project.venue_name) parts.push(project.venue_name);
-    if (project.venue_address) parts.push(project.venue_address);
-    if (project.venue_city) parts.push(project.venue_city);
-    if (project.venue_state) parts.push(project.venue_state);
-    if (project.venue_zip_code) parts.push(project.venue_zip_code);
-    
-    return parts.length > 0 ? parts.join(', ') : 'No venue';
+    // Show just the venue name in the table for cleaner display
+    return project.venue_name || 'No venue';
   };
 
   const getVenuePhone = (project: any) => {
@@ -407,12 +400,7 @@ export default function Projects() {
                         {project.name}
                       </TableCell>
                       <TableCell data-testid={`project-venue-${project.id}`}>
-                        <div className="max-w-xs">
-                          <div className="font-medium text-sm">{formatVenueAddress(project)}</div>
-                          {(project as any).venue_phone && (
-                            <div className="text-xs text-muted-foreground">{getVenuePhone(project)}</div>
-                          )}
-                        </div>
+                        {formatVenueAddress(project)}
                       </TableCell>
                       <TableCell data-testid={`project-status-${project.id}`}>
                         <Badge className={getStatusColor(project.status)}>

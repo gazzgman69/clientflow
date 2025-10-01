@@ -356,6 +356,9 @@ export class EmailSyncService {
     } catch (error: any) {
       console.error('❌ Gmail sync failed:', error);
       return { synced: 0, skipped: 0, errors: [error.message] };
+    } finally {
+      // SECURITY: Restore original tenantId to prevent leakage across calls
+      this.tenantId = originalTenantId;
     }
   }
 

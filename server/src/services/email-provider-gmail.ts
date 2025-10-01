@@ -149,7 +149,7 @@ export class GmailEmailProvider {
 
     // Gmail always sends from the authenticated account
     // If a different "from" is requested, we'll use replyTo instead
-    const fromAddress = activeIntegration.accountEmail || '';
+    const fromAddress = integration.accountEmail || '';
     let warning: string | undefined;
     
     // If replyTo is specified and different from authenticated account, use it
@@ -195,8 +195,8 @@ export class GmailEmailProvider {
       console.log(JSON.stringify({
         event: 'email_send_success',
         provider: 'google',
-        tenantId: activeIntegration.tenantId,
-        userId: activeIntegration.userId,
+        tenantId: integration.tenantId,
+        userId: integration.userId,
         messageId: response.data.id,
         timestamp: new Date().toISOString()
       }));
@@ -212,8 +212,8 @@ export class GmailEmailProvider {
       console.log(JSON.stringify({
         event: 'email_send_error',
         provider: 'google',
-        tenantId: activeIntegration.tenantId,
-        userId: activeIntegration.userId,
+        tenantId: integration.tenantId,
+        userId: integration.userId,
         error: error.message,
         timestamp: new Date().toISOString()
       }));

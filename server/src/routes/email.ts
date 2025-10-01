@@ -124,6 +124,22 @@ async function getUserEmail(userId: string, userEmail?: string): Promise<string>
 }
 
 /**
+ * Decode HTML entities (e.g., &lt; to <, &gt; to >, &amp; to &)
+ */
+function decodeHtmlEntities(text: string): string {
+  const entities: Record<string, string> = {
+    '&lt;': '<',
+    '&gt;': '>',
+    '&amp;': '&',
+    '&quot;': '"',
+    '&#39;': "'",
+    '&apos;': "'"
+  };
+  
+  return text.replace(/&(?:lt|gt|amp|quot|#39|apos);/g, (match) => entities[match] || match);
+}
+
+/**
  * Send email via Gmail with template support
  */
 router.post('/send', requireAuth, async (req: any, res) => {
@@ -140,6 +156,14 @@ router.post('/send', requireAuth, async (req: any, res) => {
     let finalSubject = emailData.subject || '';
     let finalText = emailData.text || '';
     let finalHtml = emailData.html || '';
+    
+    // CRITICAL FIX: Decode HTML entities that may have been escaped during HTTP transmission
+    // (Replit proxy or security middleware may escape HTML in JSON payloads)
+    if (finalHtml) {
+      const decodedHtml = decodeHtmlEntities(finalHtml);
+      console.log('🔓 DECODED HTML (first 100 chars):', decodedHtml.substring(0, 100));
+      finalHtml = decodedHtml;
+    }
     
     // Build context for token resolution - auto-enrich from email address
     const context: any = {};

@@ -1,0 +1,88 @@
+Goal
+Verify at runtime that:
+
+Protected endpoints are reachable under a valid session for Tenant A.
+
+Client-supplied tenant overrides are blocked (403/ignored).
+
+Cross-tenant reads return 403/404 (or are otherwise inaccessible) without modifying code/DB schema.
+
+Rules
+
+Do not modify server code, routes, env, or schema.
+
+GET-only (no real sends).
+
+You may create a temporary session row in the session store and mint a signed cookie to authenticate (clean up afterward).
+
+If a check needs data that doesn’t exist, print skipped (no foreign id).
+
+Create (do not edit app files): scripts/mt-tenant-isolation-check.ts that:
+
+Authenticates by creating a real session in the session store and minting a valid connect.sid cookie (same technique you used in your previous runtime script).
+
+Probes (Tenant A session):
+
+GET /api/auth/google/status → print status + first 120 bytes.
+
+GET /api/auth/microsoft/status → print status + first 120 bytes.
+
+GET /api/email/providers (or your project’s providers route) → print status + first 120 bytes.
+
+Tenant override guard (still Tenant A session):
+
+Repeat the providers call with malicious query: GET /api/email/providers?tenantId=hacked
+
+Expect 403 (preferred) or identical result to the normal call (override ignored).
+
+Print status + first 120 bytes.
+
+Cross-tenant read probe (read-only):
+
+Try to obtain one known template ID for Tenant A (via any existing GET-list route; if none, skipped (unavailable)).
+
+Attempt GET /api/templates/:id (or your equivalent) with Tenant A session → expect 200/OK (or your normal success).
+
+Attempt to fetch another tenant’s template:
+
+Strategy: find any template/listing endpoint that returns multiple tenants; if none available, search DB for a different tenant’s template id.
+
+If you can’t find a foreign id safely, print skipped (no foreign id).
+
+If you do find one, GET /api/templates/:foreignId with Tenant A session → expect 403/404.
+
+Print path, status, first 120 bytes.
+
+Report & cleanup
+
+Print a VERDICT block with bullets:
+
+status endpoints reachable & tenant-scoped: PASS/FAIL (+ note)
+
+providers override blocked/ignored: PASS/FAIL
+
+template cross-tenant blocked: PASS/FAIL or skipped (no foreign id)
+
+anomalies (HTML shells, redirects, CSRF)
+
+Delete the temporary session row you created.
+
+Output to return in your reply
+
+Which auth method used: signed-cookie (session row)
+
+For each target path: the HTTP status and first ~120 bytes.
+
+The final VERDICT bullets as specified above.
+
+Notes
+
+If any endpoint name differs in this codebase, auto-detect from routes and use the local name.
+
+If a “GET single template” endpoint lives under /admin/templates/:id, only probe it if your session has access; otherwise print skipped (auth) and continue.
+
+Do not send real email or mutate tenant data—this is verification-only.
+
+Run
+
+tsx scripts/mt-tenant-isolation-check.ts

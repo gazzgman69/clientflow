@@ -775,21 +775,11 @@ router.get('/projects/:projectId/email-messages', requireAuth, async (req: any, 
       return res.status(400).json({ error: 'Tenant context required' });
     }
     
-    // SECURITY FIX: Verify user owns the project before accessing messages
-    try {
-      const project = await storage.getProject(projectId, tenantId);
-      if (!project) {
-        return res.status(404).json({ error: 'Project not found' });
-      }
-      
-      // Verify project ownership/access
-      if (project.assignedTo !== userId && project.userId !== userId) {
-        console.log(`🔒 SECURITY: User ${userId} denied access to project ${projectId} - owned by ${project.assignedTo || project.userId}`);
-        return res.status(403).json({ error: 'Access denied - project not owned by user' });
-      }
-    } catch (error) {
-      console.error('Error verifying project ownership:', error);
-      return res.status(500).json({ error: 'Failed to verify project access' });
+    // SECURITY: Verify user has access to the project (owner, assigned, team member, or admin)
+    const hasAccess = await storage.canUserAccessProject(userId, tenantId, projectId);
+    if (!hasAccess) {
+      console.log(`🔒 SECURITY: User ${userId} denied access to project ${projectId} - no permission`);
+      return res.status(403).json({ error: 'Access denied - you do not have permission to view this project' });
     }
     
     // Get ALL email messages for the project (not just the logged-in user's emails)

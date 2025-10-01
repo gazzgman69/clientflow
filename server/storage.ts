@@ -127,6 +127,7 @@ export interface IStorage {
   createProject(project: InsertProject, tenantId: string): Promise<Project>;
   updateProject(id: string, project: Partial<InsertProject>, tenantId: string): Promise<Project | undefined>;
   deleteProject(id: string, tenantId: string): Promise<boolean>;
+  canUserAccessProject(userId: string, tenantId: string, projectId: string): Promise<boolean>;
   
   // Quotes
   getQuotes(tenantId: string): Promise<Quote[]>;
@@ -1013,6 +1014,19 @@ export class MemStorage implements IStorage {
     const project = this.projects.get(id);
     if (!project || project.tenantId !== tenantId) return false;
     return this.projects.delete(id);
+  }
+  
+  async canUserAccessProject(userId: string, tenantId: string, projectId: string): Promise<boolean> {
+    const project = this.projects.get(projectId);
+    if (!project || project.tenantId !== tenantId) {
+      return false;
+    }
+    // For MemStorage, just check ownership or allow all users in same tenant
+    if (project.userId === userId || project.assignedTo === userId) {
+      return true;
+    }
+    // For development, allow all authenticated users in the same tenant
+    return true;
   }
 
   // Quotes
@@ -3585,6 +3599,56 @@ export class DrizzleStorage implements IStorage {
       console.error('Error deleting project:', error);
       throw error;
     }
+  }
+  
+  async canUserAccessProject(userId: string, tenantId: string, projectId: string): Promise<boolean> {
+    // 1. Get project and verify it belongs to tenant
+    const project = await this.db.select().from(projects)
+      .where(and(eq(projects.id, projectId), eq(projects.tenantId, tenantId)))
+      .limit(1);
+    
+    if (!project || project.length === 0) {
+      return false; // Project doesn't exist or doesn't belong to this tenant
+    }
+    
+    const projectData = project[0];
+    
+    // 2. Check if user is project owner or assigned user
+    if (projectData.userId === userId || projectData.assignedTo === userId) {
+      return true;
+    }
+    
+    // 3. Check if user is tenant admin
+    const user = await this.db.select().from(users)
+      .where(and(eq(users.id, userId), eq(users.tenantId, tenantId)))
+      .limit(1);
+    
+    if (user && user.length > 0 && (user[0].role === 'admin' || user[0].role === 'owner')) {
+      return true;
+    }
+    
+    // 4. Check if user is a project member
+    // First, find the member record for this user
+    const member = await this.db.select().from(members)
+      .where(and(eq(members.userId, userId), eq(members.tenantId, tenantId)))
+      .limit(1);
+    
+    if (member && member.length > 0) {
+      // Check if this member is assigned to the project
+      const projectMember = await this.db.select().from(projectMembers)
+        .where(and(
+          eq(projectMembers.projectId, projectId),
+          eq(projectMembers.memberId, member[0].id)
+        ))
+        .limit(1);
+      
+      if (projectMember && projectMember.length > 0) {
+        return true;
+      }
+    }
+    
+    // No access found
+    return false;
   }
   
   // Quotes - PostgreSQL implementation

@@ -65,6 +65,32 @@ router.get('/auth/google/gmail/callback', async (req, res) => {
       timestamp: new Date().toISOString()
     }));
 
+    // Trigger immediate email sync in background (non-blocking)
+    (async () => {
+      try {
+        console.log('🔄 Triggering immediate email sync after OAuth reconnect...');
+        const { EmailSyncService } = await import('../services/emailSync');
+        const emailSyncService = new EmailSyncService(tenantId);
+        const result = await emailSyncService.syncGmailThreadsToDatabase(userId, undefined, tenantId);
+        console.log(`✅ Post-OAuth sync complete: ${result.synced} synced, ${result.skipped} skipped`);
+        
+        // Update lastSyncAt timestamp
+        const { emailAccounts } = await import('../../shared/schema');
+        const { db } = await import('../../db');
+        const { eq, and } = await import('drizzle-orm');
+        await db
+          .update(emailAccounts)
+          .set({ lastSyncedAt: new Date() })
+          .where(and(
+            eq(emailAccounts.tenantId, tenantId),
+            eq(emailAccounts.userId, userId),
+            eq(emailAccounts.providerKey, 'google')
+          ));
+      } catch (error) {
+        console.error('❌ Post-OAuth sync failed:', error);
+      }
+    })();
+
     // Clear session PKCE
     delete req.session.pkceCodeVerifier;
 

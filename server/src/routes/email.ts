@@ -248,6 +248,16 @@ router.post('/send', requireAuth, async (req: any, res) => {
       return res.status(400).json({ ok: false, error: 'Tenant context required' });
     }
 
+    // DIAGNOSTICS: Log send payload before dispatching (per mission requirements)
+    console.info('📧 sendEmail payload', {
+      hasSubject: !!finalSubject,
+      htmlLen: (emailData.html || '').length,
+      textLen: (finalText || '').length,
+      toCount: emailData.to ? 1 : 0,
+      ccCount: emailData.cc ? 1 : 0,
+      bccCount: emailData.bcc ? 1 : 0
+    });
+
     // Dispatch email using OAuth provider
     const { emailDispatcher } = await import('../services/email-dispatcher');
     const result = await emailDispatcher.dispatchEmail(userId, tenantId, {

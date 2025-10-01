@@ -1,0 +1,228 @@
+Mission
+Fix Gmail sends where only the Subject arrives and the body is empty. Keep OAuth/DB as-is. Only touch the send pipeline. Add minimal diagnostics.
+
+Scope & rules
+
+Do not change schemas or OAuth.
+
+Keep Microsoft code untouched.
+
+Small, focused edits only.
+
+1) Instrument the send endpoint (diagnostics, no secrets)
+
+Locate the send handler (search for POST /api/email/send, sendEmail, gmail.users.messages.send, or sendMail).
+
+Right before dispatching to Gmail/Nodemailer, add:
+
+console.info('sendEmail payload', {
+  hasSubject: !!req.body?.subject,
+  htmlLen: (req.body?.html || '').length,
+  textLen: (req.body?.text || '').length,
+  toCount: Array.isArray(req.body?.to) ? req.body.to.length : 0
+});
+
+
+This tells us if the UI actually posts a body.
+
+2) Add a robust MIME builder (ensures body is included)
+
+Create (or update) server/src/services/gmail-send.ts:
+
+import { google } from 'googleapis';
+
+function b64url(input: string | Buffer): string {
+  const b64 = Buffer.isBuffer(input) ? input.toString('base64') : Buffer.from(input, 'utf8').toString('base64');
+  return b64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+}
+
+// Simple quoted-printable for UTF-8 text
+function qp(s: string): string {
+  return (s || '')
+    .replace(/[\t ]+$/gm, (m) => m.split('').map(c => '=' + c.charCodeAt(0).toString(16).toUpperCase()).join(''))
+    .replace(/[\u0080-\uFFFF]/g, ch => '=' + Buffer.from(ch, 'utf8').toString('hex').toUpperCase())
+    .replace(/\r?\n/g, '\r\n');
+}
+
+function wrap76(b64: string): string {
+  return b64.replace(/.{1,76}/g, '$&\r\n').trim();
+}
+
+export function buildMimeRaw(opts: {
+  from?: string;
+  to: string[];
+  cc?: string[];
+  bcc?: string[];
+  subject: string;
+  html?: string;
+  text?: string;
+  attachments?: Array<{ filename: string; content: string; contentType?: string; isBase64?: boolean }>;
+}) {
+  const CRLF = '\r\n';
+  const alt = `alt_${Date.now().toString(36)}`;
+  const mix = `mix_${(Date.now()+1).toString(36)}`;
+
+  const headers = [
+    'MIME-Version: 1.0',
+    opts.from ? `From: ${opts.from}` : null,
+    `To: ${opts.to.join(', ')}`,
+    opts.cc?.length ? `Cc: ${opts.cc.join(', ')}` : null,
+    opts.bcc?.length ? `Bcc: ${opts.bcc.join(', ')}` : null,
+    `Subject: ${encodeSubject(opts.subject)}`,
+    `Date: ${new Date().toUTCString()}`
+  ].filter(Boolean).join(CRLF);
+
+  // Build multipart/alternative body (text + html)
+  const altParts: string[] = [];
+  if ((opts.text || '').trim()) {
+    altParts.push(
+      [
+        `Content-Type: text/plain; charset=UTF-8`,
+        `Content-Transfer-Encoding: quoted-printable`,
+        ``,
+        qp(opts.text!.trim()),
+        ``
+      ].join(CRLF)
+    );
+  }
+  if ((opts.html || '').trim()) {
+    altParts.push(
+      [
+        `Content-Type: text/html; charset=UTF-8`,
+        `Content-Transfer-Encoding: quoted-printable`,
+        ``,
+        qp(opts.html!.trim()),
+        ``
+      ].join(CRLF)
+    );
+  }
+
+  const altBody = [
+    `Content-Type: multipart/alternative; boundary="${alt}"`,
+    ``,
+    ...altParts.map(p => `--${alt}${CRLF}${p}`),
+    `--${alt}--`,
+    ``
+  ].join(CRLF);
+
+  let body = '';
+  const atts = opts.attachments || [];
+  if (atts.length) {
+    const parts = [ `--${mix}`, altBody ];
+    for (const a of atts) {
+      const ct = a.contentType || 'application/octet-stream';
+      const contentB64 = a.isBase64 ? a.content : Buffer.from(a.content, 'utf8').toString('base64');
+      parts.push(
+        `--${mix}`,
+        `Content-Type: ${ct}; name="${a.filename}"`,
+        `Content-Transfer-Encoding: base64`,
+        `Content-Disposition: attachment; filename="${a.filename}"`,
+        ``,
+        wrap76(contentB64),
+        ``
+      );
+    }
+    parts.push(`--${mix}--`, ``);
+    body = [`Content-Type: multipart/mixed; boundary="${mix}"`, ``, ...parts].join(CRLF);
+  } else {
+    body = altBody;
+  }
+
+  // CRLF CRLF between headers and body is CRITICAL: without it, Gmail sees only headers.
+  const raw = headers + CRLF + CRLF + body;
+  return b64url(raw);
+}
+
+function encodeSubject(s: string): string {
+  // RFC 2047 for non-ASCII subjects
+  return /[^\x00-\x7F]/.test(s) ? `=?UTF-8?B?${Buffer.from(s, 'utf8').toString('base64')}?=` : s;
+}
+
+export async function sendViaGmail(opts: {
+  oauth: any; // google.auth.OAuth2
+  from?: string;
+  to: string[]; cc?: string[]; bcc?: string[];
+  subject: string;
+  html?: string; text?: string;
+  attachments?: Array<{ filename: string; content: string; contentType?: string; isBase64?: boolean }>;
+}) {
+  const gmail = google.gmail({ version: 'v1', auth: opts.oauth });
+  const raw = buildMimeRaw({
+    from: opts.from,
+    to: opts.to, cc: opts.cc, bcc: opts.bcc,
+    subject: opts.subject,
+    html: opts.html, text: opts.text,
+    attachments: opts.attachments
+  });
+  return gmail.users.messages.send({ userId: 'me', requestBody: { raw } });
+}
+
+
+The key fixes are: multipart/alternative, correct CRLF/blank line, and quoted-printable. A missing blank line is the #1 reason bodies “vanish”.
+
+3) Make the send route actually pass html/text to Gmail
+
+In your send handler, wire the values through (don’t strip them):
+
+// Example inside POST /api/email/send:
+const { to, cc, bcc, subject, html, text, attachments } = req.body || {};
+// Fallback: if html missing but you have rich text somewhere else, set it here, otherwise leave.
+const textFallback = (text && text.trim()) || (html ? stripHtml(html) : '');
+
+console.info('sendEmail dispatch', {
+  hasSubject: !!subject, htmlLen: (html||'').length, textLen: textFallback.length
+});
+
+// Build OAuth2 client from stored tokens (existing code)
+const oauth2 = /* your existing OAuth client setup */;
+
+// IMPORTANT: pass both subject and body
+await sendViaGmail({
+  oauth: oauth2,
+  from: account.account_email, // optional
+  to, cc, bcc,
+  subject,
+  html,
+  text: textFallback,
+  attachments
+});
+
+return res.json({ ok: true });
+
+
+If you use Nodemailer SMTP instead of the Gmail REST API, ensure you call:
+
+await transporter.sendMail({
+  from: account.account_email, to, cc, bcc,
+  subject,
+  html,                  // must be passed
+  text: textFallback,    // must be passed
+  attachments
+});
+
+4) (Optional) Add a dry-run endpoint behind a flag
+
+To prove the raw MIME contains your body, add (guarded by DEBUG_EMAIL=1):
+
+if (process.env.DEBUG_EMAIL === '1') {
+  app.post('/api/dev/email/build-raw', (req,res)=>{
+    const raw = buildMimeRaw({
+      from: 'me@example.com',
+      to: req.body.to || ['them@example.com'],
+      subject: req.body.subject || 'Subject',
+      html: req.body.html || '<p>Hello</p>',
+      text: req.body.text || 'Hello'
+    });
+    // Return a decoded preview (first 500 chars) for inspection
+    const decoded = Buffer.from(raw.replace(/-/g,'+').replace(/_/g,'/'), 'base64').toString('utf8');
+    return res.json({ preview: decoded.slice(0, 500) });
+  });
+}
+
+5) Acceptance (manual)
+
+Compose → send: logs show htmlLen > 0 or textLen > 0.
+
+Received email shows your subject + body.
+
+If you call /api/dev/email/build-raw (with DEBUG_EMAIL=1), the preview includes headers and the multipart/alternative body with your text/html parts.

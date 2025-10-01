@@ -18,7 +18,7 @@ export const tenants = pgTable("tenants", {
 
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  tenantId: varchar("tenant_id").references(() => tenants.id), // Nullable initially for safe migration
+  tenantId: varchar("tenant_id").references(() => tenants.id).notNull(), // SECURITY FIX: Made NOT NULL for tenant isolation
   username: text("username").notNull().unique(),
   password: text("password").notNull(),
   email: text("email").notNull().unique(),
@@ -27,6 +27,11 @@ export const users = pgTable("users", {
   avatar: text("avatar"),
   role: text("role").notNull().default('client'), // admin, musician, client
   createdAt: timestamp("created_at").defaultNow(),
+}, (table) => {
+  return {
+    tenantIdIdx: index("users_tenant_id_idx").on(table.tenantId),
+    tenantEmailIdx: index("users_tenant_email_idx").on(table.tenantId, table.email),
+  };
 });
 
 export const userPrefs = pgTable("user_prefs", {
@@ -45,7 +50,7 @@ export const userPrefs = pgTable("user_prefs", {
 
 export const contacts = pgTable("contacts", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  tenantId: varchar("tenant_id").references(() => tenants.id), // Nullable initially for safe migration
+  tenantId: varchar("tenant_id").references(() => tenants.id).notNull(), // SECURITY FIX: Made NOT NULL for tenant isolation
   userId: varchar("user_id").references(() => users.id), // Made nullable initially for safe migration
   fullName: text("full_name"),
   firstName: text("first_name").notNull(),
@@ -75,11 +80,16 @@ export const contacts = pgTable("contacts", {
   leadId: varchar("lead_id"), // Note: Removed .references(() => leads.id) to break circular FK dependency
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => {
+  return {
+    tenantIdIdx: index("contacts_tenant_id_idx").on(table.tenantId),
+    tenantEmailIdx: index("contacts_tenant_email_idx").on(table.tenantId, table.email),
+  };
 });
 
 export const projects = pgTable("projects", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  tenantId: varchar("tenant_id").references(() => tenants.id), // Nullable initially for safe migration
+  tenantId: varchar("tenant_id").references(() => tenants.id).notNull(), // SECURITY FIX: Made NOT NULL for tenant isolation
   userId: varchar("user_id").references(() => users.id), // Made nullable initially for safe migration
   name: text("name").notNull(),
   description: text("description"),
@@ -95,11 +105,17 @@ export const projects = pgTable("projects", {
   portalEnabledOverride: boolean("portal_enabled_override"), // null = follow tenant default, true/false = override
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => {
+  return {
+    tenantIdIdx: index("projects_tenant_id_idx").on(table.tenantId),
+    tenantContactIdx: index("projects_tenant_contact_idx").on(table.tenantId, table.contactId),
+    tenantStatusIdx: index("projects_tenant_status_idx").on(table.tenantId, table.status),
+  };
 });
 
 export const leads = pgTable("leads", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  tenantId: varchar("tenant_id").references(() => tenants.id), // Nullable initially for safe migration
+  tenantId: varchar("tenant_id").references(() => tenants.id).notNull(), // SECURITY FIX: Made NOT NULL for tenant isolation
   userId: varchar("user_id").references(() => users.id), // Made nullable initially for safe migration
   fullName: text("full_name"),
   firstName: text("first_name").notNull(),
@@ -123,14 +139,17 @@ export const leads = pgTable("leads", {
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => ({
-  // Indexes for performance
+  // SECURITY FIX: Added compound indexes for tenant isolation + performance
+  tenantIdIdx: index("leads_tenant_id_idx").on(table.tenantId),
   tenantEventTypeIdx: index("idx_leads_tenant_event_type").on(table.tenantId, table.eventType),
+  tenantStatusIdx: index("leads_tenant_status_idx").on(table.tenantId, table.status),
+  tenantEmailIdx: index("leads_tenant_email_idx").on(table.tenantId, table.email),
   eventLocationIdx: index("idx_leads_event_location").on(table.eventLocation),
 }));
 
 export const quotes = pgTable("quotes", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  tenantId: varchar("tenant_id").references(() => tenants.id), // Nullable initially for safe migration
+  tenantId: varchar("tenant_id").references(() => tenants.id).notNull(), // SECURITY FIX: Made NOT NULL for tenant isolation
   userId: varchar("user_id").references(() => users.id), // Made nullable initially for safe migration
   quoteNumber: text("quote_number").notNull().unique(),
   contactId: varchar("contact_id"), // Note: Removed .references(() => contacts.id) to break circular FK dependency
@@ -160,7 +179,7 @@ export const quotes = pgTable("quotes", {
 
 export const contracts = pgTable("contracts", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  tenantId: varchar("tenant_id").references(() => tenants.id), // Nullable initially for safe migration
+  tenantId: varchar("tenant_id").references(() => tenants.id).notNull(), // SECURITY FIX: Made NOT NULL for tenant isolation
   userId: varchar("user_id").references(() => users.id), // Made nullable initially for safe migration
   contractNumber: text("contract_number").notNull().unique(),
   contactId: varchar("contact_id").notNull(), // Note: Removed .references(() => contacts.id) to break circular FK dependency
@@ -185,7 +204,7 @@ export const contracts = pgTable("contracts", {
 
 export const invoices = pgTable("invoices", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  tenantId: varchar("tenant_id").references(() => tenants.id), // Nullable initially for safe migration
+  tenantId: varchar("tenant_id").references(() => tenants.id).notNull(), // SECURITY FIX: Made NOT NULL for tenant isolation
   userId: varchar("user_id").references(() => users.id), // Made nullable initially for safe migration
   invoiceNumber: text("invoice_number").notNull().unique(),
   contactId: varchar("contact_id").notNull(), // Note: Removed .references(() => contacts.id) to break circular FK dependency
@@ -207,7 +226,7 @@ export const invoices = pgTable("invoices", {
 
 export const tasks = pgTable("tasks", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  tenantId: varchar("tenant_id").references(() => tenants.id), // Nullable initially for safe migration
+  tenantId: varchar("tenant_id").references(() => tenants.id).notNull(), // SECURITY FIX: Made NOT NULL for tenant isolation
   userId: varchar("user_id").references(() => users.id), // Made nullable initially for safe migration
   title: text("title").notNull(),
   description: text("description"),
@@ -227,7 +246,7 @@ export const tasks = pgTable("tasks", {
 // Email Threading System - replaces existing emails table with proper threading
 export const emailThreads = pgTable("email_threads", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  tenantId: varchar("tenant_id").references(() => tenants.id), // Nullable initially for safe migration
+  tenantId: varchar("tenant_id").references(() => tenants.id).notNull(), // SECURITY FIX: Made NOT NULL for tenant isolation
   userId: varchar("user_id").references(() => users.id), // Made nullable initially for safe migration
   projectId: varchar("project_id"), // Note: Removed .references(() => projects.id) to break circular FK dependency
   subject: text("subject"),
@@ -240,7 +259,7 @@ export const emailThreads = pgTable("email_threads", {
 
 export const emails = pgTable("emails", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  tenantId: varchar("tenant_id").references(() => tenants.id), // Nullable initially for safe migration
+  tenantId: varchar("tenant_id").references(() => tenants.id).notNull(), // SECURITY FIX: Made NOT NULL for tenant isolation
   userId: varchar("user_id").references(() => users.id), // Made nullable initially for safe migration
   threadId: varchar("thread_id").references(() => emailThreads.id).notNull(),
   provider: text("provider"), // 'gmail'

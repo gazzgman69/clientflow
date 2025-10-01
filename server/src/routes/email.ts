@@ -219,7 +219,8 @@ router.post('/send', requireAuth, async (req: any, res) => {
     
     // Handle template-based email
     if (emailData.templateId) {
-      const template = await templatesService.getTemplate(emailData.templateId);
+      const tenantId = req.tenantId || 'default-tenant';
+      const template = await templatesService.getTemplate(emailData.templateId, tenantId);
       if (!template) {
         return res.status(404).json({ ok: false, error: 'Template not found' });
       }
@@ -1088,7 +1089,8 @@ router.post('/projects/:projectId/compose-email', upload.array('attachments'), a
     
     // Handle template-based email  
     if (templateId) {
-      const template = await templatesService.getTemplate(templateId);
+      const tenantId = req.tenantId || 'default-tenant';
+      const template = await templatesService.getTemplate(templateId, tenantId);
       if (!template) {
         return res.status(404).json({ error: 'Template not found' });
       }

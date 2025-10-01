@@ -46,9 +46,10 @@ export class TemplatesService {
 
   /**
    * Get a single template by ID
+   * SECURITY FIX: Added tenant scoping to prevent cross-tenant template access
    */
-  async getTemplate(id: string): Promise<Template | null> {
-    const template = await storage.getTemplate(id);
+  async getTemplate(id: string, tenantId: string): Promise<Template | null> {
+    const template = await storage.getTemplate(id, tenantId);
     return template || null;
   }
 
@@ -74,14 +75,16 @@ export class TemplatesService {
 
   /**
    * Update an existing template
+   * SECURITY FIX: Added tenant scoping to prevent cross-tenant template access
    */
   async updateTemplate(id: string, data: {
     title?: string;
     subject?: string;
     body?: string;
     isActive?: boolean;
-  }): Promise<Template | null> {
-    const existing = await storage.getTemplate(id);
+  }, tenantId: string): Promise<Template | null> {
+    // Verify template exists and belongs to tenant
+    const existing = await storage.getTemplate(id, tenantId);
     if (!existing) {
       return null;
     }
@@ -98,9 +101,11 @@ export class TemplatesService {
 
   /**
    * Soft delete template (set isActive to false)
+   * SECURITY FIX: Added tenant scoping to prevent cross-tenant template access
    */
-  async softDeleteTemplate(id: string): Promise<boolean> {
-    const existing = await storage.getTemplate(id);
+  async softDeleteTemplate(id: string, tenantId: string): Promise<boolean> {
+    // Verify template exists and belongs to tenant
+    const existing = await storage.getTemplate(id, tenantId);
     if (!existing) {
       return false;
     }

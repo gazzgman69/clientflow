@@ -45,7 +45,8 @@ router.get('/admin/templates', requireAuth, async (req, res) => {
 router.get('/admin/templates/:id', requireAuth, async (req, res) => {
   try {
     const { id } = req.params;
-    const template = await templatesService.getTemplate(id);
+    const tenantId = req.tenantId || 'default-tenant';
+    const template = await templatesService.getTemplate(id, tenantId);
     
     if (!template) {
       return res.status(404).json({ error: 'Template not found' });
@@ -62,6 +63,7 @@ router.get('/admin/templates/:id', requireAuth, async (req, res) => {
 router.post('/admin/templates', requireAuth, async (req, res) => {
   try {
     const templateData = insertTemplateSchema.parse(req.body);
+    const tenantId = req.tenantId || 'default-tenant';
     
     // Validate type
     if (!['auto_responder', 'email', 'invoice', 'contract'].includes(templateData.type)) {
@@ -73,7 +75,7 @@ router.post('/admin/templates', requireAuth, async (req, res) => {
       title: templateData.title,
       subject: templateData.subject,
       body: templateData.body
-    });
+    }, tenantId);
     
     res.status(201).json(template);
   } catch (error) {
@@ -89,9 +91,10 @@ router.post('/admin/templates', requireAuth, async (req, res) => {
 router.patch('/admin/templates/:id', requireAuth, async (req, res) => {
   try {
     const { id } = req.params;
+    const tenantId = req.tenantId || 'default-tenant';
     const updateData = insertTemplateSchema.partial().parse(req.body);
     
-    const template = await templatesService.updateTemplate(id, updateData);
+    const template = await templatesService.updateTemplate(id, updateData, tenantId);
     
     if (!template) {
       return res.status(404).json({ error: 'Template not found' });
@@ -111,7 +114,8 @@ router.patch('/admin/templates/:id', requireAuth, async (req, res) => {
 router.delete('/admin/templates/:id', requireAuth, async (req, res) => {
   try {
     const { id } = req.params;
-    const success = await templatesService.softDeleteTemplate(id);
+    const tenantId = req.tenantId || 'default-tenant';
+    const success = await templatesService.softDeleteTemplate(id, tenantId);
     
     if (!success) {
       return res.status(404).json({ error: 'Template not found' });
@@ -165,13 +169,14 @@ router.get('/templates', async (req, res) => {
 router.post('/templates/preview', requireAuth, async (req, res) => {
   try {
     const { templateId, contactId, projectId } = req.body;
+    const tenantId = req.tenantId || 'default-tenant';
     
     if (!templateId) {
       return res.status(400).json({ error: 'Template ID is required' });
     }
     
     // Get template
-    const template = await templatesService.getTemplate(templateId);
+    const template = await templatesService.getTemplate(templateId, tenantId);
     if (!template) {
       return res.status(404).json({ error: 'Template not found' });
     }

@@ -2244,8 +2244,13 @@ export class MemStorage implements IStorage {
     );
   }
 
-  async getTemplate(id: string): Promise<Template | undefined> {
-    return this.templates.get(id);
+  async getTemplate(id: string, tenantId: string): Promise<Template | undefined> {
+    // SECURITY FIX: Added tenant scoping to prevent cross-tenant template access
+    const template = this.templates.get(id);
+    if (template && template.tenantId === tenantId) {
+      return template;
+    }
+    return undefined;
   }
 
   async createTemplate(insertTemplate: InsertTemplate): Promise<Template> {
@@ -4260,8 +4265,12 @@ export class DrizzleStorage implements IStorage {
     return await this.db.select().from(templates);
   }
 
-  async getTemplate(id: string): Promise<Template | undefined> {
-    const result = await this.db.select().from(templates).where(eq(templates.id, id));
+  async getTemplate(id: string, tenantId: string): Promise<Template | undefined> {
+    // SECURITY FIX: Added tenant scoping to prevent cross-tenant template access
+    const result = await this.db.select().from(templates).where(and(
+      eq(templates.id, id),
+      eq(templates.tenantId, tenantId)
+    ));
     return result[0];
   }
 

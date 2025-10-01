@@ -332,6 +332,7 @@ router.post('/send', requireAuth, async (req: any, res) => {
     // Store sent email in database for thread tracking
     if (projectId && result.messageId) {
       try {
+        console.log(`💾 Storing sent email in database: projectId=${projectId}, subject="${finalSubject?.substring(0, 50)}"`);
         await storage.createEmail({
           tenantId,
           userId,
@@ -348,10 +349,13 @@ router.post('/send', requireAuth, async (req: any, res) => {
           isSent: true,
           snippet: finalText?.substring(0, 100)
         }, tenantId);
+        console.log(`✅ Sent email stored successfully in database for project ${projectId}`);
       } catch (dbError) {
-        console.error('Failed to store sent email in DB:', dbError);
+        console.error('❌ Failed to store sent email in DB:', dbError);
         // Continue - email was sent successfully
       }
+    } else {
+      console.log(`⚠️ Sent email NOT stored: projectId=${projectId}, messageId=${result.messageId}`);
     }
     
     res.json({ 
@@ -765,6 +769,11 @@ router.get('/projects/:projectId/email-messages', requireAuth, async (req: any, 
     const { limit = 100 } = req.query;
 
     const userId = req.user.id;
+    const tenantId = req.tenantId;
+    
+    if (!tenantId) {
+      return res.status(400).json({ error: 'Tenant context required' });
+    }
     
     // SECURITY FIX: Verify user owns the project before accessing messages
     try {
@@ -783,7 +792,9 @@ router.get('/projects/:projectId/email-messages', requireAuth, async (req: any, 
       return res.status(500).json({ error: 'Failed to verify project access' });
     }
     
-    // Get all individual email messages for the project with user filtering
+    // Get ALL email messages for the project (not just the logged-in user's emails)
+    // User access is already verified via project ownership check above
+    // Tenant isolation ensures multi-tenant security
     const messages = await db
       .select({
         id: emails.id,
@@ -806,7 +817,7 @@ router.get('/projects/:projectId/email-messages', requireAuth, async (req: any, 
         snippet: emails.snippet
       })
       .from(emails)
-      .where(and(eq(emails.projectId, projectId), eq(emails.userId, userId)))
+      .where(and(eq(emails.projectId, projectId), eq(emails.tenantId, tenantId)))
       .orderBy(desc(emails.sentAt))
       .limit(Number(limit));
 

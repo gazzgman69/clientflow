@@ -1,8 +1,10 @@
-import { storage } from '../../storage';
+import { db } from '../../db';
+import { emailAccounts } from '@shared/schema';
+import { and, eq } from 'drizzle-orm';
 
 /**
- * Get Google OAuth tokens for a specific user
- * Reuses the existing calendarIntegrations table which stores Google OAuth tokens
+ * Get Google OAuth tokens for a specific user from email_accounts table
+ * Gmail OAuth connections are stored in email_accounts with provider_key='google'
  */
 export async function getUserGoogleTokens(userId: string): Promise<{
   access_token?: string;
@@ -10,24 +12,32 @@ export async function getUserGoogleTokens(userId: string): Promise<{
   expiry_date?: number;
 }> {
   try {
-    // Get user's Google calendar integrations (which contain the OAuth tokens)
-    const integrations = await storage.getCalendarIntegrationsByUser(userId);
+    // Get user's Gmail OAuth account from email_accounts table
+    const gmailAccounts = await db
+      .select()
+      .from(emailAccounts)
+      .where(
+        and(
+          eq(emailAccounts.userId, userId),
+          eq(emailAccounts.providerKey, 'google'),
+          eq(emailAccounts.status, 'connected')
+        )
+      )
+      .limit(1);
     
-    // Find the active Google integration
-    const googleIntegration = integrations.find(integration => 
-      integration.provider === 'google' && 
-      integration.isActive && 
-      integration.accessToken
-    );
-    
-    if (!googleIntegration) {
-      throw new Error('No active Google integration found. Please connect your Google account through Calendar settings first.');
+    if (gmailAccounts.length === 0) {
+      throw new Error('No active Gmail connection found. Please connect your Gmail account first.');
     }
     
+    const account = gmailAccounts[0];
+    
+    // Parse encrypted secrets to get tokens
+    const secrets = account.secretsEnc ? JSON.parse(account.secretsEnc) : {};
+    
     return {
-      access_token: googleIntegration.accessToken || undefined,
-      refresh_token: googleIntegration.refreshToken || undefined,
-      expiry_date: undefined // Not stored in current schema
+      access_token: secrets.accessToken || undefined,
+      refresh_token: secrets.refreshToken || undefined,
+      expiry_date: secrets.expiresAt ? new Date(secrets.expiresAt).getTime() : undefined
     };
   } catch (error) {
     throw new Error(`Failed to retrieve Google tokens: ${error instanceof Error ? error.message : 'Unknown error'}`);

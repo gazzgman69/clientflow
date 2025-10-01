@@ -1221,8 +1221,8 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
                   <Button 
                     variant="outline" 
                     onClick={() => {
-                      setSelectedEmail(null);
                       handleReply(selectedEmail);
+                      setSelectedEmail(null);
                     }}
                     data-testid="button-reply-email"
                   >

@@ -123,6 +123,7 @@ function Router() {
                   <Route path="/portal/client" component={ClientPortal} />
                   <Route path="/portal" component={ClientPortal} />
                   <Route path="/settings/email" component={EmailSettings} />
+                  <Route path="/settings/email-and-calendar" component={EmailSettings} />
                   <Route path="/settings/templates" component={Templates} />
                   <Route path="/settings/automations" component={LeadAutomations} />
                   <Route path="/settings" component={Settings} />

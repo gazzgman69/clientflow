@@ -1,0 +1,160 @@
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.Understand this error
+81The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?Understand this error
+81The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.Understand this error
+ClientFlow:1 The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.Understand this error
+ClientFlow:1 The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?Understand this error
+ClientFlow:1 The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.Understand this error
+_app-93b02b81e36f513e.js:34 
+      /////////////////////
+   ///////////////////////////
+  ////////@@@@@@@//////////////
+  ////////@@@@@@@//////////////
+  ////////@@@@@@@//////////////        Curious and driven?
+  ///////////////@@@@@@@///////        Work with us!
+  ///////////////@@@@@@@///////
+  ///////////////@@@@@@@///////        https://join.replit.com/hack.with.us
+  ////////@@@@@@@//////////////
+  ////////@@@@@@@//////////////
+  ////////@@@@@@#//////////////
+   ///////////////////////////
+      /////////////////////
+      
+_app-93b02b81e36f513e.js:34 [LaunchDarkly] LaunchDarkly client initialized
+ClientFlow:1 Banner not shown: beforeinstallpromptevent.preventDefault() called. The page must call beforeinstallpromptevent.prompt() to show the banner.
+34Error while parsing the 'sandbox' attribute: 'allow-downloads-without-user-activation' is an invalid sandbox flag.Understand this error
+framework-bd5ecaad39fd3128.js:1 Unrecognized feature: 'ambient-light-sensor'.
+_ @ framework-bd5ecaad39fd3128.js:1Understand this warning
+framework-bd5ecaad39fd3128.js:1 Unrecognized feature: 'battery'.
+_ @ framework-bd5ecaad39fd3128.js:1Understand this warning
+framework-bd5ecaad39fd3128.js:1 Unrecognized feature: 'execution-while-not-rendered'.
+_ @ framework-bd5ecaad39fd3128.js:1Understand this warning
+framework-bd5ecaad39fd3128.js:1 Unrecognized feature: 'execution-while-out-of-viewport'.
+_ @ framework-bd5ecaad39fd3128.js:1Understand this warning
+framework-bd5ecaad39fd3128.js:1 Unrecognized feature: 'layout-animations'.
+_ @ framework-bd5ecaad39fd3128.js:1Understand this warning
+framework-bd5ecaad39fd3128.js:1 Unrecognized feature: 'legacy-image-formats'.
+_ @ framework-bd5ecaad39fd3128.js:1Understand this warning
+framework-bd5ecaad39fd3128.js:1 Unrecognized feature: 'navigation-override'.
+_ @ framework-bd5ecaad39fd3128.js:1Understand this warning
+framework-bd5ecaad39fd3128.js:1 Unrecognized feature: 'oversized-images'.
+_ @ framework-bd5ecaad39fd3128.js:1Understand this warning
+framework-bd5ecaad39fd3128.js:1 Unrecognized feature: 'publickey-credentials'.
+_ @ framework-bd5ecaad39fd3128.js:1Understand this warning
+framework-bd5ecaad39fd3128.js:1 Unrecognized feature: 'speaker-selection'.
+_ @ framework-bd5ecaad39fd3128.js:1Understand this warning
+framework-bd5ecaad39fd3128.js:1 Unrecognized feature: 'unoptimized-images'.
+_ @ framework-bd5ecaad39fd3128.js:1Understand this warning
+framework-bd5ecaad39fd3128.js:1 Unrecognized feature: 'unsized-media'.
+_ @ framework-bd5ecaad39fd3128.js:1Understand this warning
+framework-bd5ecaad39fd3128.js:1 Unrecognized feature: 'pointer-lock'.
+_ @ framework-bd5ecaad39fd3128.js:1Understand this warning
+framework-bd5ecaad39fd3128.js:1 Allow attribute will take precedence over 'allowfullscreen'.
+_ @ framework-bd5ecaad39fd3128.js:1Understand this warning
+framework-bd5ecaad39fd3128.js:1 Allow attribute will take precedence over 'allowpaymentrequest'.
+_ @ framework-bd5ecaad39fd3128.js:1Understand this warning
+hook.js:608 task queue exceeded allotted deadline by 22ms
+overrideMethod @ hook.js:608Understand this warning
+sp.replit.com/v1/t:1  Failed to load resource: the server responded with a status of 400 ()Understand this error
+491hook.js:608 Failed when connecting: Connection closed (code: 1006)
+overrideMethod @ hook.js:608Understand this error
+sp.replit.com/v1/t:1  Failed to load resource: the server responded with a status of 400 ()Understand this error
+hook.js:608 [Coframe] Error initializing SDK Error: Timeout waiting for command after 3600000ms for:
+e=>!("pageHydrated"!==e.emit)
+    at cf.js?config=%257B%2522projectId%2522%253A%252268c9ad4d4cddb58cf3a1f93d%2522%252C%2522startTime%2522%253A1759233735416%252C%2522timeoutMs%2522%253A1000%252C%2522currentUrl%2522%253A%2522https%253A%252F%252Freplit.com%252F%2540skinnycheck%252FClientFlow%2522%252C%2522waitForHydration%2522%253Atrue%252C%2522trackingOnly%2522%253Atrue%257D:10:2345
+overrideMethod @ hook.js:608Understand this error
+129hook.js:608 Failed when connecting: Connection closed (code: 1006)
+overrideMethod @ hook.js:608Understand this error
+sp.replit.com/v1/t:1  Failed to load resource: the server responded with a status of 400 ()Understand this error
+attached_assets/Screenshot%202025-09-30%20at%2016.09.17_1759244981805.png:1  Failed to load resource: the server responded with a status of 404 ()Understand this error
+sp.replit.com/v1/t:1  Failed to load resource: the server responded with a status of 400 ()Understand this error
+sp.replit.com/v1/t:1  Failed to load resource: the server responded with a status of 400 ()Understand this error
+_app-93b02b81e36f513e.js:10 WebSocket connection to 'wss://replit.com/graphql_subscriptions' failed: 
+(anonymous) @ _app-93b02b81e36f513e.js:10Understand this error
+_app-93b02b81e36f513e.js:10 WebSocket connection to 'wss://replit.com/graphql_subscriptions' failed: 
+(anonymous) @ _app-93b02b81e36f513e.js:10Understand this error
+_app-93b02b81e36f513e.js:10 WebSocket connection to 'wss://replit.com/graphql_subscriptions' failed: 
+(anonymous) @ _app-93b02b81e36f513e.js:10Understand this error
+_app-93b02b81e36f513e.js:10 WebSocket connection to 'wss://replit.com/graphql_subscriptions' failed: 
+(anonymous) @ _app-93b02b81e36f513e.js:10Understand this error
+attached_assets/Screenshot%202025-10-01%20at%2009.59.38_1759309194939.png:1  Failed to load resource: the server responded with a status of 404 ()Understand this error
+workspace_iframe.html?initialPath=%2Fsettings%2Femail-and-calendar&id=%3Ar35j%3A:32 Unrecognized feature: 'ambient-light-sensor'.Understand this warning
+workspace_iframe.html?initialPath=%2Fsettings%2Femail-and-calendar&id=%3Ar35j%3A:32 Unrecognized feature: 'battery'.Understand this warning
+workspace_iframe.html?initialPath=%2Fsettings%2Femail-and-calendar&id=%3Ar35j%3A:32 Unrecognized feature: 'execution-while-not-rendered'.Understand this warning
+workspace_iframe.html?initialPath=%2Fsettings%2Femail-and-calendar&id=%3Ar35j%3A:32 Unrecognized feature: 'execution-while-out-of-viewport'.Understand this warning
+workspace_iframe.html?initialPath=%2Fsettings%2Femail-and-calendar&id=%3Ar35j%3A:32 Unrecognized feature: 'layout-animations'.Understand this warning
+workspace_iframe.html?initialPath=%2Fsettings%2Femail-and-calendar&id=%3Ar35j%3A:32 Unrecognized feature: 'legacy-image-formats'.Understand this warning
+workspace_iframe.html?initialPath=%2Fsettings%2Femail-and-calendar&id=%3Ar35j%3A:32 Unrecognized feature: 'navigation-override'.Understand this warning
+workspace_iframe.html?initialPath=%2Fsettings%2Femail-and-calendar&id=%3Ar35j%3A:32 Unrecognized feature: 'oversized-images'.Understand this warning
+workspace_iframe.html?initialPath=%2Fsettings%2Femail-and-calendar&id=%3Ar35j%3A:32 Unrecognized feature: 'publickey-credentials'.Understand this warning
+workspace_iframe.html?initialPath=%2Fsettings%2Femail-and-calendar&id=%3Ar35j%3A:32 Unrecognized feature: 'speaker-selection'.Understand this warning
+workspace_iframe.html?initialPath=%2Fsettings%2Femail-and-calendar&id=%3Ar35j%3A:32 Unrecognized feature: 'unoptimized-images'.Understand this warning
+workspace_iframe.html?initialPath=%2Fsettings%2Femail-and-calendar&id=%3Ar35j%3A:32 Unrecognized feature: 'unsized-media'.Understand this warning
+workspace_iframe.html?initialPath=%2Fsettings%2Femail-and-calendar&id=%3Ar35j%3A:32 Allow attribute will take precedence over 'allowfullscreen'.Understand this warning
+workspace_iframe.html?initialPath=%2Fsettings%2Femail-and-calendar&id=%3Ar35j%3A:32 Allow attribute will take precedence over 'allowpaymentrequest'.Understand this warning
+6Refused to load the font '<URL>' because it violates the following Content Security Policy directive: "font-src 'self' <URL>".
+Understand this error
+e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/api/admin/impersonate/status:1  Failed to load resource: the server responded with a status of 403 (Forbidden)Understand this error
+e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/api/admin/impersonate/status:1  Failed to load resource: the server responded with a status of 403 (Forbidden)Understand this error
+e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/api/clients:1  Failed to load resource: the server responded with a status of 404 (Not Found)Understand this error
+e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/api/admin/packages:1  Failed to load resource: the server responded with a status of 404 (Not Found)Understand this error
+e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/api/admin/templates:1  Failed to load resource: the server responded with a status of 404 (Not Found)Understand this error
+e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/api/admin/addons:1  Failed to load resource: the server responded with a status of 404 (Not Found)Understand this error
+e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/api/projects/5446397b-8630-4911-8920-802d4b54b373/notes:1  Failed to load resource: the server responded with a status of 500 (Internal Server Error)Understand this error
+e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/api/admin/extra-info-fields:1  Failed to load resource: the server responded with a status of 403 (Forbidden)Understand this error
+e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/api/projects/5446397b-8630-4911-8920-802d4b54b373/members:1  Failed to load resource: the server responded with a status of 500 (Internal Server Error)Understand this error
+e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/api/admin/packages:1  Failed to load resource: the server responded with a status of 404 (Not Found)Understand this error
+e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/api/templates?type=email:1  Failed to load resource: the server responded with a status of 404 (Not Found)Understand this error
+e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/api/signatures:1  Failed to load resource: the server responded with a status of 401 (Unauthorized)Understand this error
+e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/api/admin/addons:1  Failed to load resource: the server responded with a status of 404 (Not Found)Understand this error
+Console.js:61 [tiptap warn]: Duplicate extension names found: ['underline']. This can lead to issues.
+Mt.forEach.n.<computed> @ Console.js:61Understand this warning
+e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/api/email/projects/5446397b-8630-4911-8920-802d4b54b373/email-messages:1  Failed to load resource: the server responded with a status of 404 (Not Found)Understand this error
+e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/api/admin/extra-info-fields:1  Failed to load resource: the server responded with a status of 403 (Forbidden)Understand this error
+e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/api/email/projects/5446397b-8630-4911-8920-802d4b54b373/email-messages:1  Failed to load resource: the server responded with a status of 404 (Not Found)Understand this error
+e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/api/email/projects/5446397b-8630-4911-8920-802d4b54b373/email-messages:1  Failed to load resource: the server responded with a status of 404 (Not Found)Understand this error
+e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/api/admin/packages:1  Failed to load resource: the server responded with a status of 404 (Not Found)Understand this error
+e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/api/admin/addons:1  Failed to load resource: the server responded with a status of 404 (Not Found)Understand this error
+e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/api/admin/extra-info-fields:1  Failed to load resource: the server responded with a status of 403 (Forbidden)Understand this error
+e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/api/clients:1  Failed to load resource: the server responded with a status of 404 (Not Found)Understand this error
+e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/api/projects/5446397b-8630-4911-8920-802d4b54b373/notes:1  Failed to load resource: the server responded with a status of 500 (Internal Server Error)Understand this error
+e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/api/projects/5446397b-8630-4911-8920-802d4b54b373/members:1  Failed to load resource: the server responded with a status of 500 (Internal Server Error)Understand this error
+e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/api/admin/templates:1  Failed to load resource: the server responded with a status of 404 (Not Found)Understand this error
+e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/api/admin/packages:1  Failed to load resource: the server responded with a status of 404 (Not Found)Understand this error
+e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/api/templates?type=email:1  Failed to load resource: the server responded with a status of 404 (Not Found)Understand this error
+e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/api/admin/addons:1  Failed to load resource: the server responded with a status of 404 (Not Found)Understand this error
+e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/api/signatures:1  Failed to load resource: the server responded with a status of 401 (Unauthorized)Understand this error
+e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/api/admin/extra-info-fields:1  Failed to load resource: the server responded with a status of 403 (Forbidden)Understand this error
+e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/api/email/projects/5446397b-8630-4911-8920-802d4b54b373/email-messages:1  Failed to load resource: the server responded with a status of 404 (Not Found)Understand this error
+Console.js:61 [tiptap warn]: Duplicate extension names found: ['underline']. This can lead to issues.
+Mt.forEach.n.<computed> @ Console.js:61Understand this warning
+e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/api/email/projects/5446397b-8630-4911-8920-802d4b54b373/email-messages:1  Failed to load resource: the server responded with a status of 404 (Not Found)Understand this error
+e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/api/email/projects/5446397b-8630-4911-8920-802d4b54b373/email-messages:1  Failed to load resource: the server responded with a status of 404 (Not Found)Understand this error
+Console.js:61 [tiptap warn]: Duplicate extension names found: ['underline']. This can lead to issues.
+Mt.forEach.n.<computed> @ Console.js:61Understand this warning
+e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/api/email/projects/5446397b-8630-4911-8920-802d4b54b373/email-messages:1  Failed to load resource: the server responded with a status of 404 (Not Found)Understand this error
+e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/api/admin/impersonate/status:1  Failed to load resource: the server responded with a status of 403 (Forbidden)Understand this error
+e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/api/email/projects/5446397b-8630-4911-8920-802d4b54b373/email-messages:1  Failed to load resource: the server responded with a status of 404 (Not Found)Understand this error
+e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/api/email/projects/5446397b-8630-4911-8920-802d4b54b373/email-messages:1  Failed to load resource: the server responded with a status of 404 (Not Found)Understand this error
+e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/api/email/projects/5446397b-8630-4911-8920-802d4b54b373/email-messages:1  Failed to load resource: the server responded with a status of 404 (Not Found)Understand this error
+e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/api/email/projects/5446397b-8630-4911-8920-802d4b54b373/email-messages:1  Failed to load resource: the server responded with a status of 404 (Not Found)Understand this error
+e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/api/email/projects/5446397b-8630-4911-8920-802d4b54b373/email-messages:1  Failed to load resource: the server responded with a status of 404 (Not Found)Understand this error
+e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/api/email/projects/5446397b-8630-4911-8920-802d4b54b373/email-messages:1  Failed to load resource: the server responded with a status of 404 (Not Found)Understand this error
+e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/api/email/projects/5446397b-8630-4911-8920-802d4b54b373/email-messages:1  Failed to load resource: the server responded with a status of 404 (Not Found)Understand this error
+e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/api/email/projects/5446397b-8630-4911-8920-802d4b54b373/email-messages:1  Failed to load resource: the server responded with a status of 404 (Not Found)Understand this error
+e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/api/templates?type=email:1  Failed to load resource: the server responded with a status of 404 (Not Found)Understand this error
+e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/api/signatures:1  Failed to load resource: the server responded with a status of 401 (Unauthorized)Understand this error
+e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/api/email/projects/5446397b-8630-4911-8920-802d4b54b373/email-messages:1  Failed to load resource: the server responded with a status of 404 (Not Found)Understand this error
+e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/api/email/projects/5446397b-8630-4911-8920-802d4b54b373/email-messages:1  Failed to load resource: the server responded with a status of 404 (Not Found)Understand this error
+e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/api/email/projects/5446397b-8630-4911-8920-802d4b54b373/email-messages:1  Failed to load resource: the server responded with a status of 404 (Not Found)Understand this error
+e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/api/email/projects/5446397b-8630-4911-8920-802d4b54b373/email-messages:1  Failed to load resource: the server responded with a status of 404 (Not Found)Understand this error
+e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/api/email/projects/5446397b-8630-4911-8920-802d4b54b373/email-messages:1  Failed to load resource: the server responded with a status of 404 (Not Found)Understand this error
+e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/api/email/projects/5446397b-8630-4911-8920-802d4b54b373/email-messages:1  Failed to load resource: the server responded with a status of 404 (Not Found)Understand this error
+e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/api/email/projects/5446397b-8630-4911-8920-802d4b54b373/email-messages:1  Failed to load resource: the server responded with a status of 404 (Not Found)Understand this error
+Console.js:61 [tiptap warn]: Duplicate extension names found: ['underline']. This can lead to issues.
+Mt.forEach.n.<computed> @ Console.js:61Understand this warning
+e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/api/email/projects/5446397b-8630-4911-8920-802d4b54b373/email-messages:1  Failed to load resource: the server responded with a status of 404 (Not Found)Understand this error
+Console.js:61 🔍 EMAIL SEND DEBUG:
+Console.js:61   message state: <p><strong>Hey [FirstName] </strong></p><p></p><p><em>Hoiw you been</em></p><p></p><p><u>Allgood I h
+Console.js:61   getHTML(): <p><strong>Hey [FirstName] </strong></p><p></p><p><em>Hoiw you been</em></p><p></p><p><u>Allgood I h
+Console.js:61   emailBody (final): <p><strong>Hey [FirstName] </strong></p><p></p><p><em>Hoiw you been</em></p><p></p><p><u>Allgood I h
+e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/api/email/projects/5446397b-8630-4911-8920-802d4b54b373/email-messages:1  Failed to load resource: the server responded with a status of 404 (Not Found)

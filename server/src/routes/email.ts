@@ -128,8 +128,14 @@ async function getUserEmail(userId: string, userEmail?: string): Promise<string>
  */
 router.post('/send', requireAuth, async (req: any, res) => {
   try {
+    // Debug: Log raw request body before Zod parsing
+    console.log('📧 RAW req.body.html (first 100 chars):', req.body.html?.substring(0, 100));
+    console.log('📧 RAW req.body type:', typeof req.body.html);
+    
     const emailData = sendEmailSchema.parse(req.body);
     const userId = req.user.id;
+    
+    console.log('📧 AFTER ZOD emailData.html (first 100 chars):', emailData.html?.substring(0, 100));
     
     let finalSubject = emailData.subject || '';
     let finalText = emailData.text || '';

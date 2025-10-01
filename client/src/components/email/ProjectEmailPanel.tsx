@@ -1229,6 +1229,7 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
                   <Button 
                     variant="outline" 
                     onClick={() => {
+                      console.log('🟢 DIALOG Reply button clicked!');
                       handleReply(selectedEmail);
                     }}
                     data-testid="button-reply-email"

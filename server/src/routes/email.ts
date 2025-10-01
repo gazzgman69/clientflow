@@ -777,7 +777,7 @@ router.get('/projects/:projectId/email-messages', requireAuth, async (req: any, 
     
     // SECURITY FIX: Verify user owns the project before accessing messages
     try {
-      const project = await storage.getProject(projectId);
+      const project = await storage.getProject(projectId, tenantId);
       if (!project) {
         return res.status(404).json({ error: 'Project not found' });
       }

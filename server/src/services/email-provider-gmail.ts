@@ -111,8 +111,8 @@ export class GmailEmailProvider {
     
     if (integration.secretsEnc) {
       const decrypted = await storage.decryptEmailAccountSecrets(integration.secretsEnc);
-      access_token = decrypted.access_token;
-      refresh_token = decrypted.refresh_token;
+      access_token = decrypted?.accessToken || '';
+      refresh_token = decrypted?.refreshToken || '';
     }
     
     // Validate credentials

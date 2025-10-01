@@ -1,6 +1,8 @@
 import { storage } from '../../storage';
 import { emailSyncService } from './emailSync';
 import { log } from '../../vite';
+import { db } from '../../db';
+import { and, eq } from 'drizzle-orm';
 
 /**
  * Auto-sync service for Gmail email synchronization across all tenants
@@ -111,23 +113,27 @@ export class EmailAutoSyncService {
           
           console.log(`🔄 Processing email sync for tenant: ${tenant.name} (${tenant.id})`);
           
-          // Get Google integrations for this tenant only
-          const tenantIntegrations = await tenantStorage.getCalendarIntegrationsByTenant(tenant.id);
-          const activeIntegrations = tenantIntegrations.filter(integration => 
-            integration.provider === 'google' && 
-            integration.isActive && 
-            integration.accessToken &&
-            integration.userId
-          );
+          // Get Gmail OAuth connections from email_accounts for this tenant only
+          const { emailAccounts: emailAccountsTable } = await import('../../shared/schema');
+          const gmailAccounts = await db
+            .select()
+            .from(emailAccountsTable)
+            .where(
+              and(
+                eq(emailAccountsTable.tenantId, tenant.id),
+                eq(emailAccountsTable.providerKey, 'google'),
+                eq(emailAccountsTable.status, 'connected')
+              )
+            );
           
-          if (activeIntegrations.length === 0) {
-            log(`📭 No active Google integrations for tenant ${tenant.id}`);
+          if (gmailAccounts.length === 0) {
+            log(`📭 No active Gmail OAuth connections for tenant ${tenant.id}`);
             continue;
           }
           
           // Get unique user IDs for this tenant
-          const userIds = [...new Set(activeIntegrations.map(i => i.userId!).filter(Boolean))];
-          console.log(`👥 Found ${userIds.length} users with Google integrations in tenant ${tenant.id}`);
+          const userIds = [...new Set(gmailAccounts.map(account => account.userId).filter(Boolean))];
+          console.log(`👥 Found ${userIds.length} users with Gmail OAuth in tenant ${tenant.id}`);
           
           let tenantSuccessCount = 0;
           let tenantErrorCount = 0;
@@ -153,13 +159,14 @@ export class EmailAutoSyncService {
               if (result.synced > 0 || result.skipped > 0) {
                 console.log(`✅ Tenant ${tenant.id} user ${userId}: ${result.synced} synced, ${result.skipped} skipped`);
                 
-                // Update integrations using tenant-scoped storage
-                const userIntegrations = activeIntegrations.filter(i => i.userId === userId);
-                for (const integration of userIntegrations) {
-                  await tenantStorage.updateCalendarIntegration(integration.id, {
-                    lastSyncAt: new Date(),
-                    syncErrors: null
-                  });
+                // Update last sync time for email accounts
+                const userAccounts = gmailAccounts.filter(account => account.userId === userId);
+                const { emailAccounts: emailAccountsTable } = await import('../../shared/schema');
+                for (const account of userAccounts) {
+                  await db
+                    .update(emailAccountsTable)
+                    .set({ lastSyncAt: new Date() })
+                    .where(eq(emailAccountsTable.id, account.id));
                 }
                 
                 tenantSuccessCount++;
@@ -172,15 +179,8 @@ export class EmailAutoSyncService {
               const errorMessage = error instanceof Error ? error.message : 'Unknown error';
               console.error(`❌ Failed to sync emails for user ${userId} in tenant ${tenant.id}:`, errorMessage);
               
-              // Update errors using tenant-scoped storage
-              const userIntegrations = activeIntegrations.filter(i => i.userId === userId);
-              const errorWithTimestamp = `${new Date().toISOString()}: ${errorMessage}`;
-              
-              for (const integration of userIntegrations) {
-                await tenantStorage.updateCalendarIntegration(integration.id, {
-                  syncErrors: errorWithTimestamp
-                });
-              }
+              // Log errors for email accounts (we don't update account status on sync errors)
+              console.log(`📝 Email sync error logged for user ${userId}: ${errorMessage}`);
             } finally {
               this.inProgressByUser.delete(userId);
             }

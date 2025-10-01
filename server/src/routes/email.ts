@@ -9,7 +9,7 @@ import { imapService } from '../services/imap';
 import { z } from 'zod';
 import { storage } from '../../storage';
 import { db } from '../../db';
-import { emailThreads, emails, emailAttachments, projects, contacts, emailThreadReads, users } from '@shared/schema';
+import { emailThreads, emails, emailAttachments, projects, contacts, emailThreadReads, users, emailAccounts } from '@shared/schema';
 import { eq, and, or, sql, desc, asc } from 'drizzle-orm';
 import multer from 'multer';
 import path from 'path';
@@ -1268,23 +1268,25 @@ router.post('/sync', requireAuth, async (req: any, res) => {
     
     console.log('🔄 Manual email sync requested (Gmail + IMAP)');
     
-    // Use the same logic as background sync: find active Google integrations
-    const integrations = await storage.getCalendarIntegrations();
-    const activeGoogleIntegrations = integrations.filter(integration => 
-      integration.provider === 'google' && 
-      integration.isActive && 
-      integration.accessToken &&
-      integration.userId // Ensure userId is present
-    );
+    // Find active Gmail OAuth connections in email_accounts table
+    const emailAccounts = await db
+      .select()
+      .from(emailAccounts)
+      .where(
+        and(
+          eq(emailAccounts.providerKey, 'google'),
+          eq(emailAccounts.status, 'connected')
+        )
+      );
 
-    // Get unique user IDs to sync (same as background sync) 
+    // Get unique user IDs to sync
     const uniqueUserIds = Array.from(new Set(
-      activeGoogleIntegrations
-        .map(integration => integration.userId)
+      emailAccounts
+        .map(account => account.userId)
         .filter((userId): userId is string => userId !== null)
     ));
 
-    console.log(`🎯 Found ${uniqueUserIds.length} users with Google integrations for manual sync`);
+    console.log(`🎯 Found ${uniqueUserIds.length} users with Gmail OAuth in email_accounts for manual sync`);
     
     // Sync Gmail for each user with Google integration
     let gmailResult: { synced: number; skipped: number; errors: string[] } = { synced: 0, skipped: 0, errors: [] };

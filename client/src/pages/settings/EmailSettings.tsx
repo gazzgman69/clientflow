@@ -11,10 +11,13 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { apiRequest, queryClient } from '@/lib/queryClient';
 import { 
   Mail, 
-  CheckCircle, 
+  Send,
+  CheckCircle,
+  XCircle,
   AlertTriangle,
   RefreshCw,
   Link as LinkIcon,
@@ -52,6 +55,13 @@ export default function EmailSettings() {
   const [selectedSignature, setSelectedSignature] = useState<EmailSignature | null>(null);
   const [showSignatureDialog, setShowSignatureDialog] = useState(false);
   const [signatureForm, setSignatureForm] = useState({ name: '', content: '' });
+  const [testEmailData, setTestEmailData] = useState({
+    to: '',
+    subject: 'Test Email from BusinessCRM',
+    body: 'This is a test email to verify your email configuration is working correctly.',
+    provider: 'gmail' as 'gmail' | 'microsoft' | 'smtp'
+  });
+  const [testEmailResult, setTestEmailResult] = useState<any>(null);
 
   // Fetch tenant email preferences
   const { data: prefsData } = useQuery({
@@ -166,6 +176,23 @@ export default function EmailSettings() {
     },
     onError: () => {
       setAlertMessage({ type: 'error', message: 'Failed to delete signature' });
+    }
+  });
+
+  // Send test email mutation
+  const sendTestMutation = useMutation({
+    mutationFn: async (data: { to: string; provider: string; fromEmail?: string }) => {
+      const response = await apiRequest('POST', '/api/email/debug/send-test-email', data);
+      return response.json();
+    },
+    onSuccess: (data) => {
+      setTestEmailResult(data);
+      if (data.success) {
+        setAlertMessage({ type: 'success', message: 'Test email sent successfully' });
+      }
+    },
+    onError: (error: any) => {
+      setAlertMessage({ type: 'error', message: 'Failed to send test email' });
     }
   });
 
@@ -374,6 +401,166 @@ export default function EmailSettings() {
                     </Label>
                   </div>
                 </div>
+              </CardContent>
+            </Card>
+
+            {/* Email Preferences */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg font-bold uppercase tracking-wide">Email Preferences</CardTitle>
+                <CardDescription>Configure how emails are sent and received</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <Label htmlFor="bcc-self">BCC you on all outgoing mail</Label>
+                      <p className="text-xs text-muted-foreground">Receive a copy of every email you send</p>
+                    </div>
+                    <Switch
+                      id="bcc-self"
+                      checked={prefs?.bccSelf ?? false}
+                      onCheckedChange={(checked) => updatePrefsMutation.mutate({ bccSelf: checked })}
+                      data-testid="switch-bcc-self"
+                    />
+                  </div>
+
+                  <Separator />
+
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <Label htmlFor="read-receipts">Enable Read Receipts</Label>
+                      <p className="text-xs text-muted-foreground">May increase spam score</p>
+                    </div>
+                    <Switch
+                      id="read-receipts"
+                      checked={prefs?.readReceipts ?? false}
+                      onCheckedChange={(checked) => updatePrefsMutation.mutate({ readReceipts: checked })}
+                      data-testid="switch-read-receipts"
+                    />
+                  </div>
+
+                  <Separator />
+
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <Label htmlFor="contacts-only">Sync Contacts-Only Emails</Label>
+                      <p className="text-xs text-muted-foreground">Only sync emails from known contacts</p>
+                    </div>
+                    <Switch
+                      id="contacts-only"
+                      checked={prefs?.contactsOnly ?? false}
+                      onCheckedChange={(checked) => updatePrefsMutation.mutate({ contactsOnly: checked })}
+                      data-testid="switch-contacts-only"
+                    />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Send Test Email */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg font-bold uppercase tracking-wide">Send Test Email</CardTitle>
+                <CardDescription>Test your email configuration by sending a test message</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="test-email-to">Recipient Email</Label>
+                    <Input
+                      id="test-email-to"
+                      type="email"
+                      placeholder="recipient@example.com"
+                      value={testEmailData.to}
+                      onChange={(e) => setTestEmailData({ ...testEmailData, to: e.target.value })}
+                      data-testid="input-test-email-to"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="test-email-subject">Subject</Label>
+                    <Input
+                      id="test-email-subject"
+                      value={testEmailData.subject}
+                      onChange={(e) => setTestEmailData({ ...testEmailData, subject: e.target.value })}
+                      data-testid="input-test-email-subject"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="test-email-body">Message</Label>
+                    <Textarea
+                      id="test-email-body"
+                      value={testEmailData.body}
+                      onChange={(e) => setTestEmailData({ ...testEmailData, body: e.target.value })}
+                      rows={4}
+                      data-testid="textarea-test-email-body"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="test-email-provider">Provider</Label>
+                    <Select 
+                      value={testEmailData.provider} 
+                      onValueChange={(value: any) => setTestEmailData({ ...testEmailData, provider: value })}
+                    >
+                      <SelectTrigger id="test-email-provider" data-testid="select-test-provider">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="gmail">Gmail</SelectItem>
+                        <SelectItem value="microsoft">Microsoft</SelectItem>
+                        <SelectItem value="smtp">SMTP</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <Button
+                  onClick={() => sendTestMutation.mutate({
+                    to: testEmailData.to,
+                    provider: testEmailData.provider,
+                    fromEmail: providerStatus.email
+                  })}
+                  disabled={!testEmailData.to || sendTestMutation.isPending}
+                  data-testid="button-send-test-email"
+                >
+                  {sendTestMutation.isPending ? (
+                    <>
+                      <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                      Sending...
+                    </>
+                  ) : (
+                    <>
+                      <Send className="h-4 w-4 mr-2" />
+                      Send Test Email
+                    </>
+                  )}
+                </Button>
+
+                {testEmailResult && (
+                  <div className={`p-4 rounded-lg ${testEmailResult.success ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'}`}>
+                    <div className="flex items-start space-x-3">
+                      {testEmailResult.success ? (
+                        <CheckCircle className="h-5 w-5 text-green-600 mt-0.5" />
+                      ) : (
+                        <XCircle className="h-5 w-5 text-red-600 mt-0.5" />
+                      )}
+                      <div className="flex-1 space-y-2">
+                        <p className={`font-medium ${testEmailResult.success ? 'text-green-900' : 'text-red-900'}`}>
+                          {testEmailResult.message}
+                        </p>
+                        {testEmailResult.testDetails && (
+                          <div className="text-sm space-y-1">
+                            <p><span className="font-medium">Provider:</span> {testEmailResult.testDetails.provider}</p>
+                            <p><span className="font-medium">Timestamp:</span> {new Date(testEmailResult.testDetails.timestamp).toLocaleString()}</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>

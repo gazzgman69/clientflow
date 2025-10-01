@@ -1088,17 +1088,19 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
                   </div>
                 )}
 
-                {/* Action Buttons */}
-                <div className="flex gap-2 pt-4 border-t">
-                  <Button 
-                    variant="outline" 
-                    onClick={() => handleReply(selectedEmail)}
-                    data-testid="button-reply-email"
-                  >
-                    <Reply className="h-4 w-4 mr-2" />
-                    Reply
-                  </Button>
-                </div>
+                {/* Action Buttons - Only show Reply for inbound emails */}
+                {selectedEmail.direction === 'inbound' && (
+                  <div className="flex gap-2 pt-4 border-t">
+                    <Button 
+                      variant="outline" 
+                      onClick={() => handleReply(selectedEmail)}
+                      data-testid="button-reply-email"
+                    >
+                      <Reply className="h-4 w-4 mr-2" />
+                      Reply
+                    </Button>
+                  </div>
+                )}
               </>
             )}
           </div>

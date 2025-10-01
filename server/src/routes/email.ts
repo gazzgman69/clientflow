@@ -164,7 +164,9 @@ router.post('/send', requireAuth, async (req: any, res) => {
     }
     
     // Build context for token resolution - auto-enrich from email address
-    const context: any = {};
+    const context: any = {
+      tenantId: req.tenantId || 'default-tenant'
+    };
     
     // Use provided IDs or try to derive from email address
     let contactId = emailData.contactId;
@@ -979,7 +981,9 @@ router.post('/email-threads/:threadId/reply', requireAuth, upload.array('attachm
     let resolvedSubject = subject || `Re: ${thread.subject}`;
     
     // Try to build token resolution context from thread info
-    const context: any = {};
+    const context: any = {
+      tenantId: req.tenantId || 'default-tenant'
+    };
     if (thread.projectId) {
       context.projectId = thread.projectId;
       
@@ -1073,6 +1077,7 @@ router.post('/projects/:projectId/compose-email', upload.array('attachments'), a
       
       // Build context for token resolution
       const context: any = {
+        tenantId: req.tenantId || 'default-tenant',
         projectId: projectId
       };
       if (project.projects?.contactId) {
@@ -1087,7 +1092,10 @@ router.post('/projects/:projectId/compose-email', upload.array('attachments'), a
       console.log(`📧 Project email template rendered: ${rendered.unresolved.length} unresolved tokens`);
     } else {
       // No template provided, but check for tokens in subject/body and resolve them
-      const context: any = { projectId: projectId };
+      const context: any = { 
+        tenantId: req.tenantId || 'default-tenant',
+        projectId: projectId 
+      };
       if (project.projects?.contactId) {
         context.contactId = project.projects.contactId;
       }
@@ -1656,7 +1664,10 @@ if (process.env.DEBUG_EMAIL === '1') {
       const { to, subject, html, text, tokens } = req.body;
       
       // Build context for token resolution
-      const context: any = { tokens: tokens || {} };
+      const context: any = { 
+        tenantId: req.tenantId || 'default-tenant',
+        tokens: tokens || {} 
+      };
       
       // Resolve tokens
       const subjectResult = subject ? 

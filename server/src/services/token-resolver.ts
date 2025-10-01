@@ -6,6 +6,7 @@ export interface TokenResolutionContext {
   contactId?: string;
   projectId?: string;
   quoteId?: string;
+  tenantId: string;
 }
 
 export interface TokenFormatOptions {
@@ -160,21 +161,21 @@ export class TokenResolverService {
     // Project tokens
     this.tokenRegistry.set('ProjectName', {
       resolve: async (context) => {
-        const project = await this.getProject(context.projectId);
+        const project = await this.getProject(context.projectId, context.tenantId);
         return project?.name || '';
       }
     });
 
     this.tokenRegistry.set('ProjectType', {
       resolve: async (context) => {
-        const project = await this.getProject(context.projectId);
+        const project = await this.getProject(context.projectId, context.tenantId);
         return project?.status || ''; // Using status as type for now
       }
     });
 
     this.tokenRegistry.set('ProjectDate', {
       resolve: async (context) => {
-        const project = await this.getProject(context.projectId);
+        const project = await this.getProject(context.projectId, context.tenantId);
         if (!project?.startDate) return '';
         // Return user-friendly formatted date instead of ISO string
         return project.startDate.toLocaleDateString('en-US', {
@@ -187,7 +188,7 @@ export class TokenResolverService {
 
     this.tokenRegistry.set('ProjectLocation', {
       resolve: async (context) => {
-        const project = await this.getProject(context.projectId);
+        const project = await this.getProject(context.projectId, context.tenantId);
         if (!project?.venueId) return '';
         
         // Get venue information if available
@@ -202,7 +203,7 @@ export class TokenResolverService {
 
     this.tokenRegistry.set('ProjectAddress', {
       resolve: async (context) => {
-        const project = await this.getProject(context.projectId);
+        const project = await this.getProject(context.projectId, context.tenantId);
         if (!project?.venueId) return '';
         
         try {
@@ -216,7 +217,7 @@ export class TokenResolverService {
 
     this.tokenRegistry.set('ProjectNotes', {
       resolve: async (context) => {
-        const project = await this.getProject(context.projectId);
+        const project = await this.getProject(context.projectId, context.tenantId);
         return project?.description || '';
       }
     });
@@ -643,6 +644,11 @@ export class TokenResolverService {
 
   // Helper methods to get data (with entity-level caching)
   private async getContact(contactId?: string, context?: TokenResolutionContext): Promise<Contact | undefined> {
+    if (!context?.tenantId) {
+      console.error('Token resolver: tenantId is required for getContact');
+      return undefined;
+    }
+    
     // If contactId provided, use it directly
     if (contactId) {
       const cacheKey = `contact:${contactId}`;
@@ -650,31 +656,31 @@ export class TokenResolverService {
         return this.entityCache.get(cacheKey);
       }
       
-      const contact = await this.storage.getContact(contactId);
+      const contact = await this.storage.getContact(contactId, context.tenantId);
       this.entityCache.set(cacheKey, contact);
       return contact;
     }
     
     // If no contactId but we have projectId, get contact from project
     if (context?.projectId) {
-      const project = await this.getProject(context.projectId);
+      const project = await this.getProject(context.projectId, context.tenantId);
       if (project?.contactId) {
-        return this.getContact(project.contactId);
+        return this.getContact(project.contactId, context);
       }
     }
     
     return undefined;
   }
 
-  private async getProject(projectId?: string): Promise<Project | undefined> {
-    if (!projectId) return undefined;
+  private async getProject(projectId?: string, tenantId?: string): Promise<Project | undefined> {
+    if (!projectId || !tenantId) return undefined;
     
     const cacheKey = `project:${projectId}`;
     if (this.entityCache.has(cacheKey)) {
       return this.entityCache.get(cacheKey);
     }
     
-    const project = await this.storage.getProject(projectId);
+    const project = await this.storage.getProject(projectId, tenantId);
     this.entityCache.set(cacheKey, project);
     return project;
   }

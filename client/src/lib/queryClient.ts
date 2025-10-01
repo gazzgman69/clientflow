@@ -56,10 +56,17 @@ export async function apiRequest(
     }
   }
   
+  const stringifiedBody = data ? JSON.stringify(data) : undefined;
+  
+  // DEBUG: Log stringified body for email sends
+  if (url.includes('/email/send') && stringifiedBody) {
+    console.log('📤 STRINGIFIED BODY (first 200 chars):', stringifiedBody.substring(0, 200));
+  }
+  
   const res = await fetch(url, {
     method,
     headers,
-    body: data ? JSON.stringify(data) : undefined,
+    body: stringifiedBody,
     credentials: "include",
   });
 

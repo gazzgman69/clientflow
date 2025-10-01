@@ -107,18 +107,6 @@ app.use((req, res, next) => {
 // Mount webhook routes with raw parsing BEFORE global JSON parsing
 app.use('/api/stripe/webhook', express.raw({ type: 'application/json', limit: '5mb' }));
 
-// DEBUG: Log raw body before JSON parsing for email sends
-app.use('/api/email/send', (req, res, next) => {
-  let rawBody = '';
-  req.on('data', (chunk) => {
-    rawBody += chunk.toString();
-  });
-  req.on('end', () => {
-    console.log('🔍 RAW HTTP BODY (first 200 chars):', rawBody.substring(0, 200));
-    next();
-  });
-});
-
 app.use(express.json({ limit: '10mb' })); // Add size limit for security  
 app.use(express.urlencoded({ extended: false, limit: '10mb' }));
 

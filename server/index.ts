@@ -45,7 +45,7 @@ const cspConfig = {
     directives: {
       defaultSrc: ["'self'"],
       styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
-      fontSrc: ["'self'", "https://fonts.gstatic.com"],
+      fontSrc: ["'self'", "data:", "https://fonts.gstatic.com", "https:"],
       scriptSrc: isProduction 
         ? ["'self'", "https://www.google.com", "https://www.gstatic.com"] 
         : ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://www.google.com", "https://www.gstatic.com", "https://replit.com"],

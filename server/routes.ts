@@ -2511,6 +2511,11 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     res.json([]);
   });
 
+  app.get("/api/admin/impersonate/status", ensureUserAuth, tenantResolver, requireTenant, async (req: any, res) => {
+    // Admin impersonation feature not yet implemented
+    res.json({ impersonating: false });
+  });
+
   // Projects
   app.get("/api/projects", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
     try {

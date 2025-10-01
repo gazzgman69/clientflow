@@ -6,10 +6,46 @@ function b64url(input: string | Buffer): string {
 }
 
 function qp(s: string): string {
-  return (s || '')
-    .replace(/[\t ]+$/gm, (m) => m.split('').map(c => '=' + c.charCodeAt(0).toString(16).toUpperCase()).join(''))
-    .replace(/[\u0080-\uFFFF]/g, ch => '=' + Buffer.from(ch, 'utf8').toString('hex').toUpperCase())
-    .replace(/\r?\n/g, '\r\n');
+  if (!s) return '';
+  
+  // Encode per RFC 2045 quoted-printable rules
+  let encoded = '';
+  const lines = s.split(/\r?\n/);
+  
+  for (let i = 0; i < lines.length; i++) {
+    let line = lines[i];
+    let encodedLine = '';
+    
+    for (let j = 0; j < line.length; j++) {
+      const char = line[j];
+      const code = char.charCodeAt(0);
+      
+      // RFC 2045: printable ASCII (33-126) except '=' can be literal
+      // Space (32) and Tab (9) are allowed in middle of line
+      if (char === '=') {
+        encodedLine += '=3D';
+      } else if ((code >= 33 && code <= 126) || char === ' ' || char === '\t') {
+        encodedLine += char;
+      } else {
+        // Encode control chars and non-ASCII
+        const hex = code.toString(16).toUpperCase().padStart(2, '0');
+        encodedLine += '=' + hex;
+      }
+    }
+    
+    // Encode trailing spaces/tabs (RFC requirement)
+    encodedLine = encodedLine.replace(/[\t ]+$/, (m) => 
+      m.split('').map(c => '=' + c.charCodeAt(0).toString(16).toUpperCase().padStart(2, '0')).join('')
+    );
+    
+    // Add CRLF between lines
+    encoded += encodedLine;
+    if (i < lines.length - 1) {
+      encoded += '\r\n';
+    }
+  }
+  
+  return encoded;
 }
 
 function wrap76(b64: string): string {

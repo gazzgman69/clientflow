@@ -244,10 +244,16 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
   const { data: messagesResponse, isLoading: messagesLoading, error: messagesError } = useQuery({
     queryKey: [`/api/email/projects/${projectId}/email-messages`, contact?.email, emails],
     queryFn: async () => {
+      console.log(`🔍 Fetching emails for project: ${projectId}`);
       const response = await fetch(`/api/email/projects/${projectId}/email-messages`, {
         credentials: 'include'
       });
-      return response.json();
+      const data = await response.json();
+      console.log(`📧 Email response:`, data);
+      if (!response.ok) {
+        console.error(`❌ Email fetch failed:`, response.status, data);
+      }
+      return data;
     },
     enabled: !!projectId && !!currentUser,
     staleTime: 30000,

@@ -1,0 +1,413 @@
+Mission
+Emails sent through Google must include a non-empty HTML/text body and support square-bracket merge tokens (e.g. [FirstName], [FirstName|there]) in Subject and Body. Keep OAuth/DB/UI as-is. Only touch the send pipeline (normalization → token interpolation → MIME build → Gmail send). Add minimal diagnostics.
+
+Constraints
+
+Do not change schemas, OAuth, or provider registration.
+
+Do not refactor unrelated code.
+
+Keep Microsoft path untouched.
+
+Log lengths only, never raw content.
+
+1) Add payload normalization (maps whatever the UI posts → canonical fields)
+
+Create server/src/lib/payload-normalize.ts:
+
+// server/src/lib/payload-normalize.ts
+export type NormalizedSend = {
+  to: string[];
+  cc?: string[];
+  bcc?: string[];
+  subject: string;
+  html?: string;
+  text?: string;
+  attachments?: Array<{ filename: string; content: string; contentType?: string; isBase64?: boolean }>;
+  tokens?: Record<string, any>;
+};
+
+function val(v: any): string {
+  return (typeof v === 'string' ? v : '').trim();
+}
+
+function firstNonEmpty(...vals: (string | undefined)[]): string | undefined {
+  for (const v of vals) if (v && v.trim()) return v.trim();
+  return undefined;
+}
+
+/**
+ * Accepts common client payload variants:
+ * - subject: "..."
+ * - body/html/message/messageHtml/content/editorHtml/richHtml
+ * - text/plainText
+ * - tokens/variables/mergeFields
+ */
+export function normalizeSendPayload(body: any): NormalizedSend {
+  const to = Array.isArray(body?.to) ? body.to : (typeof body?.to === 'string' ? body.to.split(/[;,]\s*/).filter(Boolean) : []);
+  const cc = Array.isArray(body?.cc) ? body.cc : (typeof body?.cc === 'string' ? body.cc.split(/[;,]\s*/).filter(Boolean) : undefined);
+  const bcc = Array.isArray(body?.bcc) ? body.bcc : (typeof body?.bcc === 'string' ? body.bcc.split(/[;,]\s*/).filter(Boolean) : undefined);
+
+  const subject = val(body?.subject) || '';
+
+  const html = firstNonEmpty(
+    val(body?.html),
+    val(body?.body),
+    val(body?.message),
+    val(body?.messageHtml),
+    val(body?.content),
+    val(body?.editorHtml),
+    val(body?.richHtml)
+  );
+
+  const text = firstNonEmpty(
+    val(body?.text),
+    val(body?.plainText),
+    // fallback to stripped HTML can be built later if still empty
+    undefined
+  );
+
+  const tokens = body?.tokens || body?.variables || body?.mergeFields || undefined;
+
+  const attachments = Array.isArray(body?.attachments) ? body.attachments : undefined;
+
+  return { to, cc, bcc, subject, html, text, attachments, tokens };
+}
+
+2) Add square-bracket token interpolation (also keeps legacy curly tokens)
+
+Create/replace server/src/lib/merge.ts:
+
+// server/src/lib/merge.ts
+type Ctx = Record<string, any>;
+
+function get(obj: any, path: string): any {
+  if (!obj || !path) return undefined;
+  return path.split('.').reduce((o, k) => (o && k in o ? o[k] : undefined), obj);
+}
+
+// dd/mm/yyyy (Europe/London)
+export function formatDate(d = new Date()): string {
+  const dd = String(d.getDate()).padStart(2, '0');
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const yyyy = d.getFullYear();
+  return `${dd}/${mm}/${yyyy}`;
+}
+
+export function stripHtml(html: string): string {
+  return (html || '')
+    .replace(/<style[\s\S]*?<\/style>/gi, '')
+    .replace(/<script[\s\S]*?<\/script>/gi, '')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .trim();
+}
+
+// Case-insensitive synonyms → context paths
+const SYN: Record<string, string> = {
+  firstname: 'contact.first_name',
+  first_name: 'contact.first_name',
+  lastname: 'contact.last_name',
+  last_name: 'contact.last_name',
+  fullname: 'contact.name',
+  name: 'contact.name',
+  email: 'contact.email',
+  company: 'company.name',
+  myname: 'user.name',
+  myemail: 'user.email',
+  sendername: 'user.name',
+  senderemail: 'user.email',
+  date: 'date',
+  today: 'date',
+};
+
+// Legacy {{path}} or [[path]] support
+function interpolateLegacy(input: string, ctx: Ctx): string {
+  if (!input) return '';
+  const src = input.replace(/\[\[([\s\S]+?)\]\]/g, '{{$1}}');
+  return src.replace(/\{\{\s*([^}|]+?)\s*(?:\|\s*([^}]+?)\s*)?\}\}/g, (_, p, def) => {
+    const key = String(p).trim();
+    const path = SYN[key.toLowerCase()] || key;
+    let v = get(ctx, path);
+    if (v === undefined || v === null || v === '') v = def ?? '';
+    if (v instanceof Date) return formatDate(v);
+    return String(v);
+  });
+}
+
+// [Token] and [Token|default] — case-insensitive, dotted paths allowed
+export function interpolateSquares(input: string, ctx: Ctx): string {
+  if (!input) return '';
+  return input.replace(/\[([A-Za-z0-9_.]+)(?:\|([^\]]+))?\]/g, (_, raw, def) => {
+    const key = String(raw);
+    const path = SYN[key.toLowerCase()] || key.replace(/^\./, '');
+    let v = get(ctx, path);
+    if (v === undefined || v === null || v === '') v = def ?? '';
+    if (v instanceof Date) return formatDate(v);
+    return String(v);
+  });
+}
+
+export function interpolateTokens(input?: string, ctx: Ctx = {}): string {
+  if (!input) return '';
+  const legacy = interpolateLegacy(input, ctx);
+  return interpolateSquares(legacy, ctx);
+}
+
+export function buildSendContext(params: {
+  to: string[];
+  accountEmail?: string;
+  user?: { id?: string; email?: string; name?: string; first_name?: string; last_name?: string; };
+  company?: { name?: string; domain?: string; };
+  contact?: { email?: string; first_name?: string; last_name?: string; name?: string; [k: string]: any };
+  tokens?: Record<string, any>;
+}) {
+  const now = new Date();
+  const contact =
+    params.contact ||
+    { email: params.to?.[0] || '', name: '', first_name: '', last_name: '' };
+
+  return {
+    now,
+    date: formatDate(now),
+    to: params.to,
+    contact,
+    recipient: contact,
+    sender: { email: params.accountEmail },
+    user: params.user || {},
+    company: params.company || {},
+    ...(params.tokens || {}),
+  };
+}
+
+3) Ensure a correct MIME (headers + blank line + multipart/alternative)
+
+Create/replace server/src/services/gmail-send.ts:
+
+// server/src/services/gmail-send.ts
+import { google } from 'googleapis';
+
+function b64url(input: string | Buffer): string {
+  const b64 = Buffer.isBuffer(input) ? input.toString('base64') : Buffer.from(input, 'utf8').toString('base64');
+  return b64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+}
+
+function qp(s: string): string {
+  return (s || '')
+    .replace(/[\t ]+$/gm, (m) => m.split('').map(c => '=' + c.charCodeAt(0).toString(16).toUpperCase()).join(''))
+    .replace(/[\u0080-\uFFFF]/g, ch => '=' + Buffer.from(ch, 'utf8').toString('hex').toUpperCase())
+    .replace(/\r?\n/g, '\r\n');
+}
+
+function wrap76(b64: string): string {
+  return b64.replace(/.{1,76}/g, '$&\r\n').trim();
+}
+
+function encodeSubject(s: string): string {
+  return /[^\x00-\x7F]/.test(s) ? `=?UTF-8?B?${Buffer.from(s, 'utf8').toString('base64')}?=` : s;
+}
+
+export function buildMimeRaw(opts: {
+  from?: string;
+  to: string[];
+  cc?: string[];
+  bcc?: string[];
+  subject: string;
+  html?: string;
+  text?: string;
+  attachments?: Array<{ filename: string; content: string; contentType?: string; isBase64?: boolean }>;
+}) {
+  const CRLF = '\r\n';
+  const alt = `alt_${Date.now().toString(36)}`;
+  const mix = `mix_${(Date.now()+1).toString(36)}`;
+
+  const headers = [
+    'MIME-Version: 1.0',
+    opts.from ? `From: ${opts.from}` : null,
+    `To: ${opts.to.join(', ')}`,
+    opts.cc?.length ? `Cc: ${opts.cc.join(', ')}` : null,
+    opts.bcc?.length ? `Bcc: ${opts.bcc.join(', ')}` : null,
+    `Subject: ${encodeSubject(opts.subject)}`,
+    `Date: ${new Date().toUTCString()}`
+  ].filter(Boolean).join(CRLF);
+
+  const altParts: string[] = [];
+  if ((opts.text || '').trim()) {
+    altParts.push(
+      [
+        `Content-Type: text/plain; charset=UTF-8`,
+        `Content-Transfer-Encoding: quoted-printable`,
+        ``,
+        qp(opts.text!.trim()),
+        ``
+      ].join(CRLF)
+    );
+  }
+  if ((opts.html || '').trim()) {
+    altParts.push(
+      [
+        `Content-Type: text/html; charset=UTF-8`,
+        `Content-Transfer-Encoding: quoted-printable`,
+        ``,
+        qp(opts.html!.trim()),
+        ``
+      ].join(CRLF)
+    );
+  }
+
+  const altBody = [
+    `Content-Type: multipart/alternative; boundary="${alt}"`,
+    ``,
+    ...altParts.map(p => `--${alt}${CRLF}${p}`),
+    `--${alt}--`,
+    ``
+  ].join(CRLF);
+
+  const atts = opts.attachments || [];
+  let body = altBody;
+  if (atts.length) {
+    const parts = [ `--${mix}`, altBody ];
+    for (const a of atts) {
+      const ct = a.contentType || 'application/octet-stream';
+      const contentB64 = a.isBase64 ? a.content : Buffer.from(a.content, 'utf8').toString('base64');
+      parts.push(
+        `--${mix}`,
+        `Content-Type: ${ct}; name="${a.filename}"`,
+        `Content-Transfer-Encoding: base64`,
+        `Content-Disposition: attachment; filename="${a.filename}"`,
+        ``,
+        wrap76(contentB64),
+        ``
+      );
+    }
+    parts.push(`--${mix}--`, ``);
+    body = [`Content-Type: multipart/mixed; boundary="${mix}"`, ``, ...parts].join(CRLF);
+  }
+
+  // CRITICAL: blank line between headers and body
+  const raw = headers + CRLF + CRLF + body;
+  return b64url(raw);
+}
+
+export async function sendViaGmail(opts: {
+  oauth: any; // google.auth.OAuth2
+  from?: string;
+  to: string[]; cc?: string[]; bcc?: string[];
+  subject: string;
+  html?: string; text?: string;
+  attachments?: Array<{ filename: string; content: string; contentType?: string; isBase64?: boolean }>;
+}) {
+  const gmail = google.gmail({ version: 'v1', auth: opts.oauth });
+  const raw = buildMimeRaw({
+    from: opts.from, to: opts.to, cc: opts.cc, bcc: opts.bcc,
+    subject: opts.subject, html: opts.html, text: opts.text, attachments: opts.attachments
+  });
+  return gmail.users.messages.send({ userId: 'me', requestBody: { raw } });
+}
+
+4) Wire it in the send endpoint (normalize → tokens → pass html/text)
+
+Edit your send route (where you do POST /api/email/send or similar). Apply only these minimal changes:
+
+// inside server/src/routes/<your-send-route>.ts
+import { normalizeSendPayload } from '../lib/payload-normalize';
+import { buildSendContext, interpolateTokens, stripHtml } from '../lib/merge';
+import { sendViaGmail } from '../services/gmail-send';
+
+// … in the handler:
+const norm = normalizeSendPayload(req.body);
+
+// quick diagnostics (lengths only)
+console.info('sendEmail payload', {
+  toCount: norm.to.length,
+  hasSubject: !!norm.subject,
+  htmlLen: (norm.html || '').length,
+  textLen: (norm.text || '').length
+});
+
+// Build context (augment with CRM user/tenant if available)
+const ctx = buildSendContext({
+  to: norm.to,
+  accountEmail: account.account_email, // connected Google account
+  user: { email: req.userEmail, name: req.userName, first_name: req.userFirstName, last_name: req.userLastName },
+  company: { name: req.tenantName, domain: req.tenantDomain },
+  contact: { email: norm.to[0] }, // replace with real contact if you have it
+  tokens: norm.tokens
+});
+
+// Apply tokens to subject/body (supports [FirstName] and {{legacy}})
+const finalSubject = interpolateTokens(norm.subject, ctx);
+const htmlBody = interpolateTokens(norm.html, ctx);
+const textBody = interpolateTokens(norm.text, ctx) || (htmlBody ? stripHtml(htmlBody) : '');
+
+// guard against empty body
+if (!htmlBody && !textBody) {
+  return res.status(400).json({ error: 'Email body is empty after token merge' });
+}
+
+// Build OAuth2 client from stored tokens (existing code not shown)
+// const oauth2 = …
+
+await sendViaGmail({
+  oauth: oauth2,
+  from: account.account_email,
+  to: norm.to, cc: norm.cc, bcc: norm.bcc,
+  subject: finalSubject,
+  html: htmlBody || undefined,
+  text: textBody || undefined,
+  attachments: norm.attachments
+});
+
+return res.json({ ok: true });
+
+
+If you’re using Nodemailer SMTP for Google instead of Gmail REST, call transporter.sendMail with subject: finalSubject, html: htmlBody, text: textBody. The normalization + tokens still apply the same.
+
+5) (Optional) add a debug preview endpoint (no secrets)
+
+Guarded by DEBUG_EMAIL=1, add to the same send routes file:
+
+if (process.env.DEBUG_EMAIL === '1') {
+  app.post('/api/dev/email/preview', (req, res) => {
+    const norm = normalizeSendPayload(req.body);
+    const ctx = buildSendContext({ to: norm.to, contact: { email: norm.to[0] }, tokens: norm.tokens });
+    const subj = interpolateTokens(norm.subject, ctx);
+    const html = interpolateTokens(norm.html, ctx);
+    const text = interpolateTokens(norm.text, ctx) || (html ? stripHtml(html) : '');
+
+    const raw = require('../services/gmail-send').buildMimeRaw({
+      from: 'me@example.com',
+      to: norm.to.length ? norm.to : ['them@example.com'],
+      subject: subj || 'Subject',
+      html: html || '<p>Empty</p>',
+      text: text || 'Empty'
+    });
+
+    const decoded = Buffer.from(raw.replace(/-/g,'+').replace(/_/g,'/'), 'base64').toString('utf8');
+    res.json({
+      subject: subj,
+      htmlLen: (html || '').length,
+      textLen: (text || '').length,
+      preview: decoded.slice(0, 600) // show headers + start of body
+    });
+  });
+}
+
+6) Acceptance (manual)
+
+Send a test with subject Hello [FirstName] and body <p>Hi [FirstName|there], welcome to [Company] on [Date].</p>.
+
+Server log shows htmlLen > 0 or textLen > 0.
+
+Received email contains the subject with tokens replaced and a non-empty body (HTML rendered).
+
+If DEBUG_EMAIL=1, POST the same payload to /api/dev/email/preview — the preview must show:
+
+headers,
+
+a blank line,
+
+Content-Type: multipart/alternative,
+
+text/plain and/or text/html parts with your content.

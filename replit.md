@@ -2,7 +2,19 @@
 
 BusinessCRM is a comprehensive customer relationship management system built with a modern full-stack architecture. The application provides lead management, client tracking, project management, quotation system, contract management, invoicing, email integration, calendar functionality, and workflow automation. It's designed to streamline business operations from lead capture through project completion and billing.
 
-## Recent Changes (September 30, 2025)
+## Recent Changes (October 1, 2025)
+
+**Email Send Pipeline with Proper MIME & Token Resolution**: Fixed critical email body and token issues with production-ready MIME formatting. Implementation includes:
+- **Proper MIME Formatting**: Implemented RFC-compliant multipart/alternative MIME messages with quoted-printable encoding for both text/plain and text/html parts
+- **Gmail Send Service**: Created dedicated `gmail-send.ts` with proper boundary handling, subject encoding, and base64url encoding for Gmail API
+- **HTML-to-Text Fallback**: Automatic conversion of HTML to plain text when only HTML is provided, ensuring all emails have both formats
+- **Token Resolution for HTML**: Fixed backend to apply token interpolation to HTML field in addition to subject and text
+- **Frontend Fix**: Email composer now properly sends HTML content in `html` field (previously sent as `text`)
+- **Square Bracket Support**: System supports both `[Token]` and `{{legacy.token}}` formats with fallback values `[Token|default]`
+- **Empty Body Guard**: Validation prevents sending emails with empty content after token resolution
+- **Diagnostics Logging**: Added payload logging showing htmlLen, textLen, toCount for debugging
+
+## Previous Changes (September 30, 2025)
 
 **Gmail OAuth Popup Flow with PostMessage**: Completed popup-based OAuth flow replacing full-page redirects with seamless popup windows. Implementation includes:
 - **Frontend**: `connectGoogleWithPopup()` opens centered popup (520x700px) with postMessage listener

@@ -1,6 +1,8 @@
 import { google } from 'googleapis';
 import type { EmailProviderIntegration } from '@shared/schema';
 import { storage } from '../../storage';
+import { sendViaGmail } from './gmail-send';
+import { convert as htmlToText } from 'html-to-text';
 
 export interface SendEmailParams {
   to: string | string[];
@@ -139,54 +141,56 @@ export class GmailEmailProvider {
       refresh_token
     });
 
-    // Create Gmail API client
-    const gmail = google.gmail({ version: 'v1', auth: oauth2Client });
-
-    // Build email message
-    const toAddresses = Array.isArray(params.to) ? params.to.join(',') : params.to;
-    const ccAddresses = params.cc ? (Array.isArray(params.cc) ? params.cc.join(',') : params.cc) : '';
-    const bccAddresses = params.bcc ? (Array.isArray(params.bcc) ? params.bcc.join(',') : params.bcc) : '';
+    // Normalize to/cc/bcc to arrays
+    const toArray = Array.isArray(params.to) ? params.to : [params.to];
+    const ccArray = params.cc ? (Array.isArray(params.cc) ? params.cc : [params.cc]) : undefined;
+    const bccArray = params.bcc ? (Array.isArray(params.bcc) ? params.bcc : [params.bcc]) : undefined;
 
     // Gmail always sends from the authenticated account
-    // If a different "from" is requested, we'll use replyTo instead
     const fromAddress = integration.accountEmail || '';
     let warning: string | undefined;
-    
-    // If replyTo is specified and different from authenticated account, use it
-    const replyToAddress = params.replyTo && params.replyTo !== fromAddress ? params.replyTo : '';
     
     if (params.replyTo && params.replyTo !== fromAddress) {
       warning = `Gmail only supports sending from authenticated account (${fromAddress}). Using ${params.replyTo} as Reply-To address.`;
       console.warn('⚠️ Gmail:', warning);
     }
 
-    const messageParts = [
-      `From: ${fromAddress}`,
-      `To: ${toAddresses}`,
-      ccAddresses ? `Cc: ${ccAddresses}` : '',
-      bccAddresses ? `Bcc: ${bccAddresses}` : '',
-      replyToAddress ? `Reply-To: ${replyToAddress}` : '',
-      `Subject: ${params.subject}`,
-      'MIME-Version: 1.0',
-      'Content-Type: text/html; charset=utf-8',
-      '',
-      params.html || params.text || ''
-    ].filter(part => part !== '').join('\n');
-
-    // Encode message in base64url
-    const encodedMessage = Buffer.from(messageParts)
-      .toString('base64')
-      .replace(/\+/g, '-')
-      .replace(/\//g, '_')
-      .replace(/=+$/, '');
+    // Ensure we have HTML or text
+    let htmlBody = params.html || '';
+    let textBody = params.text || '';
+    
+    // If we have HTML but no text, strip HTML to create text version
+    if (htmlBody && !textBody) {
+      textBody = htmlToText(htmlBody, {
+        wordwrap: 130,
+        selectors: [
+          { selector: 'a', options: { ignoreHref: false } },
+          { selector: 'img', format: 'skip' }
+        ]
+      });
+    }
+    
+    // If we have text but no HTML, wrap text in simple HTML
+    if (textBody && !htmlBody) {
+      htmlBody = `<html><body><pre style="font-family: sans-serif; white-space: pre-wrap;">${textBody}</pre></body></html>`;
+    }
+    
+    // Guard against empty body
+    if (!htmlBody && !textBody) {
+      throw new Error('Email body is empty - both HTML and text are missing');
+    }
 
     try {
-      // Send email
-      const response = await gmail.users.messages.send({
-        userId: 'me',
-        requestBody: {
-          raw: encodedMessage
-        }
+      // Send email using proper MIME formatting
+      const response = await sendViaGmail({
+        oauth: oauth2Client,
+        from: fromAddress,
+        to: toArray,
+        cc: ccArray,
+        bcc: bccArray,
+        subject: params.subject,
+        html: htmlBody,
+        text: textBody
       });
 
       console.log('📧 Gmail: Email sent successfully:', response.data.id);

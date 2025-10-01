@@ -1,0 +1,101 @@
+Mode: STRICT READ-ONLY.
+No edits, no migrations, no refactors, no POST/PUT/DELETE.
+You may only: list files, print code, and perform GET requests to existing endpoints.
+If a step would require a write or auth you don’t have, print skipped (write) or skipped (auth) and continue.
+
+PHASE 1 — HANDSHAKE (no code reads yet)
+
+Reply with exactly:
+
+ACK-MT-READONLY-v1
+Sections: A,B,C,D,E,F,G,H,I,J,K
+
+PHASE 2 — AUDIT (read-only checks)
+
+A) Entrypoints & middleware chain
+
+Locate server entry (server/index.*, server/routes.*) and print the middleware chain that applies to API routes.
+
+Identify auth/tenant middlewares in order (e.g., requireAuth, attachTenant, loadUser). Quote file paths + line numbers.
+
+B) Tenant identity sources
+
+Print where tenantId and userId are set (session/JWT/cookies) and where they’re read for requests.
+
+Show any code that forbids overriding tenant via request body/query. Note file:line.
+
+C) OAuth → account storage (Google/Microsoft)
+
+Print the OAuth callback handlers and highlight where they write to linked account storage.
+
+Confirm they persist tenantId + userId from server-side state (not client input). Quote file:line.
+
+Show storage upsert methods used; verify they include tenant_id in inserts/updates and indexes.
+
+D) Email send path scoping
+
+Find the actual send endpoint the UI uses. Print the handler function.
+
+Show checks that the selected email account belongs to req.userId and req.tenantId.
+
+Show queries for templates/contacts used during send; confirm they filter by tenant_id.
+
+Show the final call to the sender (REST/SMTP) and where it gets from/account_email.
+
+E) Provider status & listing
+
+Print handlers for provider status/list routes (e.g., /api/auth/*/status, /api/email/providers).
+
+Confirm queries are scoped by tenant_id (and where applicable user_id). Provide file:line.
+
+F) Data access layer (DAL) safeguards
+
+Print the storage methods used by the routes above (catalog, accounts, templates, contacts).
+
+Confirm every read/write includes tenant_id conditions. Note any method lacking tenant filters.
+
+G) Row-level & index evidence
+
+Print schema/model definitions for tables/collections touched (accounts, templates, contacts, messages).
+
+Show tenant_id presence and any compound indexes (e.g., (tenant_id, user_id, id)). Provide file:line.
+
+H) Logs & error handling
+
+Print code that logs send attempts or OAuth events. Confirm logs do not include cross-tenant identifiers or secrets; only masked IDs or counts. Provide file:line.
+
+I) Runtime GET probes (optional)
+
+If a dev server is running and you are authenticated, perform GET only for:
+
+/api/auth/google/status (or project equivalent)
+
+/api/email/providers
+
+any GET “me”/session endpoint
+
+Report HTTP status and first ~120 bytes for each; otherwise print skipped (auth).
+
+J) Cross-tenant mutation guards
+
+Search for patterns like tenantId comparison, where tenant_id =, or assertTenant() helpers.
+
+Print two representative mutations (e.g., connect/disconnect provider, send email) showing the guard. Quote file:line.
+
+K) Final verdict (2–5 bullets)
+
+State whether tenant scoping exists at OAuth store, send pipeline, status/listing, and DAL layers.
+
+Call out any route/storage method missing a tenant_id filter (with file:line).
+
+Note any risk (e.g., accepts tenant from body, missing requireAuth, broad queries).
+
+If all checks pass, say “PASS (evidence above)”. Otherwise “PARTIAL/FAIL (gaps above)”.
+
+Rules Recap
+
+READ-ONLY. No file writes. No schema/env changes. No POST/PUT/DELETE.
+
+If a step requires writes or unavailable auth: print skipped (write) or skipped (auth) and continue.
+
+Always include file paths + line numbers for evidence.

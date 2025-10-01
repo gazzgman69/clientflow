@@ -418,10 +418,12 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
     console.log('🔵 Setting reply to:', replyToEmail);
     console.log('🔵 Setting showReplyForm to true');
     setReplyTo(replyToEmail);
-    setReplySubject(originalMessage.subject.startsWith('Re:') 
-      ? originalMessage.subject 
-      : `Re: ${originalMessage.subject}`);
+    const subject = originalMessage.subject || '';
+    setReplySubject(subject.startsWith('Re:') 
+      ? subject 
+      : `Re: ${subject}`);
     setShowReplyForm(true);
+    console.log('🔵 showReplyForm should now be true');
   };
 
   const handleSendReply = () => {

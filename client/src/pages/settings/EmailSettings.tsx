@@ -334,12 +334,14 @@ export default function EmailSettings() {
                       <span className="text-sm text-muted-foreground">Checking...</span>
                     ) : providerStatus.connected ? (
                       <>
-                        <CheckCircle className="h-5 w-5 text-green-600" />
-                        <span className="text-sm">
-                          Last synced {providerStatus.email || 'info@clubkudo.com'} {formatLastSynced()}
-                        </span>
+                        <CheckCircle className="h-5 w-5 text-green-600 flex-shrink-0" />
+                        <div className="flex-1 text-sm">
+                          <span className="font-medium">Last synced:</span>{' '}
+                          <span>{providerStatus.email || 'info@clubkudo.com'}</span>{' '}
+                          <span className="text-muted-foreground">{formatLastSynced()}</span>
+                        </div>
                         <select 
-                          className="ml-auto h-9 px-3 border border-input rounded-md text-sm"
+                          className="h-9 px-3 border border-input rounded-md text-sm flex-shrink-0"
                           value={connectedProvider || ''}
                           onChange={() => {}}
                           data-testid="select-email-account"

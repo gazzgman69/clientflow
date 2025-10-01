@@ -224,6 +224,7 @@ export const enforceSessionTimeout = async (req: SecurityRequest, res: Response,
 /**
  * Cross-tenant access prevention middleware
  * Prevents users from accessing resources across tenant boundaries
+ * SECURITY FIX: Tenant ID must ONLY come from server-side session/context, never from client
  */
 export const preventCrossTenantAccess = (req: SecurityRequest, res: Response, next: NextFunction) => {
   if (!req.securityContext) {
@@ -232,25 +233,48 @@ export const preventCrossTenantAccess = (req: SecurityRequest, res: Response, ne
     });
   }
 
-  // Check for tenant ID mismatches in request parameters
-  const resourceTenantId = req.params.tenantId || req.body.tenantId || req.query.tenantId;
+  // SECURITY FIX: Removed tenant override from request params/body/query
+  // Tenant ID should ONLY come from server-side session (req.securityContext.tenantId)
+  // Any attempt to specify tenantId in request params/body/query is a security violation
   
-  if (resourceTenantId && resourceTenantId !== req.securityContext.tenantId) {
-    console.warn(`🚨 CROSS-TENANT ACCESS ATTEMPT: User ${req.securityContext.userId}`, {
+  // DEVELOPMENT MODE ONLY: Allow tenant override for testing with explicit feature flag + admin auth
+  if (process.env.NODE_ENV === 'development' && 
+      process.env.ALLOW_DEV_TENANT_OVERRIDE === '1' &&
+      req.session?.userId) {
+    const devTenantOverride = req.query.devTenantOverride || req.headers['x-dev-tenant-override'];
+    if (devTenantOverride && typeof devTenantOverride === 'string') {
+      console.warn(`⚠️ DEV MODE: Tenant override requested by ${req.session.userId} to ${devTenantOverride}`);
+      // Still log this as a security event for audit purposes
+      trackSecurityEvent('dev_tenant_override', req.securityContext, {
+        requestedTenant: devTenantOverride,
+        path: req.path,
+        note: 'Development mode tenant override - should never occur in production'
+      });
+    }
+  }
+  
+  // Check if client is attempting to specify tenantId (which is a security violation)
+  const attemptedTenantOverride = req.params.tenantId || req.body.tenantId || req.query.tenantId;
+  
+  if (attemptedTenantOverride) {
+    console.error(`🚨 SECURITY VIOLATION: Client attempted to specify tenantId in request`, {
+      userId: req.securityContext.userId,
       userTenant: req.securityContext.tenantId,
-      requestedTenant: resourceTenantId,
+      attemptedTenant: attemptedTenantOverride,
       path: req.path,
-      method: req.method
+      method: req.method,
+      source: req.params.tenantId ? 'params' : req.body.tenantId ? 'body' : 'query'
     });
 
-    trackSecurityEvent('cross_tenant_access_denied', req.securityContext, {
-      attemptedTenant: resourceTenantId,
-      path: req.path
+    trackSecurityEvent('tenant_override_attempt', req.securityContext, {
+      attemptedTenant: attemptedTenantOverride,
+      path: req.path,
+      note: 'Client attempted to override tenant - blocked'
     });
 
     return res.status(403).json({ 
-      error: 'Cross-tenant access denied',
-      message: 'Cannot access resources from other tenants'
+      error: 'Security violation',
+      message: 'Tenant specification in request is not allowed'
     });
   }
 

@@ -1,0 +1,38 @@
+Replit Agent prompt — Cross-Tenant Denial Proof (Seed & Cleanup)
+
+Goal
+Prove runtime cross-tenant read isolation by seeding a single throwaway template for a second tenant (Tenant B), then authenticating as Tenant A and attempting a GET of Tenant B’s template (expect 403/404). Clean up the seeded data. No server code edits, no schema changes.
+
+Create file
+- Path: scripts/mt-cross-tenant-proof.ts
+
+Plan
+1) Identify or create tenants:
+   - Find an existing tenant that is NOT the current session’s tenant and use it as Tenant B.
+   - If none, create a new Tenant B row with a clear marker (e.g., name "TEST-TENANT-B (auto)").
+2) Seed one template under Tenant B:
+   - Minimal columns only (id, tenant_id, title). Mark it clearly: "TEST-TEMPLATE-B (auto)".
+3) Create a real session + signed cookie for Tenant A (use your current/default tenant).
+4) Detect a GET-single-template endpoint:
+   - Prefer `/admin/templates/:id` if present and accessible; otherwise any GET-by-id route for templates.
+   - If no single-template endpoint exists or requires admin scope, print `skipped (unavailable)` or `skipped (auth)` and proceed to cleanup.
+5) Probes:
+   - GET Tenant A’s own valid template id (if one exists) -> expect 200/OK (or your app’s success).
+   - GET Tenant B’s seeded template id with Tenant A session -> expect 403/404 (denied).
+   - Print `PATH … STATUS … BODY(<=120B)` for both.
+6) Cleanup (even on errors):
+   - Delete the seeded template row and (if created by this script) the Tenant B row.
+
+Constraints
+- Only seed ONE template and optionally ONE tenant; must be fully deleted in `finally`.
+- No route/schema refactors. Minimal SQL/ORM writes allowed for seed/cleanup only.
+- If any step is not possible (no access, missing endpoint), print a clear `skipped (…)` reason and still clean up.
+
+Run
+- tsx scripts/mt-cross-tenant-proof.ts
+
+Return in reply
+- Seeded ids (tenantBId, templateBId), probe outputs, and a VERDICT:
+  - “cross-tenant single GET blocked: PASS/FAIL/skipped”
+  - anomalies (HTML shells, redirects, CSRF)
+  - confirmation of cleanup success

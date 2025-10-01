@@ -5551,6 +5551,7 @@ export class DrizzleStorage implements IStorage {
       authType: 'oauth',
       expiresAt: integration.expiresAt,
       metadata: integration.metadata,
+      lastSyncedAt: integration.lastSyncedAt || null,
       updatedAt: new Date()
     };
 

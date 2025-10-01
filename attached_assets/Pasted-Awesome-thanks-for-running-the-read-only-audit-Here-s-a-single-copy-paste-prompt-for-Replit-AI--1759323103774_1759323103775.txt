@@ -1,0 +1,129 @@
+Awesome—thanks for running the read-only audit. Here’s a **single copy-paste prompt** for Replit AI to **patch only the gaps the audit found**, with minimal edits and leaving Replit to use its own routes/services/schema/DB.
+
+---
+
+## Replit Agent prompt — Patch Multi-Tenant Gaps (minimal, safe)
+
+**Goal**
+Apply the smallest possible fixes so that multi-tenant isolation is enforced end-to-end for email/OAuth, matching the audit’s findings. Keep all existing routes and behavior unchanged.
+
+**Scope**
+
+* You may edit server code and (if needed) create a small migration—use the project’s own tooling/paths.
+* Do **not** rename endpoints, refactor unrelated code, or change UI.
+* Keep Microsoft logic, Gmail logic, and storage naming as they are—only add the guards/fixes.
+
+---
+
+### 0) Safety setup
+
+1. Create a branch `fix/multitenant-guards`.
+2. Enable verbose commit messages tied to each fix below.
+
+---
+
+### 1) Microsoft OAuth state forgery (verify before use)
+
+**Problem (from audit):** `email-oauth.ts` parses Microsoft `state` with plain base64 (no signature) and then trusts `tenantId`/`userId`.
+
+**Fix**
+
+* Reuse the **same state signer/verification** used for Google (or add HMAC-SHA256 with a server secret).
+* In the Microsoft **start** route: sign the JSON state before sending.
+* In the Microsoft **callback**: **verify signature first**, then parse; if verification fails → 400.
+* Use only the **verified** `tenantId`/`userId` (ignore any client-provided values).
+
+**Evidence to return**
+
+* File + line ranges showing the verify call.
+* A unit test (or minimal test helper) that rejects a forged state.
+
+---
+
+### 2) Tenant override via request params/body/query
+
+**Problem:** `tenantSecurity.ts` allows `tenantId` from params/body/query; dev resolver allows query/header override broadly.
+
+**Fix**
+
+* Centralize tenant source to the **server session/context** (e.g., `req.session.tenantId` or `req.tenantId` set by your resolver).
+* Remove/disable code paths that accept `tenantId` from `req.params`, `req.body`, or `req.query`.
+* If you keep a dev override, guard with **`NODE_ENV==='development'`** and an explicit **feature flag** (e.g., `ALLOW_DEV_TENANT_OVERRIDE==='1'`), and require an authenticated admin.
+
+**Evidence to return**
+
+* The exact diff (or snippet) removing those overrides and the new guard.
+
+---
+
+### 3) Email send path: add tenant scoping to lookups
+
+**Problems:**
+
+* Contact lookup by email lacks `tenant_id` filter.
+* Some template access isn’t tenant-scoped.
+
+**Fix**
+
+* In the **send handler** and any helpers it calls, ensure **all lookups** (contacts, projects, templates) include `WHERE tenant_id = req.tenantId` (or equivalent).
+* If a storage method (e.g., `getTemplate(id)`) lacks tenant filtering, add a **tenant-aware overload** (e.g., `getTemplateForTenant(tenantId, id)`) and use that. Avoid breaking existing callers.
+
+**Evidence to return**
+
+* The handler snippet showing tenant filter on each lookup.
+* Storage method snippet(s) with tenant filter.
+* One test or log showing the SQL/ORM condition includes `tenant_id`.
+
+---
+
+### 4) DAL checks & indexes (minimal)
+
+**Problem:** Some tables had nullable `tenant_id` and missing compound indexes.
+
+**Fix (minimal)**
+
+* If your repo already uses migrations, add a migration that:
+
+  * Makes `contacts.tenant_id` and `projects.tenant_id` **NOT NULL** (only if no orphan rows remain; otherwise backfill first).
+  * Adds indexes like `(tenant_id, id)` and (where relevant) `(tenant_id, email)` to speed scoped lookups.
+* If migrations aren’t available in this environment, **report “skipped (migrations)”** and continue.
+
+**Evidence to return**
+
+* Migration file names and the index/constraint statements (or “skipped (migrations)”).
+
+---
+
+### 5) Logging & errors
+
+* Ensure OAuth/send logs **do not** print secrets or cross-tenant identifiers; keep only masked IDs/counts.
+* In production, avoid dumping full error objects; keep concise messages.
+
+**Evidence to return**
+
+* One log snippet before and after showing only counts/IDs (masked).
+
+---
+
+### 6) Acceptance checks (run & report)
+
+Provide these artifacts in the reply:
+
+1. **Microsoft OAuth**: show the signed **start** state builder and the **callback verify** call (file + lines).
+2. **Tenant override removal**: show the deleted/guarded code path (file + lines).
+3. **Send handler lookups**: snippets proving `tenant_id = req.tenantId` on contact/template/project queries.
+4. **Sender dispatch unchanged**: confirm only guards/filters changed; the final call into the sender is the same.
+5. **(If possible)** a small test run or log lines demonstrating:
+
+   ```
+   sendEmail payload … (toCount, hasSubject, htmlLen/textLen)
+   sendEmail dispatch … (subjectLen, htmlLen/textLen)
+   lookups scoped where tenant_id = <current-tenant>
+   ```
+6. **Migrations**: either list the created migration files and their contents, or state “skipped (migrations)”.
+
+**Do not** change endpoints, response shapes, or UI. Keep all other behavior intact.
+
+---
+
+When done, return: short diffs/snippets for each section, and the acceptance evidence.

@@ -152,8 +152,9 @@ router.get('/auth/microsoft/mail/callback', async (req, res) => {
   }
 
   try {
-    // Parse state (should be signed similar to Google)
-    const stateData = JSON.parse(Buffer.from(state as string, 'base64').toString());
+    // Verify signed state (SECURITY FIX: use HMAC verification instead of plain base64)
+    const { verifyOAuthState } = await import('../services/oauth-state');
+    const stateData = verifyOAuthState(state as string);
     const { tenantId, userId } = stateData;
     
     // Exchange code for tokens

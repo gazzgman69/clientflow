@@ -80,13 +80,15 @@ export class EmailSyncService {
   }> {
     // SECURITY FIX: Use session-provided tenantId for authenticated sync
     const originalTenantId = this.tenantId;
+    console.log(`🔐 SYNC DEBUG: sessionTenantId=${sessionTenantId}, originalTenantId=${originalTenantId}`);
     if (sessionTenantId) {
       this.tenantId = sessionTenantId;
+      console.log(`🔐 SYNC DEBUG: Set this.tenantId to ${this.tenantId}`);
     }
     
     try {
       this.gmailService = await this.initializeGmailService();
-      console.log('🔄 Syncing Gmail threads to database...');
+      console.log(`🔄 Syncing Gmail threads to database with tenantId: ${this.tenantId}...`);
       
       // Get all projects and their contact emails for matching
       const projectsWithContacts = await withDbRetry(() => 

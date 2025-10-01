@@ -1,12 +1,13 @@
 import { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Send, Mail, Loader2, AlertCircle, X, Reply, RefreshCw, FileText, Edit3, ChevronDown } from 'lucide-react';
+import { Send, Mail, Loader2, AlertCircle, X, Reply, RefreshCw, FileText, Edit3, ChevronDown, Paperclip } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
@@ -44,6 +45,7 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
   const [message, setMessage] = useState('');
   const [isComposing, setIsComposing] = useState(false);
   const [selectedThreadId, setSelectedThreadId] = useState<string | null>(null);
+  const [selectedEmail, setSelectedEmail] = useState<any>(null);
   const [showReplyForm, setShowReplyForm] = useState(false);
   const [replyTo, setReplyTo] = useState('');
   const [replySubject, setReplySubject] = useState('');
@@ -815,59 +817,74 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
               )}
             </div>
           ) : (
-            // Unified View - Flat chronological list of individual messages
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Date</TableHead>
-                  <TableHead>From</TableHead>
-                  <TableHead>Subject</TableHead>
-                  <TableHead>Direction</TableHead>
-                  <TableHead>Snippet</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {displayData.map((message: any) => (
-                  <TableRow 
+            // 17hats-style email list
+            <div className="space-y-1">
+              {displayData.map((message: any) => {
+                const messageDate = new Date(message.sentAt || new Date());
+                const month = messageDate.toLocaleDateString('en-US', { month: 'short' }).toUpperCase();
+                const day = messageDate.getDate().toString().padStart(2, '0');
+                
+                return (
+                  <div 
                     key={message.id}
-                    className="cursor-pointer hover:bg-muted/50"
-                    onClick={() => setSelectedThreadId(message.threadId)}
+                    className="flex items-start gap-4 p-3 rounded-lg hover:bg-muted/50 cursor-pointer transition-colors border border-transparent hover:border-border"
+                    onClick={() => setSelectedEmail(message)}
                     data-testid={`row-message-${message.id}`}
                   >
-                    <TableCell className="font-medium">
-                      <div className="flex flex-col">
-                        <span>{formatDate(message.sentAt || new Date().toISOString())}</span>
-                        <span className="text-xs text-muted-foreground">
-                          {new Date(message.sentAt || new Date().toISOString()).toLocaleTimeString('en-US', { 
-                            hour: '2-digit', 
-                            minute: '2-digit',
-                            hour12: true
-                          })}
-                        </span>
-                      </div>
-                    </TableCell>
-                    <TableCell>{message.fromEmail || 'Unknown'}</TableCell>
-                    <TableCell>{message.subject || 'No subject'}</TableCell>
-                    <TableCell>
-                      <span className={`text-xs px-2 py-1 rounded-full ${
-                        message.direction === 'inbound' 
-                          ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' 
-                          : 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-                      }`}>
-                        {message.direction || 'unknown'}
-                      </span>
-                    </TableCell>
-                    <TableCell className="max-w-xs truncate">
-                      {resolveDisplayTokens(
-                        decodeHtmlEntities(message.snippet || message.bodyText?.substring(0, 100)) || 'No preview',
-                        project,
-                        contact
+                    {/* Date Badge */}
+                    <div 
+                      className="w-14 shrink-0 flex flex-col items-center justify-center rounded-md bg-muted py-2 text-center"
+                      data-testid={`badge-date-${messageDate.getFullYear()}${(messageDate.getMonth() + 1).toString().padStart(2, '0')}${day}`}
+                    >
+                      <span className="text-xs font-medium text-muted-foreground">{month}</span>
+                      <span className="text-lg font-bold">{day}</span>
+                    </div>
+
+                    {/* Email Content */}
+                    <div className="flex-1 min-w-0">
+                      <button
+                        className="text-left w-full"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedEmail(message);
+                        }}
+                        data-testid={`button-open-email-${message.id}`}
+                      >
+                        <h3 
+                          className="font-medium text-blue-600 dark:text-blue-400 hover:underline text-sm mb-1"
+                          data-testid={`text-email-subject-${message.id}`}
+                        >
+                          {message.subject || 'No subject'}
+                        </h3>
+                      </button>
+                      <p className="text-sm text-muted-foreground">
+                        From: {message.fromEmail} | To: {Array.isArray(message.toEmails) ? message.toEmails.join(', ') : message.toEmails}
+                      </p>
+                    </div>
+
+                    {/* Status Badges */}
+                    <div className="flex items-center gap-2 shrink-0">
+                      {message.hasAttachments && (
+                        <Paperclip className="h-4 w-4 text-muted-foreground" />
                       )}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                      {message.direction && (
+                        <Badge 
+                          variant="outline" 
+                          className={`text-xs uppercase ${
+                            message.direction === 'inbound'
+                              ? 'border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-800 dark:bg-blue-950 dark:text-blue-300'
+                              : 'border-green-200 bg-green-50 text-green-700 dark:border-green-800 dark:bg-green-950 dark:text-green-300'
+                          }`}
+                          data-testid={`badge-status-${message.id}`}
+                        >
+                          {message.direction === 'inbound' ? 'RECEIVED' : 'SENT'}
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           )}
         </CardContent>
       </Card>
@@ -1095,6 +1112,125 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
                   <p className="text-sm mt-2">{selectedThreadDetails.error}</p>
                 )}
               </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Email Detail Modal - 17hats Style */}
+      <Dialog open={!!selectedEmail} onOpenChange={() => setSelectedEmail(null)}>
+        <DialogContent className="max-w-3xl max-h-[80vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-base">
+              <Mail className="h-5 w-5" />
+              View email
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="flex-1 overflow-auto space-y-4">
+            {selectedEmail && (
+              <>
+                {/* Email Header */}
+                <div className="flex items-start gap-4 pb-4 border-b">
+                  {/* Sender Avatar/Initial */}
+                  <div className="w-12 h-12 shrink-0 rounded-full bg-primary/10 flex items-center justify-center">
+                    <span className="text-lg font-semibold text-primary">
+                      {selectedEmail.fromEmail?.charAt(0).toUpperCase() || 'U'}
+                    </span>
+                  </div>
+
+                  {/* Email Metadata */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-start justify-between gap-4 mb-2">
+                      <div className="flex-1">
+                        <h3 className="font-semibold text-blue-600 dark:text-blue-400 text-base mb-1">
+                          To: {Array.isArray(selectedEmail.toEmails) ? selectedEmail.toEmails.join(', ') : selectedEmail.toEmails}
+                        </h3>
+                        {project && (
+                          <p className="text-sm text-muted-foreground">
+                            <span className="font-medium">Project:</span> {project.name}
+                          </p>
+                        )}
+                      </div>
+                      <Badge 
+                        variant="outline" 
+                        className={`shrink-0 uppercase ${
+                          selectedEmail.direction === 'inbound'
+                            ? 'border-orange-200 bg-orange-50 text-orange-700 dark:border-orange-800 dark:bg-orange-950 dark:text-orange-300'
+                            : 'border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-800 dark:bg-blue-950 dark:text-blue-300'
+                        }`}
+                      >
+                        {selectedEmail.direction === 'inbound' ? 'UNREAD' : 'SENT'}
+                      </Badge>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Email Subject & Date */}
+                <div className="space-y-2">
+                  <h2 className="text-xl font-semibold">{selectedEmail.subject || 'No subject'}</h2>
+                  <p className="text-sm text-muted-foreground">
+                    {new Date(selectedEmail.sentAt).toLocaleDateString('en-US', { 
+                      month: 'short',
+                      day: 'numeric',
+                      year: 'numeric'
+                    })} at {new Date(selectedEmail.sentAt).toLocaleTimeString('en-US', { 
+                      hour: '2-digit',
+                      minute: '2-digit'
+                    })}
+                  </p>
+                </div>
+
+                {/* Email Body */}
+                <div className="bg-white dark:bg-gray-900 rounded-lg border p-6">
+                  {selectedEmail.bodyHtml ? (
+                    <div 
+                      className="prose prose-sm dark:prose-invert max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0"
+                      dangerouslySetInnerHTML={{
+                        __html: resolveDisplayTokens(
+                          extractEmailContent(selectedEmail.bodyHtml) || 'No content',
+                          project,
+                          contact
+                        )
+                      }}
+                      data-testid="email-body-html"
+                    />
+                  ) : (
+                    <pre className="whitespace-pre-wrap font-sans text-sm" data-testid="email-body-text">
+                      {resolveDisplayTokens(
+                        decodeHtmlEntities(selectedEmail.bodyText) || 'No content',
+                        project,
+                        contact
+                      )}
+                    </pre>
+                  )}
+                </div>
+
+                {/* Attachments */}
+                {selectedEmail.hasAttachments && (
+                  <div className="pt-4 border-t">
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Paperclip className="h-4 w-4" />
+                      <span>This email has attachments</span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Action Buttons */}
+                <div className="flex gap-2 pt-4 border-t">
+                  <Button 
+                    variant="outline" 
+                    onClick={() => {
+                      setSelectedEmail(null);
+                      handleReply(selectedEmail);
+                    }}
+                    data-testid="button-reply-email"
+                  >
+                    <Reply className="h-4 w-4 mr-2" />
+                    Reply
+                  </Button>
+                </div>
+              </>
             )}
           </div>
         </DialogContent>

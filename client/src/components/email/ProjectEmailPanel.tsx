@@ -284,7 +284,7 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
 
   // Send email mutation
   const sendEmailMutation = useMutation({
-    mutationFn: async (emailData: { to: string; subject: string; text: string }) => {
+    mutationFn: async (emailData: { to: string; subject: string; html: string }) => {
       const response = await apiRequest('POST', '/api/email/send', {
         ...emailData,
         projectId,
@@ -334,7 +334,7 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
       });
     }
 
-    sendEmailMutation.mutate({ to, subject, text: emailBody });
+    sendEmailMutation.mutate({ to, subject, html: emailBody });
   };
 
   const formatDate = (dateISO: string) => {
@@ -369,7 +369,7 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
 
   // Reply email mutation
   const replyEmailMutation = useMutation({
-    mutationFn: async (emailData: { to: string; subject: string; text: string }) => {
+    mutationFn: async (emailData: { to: string; subject: string; html: string }) => {
       const response = await apiRequest('POST', '/api/email/send', {
         ...emailData,
         projectId
@@ -425,7 +425,7 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
     replyEmailMutation.mutate({ 
       to: replyTo, 
       subject: replySubject, 
-      text: replyBody 
+      html: replyBody 
     });
   };
 

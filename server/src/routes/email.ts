@@ -133,6 +133,7 @@ router.post('/send', requireAuth, async (req: any, res) => {
     
     let finalSubject = emailData.subject || '';
     let finalText = emailData.text || '';
+    let finalHtml = emailData.html || '';
     
     // Build context for token resolution - auto-enrich from email address
     const context: any = {};
@@ -193,23 +194,28 @@ router.post('/send', requireAuth, async (req: any, res) => {
         console.log('⚠️ Unresolved tokens:', rendered.unresolved);
       }
     } else {
-      // Direct email composition - apply token resolution to subject and body
+      // Direct email composition - apply token resolution to subject and body (both text and html)
       const subjectResult = finalSubject ? 
         await tokenResolverService.resolveTemplate(finalSubject, context) : 
         { rendered: finalSubject, unresolved: [] };
       
-      const bodyResult = finalText ? 
+      const textResult = finalText ? 
         await tokenResolverService.resolveTemplate(finalText, context) : 
         { rendered: finalText, unresolved: [] };
       
-      finalSubject = subjectResult.rendered;
-      finalText = bodyResult.rendered;
+      const htmlResult = finalHtml ? 
+        await tokenResolverService.resolveTemplate(finalHtml, context) : 
+        { rendered: finalHtml, unresolved: [] };
       
-      const unresolved = [...subjectResult.unresolved, ...bodyResult.unresolved];
+      finalSubject = subjectResult.rendered;
+      finalText = textResult.rendered;
+      finalHtml = htmlResult.rendered;
+      
+      const unresolved = [...subjectResult.unresolved, ...textResult.unresolved, ...htmlResult.unresolved];
       
       // Debug logging as specified in task (first 120 chars + unresolved tokens)
-      const debugText = (emailData.text || '').substring(0, 120);
-      console.log(`📧 Token resolution DEBUG - Before: "${debugText}${debugText.length >= 120 ? '...' : ''}"`);
+      const debugContent = (emailData.html || emailData.text || '').substring(0, 120);
+      console.log(`📧 Token resolution DEBUG - Before: "${debugContent}${debugContent.length >= 120 ? '...' : ''}"`);
       console.log(`📧 Direct email rendered: ${unresolved.length} unresolved tokens`);
       if (unresolved.length > 0) {
         console.log('⚠️ Unresolved tokens:', unresolved);
@@ -251,7 +257,7 @@ router.post('/send', requireAuth, async (req: any, res) => {
     // DIAGNOSTICS: Log send payload before dispatching (per mission requirements)
     console.info('📧 sendEmail payload', {
       hasSubject: !!finalSubject,
-      htmlLen: (emailData.html || '').length,
+      htmlLen: (finalHtml || '').length,
       textLen: (finalText || '').length,
       toCount: emailData.to ? 1 : 0,
       ccCount: emailData.cc ? 1 : 0,
@@ -264,7 +270,7 @@ router.post('/send', requireAuth, async (req: any, res) => {
       to: emailData.to,
       subject: finalSubject,
       text: finalText,
-      html: emailData.html,
+      html: finalHtml,
       cc: emailData.cc,
       bcc: emailData.bcc,
       replyTo: emailData.replyTo
@@ -287,7 +293,7 @@ router.post('/send', requireAuth, async (req: any, res) => {
           bccEmails: emailData.bcc ? [emailData.bcc] : [],
           subject: finalSubject,
           bodyText: finalText,
-          bodyHtml: emailData.html,
+          bodyHtml: finalHtml,
           sentAt: new Date(),
           projectId,
           isSent: true,

@@ -2537,8 +2537,8 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
             v.address as venue_address,
             v.city as venue_city,
             v.state as venue_state,
-            v.zip as venue_zip,
-            v.phone as venue_phone
+            v.zip_code as venue_zip,
+            v.contact_phone as venue_phone
           FROM projects p
           LEFT JOIN venues v ON p.venue_id = v.id
           WHERE p.tenant_id = $1
@@ -2556,8 +2556,8 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
           v.address as venue_address,
           v.city as venue_city,
           v.state as venue_state,
-          v.zip as venue_zip,
-          v.phone as venue_phone
+          v.zip_code as venue_zip,
+          v.contact_phone as venue_phone
         FROM projects p
         LEFT JOIN venues v ON p.venue_id = v.id
         WHERE p.tenant_id = $1

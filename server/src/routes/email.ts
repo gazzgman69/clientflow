@@ -1293,7 +1293,9 @@ router.post('/sync', requireAuth, async (req: any, res) => {
     for (const userId of uniqueUserIds) {
       try {
         console.log(`🔄 Manual sync for user: ${userId}`);
-        const userResult = await emailSyncService.syncGmailThreadsToDatabase(userId);
+        // SECURITY FIX: Pass session tenantId for proper tenant isolation
+        const tenantId = req.tenantId || 'default-tenant';
+        const userResult = await emailSyncService.syncGmailThreadsToDatabase(userId, undefined, tenantId);
         gmailResult.synced += userResult.synced;
         gmailResult.skipped += userResult.skipped;
         gmailResult.errors.push(...userResult.errors);

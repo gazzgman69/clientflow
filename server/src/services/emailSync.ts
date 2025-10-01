@@ -73,11 +73,17 @@ export class EmailSyncService {
   /**
    * Sync Gmail threads to database for instant access
    */
-  async syncGmailThreadsToDatabase(userId: string, specificProjectId?: string): Promise<{
+  async syncGmailThreadsToDatabase(userId: string, specificProjectId?: string, sessionTenantId?: string): Promise<{
     synced: number;
     skipped: number;
     errors: string[];
   }> {
+    // SECURITY FIX: Use session-provided tenantId for authenticated sync
+    const originalTenantId = this.tenantId;
+    if (sessionTenantId) {
+      this.tenantId = sessionTenantId;
+    }
+    
     try {
       this.gmailService = await this.initializeGmailService();
       console.log('🔄 Syncing Gmail threads to database...');

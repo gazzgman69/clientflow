@@ -322,16 +322,19 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
       return;
     }
 
+    // Get HTML content from the Rich Text Editor
+    const emailBody = messageEditorRef.current?.getHTML() || message;
+    
     // Update template if checkbox is checked and a template is selected
     if (updateTemplate && selectedTemplate) {
       updateTemplateMutation.mutate({
         id: selectedTemplate.id,
         subject: subject,
-        body: message
+        body: emailBody
       });
     }
 
-    sendEmailMutation.mutate({ to, subject, text: message });
+    sendEmailMutation.mutate({ to, subject, text: emailBody });
   };
 
   const formatDate = (dateISO: string) => {
@@ -407,7 +410,10 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
   };
 
   const handleSendReply = () => {
-    if (!replyTo || !replySubject || !replyMessage) {
+    // Get HTML content from the Reply Rich Text Editor
+    const replyBody = replyEditorRef.current?.getHTML() || replyMessage;
+    
+    if (!replyTo || !replySubject || !replyBody) {
       toast({ 
         title: 'Missing fields', 
         description: 'Please fill in all required fields',
@@ -419,7 +425,7 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
     replyEmailMutation.mutate({ 
       to: replyTo, 
       subject: replySubject, 
-      text: replyMessage 
+      text: replyBody 
     });
   };
 

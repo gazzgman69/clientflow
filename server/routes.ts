@@ -2531,9 +2531,18 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
       if (req.query.simple === '1') {
         const simpleLimit = Math.min(50, Math.max(1, parseInt(req.query.limit as string) || 10));
         const projects = await neonClient(`
-          SELECT * FROM projects 
-          WHERE tenant_id = $1
-          ORDER BY created_at DESC
+          SELECT 
+            p.*,
+            v.name as venue_name,
+            v.address as venue_address,
+            v.city as venue_city,
+            v.state as venue_state,
+            v.zip as venue_zip,
+            v.phone as venue_phone
+          FROM projects p
+          LEFT JOIN venues v ON p.venue_id = v.id
+          WHERE p.tenant_id = $1
+          ORDER BY p.created_at DESC
           LIMIT ${simpleLimit}
         `, [req.tenantId]);
         return res.json(projects);
@@ -2541,9 +2550,18 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
 
       // Don't filter by userId - all projects in tenant should be visible to authenticated users
       const projects = await neonClient(`
-        SELECT * FROM projects 
-        WHERE tenant_id = $1
-        ORDER BY created_at DESC
+        SELECT 
+          p.*,
+          v.name as venue_name,
+          v.address as venue_address,
+          v.city as venue_city,
+          v.state as venue_state,
+          v.zip as venue_zip,
+          v.phone as venue_phone
+        FROM projects p
+        LEFT JOIN venues v ON p.venue_id = v.id
+        WHERE p.tenant_id = $1
+        ORDER BY p.created_at DESC
         LIMIT ${limit} OFFSET ${offset}
       `, [req.tenantId]);
       

@@ -1,0 +1,94 @@
+Goal
+Run the multi-tenant runtime checks under a valid session, without modifying existing routes/DB/schema or committing app changes.
+
+Approach (try in order, stop at first that works)
+
+Supertest against exported app — if the server exports the Express app or a createApp()/buildServer() function, use Supertest and inject a one-off middleware (only in the script) to set req.session.userId and req.session.tenantId for just these test requests.
+
+Construct a valid session cookie — detect session stack (express-session vs cookie-session), derive cookie name and signature (cookie-signature & SESSION_SECRET), and mint a signed cookie for a fake session that contains tenantId + userId.
+
+If neither is possible, print skipped (auth) and exit gracefully.
+
+Create (do not modify app files): scripts/mt-runtime-verify.ts
+
+Script requirements
+
+Load env.
+
+Detect session mechanism and auth middleware names.
+
+Perform GETs to:
+
+/api/auth/google/status
+
+/api/auth/microsoft/status
+
+/api/email/providers (or your project’s equivalent list route)
+
+If available: a session/me endpoint (e.g., /api/me).
+
+If a template GET exists (e.g., /api/templates/:id):
+
+Fetch one valid template id (from DB or a list route) and GET it → expect 200.
+
+Attempt a cross-tenant GET using a clearly foreign id if present → expect 403/404; otherwise print skipped (no foreign id).
+
+Print: path, HTTP status, and first ~120 bytes of body for each probe.
+
+Never POST/PUT/DELETE. No writes.
+
+Return in reply
+
+Which auth path succeeded: supertest-injected or signed-cookie (or skipped (auth)).
+
+For each target path: status + first 120 bytes.
+
+Final verdict bullets:
+
+status endpoints reachable & tenant-scoped: PASS/FAIL
+
+providers limited to current tenant: PASS/FAIL (or skipped)
+
+template cross-tenant blocked: PASS/FAIL (or skipped)
+
+any anomalies (SPA HTML shells, redirects, CSRF blocks)
+
+Implementation outline (pseudo-steps)
+
+Try to import the app:
+
+// try common exports
+const mod = await import('../server/index.ts').catch(()=>null) 
+         || await import('../server/index.js').catch(()=>null);
+const app = mod?.app || mod?.default || (mod?.createApp?.() ?? null);
+
+
+If app exists → use Supertest:
+
+Before registering probes, app.use((req,res,next)=>{ req.session={...(req.session||{}), userId:'test-user', tenantId:'test-tenant'}; next(); }) ONLY inside this script (do not write to repo files).
+
+Then GET the targets with Supertest.
+
+Else, detect session:
+
+Locate session middleware in code (express-session vs cookie-session), cookie name, and secret.
+
+For cookie-session: build cookie payload matching your app’s structure and sign with cookie-signature + SESSION_SECRET.
+
+For express-session: create a session row via the store API if reachable from the script, sign connect.sid with secret, and include in fetch headers.
+
+Print results + verdict. Exit code 0.
+
+Constraints
+
+Do not commit changes to server code; the script is standalone under scripts/.
+
+No migrations, no schema changes, no route edits.
+
+GET-only.
+
+If auth fails, clearly print skipped (auth) for each probe.
+
+Run
+
+tsx scripts/mt-runtime-verify.ts (or node --loader tsx scripts/mt-runtime-verify.ts, whichever your repo uses)

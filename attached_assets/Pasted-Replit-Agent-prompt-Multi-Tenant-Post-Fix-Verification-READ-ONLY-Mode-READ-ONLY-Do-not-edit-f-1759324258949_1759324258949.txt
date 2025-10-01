@@ -1,0 +1,105 @@
+Replit Agent prompt — Multi-Tenant Post-Fix Verification (READ-ONLY)
+
+Mode: READ-ONLY.
+Do not edit files, run migrations, or refactor. You may list files, print code, and perform GET requests if the app is running and you have auth.
+
+PHASE 1 — Handshake
+
+Reply exactly:
+
+ACK-MT-VERIFY-v2
+Sections: A,B,C,D,E,F,G,H,I,J
+
+PHASE 2 — Verification
+
+A) Entrypoints & middleware order
+
+Print the server entry and route mount order (e.g., server/index.*, server/routes.*).
+
+Show which auth/tenant middlewares run for API routes and in what order (file:lines).
+
+B) Microsoft OAuth state (signed & verified)
+
+Locate Microsoft start & callback handlers.
+
+Show the code that signs state on start and verifies it on callback (file:lines).
+
+Confirm tenantId/userId come from the verified state, not request input.
+
+C) Tenant override hardening
+
+Search for any usage of req.body.tenantId, req.query.tenantId, or req.params.tenantId in guards/middleware.
+
+If found, print file:lines and mark RISK; otherwise print OK (no client-supplied tenant).
+
+If a dev override exists, show it is gated by NODE_ENV==='development' (and any feature flag).
+
+D) Email send path scoping
+
+Identify the actual send endpoint used by the UI (client submit) and print the server handler function (file:lines).
+
+Show that contact/project/template lookups include tenant_id = req.tenantId (quote the where-clauses).
+
+E) Template access
+
+Show the storage method used to get a template (file:lines) and confirm it requires tenantId and filters by it.
+
+Print all call sites and confirm they pass tenantId.
+
+F) Email account scoping & indexes
+
+Show storage methods for listing/upserting/disconnecting email accounts and confirm queries filter by tenant_id and user_id.
+
+From the schema/model, print the unique/index constraint that scopes accounts (e.g., (tenant_id, user_id, provider_key)).
+
+G) Logging sanity
+
+Grep for sensitive patterns: access_token, refresh_token, Authorization, password, client_secret.
+
+Confirm logs do not print secrets; only masked IDs/counts. Quote any suspect lines.
+
+H) Runtime GET probes (optional)
+
+If authenticated dev session available, perform GET to:
+
+/api/auth/google/status
+
+/api/auth/microsoft/status
+
+/api/email/providers (or equivalent)
+
+a session “me” endpoint if present
+
+Return status codes and the first ~120 bytes. Otherwise print skipped (auth).
+
+I) Cross-tenant read guard (non-destructive)
+
+If there exists a GET template/record endpoint that takes an ID without tenant in the URL, try it with an ID from another tenant (if you have any fixture IDs).
+
+Expect 403/404. If unavailable or not authenticated, print skipped (auth).
+
+J) Final verdict (2–5 bullets)
+
+State PASS / PARTIAL with explicit evidence for:
+
+Microsoft OAuth state verification
+
+tenant override prevention
+
+send-path lookups scoped by tenant
+
+template access scoped by tenant
+
+account storage scoped & indexed
+
+logging free of secrets
+
+List any gaps with file:lines.
+
+Rules Recap
+
+READ-ONLY. No POST/PUT/DELETE, no file edits, no migrations.
+
+Include file paths + line numbers with every code citation.
+
+If a check can’t run, print skipped (auth) or skipped (unavailable) and continue.

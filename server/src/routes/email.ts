@@ -1618,4 +1618,77 @@ router.put('/tenant-prefs', requireAuth, async (req: any, res) => {
   }
 });
 
+/**
+ * POST /api/email/preview
+ * Preview email with token resolution and MIME formatting (DEBUG_EMAIL=1 only)
+ */
+if (process.env.DEBUG_EMAIL === '1') {
+  router.post('/preview', async (req, res) => {
+    try {
+      const { to, subject, html, text, tokens } = req.body;
+      
+      // Build context for token resolution
+      const context: any = { tokens: tokens || {} };
+      
+      // Resolve tokens
+      const subjectResult = subject ? 
+        await tokenResolverService.resolveTemplate(subject, context) : 
+        { rendered: '', unresolved: [] };
+      
+      const htmlResult = html ? 
+        await tokenResolverService.resolveTemplate(html, context) : 
+        { rendered: '', unresolved: [] };
+      
+      const textResult = text ? 
+        await tokenResolverService.resolveTemplate(text, context) : 
+        { rendered: '', unresolved: [] };
+      
+      const finalSubject = subjectResult.rendered;
+      let finalHtml = htmlResult.rendered;
+      let finalText = textResult.rendered;
+      
+      // Apply same fallback logic as real send
+      if (finalHtml && !finalText) {
+        const { convert } = await import('html-to-text');
+        finalText = convert(finalHtml, {
+          wordwrap: 130,
+          selectors: [
+            { selector: 'a', options: { ignoreHref: false } },
+            { selector: 'img', format: 'skip' }
+          ]
+        });
+      }
+      
+      if (finalText && !finalHtml) {
+        finalHtml = `<html><body><pre style="font-family: sans-serif; white-space: pre-wrap;">${finalText}</pre></body></html>`;
+      }
+      
+      // Build MIME using the same function as real send
+      const { buildMimeRaw } = await import('../services/gmail-send');
+      const raw = buildMimeRaw({
+        from: 'preview@example.com',
+        to: to?.length ? (Array.isArray(to) ? to : [to]) : ['them@example.com'],
+        subject: finalSubject || 'Subject',
+        html: finalHtml || '<p>Empty</p>',
+        text: finalText || 'Empty'
+      });
+      
+      // Decode to show preview
+      const decoded = Buffer.from(raw.replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString('utf8');
+      
+      res.json({
+        ok: true,
+        finalSubject,
+        htmlLen: (finalHtml || '').length,
+        textLen: (finalText || '').length,
+        unresolved: [...subjectResult.unresolved, ...htmlResult.unresolved, ...textResult.unresolved],
+        preview: decoded.slice(0, 800)
+      });
+    } catch (error: any) {
+      console.error('Preview error:', error);
+      res.status(500).json({ ok: false, error: error.message });
+    }
+  });
+}
+
 export default router;

@@ -1,0 +1,155 @@
+Mission
+Fix Google sends where Subject tokens and the Body don’t show in the received email. Verify the exact endpoint the UI calls, confirm payload fields, and ensure the server’s send handler normalizes → interpolates tokens ([FirstName], [X|default]) → passes subject, html, and text into the Gmail sender with a correct MIME. Keep OAuth/DB unchanged. Microsoft path untouched.
+
+Rules
+
+Keep edits minimal and scoped to the send route + helpers.
+
+Never log raw email content; only lengths and a short preview when explicitly asked.
+
+If alternative SMTP/Nodemailer path is used, wire subject/html/text into sendMail.
+
+0) Identify the live send endpoint from the UI
+
+Search the client for the compose submit call and print the function + URL it calls:
+
+patterns: fetch(/api/, axios.post('/api/, POST /api/, sendEmail(, mutate({ to, subject
+
+Print the file path and the exact endpoint path, e.g. /api/email/send (or whatever is used).
+
+1) Print the real server handler that receives that request
+
+Search server for that exact path and print the full handler function (file + code).
+
+If it funnels through a controller/service, print those functions too.
+
+2) Add a tap log right before dispatch (diagnostics only)
+
+In the identified handler, right before calling Gmail/Nodemailer, add:
+
+console.info('sendEmail payload', {
+  toCount: Array.isArray(req.body?.to) ? req.body.to.length : 0,
+  hasSubject: !!req.body?.subject,
+  htmlLen: (req.body?.html || '').length,
+  textLen: (req.body?.text || '').length
+});
+
+
+(Lengths only; no content.)
+
+3) Add/ensure a normalization + token layer (only if missing)
+
+If not present, add:
+
+server/src/lib/payload-normalize.ts with normalizeSendPayload(body) that maps many client field names → { to[], cc[], bcc[], subject, html?, text?, attachments?, tokens? }.
+
+server/src/lib/merge.ts with:
+
+interpolateTokens(input, ctx) supporting square brackets [FirstName], [FirstName|there] (case-insensitive, dotted paths allowed), and legacy {{...}}.
+
+buildSendContext({ to, accountEmail, user, company, contact, tokens }).
+
+stripHtml(html) helper.
+
+In the handler, build:
+
+const norm = normalizeSendPayload(req.body);
+const ctx  = buildSendContext({ to: norm.to, accountEmail: account.account_email, /* add user/company/contact if available */, tokens: norm.tokens });
+
+const finalSubject = interpolateTokens(norm.subject, ctx);
+const htmlBody     = interpolateTokens(norm.html, ctx);
+const textBody     = interpolateTokens(norm.text, ctx) || (htmlBody ? stripHtml(htmlBody) : '');
+
+
+Add a second short log:
+
+console.info('sendEmail dispatch', { subjectLen: finalSubject.length, htmlLen: htmlBody.length, textLen: textBody.length });
+
+4) Verify which sender is used and wire subject/html/text
+
+If using Gmail REST (googleapis.gmail.users.messages.send), ensure you call a MIME builder that inserts:
+
+headers (MIME-Version, Subject encoded UTF-8, Date, To…),
+
+blank line,
+
+multipart/alternative with text/plain (quoted-printable) and text/html (quoted-printable),
+
+optional attachments as multipart/mixed.
+
+Then base64url encode and send as requestBody.raw.
+
+If using Nodemailer SMTP: ensure sendMail({ subject: finalSubject, html: htmlBody || undefined, text: textBody || undefined, ... }).
+
+If such a builder isn’t used, create server/src/services/gmail-send.ts (as needed) and use it. Otherwise, prove the existing builder is passed htmlBody/textBody and not empty strings.
+
+5) Add a dry-run preview endpoint (behind DEBUG_EMAIL=1)
+
+In the same routes file, add:
+
+if (process.env.DEBUG_EMAIL === '1') {
+  app.post('/api/dev/email/preview', (req, res) => {
+    const norm = normalizeSendPayload(req.body);
+    const ctx  = buildSendContext({ to: norm.to, contact: { email: norm.to?.[0] }, tokens: norm.tokens });
+    const subj = interpolateTokens(norm.subject, ctx);
+    const html = interpolateTokens(norm.html, ctx);
+    const text = interpolateTokens(norm.text, ctx) || (html ? stripHtml(html) : '');
+
+    // Use the same MIME function the real send uses:
+    const { buildMimeRaw } = require('../services/gmail-send');
+    const raw = buildMimeRaw({
+      from: 'preview@example.com',
+      to: norm.to?.length ? norm.to : ['them@example.com'],
+      subject: subj || 'Subject',
+      html: html || '<p>Empty</p>',
+      text: text || 'Empty'
+    });
+
+    const decoded = Buffer.from(raw.replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString('utf8');
+    return res.json({
+      finalSubject: subj,
+      htmlLen: (html || '').length,
+      textLen: (text || '').length,
+      preview: decoded.slice(0, 800) // headers + start of multipart body
+    });
+  });
+}
+
+6) Return evidence
+
+Print the UI send function + endpoint (from step 0).
+
+Print the server handler code (from step 1).
+
+Confirm both diagnostic logs were added (step 2 + 3).
+
+State which sender path is used (REST vs SMTP) and show the exact call where finalSubject/htmlBody/textBody are passed (snippet).
+
+If DEBUG_EMAIL can be set, make it 1 and call /api/dev/email/preview with a sample:
+
+{
+  "to": ["you@example.com"],
+  "subject": "Hello [FirstName|there] from [Company] on [Date]",
+  "html": "<p>Hi <b>[FirstName]</b>, welcome to <i>[Company]</i>.</p>"
+}
+
+
+Return the JSON result (subject + lengths + preview header/body lines).
+
+7) Acceptance checklist
+
+On a real send, server logs show:
+
+sendEmail payload … htmlLen>0 || textLen>0
+
+sendEmail dispatch … subjectLen>0 and (htmlLen>0 || textLen>0)
+
+The email received includes:
+
+Subject with tokens replaced (e.g., Hello Alex from Acme on 01/10/2025),
+
+Non-empty body (HTML rendered; text fallback exists).
+
+/api/dev/email/preview shows:
+
+headers, a blank line, and Content-Type: multipart/alternative with text/plain & text/html parts containing your content.

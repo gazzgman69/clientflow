@@ -533,9 +533,9 @@ export default function EmailSettings() {
                               size="sm"
                               onClick={() => {
                                 if (connectedProvider === 'gmail') {
-                                  window.location.href = '/api/auth/google/gmail';
+                                  window.location.href = '/auth/google/gmail';
                                 } else if (connectedProvider === 'microsoft') {
-                                  window.location.href = '/api/auth/microsoft/mail';
+                                  window.location.href = '/auth/microsoft/mail';
                                 }
                               }}
                               data-testid="button-reconnect-provider"

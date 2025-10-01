@@ -1050,7 +1050,7 @@ router.post('/email-threads/:threadId/reply', requireAuth, upload.array('attachm
       threadId: threadId // Pass threadId for proper Gmail threading
     };
 
-    const sendResult = await gmailService.sendEmail(userId, emailRequest);
+    const sendResult = await gmailService.sendEmail(userId, emailRequest, req.tenantId);
     
     if (!sendResult.ok) {
       return res.status(500).json({ error: sendResult.error });
@@ -1149,7 +1149,7 @@ router.post('/projects/:projectId/compose-email', upload.array('attachments'), a
       projectId: projectId
     };
 
-    const sendResult = await gmailService.sendEmail(userId, emailRequest);
+    const sendResult = await gmailService.sendEmail(userId, emailRequest, req.tenantId);
     
     if (!sendResult.ok) {
       return res.status(500).json({ error: sendResult.error });

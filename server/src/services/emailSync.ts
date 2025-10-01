@@ -996,7 +996,7 @@ export class EmailSyncService {
     inReplyTo?: string;
     references?: string;
     fromEmail: string; // Add required fromEmail parameter
-  }): Promise<Email | null> {
+  }, sessionTenantId?: string): Promise<Email | null> {
     try {
       // Generate a Message-ID for this outbound email (RFC 2822 compliant)
       const messageId = `<${Date.now()}.${Math.random().toString(36).substr(2, 9)}@crm.system>`;
@@ -1012,13 +1012,15 @@ export class EmailSyncService {
       // Find contact for primary recipient
       // SECURITY FIX: Use session-aware tenant resolution
       let tenantId: string;
-      if (this.tenantId) {
+      if (sessionTenantId) {
+        tenantId = sessionTenantId;
+      } else if (this.tenantId) {
         tenantId = this.tenantId;
       } else {
         // This method needs tenant context - should be passed from authenticated context
         const { storage } = await import('../../storage');
         // SECURITY: Require authenticated tenant context for email creation
-        throw new Error(`Email creation requires authenticated tenant context for user ${data.userId}. Session-based tenant ID must be provided.`);
+        throw new Error(`Email creation requires authenticated tenant context for user ${userId}. Session-based tenant ID must be provided.`);
       }
       const contactId = data.to.length > 0 
         ? await this.findOrCreateContact(data.to[0], tenantId, data.projectId)

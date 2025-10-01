@@ -133,7 +133,7 @@ export class GmailService {
   /**
    * Send email using Gmail API with database sync and proper multipart/alternative format
    */
-  async sendEmail(userId: string, emailRequest: EmailRequest & { projectId?: string; threadId?: string }): Promise<EmailResponse> {
+  async sendEmail(userId: string, emailRequest: EmailRequest & { projectId?: string; threadId?: string }, tenantId?: string): Promise<EmailResponse> {
     try {
       // VERBOSE LOGGING: Log recipient + provider status before sending
       console.log(`📧 GMAIL SEND START - Provider: Gmail OAuth`);
@@ -265,7 +265,7 @@ export class GmailService {
             bodyText: rendered.text,
             bodyHtml: rendered.htmlInlined,
             fromEmail: userEmail,
-          });
+          }, tenantId); // Pass tenantId for proper tenant isolation
           console.log(`📧 GMAIL DB SYNC - Successfully synced sent email to database`);
         } catch (syncError) {
           console.error('📧 GMAIL DB SYNC ERROR - Failed to sync sent email to database:', syncError);

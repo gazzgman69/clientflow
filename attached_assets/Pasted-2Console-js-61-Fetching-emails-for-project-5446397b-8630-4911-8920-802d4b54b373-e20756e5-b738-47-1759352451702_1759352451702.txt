@@ -1,0 +1,30 @@
+2Console.js:61 🔍 Fetching emails for project: 5446397b-8630-4911-8920-802d4b54b373
+e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/api/signatures:1  Failed to load resource: the server responded with a status of 401 (Unauthorized)Understand this error
+Console.js:61 📧 Email response: Objectmessages: (19) [{…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}]needsReconnect: falsetotal: 19[[Prototype]]: Object
+Console.js:61 📧 Email response: Objectmessages: (19) [{…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}]needsReconnect: falsetotal: 19[[Prototype]]: Object
+Console.js:61 🔍 Fetching emails for project: 5446397b-8630-4911-8920-802d4b54b373
+Console.js:61 📧 Email response: Objectmessages: (19) [{…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}]needsReconnect: falsetotal: 19[[Prototype]]: Object
+injected.js:278  GET https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/api/admin/impersonate/status 403 (Forbidden)
+window.fetch @ Network.js:219
+apply @ injected.js:278
+(anonymous) @ queryClient.ts:112
+fetchFn @ @tanstack_react-query.js?v=773266cd:840
+run @ @tanstack_react-query.js?v=773266cd:494
+start @ @tanstack_react-query.js?v=773266cd:536
+fetch @ @tanstack_react-query.js?v=773266cd:926
+executeFetch_fn @ @tanstack_react-query.js?v=773266cd:2211
+fetch @ @tanstack_react-query.js?v=773266cd:2011
+refetch @ @tanstack_react-query.js?v=773266cd:2001
+onFocus @ @tanstack_react-query.js?v=773266cd:749
+(anonymous) @ @tanstack_react-query.js?v=773266cd:1112
+(anonymous) @ @tanstack_react-query.js?v=773266cd:1111
+batch @ @tanstack_react-query.js?v=773266cd:583
+onFocus @ @tanstack_react-query.js?v=773266cd:1110
+(anonymous) @ @tanstack_react-query.js?v=773266cd:1601
+await in (anonymous)
+(anonymous) @ @tanstack_react-query.js?v=773266cd:313
+onFocus @ @tanstack_react-query.js?v=773266cd:312
+(anonymous) @ @tanstack_react-query.js?v=773266cd:299
+listener @ @tanstack_react-query.js?v=773266cd:270Understand this error
+Console.js:61 🔍 Fetching emails for project: 5446397b-8630-4911-8920-802d4b54b373
+Console.js:61 📧 Email response: {messages: Array(36), total: 36, needsReconnect: false}

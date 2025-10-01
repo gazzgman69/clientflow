@@ -1760,7 +1760,7 @@ export class MemStorage implements IStorage {
   }
 
   // Project Members
-  async getProjectMembers(projectId: string): Promise<ProjectMember[]> {
+  async getProjectMembers(projectId: string, tenantId: string): Promise<ProjectMember[]> {
     return this.projectMembers.get(projectId) || [];
   }
 
@@ -1877,7 +1877,7 @@ export class MemStorage implements IStorage {
   }
 
   // Project Notes
-  async getProjectNotes(projectId: string): Promise<ProjectNote[]> {
+  async getProjectNotes(projectId: string, tenantId: string): Promise<ProjectNote[]> {
     return this.projectNotes.get(projectId) || [];
   }
 
@@ -4053,7 +4053,12 @@ export class DrizzleStorage implements IStorage {
   }
   
   // Project Members - PostgreSQL implementation
-  async getProjectMembers(projectId: string): Promise<ProjectMember[]> {
+  async getProjectMembers(projectId: string, tenantId: string): Promise<ProjectMember[]> {
+    // Get project to verify tenantId
+    const project = await this.db.select().from(projects).where(and(eq(projects.id, projectId), eq(projects.tenantId, tenantId))).limit(1);
+    if (!project || project.length === 0) {
+      return [];
+    }
     return await this.db.select().from(projectMembers).where(eq(projectMembers.projectId, projectId));
   }
 
@@ -4112,7 +4117,12 @@ export class DrizzleStorage implements IStorage {
   }
   
   // Project Notes - PostgreSQL implementation
-  async getProjectNotes(projectId: string): Promise<ProjectNote[]> {
+  async getProjectNotes(projectId: string, tenantId: string): Promise<ProjectNote[]> {
+    // Get project to verify tenantId
+    const project = await this.db.select().from(projects).where(and(eq(projects.id, projectId), eq(projects.tenantId, tenantId))).limit(1);
+    if (!project || project.length === 0) {
+      return [];
+    }
     return await this.db.select().from(projectNotes).where(eq(projectNotes.projectId, projectId));
   }
 

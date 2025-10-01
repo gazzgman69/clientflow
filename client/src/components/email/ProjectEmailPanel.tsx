@@ -1222,7 +1222,6 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
                     variant="outline" 
                     onClick={() => {
                       handleReply(selectedEmail);
-                      setSelectedEmail(null);
                     }}
                     data-testid="button-reply-email"
                   >

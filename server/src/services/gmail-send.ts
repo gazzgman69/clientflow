@@ -70,16 +70,6 @@ export function buildMimeRaw(opts: {
   const alt = `alt_${Date.now().toString(36)}`;
   const mix = `mix_${(Date.now()+1).toString(36)}`;
 
-  const headers = [
-    'MIME-Version: 1.0',
-    opts.from ? `From: ${opts.from}` : null,
-    `To: ${opts.to.join(', ')}`,
-    opts.cc?.length ? `Cc: ${opts.cc.join(', ')}` : null,
-    opts.bcc?.length ? `Bcc: ${opts.bcc.join(', ')}` : null,
-    `Subject: ${encodeSubject(opts.subject)}`,
-    `Date: ${new Date().toUTCString()}`
-  ].filter(Boolean).join(CRLF);
-
   const altParts: string[] = [];
   if ((opts.text || '').trim()) {
     altParts.push(
@@ -104,17 +94,32 @@ export function buildMimeRaw(opts: {
     );
   }
 
-  const altBody = [
-    `Content-Type: multipart/alternative; boundary="${alt}"`,
-    ``,
-    ...altParts.map(p => `--${alt}${CRLF}${p}`),
-    `--${alt}--`,
-    ``
-  ].join(CRLF);
-
   const atts = opts.attachments || [];
-  let body = altBody;
+  let headers: string;
+  let body: string;
+
   if (atts.length) {
+    // With attachments: use multipart/mixed at top level
+    headers = [
+      'MIME-Version: 1.0',
+      opts.from ? `From: ${opts.from}` : null,
+      `To: ${opts.to.join(', ')}`,
+      opts.cc?.length ? `Cc: ${opts.cc.join(', ')}` : null,
+      opts.bcc?.length ? `Bcc: ${opts.bcc.join(', ')}` : null,
+      `Subject: ${encodeSubject(opts.subject)}`,
+      `Date: ${new Date().toUTCString()}`,
+      `Content-Type: multipart/mixed; boundary="${mix}"`
+    ].filter(Boolean).join(CRLF);
+
+    // Nested multipart/alternative for text/html
+    const altBody = [
+      `Content-Type: multipart/alternative; boundary="${alt}"`,
+      ``,
+      ...altParts.map(p => `--${alt}${CRLF}${p}`),
+      `--${alt}--`,
+      ``
+    ].join(CRLF);
+
     const parts = [ `--${mix}`, altBody ];
     for (const a of atts) {
       const ct = a.contentType || 'application/octet-stream';
@@ -130,7 +135,25 @@ export function buildMimeRaw(opts: {
       );
     }
     parts.push(`--${mix}--`, ``);
-    body = [`Content-Type: multipart/mixed; boundary="${mix}"`, ``, ...parts].join(CRLF);
+    body = parts.join(CRLF);
+  } else {
+    // No attachments: use multipart/alternative at top level
+    headers = [
+      'MIME-Version: 1.0',
+      opts.from ? `From: ${opts.from}` : null,
+      `To: ${opts.to.join(', ')}`,
+      opts.cc?.length ? `Cc: ${opts.cc.join(', ')}` : null,
+      opts.bcc?.length ? `Bcc: ${opts.bcc.join(', ')}` : null,
+      `Subject: ${encodeSubject(opts.subject)}`,
+      `Date: ${new Date().toUTCString()}`,
+      `Content-Type: multipart/alternative; boundary="${alt}"`
+    ].filter(Boolean).join(CRLF);
+
+    body = [
+      ...altParts.map(p => `--${alt}${CRLF}${p}`),
+      `--${alt}--`,
+      ``
+    ].join(CRLF);
   }
 
   // CRITICAL: blank line between headers and body

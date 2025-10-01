@@ -347,6 +347,7 @@ router.post('/send', requireAuth, async (req: any, res) => {
           sentAt: new Date(),
           projectId,
           isSent: true,
+          direction: 'outbound',
           snippet: finalText?.substring(0, 100)
         }, tenantId);
         console.log(`✅ Sent email stored successfully in database for project ${projectId}`);

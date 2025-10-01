@@ -240,8 +240,8 @@ export default function EmailSettings() {
 
   // Format last synced date
   const formatLastSynced = () => {
-    if (!providerStatus.lastSyncedAt) return 'Never';
-    const date = new Date(providerStatus.lastSyncedAt);
+    if (!providerStatus.lastSyncAt) return 'Never';
+    const date = new Date(providerStatus.lastSyncAt);
     return date.toLocaleDateString('en-US', { 
       month: 'short', 
       day: 'numeric',

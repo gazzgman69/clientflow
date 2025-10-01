@@ -409,11 +409,14 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
   });
 
   const handleReply = (originalMessage: any) => {
+    console.log('🔵 handleReply called with:', originalMessage);
     // Set reply details based on the original message
     const replyToEmail = originalMessage.fromEmail.includes('<') 
       ? originalMessage.fromEmail.match(/<(.+)>/)?.[1] || originalMessage.fromEmail
       : originalMessage.fromEmail;
     
+    console.log('🔵 Setting reply to:', replyToEmail);
+    console.log('🔵 Setting showReplyForm to true');
     setReplyTo(replyToEmail);
     setReplySubject(originalMessage.subject.startsWith('Re:') 
       ? originalMessage.subject 

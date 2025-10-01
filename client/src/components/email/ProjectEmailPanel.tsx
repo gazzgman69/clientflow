@@ -46,7 +46,7 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
   const [isComposing, setIsComposing] = useState(false);
   const [selectedThreadId, setSelectedThreadId] = useState<string | null>(null);
   const [selectedEmail, setSelectedEmail] = useState<any>(null);
-  const [showReplyForm, setShowReplyForm] = useState(false);
+  const [showReplyDialog, setShowReplyDialog] = useState(false);
   const [replyTo, setReplyTo] = useState('');
   const [replySubject, setReplySubject] = useState('');
   const [replyMessage, setReplyMessage] = useState('');
@@ -408,8 +408,6 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
     },
   });
 
-  const replyFormRef = useRef<HTMLDivElement>(null);
-
   const handleReply = (originalMessage: any) => {
     // Set reply details based on the original message
     const replyToEmail = originalMessage.fromEmail.includes('<') 
@@ -421,12 +419,9 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
     setReplySubject(subject.startsWith('Re:') 
       ? subject 
       : `Re: ${subject}`);
-    setShowReplyForm(true);
-    
-    // Scroll to reply form after it renders
-    setTimeout(() => {
-      replyFormRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    }, 100);
+    setReplyMessage(''); // Clear previous message
+    setShowReplyDialog(true);
+    setSelectedEmail(null); // Close the email detail dialog
   };
 
   const handleSendReply = () => {
@@ -447,6 +442,12 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
       subject: replySubject, 
       html: replyBody 
     });
+    
+    // Close dialog and clear form
+    setShowReplyDialog(false);
+    setReplyTo('');
+    setReplySubject('');
+    setReplyMessage('');
   };
 
   // Extract messages and connection status
@@ -975,143 +976,6 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
                   </Card>
                 ))}
 
-                {/* Reply Form */}
-                {showReplyForm && (
-                  <Card ref={replyFormRef} className="border-2 border-primary/20 bg-primary/5">
-                    <CardHeader>
-                      <CardTitle className="text-lg">Reply to Thread</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      <div>
-                        <Label htmlFor="reply-to">To</Label>
-                        <Input
-                          id="reply-to"
-                          value={replyTo}
-                          onChange={(e) => setReplyTo(e.target.value)}
-                          data-testid="input-reply-to"
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="reply-subject">Subject</Label>
-                        <Input
-                          id="reply-subject"
-                          value={replySubject}
-                          onChange={(e) => setReplySubject(e.target.value)}
-                          data-testid="input-reply-subject"
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="reply-message">Message</Label>
-                        <RichTextEditor
-                          ref={replyEditorRef}
-                          content={replyMessage}
-                          onChange={setReplyMessage}
-                          placeholder="Enter your reply..."
-                          minHeight="300px"
-                          data-testid="editor-reply-message"
-                          onTokenInsert={(insertToken) => (
-                            <TokenDropdown
-                              onTokenSelect={insertToken}
-                              variant="outline"
-                              size="sm"
-                              className="h-7 px-2 text-xs"
-                            />
-                          )}
-                          onSignatureSelect={() => (
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button 
-                                  variant="outline"
-                                  size="sm"
-                                  className="h-7 px-2 text-xs"
-                                  data-testid="button-signature-toolbar"
-                                >
-                                  <Edit3 className="h-2.5 w-2.5 mr-1" />
-                                  Signature
-                                  <ChevronDown className="h-2.5 w-2.5 ml-1" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="start" className="w-56">
-                                {signaturesLoading ? (
-                                  <div className="flex items-center justify-center py-2">
-                                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                                    Loading...
-                                  </div>
-                                ) : emailSignatures?.length === 0 ? (
-                                  <div className="text-center py-2 text-muted-foreground text-sm">
-                                    No signatures found
-                                  </div>
-                                ) : (
-                                  emailSignatures?.map((signature: any) => (
-                                    <DropdownMenuItem 
-                                      key={signature.id}
-                                      onClick={() => {
-                                        if (replyEditorRef.current) {
-                                          const currentContent = replyEditorRef.current.getHTML();
-                                          const combinedContent = currentContent + (currentContent ? '<br>' : '') + signature.content.trim();
-                                          replyEditorRef.current.setContent(combinedContent);
-                                        }
-                                      }}
-                                      data-testid={`dropdown-signature-toolbar-${signature.id}`}
-                                    >
-                                      <div className="flex flex-col">
-                                        <span className="font-medium">{signature.name}</span>
-                                        {signature.isDefault && (
-                                          <span className="text-xs text-muted-foreground">Default</span>
-                                        )}
-                                      </div>
-                                    </DropdownMenuItem>
-                                  ))
-                                )}
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          )}
-                          onTemplateSelect={() => (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="h-7 px-2 text-xs"
-                              onClick={() => setShowTemplateModal(true)}
-                              data-testid="button-template-toolbar"
-                            >
-                              <FileText className="h-2.5 w-2.5 mr-1" />
-                              Template
-                            </Button>
-                          )}
-                        />
-                      </div>
-                      <div className="flex gap-2 justify-end">
-                        <Button 
-                          variant="outline" 
-                          onClick={() => {
-                            setShowReplyForm(false);
-                            setReplyMessage('');
-                          }}
-                          data-testid="button-cancel-reply"
-                        >
-                          Cancel
-                        </Button>
-                        <Button 
-                          onClick={handleSendReply}
-                          disabled={replyEmailMutation.isPending}
-                          data-testid="button-send-reply"
-                        >
-                          {replyEmailMutation.isPending ? (
-                            <>
-                              <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                              Sending...
-                            </>
-                          ) : (
-                            <>
-                              <Send className="h-4 w-4 mr-2" />
-                              Send Reply
-                            </>
-                          )}
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                )}
               </div>
             ) : (
               <div className="text-center py-8 text-muted-foreground">
@@ -1228,10 +1092,7 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
                 <div className="flex gap-2 pt-4 border-t">
                   <Button 
                     variant="outline" 
-                    onClick={() => {
-                      handleReply(selectedEmail);
-                      setSelectedEmail(null); // Close the dialog
-                    }}
+                    onClick={() => handleReply(selectedEmail)}
                     data-testid="button-reply-email"
                   >
                     <Reply className="h-4 w-4 mr-2" />
@@ -1320,6 +1181,151 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
                 data-testid="button-close-templates"
               >
                 Close
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Reply Dialog */}
+      <Dialog open={showReplyDialog} onOpenChange={setShowReplyDialog}>
+        <DialogContent className="max-w-3xl max-h-[80vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Reply className="h-5 w-5" />
+              Reply to Email
+            </DialogTitle>
+            <DialogDescription>
+              Compose your reply below
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="flex-1 overflow-auto space-y-4">
+            <div>
+              <Label htmlFor="reply-to">To</Label>
+              <Input
+                id="reply-to"
+                value={replyTo}
+                onChange={(e) => setReplyTo(e.target.value)}
+                data-testid="input-reply-to"
+              />
+            </div>
+            <div>
+              <Label htmlFor="reply-subject">Subject</Label>
+              <Input
+                id="reply-subject"
+                value={replySubject}
+                onChange={(e) => setReplySubject(e.target.value)}
+                data-testid="input-reply-subject"
+              />
+            </div>
+            <div>
+              <Label htmlFor="reply-message">Message</Label>
+              <RichTextEditor
+                ref={replyEditorRef}
+                content={replyMessage}
+                onChange={setReplyMessage}
+                placeholder="Enter your reply..."
+                minHeight="300px"
+                data-testid="editor-reply-message"
+                onTokenInsert={(insertToken) => (
+                  <TokenDropdown
+                    onTokenSelect={insertToken}
+                    variant="outline"
+                    size="sm"
+                    className="h-7 px-2 text-xs"
+                  />
+                )}
+                onSignatureSelect={() => (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button 
+                        variant="outline"
+                        size="sm"
+                        className="h-7 px-2 text-xs"
+                        data-testid="button-signature-toolbar"
+                      >
+                        <Edit3 className="h-2.5 w-2.5 mr-1" />
+                        Signature
+                        <ChevronDown className="h-2.5 w-2.5 ml-1" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start" className="w-56">
+                      {signaturesLoading ? (
+                        <div className="flex items-center justify-center py-2">
+                          <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                          Loading...
+                        </div>
+                      ) : emailSignatures?.length === 0 ? (
+                        <div className="text-center py-2 text-muted-foreground text-sm">
+                          No signatures found
+                        </div>
+                      ) : (
+                        emailSignatures?.map((signature: any) => (
+                          <DropdownMenuItem 
+                            key={signature.id}
+                            onClick={() => {
+                              if (replyEditorRef.current) {
+                                const currentContent = replyEditorRef.current.getHTML();
+                                const combinedContent = currentContent + (currentContent ? '<br>' : '') + signature.content.trim();
+                                replyEditorRef.current.setContent(combinedContent);
+                              }
+                            }}
+                            data-testid={`dropdown-signature-toolbar-${signature.id}`}
+                          >
+                            <div className="flex flex-col">
+                              <span className="font-medium">{signature.name}</span>
+                              {signature.isDefault && (
+                                <span className="text-xs text-muted-foreground">Default</span>
+                              )}
+                            </div>
+                          </DropdownMenuItem>
+                        ))
+                      )}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
+                onTemplateSelect={() => (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 px-2 text-xs"
+                    onClick={() => setShowTemplateModal(true)}
+                    data-testid="button-template-toolbar"
+                  >
+                    <FileText className="h-2.5 w-2.5 mr-1" />
+                    Template
+                  </Button>
+                )}
+              />
+            </div>
+          </div>
+          
+          <div className="border-t pt-4">
+            <div className="flex gap-2 justify-end">
+              <Button 
+                variant="outline" 
+                onClick={() => setShowReplyDialog(false)}
+                data-testid="button-cancel-reply"
+              >
+                Cancel
+              </Button>
+              <Button 
+                onClick={handleSendReply}
+                disabled={replyEmailMutation.isPending}
+                data-testid="button-send-reply"
+              >
+                {replyEmailMutation.isPending ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    Sending...
+                  </>
+                ) : (
+                  <>
+                    <Send className="h-4 w-4 mr-2" />
+                    Send Reply
+                  </>
+                )}
               </Button>
             </div>
           </div>

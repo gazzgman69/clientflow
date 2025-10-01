@@ -1269,7 +1269,7 @@ router.post('/sync', requireAuth, async (req: any, res) => {
     console.log('🔄 Manual email sync requested (Gmail + IMAP)');
     
     // Find active Gmail OAuth connections in email_accounts table
-    const emailAccounts = await db
+    const gmailAccounts = await db
       .select()
       .from(emailAccounts)
       .where(
@@ -1281,7 +1281,7 @@ router.post('/sync', requireAuth, async (req: any, res) => {
 
     // Get unique user IDs to sync
     const uniqueUserIds = Array.from(new Set(
-      emailAccounts
+      gmailAccounts
         .map(account => account.userId)
         .filter((userId): userId is string => userId !== null)
     ));

@@ -61,42 +61,42 @@ export class TokenResolverService {
     // Contact tokens
     this.tokenRegistry.set('FirstName', {
       resolve: async (context) => {
-        const contact = await this.getContact(context.contactId);
+        const contact = await this.getContact(context.contactId, context);
         return contact?.firstName || '';
       }
     });
 
     this.tokenRegistry.set('LastName', {
       resolve: async (context) => {
-        const contact = await this.getContact(context.contactId);
+        const contact = await this.getContact(context.contactId, context);
         return contact?.lastName || '';
       }
     });
 
     this.tokenRegistry.set('FullName', {
       resolve: async (context) => {
-        const contact = await this.getContact(context.contactId);
+        const contact = await this.getContact(context.contactId, context);
         return contact?.fullName || `${contact?.firstName || ''} ${contact?.lastName || ''}`.trim();
       }
     });
 
     this.tokenRegistry.set('Email', {
       resolve: async (context) => {
-        const contact = await this.getContact(context.contactId);
+        const contact = await this.getContact(context.contactId, context);
         return contact?.email || '';
       }
     });
 
     this.tokenRegistry.set('Phone', {
       resolve: async (context) => {
-        const contact = await this.getContact(context.contactId);
+        const contact = await this.getContact(context.contactId, context);
         return contact?.phone || '';
       }
     });
 
     this.tokenRegistry.set('Company', {
       resolve: async (context) => {
-        const contact = await this.getContact(context.contactId);
+        const contact = await this.getContact(context.contactId, context);
         return contact?.company || '';
       }
     });
@@ -104,7 +104,7 @@ export class TokenResolverService {
     // Address tokens
     this.tokenRegistry.set('Address1', {
       resolve: async (context) => {
-        const contact = await this.getContact(context.contactId);
+        const contact = await this.getContact(context.contactId, context);
         return contact?.address || '';
       }
     });
@@ -117,42 +117,42 @@ export class TokenResolverService {
 
     this.tokenRegistry.set('City', {
       resolve: async (context) => {
-        const contact = await this.getContact(context.contactId);
+        const contact = await this.getContact(context.contactId, context);
         return contact?.city || '';
       }
     });
 
     this.tokenRegistry.set('State', {
       resolve: async (context) => {
-        const contact = await this.getContact(context.contactId);
+        const contact = await this.getContact(context.contactId, context);
         return contact?.state || '';
       }
     });
 
     this.tokenRegistry.set('Province', {
       resolve: async (context) => {
-        const contact = await this.getContact(context.contactId);
+        const contact = await this.getContact(context.contactId, context);
         return contact?.state || ''; // Use state field for province
       }
     });
 
     this.tokenRegistry.set('Zip', {
       resolve: async (context) => {
-        const contact = await this.getContact(context.contactId);
+        const contact = await this.getContact(context.contactId, context);
         return contact?.zipCode || '';
       }
     });
 
     this.tokenRegistry.set('PostalCode', {
       resolve: async (context) => {
-        const contact = await this.getContact(context.contactId);
+        const contact = await this.getContact(context.contactId, context);
         return contact?.zipCode || ''; // Use zipCode for postal code
       }
     });
 
     this.tokenRegistry.set('Country', {
       resolve: async (context) => {
-        const contact = await this.getContact(context.contactId);
+        const contact = await this.getContact(context.contactId, context);
         return contact?.country || '';
       }
     });
@@ -642,17 +642,28 @@ export class TokenResolverService {
   }
 
   // Helper methods to get data (with entity-level caching)
-  private async getContact(contactId?: string): Promise<Contact | undefined> {
-    if (!contactId) return undefined;
-    
-    const cacheKey = `contact:${contactId}`;
-    if (this.entityCache.has(cacheKey)) {
-      return this.entityCache.get(cacheKey);
+  private async getContact(contactId?: string, context?: TokenResolutionContext): Promise<Contact | undefined> {
+    // If contactId provided, use it directly
+    if (contactId) {
+      const cacheKey = `contact:${contactId}`;
+      if (this.entityCache.has(cacheKey)) {
+        return this.entityCache.get(cacheKey);
+      }
+      
+      const contact = await this.storage.getContact(contactId);
+      this.entityCache.set(cacheKey, contact);
+      return contact;
     }
     
-    const contact = await this.storage.getContact(contactId);
-    this.entityCache.set(cacheKey, contact);
-    return contact;
+    // If no contactId but we have projectId, get contact from project
+    if (context?.projectId) {
+      const project = await this.getProject(context.projectId);
+      if (project?.contactId) {
+        return this.getContact(project.contactId);
+      }
+    }
+    
+    return undefined;
   }
 
   private async getProject(projectId?: string): Promise<Project | undefined> {

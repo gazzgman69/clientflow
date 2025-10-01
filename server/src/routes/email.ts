@@ -125,18 +125,16 @@ async function getUserEmail(userId: string, userEmail?: string): Promise<string>
 
 /**
  * Decode HTML entities (e.g., &lt; to <, &gt; to >, &amp; to &)
+ * Using a more comprehensive approach to handle all entities
  */
 function decodeHtmlEntities(text: string): string {
-  const entities: Record<string, string> = {
-    '&lt;': '<',
-    '&gt;': '>',
-    '&amp;': '&',
-    '&quot;': '"',
-    '&#39;': "'",
-    '&apos;': "'"
-  };
-  
-  return text.replace(/&(?:lt|gt|amp|quot|#39|apos);/g, (match) => entities[match] || match);
+  return text
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&apos;/g, "'")
+    .replace(/&amp;/g, '&'); // Must be last to avoid double-decoding
 }
 
 /**

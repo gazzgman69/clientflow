@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Send, Mail, Loader2, AlertCircle, X, Reply, RefreshCw, List, Layers, FileText, Edit3, ChevronDown } from 'lucide-react';
+import { Send, Mail, Loader2, AlertCircle, X, Reply, RefreshCw, FileText, Edit3, ChevronDown } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,12 +9,10 @@ import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest } from '@/lib/queryClient';
-import { useEmailViewMode } from '@/hooks/useUserPrefs';
 import { TokenDropdown } from '@/components/ui/token-dropdown';
 import { insertTokenIntoValue } from '@/utils/cursor-utils';
 import { RichTextEditor, RichTextEditorRef } from '@/components/ui/rich-text-editor';
@@ -66,8 +64,8 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
     retry: false,
   });
   
-  // Email view mode preference
-  const { emailViewMode, setEmailViewMode, isSettingViewMode } = useEmailViewMode();
+  // Always use unified view (individual emails, not threaded)
+  const emailViewMode = 'unified';
 
   // Decode HTML entities in email content
   const decodeHtmlEntities = (text: string) => {
@@ -488,27 +486,8 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
     return rootMessages;
   };
 
-  // Process messages based on view mode
-  const processedData = emailViewMode === 'unified' 
-    ? messages.sort((a: any, b: any) => new Date(b.sentAt).getTime() - new Date(a.sentAt).getTime())
-    : buildRFCThreads(messages);
-
-  // Flatten RFC threads for rendering with hierarchy info
-  const flattenRFCThreads = (threads: any[]): any[] => {
-    const result: any[] = [];
-    
-    const traverse = (thread: any) => {
-      result.push(thread);
-      if (thread.children && thread.children.length > 0) {
-        thread.children.forEach(traverse);
-      }
-    };
-
-    threads.forEach(traverse);
-    return result;
-  };
-
-  const displayData = emailViewMode === 'rfc' ? flattenRFCThreads(processedData) : processedData;
+  // Always show emails as individual messages sorted by date (newest first)
+  const displayData = messages.sort((a: any, b: any) => new Date(b.sentAt).getTime() - new Date(a.sentAt).getTime());
 
   return (
     <div className="space-y-6">
@@ -693,33 +672,9 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
           <CardTitle className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Mail className="h-5 w-5" />
-              Project Email Threads
+              Project Emails
             </div>
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-muted-foreground">View:</span>
-                <ToggleGroup 
-                  type="single" 
-                  value={emailViewMode} 
-                  onValueChange={(value) => {
-                    if (value && (value === 'unified' || value === 'rfc')) {
-                      setEmailViewMode(value);
-                    }
-                  }}
-                  disabled={isSettingViewMode}
-                  data-testid="toggle-email-view-mode"
-                >
-                  <ToggleGroupItem value="unified" size="sm" data-testid="toggle-unified-view">
-                    <List className="h-4 w-4 mr-1" />
-                    Unified
-                  </ToggleGroupItem>
-                  <ToggleGroupItem value="rfc" size="sm" data-testid="toggle-rfc-view">
-                    <Layers className="h-4 w-4 mr-1" />
-                    Thread
-                  </ToggleGroupItem>
-                </ToggleGroup>
-              </div>
-              <Button 
+            <Button 
                 variant="outline" 
                 size="sm"
               onClick={async () => {
@@ -778,7 +733,6 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
                 <RefreshCw className="h-4 w-4" />
               )}
             </Button>
-            </div>
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -847,14 +801,14 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
             </div>
           ) : displayData.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
-              <p>No email threads found for this project</p>
+              <p>No emails found for this project</p>
               {emails?.length === 0 && (
                 <p className="text-sm mt-2">
-                  Add contact emails to the project to see related email threads
+                  Add contact emails to the project to see related emails
                 </p>
               )}
             </div>
-          ) : emailViewMode === 'unified' ? (
+          ) : (
             // Unified View - Flat chronological list of individual messages
             <Table>
               <TableHeader>
@@ -908,73 +862,6 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
                 ))}
               </TableBody>
             </Table>
-          ) : (
-            // RFC Threading View - Hierarchical view with indentation
-            <div className="space-y-2">
-              {displayData.map((message: any) => (
-                <Card 
-                  key={message.id}
-                  className={`cursor-pointer hover:bg-muted/50 transition-colors border-l-4 ${
-                    message.isReply 
-                      ? 'border-l-orange-400 bg-orange-50/30 dark:bg-orange-950/20' 
-                      : 'border-l-primary/40 bg-primary/5'
-                  }`}
-                  style={{ marginLeft: `${(message.depth || 0) * 20}px` }}
-                  onClick={() => setSelectedThreadId(message.threadId)}
-                  data-testid={`card-message-${message.id}`}
-                >
-                  <CardHeader className="pb-2 py-3">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          {message.depth > 0 && (
-                            <span className="text-xs text-muted-foreground">
-                              {'↳ '.repeat(message.depth)}
-                            </span>
-                          )}
-                          <Layers className="h-3 w-3 text-primary flex-shrink-0" />
-                          <CardTitle className="text-sm font-medium truncate">
-                            {message.subject || 'No subject'}
-                          </CardTitle>
-                          {message.isReply && (
-                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200">
-                              Reply
-                            </span>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                          <span className="flex items-center gap-1">
-                            <Mail className="h-3 w-3" />
-                            {message.fromEmail || 'Unknown'}
-                          </span>
-                          <span>•</span>
-                          <span>{formatDate(message.sentAt || new Date().toISOString())}</span>
-                          <span>•</span>
-                          <span className={`px-1.5 py-0.5 rounded text-xs ${
-                            message.direction === 'inbound' 
-                              ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200' 
-                              : 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-200'
-                          }`}>
-                            {message.direction || 'unknown'}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="pt-0 py-2">
-                    <div className="bg-muted/20 dark:bg-muted/10 p-2 rounded text-xs border border-border/20 dark:border-border/10">
-                      <p className="text-muted-foreground dark:text-muted-foreground line-clamp-2 leading-relaxed">
-                        {resolveDisplayTokens(
-                          decodeHtmlEntities(message.snippet || message.bodyText?.substring(0, 150)) || 'No preview available',
-                          project,
-                          contact
-                        )}
-                      </p>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
           )}
         </CardContent>
       </Card>

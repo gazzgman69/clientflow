@@ -1207,6 +1207,7 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
                 id="reply-to"
                 value={replyTo}
                 onChange={(e) => setReplyTo(e.target.value)}
+                className="focus-visible:ring-offset-0"
                 data-testid="input-reply-to"
               />
             </div>
@@ -1216,6 +1217,7 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
                 id="reply-subject"
                 value={replySubject}
                 onChange={(e) => setReplySubject(e.target.value)}
+                className="focus-visible:ring-offset-0"
                 data-testid="input-reply-subject"
               />
             </div>

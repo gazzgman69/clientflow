@@ -325,6 +325,12 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
     // Get HTML content from the Rich Text Editor
     const emailBody = messageEditorRef.current?.getHTML() || message;
     
+    // Debug: Log what we're sending
+    console.log('🔍 EMAIL SEND DEBUG:');
+    console.log('  message state:', message.substring(0, 100));
+    console.log('  getHTML():', messageEditorRef.current?.getHTML()?.substring(0, 100));
+    console.log('  emailBody (final):', emailBody.substring(0, 100));
+    
     // Update template if checkbox is checked and a template is selected
     if (updateTemplate && selectedTemplate) {
       updateTemplateMutation.mutate({

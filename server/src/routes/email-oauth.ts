@@ -139,7 +139,7 @@ router.get('/auth/google/gmail/status', async (req, res) => {
 /**
  * Gmail OAuth Disconnect
  */
-router.post('/auth/google/gmail/disconnect', async (req, res) => {
+router.post('/api/auth/google/gmail/disconnect', async (req, res) => {
   try {
     if (!req.session?.userId || !req.session?.tenantId) {
       return res.status(401).json({ error: 'Authentication required' });

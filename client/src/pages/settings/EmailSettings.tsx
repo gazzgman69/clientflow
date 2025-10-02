@@ -12,14 +12,16 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { apiRequest, queryClient } from '@/lib/queryClient';
+import SignatureManagement from '@/components/settings/SignatureManagement';
 import { 
   Mail, 
   Send, 
   CheckCircle, 
   XCircle, 
   AlertTriangle,
-  Settings,
+  Settings as SettingsIcon,
   Clock,
   Activity,
   Info,
@@ -29,7 +31,10 @@ import {
   Eye,
   Copy,
   Link as LinkIcon,
-  Unlink
+  Unlink,
+  Edit3,
+  Bell,
+  FileCheck
 } from 'lucide-react';
 
 interface EmailProvider {
@@ -460,6 +465,18 @@ export default function EmailSettings() {
             </AlertDescription>
           </Alert>
         )}
+
+        {/* Tabs */}
+        <Tabs defaultValue="settings" className="space-y-6">
+          <TabsList className="grid w-full grid-cols-4">
+            <TabsTrigger value="settings" data-testid="tab-settings">Settings</TabsTrigger>
+            <TabsTrigger value="signatures" data-testid="tab-signatures">Signatures</TabsTrigger>
+            <TabsTrigger value="reminders" data-testid="tab-reminders">Reminders</TabsTrigger>
+            <TabsTrigger value="confirmations" data-testid="tab-confirmations">Confirmations</TabsTrigger>
+          </TabsList>
+
+          {/* Settings Tab */}
+          <TabsContent value="settings" className="space-y-6"  data-testid="content-settings"  >
 
         {/* About Email Settings */}
         <Card>
@@ -1072,6 +1089,270 @@ export default function EmailSettings() {
             </p>
           </CardContent>
         </Card>
+          </TabsContent>
+
+          {/* Signatures Tab */}
+          <TabsContent value="signatures" className="space-y-6" data-testid="content-signatures">
+            <SignatureManagement />
+          </TabsContent>
+
+          {/* Reminders Tab */}
+          <TabsContent value="reminders" className="space-y-6" data-testid="content-reminders">
+            <Card>
+              <CardHeader>
+                <CardTitle>About Reminders</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <p className="text-sm text-muted-foreground">
+                  Send automatic email reminders for your upcoming and past due documents. Document reminders will follow your set rules and do not need to be included in the workflow.
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  Reminder emails will not send if no due date is set.
+                </p>
+              </CardContent>
+            </Card>
+
+            {/* Questionnaire Reminders */}
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle>Questionnaire Reminders</CardTitle>
+                  <Switch data-testid="switch-questionnaire-reminders" />
+                </div>
+                <CardDescription>Set email reminders for questionnaires that are coming and past due.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="bg-muted/30 p-4 rounded-lg space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <h4 className="font-medium mb-1">Set reminder - Upcoming</h4>
+                      <p className="text-sm text-muted-foreground">1 day before due date</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button variant="ghost" size="sm" data-testid="button-edit-questionnaire-upcoming">Edit</Button>
+                      <Switch defaultChecked data-testid="switch-questionnaire-upcoming" />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-muted/30 p-4 rounded-lg space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <h4 className="font-medium mb-1">Set reminder - Past Due</h4>
+                      <p className="text-sm text-muted-foreground">1 day after due date; Repeat weekly; End after 12 occurrences</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button variant="ghost" size="sm" data-testid="button-edit-questionnaire-pastdue">Edit</Button>
+                      <Switch defaultChecked data-testid="switch-questionnaire-pastdue" />
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Quote Reminders */}
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle>Quote Reminders</CardTitle>
+                  <Switch data-testid="switch-quote-reminders" />
+                </div>
+                <CardDescription>Set email reminders for quotes that are coming and past due.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="bg-muted/30 p-4 rounded-lg space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <h4 className="font-medium mb-1">Set reminder - Upcoming</h4>
+                      <p className="text-sm text-muted-foreground italic">1 day before due date (recommended)</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button variant="ghost" size="sm" data-testid="button-edit-quote-upcoming">Edit</Button>
+                      <Switch data-testid="switch-quote-upcoming" />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-muted/30 p-4 rounded-lg space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <h4 className="font-medium mb-1">Set reminder - Past Due</h4>
+                      <p className="text-sm text-muted-foreground italic">1 day after due date; Repeat monthly; End after 12 occurrences(recommended)</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button variant="ghost" size="sm" data-testid="button-edit-quote-pastdue">Edit</Button>
+                      <Switch data-testid="switch-quote-pastdue" />
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Contract Reminders */}
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle>Contract Reminders</CardTitle>
+                  <Switch defaultChecked data-testid="switch-contract-reminders" />
+                </div>
+                <CardDescription>Set email reminders for contracts that are coming and past due.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="bg-muted/30 p-4 rounded-lg space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <h4 className="font-medium mb-1">Set reminder - Upcoming</h4>
+                      <p className="text-sm text-muted-foreground">1 day before due date</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button variant="ghost" size="sm" data-testid="button-edit-contract-upcoming">Edit</Button>
+                      <Switch defaultChecked data-testid="switch-contract-upcoming" />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-muted/30 p-4 rounded-lg space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <h4 className="font-medium mb-1">Set reminder - Past Due</h4>
+                      <p className="text-sm text-muted-foreground">1 day after due date; Repeat weekly; End after 12 occurrences</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button variant="ghost" size="sm" data-testid="button-edit-contract-pastdue">Edit</Button>
+                      <Switch defaultChecked data-testid="switch-contract-pastdue" />
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Invoice Reminders */}
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle>Invoice Reminders</CardTitle>
+                  <Switch defaultChecked data-testid="switch-invoice-reminders" />
+                </div>
+                <CardDescription>Set email reminders for invoices that are coming and past due.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="bg-muted/30 p-4 rounded-lg space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <h4 className="font-medium mb-1">Set reminder - Upcoming</h4>
+                      <p className="text-sm text-muted-foreground">1 day before due date</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button variant="ghost" size="sm" data-testid="button-edit-invoice-upcoming">Edit</Button>
+                      <Switch defaultChecked data-testid="switch-invoice-upcoming" />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-muted/30 p-4 rounded-lg space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <h4 className="font-medium mb-1">Set reminder - Past Due</h4>
+                      <p className="text-sm text-muted-foreground">1 day after due date; Repeat daily; End after 12 occurrences</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button variant="ghost" size="sm" data-testid="button-edit-invoice-pastdue">Edit</Button>
+                      <Switch defaultChecked data-testid="switch-invoice-pastdue" />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-muted/30 p-4 rounded-lg space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <h4 className="font-medium mb-1">Set reminder - Upcoming and Past Due</h4>
+                      <p className="text-sm text-muted-foreground">Applies rules from Upcoming and Past Due individual settings.</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button variant="ghost" size="sm" data-testid="button-edit-invoice-both">Edit</Button>
+                      <Switch defaultChecked data-testid="switch-invoice-both" />
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Confirmations Tab */}
+          <TabsContent value="confirmations" className="space-y-6" data-testid="content-confirmations">
+            <Card>
+              <CardHeader>
+                <CardTitle>About Email Confirmations</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <p className="text-sm text-muted-foreground">
+                  17hats will automatically send an email to your Client which confirms the completion of their document: Quote, Contract, Invoice, and Questionnaire. The email will automatically contain a link to their completed document.
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  If you do not want 17hats to send these email confirmations, turn off the functionality by deselecting the document below.
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Document Confirmations</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center space-x-3">
+                  <input 
+                    type="checkbox" 
+                    id="confirm-questionnaires" 
+                    defaultChecked 
+                    className="h-4 w-4 rounded border-gray-300"
+                    data-testid="checkbox-confirm-questionnaires"
+                  />
+                  <Label htmlFor="confirm-questionnaires" className="text-sm font-normal cursor-pointer">
+                    Send an email to the Client after they submit a Questionnaire.
+                  </Label>
+                </div>
+
+                <div className="flex items-center space-x-3">
+                  <input 
+                    type="checkbox" 
+                    id="confirm-quotes" 
+                    className="h-4 w-4 rounded border-gray-300"
+                    data-testid="checkbox-confirm-quotes"
+                  />
+                  <Label htmlFor="confirm-quotes" className="text-sm font-normal cursor-pointer">
+                    Send an email to the Client after they accept a Quote.
+                  </Label>
+                </div>
+
+                <div className="flex items-center space-x-3">
+                  <input 
+                    type="checkbox" 
+                    id="confirm-contracts" 
+                    defaultChecked 
+                    className="h-4 w-4 rounded border-gray-300"
+                    data-testid="checkbox-confirm-contracts"
+                  />
+                  <Label htmlFor="confirm-contracts" className="text-sm font-normal cursor-pointer">
+                    Send an email to the Client after they sign a Contract.
+                  </Label>
+                </div>
+
+                <div className="flex items-center space-x-3">
+                  <input 
+                    type="checkbox" 
+                    id="confirm-invoices" 
+                    defaultChecked 
+                    className="h-4 w-4 rounded border-gray-300"
+                    data-testid="checkbox-confirm-invoices"
+                  />
+                  <Label htmlFor="confirm-invoices" className="text-sm font-normal cursor-pointer">
+                    Send an email to the Client after they pay an Invoice.
+                  </Label>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
   );

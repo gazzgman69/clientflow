@@ -360,17 +360,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     return csrf(req, res, next);
   }, venuesRoutes);
 
-  // Email Providers Catalog
-  app.get('/api/email-providers', ensureUserAuth, async (req, res) => {
-    try {
-      const providers = await storage.getEmailProvidersCatalog();
-      res.json(providers);
-    } catch (error) {
-      console.error('Error fetching email providers:', error);
-      res.status(500).json({ message: 'Failed to fetch email providers' });
-    }
-  });
-
+  
   // Email routes - apply authentication, tenant resolution, CSRF to state-changing requests
   app.use('/api/email', ...withTenantSecurity(ensureUserAuth, tenantResolver, requireTenant, csrf), emailRoutes);
   app.use('/api/email-threads', ...withTenantSecurity(ensureUserAuth, tenantResolver, requireTenant, csrf), emailRoutes); // Direct mounting for /api/email-threads routes

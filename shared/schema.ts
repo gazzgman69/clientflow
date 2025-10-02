@@ -1266,36 +1266,6 @@ export const insertTenantEmailPrefsSchema = createInsertSchema(tenantEmailPrefs)
 export type TenantEmailPrefs = typeof tenantEmailPrefs.$inferSelect;
 export type InsertTenantEmailPrefs = z.infer<typeof insertTenantEmailPrefsSchema>;
 
-// Email Providers Catalog (master list of supported email providers)
-export const emailProviders = pgTable("email_providers", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  providerKey: text("provider_key").notNull().unique(), // 'gmail', 'office365', 'yahoo', etc.
-  displayName: text("display_name").notNull(), // 'Google Gmail', 'Office 365', etc.
-  authType: text("auth_type").notNull(), // 'oauth' | 'imap' | 'custom'
-  
-  // IMAP/SMTP Configuration (for non-OAuth providers)
-  imapHost: text("imap_host"),
-  imapPort: integer("imap_port"),
-  imapSecure: boolean("imap_secure").default(true),
-  smtpHost: text("smtp_host"),
-  smtpPort: integer("smtp_port"),
-  smtpSecure: boolean("smtp_secure").default(true),
-  
-  // Display order
-  displayOrder: integer("display_order").default(999),
-  isActive: boolean("is_active").default(true),
-  
-  createdAt: timestamp("created_at").defaultNow(),
-});
-
-export const insertEmailProviderSchema = createInsertSchema(emailProviders).omit({ 
-  id: true, 
-  createdAt: true 
-});
-
-export type EmailProvider = typeof emailProviders.$inferSelect;
-export type InsertEmailProvider = z.infer<typeof insertEmailProviderSchema>;
-
 // Email Accounts table (per-user/tenant connection - OAuth or IMAP/SMTP)
 export const emailAccounts = pgTable("email_accounts", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),

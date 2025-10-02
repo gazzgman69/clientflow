@@ -10,7 +10,7 @@ const router = Router();
  */
 router.get('/', async (req, res) => {
   try {
-    const userId = req.session?.userId;
+    const userId = req.authenticatedUserId;
     
     if (!userId) {
       return res.status(401).json({ error: 'User ID required' });
@@ -29,7 +29,7 @@ router.get('/', async (req, res) => {
  */
 router.get('/:id', async (req, res) => {
   try {
-    const userId = req.session?.userId;
+    const userId = req.authenticatedUserId;
     const { id } = req.params;
     
     if (!userId) {
@@ -54,7 +54,7 @@ router.get('/:id', async (req, res) => {
  */
 router.get('/default/current', async (req, res) => {
   try {
-    const userId = req.session?.userId;
+    const userId = req.authenticatedUserId;
     
     if (!userId) {
       return res.status(401).json({ error: 'User ID required' });
@@ -73,27 +73,20 @@ router.get('/default/current', async (req, res) => {
  */
 router.post('/', async (req, res) => {
   try {
-    console.log('🔍 Session data:', {
-      session: req.session,
-      userId: req.session?.userId,
-      hasSession: !!req.session
-    });
-    
-    const userId = req.session?.userId;
+    const userId = req.authenticatedUserId;
     
     if (!userId) {
-      console.error('❌ No user ID in session');
       return res.status(401).json({ error: 'User ID required' });
     }
 
     // Validate request body
     const validationSchema = insertEmailSignatureSchema.extend({
-      userId: z.string().optional(), // Allow override but use session by default
+      userId: z.string().optional(),
     });
 
     const validatedData = validationSchema.parse({
       ...req.body,
-      userId, // Use user ID from session
+      userId,
     });
 
     const signature = await signaturesService.createSignature(validatedData);
@@ -116,7 +109,7 @@ router.post('/', async (req, res) => {
  */
 router.put('/:id', async (req, res) => {
   try {
-    const userId = req.session?.userId;
+    const userId = req.authenticatedUserId;
     const { id } = req.params;
     
     if (!userId) {
@@ -152,7 +145,7 @@ router.put('/:id', async (req, res) => {
  */
 router.post('/:id/default', async (req, res) => {
   try {
-    const userId = req.session?.userId;
+    const userId = req.authenticatedUserId;
     const { id } = req.params;
     
     if (!userId) {
@@ -177,7 +170,7 @@ router.post('/:id/default', async (req, res) => {
  */
 router.delete('/:id', async (req, res) => {
   try {
-    const userId = req.session?.userId;
+    const userId = req.authenticatedUserId;
     const { id } = req.params;
     
     if (!userId) {

@@ -73,7 +73,7 @@ import crypto from "crypto";
 import { TenantScopedStorage } from './utils/tenantScopedStorage';
 import { drizzle } from 'drizzle-orm/neon-http';
 import { neon } from '@neondatabase/serverless';
-import { eq, and, desc, or, isNull, isNotNull, leftJoin, sql } from 'drizzle-orm';
+import { eq, and, desc, or, isNull, isNotNull, leftJoin, sql, lte } from 'drizzle-orm';
 import { secureStore } from './src/services/secureStore';
 import { validateAndCleanVenueAddress } from '@shared/addressUtils';
 import { IStorage } from './types/storage';
@@ -4230,7 +4230,7 @@ export class DrizzleStorage implements IStorage {
       .where(and(
         eq(autoResponderLogs.tenantId, tenantId),
         eq(autoResponderLogs.status, 'queued'),
-        sql`${autoResponderLogs.scheduledFor} <= ${now}`
+        lte(autoResponderLogs.scheduledFor, now)
       ))
       .orderBy(autoResponderLogs.scheduledFor);
   }

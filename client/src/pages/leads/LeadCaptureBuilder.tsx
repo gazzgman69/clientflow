@@ -33,6 +33,9 @@ interface FormDetails {
   projectName: string;
   notification: string;
   autoResponseTemplateId: string | null;
+  autoResponderTemplateId: string | null;
+  autoResponderDelaySeconds: number | null;
+  bookingLink: string | null;
   calendarId: string | null;
   lifecycleId: string | null;
   workflowId: string | null;
@@ -264,6 +267,19 @@ export default function LeadCaptureBuilder() {
   const [showPreview, setShowPreview] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+
+  // Fetch auto-responder templates
+  const { data: autoResponderTemplates = [] } = useQuery({
+    queryKey: ['/api/admin/templates'],
+    queryFn: async () => {
+      const response = await fetch('/api/admin/templates?type=auto_responder', {
+        credentials: 'include'
+      });
+      if (!response.ok) return [];
+      const templates = await response.json();
+      return templates.filter((t: any) => t.type === 'auto_responder' && t.isActive);
+    },
+  });
 
   // Fetch all forms
   const { data: forms = [], isLoading: formsLoading } = useQuery<LeadForm[]>({
@@ -672,6 +688,86 @@ export default function LeadCaptureBuilder() {
                         </SelectContent>
                       </Select>
                     </div>
+
+                    <Separator />
+
+                    <div className="space-y-4">
+                      <h3 className="text-sm font-medium">Auto-Responder Configuration</h3>
+                      
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <Label htmlFor="auto-responder-template">Auto-Response Template</Label>
+                          <Select
+                            value={formDetails?.autoResponderTemplateId || 'none'}
+                            onValueChange={(value) => 
+                              setFormDetails(prev => prev ? {
+                                ...prev, 
+                                autoResponderTemplateId: value === 'none' ? null : value
+                              } : null)
+                            }
+                          >
+                            <SelectTrigger data-testid="select-auto-responder-template">
+                              <SelectValue placeholder="Select template..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="none">No Auto-Response</SelectItem>
+                              {autoResponderTemplates.map((template: any) => (
+                                <SelectItem key={template.id} value={template.id}>
+                                  {template.title}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Automatically send this email when a lead is captured
+                          </p>
+                        </div>
+
+                        <div>
+                          <Label htmlFor="auto-responder-delay">Send Delay</Label>
+                          <Select
+                            value={formDetails?.autoResponderDelaySeconds?.toString() || '60'}
+                            onValueChange={(value) => 
+                              setFormDetails(prev => prev ? {
+                                ...prev, 
+                                autoResponderDelaySeconds: parseInt(value)
+                              } : null)
+                            }
+                            disabled={!formDetails?.autoResponderTemplateId}
+                          >
+                            <SelectTrigger data-testid="select-auto-responder-delay">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="60">1 minute</SelectItem>
+                              <SelectItem value="300">5 minutes</SelectItem>
+                              <SelectItem value="600">10 minutes</SelectItem>
+                              <SelectItem value="1800">30 minutes</SelectItem>
+                              <SelectItem value="3600">1 hour</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            How long to wait before sending
+                          </p>
+                        </div>
+                      </div>
+
+                      <div>
+                        <Label htmlFor="booking-link">Booking Link (Optional)</Label>
+                        <Input
+                          id="booking-link"
+                          value={formDetails?.bookingLink || ''}
+                          onChange={(e) => setFormDetails(prev => prev ? {...prev, bookingLink: e.target.value} : null)}
+                          placeholder="https://your-booking-link.com"
+                          data-testid="input-booking-link"
+                        />
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Used for [booking.link] token in auto-responder templates
+                        </p>
+                      </div>
+                    </div>
+
+                    <Separator />
 
                     <div>
                       <Label htmlFor="transparency">Transparency Text</Label>

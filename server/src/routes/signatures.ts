@@ -73,9 +73,16 @@ router.get('/default/current', async (req, res) => {
  */
 router.post('/', async (req, res) => {
   try {
+    console.log('🔍 Session data:', {
+      session: req.session,
+      userId: req.session?.userId,
+      hasSession: !!req.session
+    });
+    
     const userId = req.session?.userId;
     
     if (!userId) {
+      console.error('❌ No user ID in session');
       return res.status(401).json({ error: 'User ID required' });
     }
 

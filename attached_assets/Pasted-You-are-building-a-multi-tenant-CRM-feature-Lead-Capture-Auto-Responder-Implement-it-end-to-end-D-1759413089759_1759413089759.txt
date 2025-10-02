@@ -1,0 +1,120 @@
+You are building a multi-tenant CRM feature: Lead Capture Auto-Responder. Implement it end-to-end (DB, schema, APIs, UI, background worker, email send, admin alerts). Use our existing stack and tenant guard patterns. Make sensible choices where unspecified.
+
+Core goals
+
+Templates (type = “Lead Auto-Responder”) can be created/edited in Templates → Auto Responders (see Screenshot 2).
+
+A lead capture form can select one auto-responder template and a send delay (see Screenshot 1 & 3).
+
+On successful form submit, queue and send exactly one auto-response for that lead according to the chosen delay.
+
+If the tenant’s email account is disconnected, do not fallback to other providers. Mark the send as pending_auth, alert admin, and show a Resend action on the lead.
+
+Minimal internal send logging for dedupe/debugging (no public timeline chip yet).
+
+Tenant isolation everywhere.
+
+UX to build
+A) Templates → Auto Responders (management)
+
+See Screenshot 2 (Templates page).
+
+Allow creating/editing templates (see Screenshot 4: Edit Template modal).
+
+Each template has: name, subject, body, type = lead_auto_responder.
+
+Attachments disabled by default.
+
+Token picker & preview (contact, project, form answers).
+
+Support tokens: [contact.first_name], [project.main_event.formatted_token_date('start','dd/MM/yyyy')], [booking.link].
+
+Provide one starter template in the list by default (like Screenshot 4 content).
+
+B) Lead Capture → Setup page
+
+See Screenshot 1 (Form Details) and Screenshot 3 (Auto-response dropdown).
+
+Add Auto-response dropdown listing only templates of type lead_auto_responder.
+
+Include inline “+ New Template” option that opens modal (like Screenshot 4/5).
+
+Add Send delay dropdown with: 1 min, 5 min, 10 min, 30 min, 1 hr.
+
+Add Booking link input (optional) for [booking.link] token.
+
+Calendar field: show read-only for now (like Screenshot 1).
+
+C) Lead detail page
+
+If last auto-responder attempt is failed or pending_auth, show a small “Resend Auto-Response” button.
+
+Clicking it re-queues the send immediately.
+
+Behavior & rules
+
+Trigger: on successful lead creation from a lead capture form with an auto-responder configured.
+
+Rate-limit: only once per lead per template (dedupe).
+
+Quiet hours: none (always send).
+
+Consent: implied by form submit.
+
+Sender: tenant’s default connected account.
+
+Reply-To: same.
+
+Provider disconnected: mark pending_auth, email admin, show Resend.
+
+Retries: 1 retry after 5 minutes for transient errors (not for pending_auth).
+
+Admin alerts:
+
+Recipient: tenant’s configured admin email.
+
+Subject: “Auto-response not sent — action required”.
+
+Body: lead info, form name, reason, instructions to reconnect & resend.
+
+Logging: internal table, not surfaced yet. Track tenant_id, lead_id, template_id, provider, status, error_code, message_id.
+
+Implementation notes
+
+Add necessary DB tables/columns.
+
+Extend lead_forms model: auto_responder_template_id, auto_responder_delay_seconds, booking_link.
+
+Create job/queue for delayed sends.
+
+Worker processes jobs at due time, handles retry, updates logs.
+
+Use token rendering system; missing tokens → empty string.
+
+Date tokens render dd/MM/yyyy.
+
+Acceptance tests
+
+Create template (Screenshot 2/4). See it appear in dropdown (Screenshot 3).
+
+Set 10 min delay, booking link. Submit form (Screenshot 1). Verify job queued.
+
+Disconnect provider, submit again → pending_auth + admin alert.
+
+Reconnect, click Resend on lead → sends.
+
+Retry works on transient errors.
+
+Dedupe works (no double sends).
+
+Tokens render; missing booking.link is omitted.
+
+Dates render dd/MM/yyyy.
+
+This prompt tells Replit to:
+
+Mirror the UX from your screenshots.
+
+Handle schema, endpoints, and workers automatically.
+
+Enforce your exact business rules.

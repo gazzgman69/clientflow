@@ -640,6 +640,9 @@ export const leadCaptureForms = pgTable("lead_capture_forms", {
   slug: text("slug").notNull(), // unique constraint removed temporarily
   questions: text("questions"), // JSON string of form questions
   autoResponseTemplateId: varchar("auto_response_template_id").references(() => templates.id),
+  autoResponderTemplateId: varchar("auto_responder_template_id").references(() => messageTemplates.id), // Lead auto-responder template
+  autoResponderDelaySeconds: integer("auto_responder_delay_seconds"), // Delay in seconds: 60, 300, 600, 1800, 3600
+  bookingLink: text("booking_link"), // Optional booking link for [booking.link] token
   notification: text("notification").notNull().default('email'), // email, sms
   calendarId: varchar("calendar_id").references(() => calendarIntegrations.id),
   lifecycleId: varchar("lifecycle_id"), // store id only (TODO automate later)
@@ -696,6 +699,29 @@ export const leadConsents = pgTable("lead_consents", {
 }, (table) => ({
   tenantIdLeadIdIdx: index("lead_consents_tenant_id_lead_id_idx").on(table.tenantId, table.leadId),
   leadIdConsentTypeUnique: unique("lead_consents_lead_consent_type_unique").on(table.leadId, table.consentType),
+}));
+
+// Auto-responder send logs for lead capture forms
+export const autoResponderLogs = pgTable("auto_responder_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").references(() => tenants.id).notNull(),
+  leadId: varchar("lead_id").references(() => leads.id).notNull(),
+  templateId: varchar("template_id").references(() => messageTemplates.id).notNull(),
+  formId: varchar("form_id").references(() => leadCaptureForms.id),
+  provider: text("provider"), // google, microsoft - which email provider was used
+  status: text("status").notNull().default('queued'), // queued, sent, failed, pending_auth, retrying
+  errorCode: text("error_code"), // provider_disconnected, rate_limit, etc.
+  errorMessage: text("error_message"),
+  providerMessageId: text("provider_message_id"), // Gmail/Outlook message ID for tracking
+  retryCount: integer("retry_count").default(0),
+  scheduledFor: timestamp("scheduled_for").notNull(), // When to send (now + delay)
+  sentAt: timestamp("sent_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  tenantIdIdx: index("auto_responder_logs_tenant_id_idx").on(table.tenantId),
+  tenantLeadTemplateIdx: index("auto_responder_logs_tenant_lead_template_idx").on(table.tenantId, table.leadId, table.templateId),
+  statusScheduledIdx: index("auto_responder_logs_status_scheduled_idx").on(table.status, table.scheduledFor),
 }));
 
 // Enhanced Quotes System - Package-based quoting with public access
@@ -1580,4 +1606,14 @@ export const insertLeadConsentSchema = createInsertSchema(leadConsents).omit({
 
 export type LeadConsent = typeof leadConsents.$inferSelect;
 export type InsertLeadConsent = z.infer<typeof insertLeadConsentSchema>;
+
+// Insert schemas and types for auto-responder logs
+export const insertAutoResponderLogSchema = createInsertSchema(autoResponderLogs).omit({ 
+  id: true, 
+  createdAt: true,
+  updatedAt: true 
+});
+
+export type AutoResponderLog = typeof autoResponderLogs.$inferSelect;
+export type InsertAutoResponderLog = z.infer<typeof insertAutoResponderLogSchema>;
 

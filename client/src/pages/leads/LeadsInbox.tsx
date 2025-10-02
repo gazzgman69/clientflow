@@ -7,9 +7,15 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Kanban, Search, Mail, ExternalLink, Trash2 } from "lucide-react";
+import { Kanban, Search, Mail, ExternalLink, Trash2, RefreshCw, AlertCircle, CheckCircle, Clock } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface LeadCardDTO {
   id: string;
@@ -32,6 +38,116 @@ interface InboxData {
   counts: {
     new: number;
   };
+}
+
+interface AutoResponderLog {
+  id: string;
+  status: 'queued' | 'sent' | 'failed' | 'pending_auth';
+  errorMessage: string | null;
+  retryCount: number;
+}
+
+// Helper component to show auto-responder status for a lead
+function AutoResponderStatus({ leadId }: { leadId: string }) {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  const { data: logs = [] } = useQuery<AutoResponderLog[]>({
+    queryKey: ['/api/auto-responders/logs/lead', leadId],
+    queryFn: async () => {
+      const response = await fetch(`/api/auto-responders/logs/lead/${leadId}`, {
+        credentials: 'include'
+      });
+      if (!response.ok) return [];
+      return response.json();
+    },
+  });
+
+  const retryMutation = useMutation({
+    mutationFn: async (logId: string) => {
+      const response = await apiRequest('POST', `/api/auto-responders/retry/${logId}`);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/auto-responders/logs/lead', leadId] });
+      toast({
+        title: 'Auto-response queued',
+        description: 'The auto-response will be sent shortly.',
+      });
+    },
+    onError: () => {
+      toast({
+        title: 'Error',
+        description: 'Failed to retry auto-response.',
+        variant: 'destructive',
+      });
+    },
+  });
+
+  if (logs.length === 0) return null;
+
+  const latestLog = logs[0];
+
+  const getStatusIcon = () => {
+    switch (latestLog.status) {
+      case 'sent':
+        return <CheckCircle className="h-4 w-4 text-green-600" />;
+      case 'failed':
+        return <AlertCircle className="h-4 w-4 text-red-600" />;
+      case 'pending_auth':
+        return <AlertCircle className="h-4 w-4 text-orange-600" />;
+      case 'queued':
+        return <Clock className="h-4 w-4 text-blue-600" />;
+      default:
+        return null;
+    }
+  };
+
+  const getStatusText = () => {
+    switch (latestLog.status) {
+      case 'sent':
+        return 'Auto-response sent';
+      case 'failed':
+        return latestLog.errorMessage || 'Auto-response failed';
+      case 'pending_auth':
+        return 'Email provider not connected';
+      case 'queued':
+        return 'Auto-response queued';
+      default:
+        return '';
+    }
+  };
+
+  const canRetry = latestLog.status === 'failed' || latestLog.status === 'pending_auth';
+
+  return (
+    <div className="flex items-center gap-2">
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <div className="flex items-center gap-1">
+              {getStatusIcon()}
+            </div>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p>{getStatusText()}</p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+      
+      {canRetry && (
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => retryMutation.mutate(latestLog.id)}
+          disabled={retryMutation.isPending}
+          data-testid={`button-retry-autoresponder-${leadId}`}
+        >
+          <RefreshCw className={`h-3 w-3 ${retryMutation.isPending ? 'animate-spin' : ''}`} />
+        </Button>
+      )}
+    </div>
+  );
 }
 
 export default function LeadsInbox() {
@@ -246,6 +362,7 @@ export default function LeadsInbox() {
                               Mark Contacted
                             </Button>
                           )}
+                          <AutoResponderStatus leadId={lead.id} />
                           <Button
                             variant="ghost"
                             size="sm"

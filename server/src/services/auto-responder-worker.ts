@@ -1,5 +1,5 @@
-import { getStorage } from '../../storage';
-import { emailDispatcher } from './emailDispatcher';
+import { storage } from '../../storage';
+import { emailDispatcher } from './email-dispatcher';
 import type { AutoResponderLog } from '@shared/schema';
 
 const MAX_RETRIES = 3;
@@ -45,7 +45,6 @@ class AutoResponderWorker {
     }
 
     this.isProcessing = true;
-    const storage = getStorage();
 
     try {
       // Get all tenants (in a production system, you'd query the tenants table)
@@ -61,7 +60,7 @@ class AutoResponderWorker {
       console.log(`[AutoResponderWorker] Processing ${dueLogs.length} due auto-responders`);
 
       for (const log of dueLogs) {
-        await this.processAutoResponder(log, storage);
+        await this.processAutoResponder(log);
       }
     } catch (error) {
       console.error('[AutoResponderWorker] Error processing queue:', error);
@@ -70,7 +69,7 @@ class AutoResponderWorker {
     }
   }
 
-  private async processAutoResponder(log: AutoResponderLog, storage: ReturnType<typeof getStorage>) {
+  private async processAutoResponder(log: AutoResponderLog) {
     try {
       // Get the lead for email and context
       const lead = await storage.getLead(log.leadId, log.tenantId);

@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import type { Request, Response } from 'express';
-import { getStorage } from '../../storage';
+import { storage } from '../../storage';
 import { ensureUserAuth } from '../../middleware/auth';
 import type { TenantRequest } from '../../middleware/tenantResolver';
 
@@ -10,7 +10,6 @@ const router = Router();
 router.get('/logs', ensureUserAuth, async (req: TenantRequest, res: Response) => {
   try {
     const tenantId = req.tenantId || 'default-tenant';
-    const storage = getStorage();
     const logs = await storage.getAutoResponderLogs(tenantId);
     res.json(logs);
   } catch (error) {
@@ -24,7 +23,6 @@ router.get('/logs/:id', ensureUserAuth, async (req: TenantRequest, res: Response
   try {
     const { id } = req.params;
     const tenantId = req.tenantId || 'default-tenant';
-    const storage = getStorage();
     const log = await storage.getAutoResponderLog(id, tenantId);
     
     if (!log) {
@@ -43,7 +41,6 @@ router.get('/logs/lead/:leadId', ensureUserAuth, async (req: TenantRequest, res:
   try {
     const { leadId } = req.params;
     const tenantId = req.tenantId || 'default-tenant';
-    const storage = getStorage();
     const logs = await storage.getAutoResponderLogsByLead(leadId, tenantId);
     res.json(logs);
   } catch (error) {
@@ -57,7 +54,6 @@ router.post('/retry/:id', ensureUserAuth, async (req: TenantRequest, res: Respon
   try {
     const { id } = req.params;
     const tenantId = req.tenantId || 'default-tenant';
-    const storage = getStorage();
     
     // Get the log
     const log = await storage.getAutoResponderLog(id, tenantId);

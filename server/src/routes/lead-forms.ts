@@ -683,6 +683,35 @@ router.post('/:slug/submit', formSubmissionLimiter, async (req, res) => {
       }
     }
 
+    // AUTO-RESPONDER: Queue auto-response email if configured
+    if (form.autoResponderTemplateId && form.autoResponderDelay) {
+      try {
+        const delaySeconds = form.autoResponderDelay; // Delay in seconds (60-3600)
+        const scheduledFor = new Date(Date.now() + (delaySeconds * 1000));
+        
+        await tenantStorage.createAutoResponderLog({
+          leadId: lead.id,
+          templateId: form.autoResponderTemplateId,
+          scheduledFor,
+          status: 'queued',
+          submissionKey,
+          bookingLink: form.bookingLink || null,
+          retryCount: 0
+        }, form.tenantId);
+        
+        console.log('✅ AUTO-RESPONDER QUEUED:', { 
+          leadId: lead.id, 
+          templateId: form.autoResponderTemplateId,
+          scheduledFor: scheduledFor.toISOString(),
+          delaySeconds,
+          tenantId: form.tenantId 
+        });
+      } catch (autoResponderError) {
+        console.error('❌ Failed to queue auto-responder:', { leadId: lead.id, error: autoResponderError });
+        // Continue with form processing even if auto-responder queueing fails
+      }
+    }
+
     // Store custom field responses using tenant-scoped storage
     if (mappingResult.customFieldData && mappingResult.customFieldData.length > 0) {
       console.log('🎯 STORING CUSTOM FIELDS:', { 

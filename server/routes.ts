@@ -54,6 +54,7 @@ import oauthRoutes from "./src/routes/oauth";
 import emailOAuthRoutes from "./src/routes/email-oauth";
 import emailRoutes from "./src/routes/email";
 import templatesRoutes from "./src/routes/templates";
+import autoRespondersRoutes from "./src/routes/auto-responders";
 import mailSettingsRoutes from "./src/routes/mailSettings";
 import userPrefsRoutes from "./src/routes/userPrefs";
 import leadFormsRoutes from "./src/routes/lead-forms";
@@ -373,6 +374,9 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   
   // Templates routes - apply enhanced tenant security
   app.use('/api/templates', ...withTenantSecurity(ensureUserAuth, tenantResolver, requireTenant, csrf), templatesRoutes);
+  
+  // Auto-responders routes - apply enhanced tenant security
+  app.use('/api/auto-responders', ...withTenantSecurity(ensureUserAuth, tenantResolver, requireTenant, csrf), autoRespondersRoutes);
   
   // Token routes - apply enhanced tenant security
   app.use('/api/tokens', ...withTenantSecurity(ensureUserAuth, tenantResolver, requireTenant, csrf), tokensRoutes);

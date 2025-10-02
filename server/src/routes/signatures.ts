@@ -10,7 +10,7 @@ const router = Router();
  */
 router.get('/', async (req, res) => {
   try {
-    const userId = req.headers['user-id'] as string;
+    const userId = req.session?.userId;
     
     if (!userId) {
       return res.status(401).json({ error: 'User ID required' });
@@ -29,7 +29,7 @@ router.get('/', async (req, res) => {
  */
 router.get('/:id', async (req, res) => {
   try {
-    const userId = req.headers['user-id'] as string;
+    const userId = req.session?.userId;
     const { id } = req.params;
     
     if (!userId) {
@@ -54,7 +54,7 @@ router.get('/:id', async (req, res) => {
  */
 router.get('/default/current', async (req, res) => {
   try {
-    const userId = req.headers['user-id'] as string;
+    const userId = req.session?.userId;
     
     if (!userId) {
       return res.status(401).json({ error: 'User ID required' });
@@ -73,7 +73,7 @@ router.get('/default/current', async (req, res) => {
  */
 router.post('/', async (req, res) => {
   try {
-    const userId = req.headers['user-id'] as string;
+    const userId = req.session?.userId;
     
     if (!userId) {
       return res.status(401).json({ error: 'User ID required' });
@@ -81,12 +81,12 @@ router.post('/', async (req, res) => {
 
     // Validate request body
     const validationSchema = insertEmailSignatureSchema.extend({
-      userId: z.string().optional(), // Allow override but use header by default
+      userId: z.string().optional(), // Allow override but use session by default
     });
 
     const validatedData = validationSchema.parse({
       ...req.body,
-      userId, // Use user ID from header
+      userId, // Use user ID from session
     });
 
     const signature = await signaturesService.createSignature(validatedData);
@@ -109,7 +109,7 @@ router.post('/', async (req, res) => {
  */
 router.put('/:id', async (req, res) => {
   try {
-    const userId = req.headers['user-id'] as string;
+    const userId = req.session?.userId;
     const { id } = req.params;
     
     if (!userId) {
@@ -143,9 +143,9 @@ router.put('/:id', async (req, res) => {
 /**
  * Set a signature as default
  */
-router.put('/:id/default', async (req, res) => {
+router.post('/:id/default', async (req, res) => {
   try {
-    const userId = req.headers['user-id'] as string;
+    const userId = req.session?.userId;
     const { id } = req.params;
     
     if (!userId) {
@@ -170,7 +170,7 @@ router.put('/:id/default', async (req, res) => {
  */
 router.delete('/:id', async (req, res) => {
   try {
-    const userId = req.headers['user-id'] as string;
+    const userId = req.session?.userId;
     const { id } = req.params;
     
     if (!userId) {

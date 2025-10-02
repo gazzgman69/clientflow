@@ -52,6 +52,8 @@ import {
   // Form submission and consent types
   type FormSubmission, type InsertFormSubmission,
   type LeadConsent, type InsertLeadConsent,
+  // Auto-responder types
+  type AutoResponderLog, type InsertAutoResponderLog,
   users, leads, contacts, projects, quotes, contracts, invoices, tasks, emails, emailThreads, activities, automations, 
   members, venues, projectMembers, memberAvailability, projectFiles, projectNotes, smsMessages, 
   messageTemplates, messageThreads, events, calendarIntegrations, calendarSyncLog, templates, leadCaptureForms,
@@ -65,7 +67,7 @@ import {
   // Admin Audit Logs table
   adminAuditLogs,
   // Security and compliance tables
-  formSubmissions, leadConsents
+  formSubmissions, leadConsents, autoResponderLogs
 } from "@shared/schema";
 import crypto from "crypto";
 import { TenantScopedStorage } from './utils/tenantScopedStorage';
@@ -259,6 +261,14 @@ export interface IStorage {
   createMessageTemplate(template: InsertMessageTemplate, tenantId: string): Promise<MessageTemplate>;
   updateMessageTemplate(id: string, template: Partial<InsertMessageTemplate>, tenantId: string): Promise<MessageTemplate | undefined>;
   deleteMessageTemplate(id: string, tenantId: string): Promise<boolean>;
+  
+  // Auto-responder Logs
+  getAutoResponderLogs(tenantId: string): Promise<AutoResponderLog[]>;
+  getAutoResponderLog(id: string, tenantId: string): Promise<AutoResponderLog | undefined>;
+  getAutoResponderLogsByLead(leadId: string, tenantId: string): Promise<AutoResponderLog[]>;
+  getDueAutoResponderLogs(tenantId: string): Promise<AutoResponderLog[]>; // Get logs scheduled to send now or earlier
+  createAutoResponderLog(log: InsertAutoResponderLog, tenantId: string): Promise<AutoResponderLog>;
+  updateAutoResponderLog(id: string, log: Partial<InsertAutoResponderLog>, tenantId: string): Promise<AutoResponderLog | undefined>;
   
   // Message Threads
   getMessageThreads(tenantId: string): Promise<MessageThread[]>;
@@ -4188,6 +4198,62 @@ export class DrizzleStorage implements IStorage {
   async deleteMessageTemplate(id: string): Promise<boolean> {
     const result = await this.db.delete(messageTemplates).where(eq(messageTemplates.id, id));
     return result.rowCount > 0;
+  }
+  
+  // Auto-responder Logs - PostgreSQL implementation (TENANT SECURE)
+  async getAutoResponderLogs(tenantId: string): Promise<AutoResponderLog[]> {
+    return await this.db.select().from(autoResponderLogs)
+      .where(eq(autoResponderLogs.tenantId, tenantId))
+      .orderBy(desc(autoResponderLogs.createdAt));
+  }
+
+  async getAutoResponderLog(id: string, tenantId: string): Promise<AutoResponderLog | undefined> {
+    const result = await this.db.select().from(autoResponderLogs).where(and(
+      eq(autoResponderLogs.id, id),
+      eq(autoResponderLogs.tenantId, tenantId)
+    ));
+    return result[0];
+  }
+
+  async getAutoResponderLogsByLead(leadId: string, tenantId: string): Promise<AutoResponderLog[]> {
+    return await this.db.select().from(autoResponderLogs)
+      .where(and(
+        eq(autoResponderLogs.leadId, leadId),
+        eq(autoResponderLogs.tenantId, tenantId)
+      ))
+      .orderBy(desc(autoResponderLogs.createdAt));
+  }
+
+  async getDueAutoResponderLogs(tenantId: string): Promise<AutoResponderLog[]> {
+    const now = new Date();
+    return await this.db.select().from(autoResponderLogs)
+      .where(and(
+        eq(autoResponderLogs.tenantId, tenantId),
+        eq(autoResponderLogs.status, 'queued'),
+        sql`${autoResponderLogs.scheduledFor} <= ${now}`
+      ))
+      .orderBy(autoResponderLogs.scheduledFor);
+  }
+
+  async createAutoResponderLog(log: InsertAutoResponderLog, tenantId: string): Promise<AutoResponderLog> {
+    const result = await this.db.insert(autoResponderLogs).values({
+      ...log,
+      tenantId,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    }).returning();
+    return result[0];
+  }
+
+  async updateAutoResponderLog(id: string, log: Partial<InsertAutoResponderLog>, tenantId: string): Promise<AutoResponderLog | undefined> {
+    const result = await this.db.update(autoResponderLogs)
+      .set({ ...log, updatedAt: new Date() })
+      .where(and(
+        eq(autoResponderLogs.id, id),
+        eq(autoResponderLogs.tenantId, tenantId)
+      ))
+      .returning();
+    return result[0];
   }
   
   // Message Threads - PostgreSQL implementation (TENANT SECURE)

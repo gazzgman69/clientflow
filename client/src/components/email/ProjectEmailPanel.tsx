@@ -197,9 +197,11 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
     
     setMessage(newMessage);
     // Also update the Rich Text Editor content directly by inserting signature at the end
+    // Convert line breaks to HTML <br> tags for proper formatting in the rich text editor
     if (messageEditorRef.current) {
       const currentContent = messageEditorRef.current.getHTML();
-      const combinedContent = currentContent + (currentContent ? '<br>' : '') + trimmedSignature;
+      const signatureHtml = trimmedSignature.replace(/\n/g, '<br>');
+      const combinedContent = currentContent + (currentContent ? '<br><br>' : '') + signatureHtml;
       messageEditorRef.current.setContent(combinedContent);
     }
     toast({ 

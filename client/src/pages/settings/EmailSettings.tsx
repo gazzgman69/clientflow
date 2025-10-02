@@ -28,6 +28,7 @@ import {
   Star
 } from 'lucide-react';
 import RichTextEditor from '@/components/ui/rich-text-editor';
+import { EmailSyncDialog } from '@/components/email/EmailSyncDialog';
 
 interface TenantEmailPrefs {
   tenantId: string;
@@ -54,6 +55,7 @@ export default function EmailSettings() {
   const [alertMessage, setAlertMessage] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [selectedSignature, setSelectedSignature] = useState<EmailSignature | null>(null);
   const [showSignatureDialog, setShowSignatureDialog] = useState(false);
+  const [showEmailSyncDialog, setShowEmailSyncDialog] = useState(false);
   const [signatureForm, setSignatureForm] = useState({ name: '', content: '' });
   const [testEmailData, setTestEmailData] = useState({
     to: '',
@@ -318,7 +320,7 @@ export default function EmailSettings() {
                   <Button 
                     size="sm" 
                     className="bg-green-600 hover:bg-green-700"
-                    onClick={connectGoogleWithPopup}
+                    onClick={() => setShowEmailSyncDialog(true)}
                     data-testid="button-connect-account"
                   >
                     Connect Account
@@ -916,6 +918,26 @@ export default function EmailSettings() {
           </TabsContent>
         </Tabs>
       </div>
+
+      {/* Email Sync Dialog */}
+      <EmailSyncDialog
+        open={showEmailSyncDialog}
+        onOpenChange={setShowEmailSyncDialog}
+        onConnect={(data) => {
+          // Handle IMAP/SMTP connection
+          console.log('IMAP/SMTP connection:', data);
+          // TODO: Implement IMAP/SMTP connection API call
+          setAlertMessage({ type: 'success', message: `Connected to ${data.providerKey} via IMAP/SMTP` });
+        }}
+        onOAuthConnect={(providerKey) => {
+          // Handle OAuth connection
+          if (providerKey === 'gmail') {
+            connectGoogleWithPopup();
+          } else if (providerKey === 'office365' || providerKey === 'hotmail') {
+            connectMicrosoftWithPopup();
+          }
+        }}
+      />
     </div>
   );
 }

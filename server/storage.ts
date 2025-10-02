@@ -375,6 +375,7 @@ export interface IStorage {
   getActiveEmailProviders(): Promise<EmailProviderCatalog[]>;
   getEmailProviderByKey(key: string): Promise<EmailProviderCatalog | undefined>;
   seedEmailProviders(providers: Omit<EmailProviderCatalog, 'id' | 'createdAt' | 'updatedAt'>[]): Promise<void>;
+  getEmailProvidersCatalog(): Promise<EmailProvider[]>;
 
   // Tenant Email Preferences  
   getTenantEmailPrefs(tenantId: string): Promise<TenantEmailPrefs | null>;
@@ -2380,6 +2381,11 @@ export class MemStorage implements IStorage {
   async seedEmailProviders(providers: Omit<EmailProviderCatalog, 'id' | 'createdAt' | 'updatedAt'>[]): Promise<void> {
     // No-op for MemStorage - seeding should happen in DB
     return;
+  }
+
+  async getEmailProvidersCatalog(): Promise<EmailProvider[]> {
+    // Return empty array for MemStorage - this is a global catalog that should be loaded from DB
+    return [];
   }
 
   async getTenantEmailPrefs(tenantId: string): Promise<TenantEmailPrefs | null> {
@@ -5223,6 +5229,14 @@ export class DrizzleStorage implements IStorage {
         console.error(`Error seeding provider ${provider.code}:`, error);
       }
     }
+  }
+
+  async getEmailProvidersCatalog(): Promise<EmailProvider[]> {
+    return await this.db
+      .select()
+      .from(emailProviders)
+      .where(eq(emailProviders.isActive, true))
+      .orderBy(emailProviders.displayOrder);
   }
 
   async getTenantEmailPrefs(tenantId: string): Promise<TenantEmailPrefs | null> {

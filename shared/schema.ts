@@ -1183,6 +1183,7 @@ export type InsertMailSettingsAudit = z.infer<typeof insertMailSettingsAuditSche
 // Email signatures table
 export const emailSignatures = pgTable("email_signatures", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").references(() => tenants.id).notNull(),
   userId: varchar("user_id").references(() => users.id), // Made nullable initially for safe migration
   name: text("name").notNull(), // e.g., "Professional", "Personal", "Company"
   content: text("content").notNull(), // HTML or plain text signature
@@ -1190,6 +1191,11 @@ export const emailSignatures = pgTable("email_signatures", {
   isActive: boolean("is_active").default(true),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => {
+  return {
+    tenantIdIdx: index("email_signatures_tenant_id_idx").on(table.tenantId),
+    tenantUserIdx: index("email_signatures_tenant_user_idx").on(table.tenantId, table.userId),
+  };
 });
 
 // Insert schemas and types for email signatures

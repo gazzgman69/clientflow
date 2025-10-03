@@ -85,7 +85,7 @@ export const tenantResolver = async (req: TenantRequest, res: Response, next: Ne
         
         // Development mode: Enable PROPER multi-tenant testing
         if (process.env.NODE_ENV === 'development' && 
-            (host === 'localhost' || host === '127.0.0.1' || host.includes('replit.dev'))) {
+            (host === 'localhost' || host === '127.0.0.1' || host.includes('replit.dev') || host.includes('repl.co'))) {
           
           // Check for dev tenant override via query param or header for testing
           const testTenant = req.query.tenant || req.get('X-Test-Tenant');

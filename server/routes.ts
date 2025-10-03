@@ -2595,26 +2595,26 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   app.get("/api/projects/:id/deletion-preview", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
     try {
       const projectId = req.params.id;
-      const project = await storage.getProject(projectId);
+      const project = await storage.getProject(projectId, req.tenantId);
       if (!project) {
         return res.status(404).json({ message: "Project not found" });
       }
 
       // Get all related data that will be deleted
-      const projectEmails = await storage.getEmailsByProject(projectId);
-      const projectTasks = await storage.getTasksByProject(projectId);
-      const projectQuotes = await storage.getQuotesByProject(projectId);
-      const projectContracts = await storage.getContractsByProject(projectId);
-      const projectInvoices = await storage.getInvoicesByProject(projectId);
-      const projectLeads = await storage.getLeadsByProject(projectId);
+      const projectEmails = await storage.getEmailsByProject(projectId, req.tenantId);
+      const projectTasks = await storage.getTasksByProject(projectId, req.tenantId);
+      const projectQuotes = await storage.getQuotesByProject(projectId, req.tenantId);
+      const projectContracts = await storage.getContractsByProject(projectId, req.tenantId);
+      const projectInvoices = await storage.getInvoicesByProject(projectId, req.tenantId);
+      const projectLeads = await storage.getLeadsByProject(projectId, req.tenantId);
       
       // Get associated contact info
       let associatedContact = null;
       if (project.contactId) {
-        const contact = await storage.getContact(project.contactId);
+        const contact = await storage.getContact(project.contactId, req.tenantId);
         if (contact) {
           // Check if this is the only project for this contact
-          const contactProjects = await storage.getProjectsByContact(project.contactId);
+          const contactProjects = await storage.getProjectsByContact(project.contactId, req.tenantId);
           const isOnlyProject = contactProjects.length === 1;
           
           associatedContact = {

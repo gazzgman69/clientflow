@@ -2383,7 +2383,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   app.patch("/api/contacts/:id", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
     try {
       const contactData = insertContactSchema.partial().parse(req.body);
-      const contact = await storage.updateContact(req.params.id, contactData);
+      const contact = await storage.updateContact(req.params.id, contactData, req.tenantId);
       if (!contact) {
         return res.status(404).json({ message: "Contact not found" });
       }
@@ -2396,7 +2396,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   app.delete("/api/contacts/:id", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
     try {
       // Check if contact has associated projects and get their details
-      const associatedProjects = await storage.getProjectsByContact(req.params.id);
+      const associatedProjects = await storage.getProjectsByContact(req.params.id, req.tenantId);
       
       if (associatedProjects.length > 0) {
         // Check if cascade deletion is requested
@@ -2419,61 +2419,61 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
           // Delete related project data in the correct order to avoid foreign key violations
           try {
             // Get and delete emails for this project
-            const emails = await storage.getEmailsByProject(project.id);
+            const emails = await storage.getEmailsByProject(project.id, req.tenantId);
             for (const email of emails) {
-              await storage.deleteEmail(email.id);
+              await storage.deleteEmail(email.id, req.tenantId);
             }
             
             // Get and delete tasks for this project  
-            const tasks = await storage.getTasksByProject(project.id);
+            const tasks = await storage.getTasksByProject(project.id, req.tenantId);
             for (const task of tasks) {
-              await storage.deleteTask(task.id);
+              await storage.deleteTask(task.id, req.tenantId);
             }
             
             // Get and delete quotes for this project
-            const quotes = await storage.getQuotesByProject(project.id);
+            const quotes = await storage.getQuotesByProject(project.id, req.tenantId);
             for (const quote of quotes) {
-              await storage.deleteQuote(quote.id);
+              await storage.deleteQuote(quote.id, req.tenantId);
             }
             
             // Get and delete contracts for this project
-            const contracts = await storage.getContractsByProject(project.id);
+            const contracts = await storage.getContractsByProject(project.id, req.tenantId);
             for (const contract of contracts) {
-              await storage.deleteContract(contract.id);
+              await storage.deleteContract(contract.id, req.tenantId);
             }
             
             // Get and delete invoices for this project
-            const invoices = await storage.getInvoicesByProject(project.id);
+            const invoices = await storage.getInvoicesByProject(project.id, req.tenantId);
             for (const invoice of invoices) {
-              await storage.deleteInvoice(invoice.id);
+              await storage.deleteInvoice(invoice.id, req.tenantId);
             }
             
             // Get and delete leads associated with this project
-            const leads = await storage.getLeadsByProject(project.id);
+            const leads = await storage.getLeadsByProject(project.id, req.tenantId);
             for (const lead of leads) {
-              await storage.deleteLead(lead.id);
+              await storage.deleteLead(lead.id, req.tenantId);
             }
           } catch (error: any) {
             console.log('Error deleting related project data:', error.message);
           }
           
           // Now delete the project itself
-          await storage.deleteProject(project.id);
+          await storage.deleteProject(project.id, req.tenantId);
         }
       }
 
       // Delete emails directly associated with this contact
       try {
-        const contactEmails = await storage.getEmailsByContact(req.params.id);
+        const contactEmails = await storage.getEmailsByContact(req.params.id, req.tenantId);
         for (const email of contactEmails) {
-          await storage.deleteEmail(email.id);
+          await storage.deleteEmail(email.id, req.tenantId);
         }
       } catch (error: any) {
         console.log('Error deleting contact emails:', error.message);
       }
 
       // Delete the contact
-      const deleted = await storage.deleteContact(req.params.id);
+      const deleted = await storage.deleteContact(req.params.id, req.tenantId);
       if (!deleted) {
         return res.status(404).json({ message: "Contact not found" });
       }

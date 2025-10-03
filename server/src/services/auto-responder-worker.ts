@@ -107,7 +107,26 @@ class AutoResponderWorker {
 
       // Convert HTML to plain text for fallback
       const { convert } = await import('html-to-text');
-      const textBody = convert(htmlBody, { wordwrap: 130 });
+      
+      // First normalize smart quotes and special characters in HTML
+      let normalizedHtml = htmlBody
+        .replace(/&#8217;/g, "'")  // Right single quotation mark
+        .replace(/&#8216;/g, "'")  // Left single quotation mark
+        .replace(/&rsquo;/g, "'")  // Right single quote entity
+        .replace(/&lsquo;/g, "'")  // Left single quote entity
+        .replace(/&#8220;/g, '"')  // Left double quotation mark
+        .replace(/&#8221;/g, '"')  // Right double quotation mark
+        .replace(/&ldquo;/g, '"')  // Left double quote entity
+        .replace(/&rdquo;/g, '"')  // Right double quote entity
+        .replace(/&#8211;/g, '-')  // En dash
+        .replace(/&#8212;/g, '--') // Em dash
+        .replace(/&ndash;/g, '-')  // En dash entity
+        .replace(/&mdash;/g, '--'); // Em dash entity
+      
+      const textBody = convert(normalizedHtml, { 
+        wordwrap: 130,
+        preserveNewlines: true
+      });
 
       // Send email via dispatcher
       const result = await emailDispatcher.sendEmail({

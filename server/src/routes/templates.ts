@@ -54,8 +54,8 @@ router.get('/admin/templates/:id', async (req, res) => {
 // POST /api/admin/templates
 router.post('/admin/templates', async (req, res) => {
   try {
-    const templateData = insertTemplateSchema.parse(req.body);
     const tenantId = req.tenantId || 'default-tenant';
+    const templateData = insertTemplateSchema.omit({ tenantId: true }).parse(req.body);
     
     // Validate type
     if (!['auto_responder', 'email', 'invoice', 'contract'].includes(templateData.type)) {
@@ -84,7 +84,7 @@ router.patch('/admin/templates/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const tenantId = req.tenantId || 'default-tenant';
-    const updateData = insertTemplateSchema.partial().parse(req.body);
+    const updateData = insertTemplateSchema.omit({ tenantId: true }).partial().parse(req.body);
     
     const template = await templatesService.updateTemplate(id, updateData, tenantId);
     

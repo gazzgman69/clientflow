@@ -159,9 +159,21 @@ export class GmailEmailProvider {
     let htmlBody = params.html || '';
     let textBody = params.text || '';
     
+    // Normalize smart quotes and special characters before conversion
+    const normalizeSmartQuotes = (str: string): string => {
+      return str
+        .replace(/[\u2018\u2019]/g, "'")  // Smart single quotes
+        .replace(/[\u201C\u201D]/g, '"')  // Smart double quotes
+        .replace(/[\u2013\u2014]/g, '-')  // En dash, em dash
+        .replace(/\u2026/g, '...')        // Ellipsis
+        .replace(/\u00A0/g, ' ');         // Non-breaking space
+    };
+    
     // If we have HTML but no text, strip HTML to create text version
     if (htmlBody && !textBody) {
-      textBody = htmlToText(htmlBody, {
+      // Normalize smart quotes BEFORE converting HTML to text
+      const normalizedHtml = normalizeSmartQuotes(htmlBody);
+      textBody = htmlToText(normalizedHtml, {
         wordwrap: 130,
         selectors: [
           { selector: 'a', options: { ignoreHref: false } },

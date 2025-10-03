@@ -109,9 +109,9 @@ export default function TemplatesPage() {
 
   // Fetch templates
   const { data: templates = [], isLoading } = useQuery<Template[]>({
-    queryKey: ['/api/admin/templates'],
+    queryKey: ['/api/settings/templates'],
     queryFn: async () => {
-      const response = await fetch('/api/admin/templates', {
+      const response = await fetch('/api/settings/templates', {
         credentials: 'include'
       });
       if (!response.ok) {
@@ -188,11 +188,11 @@ export default function TemplatesPage() {
   // Create template mutation
   const createMutation = useMutation({
     mutationFn: async (data: TemplateFormData) => {
-      const response = await apiRequest('POST', '/api/admin/templates', data);
+      const response = await apiRequest('POST', '/api/settings/templates', data);
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/admin/templates'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/settings/templates'] });
       toast({ title: 'Template created successfully' });
       setShowEditor(false);
       form.reset();
@@ -205,11 +205,11 @@ export default function TemplatesPage() {
   // Update template mutation
   const updateMutation = useMutation({
     mutationFn: async ({ id, ...data }: { id: string } & Partial<TemplateFormData>) => {
-      const response = await apiRequest('PATCH', `/api/admin/templates/${id}`, data);
+      const response = await apiRequest('PATCH', `/api/settings/templates/${id}`, data);
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/admin/templates'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/settings/templates'] });
       toast({ title: 'Template updated successfully' });
       setShowEditor(false);
       setEditingTemplate(null);
@@ -223,10 +223,10 @@ export default function TemplatesPage() {
   // Delete template mutation
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      await apiRequest('DELETE', `/api/admin/templates/${id}`);
+      await apiRequest('DELETE', `/api/settings/templates/${id}`);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/admin/templates'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/settings/templates'] });
       toast({ title: 'Template deleted successfully' });
     },
     onError: () => {
@@ -237,11 +237,11 @@ export default function TemplatesPage() {
   // Toggle template active status
   const toggleActiveMutation = useMutation({
     mutationFn: async ({ id, isActive }: { id: string; isActive: boolean }) => {
-      const response = await apiRequest('PATCH', `/api/admin/templates/${id}`, { isActive });
+      const response = await apiRequest('PATCH', `/api/settings/templates/${id}`, { isActive });
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/admin/templates'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/settings/templates'] });
       toast({ title: 'Template status updated' });
     },
     onError: () => {

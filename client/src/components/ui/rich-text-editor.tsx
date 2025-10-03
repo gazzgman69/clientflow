@@ -46,6 +46,7 @@ export interface RichTextEditorRef {
   focus: () => void;
   setContent: (content: string) => void;
   insertToken: (token: string) => void;
+  appendSignature: (signatureContent: string) => boolean;
 }
 
 const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(
@@ -237,6 +238,33 @@ const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(
           // Insert token at current cursor position
           editor.chain().focus().insertContent(token + ' ').run();
         }
+      },
+      appendSignature: (signatureContent: string) => {
+        if (!editor) return false;
+        
+        // Get current content
+        const currentHTML = editor.getHTML();
+        
+        // Check if signature already exists (look for the signature content in current HTML)
+        // Remove HTML tags for comparison
+        const currentText = currentHTML.replace(/<[^>]*>/g, '').trim();
+        const signatureText = signatureContent.replace(/<[^>]*>/g, '').trim();
+        
+        if (currentText.includes(signatureText)) {
+          // Signature already exists, don't add it again
+          return false;
+        }
+        
+        // Move cursor to the end and append signature
+        const { to } = editor.state.selection;
+        const endPosition = editor.state.doc.content.size;
+        editor.chain()
+          .focus()
+          .setTextSelection(endPosition)
+          .insertContent(`<p></p><p></p>${signatureContent}`)
+          .run();
+        
+        return true;
       },
     }), [editor]);
 

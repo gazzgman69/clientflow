@@ -186,28 +186,21 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
 
   // Apply signature to compose form
   const applySignature = (signature: any) => {
-    const currentMessage = message;
-    const signatureContent = signature.content;
-    
-    // Add signature at the end of the message with proper formatting - trim any leading/trailing whitespace
-    const trimmedSignature = signatureContent.trim();
-    const newMessage = currentMessage ? 
-      `${currentMessage}\n${trimmedSignature}` : 
-      `${trimmedSignature}`;
-    
-    setMessage(newMessage);
-    // Also update the Rich Text Editor content directly by inserting signature at the end
-    // Convert line breaks to HTML <br> tags for proper formatting in the rich text editor
     if (messageEditorRef.current) {
-      const currentContent = messageEditorRef.current.getHTML();
-      const signatureHtml = trimmedSignature.replace(/\n/g, '<br>');
-      const combinedContent = currentContent + (currentContent ? '<br><br>' : '') + signatureHtml;
-      messageEditorRef.current.setContent(combinedContent);
+      const added = messageEditorRef.current.appendSignature(signature.content);
+      if (!added) {
+        toast({ 
+          title: 'Signature already added', 
+          description: 'This signature is already present in the email body.',
+          variant: 'destructive'
+        });
+      } else {
+        toast({ 
+          title: 'Signature applied', 
+          description: `Applied "${signature.name}" signature` 
+        });
+      }
     }
-    toast({ 
-      title: 'Signature applied', 
-      description: `Applied "${signature.name}" signature` 
-    });
   };
 
 
@@ -1272,9 +1265,14 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
                             key={signature.id}
                             onClick={() => {
                               if (replyEditorRef.current) {
-                                const currentContent = replyEditorRef.current.getHTML();
-                                const combinedContent = currentContent + (currentContent ? '<br>' : '') + signature.content.trim();
-                                replyEditorRef.current.setContent(combinedContent);
+                                const added = replyEditorRef.current.appendSignature(signature.content);
+                                if (!added) {
+                                  toast({ 
+                                    title: 'Signature already added', 
+                                    description: 'This signature is already present in the email body.',
+                                    variant: 'destructive'
+                                  });
+                                }
                               }
                             }}
                             data-testid={`dropdown-signature-toolbar-${signature.id}`}

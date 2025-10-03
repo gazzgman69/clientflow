@@ -597,8 +597,14 @@ export default function TemplatesPage() {
                                       key={signature.id}
                                       onClick={() => {
                                         if (bodyEditorRef.current) {
-                                          const signatureText = `\n\n${signature.content}`;
-                                          bodyEditorRef.current.insertToken(signatureText);
+                                          const added = bodyEditorRef.current.appendSignature(signature.content);
+                                          if (!added) {
+                                            toast({ 
+                                              title: 'Signature already added', 
+                                              description: 'This signature is already present in the template body.',
+                                              variant: 'destructive'
+                                            });
+                                          }
                                         }
                                       }}
                                       data-testid={`dropdown-signature-${signature.id}`}

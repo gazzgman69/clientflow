@@ -694,16 +694,16 @@ router.post('/:slug/submit', formSubmissionLimiter, async (req, res) => {
         await tenantStorage.createAutoResponderLog({
           leadId: lead.id,
           templateId: form.autoResponderTemplateId,
+          formId: form.id,
           scheduledFor,
           status: 'queued',
-          submissionKey,
-          bookingLink: form.bookingLink || null,
           retryCount: 0
         }, form.tenantId);
         
         console.log('✅ AUTO-RESPONDER QUEUED:', { 
           leadId: lead.id, 
           templateId: form.autoResponderTemplateId,
+          formId: form.id,
           scheduledFor: scheduledFor.toISOString(),
           delaySeconds,
           tenantId: form.tenantId 

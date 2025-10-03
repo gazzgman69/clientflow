@@ -686,9 +686,9 @@ router.post('/:slug/submit', formSubmissionLimiter, async (req, res) => {
     }
 
     // AUTO-RESPONDER: Queue auto-response email if configured
-    if (form.autoResponderTemplateId && form.autoResponderDelay) {
+    if (form.autoResponderTemplateId && form.autoResponderDelaySeconds) {
       try {
-        const delaySeconds = form.autoResponderDelay; // Delay in seconds (60-3600)
+        const delaySeconds = form.autoResponderDelaySeconds; // Delay in seconds (60-3600)
         const scheduledFor = new Date(Date.now() + (delaySeconds * 1000));
         
         await tenantStorage.createAutoResponderLog({

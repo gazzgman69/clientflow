@@ -90,6 +90,7 @@ class AutoResponderWorker {
           lastName: lead.lastName || '',
           email: lead.email,
           phone: lead.phone || '',
+          projectDate: lead.projectDate || null,
         },
         contact: {
           first_name: lead.firstName || '',
@@ -181,6 +182,19 @@ class AutoResponderWorker {
     
     // Replace [Phone] with lead phone
     resolved = resolved.replace(/\[Phone\]/gi, context.lead.phone || '[Phone]');
+    
+    // Replace [ProjectDate] with formatted project date
+    if (context.lead.projectDate) {
+      const date = new Date(context.lead.projectDate);
+      const formatted = date.toLocaleDateString('en-US', { 
+        year: 'numeric', 
+        month: 'long', 
+        day: 'numeric' 
+      });
+      resolved = resolved.replace(/\[ProjectDate\]/gi, formatted);
+    } else {
+      resolved = resolved.replace(/\[ProjectDate\]/gi, '[ProjectDate]');
+    }
     
     // Replace [booking.link] with booking link
     resolved = resolved.replace(/\[booking\.link\]/gi, context.booking.link || '[booking.link]');

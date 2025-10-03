@@ -528,7 +528,18 @@ export default function TemplatesPage() {
                     name="subject"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Subject {form.watch('type') === 'auto_responder' ? '(Optional)' : ''}</FormLabel>
+                        <div className="flex items-center justify-between mb-2">
+                          <FormLabel>Subject {form.watch('type') === 'auto_responder' ? '(Optional)' : ''}</FormLabel>
+                          <TokenDropdown
+                            onTokenSelect={(token) => {
+                              const currentValue = field.value || '';
+                              const newValue = currentValue + token;
+                              field.onChange(newValue);
+                            }}
+                            size="sm"
+                            className="h-7 px-2 text-xs"
+                          />
+                        </div>
                         <FormControl>
                           <Input {...field} placeholder="Email subject line" data-testid="input-template-subject" />
                         </FormControl>

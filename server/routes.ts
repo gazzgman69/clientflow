@@ -2722,7 +2722,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   app.delete("/api/projects/:id", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
     try {
       // Get the project to check for associated contact
-      const project = await storage.getProject(req.params.id);
+      const project = await storage.getProject(req.params.id, req.tenantId);
       if (!project) {
         return res.status(404).json({ message: "Project not found" });
       }
@@ -2734,7 +2734,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
       if (project.contactId) {
         contactId = project.contactId;
         // Check if this is the only project for this contact
-        const contactProjects = await storage.getProjectsByContact(project.contactId);
+        const contactProjects = await storage.getProjectsByContact(project.contactId, req.tenantId);
         shouldDeleteContact = contactProjects.length === 1;
       }
 

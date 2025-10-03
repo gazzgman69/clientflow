@@ -10,13 +10,14 @@ export class TemplatesService {
   }
   /**
    * Get all templates with optional filtering
+   * SECURITY FIX: Added tenant scoping to prevent cross-tenant template access
    */
   async listTemplates(options: {
     type?: 'auto_responder' | 'email' | 'invoice' | 'contract';
     q?: string;
     activeOnly?: boolean;
-  } = {}): Promise<Template[]> {
-    const templates = await storage.getTemplates();
+  }, tenantId: string): Promise<Template[]> {
+    const templates = await storage.getTemplates(tenantId);
     
     let filtered = templates;
     

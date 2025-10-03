@@ -8,6 +8,7 @@ const router = Router();
 router.get('/admin/templates', async (req, res) => {
   try {
     const { type, q } = req.query;
+    const tenantId = req.tenantId || 'default-tenant';
     
     const options: {
       type?: 'auto_responder' | 'email' | 'invoice' | 'contract';
@@ -25,7 +26,7 @@ router.get('/admin/templates', async (req, res) => {
       options.q = q;
     }
     
-    const templates = await templatesService.listTemplates(options);
+    const templates = await templatesService.listTemplates(options, tenantId);
     res.json(templates);
   } catch (error) {
     console.error('Error fetching templates:', error);
@@ -131,10 +132,11 @@ router.get('/templates/tokens', async (req, res) => {
   }
 });
 
-// GET /api/templates - Public endpoint for email templates (for compose functionality)
+// GET /api/templates - Authenticated endpoint for email templates (for compose functionality)
 router.get('/templates', async (req, res) => {
   try {
     const { type } = req.query;
+    const tenantId = req.tenantId || 'default-tenant';
     
     const options: {
       type?: 'auto_responder' | 'email' | 'invoice' | 'contract';
@@ -149,10 +151,10 @@ router.get('/templates', async (req, res) => {
       }
     }
     
-    const templates = await templatesService.listTemplates(options);
+    const templates = await templatesService.listTemplates(options, tenantId);
     res.json(templates);
   } catch (error) {
-    console.error('Error fetching public templates:', error);
+    console.error('Error fetching templates:', error);
     res.status(500).json({ error: 'Failed to fetch templates' });
   }
 });

@@ -367,8 +367,8 @@ export interface IStorage {
   // Templates
   getTemplates(tenantId: string): Promise<Template[]>;
   getTemplate(id: string, tenantId: string): Promise<Template | undefined>;
-  createTemplate(template: InsertTemplate, tenantId: string): Promise<Template>;
-  updateTemplate(id: string, template: Partial<InsertTemplate>, tenantId: string): Promise<Template | undefined>;
+  createTemplate(template: InsertTemplate): Promise<Template>;
+  updateTemplate(id: string, template: Partial<InsertTemplate>): Promise<Template | undefined>;
   deleteTemplate(id: string, tenantId: string): Promise<boolean>;
 
   // Email Signatures
@@ -2262,10 +2262,12 @@ export class MemStorage implements IStorage {
   }
 
   // Templates
-  async getTemplates(): Promise<Template[]> {
-    return Array.from(this.templates.values()).sort((a, b) => 
-      (b.updatedAt ? new Date(b.updatedAt).getTime() : 0) - (a.updatedAt ? new Date(a.updatedAt).getTime() : 0)
-    );
+  async getTemplates(tenantId: string): Promise<Template[]> {
+    return Array.from(this.templates.values())
+      .filter(template => template.tenantId === tenantId)
+      .sort((a, b) => 
+        (b.updatedAt ? new Date(b.updatedAt).getTime() : 0) - (a.updatedAt ? new Date(a.updatedAt).getTime() : 0)
+      );
   }
 
   async getTemplate(id: string, tenantId: string): Promise<Template | undefined> {
@@ -4401,8 +4403,8 @@ export class DrizzleStorage implements IStorage {
 
   // Templates
   // Templates - PostgreSQL implementation
-  async getTemplates(): Promise<Template[]> {
-    return await this.db.select().from(templates);
+  async getTemplates(tenantId: string): Promise<Template[]> {
+    return await this.db.select().from(templates).where(eq(templates.tenantId, tenantId));
   }
 
   async getTemplate(id: string, tenantId: string): Promise<Template | undefined> {

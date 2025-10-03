@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Plus, Edit2, Trash2, Eye, AlertTriangle, ChevronDown, PenTool, Loader2, FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -248,6 +248,27 @@ export default function TemplatesPage() {
       toast({ title: 'Failed to update template status', variant: 'destructive' });
     },
   });
+
+  // Check for URL parameters to auto-open template creation
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const createType = params.get('create');
+    
+    if (createType === 'auto_responder' || createType === 'email' || createType === 'invoice' || createType === 'contract') {
+      setActiveType(createType);
+      setEditingTemplate(null);
+      form.reset({
+        type: createType,
+        title: '',
+        subject: '',
+        body: '',
+      });
+      setShowEditor(true);
+      
+      // Clear the URL parameter
+      window.history.replaceState({}, '', '/settings/templates');
+    }
+  }, [form]);
 
   const handleNewTemplate = () => {
     setEditingTemplate(null);

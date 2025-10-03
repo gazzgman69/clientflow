@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useLocation } from 'wouter';
 import Header from "@/components/layout/header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -267,6 +268,7 @@ export default function LeadCaptureBuilder() {
   const [showPreview, setShowPreview] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [, setLocation] = useLocation();
 
   // Fetch auto-responder templates
   const { data: autoResponderTemplates = [] } = useQuery({
@@ -699,12 +701,16 @@ export default function LeadCaptureBuilder() {
                           <Label htmlFor="auto-responder-template">Auto-Response Template</Label>
                           <Select
                             value={formDetails?.autoResponderTemplateId || 'none'}
-                            onValueChange={(value) => 
-                              setFormDetails(prev => prev ? {
-                                ...prev, 
-                                autoResponderTemplateId: value === 'none' ? null : value
-                              } : null)
-                            }
+                            onValueChange={(value) => {
+                              if (value === 'new_template') {
+                                setLocation('/settings/templates?create=auto_responder');
+                              } else {
+                                setFormDetails(prev => prev ? {
+                                  ...prev, 
+                                  autoResponderTemplateId: value === 'none' ? null : value
+                                } : null);
+                              }
+                            }}
                           >
                             <SelectTrigger data-testid="select-auto-responder-template">
                               <SelectValue placeholder="Select template..." />
@@ -716,6 +722,12 @@ export default function LeadCaptureBuilder() {
                                   {template.title}
                                 </SelectItem>
                               ))}
+                              <SelectItem value="new_template" className="text-primary">
+                                <div className="flex items-center">
+                                  <Plus className="h-4 w-4 mr-2" />
+                                  New Email Template
+                                </div>
+                              </SelectItem>
                             </SelectContent>
                           </Select>
                           <p className="text-xs text-muted-foreground mt-1">

@@ -31,6 +31,41 @@ export class EmailDispatcher {
   }
 
   /**
+   * Send email using any available provider for the tenant (for auto-responders)
+   */
+  async sendEmail(params: DispatchEmailParams & { tenantId: string }): Promise<{ success: boolean; messageId?: string; error?: string }> {
+    try {
+      // Get any connected email account for this tenant
+      const users = await storage.getUsers(params.tenantId);
+      
+      for (const user of users) {
+        const emailAccounts = await storage.getEmailAccountsByUser(user.id, params.tenantId);
+        const connectedAccount = emailAccounts.find(acc => acc.status === 'connected');
+        
+        if (connectedAccount) {
+          // Found a connected account, use it
+          const result = await this.dispatchEmail(user.id, params.tenantId, params);
+          return {
+            success: result.ok,
+            messageId: result.messageId,
+            error: result.error
+          };
+        }
+      }
+      
+      return {
+        success: false,
+        error: 'No email provider connected for this tenant'
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  }
+
+  /**
    * Dispatch email using the user's connected OAuth provider
    */
   async dispatchEmail(

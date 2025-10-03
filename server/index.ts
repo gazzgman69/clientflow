@@ -347,7 +347,7 @@ app.use((req, res, next) => {
       await jobs.enqueueRecurring('lead-automation', {}, 5 * 60 * 1000, { tenantId: 'default-tenant' });
       console.log('✅ Lead automation job scheduled (every 5 minutes)');
       
-      // Auto-responder worker: every 30 seconds (30000ms) 
+      // Auto-responder worker: every 30 seconds (30000ms)
       const { autoResponderWorker } = await import('./src/services/auto-responder-worker');
       autoResponderWorker.start();
       console.log('✅ Auto-responder worker started (every 30 seconds)');

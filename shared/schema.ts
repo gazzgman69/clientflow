@@ -640,7 +640,7 @@ export const leadCaptureForms = pgTable("lead_capture_forms", {
   slug: text("slug").notNull(), // unique constraint removed temporarily
   questions: text("questions"), // JSON string of form questions
   autoResponseTemplateId: varchar("auto_response_template_id").references(() => templates.id),
-  autoResponderTemplateId: varchar("auto_responder_template_id").references(() => messageTemplates.id), // Lead auto-responder template
+  autoResponderTemplateId: varchar("auto_responder_template_id").references(() => templates.id), // Lead auto-responder template
   autoResponderDelaySeconds: integer("auto_responder_delay_seconds"), // Delay in seconds: 60, 300, 600, 1800, 3600
   bookingLink: text("booking_link"), // Optional booking link for [booking.link] token
   notification: text("notification").notNull().default('email'), // email, sms

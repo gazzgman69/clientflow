@@ -465,7 +465,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
       const { status } = leadStatusUpdateSchema.parse(req.body);
 
       // Get current lead first
-      const currentLead = await storage.getLead(req.params.id);
+      const currentLead = await storage.getLead(req.params.id, req.tenantId);
       if (!currentLead) {
         return res.status(404).json({ message: "Lead not found" });
       }
@@ -479,7 +479,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
       const lead = await storage.updateLead(req.params.id, { 
         status: leadStatus,
         lastManualStatusAt: new Date()
-      });
+      }, req.tenantId);
       
       // TODO: Record manual status change in history
       // await storage.createLeadStatusHistory({

@@ -647,14 +647,14 @@ export default function Projects() {
                         {deletionPreview.project.status && ` (${deletionPreview.project.status})`}.
                       </p>
                       
-                      {deletionPreview.willDelete.contactInfo ? (
+                      {deletionPreview.willDelete.contact ? (
                         <div className="bg-yellow-50 dark:bg-yellow-950/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
                           <p className="text-yellow-800 dark:text-yellow-200 mb-2">
                             ⚠️ This project is associated with a contact. Are you sure you want to delete?
                           </p>
                           <div className="text-sm space-y-1">
-                            <p><strong>Contact:</strong> {deletionPreview.willDelete.contactInfo.name}</p>
-                            {deletionPreview.willDelete.contactInfo.wasOnlyProject && (
+                            <p><strong>Contact:</strong> {deletionPreview.willDelete.contact.name}</p>
+                            {deletionPreview.willDelete.contact.isOnlyProject && (
                               <p className="text-xs text-yellow-700 dark:text-yellow-300 mt-2">
                                 Note: This contact will also be deleted since this is their only project.
                               </p>

@@ -67,10 +67,11 @@ export class TemplatesService {
       title: data.title,
       subject: data.subject || null,
       body: data.body,
+      tenantId: tenantId,
       isActive: true
     };
     
-    return await storage.createTemplate(templateData, tenantId);
+    return await storage.createTemplate(templateData);
   }
 
   /**

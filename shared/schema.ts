@@ -641,7 +641,7 @@ export const leadCaptureForms = pgTable("lead_capture_forms", {
   questions: text("questions"), // JSON string of form questions
   autoResponseTemplateId: varchar("auto_response_template_id").references(() => templates.id),
   autoResponderTemplateId: varchar("auto_responder_template_id").references(() => templates.id), // Lead auto-responder template
-  autoResponderDelaySeconds: integer("auto_responder_delay_seconds"), // Delay in seconds: 60, 300, 600, 1800, 3600
+  autoResponderDelaySeconds: integer("auto_responder_delay_seconds").default(60), // Delay in seconds: 60, 300, 600, 1800, 3600 (default: 1 minute)
   bookingLink: text("booking_link"), // Optional booking link for [booking.link] token
   notification: text("notification").notNull().default('email'), // email, sms
   calendarId: varchar("calendar_id").references(() => calendarIntegrations.id),

@@ -464,23 +464,8 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     try {
       const { status } = leadStatusUpdateSchema.parse(req.body);
 
-      console.log('🔍 UPDATE LEAD STATUS DEBUG:', {
-        leadId: req.params.id,
-        newStatus: status,
-        tenantId: req.tenantId,
-        hasTenantId: !!req.tenantId
-      });
-
       // Get current lead first
       const currentLead = await storage.getLead(req.params.id, req.tenantId);
-      
-      console.log('🔍 LEAD LOOKUP RESULT:', {
-        leadId: req.params.id,
-        found: !!currentLead,
-        currentStatus: currentLead?.status,
-        leadTenantId: currentLead?.tenantId
-      });
-      
       if (!currentLead) {
         return res.status(404).json({ message: "Lead not found" });
       }

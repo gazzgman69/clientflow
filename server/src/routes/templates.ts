@@ -4,16 +4,8 @@ import { insertTemplateSchema } from '@shared/schema';
 
 const router = Router();
 
-// Middleware to require authentication (simplified for now)
-const requireAuth = (req: any, res: any, next: any) => {
-  if (!req.headers['user-id']) {
-    return res.status(401).json({ error: 'Authentication required' });
-  }
-  next();
-};
-
 // GET /api/admin/templates?type=&q=
-router.get('/admin/templates', requireAuth, async (req, res) => {
+router.get('/admin/templates', async (req, res) => {
   try {
     const { type, q } = req.query;
     
@@ -42,7 +34,7 @@ router.get('/admin/templates', requireAuth, async (req, res) => {
 });
 
 // GET /api/admin/templates/:id
-router.get('/admin/templates/:id', requireAuth, async (req, res) => {
+router.get('/admin/templates/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const tenantId = req.tenantId || 'default-tenant';
@@ -60,7 +52,7 @@ router.get('/admin/templates/:id', requireAuth, async (req, res) => {
 });
 
 // POST /api/admin/templates
-router.post('/admin/templates', requireAuth, async (req, res) => {
+router.post('/admin/templates', async (req, res) => {
   try {
     const templateData = insertTemplateSchema.parse(req.body);
     const tenantId = req.tenantId || 'default-tenant';
@@ -88,7 +80,7 @@ router.post('/admin/templates', requireAuth, async (req, res) => {
 });
 
 // PATCH /api/admin/templates/:id
-router.patch('/admin/templates/:id', requireAuth, async (req, res) => {
+router.patch('/admin/templates/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const tenantId = req.tenantId || 'default-tenant';
@@ -111,7 +103,7 @@ router.patch('/admin/templates/:id', requireAuth, async (req, res) => {
 });
 
 // DELETE /api/admin/templates/:id
-router.delete('/admin/templates/:id', requireAuth, async (req, res) => {
+router.delete('/admin/templates/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const tenantId = req.tenantId || 'default-tenant';
@@ -129,7 +121,7 @@ router.delete('/admin/templates/:id', requireAuth, async (req, res) => {
 });
 
 // GET /api/templates/tokens - Get available template tokens
-router.get('/templates/tokens', requireAuth, async (req, res) => {
+router.get('/templates/tokens', async (req, res) => {
   try {
     const tokens = templatesService.getAvailableTokens();
     res.json(tokens);
@@ -166,7 +158,7 @@ router.get('/templates', async (req, res) => {
 });
 
 // POST /api/templates/preview - Preview template with email renderer
-router.post('/templates/preview', requireAuth, async (req, res) => {
+router.post('/templates/preview', async (req, res) => {
   try {
     const { templateId, contactId, projectId } = req.body;
     const tenantId = req.tenantId || 'default-tenant';

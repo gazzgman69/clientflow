@@ -774,39 +774,12 @@ export default function Contacts() {
                                   {deletionPreview.willDelete.projects.map((project) => (
                                     <li key={project.id} className="text-gray-600 dark:text-gray-400">
                                       • {project.name}
-                                      {(project.emailCount + project.taskCount + project.quoteCount + project.contractCount + project.invoiceCount + project.leadCount) > 0 && (
-                                        <span className="text-xs">
-                                          {' '}({[
-                                            project.emailCount > 0 && `${project.emailCount} emails`,
-                                            project.taskCount > 0 && `${project.taskCount} tasks`,
-                                            project.quoteCount > 0 && `${project.quoteCount} quotes`,
-                                            project.contractCount > 0 && `${project.contractCount} contracts`,
-                                            project.invoiceCount > 0 && `${project.invoiceCount} invoices`,
-                                            project.leadCount > 0 && `${project.leadCount} leads`
-                                          ].filter(Boolean).join(', ')})
-                                        </span>
-                                      )}
                                     </li>
                                   ))}
                                 </ul>
                               </li>
                             )}
-                            {deletionPreview.willDelete.directEmails > 0 && (
-                              <li><strong>{deletionPreview.willDelete.directEmails}</strong> direct emails</li>
-                            )}
-                            {deletionPreview.willDelete.directQuotes > 0 && (
-                              <li><strong>{deletionPreview.willDelete.directQuotes}</strong> direct quotes</li>
-                            )}
-                            {deletionPreview.willDelete.directContracts > 0 && (
-                              <li><strong>{deletionPreview.willDelete.directContracts}</strong> direct contracts</li>
-                            )}
-                            {deletionPreview.willDelete.directInvoices > 0 && (
-                              <li><strong>{deletionPreview.willDelete.directInvoices}</strong> direct invoices</li>
-                            )}
                           </ul>
-                          <p className="mt-2 text-sm font-medium text-red-700 dark:text-red-300">
-                            Total: {deletionPreview.willDelete.totalItems} items will be permanently deleted
-                          </p>
                         </div>
                       ) : (
                         <div className="bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
@@ -841,7 +814,7 @@ export default function Contacts() {
                       <span>Deleting...</span>
                     </div>
                   ) : (
-                    `Delete Contact${deletionPreview.willDelete.totalItems > 0 ? ` & ${deletionPreview.willDelete.totalItems} Items` : ''}`
+                    'Delete Contact'
                   )}
                 </AlertDialogAction>
               )}

@@ -662,31 +662,7 @@ export default function Projects() {
                                 </span>
                               </li>
                             )}
-                            {deletionPreview.willDelete.emails > 0 && (
-                              <li><strong>{deletionPreview.willDelete.emails}</strong> emails</li>
-                            )}
-                            {deletionPreview.willDelete.tasks > 0 && (
-                              <li><strong>{deletionPreview.willDelete.tasks}</strong> tasks</li>
-                            )}
-                            {deletionPreview.willDelete.quotes > 0 && (
-                              <li><strong>{deletionPreview.willDelete.quotes}</strong> quotes</li>
-                            )}
-                            {deletionPreview.willDelete.contracts > 0 && (
-                              <li><strong>{deletionPreview.willDelete.contracts}</strong> contracts</li>
-                            )}
-                            {deletionPreview.willDelete.invoices > 0 && (
-                              <li><strong>{deletionPreview.willDelete.invoices}</strong> invoices</li>
-                            )}
-                            {deletionPreview.willDelete.leads > 0 && (
-                              <li><strong>{deletionPreview.willDelete.leads}</strong> leads</li>
-                            )}
                           </ul>
-                          {deletionPreview.willDelete.totalItems > 0 && (
-                            <p className="mt-2 text-sm font-medium text-red-700 dark:text-red-300">
-                              Total: {deletionPreview.willDelete.totalItems} items will be permanently deleted
-                              {deletionPreview.willDelete.contactInfo?.wasOnlyProject && " (plus 1 contact)"}
-                            </p>
-                          )}
                         </div>
                       ) : (
                         <div className="bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
@@ -721,7 +697,7 @@ export default function Projects() {
                       <span>Deleting...</span>
                     </div>
                   ) : (
-                    `Delete Project${deletionPreview.willDelete.totalItems > 0 || deletionPreview.willDelete.contactInfo ? ` & Related Data` : ''}`
+                    'Delete Project'
                   )}
                 </AlertDialogAction>
               )}

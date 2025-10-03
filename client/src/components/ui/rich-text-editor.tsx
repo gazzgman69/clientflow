@@ -255,13 +255,13 @@ const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(
           return false;
         }
         
-        // Move cursor to the end and append signature
+        // Move cursor to the end and append signature with single line break
         const { to } = editor.state.selection;
         const endPosition = editor.state.doc.content.size;
         editor.chain()
           .focus()
           .setTextSelection(endPosition)
-          .insertContent(`<p></p><p></p>${signatureContent}`)
+          .insertContent(`<p></p>${signatureContent}`)
           .run();
         
         return true;

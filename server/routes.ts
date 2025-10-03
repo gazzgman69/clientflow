@@ -2302,26 +2302,26 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   app.get("/api/contacts/:id/deletion-preview", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
     try {
       const contactId = req.params.id;
-      const contact = await storage.getContact(contactId);
+      const contact = await storage.getContact(contactId, req.tenantId);
       if (!contact) {
         return res.status(404).json({ message: "Contact not found" });
       }
 
       // Get all related data that will be deleted
       const relatedProjects = await storage.getProjectsByContact(contactId, req.tenantId);
-      const relatedEmails = await storage.getEmailsByContact(contactId);
+      const relatedEmails = await storage.getEmailsByContact(contactId, req.tenantId);
       const relatedQuotes = await storage.getQuotesByContact(contactId, req.tenantId);
       const relatedContracts = await storage.getContractsByContact(contactId, req.tenantId);
       const relatedInvoices = await storage.getInvoicesByContactId(contactId, req.tenantId);
       
       // Count related data for each project
       const projectDetails = await Promise.all(relatedProjects.map(async (project) => {
-        const projectEmails = await storage.getEmailsByProject(project.id);
-        const projectTasks = await storage.getTasksByProject(project.id);
-        const projectQuotes = await storage.getQuotesByProject(project.id);
-        const projectContracts = await storage.getContractsByProject(project.id);
-        const projectInvoices = await storage.getInvoicesByProject(project.id);
-        const projectLeads = await storage.getLeadsByProject(project.id);
+        const projectEmails = await storage.getEmailsByProject(project.id, req.tenantId);
+        const projectTasks = await storage.getTasksByProject(project.id, req.tenantId);
+        const projectQuotes = await storage.getQuotesByProject(project.id, req.tenantId);
+        const projectContracts = await storage.getContractsByProject(project.id, req.tenantId);
+        const projectInvoices = await storage.getInvoicesByProject(project.id, req.tenantId);
+        const projectLeads = await storage.getLeadsByProject(project.id, req.tenantId);
         
         return {
           id: project.id,
@@ -2360,7 +2360,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
 
   app.get("/api/contacts/:id", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
     try {
-      const contact = await storage.getContact(req.params.id);
+      const contact = await storage.getContact(req.params.id, req.tenantId);
       if (!contact) {
         return res.status(404).json({ message: "Contact not found" });
       }

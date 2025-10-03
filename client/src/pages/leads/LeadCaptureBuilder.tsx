@@ -763,33 +763,6 @@ export default function LeadCaptureBuilder() {
                           </p>
                         </div>
                       </div>
-
-                      <div>
-                        <Label htmlFor="booking-link">Booking Link (Optional)</Label>
-                        <Input
-                          id="booking-link"
-                          value={formDetails?.bookingLink || ''}
-                          onChange={(e) => setFormDetails(prev => prev ? {...prev, bookingLink: e.target.value} : null)}
-                          placeholder="https://your-booking-link.com"
-                          data-testid="input-booking-link"
-                        />
-                        <p className="text-xs text-muted-foreground mt-1">
-                          Used for [booking.link] token in auto-responder templates
-                        </p>
-                      </div>
-                    </div>
-
-                    <Separator />
-
-                    <div>
-                      <Label htmlFor="transparency">Transparency Text</Label>
-                      <Textarea
-                        id="transparency"
-                        value={formDetails?.transparency || ''}
-                        onChange={(e) => setFormDetails(prev => prev ? {...prev, transparency: e.target.value} : null)}
-                        placeholder="Explain how you'll use the submitted information"
-                        data-testid="textarea-transparency"
-                      />
                     </div>
                   </CardContent>
                 </Card>

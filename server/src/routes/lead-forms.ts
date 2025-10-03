@@ -153,7 +153,8 @@ router.get('/:id', async (req, res) => {
         slug: form.slug,
         projectName: 'General Inquiry', // Could be stored in form
         notification: form.notification,
-        autoResponseTemplateId: form.autoResponseTemplateId,
+        autoResponderTemplateId: form.autoResponderTemplateId,
+        autoResponderDelaySeconds: form.autoResponderDelaySeconds,
         calendarId: form.calendarId,
         lifecycleId: form.lifecycleId,
         workflowId: form.workflowId,
@@ -200,7 +201,8 @@ router.patch('/:id', async (req, res) => {
     if (form.title) updateData.name = form.title;
     if (slug !== existingForm.slug) updateData.slug = slug;
     if (form.notification) updateData.notification = form.notification;
-    if (form.autoResponseTemplateId !== undefined) updateData.autoResponseTemplateId = form.autoResponseTemplateId;
+    if (form.autoResponderTemplateId !== undefined) updateData.autoResponderTemplateId = form.autoResponderTemplateId;
+    if (form.autoResponderDelaySeconds !== undefined) updateData.autoResponderDelaySeconds = form.autoResponderDelaySeconds;
     if (form.calendarId !== undefined) updateData.calendarId = form.calendarId;
     if (form.lifecycleId !== undefined) updateData.lifecycleId = form.lifecycleId;
     if (form.workflowId !== undefined) updateData.workflowId = form.workflowId;

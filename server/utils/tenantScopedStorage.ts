@@ -215,6 +215,23 @@ export class TenantScopedStorage {
     return this.baseStorage.updateLeadConsent(id, consent, this.tenantId);
   }
 
+  // Auto-Responder Logs
+  async createAutoResponderLog(log: any) {
+    return this.baseStorage.createAutoResponderLog(log, this.tenantId);
+  }
+
+  async getAutoResponderLogsByLead(leadId: string) {
+    return this.baseStorage.getAutoResponderLogsByLead(leadId, this.tenantId);
+  }
+
+  async getDueAutoResponderLogs() {
+    return this.baseStorage.getDueAutoResponderLogs(this.tenantId);
+  }
+
+  async updateAutoResponderLog(id: string, log: any) {
+    return this.baseStorage.updateAutoResponderLog(id, log, this.tenantId);
+  }
+
   // Calendar Integrations
   async getCalendarIntegrations() {
     return this.baseStorage.getCalendarIntegrations(this.tenantId);

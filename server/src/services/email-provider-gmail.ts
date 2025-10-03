@@ -155,11 +155,7 @@ export class GmailEmailProvider {
       console.warn('⚠️ Gmail:', warning);
     }
 
-    // Ensure we have HTML or text
-    let htmlBody = params.html || '';
-    let textBody = params.text || '';
-    
-    // Normalize smart quotes and special characters before conversion
+    // Normalize smart quotes and special characters
     const normalizeSmartQuotes = (str: string): string => {
       return str
         .replace(/[\u2018\u2019]/g, "'")  // Smart single quotes
@@ -169,11 +165,13 @@ export class GmailEmailProvider {
         .replace(/\u00A0/g, ' ');         // Non-breaking space
     };
     
+    // Normalize BOTH HTML and text to fix smart quote encoding issues
+    let htmlBody = params.html ? normalizeSmartQuotes(params.html) : '';
+    let textBody = params.text ? normalizeSmartQuotes(params.text) : '';
+    
     // If we have HTML but no text, strip HTML to create text version
     if (htmlBody && !textBody) {
-      // Normalize smart quotes BEFORE converting HTML to text
-      const normalizedHtml = normalizeSmartQuotes(htmlBody);
-      textBody = htmlToText(normalizedHtml, {
+      textBody = htmlToText(htmlBody, {
         wordwrap: 130,
         selectors: [
           { selector: 'a', options: { ignoreHref: false } },

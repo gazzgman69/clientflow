@@ -106,11 +106,16 @@ export class GoogleOAuthService {
   private verifyOAuthState(signedState: string): OAuthState {
     const parts = signedState.split('.');
     if (parts.length !== 2) {
+      console.error('🔐 DEBUG: Invalid state format - parts:', parts.length);
       throw new Error('Invalid state format - missing signature');
     }
 
     const [stateBase64, signature] = parts;
     const stateJson = Buffer.from(stateBase64, 'base64url').toString('utf8');
+    
+    console.log('🔐 DEBUG: State JSON:', stateJson);
+    console.log('🔐 DEBUG: Received signature:', signature);
+    console.log('🔐 DEBUG: Secret being used:', OAUTH_STATE_SECRET.substring(0, 20) + '...');
     
     // Verify signature
     const expectedSignature = crypto
@@ -118,7 +123,11 @@ export class GoogleOAuthService {
       .update(stateJson)
       .digest('hex');
     
+    console.log('🔐 DEBUG: Expected signature:', expectedSignature);
+    console.log('🔐 DEBUG: Signatures match:', signature === expectedSignature);
+    
     if (!crypto.timingSafeEqual(Buffer.from(signature, 'hex'), Buffer.from(expectedSignature, 'hex'))) {
+      console.error('❌ SECURITY: Invalid state signature - state may have been tampered with');
       throw new Error('Invalid state signature - state may have been tampered with');
     }
 

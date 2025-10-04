@@ -138,11 +138,33 @@ function decodeHtmlEntities(text: string): string {
 }
 
 /**
- * Send email via Gmail with template support
+ * Send email via Gmail with template support and file attachments
  */
-router.post('/send', requireAuth, async (req: any, res) => {
+router.post('/send', requireAuth, upload.array('attachments', 10), async (req: any, res) => {
   try {
-    const emailData = req.body;
+    // Handle both JSON and multipart/form-data
+    let emailData: any;
+    
+    if (req.files && req.files.length > 0) {
+      // Multipart/form-data with files
+      console.log(`📎 Received ${req.files.length} file attachment(s)`);
+      
+      // Parse JSON fields from FormData
+      emailData = {
+        to: req.body.to,
+        subject: req.body.subject,
+        html: req.body.html,
+        text: req.body.text,
+        preheader: req.body.preheader,
+        templateId: req.body.templateId,
+        projectId: req.body.projectId,
+        contactId: req.body.contactId,
+        emails: req.body.emails ? JSON.parse(req.body.emails) : undefined
+      };
+    } else {
+      // Regular JSON request
+      emailData = req.body;
+    }
     
     // Debug: Log raw request body before Zod parsing
     console.log('📧 RAW req.body.html (first 100 chars):', emailData.html?.substring(0, 100));
@@ -312,8 +334,16 @@ router.post('/send', requireAuth, async (req: any, res) => {
       textLen: (finalText || '').length,
       toCount: validatedEmailData.to ? 1 : 0,
       ccCount: validatedEmailData.cc ? 1 : 0,
-      bccCount: validatedEmailData.bcc ? 1 : 0
+      bccCount: validatedEmailData.bcc ? 1 : 0,
+      attachmentCount: req.files?.length || 0
     });
+
+    // Prepare attachments if present
+    const attachments = req.files?.map((file: any) => ({
+      filename: file.originalname,
+      path: file.path,
+      contentType: file.mimetype
+    })) || [];
 
     // Dispatch email using OAuth provider
     const { emailDispatcher } = await import('../services/email-dispatcher');
@@ -324,7 +354,8 @@ router.post('/send', requireAuth, async (req: any, res) => {
       html: finalHtml,
       cc: validatedEmailData.cc,
       bcc: validatedEmailData.bcc,
-      replyTo: validatedEmailData.replyTo
+      replyTo: validatedEmailData.replyTo,
+      attachments
     });
     
     if (!result.ok) {

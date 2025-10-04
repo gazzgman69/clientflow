@@ -3,6 +3,7 @@ import type { EmailProviderIntegration } from '@shared/schema';
 import { storage } from '../../storage';
 import { sendViaGmail } from './gmail-send';
 import { convert as htmlToText } from 'html-to-text';
+import * as fs from 'fs/promises';
 
 export interface SendEmailParams {
   to: string | string[];
@@ -12,6 +13,11 @@ export interface SendEmailParams {
   replyTo?: string;
   cc?: string | string[];
   bcc?: string | string[];
+  attachments?: Array<{
+    filename: string;
+    path: string;
+    contentType?: string;
+  }>;
 }
 
 export interface SyncContactsOnlyParams {
@@ -190,6 +196,25 @@ export class GmailEmailProvider {
       throw new Error('Email body is empty - both HTML and text are missing');
     }
 
+    // Process file attachments if present
+    const gmailAttachments: Array<{ filename: string; content: string; contentType?: string; isBase64?: boolean }> = [];
+    if (params.attachments && params.attachments.length > 0) {
+      for (const att of params.attachments) {
+        try {
+          const fileBuffer = await fs.readFile(att.path);
+          const base64Content = fileBuffer.toString('base64');
+          gmailAttachments.push({
+            filename: att.filename,
+            content: base64Content,
+            contentType: att.contentType,
+            isBase64: true
+          });
+        } catch (err) {
+          console.error(`Failed to read attachment ${att.filename}:`, err);
+        }
+      }
+    }
+
     try {
       // Send email using proper MIME formatting
       const response = await sendViaGmail({
@@ -200,7 +225,8 @@ export class GmailEmailProvider {
         bcc: bccArray,
         subject: params.subject,
         html: htmlBody,
-        text: textBody
+        text: textBody,
+        attachments: gmailAttachments.length > 0 ? gmailAttachments : undefined
       });
 
       console.log('📧 Gmail: Email sent successfully:', response.data.id);

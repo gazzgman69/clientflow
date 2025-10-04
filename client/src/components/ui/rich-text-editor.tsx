@@ -58,6 +58,14 @@ const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(
         StarterKit.configure({
           // Disable extensions we're adding separately to avoid conflicts
           link: false,
+          // Configure hardBreak to trigger on Enter (instead of Shift+Enter)
+          hardBreak: {
+            addKeyboardShortcuts() {
+              return {
+                'Enter': () => this.editor.commands.setHardBreak(),
+              }
+            },
+          },
         }),
         Link.configure({
           openOnClick: false,

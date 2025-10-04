@@ -5,7 +5,7 @@ import type { CalendarIntegration } from '@shared/schema';
 import { secureStore } from './secureStore';
 
 // HMAC secret for signing OAuth state - use environment variable or fallback
-const OAUTH_STATE_SECRET = process.env.OAUTH_STATE_SECRET || 'default-oauth-secret-change-in-production';
+const OAUTH_STATE_SECRET = process.env.OAUTH_STATE_SECRET || process.env.SESSION_SECRET || 'default-oauth-secret-change-in-production';
 
 interface OAuthState {
   tenantId: string;

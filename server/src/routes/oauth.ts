@@ -621,8 +621,14 @@ async function googleCallbackHandler(req: any, res: any) {
       getRedirectUri()
     );
     
-    // Exchange code for tokens
-    const { tokens: tokenData } = await oauth2.getToken(code as string);
+    // Exchange code for tokens with PKCE code verifier from session
+    const codeVerifier = req.session.pkceCodeVerifier;
+    console.log('🔐 PKCE: Retrieved code verifier from session:', !!codeVerifier);
+    
+    const { tokens: tokenData } = await oauth2.getToken({
+      code: code as string,
+      codeVerifier: codeVerifier // Include PKCE code verifier
+    });
     
     if (!tokenData.access_token) {
       return res.status(400).send('Failed to get access token');

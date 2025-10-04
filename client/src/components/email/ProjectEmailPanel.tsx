@@ -53,6 +53,8 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
   const [forceRefresh, setForceRefresh] = useState(false);
   const [showTemplateModal, setShowTemplateModal] = useState(false);
   const [showSignatureDropdown, setShowSignatureDropdown] = useState(false);
+  const [attachments, setAttachments] = useState<File[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [selectedTemplate, setSelectedTemplate] = useState<any>(null);
   const [updateTemplate, setUpdateTemplate] = useState(false);
   const messageEditorRef = useRef<RichTextEditorRef>(null);
@@ -285,13 +287,44 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
 
   // Send email mutation
   const sendEmailMutation = useMutation({
-    mutationFn: async (emailData: { to: string; subject: string; html: string }) => {
-      const response = await apiRequest('POST', '/api/email/send', {
-        ...emailData,
-        projectId,
-        emails
-      });
-      return response.json();
+    mutationFn: async (emailData: { to: string; subject: string; html: string; attachments?: File[] }) => {
+      // If there are attachments, use FormData
+      if (emailData.attachments && emailData.attachments.length > 0) {
+        const formData = new FormData();
+        formData.append('to', emailData.to);
+        formData.append('subject', emailData.subject);
+        formData.append('html', emailData.html);
+        formData.append('projectId', projectId);
+        if (emails) {
+          formData.append('emails', JSON.stringify(emails));
+        }
+        
+        // Append all files
+        emailData.attachments.forEach((file) => {
+          formData.append('attachments', file);
+        });
+
+        const response = await fetch('/api/email/send', {
+          method: 'POST',
+          body: formData,
+          credentials: 'include',
+        });
+        
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.message || 'Failed to send email');
+        }
+        
+        return response.json();
+      } else {
+        // No attachments, use regular JSON
+        const response = await apiRequest('POST', '/api/email/send', {
+          ...emailData,
+          projectId,
+          emails
+        });
+        return response.json();
+      }
     },
     onSuccess: () => {
       toast({ title: 'Email sent successfully!' });
@@ -301,6 +334,7 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
       setSelectedTemplate(null);
       setUpdateTemplate(false);
       setIsComposing(false);
+      setAttachments([]);
       // Refresh threads
       queryClient.invalidateQueries({ queryKey: [`/api/email/projects/${projectId}/email-messages`] });
     },
@@ -341,7 +375,7 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
       });
     }
 
-    sendEmailMutation.mutate({ to, subject, html: emailBody });
+    sendEmailMutation.mutate({ to, subject, html: emailBody, attachments });
   };
 
   const formatDate = (dateISO: string) => {
@@ -624,19 +658,74 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
                     </DropdownMenu>
                   )}
                   onTemplateSelect={() => (
-                    <Button 
-                      variant="outline" 
-                      size="sm"
-                      className="h-7 px-2 text-xs"
-                      onClick={() => setShowTemplateModal(true)}
-                      data-testid="button-select-template"
-                    >
-                      <FileText className="h-2.5 w-2.5 mr-1" />
-                      Template
-                    </Button>
+                    <>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        className="h-7 px-2 text-xs"
+                        onClick={() => setShowTemplateModal(true)}
+                        data-testid="button-select-template"
+                      >
+                        <FileText className="h-2.5 w-2.5 mr-1" />
+                        Template
+                      </Button>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        className="h-7 px-2 text-xs"
+                        onClick={() => fileInputRef.current?.click()}
+                        data-testid="button-attach-file"
+                      >
+                        <Paperclip className="h-2.5 w-2.5 mr-1" />
+                        Attach
+                      </Button>
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        multiple
+                        className="hidden"
+                        onChange={(e) => {
+                          if (e.target.files) {
+                            setAttachments(prev => [...prev, ...Array.from(e.target.files!)]);
+                          }
+                        }}
+                        data-testid="input-file-upload"
+                      />
+                    </>
                   )}
                 />
               </div>
+
+              {/* Display attachments */}
+              {attachments.length > 0 && (
+                <div className="space-y-2">
+                  <Label className="text-sm">Attachments ({attachments.length})</Label>
+                  <div className="flex flex-wrap gap-2">
+                    {attachments.map((file, index) => (
+                      <div
+                        key={index}
+                        className="flex items-center gap-2 bg-muted px-3 py-1 rounded-md text-sm"
+                        data-testid={`attachment-${index}`}
+                      >
+                        <Paperclip className="h-3 w-3" />
+                        <span className="max-w-[200px] truncate">{file.name}</span>
+                        <span className="text-muted-foreground text-xs">
+                          ({(file.size / 1024).toFixed(1)} KB)
+                        </span>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-5 w-5 p-0 hover:bg-destructive hover:text-destructive-foreground"
+                          onClick={() => setAttachments(prev => prev.filter((_, i) => i !== index))}
+                          data-testid={`button-remove-attachment-${index}`}
+                        >
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
               
               <div className="flex gap-2 items-center">
                 <Button 
@@ -654,7 +743,10 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
                 
                 <Button 
                   variant="outline" 
-                  onClick={() => setIsComposing(false)}
+                  onClick={() => {
+                    setIsComposing(false);
+                    setAttachments([]);
+                  }}
                   data-testid="button-cancel-compose"
                 >
                   Cancel

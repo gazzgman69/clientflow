@@ -58,14 +58,6 @@ const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(
         StarterKit.configure({
           // Disable extensions we're adding separately to avoid conflicts
           link: false,
-          // Configure hardBreak to trigger on Enter (instead of Shift+Enter)
-          hardBreak: {
-            addKeyboardShortcuts() {
-              return {
-                'Enter': () => this.editor.commands.setHardBreak(),
-              }
-            },
-          },
         }),
         Link.configure({
           openOnClick: false,
@@ -144,6 +136,13 @@ const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(
           // Handle keyboard shortcuts
           const { key, ctrlKey, metaKey, shiftKey } = event;
           const isCmd = ctrlKey || metaKey;
+
+          // Enter: Create hard break (single line break) instead of new paragraph
+          if (key === 'Enter' && !shiftKey && !isCmd) {
+            event.preventDefault();
+            editor?.chain().focus().setHardBreak().run();
+            return true;
+          }
 
           // Bold: Ctrl/Cmd + B
           if (isCmd && key === 'b' && !shiftKey) {

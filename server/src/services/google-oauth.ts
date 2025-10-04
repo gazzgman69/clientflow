@@ -96,7 +96,7 @@ export class GoogleOAuthService {
       .update(stateJson)
       .digest('hex');
     
-    const signedState = `${Buffer.from(stateJson).toString('base64')}.${signature}`;
+    const signedState = `${Buffer.from(stateJson).toString('base64url')}.${signature}`;
     return signedState;
   }
 
@@ -110,7 +110,7 @@ export class GoogleOAuthService {
     }
 
     const [stateBase64, signature] = parts;
-    const stateJson = Buffer.from(stateBase64, 'base64').toString('utf8');
+    const stateJson = Buffer.from(stateBase64, 'base64url').toString('utf8');
     
     // Verify signature
     const expectedSignature = crypto

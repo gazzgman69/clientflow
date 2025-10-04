@@ -138,22 +138,46 @@ function decodeHtmlEntities(text: string): string {
 }
 
 /**
- * Send email via Gmail with template support
+ * Send email via Gmail with template support and file attachments
  */
-router.post('/send', requireAuth, async (req: any, res) => {
+router.post('/send', requireAuth, upload.array('attachments', 10), async (req: any, res) => {
   try {
-    // Debug: Log raw request body before Zod parsing
-    console.log('📧 RAW req.body.html (first 100 chars):', req.body.html?.substring(0, 100));
-    console.log('📧 RAW req.body type:', typeof req.body.html);
+    // Handle both JSON and multipart/form-data
+    let emailData: any;
     
-    const emailData = sendEmailSchema.parse(req.body);
+    if (req.files && req.files.length > 0) {
+      // Multipart/form-data with files
+      console.log(`📎 Received ${req.files.length} file attachment(s)`);
+      
+      // Parse JSON fields from FormData
+      emailData = {
+        to: req.body.to,
+        subject: req.body.subject,
+        html: req.body.html,
+        text: req.body.text,
+        preheader: req.body.preheader,
+        templateId: req.body.templateId,
+        projectId: req.body.projectId,
+        contactId: req.body.contactId,
+        emails: req.body.emails ? JSON.parse(req.body.emails) : undefined
+      };
+    } else {
+      // Regular JSON request
+      emailData = req.body;
+    }
+    
+    // Debug: Log raw request body before Zod parsing
+    console.log('📧 RAW req.body.html (first 100 chars):', emailData.html?.substring(0, 100));
+    console.log('📧 RAW req.body type:', typeof emailData.html);
+    
+    const validatedEmailData = sendEmailSchema.parse(emailData);
     const userId = req.user.id;
     
-    console.log('📧 AFTER ZOD emailData.html (first 100 chars):', emailData.html?.substring(0, 100));
+    console.log('📧 AFTER ZOD validatedEmailData.html (first 100 chars):', validatedEmailData.html?.substring(0, 100));
     
-    let finalSubject = emailData.subject || '';
-    let finalText = emailData.text || '';
-    let finalHtml = emailData.html || '';
+    let finalSubject = validatedEmailData.subject || '';
+    let finalText = validatedEmailData.text || '';
+    let finalHtml = validatedEmailData.html || '';
     
     // CRITICAL FIX: Decode HTML entities that may have been escaped during HTTP transmission
     // (Replit proxy or security middleware may escape HTML in JSON payloads)
@@ -169,12 +193,12 @@ router.post('/send', requireAuth, async (req: any, res) => {
     };
     
     // Use provided IDs or try to derive from email address
-    let contactId = emailData.contactId;
-    let projectId = emailData.projectId;
+    let contactId = validatedEmailData.contactId;
+    let projectId = validatedEmailData.projectId;
     
     // If contactId not provided, try to find contact by email
     // SECURITY FIX: Added tenant scoping to prevent cross-tenant contact access
-    if (!contactId && emailData.to) {
+    if (!contactId && validatedEmailData.to) {
       const tenantId = req.tenantId || 'default-tenant';
       try {
         const [contact] = await db
@@ -182,14 +206,14 @@ router.post('/send', requireAuth, async (req: any, res) => {
           .from(contacts)
           .where(and(
             eq(contacts.tenantId, tenantId),
-            eq(contacts.email, emailData.to)
+            eq(contacts.email, validatedEmailData.to)
           ))
           .limit(1);
         if (contact) {
           contactId = contact.id;
         }
       } catch (error) {
-        console.log('Could not auto-detect contact from email:', emailData.to);
+        console.log('Could not auto-detect contact from email:', validatedEmailData.to);
       }
     }
     
@@ -218,9 +242,9 @@ router.post('/send', requireAuth, async (req: any, res) => {
     if (projectId) context.projectId = projectId;
     
     // Handle template-based email
-    if (emailData.templateId) {
+    if (validatedEmailData.templateId) {
       const tenantId = req.tenantId || 'default-tenant';
-      const template = await templatesService.getTemplate(emailData.templateId, tenantId);
+      const template = await templatesService.getTemplate(validatedEmailData.templateId, tenantId);
       if (!template) {
         return res.status(404).json({ ok: false, error: 'Template not found' });
       }
@@ -255,7 +279,7 @@ router.post('/send', requireAuth, async (req: any, res) => {
       const unresolved = [...subjectResult.unresolved, ...textResult.unresolved, ...htmlResult.unresolved];
       
       // Debug logging as specified in task (first 120 chars + unresolved tokens)
-      const debugContent = (emailData.html || emailData.text || '').substring(0, 120);
+      const debugContent = (validatedEmailData.html || validatedEmailData.text || '').substring(0, 120);
       console.log(`📧 Token resolution DEBUG - Before: "${debugContent}${debugContent.length >= 120 ? '...' : ''}"`);
       console.log(`📧 Direct email rendered: ${unresolved.length} unresolved tokens`);
       if (unresolved.length > 0) {
@@ -265,7 +289,7 @@ router.post('/send', requireAuth, async (req: any, res) => {
     
     // Use the projectId we already determined above
     // SECURITY FIX: Added tenant scoping to all database queries
-    if (!projectId && emailData.to) {
+    if (!projectId && validatedEmailData.to) {
       const tenantId = req.tenantId || 'default-tenant';
       // Try to find project by contact email
       try {
@@ -274,7 +298,7 @@ router.post('/send', requireAuth, async (req: any, res) => {
           .from(contacts)
           .where(and(
             eq(contacts.tenantId, tenantId),
-            eq(contacts.email, emailData.to)
+            eq(contacts.email, validatedEmailData.to)
           ))
           .limit(1);
           
@@ -308,21 +332,30 @@ router.post('/send', requireAuth, async (req: any, res) => {
       hasSubject: !!finalSubject,
       htmlLen: (finalHtml || '').length,
       textLen: (finalText || '').length,
-      toCount: emailData.to ? 1 : 0,
-      ccCount: emailData.cc ? 1 : 0,
-      bccCount: emailData.bcc ? 1 : 0
+      toCount: validatedEmailData.to ? 1 : 0,
+      ccCount: validatedEmailData.cc ? 1 : 0,
+      bccCount: validatedEmailData.bcc ? 1 : 0,
+      attachmentCount: req.files?.length || 0
     });
+
+    // Prepare attachments if present
+    const attachments = req.files?.map((file: any) => ({
+      filename: file.originalname,
+      path: file.path,
+      contentType: file.mimetype
+    })) || [];
 
     // Dispatch email using OAuth provider
     const { emailDispatcher } = await import('../services/email-dispatcher');
     const result = await emailDispatcher.dispatchEmail(userId, tenantId, {
-      to: emailData.to,
+      to: validatedEmailData.to,
       subject: finalSubject,
       text: finalText,
       html: finalHtml,
-      cc: emailData.cc,
-      bcc: emailData.bcc,
-      replyTo: emailData.replyTo
+      cc: validatedEmailData.cc,
+      bcc: validatedEmailData.bcc,
+      replyTo: validatedEmailData.replyTo,
+      attachments
     });
     
     if (!result.ok) {
@@ -338,9 +371,9 @@ router.post('/send', requireAuth, async (req: any, res) => {
           userId,
           threadId: result.messageId,
           fromEmail: result.fromEmail || req.user?.email || '',
-          toEmails: [emailData.to],
-          ccEmails: emailData.cc ? [emailData.cc] : [],
-          bccEmails: emailData.bcc ? [emailData.bcc] : [],
+          toEmails: [validatedEmailData.to],
+          ccEmails: validatedEmailData.cc ? [validatedEmailData.cc] : [],
+          bccEmails: validatedEmailData.bcc ? [validatedEmailData.bcc] : [],
           subject: finalSubject,
           bodyText: finalText,
           bodyHtml: finalHtml,

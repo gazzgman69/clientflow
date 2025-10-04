@@ -433,12 +433,6 @@ const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(
                 <p>Quote Block</p>
               </TooltipContent>
             </Tooltip>
-          </div>
-
-          <Separator orientation="vertical" className="h-6 hidden sm:block" />
-
-          {/* Block elements */}
-          <div className="flex items-center gap-1 min-w-0 flex-shrink-0">
             <Tooltip>
               <TooltipTrigger asChild>
                 <Toggle
@@ -456,7 +450,12 @@ const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(
                 <p>Inline Code</p>
               </TooltipContent>
             </Tooltip>
+          </div>
 
+          <Separator orientation="vertical" className="h-6 hidden sm:block" />
+
+          {/* Block elements */}
+          <div className="flex items-center gap-1 min-w-0 flex-shrink-0">
             {/* Insert Token, Signature, Template - inline with main formatting buttons */}
             {onTokenInsert && onTokenInsert((token) => {
               if (editor) {

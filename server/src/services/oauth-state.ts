@@ -21,7 +21,7 @@ export function signOAuthState(state: OAuthState): string {
     .update(stateJson)
     .digest('hex');
   
-  const signedState = `${Buffer.from(stateJson).toString('base64')}.${signature}`;
+  const signedState = `${Buffer.from(stateJson).toString('base64url')}.${signature}`;
   return signedState;
 }
 
@@ -35,7 +35,7 @@ export function verifyOAuthState(signedState: string): OAuthState {
   }
 
   const [stateBase64, signature] = parts;
-  const stateJson = Buffer.from(stateBase64, 'base64').toString('utf8');
+  const stateJson = Buffer.from(stateBase64, 'base64url').toString('utf8');
   
   // Verify signature using timing-safe comparison
   const expectedSignature = crypto

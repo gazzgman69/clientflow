@@ -96,17 +96,7 @@ export class GoogleOAuthService {
       .update(stateJson)
       .digest('hex');
     
-    const stateBase64 = Buffer.from(stateJson).toString('base64url');
-    const signedState = `${stateBase64}.${signature}`;
-    
-    console.log('🔐 DEBUG STATE ENCODING:', {
-      stateJson,
-      stateBase64,
-      signature: signature.substring(0, 20) + '...',
-      signedStateLength: signedState.length,
-      signedStatePreview: signedState.substring(0, 100) + '...'
-    });
-    
+    const signedState = `${Buffer.from(stateJson).toString('base64url')}.${signature}`;
     return signedState;
   }
 

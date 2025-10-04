@@ -590,14 +590,14 @@ async function googleCallbackHandler(req: any, res: any) {
       return res.status(400).send('Invalid state');
     }
     
-    const { tenantId, userId, popup: popupRaw, returnTo } = parsed;
-    // Ensure popup is a proper boolean (handle string "true" or boolean true)
-    const popup = popupRaw === true || popupRaw === 'true' || popupRaw === '1';
+    const { tenantId, userId, returnTo } = parsed;
+    
+    // Get popup flag from session (saved during OAuth initiation)
+    const popup = Boolean(req.session.oauth_popup);
     
     console.log('🔐 Google OAuth callback - Popup:', { 
-      popupRaw, 
-      popupType: typeof popupRaw,
-      popupFinal: popup,
+      popupFromSession: popup,
+      sessionData: req.session.oauth_popup,
       parsed: JSON.stringify(parsed)
     });
     
@@ -681,7 +681,7 @@ async function googleCallbackHandler(req: any, res: any) {
       res.setHeader('Content-Type', 'text/html; charset=utf-8');
       return res.send(`<!doctype html><html><body><script>
         (function(){
-          try { window.opener && window.opener.postMessage({type:'oauth:connected', provider:'google', ok:true}, '*'); } catch(e) {}
+          try { window.opener && window.opener.postMessage({type:'oauth:success', provider:'google', ok:true}, '*'); } catch(e) {}
           try { window.close(); } catch(e) {}
           setTimeout(function(){ if (!window.closed) document.body.innerHTML='Connected. You can close this window.'; }, 150);
         })();

@@ -89,11 +89,19 @@ router.get('/api/auth/google/start', (req, res) => {
       stateObj: JSON.stringify(stateObj)
     });
     
-    // Create OAuth2 client
+    // Create OAuth2 client with correct redirect URI
+    const getRedirectUri = () => {
+      if (process.env.REPLIT_DOMAINS) {
+        const domain = process.env.REPLIT_DOMAINS.split(',')[0];
+        return `https://${domain}/auth/google/callback`;
+      }
+      return process.env.GOOGLE_REDIRECT_URI || `${req.protocol}://${req.get('host')}/auth/google/callback`;
+    };
+    
     const oauth2 = new OAuth2Client(
       process.env.GOOGLE_CLIENT_ID!,
       process.env.GOOGLE_CLIENT_SECRET!,
-      process.env.GOOGLE_REDIRECT_URI || `${req.protocol}://${req.get('host')}/api/auth/google/callback`
+      getRedirectUri()
     );
     
     const url = oauth2.generateAuthUrl({
@@ -623,11 +631,20 @@ async function googleCallbackHandler(req: any, res: any) {
       return res.status(401).send('Authentication required');
     }
     
-    // Create OAuth2 client
+    // Create OAuth2 client with correct redirect URI
+    // Must match the redirect URI used when generating the auth URL
+    const getRedirectUri = () => {
+      if (process.env.REPLIT_DOMAINS) {
+        const domain = process.env.REPLIT_DOMAINS.split(',')[0];
+        return `https://${domain}/auth/google/callback`;
+      }
+      return process.env.GOOGLE_REDIRECT_URI || `${req.protocol}://${req.get('host')}/auth/google/callback`;
+    };
+    
     const oauth2 = new OAuth2Client(
       process.env.GOOGLE_CLIENT_ID!,
       process.env.GOOGLE_CLIENT_SECRET!,
-      process.env.GOOGLE_REDIRECT_URI || `${req.protocol}://${req.get('host')}/api/auth/google/callback`
+      getRedirectUri()
     );
     
     // Exchange code for tokens

@@ -608,9 +608,15 @@ async function googleCallbackHandler(req: any, res: any) {
       return res.status(400).send('Missing code');
     }
     
-    // Decode state parameter
-    const parsed = decodeState<any>(state);
-    console.log('🔐 Google OAuth callback - State decoded:', JSON.stringify(parsed, null, 2));
+    // Decode and verify state parameter using GoogleOAuthService
+    let parsed;
+    try {
+      parsed = googleOAuthService.verifyCallbackState(state as string);
+      console.log('🔐 Google OAuth callback - State decoded:', JSON.stringify(parsed, null, 2));
+    } catch (error) {
+      console.error('❌ SECURITY: State verification failed:', error);
+      return res.status(400).send('Invalid state');
+    }
     
     if (!parsed) {
       return res.status(400).send('Invalid state');

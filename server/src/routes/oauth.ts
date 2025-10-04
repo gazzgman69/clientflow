@@ -258,12 +258,46 @@ router.get('/auth/google/gmail', (req, res) => {
 /**
  * Calendar-specific OAuth start route
  */
-router.get('/auth/google/calendar', (req, res) => {
+router.get('/auth/google/calendar', async (req, res) => {
   try {
     // Read query parameters
     const popup = Boolean(req.query.popup);
     const returnTo = (req.query.returnTo as string) || '/calendar';
     const origin = (req.query.origin as string) || '';
+    
+    console.log('🔐 OAUTH START /auth/google/calendar:', {
+      popup,
+      hasSession: !!req.session,
+      sessionId: req.session?.id,
+      userId: req.session?.userId,
+      tenantId: req.session?.tenantId
+    });
+    
+    // Try to get userId and tenantId from session
+    let userId = req.session.userId;
+    let tenantId = req.session.tenantId;
+    let userEmail = req.session.user?.email;
+    
+    // If session is empty (popup scenario), try to reload it
+    if (!userId && req.session.id) {
+      console.log('📱 POPUP: No userId in popup session, attempting to reload session');
+      try {
+        await new Promise((resolve, reject) => {
+          req.session.reload((err) => {
+            if (err) reject(err);
+            else resolve(undefined);
+          });
+        });
+        
+        userId = req.session.userId;
+        tenantId = req.session.tenantId;
+        userEmail = req.session.user?.email;
+        
+        console.log('✅ POPUP: Session reloaded, userId:', userId);
+      } catch (err) {
+        console.error('❌ POPUP: Failed to reload session:', err);
+      }
+    }
     
     // Save popup flag, return URL, and origin to session
     req.session.oauth_popup = popup;
@@ -271,20 +305,22 @@ router.get('/auth/google/calendar', (req, res) => {
     req.session.oauth_origin = origin;
     
     // Set default tenant for OAuth sessions (required by TenantAwareSessionStore)
-    if (!req.session.tenantId) {
-      req.session.tenantId = 'default-tenant';
+    if (!tenantId) {
+      tenantId = 'default-tenant';
+      req.session.tenantId = tenantId;
     }
     
     // Require authentication for OAuth flows
-    if (!req.session.userId) {
-      return res.status(401).json({ error: 'Authentication required for OAuth' });
+    if (!userId) {
+      console.error('❌ OAUTH START: No authentication - userId missing. Session ID:', req.session.id);
+      return res.status(401).send('Authentication required for OAuth. Please ensure you are logged in.');
     }
     
     // Generate OAuth URL with signed state and PKCE protection
     const authUrl = googleOAuthService.generateAuthUrl(
-      req.session.user?.email || 'user@example.com',
-      req.session.userId,
-      req.session.tenantId,
+      userEmail || 'user@example.com',
+      userId,
+      tenantId,
       req.session,
       'calendar',
       returnTo

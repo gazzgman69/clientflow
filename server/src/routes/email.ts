@@ -13,7 +13,7 @@ import { emailThreads, emails, emailAttachments, projects, contacts, emailThread
 import { eq, and, or, sql, desc, asc } from 'drizzle-orm';
 import multer from 'multer';
 import path from 'path';
-import { unlink } from 'fs/promises';
+import { unlink, mkdir } from 'fs/promises';
 import { google } from 'googleapis';
 
 const router = Router();
@@ -38,10 +38,32 @@ router.get('/providers', async (req, res) => {
   }
 });
 
-// Configure multer for file uploads (temporary storage)
+// Configure multer for file uploads with TENANT ISOLATION
+// Each tenant's files are stored in separate subdirectories for security
 const upload = multer({ 
-  dest: path.join(process.cwd(), 'temp-uploads'),
-  limits: { fileSize: 10 * 1024 * 1024 } // 10MB limit
+  storage: multer.diskStorage({
+    destination: async (req: any, file, cb) => {
+      try {
+        // SECURITY: Use tenant ID from authenticated session for directory isolation
+        const tenantId = req.tenantId || 'default-tenant';
+        const tenantUploadDir = path.join(process.cwd(), 'temp-uploads', tenantId);
+        
+        // Create tenant-specific directory if it doesn't exist
+        await mkdir(tenantUploadDir, { recursive: true });
+        
+        cb(null, tenantUploadDir);
+      } catch (error: any) {
+        cb(error, '');
+      }
+    },
+    filename: (req, file, cb) => {
+      // Generate unique filename with original extension
+      const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+      const ext = path.extname(file.originalname);
+      cb(null, file.fieldname + '-' + uniqueSuffix + ext);
+    }
+  }),
+  limits: { fileSize: 10 * 1024 * 1024 } // 10MB limit per file
 });
 
 const sendEmailSchema = z.object({

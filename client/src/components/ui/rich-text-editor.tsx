@@ -468,22 +468,6 @@ const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(
                 <p>Undo (Ctrl+Z)</p>
               </TooltipContent>
             </Tooltip>
-          </div>
-
-          <Separator orientation="vertical" className="h-6 hidden sm:block" />
-
-          {/* Block elements */}
-          <div className="flex items-center gap-1 min-w-0 flex-shrink-0">
-            {/* Insert Token, Signature, Template - inline with main formatting buttons */}
-            {onTokenInsert && onTokenInsert((token) => {
-              if (editor) {
-                editor.chain().focus().insertContent(token + ' ').run();
-              }
-            })}
-            {onSignatureSelect && onSignatureSelect()}
-            {onTemplateSelect && onTemplateSelect()}
-            
-            {/* Redo - smaller size, inline with main formatting buttons */}
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
@@ -502,6 +486,20 @@ const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(
                 <p>Redo (Ctrl+Y)</p>
               </TooltipContent>
             </Tooltip>
+          </div>
+
+          <Separator orientation="vertical" className="h-6 hidden sm:block" />
+
+          {/* Block elements */}
+          <div className="flex items-center gap-1 min-w-0 flex-shrink-0">
+            {/* Insert Token, Signature, Template - inline with main formatting buttons */}
+            {onTokenInsert && onTokenInsert((token) => {
+              if (editor) {
+                editor.chain().focus().insertContent(token + ' ').run();
+              }
+            })}
+            {onSignatureSelect && onSignatureSelect()}
+            {onTemplateSelect && onTemplateSelect()}
           </div>
         </div>
 

@@ -128,11 +128,12 @@ export function TokenDropdown({
     setSearchQuery('');
     setSelectedIndex(-1);
     
-    // Restore focus to the editor after a brief delay to allow the dropdown to close
+    // Restore focus to the editor after a longer delay to ensure dropdown closes first
+    // Radix UI's dropdown returns focus to trigger, so we need to override that
     if (onAfterInsert) {
       setTimeout(() => {
         onAfterInsert();
-      }, 150);
+      }, 300);
     }
   };
 
@@ -157,7 +158,7 @@ export function TokenDropdown({
   };
 
   return (
-    <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
+    <DropdownMenu open={isOpen} onOpenChange={setIsOpen} modal={false}>
       <DropdownMenuTrigger asChild>
         <Button 
           variant={variant}

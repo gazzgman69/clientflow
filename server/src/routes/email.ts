@@ -13,6 +13,7 @@ import { emailThreads, emails, emailAttachments, projects, contacts, emailThread
 import { eq, and, or, sql, desc, asc } from 'drizzle-orm';
 import multer from 'multer';
 import path from 'path';
+import { unlink } from 'fs/promises';
 import { google } from 'googleapis';
 
 const router = Router();
@@ -345,59 +346,73 @@ router.post('/send', requireAuth, upload.array('attachments', 10), async (req: a
       contentType: file.mimetype
     })) || [];
 
-    // Dispatch email using OAuth provider
-    const { emailDispatcher } = await import('../services/email-dispatcher');
-    const result = await emailDispatcher.dispatchEmail(userId, tenantId, {
-      to: validatedEmailData.to,
-      subject: finalSubject,
-      text: finalText,
-      html: finalHtml,
-      cc: validatedEmailData.cc,
-      bcc: validatedEmailData.bcc,
-      replyTo: validatedEmailData.replyTo,
-      attachments
-    });
-    
-    if (!result.ok) {
-      return res.status(500).json(result);
-    }
-    
-    // Store sent email in database for thread tracking
-    if (projectId && result.messageId) {
-      try {
-        console.log(`💾 Storing sent email in database: projectId=${projectId}, subject="${finalSubject?.substring(0, 50)}"`);
-        await storage.createEmail({
-          tenantId,
-          userId,
-          threadId: result.messageId,
-          fromEmail: result.fromEmail || req.user?.email || '',
-          toEmails: [validatedEmailData.to],
-          ccEmails: validatedEmailData.cc ? [validatedEmailData.cc] : [],
-          bccEmails: validatedEmailData.bcc ? [validatedEmailData.bcc] : [],
-          subject: finalSubject,
-          bodyText: finalText,
-          bodyHtml: finalHtml,
-          sentAt: new Date(),
-          projectId,
-          isSent: true,
-          direction: 'outbound',
-          snippet: finalText?.substring(0, 100)
-        }, tenantId);
-        console.log(`✅ Sent email stored successfully in database for project ${projectId}`);
-      } catch (dbError) {
-        console.error('❌ Failed to store sent email in DB:', dbError);
-        // Continue - email was sent successfully
+    try {
+      // Dispatch email using OAuth provider
+      const { emailDispatcher } = await import('../services/email-dispatcher');
+      const result = await emailDispatcher.dispatchEmail(userId, tenantId, {
+        to: validatedEmailData.to,
+        subject: finalSubject,
+        text: finalText,
+        html: finalHtml,
+        cc: validatedEmailData.cc,
+        bcc: validatedEmailData.bcc,
+        replyTo: validatedEmailData.replyTo,
+        attachments
+      });
+      
+      if (!result.ok) {
+        return res.status(500).json(result);
       }
-    } else {
-      console.log(`⚠️ Sent email NOT stored: projectId=${projectId}, messageId=${result.messageId}`);
+      
+      // Store sent email in database for thread tracking
+      if (projectId && result.messageId) {
+        try {
+          console.log(`💾 Storing sent email in database: projectId=${projectId}, subject="${finalSubject?.substring(0, 50)}"`);
+          await storage.createEmail({
+            tenantId,
+            userId,
+            threadId: result.messageId,
+            fromEmail: result.fromEmail || req.user?.email || '',
+            toEmails: [validatedEmailData.to],
+            ccEmails: validatedEmailData.cc ? [validatedEmailData.cc] : [],
+            bccEmails: validatedEmailData.bcc ? [validatedEmailData.bcc] : [],
+            subject: finalSubject,
+            bodyText: finalText,
+            bodyHtml: finalHtml,
+            sentAt: new Date(),
+            projectId,
+            isSent: true,
+            direction: 'outbound',
+            snippet: finalText?.substring(0, 100)
+          }, tenantId);
+          console.log(`✅ Sent email stored successfully in database for project ${projectId}`);
+        } catch (dbError) {
+          console.error('❌ Failed to store sent email in DB:', dbError);
+          // Continue - email was sent successfully
+        }
+      } else {
+        console.log(`⚠️ Sent email NOT stored: projectId=${projectId}, messageId=${result.messageId}`);
+      }
+      
+      res.json({ 
+        ok: true, 
+        messageId: result.messageId,
+        provider: result.provider,
+        warning: result.warning 
+      });
+    } finally {
+      // Clean up temporary files
+      if (req.files && req.files.length > 0) {
+        for (const file of req.files) {
+          try {
+            await unlink(file.path);
+            console.log(`🧹 Cleaned up temp file: ${file.originalname}`);
+          } catch (err) {
+            console.error(`Failed to delete temp file ${file.path}:`, err);
+          }
+        }
+      }
     }
-    
-    res.json({ 
-      ok: true, 
-      messageId: result.messageId,
-      provider: result.provider,
-      warning: result.warning 
-    });
   } catch (error: any) {
     if (error.issues) {
       res.status(400).json({ ok: false, error: error.issues[0].message });
@@ -1014,9 +1029,9 @@ router.post('/email-threads/:threadId/reply', requireAuth, upload.array('attachm
   try {
     const { threadId } = req.params;
     const { to, cc = [], bcc = [], subject, body } = req.body;
-    const files = req.files as Express.Multer.File[];
 
-    // Get thread info
+    try {
+      // Get thread info
     const [thread] = await db
       .select()
       .from(emailThreads)
@@ -1084,13 +1099,26 @@ router.post('/email-threads/:threadId/reply', requireAuth, upload.array('attachm
       threadId: threadId // Pass threadId for proper Gmail threading
     };
 
-    const sendResult = await gmailService.sendEmail(userId, emailRequest, req.tenantId);
-    
-    if (!sendResult.ok) {
-      return res.status(500).json({ error: sendResult.error });
-    }
+      const sendResult = await gmailService.sendEmail(userId, emailRequest, req.tenantId);
+      
+      if (!sendResult.ok) {
+        return res.status(500).json({ error: sendResult.error });
+      }
 
-    res.json({ success: true, message: 'Reply sent successfully' });
+      res.json({ success: true, message: 'Reply sent successfully' });
+    } finally {
+      // Clean up temporary files
+      if (req.files && req.files.length > 0) {
+        for (const file of req.files) {
+          try {
+            await unlink(file.path);
+            console.log(`🧹 Cleaned up temp file: ${file.originalname}`);
+          } catch (err) {
+            console.error(`Failed to delete temp file ${file.path}:`, err);
+          }
+        }
+      }
+    }
   } catch (error) {
     console.error('Error sending reply:', error);
     res.status(500).json({ error: 'Failed to send reply' });
@@ -1105,9 +1133,9 @@ router.post('/projects/:projectId/compose-email', upload.array('attachments'), a
   try {
     const { projectId } = req.params;
     const { to, cc = [], bcc = [], subject, body, templateId } = req.body;
-    const files = req.files as Express.Multer.File[];
 
-    // Get project info for context
+    try {
+      // Get project info for context
     const [project] = await db
       .select()
       .from(projects)
@@ -1183,13 +1211,26 @@ router.post('/projects/:projectId/compose-email', upload.array('attachments'), a
       projectId: projectId
     };
 
-    const sendResult = await gmailService.sendEmail(userId, emailRequest, req.tenantId);
-    
-    if (!sendResult.ok) {
-      return res.status(500).json({ error: sendResult.error });
-    }
+      const sendResult = await gmailService.sendEmail(userId, emailRequest, req.tenantId);
+      
+      if (!sendResult.ok) {
+        return res.status(500).json({ error: sendResult.error });
+      }
 
-    res.json({ success: true, message: 'Email sent successfully' });
+      res.json({ success: true, message: 'Email sent successfully' });
+    } finally {
+      // Clean up temporary files
+      if (req.files && req.files.length > 0) {
+        for (const file of req.files) {
+          try {
+            await unlink(file.path);
+            console.log(`🧹 Cleaned up temp file: ${file.originalname}`);
+          } catch (err) {
+            console.error(`Failed to delete temp file ${file.path}:`, err);
+          }
+        }
+      }
+    }
   } catch (error) {
     console.error('Error sending email:', error);
     res.status(500).json({ error: 'Failed to send email' });

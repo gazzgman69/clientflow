@@ -556,50 +556,51 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
               New Email
             </Button>
           ) : (
-            <div className="space-y-4">
-              <div>
-                <Label htmlFor="email-to">To</Label>
+            <div className="space-y-2">
+              <div className="flex items-center gap-3">
+                <Label htmlFor="email-to" className="w-20 text-right text-sm font-medium">To:</Label>
                 <Input
                   id="email-to"
                   type="email"
                   value={to}
                   onChange={(e) => setTo(e.target.value)}
                   placeholder="Enter email address..."
+                  className="flex-1 h-8 text-sm"
                   data-testid="input-email-to"
                 />
               </div>
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <Label htmlFor="email-subject">Subject</Label>
-                  <TokenDropdown
-                    onTokenSelect={(token) => {
-                      // Insert token at the end of the subject
-                      setSubject(prev => prev + (prev ? ' ' : '') + token);
-                    }}
-                    variant="link"
-                    size="sm"
-                    className="h-auto p-0 text-primary hover:text-primary/80"
-                    data-testid="link-insert-subject-token"
-                  />
-                </div>
+              
+              <div className="flex items-center gap-3">
+                <Label htmlFor="email-subject" className="w-20 text-right text-sm font-medium">Subject:</Label>
                 <Input
                   id="email-subject"
                   value={subject}
                   onChange={(e) => setSubject(e.target.value)}
                   placeholder="Enter subject..."
+                  className="flex-1 h-8 text-sm"
                   data-testid="input-email-subject"
                 />
+                <TokenDropdown
+                  onTokenSelect={(token) => {
+                    // Insert token at the end of the subject
+                    setSubject(prev => prev + (prev ? ' ' : '') + token);
+                  }}
+                  variant="link"
+                  size="sm"
+                  className="h-auto p-0 text-xs text-primary hover:text-primary/80"
+                  data-testid="link-insert-subject-token"
+                />
               </div>
-              
 
-              <div>
-                <Label htmlFor="email-message">Message</Label>
+              <div className="flex gap-3 pt-1">
+                <Label htmlFor="email-message" className="w-20 text-right text-sm font-medium pt-2">Message:</Label>
+                <div className="flex-1">
                 <RichTextEditor
                   ref={messageEditorRef}
                   content={message}
                   onChange={setMessage}
                   placeholder="Enter your message..."
-                  minHeight="300px"
+                  minHeight="200px"
                   data-testid="editor-email-message"
                   onTokenInsert={(insertToken) => (
                     <TokenDropdown
@@ -694,81 +695,92 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
                     </>
                   )}
                 />
+                </div>
               </div>
 
               {/* Display attachments */}
               {attachments.length > 0 && (
-                <div className="space-y-2">
-                  <Label className="text-sm">Attachments ({attachments.length})</Label>
-                  <div className="flex flex-wrap gap-2">
-                    {attachments.map((file, index) => (
-                      <div
-                        key={index}
-                        className="flex items-center gap-2 bg-muted px-3 py-1 rounded-md text-sm"
-                        data-testid={`attachment-${index}`}
-                      >
-                        <Paperclip className="h-3 w-3" />
-                        <span className="max-w-[200px] truncate">{file.name}</span>
-                        <span className="text-muted-foreground text-xs">
-                          ({(file.size / 1024).toFixed(1)} KB)
-                        </span>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-5 w-5 p-0 hover:bg-destructive hover:text-destructive-foreground"
-                          onClick={() => setAttachments(prev => prev.filter((_, i) => i !== index))}
-                          data-testid={`button-remove-attachment-${index}`}
+                <div className="flex gap-3">
+                  <div className="w-20"></div>
+                  <div className="flex-1 space-y-1">
+                    <Label className="text-xs text-muted-foreground">Attachments ({attachments.length})</Label>
+                    <div className="flex flex-wrap gap-2">
+                      {attachments.map((file, index) => (
+                        <div
+                          key={index}
+                          className="flex items-center gap-1.5 bg-muted px-2 py-0.5 rounded text-xs"
+                          data-testid={`attachment-${index}`}
                         >
-                          <X className="h-3 w-3" />
-                        </Button>
-                      </div>
-                    ))}
+                          <Paperclip className="h-2.5 w-2.5" />
+                          <span className="max-w-[150px] truncate">{file.name}</span>
+                          <span className="text-muted-foreground">
+                            ({(file.size / 1024).toFixed(1)} KB)
+                          </span>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-4 w-4 p-0 hover:bg-destructive hover:text-destructive-foreground"
+                            onClick={() => setAttachments(prev => prev.filter((_, i) => i !== index))}
+                            data-testid={`button-remove-attachment-${index}`}
+                          >
+                            <X className="h-2.5 w-2.5" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 </div>
               )}
               
-              <div className="flex gap-2 items-center">
-                <Button 
-                  onClick={handleSendEmail} 
-                  disabled={sendEmailMutation.isPending}
-                  data-testid="button-send-email"
-                >
-                  {sendEmailMutation.isPending ? (
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  ) : (
-                    <Send className="h-4 w-4 mr-2" />
-                  )}
-                  Send
-                </Button>
-                
-                <Button 
-                  variant="outline" 
-                  onClick={() => {
-                    setIsComposing(false);
-                    setAttachments([]);
-                  }}
-                  data-testid="button-cancel-compose"
-                >
-                  Cancel
-                </Button>
+              <div className="flex gap-3 pt-2">
+                <div className="w-20"></div>
+                <div className="flex-1 flex gap-2 items-center">
+                  <Button 
+                    onClick={handleSendEmail} 
+                    disabled={sendEmailMutation.isPending}
+                    size="sm"
+                    className="h-8"
+                    data-testid="button-send-email"
+                  >
+                    {sendEmailMutation.isPending ? (
+                      <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                    ) : (
+                      <Send className="h-3.5 w-3.5 mr-1.5" />
+                    )}
+                    Send Now
+                  </Button>
+                  
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    className="h-8"
+                    onClick={() => {
+                      setIsComposing(false);
+                      setAttachments([]);
+                    }}
+                    data-testid="button-cancel-compose"
+                  >
+                    Close
+                  </Button>
 
-                {/* Update Template Checkbox */}
-                {selectedTemplate && (
-                  <div className="flex items-center space-x-2 ml-auto">
-                    <Checkbox 
-                      id="update-template"
-                      checked={updateTemplate}
-                      onCheckedChange={(checked) => setUpdateTemplate(checked === true)}
-                      data-testid="checkbox-update-template"
-                    />
-                    <Label 
-                      htmlFor="update-template" 
-                      className="text-sm font-medium cursor-pointer"
-                    >
-                      Update template
-                    </Label>
-                  </div>
-                )}
+                  {/* Update Template Checkbox */}
+                  {selectedTemplate && (
+                    <div className="flex items-center space-x-2 ml-auto">
+                      <Checkbox 
+                        id="update-template"
+                        checked={updateTemplate}
+                        onCheckedChange={(checked) => setUpdateTemplate(checked === true)}
+                        data-testid="checkbox-update-template"
+                      />
+                      <Label 
+                        htmlFor="update-template" 
+                        className="text-xs cursor-pointer"
+                      >
+                        Update this template
+                      </Label>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           )}

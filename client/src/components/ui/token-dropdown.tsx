@@ -132,7 +132,7 @@ export function TokenDropdown({
     if (onAfterInsert) {
       setTimeout(() => {
         onAfterInsert();
-      }, 50);
+      }, 150);
     }
   };
 

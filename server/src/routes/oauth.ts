@@ -611,6 +611,7 @@ async function googleCallbackHandler(req: any, res: any) {
     // Decode and verify state parameter using GoogleOAuthService
     let parsed;
     try {
+      console.log('🔐 DEBUG OAUTH CALLBACK: About to call verifyCallbackState with state:', state);
       parsed = googleOAuthService.verifyCallbackState(state as string);
       console.log('🔐 Google OAuth callback - State decoded:', JSON.stringify(parsed, null, 2));
     } catch (error) {

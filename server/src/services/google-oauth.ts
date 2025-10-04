@@ -214,6 +214,11 @@ export class GoogleOAuthService {
         scopes = SCOPES; // Backward compatibility
     }
     
+    const redirectUri = getRedirectUri();
+    console.log(`🔐 OAUTH: Generating auth URL for ${serviceType}`);
+    console.log(`🔐 OAUTH: Redirect URI: ${redirectUri}`);
+    console.log(`🔐 OAUTH: Scopes: ${scopes.join(', ')}`);
+    
     const authUrl = getOAuth2Client().generateAuthUrl({
       access_type: 'offline',
       scope: scopes,
@@ -225,6 +230,8 @@ export class GoogleOAuthService {
       code_challenge: codeChallenge,
       code_challenge_method: 'S256'
     });
+    
+    console.log(`🔐 OAUTH: Generated auth URL: ${authUrl}`);
     
     console.log(`🔐 SECURITY: Generated ${serviceType} OAuth URL with PKCE and signed state protection`);
     return authUrl;

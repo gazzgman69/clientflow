@@ -1,7 +1,6 @@
 import { Client } from '@microsoft/microsoft-graph-client';
 import type { EmailProviderIntegration } from '@shared/schema';
 import { storage } from '../../storage';
-import * as fs from 'fs/promises';
 
 export interface SendEmailParams {
   to: string | string[];
@@ -11,11 +10,6 @@ export interface SendEmailParams {
   replyTo?: string;
   cc?: string | string[];
   bcc?: string | string[];
-  attachments?: Array<{
-    filename: string;
-    path: string;
-    contentType?: string;
-  }>;
 }
 
 export interface SyncContactsOnlyParams {
@@ -160,25 +154,6 @@ export class MicrosoftEmailProvider {
       console.warn('⚠️ Microsoft:', warning);
     }
 
-    // Process file attachments if present
-    const msAttachments: any[] = [];
-    if (params.attachments && params.attachments.length > 0) {
-      for (const att of params.attachments) {
-        try {
-          const fileBuffer = await fs.readFile(att.path);
-          const base64Content = fileBuffer.toString('base64');
-          msAttachments.push({
-            '@odata.type': '#microsoft.graph.fileAttachment',
-            name: att.filename,
-            contentType: att.contentType || 'application/octet-stream',
-            contentBytes: base64Content
-          });
-        } catch (err) {
-          console.error(`Failed to read attachment ${att.filename}:`, err);
-        }
-      }
-    }
-
     // Build message
     const message: any = {
       subject: params.subject,
@@ -189,8 +164,7 @@ export class MicrosoftEmailProvider {
       toRecipients,
       ccRecipients: ccRecipients.length > 0 ? ccRecipients : undefined,
       bccRecipients: bccRecipients.length > 0 ? bccRecipients : undefined,
-      replyTo: replyToRecipients.length > 0 ? replyToRecipients : undefined,
-      attachments: msAttachments.length > 0 ? msAttachments : undefined
+      replyTo: replyToRecipients.length > 0 ? replyToRecipients : undefined
     };
 
     try {

@@ -383,22 +383,11 @@ router.post('/auth/google/start', requireAuth, async (req: any, res) => {
       });
     }
     
-    // Create a random state for CSRF protection
-    const state = crypto.randomUUID();
-    
-    // Generate PKCE challenge and verifier for security
-    const codeVerifier = crypto.randomBytes(32).toString('base64url');
-    const codeChallenge = crypto.createHash('sha256').update(codeVerifier).digest('base64url');
-    
-    // Save state, popup flag, return URL, origin, and PKCE verifier to session
-    req.session.oauth_state = state;
-    req.session.oauth_popup = popup || true; // Default to popup for POST route
-    req.session.oauth_return_to = returnTo || '/settings';
-    req.session.oauth_origin = origin || '';
-    req.session.pkceCodeVerifier = codeVerifier;
-    req.session.serviceType = 'all'; // Backward compatibility
+    // Note: State is created and signed by googleOAuthService.generateAuthUrl()
+    // No need to create state here - the service handles it
     
     // Generate OAuth URL with PKCE support and signed state (all services for backward compatibility)
+    // The service will create PKCE challenge/verifier and save to session
     const authUrl = googleOAuthService.generateAuthUrl(email, userId, req.tenantId, req.session, 'all', returnTo);
     
     console.log('🔐 SECURITY: POST /auth/google/start now using PKCE protection with all services');
@@ -438,22 +427,11 @@ router.post('/auth/google/gmail/start', requireAuth, async (req: any, res) => {
       });
     }
     
-    // Create a random state for CSRF protection
-    const state = crypto.randomUUID();
-    
-    // Generate PKCE challenge and verifier for security
-    const codeVerifier = crypto.randomBytes(32).toString('base64url');
-    const codeChallenge = crypto.createHash('sha256').update(codeVerifier).digest('base64url');
-    
-    // Save state, popup flag, return URL, origin, and PKCE verifier to session
-    req.session.oauth_state = state;
-    req.session.oauth_popup = popup || true; // Default to popup for POST route
-    req.session.oauth_return_to = returnTo || '/settings';
-    req.session.oauth_origin = origin || '';
-    req.session.pkceCodeVerifier = codeVerifier;
-    req.session.serviceType = 'gmail';
+    // Note: State is created and signed by googleOAuthService.generateAuthUrl()
+    // No need to create state here - the service handles it
     
     // Generate OAuth URL with Gmail-specific scopes and signed state
+    // The service will create PKCE challenge/verifier and save to session
     const authUrl = googleOAuthService.generateAuthUrl(email, userId, req.tenantId, req.session, 'gmail', returnTo);
     
     console.log('🔐 SECURITY: POST /auth/google/gmail/start using Gmail-specific scopes');
@@ -493,22 +471,11 @@ router.post('/auth/google/calendar/start', requireAuth, async (req: any, res) =>
       });
     }
     
-    // Create a random state for CSRF protection
-    const state = crypto.randomUUID();
-    
-    // Generate PKCE challenge and verifier for security
-    const codeVerifier = crypto.randomBytes(32).toString('base64url');
-    const codeChallenge = crypto.createHash('sha256').update(codeVerifier).digest('base64url');
-    
-    // Save state, popup flag, return URL, origin, and PKCE verifier to session
-    req.session.oauth_state = state;
-    req.session.oauth_popup = popup || true; // Default to popup for POST route
-    req.session.oauth_return_to = returnTo || '/settings';
-    req.session.oauth_origin = origin || '';
-    req.session.pkceCodeVerifier = codeVerifier;
-    req.session.serviceType = 'calendar';
+    // Note: State is created and signed by googleOAuthService.generateAuthUrl()
+    // No need to create state here - the service handles it
     
     // Generate OAuth URL with Calendar-specific scopes and signed state
+    // The service will create PKCE challenge/verifier and save to session
     const authUrl = googleOAuthService.generateAuthUrl(email, userId, req.tenantId, req.session, 'calendar', returnTo);
     
     console.log('🔐 SECURITY: POST /auth/google/calendar/start using Calendar-specific scopes');

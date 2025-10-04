@@ -48,6 +48,7 @@ export function decodeState<T = any>(s?: string | string[] | null): T | null {
     
     if (!crypto.timingSafeEqual(Buffer.from(signature, 'hex'), Buffer.from(expectedSignature, 'hex'))) {
       console.error('❌ SECURITY: Invalid state signature - state may have been tampered with');
+      console.error('🔍 CALLED FROM STACK:', new Error().stack);
       throw new Error('Invalid state signature - state may have been tampered with');
     }
 

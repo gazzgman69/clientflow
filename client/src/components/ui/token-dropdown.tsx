@@ -18,13 +18,15 @@ interface TokenDropdownProps {
   className?: string;
   variant?: "default" | "outline" | "secondary" | "ghost" | "link" | "destructive";
   size?: "default" | "sm" | "lg" | "icon";
+  onAfterInsert?: () => void;
 }
 
 export function TokenDropdown({ 
   onTokenSelect, 
   className = "", 
   variant = "outline",
-  size = "default" 
+  size = "default",
+  onAfterInsert
 }: TokenDropdownProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -125,6 +127,13 @@ export function TokenDropdown({
     setIsOpen(false);
     setSearchQuery('');
     setSelectedIndex(-1);
+    
+    // Restore focus to the editor after a brief delay to allow the dropdown to close
+    if (onAfterInsert) {
+      setTimeout(() => {
+        onAfterInsert();
+      }, 50);
+    }
   };
 
   const getCategoryColor = (category: string) => {

@@ -566,6 +566,11 @@ export default function ContractEditor({
                 {availableTokens && (
                   <TokenDropdown
                     onTokenSelect={handleTokenInsert}
+                    onAfterInsert={() => {
+                      if (editorRef.current) {
+                        editorRef.current.focus();
+                      }
+                    }}
                     data-testid="token-dropdown-contract"
                   />
                 )}

@@ -570,6 +570,11 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
                   onTokenInsert={(insertToken) => (
                     <TokenDropdown
                       onTokenSelect={insertToken}
+                      onAfterInsert={() => {
+                        if (messageEditorRef.current) {
+                          messageEditorRef.current.focus();
+                        }
+                      }}
                       variant="outline"
                       size="sm"
                       className="h-7 px-2 text-xs"
@@ -1230,6 +1235,11 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
                 onTokenInsert={(insertToken) => (
                   <TokenDropdown
                     onTokenSelect={insertToken}
+                    onAfterInsert={() => {
+                      if (replyEditorRef.current) {
+                        replyEditorRef.current.focus();
+                      }
+                    }}
                     variant="outline"
                     size="sm"
                     className="h-7 px-2 text-xs"

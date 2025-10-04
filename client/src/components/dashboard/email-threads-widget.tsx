@@ -466,6 +466,11 @@ export default function EmailThreadsWidget() {
                               replyEditorRef.current.insertToken(token);
                             }
                           }}
+                          onAfterInsert={() => {
+                            if (replyEditorRef.current) {
+                              replyEditorRef.current.focus();
+                            }
+                          }}
                           variant="outline"
                           size="sm"
                         />

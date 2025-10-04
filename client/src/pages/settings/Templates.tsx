@@ -564,6 +564,11 @@ export default function TemplatesPage() {
                                   bodyEditorRef.current.insertToken(token);
                                 }
                               }}
+                              onAfterInsert={() => {
+                                if (bodyEditorRef.current) {
+                                  bodyEditorRef.current.focus();
+                                }
+                              }}
                               size="sm"
                               className="h-7 px-2 text-xs"
                             />

@@ -104,7 +104,11 @@ export class GoogleOAuthService {
    * Verify and extract OAuth state from signed state parameter
    */
   private verifyOAuthState(signedState: string): OAuthState {
+    console.log('🔐 DEBUG: verifyOAuthState called with:', signedState?.substring(0, 50) + '...');
+    
     const parts = signedState.split('.');
+    console.log('🔐 DEBUG: Split parts count:', parts.length);
+    
     if (parts.length !== 2) {
       console.error('🔐 DEBUG: Invalid state format - parts:', parts.length);
       throw new Error('Invalid state format - missing signature');

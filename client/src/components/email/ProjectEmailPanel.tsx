@@ -290,6 +290,13 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
     mutationFn: async (emailData: { to: string; subject: string; html: string; attachments?: File[] }) => {
       // If there are attachments, use FormData
       if (emailData.attachments && emailData.attachments.length > 0) {
+        // Get CSRF token
+        const csrfResponse = await fetch('/api/csrf-token', {
+          credentials: 'include',
+        });
+        const csrfData = await csrfResponse.json();
+        const csrfToken = csrfData.csrfToken;
+        
         const formData = new FormData();
         formData.append('to', emailData.to);
         formData.append('subject', emailData.subject);
@@ -306,6 +313,9 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
 
         const response = await fetch('/api/email/send', {
           method: 'POST',
+          headers: {
+            'X-CSRF-Token': csrfToken,
+          },
           body: formData,
           credentials: 'include',
         });

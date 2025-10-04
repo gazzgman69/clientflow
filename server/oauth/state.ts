@@ -30,21 +30,43 @@ export function encodeState(obj: unknown): string {
 export function decodeState<T = any>(s?: string | string[] | null): T | null {
   if (!s || Array.isArray(s)) return null;
   
+  console.log('🔐 DEBUG STATE DECODING:', {
+    receivedState: s,
+    receivedStateLength: s.length,
+    receivedStatePreview: s.substring(0, 100) + '...'
+  });
+  
   try {
     const parts = s.split('.');
     if (parts.length !== 2) {
-      console.warn('⚠️ SECURITY: Invalid state format - missing signature');
+      console.warn('⚠️ SECURITY: Invalid state format - missing signature', {
+        parts: parts.length,
+        receivedState: s
+      });
       throw new Error('Invalid state format - missing signature');
     }
 
     const [stateBase64, signature] = parts;
     const stateJson = Buffer.from(stateBase64, 'base64url').toString('utf8');
     
+    console.log('🔐 DEBUG STATE PARTS:', {
+      stateBase64,
+      stateJson,
+      receivedSignature: signature.substring(0, 20) + '...',
+      secretUsed: OAUTH_STATE_SECRET === process.env.OAUTH_STATE_SECRET ? 'env' : 'fallback'
+    });
+    
     // Verify signature using timing-safe comparison
     const expectedSignature = crypto
       .createHmac('sha256', OAUTH_STATE_SECRET)
       .update(stateJson)
       .digest('hex');
+    
+    console.log('🔐 DEBUG SIGNATURE COMPARISON:', {
+      receivedSignature: signature,
+      expectedSignature: expectedSignature,
+      match: signature === expectedSignature
+    });
     
     if (!crypto.timingSafeEqual(Buffer.from(signature, 'hex'), Buffer.from(expectedSignature, 'hex'))) {
       console.error('❌ SECURITY: Invalid state signature - state may have been tampered with');

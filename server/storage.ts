@@ -3074,41 +3074,27 @@ export class DrizzleStorage implements IStorage {
       throw new Error(`Tenant ID mismatch: integration.tenantId (${integration.tenantId}) !== tenantId parameter (${tenantId})`);
     }
 
-    // Prepare integration data with encrypted tokens
-    const secureIntegration = {
-      ...integration,
-      tenantId,
-      accessToken: integration.accessToken ? secureStore.encrypt(integration.accessToken) : null,
-      refreshToken: integration.refreshToken ? secureStore.encrypt(integration.refreshToken) : null,
-      updatedAt: new Date()
-    };
+    // Check if integration already exists
+    const existing = await db.select().from(calendarIntegrations)
+      .where(and(
+        eq(calendarIntegrations.tenantId, tenantId),
+        eq(calendarIntegrations.userId, integration.userId!),
+        eq(calendarIntegrations.provider, integration.provider),
+        eq(calendarIntegrations.serviceType, integration.serviceType),
+        eq(calendarIntegrations.providerAccountId, integration.providerAccountId!)
+      ));
 
-    // Upsert using onConflictDoUpdate - conflict on tenantId + userId + provider + serviceType
-    const result = await db
-      .insert(calendarIntegrations)
-      .values(secureIntegration)
-      .onConflictDoUpdate({
-        target: [
-          calendarIntegrations.tenantId,
-          calendarIntegrations.userId,
-          calendarIntegrations.provider,
-          calendarIntegrations.serviceType,
-          calendarIntegrations.providerAccountId
-        ],
-        set: {
-          ...omitUndefined(secureIntegration),
-          updatedAt: new Date()
-        }
-      })
-      .returning();
-
-    // Return with decrypted tokens for immediate use
-    const storedIntegration = result[0];
-    return {
-      ...storedIntegration,
-      accessToken: storedIntegration.accessToken ? this.safeDecrypt(storedIntegration.accessToken) : null,
-      refreshToken: storedIntegration.refreshToken ? this.safeDecrypt(storedIntegration.refreshToken) : null,
-    };
+    if (existing.length > 0) {
+      // Update existing integration
+      const updated = await this.updateCalendarIntegration(existing[0].id, integration, tenantId);
+      if (!updated) {
+        throw new Error('Failed to update calendar integration');
+      }
+      return updated;
+    } else {
+      // Create new integration
+      return this.createCalendarIntegration(integration, tenantId);
+    }
   }
 
   async deleteCalendarIntegration(id: string): Promise<boolean> {

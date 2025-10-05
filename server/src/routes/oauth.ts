@@ -1445,7 +1445,75 @@ router.get('/api/auth/microsoft/status', requireAuth, async (req: any, res) => {
 });
 
 /**
- * Disconnect Microsoft OAuth
+ * Disconnect Gmail (Email Account)
+ */
+router.post('/api/auth/google/gmail/disconnect', requireAuth, async (req: any, res) => {
+  try {
+    const userId = req.authenticatedUserId;
+    const tenantId = req.tenantId;
+    
+    // Get all email accounts for this user
+    const emailAccounts = await storage.getEmailAccountsByUser(userId, tenantId);
+    const googleAccount = emailAccounts.find(acc => acc.providerKey === 'google');
+    
+    if (googleAccount) {
+      // Delete the email account
+      await storage.deleteEmailAccount(googleAccount.id, tenantId);
+      console.log(`🔌 Gmail disconnected for user ${userId} in tenant ${tenantId}`);
+      
+      res.json({ 
+        ok: true, 
+        message: 'Gmail disconnected successfully' 
+      });
+    } else {
+      res.json({ 
+        ok: true, 
+        message: 'No Gmail account found' 
+      });
+    }
+    
+  } catch (error: any) {
+    console.error('Error disconnecting Gmail:', error);
+    res.status(500).json({ ok: false, error: 'Internal server error' });
+  }
+});
+
+/**
+ * Disconnect Microsoft Mail (Email Account)
+ */
+router.post('/api/auth/microsoft/mail/disconnect', requireAuth, async (req: any, res) => {
+  try {
+    const userId = req.authenticatedUserId;
+    const tenantId = req.tenantId;
+    
+    // Get all email accounts for this user
+    const emailAccounts = await storage.getEmailAccountsByUser(userId, tenantId);
+    const microsoftAccount = emailAccounts.find(acc => acc.providerKey === 'microsoft');
+    
+    if (microsoftAccount) {
+      // Delete the email account
+      await storage.deleteEmailAccount(microsoftAccount.id, tenantId);
+      console.log(`🔌 Microsoft Mail disconnected for user ${userId} in tenant ${tenantId}`);
+      
+      res.json({ 
+        ok: true, 
+        message: 'Microsoft Mail disconnected successfully' 
+      });
+    } else {
+      res.json({ 
+        ok: true, 
+        message: 'No Microsoft Mail account found' 
+      });
+    }
+    
+  } catch (error: any) {
+    console.error('Error disconnecting Microsoft Mail:', error);
+    res.status(500).json({ ok: false, error: 'Internal server error' });
+  }
+});
+
+/**
+ * Disconnect Microsoft OAuth (Calendar)
  */
 router.post('/api/auth/microsoft/disconnect', requireAuth, async (req: any, res) => {
   try {

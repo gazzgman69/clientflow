@@ -5810,6 +5810,18 @@ export class DrizzleStorage implements IStorage {
       .orderBy(desc(emailAccounts.updatedAt));
   }
 
+  async deleteEmailAccount(id: number, tenantId: string): Promise<boolean> {
+    const result = await this.db
+      .delete(emailAccounts)
+      .where(and(
+        eq(emailAccounts.id, id),
+        eq(emailAccounts.tenantId, tenantId)
+      ))
+      .returning({ id: emailAccounts.id });
+    
+    return result.length > 0;
+  }
+
   async decryptEmailAccountSecrets(secretsEnc: string | null): Promise<{ accessToken?: string; refreshToken?: string; scopes?: string[] } | null> {
     if (!secretsEnc) return null;
     

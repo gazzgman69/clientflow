@@ -165,7 +165,7 @@ export default function EmailSettings() {
 
   // Fetch Gmail connection status
   const { data: gmailStatusData, isLoading: gmailStatusLoading } = useQuery({
-    queryKey: ['/auth/google/gmail/status']
+    queryKey: ['/api/auth/google/gmail/status']
   });
 
   // Fetch Microsoft connection status
@@ -205,12 +205,6 @@ export default function EmailSettings() {
   
   const mode = getProviderMode(selected);
   const gmailStatus = (gmailStatusData as any) || { ok: false, connected: false };
-  console.log('🔍 DEBUG Gmail Status Data:', {
-    raw: gmailStatusData,
-    parsed: gmailStatus,
-    lastSyncAt: gmailStatus.lastSyncAt,
-    lastSyncAtType: typeof gmailStatus.lastSyncAt
-  });
   const microsoftStatus = (microsoftStatusData as any) || { ok: false, connected: false };
   
   // Determine which provider is connected (including needs reconnect state)
@@ -263,7 +257,7 @@ export default function EmailSettings() {
       throw new Error('No provider connected');
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/auth/google/gmail/status'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/auth/google/gmail/status'] });
       queryClient.invalidateQueries({ queryKey: ['/api/auth/microsoft/status'] });
       setAlertMessage({ type: 'success', message: `${connectedProvider === 'gmail' ? 'Gmail' : 'Microsoft'} disconnected successfully` });
     },
@@ -279,7 +273,7 @@ export default function EmailSettings() {
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/auth/google/gmail/status'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/auth/google/gmail/status'] });
       queryClient.invalidateQueries({ queryKey: ['/api/auth/microsoft/status'] });
       setShowConnectDialog(false);
       setEmailSyncForm({
@@ -348,7 +342,7 @@ export default function EmailSettings() {
       try { w?.close(); } catch {}
       
       // Refresh connected state (or refetch accounts)
-      queryClient.invalidateQueries({ queryKey: ['/auth/google/gmail/status'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/auth/google/gmail/status'] });
       queryClient.invalidateQueries({ queryKey: ['/api/email/provider-catalog/active'] });
       setAlertMessage({ type: 'success', message: 'Gmail connected successfully!' });
     }

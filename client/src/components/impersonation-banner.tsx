@@ -14,6 +14,10 @@ export function ImpersonationBanner() {
     retry: false,
     refetchInterval: false,
     refetchOnWindowFocus: true,
+    meta: {
+      // Suppress 403 errors - they just mean user isn't an admin
+      suppressErrorToasts: true
+    }
   });
 
   // End impersonation mutation

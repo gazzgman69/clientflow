@@ -111,37 +111,6 @@ router.get('/auth/google/gmail/status', async (req, res) => {
 });
 
 /**
- * Gmail OAuth Disconnect
- */
-router.post('/auth/google/gmail/disconnect', async (req, res) => {
-  try {
-    if (!req.session?.userId || !req.session?.tenantId) {
-      return res.status(401).json({ error: 'Authentication required' });
-    }
-
-    const result = await storage.disconnectEmailProvider(
-      req.session.userId,
-      req.session.tenantId,
-      'google'
-    );
-
-    // Log event
-    console.log(JSON.stringify({
-      event: 'email_oauth_disconnected',
-      provider: 'google',
-      tenantId: req.session.tenantId,
-      userId: req.session.userId,
-      timestamp: new Date().toISOString()
-    }));
-
-    res.json({ ok: true, disconnected: result });
-  } catch (error: any) {
-    console.error('❌ Gmail disconnect failed:', error);
-    res.status(500).json({ ok: false, error: error.message });
-  }
-});
-
-/**
  * Microsoft OAuth Callback - Store tokens in email_provider_integrations
  */
 router.get('/auth/microsoft/mail/callback', async (req, res) => {
@@ -256,37 +225,6 @@ router.get('/auth/microsoft/status', async (req, res) => {
     });
   } catch (error: any) {
     console.error('❌ Microsoft status check failed:', error);
-    res.status(500).json({ ok: false, error: error.message });
-  }
-});
-
-/**
- * Microsoft OAuth Disconnect
- */
-router.post('/auth/microsoft/mail/disconnect', async (req, res) => {
-  try {
-    if (!req.session?.userId || !req.session?.tenantId) {
-      return res.status(401).json({ error: 'Authentication required' });
-    }
-
-    const result = await storage.disconnectEmailProvider(
-      req.session.userId,
-      req.session.tenantId,
-      'microsoft'
-    );
-
-    // Log event
-    console.log(JSON.stringify({
-      event: 'email_oauth_disconnected',
-      provider: 'microsoft',
-      tenantId: req.session.tenantId,
-      userId: req.session.userId,
-      timestamp: new Date().toISOString()
-    }));
-
-    res.json({ ok: true, disconnected: result });
-  } catch (error: any) {
-    console.error('❌ Microsoft disconnect failed:', error);
     res.status(500).json({ ok: false, error: error.message });
   }
 });

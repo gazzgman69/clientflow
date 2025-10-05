@@ -1235,7 +1235,7 @@ router.get('/api/auth/google/gmail/status', requireAuth, async (req: any, res) =
       connected: true,
       email: googleAccount.accountEmail,
       scopes: decrypted.scopes || [],
-      lastSyncAt: googleAccount.lastSyncAt
+      lastSyncAt: googleAccount.lastSyncedAt
     });
     
   } catch (error: any) {

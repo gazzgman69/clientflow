@@ -708,7 +708,9 @@ async function googleCallbackHandler(req: any, res: any) {
         accessToken: tokens.access_token,
         refreshToken: tokens.refresh_token || '',
         isActive: true,
-        serviceType: 'calendar'
+        serviceType: 'calendar',
+        calendarName: tokens.email, // Use email as default, will be updated later
+        syncDirection: 'bidirectional'
       }, tenantId);
       
       console.log('✅ CALENDAR OAUTH: Successfully saved to calendar_integrations');

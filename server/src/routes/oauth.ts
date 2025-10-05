@@ -740,12 +740,33 @@ async function googleCallbackHandler(req: any, res: any) {
     
     // Handle popup response
     if (popup) {
+      console.log('🪟 POPUP MODE DETECTED - Sending postMessage and closing popup');
       res.setHeader('Content-Type', 'text/html; charset=utf-8');
       return res.send(`<!doctype html><html><body><script>
         (function(){
-          try { window.opener && window.opener.postMessage({type:'oauth:connected', provider:'google', ok:true}, '*'); } catch(e) {}
-          try { window.close(); } catch(e) {}
-          setTimeout(function(){ if (!window.closed) document.body.innerHTML='Connected. You can close this window.'; }, 150);
+          console.log('🪟 POPUP: Attempting to post message to opener');
+          try { 
+            if (window.opener) {
+              console.log('✅ window.opener exists, sending message');
+              window.opener.postMessage({type:'oauth:connected', provider:'google', ok:true}, '*');
+            } else {
+              console.error('❌ window.opener is null');
+            }
+          } catch(e) { 
+            console.error('❌ postMessage error:', e);
+          }
+          try { 
+            console.log('🪟 Attempting to close popup');
+            window.close(); 
+          } catch(e) { 
+            console.error('❌ window.close error:', e);
+          }
+          setTimeout(function(){ 
+            if (!window.closed) {
+              console.log('⚠️ Popup did not close, showing fallback message');
+              document.body.innerHTML='<h1>Connected</h1><p>You can close this window.</p>'; 
+            }
+          }, 150);
         })();
       </script></body></html>`);
     }

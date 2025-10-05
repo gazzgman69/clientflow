@@ -743,7 +743,7 @@ async function googleCallbackHandler(req: any, res: any) {
       res.setHeader('Content-Type', 'text/html; charset=utf-8');
       return res.send(`<!doctype html><html><body><script>
         (function(){
-          try { window.opener && window.opener.postMessage({type:'oauth:success', provider:'google', ok:true}, '*'); } catch(e) {}
+          try { window.opener && window.opener.postMessage({type:'oauth:connected', provider:'google', ok:true}, '*'); } catch(e) {}
           try { window.close(); } catch(e) {}
           setTimeout(function(){ if (!window.closed) document.body.innerHTML='Connected. You can close this window.'; }, 150);
         })();

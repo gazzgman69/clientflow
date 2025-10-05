@@ -769,9 +769,10 @@ async function googleCallbackHandler(req: any, res: any) {
           }, 150);
         })();
       </script></body></html>`);
+    } else {
+      // Only redirect if NOT in popup mode
+      return res.redirect(returnTo || '/settings/email-and-calendar');
     }
-    
-    return res.redirect(returnTo || '/settings/email-and-calendar');
   } catch (error: any) {
     console.error('OAuth callback error:', error);
     res.status(500).send('OAuth failed');
@@ -910,9 +911,10 @@ router.get('/api/auth/microsoft/callback', async (req, res) => {
           setTimeout(function(){ if (!window.closed) document.body.innerHTML='Connected. You can close this window.'; }, 150);
         })();
       </script></body></html>`);
+    } else {
+      // Only redirect if NOT in popup mode
+      return res.redirect(returnTo || '/settings/email-and-calendar');
     }
-    
-    return res.redirect(returnTo || '/settings/email-and-calendar');
   } catch (error: any) {
     console.error('Microsoft OAuth callback error:', error);
     res.status(500).send('OAuth failed');

@@ -205,6 +205,12 @@ export default function EmailSettings() {
   
   const mode = getProviderMode(selected);
   const gmailStatus = (gmailStatusData as any) || { ok: false, connected: false };
+  console.log('🔍 DEBUG Gmail Status Data:', {
+    raw: gmailStatusData,
+    parsed: gmailStatus,
+    lastSyncAt: gmailStatus.lastSyncAt,
+    lastSyncAtType: typeof gmailStatus.lastSyncAt
+  });
   const microsoftStatus = (microsoftStatusData as any) || { ok: false, connected: false };
   
   // Determine which provider is connected (including needs reconnect state)

@@ -1229,14 +1229,25 @@ router.get('/api/auth/google/gmail/status', requireAuth, async (req: any, res) =
     // Decrypt the tokens
     const decrypted = await storage.decryptEmailAccountSecrets(googleAccount.secretsEnc);
     
+    console.log('🔍 DEBUG Gmail Status Response:', {
+      email: googleAccount.accountEmail,
+      lastSyncedAt: googleAccount.lastSyncedAt,
+      lastSyncedAtType: typeof googleAccount.lastSyncedAt,
+      lastSyncedAtValue: googleAccount.lastSyncedAt ? googleAccount.lastSyncedAt.toString() : 'null/undefined'
+    });
+    
     // Return Gmail connection info
-    res.json({ 
+    const response = { 
       ok: true, 
       connected: true,
       email: googleAccount.accountEmail,
       scopes: decrypted.scopes || [],
       lastSyncAt: googleAccount.lastSyncedAt
-    });
+    };
+    
+    console.log('🔍 DEBUG Full Response Object:', JSON.stringify(response, null, 2));
+    
+    res.json(response);
     
   } catch (error: any) {
     console.error('Error checking Gmail auth status:', error);

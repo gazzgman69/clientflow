@@ -725,26 +725,6 @@ export default function EmailSettings() {
                           <Clock className="h-3 w-3" />
                           <span>Last synced: {providerStatus.lastSyncAt ? formatDate(providerStatus.lastSyncAt) : 'Never'}</span>
                         </div>
-                        {providerStatus.scopes && providerStatus.scopes.length > 0 && (
-                          <TooltipProvider>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <div className="flex items-center gap-1 cursor-help">
-                                  <Info className="h-3 w-3" />
-                                  <span>{providerStatus.scopes.length} permissions</span>
-                                </div>
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                <div className="space-y-1">
-                                  <p className="font-medium">{connectedProvider === 'gmail' ? 'Gmail' : 'Microsoft'} Permissions:</p>
-                                  {providerStatus.scopes.map((scope: string, idx: number) => (
-                                    <p key={idx} className="text-xs">{scope.split('/').pop()}</p>
-                                  ))}
-                                </div>
-                              </TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
-                        )}
                       </div>
                       <div className="flex items-center gap-2 pt-2 border-t">
                         <Dialog>

@@ -1,0 +1,108 @@
+injected.js:278 
+ GET https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/api/admin/impersonate/status 403 (Forbidden)
+Console.js:61 📅 Calendar events fetched: 
+{eventsCount: 0, eventsWithTenantId: 0, timestamp: '2025-10-05T16:26:15.001Z'}
+injected.js:278 
+ GET https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/api/auth/google/scope-check 404 (Not Found)
+Console.js:61 🔍 DEBUG Gmail Status Data: 
+{raw: undefined, parsed: {…}, lastSyncAt: undefined, lastSyncAtType: 'undefined'}
+lastSyncAt
+: 
+undefined
+lastSyncAtType
+: 
+"undefined"
+parsed
+: 
+{ok: false, connected: false}
+raw
+: 
+undefined
+[[Prototype]]
+: 
+Object
+Console.js:61 🔍 DEBUG Gmail Status Data: 
+{raw: undefined, parsed: {…}, lastSyncAt: undefined, lastSyncAtType: 'undefined'}
+lastSyncAt
+: 
+undefined
+lastSyncAtType
+: 
+"undefined"
+parsed
+: 
+{ok: false, connected: false}
+raw
+: 
+undefined
+[[Prototype]]
+: 
+Object
+Console.js:61 🔍 DEBUG Gmail Status Data: 
+{raw: {…}, parsed: {…}, lastSyncAt: undefined, lastSyncAtType: 'undefined'}
+lastSyncAt
+: 
+undefined
+lastSyncAtType
+: 
+"undefined"
+parsed
+: 
+{ok: true, connected: true, email: 'skinnycheck@gmail.com', scopes: Array(5)}
+raw
+: 
+{ok: true, connected: true, email: 'skinnycheck@gmail.com', scopes: Array(5)}
+[[Prototype]]
+: 
+Object
+Console.js:61 🔍 DEBUG Gmail Status Data: 
+{raw: {…}, parsed: {…}, lastSyncAt: undefined, lastSyncAtType: 'undefined'}
+lastSyncAt
+: 
+undefined
+lastSyncAtType
+: 
+"undefined"
+parsed
+: 
+{ok: true, connected: true, email: 'skinnycheck@gmail.com', scopes: Array(5)}
+raw
+: 
+{ok: true, connected: true, email: 'skinnycheck@gmail.com', scopes: Array(5)}
+[[Prototype]]
+: 
+Object
+Console.js:61 🔍 DEBUG Gmail Status Data: 
+{raw: {…}, parsed: {…}, lastSyncAt: undefined, lastSyncAtType: 'undefined'}
+lastSyncAt
+: 
+undefined
+lastSyncAtType
+: 
+"undefined"
+parsed
+: 
+{ok: true, connected: true, email: 'skinnycheck@gmail.com', scopes: Array(5)}
+raw
+: 
+{ok: true, connected: true, email: 'skinnycheck@gmail.com', scopes: Array(5)}
+[[Prototype]]
+: 
+Object
+Console.js:61 🔍 DEBUG Gmail Status Data: 
+{raw: {…}, parsed: {…}, lastSyncAt: undefined, lastSyncAtType: 'undefined'}
+lastSyncAt
+: 
+undefined
+lastSyncAtType
+: 
+"undefined"
+parsed
+: 
+{ok: true, connected: true, email: 'skinnycheck@gmail.com', scopes: Array(5)}
+raw
+: 
+{ok: true, connected: true, email: 'skinnycheck@gmail.com', scopes: Array(5)}
+[[Prototype]]
+: 
+Object

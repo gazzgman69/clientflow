@@ -346,6 +346,7 @@ export interface IStorage {
   getCalendarIntegrationByEmail(email: string, userId: string, tenantId: string): Promise<CalendarIntegration | undefined>;
   createCalendarIntegration(integration: InsertCalendarIntegration, tenantId: string): Promise<CalendarIntegration>;
   updateCalendarIntegration(id: string, integration: Partial<InsertCalendarIntegration>, tenantId: string): Promise<CalendarIntegration | undefined>;
+  upsertCalendarIntegration(integration: InsertCalendarIntegration, tenantId: string): Promise<CalendarIntegration>;
   deleteCalendarIntegration(id: string, tenantId: string): Promise<boolean>;
   
   // Event sync helpers
@@ -2184,6 +2185,26 @@ export class MemStorage implements IStorage {
     };
   }
 
+  async upsertCalendarIntegration(insertIntegration: InsertCalendarIntegration, tenantId: string): Promise<CalendarIntegration> {
+    // Find existing integration by tenantId + userId + provider + serviceType + providerAccountId
+    const existing = Array.from(this.calendarIntegrations.values()).find(
+      integration =>
+        integration.tenantId === tenantId &&
+        integration.userId === insertIntegration.userId &&
+        integration.provider === insertIntegration.provider &&
+        integration.serviceType === insertIntegration.serviceType &&
+        integration.providerAccountId === insertIntegration.providerAccountId
+    );
+
+    if (existing) {
+      // Update existing integration
+      return this.updateCalendarIntegration(existing.id, insertIntegration, tenantId) as Promise<CalendarIntegration>;
+    } else {
+      // Create new integration
+      return this.createCalendarIntegration(insertIntegration, tenantId);
+    }
+  }
+
   async deleteCalendarIntegration(id: string): Promise<boolean> {
     return this.calendarIntegrations.delete(id);
   }
@@ -3035,6 +3056,52 @@ export class DrizzleStorage implements IStorage {
     
     if (!result[0]) return undefined;
     
+    // Return with decrypted tokens for immediate use
+    const storedIntegration = result[0];
+    return {
+      ...storedIntegration,
+      accessToken: storedIntegration.accessToken ? this.safeDecrypt(storedIntegration.accessToken) : null,
+      refreshToken: storedIntegration.refreshToken ? this.safeDecrypt(storedIntegration.refreshToken) : null,
+    };
+  }
+
+  async upsertCalendarIntegration(integration: InsertCalendarIntegration, tenantId: string): Promise<CalendarIntegration> {
+    // Validate tenant isolation
+    if (!tenantId) {
+      throw new Error('tenantId is required for calendar integration operations');
+    }
+    if (integration.tenantId && integration.tenantId !== tenantId) {
+      throw new Error(`Tenant ID mismatch: integration.tenantId (${integration.tenantId}) !== tenantId parameter (${tenantId})`);
+    }
+
+    // Prepare integration data with encrypted tokens
+    const secureIntegration = {
+      ...integration,
+      tenantId,
+      accessToken: integration.accessToken ? secureStore.encrypt(integration.accessToken) : null,
+      refreshToken: integration.refreshToken ? secureStore.encrypt(integration.refreshToken) : null,
+      updatedAt: new Date()
+    };
+
+    // Upsert using onConflictDoUpdate - conflict on tenantId + userId + provider + serviceType
+    const result = await db
+      .insert(calendarIntegrations)
+      .values(secureIntegration)
+      .onConflictDoUpdate({
+        target: [
+          calendarIntegrations.tenantId,
+          calendarIntegrations.userId,
+          calendarIntegrations.provider,
+          calendarIntegrations.serviceType,
+          calendarIntegrations.providerAccountId
+        ],
+        set: {
+          ...omitUndefined(secureIntegration),
+          updatedAt: new Date()
+        }
+      })
+      .returning();
+
     // Return with decrypted tokens for immediate use
     const storedIntegration = result[0];
     return {

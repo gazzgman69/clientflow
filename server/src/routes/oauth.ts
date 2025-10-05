@@ -626,7 +626,7 @@ async function googleCallbackHandler(req: any, res: any) {
       return res.status(400).send('Invalid state');
     }
     
-    const { tenantId, userId, returnTo } = parsed;
+    const { tenantId, userId, returnTo, serviceType } = parsed;
     
     // Get popup flag from session (saved during OAuth initiation)
     const popup = Boolean(req.session.oauth_popup);
@@ -634,7 +634,8 @@ async function googleCallbackHandler(req: any, res: any) {
     console.log('🔐 Google OAuth callback - Popup:', { 
       popupFromSession: popup,
       sessionData: req.session.oauth_popup,
-      parsed: JSON.stringify(parsed)
+      parsed: JSON.stringify(parsed),
+      serviceType
     });
     
     if (!userId || !tenantId) {
@@ -687,30 +688,53 @@ async function googleCallbackHandler(req: any, res: any) {
       hasAccessToken: !!tokens.access_token,
       hasRefreshToken: !!tokens.refresh_token,
       userId,
-      tenantId
+      tenantId,
+      serviceType
     });
     
-    // Save to email_accounts table
-    console.log('📧 GMAIL OAUTH: Saving to email_accounts table', {
-      email: tokens.email,
-      userId,
-      tenantId
-    });
-    
-    await storage.upsertEmailProviderIntegration({
-      userId,
-      provider: 'google',
-      status: 'connected',
-      accountEmail: tokens.email,
-      accessTokenEnc: tokens.access_token,
-      refreshTokenEnc: tokens.refresh_token || '',
-      scopes: GMAIL_SCOPES,
-      metadata: JSON.stringify({
-        connectedAt: new Date().toISOString()
-      })
-    }, tenantId);
-    
-    console.log('✅ GMAIL OAUTH: Successfully saved to email_accounts');
+    // Route to correct table based on serviceType
+    if (serviceType === 'calendar') {
+      // Save to calendar_integrations table
+      console.log('📅 CALENDAR OAUTH: Saving to calendar_integrations table', {
+        email: tokens.email,
+        userId,
+        tenantId
+      });
+      
+      await storage.upsertCalendarIntegration({
+        userId,
+        provider: 'google',
+        providerAccountId: tokens.email,
+        accessToken: tokens.access_token,
+        refreshToken: tokens.refresh_token || '',
+        isActive: true,
+        serviceType: 'calendar'
+      }, tenantId);
+      
+      console.log('✅ CALENDAR OAUTH: Successfully saved to calendar_integrations');
+    } else {
+      // Save to email_accounts table for Gmail
+      console.log('📧 GMAIL OAUTH: Saving to email_accounts table', {
+        email: tokens.email,
+        userId,
+        tenantId
+      });
+      
+      await storage.upsertEmailProviderIntegration({
+        userId,
+        provider: 'google',
+        status: 'connected',
+        accountEmail: tokens.email,
+        accessTokenEnc: tokens.access_token,
+        refreshTokenEnc: tokens.refresh_token || '',
+        scopes: GMAIL_SCOPES,
+        metadata: JSON.stringify({
+          connectedAt: new Date().toISOString()
+        })
+      }, tenantId);
+      
+      console.log('✅ GMAIL OAUTH: Successfully saved to email_accounts');
+    }
     
     // Handle popup response
     if (popup) {

@@ -894,7 +894,7 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
                     const messageListener = (event: MessageEvent) => {
                       if (event.origin !== window.location.origin) return;
                       
-                      if (event.data.type === 'oauth:success') {
+                      if (event.data.type === 'oauth:connected' && event.data.provider === 'google') {
                         clearInterval(checkClosed);
                         window.removeEventListener('message', messageListener);
                         popup?.close();

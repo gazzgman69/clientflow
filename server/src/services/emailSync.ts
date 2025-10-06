@@ -259,7 +259,7 @@ export class EmailSyncService {
           
           // AUTO-LINK PROJECTS: When contact has active projects, link to most recent
           if (contactId && !matchedProjectId) {
-            const { db } = await import('../../storage');
+            const { db } = await import('../../db');
             const { projects } = await import('../../../shared/schema');
             const { eq, and, desc } = await import('drizzle-orm');
             

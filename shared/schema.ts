@@ -559,6 +559,9 @@ export const calendarIntegrations = pgTable("calendar_integrations", {
   lastSyncAt: timestamp("last_sync_at"),
   syncErrors: text("sync_errors"), // JSON string of sync error logs
   settings: text("settings"), // JSON string for provider-specific settings
+  connectedAt: timestamp("connected_at").defaultNow(), // When the integration was first connected
+  disconnectedAt: timestamp("disconnected_at"), // When the integration was disconnected
+  disconnectReason: text("disconnect_reason"), // Reason for disconnection (user action, token revoked, etc.)
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => ({
@@ -589,6 +592,25 @@ export const calendarSyncLog = pgTable("calendar_sync_log", {
   integrationIdIdx: index("calendar_sync_log_integration_id_idx").on(table.integrationId),
 }));
 
+// Audit Logs for tracking calendar operations
+export const auditLogs = pgTable("audit_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").references(() => tenants.id).notNull(),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  action: text("action").notNull(), // calendar_connected, calendar_disconnected, events_purged, events_exported, calendar_reconnected
+  resourceType: text("resource_type").notNull(), // calendar_integration, event
+  resourceId: varchar("resource_id"), // ID of the affected resource
+  metadata: text("metadata"), // JSON string with details (event counts, filters, etc.)
+  ipAddress: text("ip_address"),
+  userAgent: text("user_agent"),
+  timestamp: timestamp("timestamp").defaultNow().notNull(),
+}, (table) => ({
+  tenantIdIdx: index("audit_logs_tenant_id_idx").on(table.tenantId),
+  userIdIdx: index("audit_logs_user_id_idx").on(table.userId),
+  actionIdx: index("audit_logs_action_idx").on(table.action),
+  timestampIdx: index("audit_logs_timestamp_idx").on(table.timestamp),
+}));
+
 // Events/Calendar System
 export const events = pgTable("events", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -609,15 +631,24 @@ export const events = pgTable("events", {
   projectId: varchar("project_id").references(() => projects.id),
   assignedTo: varchar("assigned_to").references(() => users.id),
   createdBy: varchar("created_by").references(() => users.id).notNull(),
-  externalEventId: text("external_event_id"), // For synced events from external calendars
+  externalEventId: text("external_event_id"), // For synced events from external calendars (Google event ID)
+  externalCalendarId: text("external_calendar_id"), // External calendar ID where this event belongs
   providerData: text("provider_data"), // JSON string of provider-specific data
   calendarIntegrationId: varchar("calendar_integration_id").references(() => calendarIntegrations.id),
+  source: text("source").notNull().default('crm'), // google, microsoft, crm, ical - origin of the event
+  syncState: text("sync_state").notNull().default('active'), // active, disconnected - sync status
+  isReadonly: boolean("is_readonly").default(false), // true when calendar is disconnected
+  lastSyncedAt: timestamp("last_synced_at"), // Last time this event was synced from provider
   reminderMinutes: integer("reminder_minutes").default(15), // Minutes before event to send reminder
   attendees: text("attendees").array(), // Email addresses of attendees
   isOrphaned: boolean("is_orphaned").default(false), // Flag for events with tenant_id=NULL (quarantine)
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
-});
+}, (table) => ({
+  tenantIdIdx: index("events_tenant_id_idx").on(table.tenantId),
+  sourceStateIdx: index("events_source_state_idx").on(table.source, table.syncState),
+  externalEventIdx: index("events_external_event_idx").on(table.externalEventId),
+}));
 
 // Templates table for auto-responders, emails, invoices, contracts
 export const templates = pgTable("templates", {
@@ -934,6 +965,7 @@ export const insertEventSchema = createInsertSchema(events).omit({ id: true, cre
 });
 export const insertCalendarIntegrationSchema = createInsertSchema(calendarIntegrations).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertCalendarSyncLogSchema = createInsertSchema(calendarSyncLog).omit({ id: true, startedAt: true });
+export const insertAuditLogSchema = createInsertSchema(auditLogs).omit({ id: true, timestamp: true });
 export const insertTemplateSchema = createInsertSchema(templates).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertLeadCaptureFormSchema = createInsertSchema(leadCaptureForms).omit({ id: true, createdAt: true, updatedAt: true });
 
@@ -1045,6 +1077,8 @@ export type Event = typeof events.$inferSelect;
 export type InsertEvent = z.infer<typeof insertEventSchema>;
 export type CalendarIntegration = typeof calendarIntegrations.$inferSelect;
 export type InsertCalendarIntegration = z.infer<typeof insertCalendarIntegrationSchema>;
+export type AuditLog = typeof auditLogs.$inferSelect;
+export type InsertAuditLog = z.infer<typeof insertAuditLogSchema>;
 export type CalendarSyncLog = typeof calendarSyncLog.$inferSelect;
 export type InsertCalendarSyncLog = z.infer<typeof insertCalendarSyncLogSchema>;
 export type Template = typeof templates.$inferSelect;

@@ -1,0 +1,143 @@
+Build a Google Calendar integration disconnect flow for a multi-tenant CRM. You choose the schema, tables, API routes, services, and UI, but meet the requirements below.
+
+Objectives
+
+When a user disconnects Google Calendar:
+
+Stop all syncing immediately (imports, updates, deletions, reminders, webhooks).
+
+Keep historical Google-sourced events as read-only by default.
+
+Show a banner: “Google Calendar disconnected on dd/mm/yyyy.”
+
+Offer one-click options to Purge Google events and Export .ics.
+
+On reconnect, avoid duplicates and resume sync cleanly.
+
+Constraints & Platform
+
+Multi-tenant SaaS. All operations must be scoped to {tenantId} and {userId}.
+
+You are free to choose framework, storage, background jobs, and queue mechanics.
+
+Display dates to the user as dd/mm/yyyy.
+
+Implement robust audit logging and idempotency.
+
+Required Capabilities (you design the schema)
+
+Data model (invent sensible names):
+
+Track event origin and linkage, e.g. fields like:
+
+source (enum: google|microsoft|crm|ical)
+
+external_provider_id (Google event id)
+
+external_calendar_id
+
+sync_state (enum: active|disconnected)
+
+last_synced_at
+
+is_readonly (boolean)
+
+Track OAuth tokens/refresh tokens and webhook/watch channels for Google.
+
+Track per-user integration state: connected_at, disconnected_at, status, scopes.
+
+Disconnect action (server):
+
+Revoke Google tokens OR mark them unusable.
+
+Tear down Google watch channels/webhooks.
+
+Mark all Google-sourced events for this user/tenant as is_readonly=true and sync_state=disconnected. Do not change events created inside the CRM.
+
+Disable any CRM reminders/notifications tied to Google-sourced events.
+
+Write an audit log entry: “Google Calendar disconnected” with {tenantId}, {userId}, timestamp (store ISO; show dd/mm/yyyy in UI).
+
+UI/UX:
+
+In Calendar/Events views:
+
+Show a dismissible banner: “Google Calendar disconnected on dd/mm/yyyy. Existing Google events are read-only and will not update.”
+Buttons: [Reconnect] [Purge Google events] [Export .ics]
+
+Badge on affected events: “From Google (disconnected)”. Tooltip repeats the above message.
+
+Purge flow (destructive):
+
+Action removes only events whose source=google for this {tenantId, userId}.
+
+Require confirmation modal explaining irreversibility, and offer “Export .ics first?” shortcut.
+
+Audit log: “Purged Google-sourced events” with counts and filters.
+
+Export flow:
+
+Generate an .ics file containing all current Google-sourced events for the user (or entire tenant if an admin triggers it). Provide a downloadable link.
+
+Reconnect flow:
+
+Re-establish OAuth, watch channels, and set sync_state=active.
+
+De-dupe on import by (provider, external_calendar_id, external_provider_id). If an event already exists, update in place rather than creating a duplicate.
+
+Composer & reminders guardrails:
+
+If the calendar is disconnected, suppress “create/update” actions that depend on Google; show inline hint to reconnect.
+
+Security & tenancy:
+
+Every server action requires {tenantId} and {userId} context. Enforce ownership on reads/writes.
+
+Idempotent endpoints (safe to retry).
+
+Observability:
+
+Structured logs for disconnect/purge/export/reconnect.
+
+Basic metrics: number of Google events by state, last sync times, error rates.
+
+Developer Notes (you decide details)
+
+Choose names and table/collection structures yourself; include a lightweight migration.
+
+Implement background job(s) where needed (e.g., export generation).
+
+Provide a minimal but clean UI to demonstrate: banner, badges, buttons, confirmation modal, and toasts.
+
+Acceptance Criteria (functional tests)
+
+Disconnect stops sync: After disconnect, no new Google updates appear; last_synced_at stops advancing.
+
+History retained: Events with source=google are visible but read-only; CRM-created events remain editable.
+
+Banner + badges: The banner shows with the exact copy and dd/mm/yyyy date; affected events show the badge+tooltip.
+
+Purge works safely: Only Google-sourced events are deleted; other events remain. Audit entry recorded.
+
+Export works: Downloadable .ics contains all Google-sourced events for the selected scope.
+
+Reconnect is clean: No duplicates; existing Google events reconcile/update; sync_state flips to active.
+
+Audit trail: All key actions (disconnect, purge, export, reconnect) produce audit rows viewable by an admin.
+
+Multi-tenant isolation: Actions in one tenant never affect another.
+
+Example UI copy (use verbatim)
+
+Banner:
+Google Calendar disconnected on {{dd/mm/yyyy}}. Existing Google events are read-only and will not update.
+[Reconnect] [Purge Google events] [Export .ics]
+
+Event badge tooltip:
+Synced from Google. Calendar is disconnected; this event won’t update.
+
+Deliver a working implementation with seed scripts and a short README describing how to:
+
+Connect Google, import some events, disconnect, see banner/badges, purge, export, and reconnect.
+
+Where to configure date display as dd/mm/yyyy.

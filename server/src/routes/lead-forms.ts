@@ -579,7 +579,7 @@ router.post('/:slug/submit', formSubmissionLimiter, async (req, res) => {
                   const leadName = lead.fullName || lead.email || 'Unknown';
                   const eventTitle = `New Lead Project • ${leadName}`;
                   
-                  await storage.createEvent({
+                  await tenantStorage.createEvent({
                     title: eventTitle,
                     description: lead.notes || undefined,
                     startDate: eventStart,
@@ -592,7 +592,6 @@ router.post('/:slug/submit', formSubmissionLimiter, async (req, res) => {
                     type: 'lead',
                     status: 'tentative',
                     allDay: false,
-                    tenantId: form.tenantId,
                     createdBy: userId || form.createdBy
                   });
                   
@@ -1002,7 +1001,7 @@ router.post('/:slug/submit', formSubmissionLimiter, async (req, res) => {
         const leadName = lead.fullName || lead.email || 'Unknown';
         const eventTitle = `New Lead Project • ${leadName}`;
         
-        await storage.createEvent({
+        await tenantStorage.createEvent({
           title: eventTitle,
           description: lead.notes || undefined,
           startDate: eventStart,
@@ -1015,7 +1014,6 @@ router.post('/:slug/submit', formSubmissionLimiter, async (req, res) => {
           type: 'lead',
           status: 'tentative',
           allDay: false,
-          tenantId: form.tenantId,
           createdBy: userId || form.createdBy
         });
         

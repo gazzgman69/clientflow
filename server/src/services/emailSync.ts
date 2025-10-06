@@ -357,7 +357,10 @@ export class EmailSyncService {
       
       // Update last_synced_at timestamp in email_accounts table
       try {
+        const { db } = await import('../../db');
         const { emailAccounts } = await import('../../../shared/schema');
+        const { eq, and } = await import('drizzle-orm');
+        
         await db
           .update(emailAccounts)
           .set({ lastSyncedAt: new Date() })

@@ -335,7 +335,8 @@ router.get('/auth/google/calendar', async (req, res) => {
       tenantId,
       req.session,
       'calendar',
-      returnTo
+      returnTo,
+      popup
     );
     
     console.log('🔐 SECURITY: GET /auth/google/calendar using signed state and PKCE protection with Calendar scopes only');

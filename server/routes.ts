@@ -266,6 +266,21 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   // JSON parsing middleware
   app.use(express.json());
   
+  // DEBUG: Log before OAuth routes
+  app.use((req, res, next) => {
+    if (req.path.includes('/auth/')) {
+      console.log('🚦 BEFORE OAUTH ROUTES:', {
+        method: req.method,
+        path: req.path,
+        url: req.url,
+        body: req.body,
+        hasBody: !!req.body,
+        contentType: req.headers['content-type']
+      });
+    }
+    next();
+  });
+  
   // OAuth routes (must be after session middleware) - no CSRF for OAuth flows
   app.use(oauthRoutes);
   app.use(emailOAuthRoutes);

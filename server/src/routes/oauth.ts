@@ -734,6 +734,25 @@ async function googleCallbackHandler(req: any, res: any) {
       }, tenantId);
       
       console.log('✅ GMAIL OAUTH: Successfully saved to email_accounts');
+      
+      // Trigger immediate first sync
+      try {
+        console.log('🔄 GMAIL OAUTH: Triggering immediate first sync...');
+        const { EmailSyncService } = await import('../services/emailSync');
+        const emailSyncService = new EmailSyncService(tenantId, userId);
+        
+        // Run sync in background without blocking the response
+        emailSyncService.syncGmailThreadsToDatabase(userId, undefined, tenantId)
+          .then(result => {
+            console.log('✅ GMAIL OAUTH: First sync completed', result);
+          })
+          .catch(error => {
+            console.error('❌ GMAIL OAUTH: First sync failed', error);
+          });
+      } catch (syncError) {
+        console.error('⚠️ GMAIL OAUTH: Could not trigger immediate sync', syncError);
+        // Don't fail the OAuth flow if sync fails
+      }
     }
     
     // Handle popup response
@@ -898,6 +917,25 @@ router.get('/api/auth/microsoft/callback', async (req, res) => {
     });
     
     console.log('✅ MICROSOFT OAUTH: Successfully saved to email_accounts');
+    
+    // Trigger immediate first sync
+    try {
+      console.log('🔄 MICROSOFT OAUTH: Triggering immediate first sync...');
+      const { EmailSyncService } = await import('../services/emailSync');
+      const emailSyncService = new EmailSyncService(tenantId, userId);
+      
+      // Run sync in background without blocking the response
+      emailSyncService.syncGmailThreadsToDatabase(userId, undefined, tenantId)
+        .then(result => {
+          console.log('✅ MICROSOFT OAUTH: First sync completed', result);
+        })
+        .catch(error => {
+          console.error('❌ MICROSOFT OAUTH: First sync failed', error);
+        });
+    } catch (syncError) {
+      console.error('⚠️ MICROSOFT OAUTH: Could not trigger immediate sync', syncError);
+      // Don't fail the OAuth flow if sync fails
+    }
     
     // Handle popup response
     if (popup) {

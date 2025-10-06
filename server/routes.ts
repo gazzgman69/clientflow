@@ -4883,7 +4883,9 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
 
   app.post("/api/events", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
     try {
+      console.log('📅 Event creation request body:', JSON.stringify(req.body, null, 2));
       const validatedData = insertEventSchema.parse(req.body);
+      console.log('✅ Validated event data:', JSON.stringify(validatedData, null, 2));
       const event = await storage.createEvent(validatedData, req.tenantId);
       
       // Auto-sync to Google Calendar if user has an active integration
@@ -4907,6 +4909,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
       
       res.status(201).json(event);
     } catch (error) {
+      console.error('❌ Event creation validation error:', error);
       res.status(400).json({ message: "Invalid event data", error });
     }
   });

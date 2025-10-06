@@ -193,10 +193,9 @@ export class GoogleOAuthService {
       timestamp: Date.now()
     };
     
-    if (process.env.DEBUG_OAUTH) {
-      console.log('🔍 DEBUG: oauthState BEFORE signing:', JSON.stringify(oauthState, null, 2));
-      console.log('🔍 DEBUG: popup parameter value:', popup, 'type:', typeof popup);
-    }
+    console.log('🔍 CRITICAL: oauthState BEFORE signing:', JSON.stringify(oauthState, null, 2));
+    console.log('🔍 CRITICAL: popup parameter value:', popup, 'type:', typeof popup);
+    console.log('🔍 CRITICAL: returnTo parameter value:', returnTo, 'type:', typeof returnTo);
     
     const state = this.signOAuthState(oauthState);
     

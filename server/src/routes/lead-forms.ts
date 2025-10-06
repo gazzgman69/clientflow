@@ -368,8 +368,8 @@ router.post('/:slug/submit', formSubmissionLimiter, async (req, res) => {
       });
     }
     
-    // Public submissions have no authenticated user - use null for proper tenant isolation
-    const userId = null;
+    // Public submissions: assign to form owner so they can access the resulting projects
+    const userId = form.createdBy;
     
     // Transform question IDs to canonical field names using form questions
     const transformedData: Record<string, any> = {};

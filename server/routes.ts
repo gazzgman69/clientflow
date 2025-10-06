@@ -4958,7 +4958,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
       // Delete from Google Calendar if it was synced
       if (event.externalEventId) {
         try {
-          const integrations = await storage.getCalendarIntegrationsByUser(event.createdBy);
+          const integrations = await storage.getCalendarIntegrationsByUser(event.createdBy, req.tenantId);
           const googleIntegration = integrations.find(int => int.provider === 'google' && int.isActive);
           
           if (googleIntegration) {
@@ -4977,7 +4977,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
         console.log(`Event "${event.title}" has no external event ID, skipping Google deletion`);
       }
       
-      const deleted = await storage.deleteEvent(req.params.id);
+      const deleted = await storage.deleteEvent(req.params.id, req.tenantId);
       if (!deleted) {
         return res.status(404).json({ message: "Event not found" });
       }

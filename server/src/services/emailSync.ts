@@ -559,8 +559,8 @@ export class EmailSyncService {
   }
 
   /**
-   * Find or create contact for email address (tenant-aware)
-   * Only used for outbound emails where we want to create contacts
+   * Find existing contact for email address (tenant-aware)
+   * DISABLED: No longer auto-creates contacts from emails
    */
   private async findOrCreateContact(email: string, tenantId: string, projectId?: string): Promise<string | null> {
     if (!email || !tenantId) return null;
@@ -569,7 +569,7 @@ export class EmailSyncService {
       const normalizedEmail = this.normalizeEmail(email);
       
       // Look for existing contact in this tenant only
-      const { withTenantAnd, withTenantData } = await import('../../utils/tenantQueries');
+      const { withTenantAnd } = await import('../../utils/tenantQueries');
       const [existingContact] = await db
         .select({ id: contacts.id })
         .from(contacts)
@@ -578,20 +578,11 @@ export class EmailSyncService {
       
       if (existingContact) return existingContact.id;
       
-      // Create new contact if not found (tenant-scoped)
-      const [newContact] = await db
-        .insert(contacts)
-        .values(withTenantData({
-          firstName: normalizedEmail.split('@')[0], // Use email prefix as name
-          lastName: '',
-          email: normalizedEmail,
-        }, tenantId))
-        .returning({ id: contacts.id });
-      
-      console.log(`📧 Created new contact for ${normalizedEmail} in tenant ${tenantId}`);
-      return newContact.id;
+      // DISABLED: Do NOT auto-create contacts from email sync
+      // Return null if contact doesn't exist
+      return null;
     } catch (error) {
-      console.error('Error finding/creating contact:', error);
+      console.error('Error finding existing contact:', error);
       return null;
     }
   }

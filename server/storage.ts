@@ -19,6 +19,7 @@ import {
   type SmsMessage, type InsertSmsMessage,
   type MessageTemplate, type InsertMessageTemplate,
   type MessageThread, type InsertMessageThread,
+  type Calendar, type InsertCalendar,
   type Event, type InsertEvent,
   type CalendarIntegration, type InsertCalendarIntegration,
   type CalendarSyncLog, type InsertCalendarSyncLog,
@@ -58,7 +59,7 @@ import {
   type AutoResponderLog, type InsertAutoResponderLog,
   users, leads, contacts, projects, quotes, contracts, invoices, tasks, emails, emailThreads, activities, automations, 
   members, venues, projectMembers, memberAvailability, projectFiles, projectNotes, smsMessages, 
-  messageTemplates, messageThreads, events, calendarIntegrations, calendarSyncLog, templates, leadCaptureForms,
+  messageTemplates, messageThreads, calendars, events, calendarIntegrations, calendarSyncLog, templates, leadCaptureForms,
   leadStatusHistory, emailSignatures, emailProviderCatalog, emailProviderConfigs, emailAccounts, emailProviderIntegrations, tenantEmailPrefs, portalForms, paymentSessions, webhookEvents, tenants,
   // Enhanced Quotes System tables
   quotePackages, quoteAddons, quoteItems, quoteTokens, quoteSignatures,
@@ -342,6 +343,17 @@ export interface IStorage {
   updateEvent(id: string, event: Partial<InsertEvent>, tenantId: string): Promise<Event | undefined>;
   deleteEvent(id: string, tenantId: string): Promise<boolean>;
   
+  // System Calendars (Leads, Booked, Completed)
+  getCalendars(tenantId: string): Promise<Calendar[]>;
+  getCalendar(id: string, tenantId: string): Promise<Calendar | undefined>;
+  getCalendarByType(type: string, tenantId: string): Promise<Calendar | undefined>;
+  createCalendar(calendar: InsertCalendar, tenantId: string): Promise<Calendar>;
+  updateCalendar(id: string, calendar: Partial<InsertCalendar>, tenantId: string): Promise<Calendar | undefined>;
+  createSystemCalendars(tenantId: string): Promise<Calendar[]>;
+  getEventsByCalendar(calendarId: string, tenantId: string): Promise<Event[]>;
+  moveEventToCalendar(eventId: string, targetCalendarId: string, tenantId: string): Promise<Event | undefined>;
+  checkEventConflict(startDate: Date, endDate: Date, tenantId: string, userId?: string, excludeEventId?: string): Promise<{ hasConflict: boolean; conflictingEvents: Event[] }>;
+  
   // Calendar Integrations
   getCalendarIntegrations(tenantId: string): Promise<CalendarIntegration[]>;
   getCalendarIntegrationsByTenant(tenantId: string): Promise<CalendarIntegration[]>;
@@ -523,6 +535,7 @@ export class MemStorage implements IStorage {
   private smsMessages: Map<string, SmsMessage> = new Map();
   private messageTemplates: Map<string, MessageTemplate> = new Map();
   private messageThreads: Map<string, MessageThread> = new Map();
+  private calendars: Map<string, Calendar> = new Map();
   private events: Map<string, Event> = new Map();
   private calendarIntegrations: Map<string, CalendarIntegration> = new Map();
   private calendarSyncLogs: Map<string, CalendarSyncLog> = new Map();
@@ -2076,6 +2089,102 @@ export class MemStorage implements IStorage {
     return this.events.delete(id);
   }
 
+  // System Calendars (Leads, Booked, Completed)
+  async getCalendars(tenantId: string): Promise<Calendar[]> {
+    return Array.from(this.calendars.values()).filter(cal => cal.tenantId === tenantId);
+  }
+
+  async getCalendar(id: string, tenantId: string): Promise<Calendar | undefined> {
+    const calendar = this.calendars.get(id);
+    return calendar?.tenantId === tenantId ? calendar : undefined;
+  }
+
+  async getCalendarByType(type: string, tenantId: string): Promise<Calendar | undefined> {
+    return Array.from(this.calendars.values()).find(cal => cal.type === type && cal.tenantId === tenantId);
+  }
+
+  async createCalendar(insertCalendar: InsertCalendar, tenantId: string): Promise<Calendar> {
+    const id = crypto.randomUUID();
+    const calendar: Calendar = {
+      ...insertCalendar,
+      id,
+      tenantId,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    this.calendars.set(id, calendar);
+    return calendar;
+  }
+
+  async updateCalendar(id: string, updates: Partial<InsertCalendar>, tenantId: string): Promise<Calendar | undefined> {
+    const calendar = this.calendars.get(id);
+    if (!calendar || calendar.tenantId !== tenantId) return undefined;
+    const updated = { ...calendar, ...updates, updatedAt: new Date() };
+    this.calendars.set(id, updated);
+    return updated;
+  }
+
+  async createSystemCalendars(tenantId: string): Promise<Calendar[]> {
+    const systemCalendars = [
+      { name: 'Leads', type: 'leads', color: '#10b981', isSystem: true },
+      { name: 'Booked', type: 'booked', color: '#3b82f6', isSystem: true },
+      { name: 'Completed', type: 'completed', color: '#8b5cf6', isSystem: true },
+    ];
+    
+    const created: Calendar[] = [];
+    for (const cal of systemCalendars) {
+      const existing = await this.getCalendarByType(cal.type, tenantId);
+      if (!existing) {
+        const calendar = await this.createCalendar({ ...cal, tenantId, isActive: true }, tenantId);
+        created.push(calendar);
+      }
+    }
+    return created;
+  }
+
+  async getEventsByCalendar(calendarId: string, tenantId: string): Promise<Event[]> {
+    return Array.from(this.events.values()).filter(
+      event => event.calendarId === calendarId && event.tenantId === tenantId
+    );
+  }
+
+  async moveEventToCalendar(eventId: string, targetCalendarId: string, tenantId: string): Promise<Event | undefined> {
+    const event = this.events.get(eventId);
+    if (!event || event.tenantId !== tenantId) return undefined;
+    
+    const history = event.history ? JSON.parse(event.history) : [];
+    history.push({
+      timestamp: new Date().toISOString(),
+      action: 'moved',
+      from: event.calendarId,
+      to: targetCalendarId,
+      userId: event.createdBy
+    });
+    
+    const updated = { ...event, calendarId: targetCalendarId, history: JSON.stringify(history), updatedAt: new Date() };
+    this.events.set(eventId, updated);
+    return updated;
+  }
+
+  async checkEventConflict(startDate: Date, endDate: Date, tenantId: string, userId?: string, excludeEventId?: string): Promise<{ hasConflict: boolean; conflictingEvents: Event[] }> {
+    const conflictingEvents = Array.from(this.events.values()).filter(event => {
+      if (event.tenantId !== tenantId) return false;
+      if (excludeEventId && event.id === excludeEventId) return false;
+      if (userId && event.assignedTo !== userId) return false;
+      
+      const eventStart = new Date(event.startDate);
+      const eventEnd = new Date(event.endDate);
+      
+      return (
+        (startDate >= eventStart && startDate < eventEnd) ||
+        (endDate > eventStart && endDate <= eventEnd) ||
+        (startDate <= eventStart && endDate >= eventEnd)
+      );
+    });
+    
+    return { hasConflict: conflictingEvents.length > 0, conflictingEvents };
+  }
+
   // Calendar Integrations
   async getCalendarIntegrations(): Promise<CalendarIntegration[]> {
     return Array.from(this.calendarIntegrations.values()).sort((a, b) => 
@@ -3288,6 +3397,101 @@ export class DrizzleStorage implements IStorage {
     }
     
     return deleted;
+  }
+
+  // System Calendars (Leads, Booked, Completed)
+  async getCalendars(tenantId: string): Promise<Calendar[]> {
+    return await db.select().from(calendars).where(eq(calendars.tenantId, tenantId));
+  }
+
+  async getCalendar(id: string, tenantId: string): Promise<Calendar | undefined> {
+    const result = await db.select().from(calendars)
+      .where(and(eq(calendars.id, id), eq(calendars.tenantId, tenantId)));
+    return result[0];
+  }
+
+  async getCalendarByType(type: string, tenantId: string): Promise<Calendar | undefined> {
+    const result = await db.select().from(calendars)
+      .where(and(eq(calendars.type, type), eq(calendars.tenantId, tenantId)));
+    return result[0];
+  }
+
+  async createCalendar(calendar: InsertCalendar, tenantId: string): Promise<Calendar> {
+    const result = await db.insert(calendars).values({ ...calendar, tenantId }).returning();
+    return result[0];
+  }
+
+  async updateCalendar(id: string, updates: Partial<InsertCalendar>, tenantId: string): Promise<Calendar | undefined> {
+    const result = await db.update(calendars)
+      .set(updates)
+      .where(and(eq(calendars.id, id), eq(calendars.tenantId, tenantId)))
+      .returning();
+    return result[0];
+  }
+
+  async createSystemCalendars(tenantId: string): Promise<Calendar[]> {
+    const systemCalendars = [
+      { name: 'Leads', type: 'leads', color: '#10b981', isSystem: true },
+      { name: 'Booked', type: 'booked', color: '#3b82f6', isSystem: true },
+      { name: 'Completed', type: 'completed', color: '#8b5cf6', isSystem: true },
+    ];
+    
+    const created: Calendar[] = [];
+    for (const cal of systemCalendars) {
+      const existing = await this.getCalendarByType(cal.type, tenantId);
+      if (!existing) {
+        const calendar = await this.createCalendar({ ...cal, tenantId, isActive: true }, tenantId);
+        created.push(calendar);
+      }
+    }
+    return created;
+  }
+
+  async getEventsByCalendar(calendarId: string, tenantId: string): Promise<Event[]> {
+    return await db.select().from(events)
+      .where(and(
+        eq(events.calendarId, calendarId),
+        eq(events.tenantId, tenantId)
+      ));
+  }
+
+  async moveEventToCalendar(eventId: string, targetCalendarId: string, tenantId: string): Promise<Event | undefined> {
+    const event = await this.getEvent(eventId, tenantId);
+    if (!event) return undefined;
+    
+    const history = event.history ? JSON.parse(event.history) : [];
+    history.push({
+      timestamp: new Date().toISOString(),
+      action: 'moved',
+      from: event.calendarId,
+      to: targetCalendarId,
+      userId: event.createdBy
+    });
+    
+    const result = await db.update(events)
+      .set({ calendarId: targetCalendarId, history: JSON.stringify(history) })
+      .where(and(eq(events.id, eventId), eq(events.tenantId, tenantId)))
+      .returning();
+    return result[0];
+  }
+
+  async checkEventConflict(startDate: Date, endDate: Date, tenantId: string, userId?: string, excludeEventId?: string): Promise<{ hasConflict: boolean; conflictingEvents: Event[] }> {
+    let query = db.select().from(events)
+      .where(and(
+        eq(events.tenantId, tenantId),
+        sql`${events.startDate} < ${endDate}`,
+        sql`${events.endDate} > ${startDate}`
+      ));
+    
+    const results = await query;
+    
+    const conflictingEvents = results.filter(event => {
+      if (excludeEventId && event.id === excludeEventId) return false;
+      if (userId && event.assignedTo !== userId) return false;
+      return true;
+    });
+    
+    return { hasConflict: conflictingEvents.length > 0, conflictingEvents };
   }
 
   // All storage methods now use PostgreSQL database

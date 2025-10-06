@@ -262,13 +262,18 @@ const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(
           return false;
         }
         
+        // Convert plain text newlines to HTML paragraphs
+        // Split by newlines and wrap each non-empty line in a paragraph
+        const lines = signatureContent.split('\n').filter(line => line.trim());
+        const signatureHTML = lines.map(line => `<p>${line.trim()}</p>`).join('');
+        
         // Move cursor to the end and append signature with single line break
         const { to } = editor.state.selection;
         const endPosition = editor.state.doc.content.size;
         editor.chain()
           .focus()
           .setTextSelection(endPosition)
-          .insertContent(`<p></p>${signatureContent}`)
+          .insertContent(`<p></p>${signatureHTML}`)
           .run();
         
         return true;

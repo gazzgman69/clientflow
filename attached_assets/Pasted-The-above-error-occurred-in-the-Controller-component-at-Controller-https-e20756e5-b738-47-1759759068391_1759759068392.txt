@@ -1,0 +1,38 @@
+The above error occurred in the <Controller> component:
+
+    at Controller (https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-4BFJKWC4.js?v=7f7e02b1:298:35)
+    at FormField (https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/src/components/ui/form.tsx:33:6)
+    at form
+    at FormProvider (https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-4BFJKWC4.js?v=7f7e02b1:102:11)
+    at div
+    at https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-AXMZZQ2X.js?v=7f7e02b1:42:13
+    at https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-P42JY36W.js?v=7f7e02b1:63:7
+    at https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-2K77HOHX.js?v=7f7e02b1:79:13
+    at https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-2K77HOHX.js?v=7f7e02b1:56:13
+    at https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-AXMZZQ2X.js?v=7f7e02b1:42:13
+    at https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-MERT2IGA.js?v=7f7e02b1:29:5
+    at https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-Y5PMG3ZZ.js?v=7f7e02b1:235:13
+    at https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-Y5PMG3ZZ.js?v=7f7e02b1:158:58
+    at Presence (https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-DI3MHBAI.js?v=7f7e02b1:24:11)
+    at https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-Y5PMG3ZZ.js?v=7f7e02b1:149:64
+    at https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-2K77HOHX.js?v=7f7e02b1:79:13
+    at https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-2K77HOHX.js?v=7f7e02b1:56:13
+    at https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-AXMZZQ2X.js?v=7f7e02b1:42:13
+    at https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-P42JY36W.js?v=7f7e02b1:262:22
+    at Presence (https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-DI3MHBAI.js?v=7f7e02b1:24:11)
+    at Provider (https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-OXZDJRWN.js?v=7f7e02b1:38:15)
+    at DialogPortal (https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-Y5PMG3ZZ.js?v=7f7e02b1:111:11)
+    at _c3 (https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/src/components/ui/dialog.tsx:52:12)
+    at Provider (https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-OXZDJRWN.js?v=7f7e02b1:38:15)
+    at Dialog (https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-Y5PMG3ZZ.js?v=7f7e02b1:52:5)
+    at div
+    at CalendarView (https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/src/components/calendar-view.tsx:51:40)
+    at div
+    at CalendarPage (https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/src/pages/calendar.tsx:27:45)
+    at Route (https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=7f7e02b1:191:16)
+    at Switch (https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=7f7e02b1:247:17)
+    at div
+    at div
+    at AuthWrapper (https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/src/App.tsx?v=6QMa2R5S4H9epLrl59OKy:50:24)
+    at Route…
+clients?.map is not a function

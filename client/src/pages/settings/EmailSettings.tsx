@@ -363,17 +363,16 @@ export default function EmailSettings() {
         // Refresh connected state (or refetch accounts)
         queryClient.invalidateQueries({ queryKey: ['/api/auth/google/gmail/status'] });
         queryClient.invalidateQueries({ queryKey: ['/api/email/provider-catalog/active'] });
-        setAlertMessage({ type: 'success', message: 'Gmail connected successfully!' });
+        setAlertMessage({ type: 'success', message: 'Gmail connected successfully! Syncing emails...' });
         
-        // Refetch after delays to catch the lastSyncAt timestamp update (sync runs in background)
-        setTimeout(() => {
-          queryClient.invalidateQueries({ queryKey: ['/api/auth/google/gmail/status'] });
-          queryClient.refetchQueries({ queryKey: ['/api/auth/google/gmail/status'] });
-        }, 2000);
-        setTimeout(() => {
-          queryClient.invalidateQueries({ queryKey: ['/api/auth/google/gmail/status'] });
-          queryClient.refetchQueries({ queryKey: ['/api/auth/google/gmail/status'] });
-        }, 5000);
+        // Poll for timestamp updates - sync runs in background and can take 60-120 seconds
+        const pollIntervals = [2000, 5000, 10000, 20000, 30000, 45000, 60000, 90000, 120000];
+        pollIntervals.forEach((delay) => {
+          setTimeout(() => {
+            queryClient.invalidateQueries({ queryKey: ['/api/auth/google/gmail/status'] });
+            queryClient.refetchQueries({ queryKey: ['/api/auth/google/gmail/status'] });
+          }, delay);
+        });
       }
       window.addEventListener('message', onMsg, { once: true });
     } catch (error: any) {
@@ -420,17 +419,16 @@ export default function EmailSettings() {
         // Refresh connected state (or refetch accounts)
         queryClient.invalidateQueries({ queryKey: ['/api/auth/microsoft/status'] });
         queryClient.invalidateQueries({ queryKey: ['/api/email/provider-catalog/active'] });
-        setAlertMessage({ type: 'success', message: 'Microsoft account connected successfully!' });
+        setAlertMessage({ type: 'success', message: 'Microsoft account connected successfully! Syncing emails...' });
         
-        // Refetch after delays to catch the lastSyncAt timestamp update (sync runs in background)
-        setTimeout(() => {
-          queryClient.invalidateQueries({ queryKey: ['/api/auth/microsoft/status'] });
-          queryClient.refetchQueries({ queryKey: ['/api/auth/microsoft/status'] });
-        }, 2000);
-        setTimeout(() => {
-          queryClient.invalidateQueries({ queryKey: ['/api/auth/microsoft/status'] });
-          queryClient.refetchQueries({ queryKey: ['/api/auth/microsoft/status'] });
-        }, 5000);
+        // Poll for timestamp updates - sync runs in background and can take 60-120 seconds
+        const pollIntervals = [2000, 5000, 10000, 20000, 30000, 45000, 60000, 90000, 120000];
+        pollIntervals.forEach((delay) => {
+          setTimeout(() => {
+            queryClient.invalidateQueries({ queryKey: ['/api/auth/microsoft/status'] });
+            queryClient.refetchQueries({ queryKey: ['/api/auth/microsoft/status'] });
+          }, delay);
+        });
       }
       window.addEventListener('message', onMsg, { once: true });
     } catch (error: any) {

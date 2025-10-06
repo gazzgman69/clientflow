@@ -463,6 +463,12 @@ router.post('/auth/google/gmail/start', requireAuth, async (req: any, res) => {
       });
     }
     
+    // Save popup flag to session so callback knows how to respond
+    if (popup) {
+      req.session.oauth_popup = true;
+      console.log('💾 Saved popup=true to session for OAuth callback');
+    }
+    
     // Note: State is created and signed by googleOAuthService.generateAuthUrl()
     // No need to create state here - the service handles it
     
@@ -505,6 +511,12 @@ router.post('/auth/google/calendar/start', requireAuth, async (req: any, res) =>
         message: 'Calendar already connected',
         integration: existing 
       });
+    }
+    
+    // Save popup flag to session so callback knows how to respond
+    if (popup) {
+      req.session.oauth_popup = true;
+      console.log('💾 Saved popup=true to session for OAuth callback');
     }
     
     // Note: State is created and signed by googleOAuthService.generateAuthUrl()
@@ -637,6 +649,9 @@ async function googleCallbackHandler(req: any, res: any) {
       parsed: JSON.stringify(parsed),
       serviceType
     });
+    
+    // Clear popup flag from session after reading it
+    delete req.session.oauth_popup;
     
     if (!userId || !tenantId) {
       return res.status(401).send('Authentication required');

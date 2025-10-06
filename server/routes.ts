@@ -4883,16 +4883,16 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
 
   app.post("/api/events", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req: any, res) => {
     try {
-      // Validate the request body (excluding createdBy which comes from session)
-      const validatedData = insertEventSchema.omit({ createdBy: true }).parse(req.body);
-      
-      // Add createdBy from authenticated user session
-      const eventData = {
-        ...validatedData,
+      // Add createdBy from authenticated user session before validation
+      const requestWithCreatedBy = {
+        ...req.body,
         createdBy: req.userId // From ensureUserAuth middleware
       };
       
-      const event = await storage.createEvent(eventData, req.tenantId);
+      // Validate the complete event data
+      const validatedData = insertEventSchema.parse(requestWithCreatedBy);
+      
+      const event = await storage.createEvent(validatedData, req.tenantId);
       
       // Auto-sync to Google Calendar if user has an active integration
       try {

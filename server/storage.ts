@@ -2920,32 +2920,20 @@ export class DrizzleStorage implements IStorage {
   }
 
   async getCalendarIntegrationsByTenant(tenantId: string): Promise<CalendarIntegration[]> {
-    // Filter calendar integrations through user relationship to ensure tenant isolation
-    const { users, calendarIntegrations } = await import('@shared/schema');
-    const { eq, and } = await import('drizzle-orm');
+    // Filter calendar integrations by tenantId directly
+    const { calendarIntegrations } = await import('@shared/schema');
+    const { eq } = await import('drizzle-orm');
     
-    return await this.db.select({
-      id: calendarIntegrations.id,
-      userId: calendarIntegrations.userId,
-      provider: calendarIntegrations.provider,
-      providerAccountId: calendarIntegrations.providerAccountId,
-      calendarId: calendarIntegrations.calendarId,
-      calendarName: calendarIntegrations.calendarName,
-      accessToken: calendarIntegrations.accessToken,
-      refreshToken: calendarIntegrations.refreshToken,
-      syncToken: calendarIntegrations.syncToken,
-      webhookId: calendarIntegrations.webhookId,
-      isActive: calendarIntegrations.isActive,
-      syncDirection: calendarIntegrations.syncDirection,
-      lastSyncAt: calendarIntegrations.lastSyncAt,
-      syncErrors: calendarIntegrations.syncErrors,
-      settings: calendarIntegrations.settings,
-      createdAt: calendarIntegrations.createdAt,
-      updatedAt: calendarIntegrations.updatedAt,
-    })
-    .from(calendarIntegrations)
-    .innerJoin(users, eq(calendarIntegrations.userId, users.id))
-    .where(eq(users.tenantId, tenantId));
+    const integrations = await this.db.select()
+      .from(calendarIntegrations)
+      .where(eq(calendarIntegrations.tenantId, tenantId));
+    
+    // Decrypt tokens for use
+    return integrations.map(integration => ({
+      ...integration,
+      accessToken: integration.accessToken ? this.safeDecrypt(integration.accessToken) : null,
+      refreshToken: integration.refreshToken ? this.safeDecrypt(integration.refreshToken) : null,
+    }));
   }
 
   async getCalendarIntegrationsByUser(userId: string, tenantId: string): Promise<CalendarIntegration[]> {

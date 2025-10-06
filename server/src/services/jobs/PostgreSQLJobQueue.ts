@@ -108,6 +108,7 @@ export class PostgreSQLJobQueue implements IJobQueue {
         maxRetries: options.maxRetries ?? this.config.defaultMaxRetries,
         delay: options.delay,
         schedule: options.schedule,
+        tenantId: options.tenantId, // SECURITY: Preserve tenant context for recurring jobs
         createdAt: now,
         updatedAt: now,
       });

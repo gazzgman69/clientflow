@@ -360,18 +360,19 @@ app.use('/auth', (req, res, next) => {
       console.log('📋 Job queue service initialized successfully');
       
       // Schedule recurring background jobs using the job queue
+      // Note: These jobs are multi-tenant aware and process all tenants internally
       console.log('📅 Scheduling recurring background jobs...');
       
-      // Calendar auto-sync: every 5 minutes (300000ms)
-      await jobs.enqueueRecurring('calendar-sync', {}, 5 * 60 * 1000, { tenantId: 'default-tenant' });
+      // Calendar auto-sync: every 5 minutes (300000ms) - processes all tenants
+      await jobs.enqueueRecurring('calendar-sync', {}, 5 * 60 * 1000, { tenantId: 'system' });
       console.log('✅ Calendar auto-sync job scheduled (every 5 minutes)');
       
-      // Email auto-sync: every 3 minutes (180000ms)
-      await jobs.enqueueRecurring('email-sync', {}, 3 * 60 * 1000, { tenantId: 'default-tenant' });
+      // Email auto-sync: every 3 minutes (180000ms) - processes all tenants
+      await jobs.enqueueRecurring('email-sync', {}, 3 * 60 * 1000, { tenantId: 'system' });
       console.log('✅ Email auto-sync job scheduled (every 3 minutes)');
       
-      // Lead automation: every 5 minutes (300000ms)
-      await jobs.enqueueRecurring('lead-automation', {}, 5 * 60 * 1000, { tenantId: 'default-tenant' });
+      // Lead automation: every 5 minutes (300000ms) - processes all tenants
+      await jobs.enqueueRecurring('lead-automation', {}, 5 * 60 * 1000, { tenantId: 'system' });
       console.log('✅ Lead automation job scheduled (every 5 minutes)');
       
       // Auto-responder worker: every 30 seconds (30000ms)

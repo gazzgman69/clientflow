@@ -8,11 +8,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest } from '@/lib/queryClient';
 import CalendarView from '@/components/calendar-view';
-import CalendarPipelineView from '@/components/calendar-pipeline-view';
 import { GoogleOAuthModal } from '@/components/google-oauth-modal';
 
 interface CalendarIntegration {
@@ -43,7 +41,6 @@ export default function CalendarPage() {
   const [icalUrl, setIcalUrl] = useState('');
   const [calendarName, setCalendarName] = useState('');
   const [syncingId, setSyncingId] = useState<string | null>(null);
-  const [viewMode, setViewMode] = useState<'events' | 'pipeline'>('events');
   const { toast } = useToast();
   const queryClient = useQueryClient();
   
@@ -204,21 +201,7 @@ export default function CalendarPage() {
         </div>
       </div>
 
-      {/* View Mode Tabs */}
-      <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as any)} data-testid="calendar-view-tabs">
-        <TabsList>
-          <TabsTrigger value="events" data-testid="tab-events-view">Events Calendar</TabsTrigger>
-          <TabsTrigger value="pipeline" data-testid="tab-pipeline-view">Project Pipeline</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="events" className="mt-6">
-          <CalendarView />
-        </TabsContent>
-
-        <TabsContent value="pipeline" className="mt-6">
-          <CalendarPipelineView />
-        </TabsContent>
-      </Tabs>
+      <CalendarView />
       
       {/* Google OAuth Modal */}
       {showGoogleOAuth && (

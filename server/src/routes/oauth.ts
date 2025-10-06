@@ -1971,6 +1971,27 @@ router.post('/api/auth/google/calendar/purge', requireAuth, async (req: any, res
 });
 
 /**
+ * Get disconnected calendar integrations
+ * Returns list of disconnected integrations that still have read-only events
+ */
+router.get('/api/auth/google/calendar/disconnected', requireAuth, async (req: any, res) => {
+  try {
+    const userId = req.authenticatedUserId;
+    const tenantId = req.tenantId;
+    
+    const disconnectedIntegrations = await storage.getDisconnectedIntegrations(userId, tenantId);
+    
+    res.json({
+      ok: true,
+      integrations: disconnectedIntegrations
+    });
+  } catch (error: any) {
+    console.error('Error getting disconnected integrations:', error);
+    res.status(500).json({ ok: false, error: 'Internal server error' });
+  }
+});
+
+/**
  * Export Google Calendar events as .ics file
  * Generates a downloadable iCalendar file with all Google-sourced events
  */

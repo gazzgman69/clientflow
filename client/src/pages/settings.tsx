@@ -14,10 +14,19 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { 
   User, Bell, Shield, Palette, Database, Mail, 
   Calendar, Key, Globe, Save, Upload, AlertTriangle, 
-  CheckCircle, XCircle, Loader2, FileText, ExternalLink
+  CheckCircle, XCircle, Loader2, FileText, ExternalLink,
+  Download, Trash2, RefreshCw, Info
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
@@ -32,6 +41,8 @@ export default function Settings() {
   const [activeTab, setActiveTab] = useState("profile");
   const [isLoading, setIsLoading] = useState(false);
   const [showGoogleOAuth, setShowGoogleOAuth] = useState(false);
+  const [showPurgeModal, setShowPurgeModal] = useState(false);
+  const [selectedIntegrationToPurge, setSelectedIntegrationToPurge] = useState<any>(null);
   const { toast } = useToast();
 
   // Check for tab parameter in URL and set active tab
@@ -150,6 +161,52 @@ export default function Settings() {
       });
     },
   });
+
+  // Get disconnected integrations query
+  const { data: disconnectedIntegrations, refetch: refetchDisconnected } = useQuery({
+    queryKey: ['/api/auth/google/calendar/disconnected'],
+    queryFn: async () => {
+      const response = await fetch('/api/auth/google/calendar/disconnected', {
+        credentials: 'include'
+      });
+      const data = await response.json();
+      return data.integrations || [];
+    },
+  });
+
+  // Purge calendar events mutation
+  const purgeEventsMutation = useMutation({
+    mutationFn: async (integrationId: string) => {
+      const response = await apiRequest('POST', '/api/auth/google/calendar/purge', { integrationId });
+      return response.json();
+    },
+    onSuccess: (data) => {
+      toast({ 
+        title: 'Events purged successfully',
+        description: `${data.purgedCount || 0} events have been permanently deleted`
+      });
+      setShowPurgeModal(false);
+      setSelectedIntegrationToPurge(null);
+      refetchDisconnected();
+      refetchCalendarStatus();
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Failed to purge events',
+        description: error.message,
+        variant: 'destructive'
+      });
+    },
+  });
+
+  // Export calendar events function
+  const handleExportEvents = (integrationId: string) => {
+    window.location.href = `/api/auth/google/calendar/export/${integrationId}`;
+    toast({ 
+      title: 'Exporting calendar events',
+      description: 'Your download should begin shortly'
+    });
+  };
 
   const handleSaveSettings = async (section: string) => {
     setIsLoading(true);
@@ -647,6 +704,101 @@ export default function Settings() {
 
           {/* Calendar Settings */}
           <TabsContent value="calendar" className="space-y-6">
+            {/* Disconnected Calendar Banner */}
+            {disconnectedIntegrations && disconnectedIntegrations.length > 0 && (
+              <Alert className="border-orange-200 bg-orange-50 dark:bg-orange-950/20 dark:border-orange-900">
+                <Info className="h-4 w-4 text-orange-600 dark:text-orange-400" />
+                <AlertDescription className="space-y-3">
+                  <div>
+                    <p className="font-medium text-orange-900 dark:text-orange-100">
+                      Disconnected Calendar Events
+                    </p>
+                    <p className="text-sm text-orange-700 dark:text-orange-300 mt-1">
+                      You have {disconnectedIntegrations.length} disconnected Google Calendar integration{disconnectedIntegrations.length > 1 ? 's' : ''} with read-only events.
+                      Reconnect to resume syncing, export your data, or permanently remove these events.
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {disconnectedIntegrations.map((integration: any) => (
+                      <div key={integration.id} className="flex gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            const returnTo = window.location.pathname;
+                            const origin = window.location.origin;
+                            const w = 500, h = 650;
+                            const left = Math.round((screen.width / 2) - (w / 2));
+                            const top = Math.round((screen.height / 2) - (h / 2));
+                            const features = `popup,width=${w},height=${h},left=${left},top=${top}`;
+                            
+                            const popup = window.open(
+                              `/auth/google/calendar?popup=1&returnTo=${encodeURIComponent(returnTo)}&origin=${encodeURIComponent(origin)}`,
+                              'calendar-oauth',
+                              features
+                            );
+                            
+                            if (!popup) {
+                              window.location.href = `/auth/google/calendar?returnTo=${encodeURIComponent(returnTo)}&origin=${encodeURIComponent(origin)}`;
+                              return;
+                            }
+                            
+                            const handleMessage = (event: MessageEvent) => {
+                              if (event.origin !== window.location.origin) return;
+                              
+                              if (event.data.type === 'oauth:connected' && event.data.provider === 'google' && event.data.serviceType === 'calendar') {
+                                window.removeEventListener('message', handleMessage);
+                                if (popup && !popup.closed) popup.close();
+                                refetchCalendarStatus();
+                                refetchDisconnected();
+                                toast({ title: 'Google Calendar reconnected successfully' });
+                              } else if (event.data.type === 'oauth:error') {
+                                window.removeEventListener('message', handleMessage);
+                                if (popup && !popup.closed) popup.close();
+                                toast({
+                                  title: 'Failed to reconnect Google Calendar',
+                                  description: event.data.error || 'An error occurred',
+                                  variant: 'destructive'
+                                });
+                              }
+                            };
+                            
+                            window.addEventListener('message', handleMessage);
+                          }}
+                          data-testid={`button-reconnect-${integration.id}`}
+                        >
+                          <RefreshCw className="h-3 w-3 mr-1" />
+                          Reconnect
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleExportEvents(integration.id)}
+                          data-testid={`button-export-${integration.id}`}
+                        >
+                          <Download className="h-3 w-3 mr-1" />
+                          Export (.ics)
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950"
+                          onClick={() => {
+                            setSelectedIntegrationToPurge(integration);
+                            setShowPurgeModal(true);
+                          }}
+                          data-testid={`button-purge-${integration.id}`}
+                        >
+                          <Trash2 className="h-3 w-3 mr-1" />
+                          Purge Events
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </AlertDescription>
+              </Alert>
+            )}
+            
             <Card data-testid="calendar-settings-card">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -1003,6 +1155,78 @@ export default function Settings() {
           </div>
         </div>
       )}
+
+      {/* Purge Confirmation Modal */}
+      <Dialog open={showPurgeModal} onOpenChange={setShowPurgeModal}>
+        <DialogContent data-testid="purge-confirmation-modal">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-red-600">
+              <AlertTriangle className="h-5 w-5" />
+              Permanently Delete Calendar Events?
+            </DialogTitle>
+            <DialogDescription className="space-y-2">
+              <p>
+                This will permanently delete all Google Calendar events from the disconnected integration. 
+                This action cannot be undone.
+              </p>
+              {selectedIntegrationToPurge && (
+                <p className="text-sm font-medium">
+                  Integration: {selectedIntegrationToPurge.email || 'Unknown'}
+                </p>
+              )}
+              <div className="p-3 bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900 rounded-md mt-3">
+                <p className="text-sm text-blue-900 dark:text-blue-100 flex items-center gap-2">
+                  <Info className="h-4 w-4" />
+                  Want to keep a backup? Export your events first using the "Export (.ics)" button.
+                </p>
+              </div>
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowPurgeModal(false);
+                setSelectedIntegrationToPurge(null);
+              }}
+              data-testid="button-cancel-purge"
+            >
+              Cancel
+            </Button>
+            {selectedIntegrationToPurge && (
+              <Button
+                variant="outline"
+                onClick={() => {
+                  handleExportEvents(selectedIntegrationToPurge.id);
+                  setShowPurgeModal(false);
+                  setSelectedIntegrationToPurge(null);
+                }}
+                data-testid="button-export-before-purge"
+              >
+                <Download className="h-4 w-4 mr-2" />
+                Export First
+              </Button>
+            )}
+            <Button
+              variant="destructive"
+              onClick={() => {
+                if (selectedIntegrationToPurge) {
+                  purgeEventsMutation.mutate(selectedIntegrationToPurge.id);
+                }
+              }}
+              disabled={purgeEventsMutation.isPending}
+              data-testid="button-confirm-purge"
+            >
+              {purgeEventsMutation.isPending ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Trash2 className="h-4 w-4 mr-2" />
+              )}
+              {purgeEventsMutation.isPending ? 'Purging...' : 'Purge Events'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

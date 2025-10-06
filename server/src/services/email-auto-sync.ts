@@ -165,7 +165,7 @@ export class EmailAutoSyncService {
                 for (const account of userAccounts) {
                   await db
                     .update(emailAccountsTable)
-                    .set({ lastSyncAt: new Date() })
+                    .set({ lastSyncedAt: new Date() })
                     .where(eq(emailAccountsTable.id, account.id));
                 }
                 

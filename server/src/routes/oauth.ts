@@ -463,18 +463,13 @@ router.post('/auth/google/gmail/start', requireAuth, async (req: any, res) => {
       });
     }
     
-    // Save popup flag to session so callback knows how to respond
-    if (popup) {
-      req.session.oauth_popup = true;
-      console.log('💾 Saved popup=true to session for OAuth callback');
-    }
-    
     // Note: State is created and signed by googleOAuthService.generateAuthUrl()
     // No need to create state here - the service handles it
     
     // Generate OAuth URL with Gmail-specific scopes and signed state
     // The service will create PKCE challenge/verifier and save to session
-    const authUrl = googleOAuthService.generateAuthUrl(email, userId, req.tenantId, req.session, 'gmail', returnTo);
+    // Pass popup flag so it's encoded in the state and available in the callback
+    const authUrl = googleOAuthService.generateAuthUrl(email, userId, req.tenantId, req.session, 'gmail', returnTo, popup);
     
     console.log('🔐 SECURITY: POST /auth/google/gmail/start using Gmail-specific scopes');
     
@@ -513,18 +508,13 @@ router.post('/auth/google/calendar/start', requireAuth, async (req: any, res) =>
       });
     }
     
-    // Save popup flag to session so callback knows how to respond
-    if (popup) {
-      req.session.oauth_popup = true;
-      console.log('💾 Saved popup=true to session for OAuth callback');
-    }
-    
     // Note: State is created and signed by googleOAuthService.generateAuthUrl()
     // No need to create state here - the service handles it
     
     // Generate OAuth URL with Calendar-specific scopes and signed state
     // The service will create PKCE challenge/verifier and save to session
-    const authUrl = googleOAuthService.generateAuthUrl(email, userId, req.tenantId, req.session, 'calendar', returnTo);
+    // Pass popup flag so it's encoded in the state and available in the callback
+    const authUrl = googleOAuthService.generateAuthUrl(email, userId, req.tenantId, req.session, 'calendar', returnTo, popup);
     
     console.log('🔐 SECURITY: POST /auth/google/calendar/start using Calendar-specific scopes');
     
@@ -638,20 +628,13 @@ async function googleCallbackHandler(req: any, res: any) {
       return res.status(400).send('Invalid state');
     }
     
-    const { tenantId, userId, returnTo, serviceType } = parsed;
-    
-    // Get popup flag from session (saved during OAuth initiation)
-    const popup = Boolean(req.session.oauth_popup);
+    const { tenantId, userId, returnTo, serviceType, popup } = parsed;
     
     console.log('🔐 Google OAuth callback - Popup:', { 
-      popupFromSession: popup,
-      sessionData: req.session.oauth_popup,
+      popupFromState: popup,
       parsed: JSON.stringify(parsed),
       serviceType
     });
-    
-    // Clear popup flag from session after reading it
-    delete req.session.oauth_popup;
     
     if (!userId || !tenantId) {
       return res.status(401).send('Authentication required');

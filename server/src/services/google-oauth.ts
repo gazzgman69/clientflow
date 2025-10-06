@@ -13,6 +13,7 @@ interface OAuthState {
   provider: string;
   serviceType: 'gmail' | 'calendar' | 'all';
   returnTo?: string;
+  popup?: boolean;
   timestamp: number;
 }
 
@@ -170,6 +171,7 @@ export class GoogleOAuthService {
    * @param session Express session to store PKCE verifier
    * @param serviceType Service type: 'gmail', 'calendar', or 'all' (default: 'all' for backward compatibility)
    * @param returnTo Optional return URL after OAuth completion
+   * @param popup Whether this is a popup OAuth flow
    */
   generateAuthUrl(
     email: string, 
@@ -177,7 +179,8 @@ export class GoogleOAuthService {
     tenantId: string,
     session?: any, 
     serviceType: 'gmail' | 'calendar' | 'all' = 'all',
-    returnTo?: string
+    returnTo?: string,
+    popup?: boolean
   ): string {
     // Create signed state with tenant context
     const oauthState: OAuthState = {
@@ -186,6 +189,7 @@ export class GoogleOAuthService {
       provider: 'google',
       serviceType,
       returnTo,
+      popup,
       timestamp: Date.now()
     };
     

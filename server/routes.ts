@@ -4886,7 +4886,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
       // Add createdBy from authenticated user session before validation
       const requestWithCreatedBy = {
         ...req.body,
-        createdBy: req.userId // From ensureUserAuth middleware
+        createdBy: req.authenticatedUserId // From ensureUserAuth middleware
       };
       
       // Validate the complete event data

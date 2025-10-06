@@ -699,39 +699,6 @@ router.post('/:slug/submit', formSubmissionLimiter, async (req, res) => {
       timestamp: new Date().toISOString()
     });
 
-    // Auto-create calendar event if lead has a projectDate and project
-    if (lead.projectDate && lead.projectId) {
-      try {
-        const eventStart = new Date(lead.projectDate);
-        const eventEnd = new Date(eventStart);
-        eventEnd.setHours(eventEnd.getHours() + 1); // Default 1-hour duration
-        
-        // Create event with 17hats-style title: "New Lead Project • [Name]"
-        const leadName = lead.fullName || lead.email || 'Unknown';
-        const eventTitle = `New Lead Project • ${leadName}`;
-        
-        await storage.createEvent({
-          title: eventTitle,
-          description: lead.notes || undefined,
-          startDate: eventStart,
-          endDate: eventEnd,
-          location: lead.eventLocation || undefined,
-          attendees: lead.email ? [lead.email] : undefined,
-          userId,
-          leadId: lead.id,
-          projectId: lead.projectId, // Link to project so it updates with project changes
-          type: 'lead',
-          status: 'tentative',
-          allDay: false,
-          tenantId: form.tenantId
-        });
-        
-        console.log(`📅 Auto-created calendar event for lead ${lead.id} linked to project ${lead.projectId}: "${eventTitle}"`);
-      } catch (calError) {
-        console.error('Failed to auto-create calendar event for lead:', calError);
-        // Don't fail the lead creation if calendar event fails
-      }
-    }
 
     // SECURITY: Store consent information for GDPR compliance - Use tenant-scoped storage
     if (form.consentRequired && consentGiven) {
@@ -996,7 +963,7 @@ router.post('/:slug/submit', formSubmissionLimiter, async (req, res) => {
     });
 
     // Update lead to link it to the created contact and project using TENANT-SCOPED storage
-    await tenantStorage.updateLead(lead.id, { 
+    const updatedLead = await tenantStorage.updateLead(lead.id, { 
       projectId: project.id,
       notes: `Auto-linked to Contact: ${contact.id} and Project: ${project.id} on ${new Date().toLocaleDateString('en-GB')}`
     });
@@ -1009,6 +976,41 @@ router.post('/:slug/submit', formSubmissionLimiter, async (req, res) => {
       slug,
       timestamp: new Date().toISOString()
     });
+
+    // Auto-create calendar event if lead has a projectDate (now that we have projectId)
+    if (updatedLead && updatedLead.projectDate) {
+      try {
+        const eventStart = new Date(updatedLead.projectDate);
+        const eventEnd = new Date(eventStart);
+        eventEnd.setHours(eventEnd.getHours() + 1); // Default 1-hour duration
+        
+        // Create event with 17hats-style title: "New Lead Project • [Name]"
+        const leadName = updatedLead.fullName || updatedLead.email || 'Unknown';
+        const eventTitle = `New Lead Project • ${leadName}`;
+        
+        await storage.createEvent({
+          title: eventTitle,
+          description: updatedLead.notes || undefined,
+          startDate: eventStart,
+          endDate: eventEnd,
+          location: updatedLead.eventLocation || undefined,
+          attendees: updatedLead.email ? [updatedLead.email] : undefined,
+          userId,
+          leadId: updatedLead.id,
+          projectId: project.id, // Link to project so it updates with project changes
+          type: 'lead',
+          status: 'tentative',
+          allDay: false,
+          tenantId: form.tenantId,
+          createdBy: userId || form.createdBy
+        });
+        
+        console.log(`📅 Auto-created calendar event for lead ${updatedLead.id} linked to project ${project.id}: "${eventTitle}"`);
+      } catch (calError) {
+        console.error('Failed to auto-create calendar event for lead:', calError);
+        // Don't fail the lead creation if calendar event fails
+      }
+    }
 
     // SECURITY: Record successful submission for idempotency tracking - Use tenant-scoped storage
     try {

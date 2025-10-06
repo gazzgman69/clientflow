@@ -96,9 +96,10 @@ export default function CalendarView({ viewMode = 'month' }: CalendarViewProps) 
     enabled: !!currentUser,
   });
 
-  const { data: clients } = useQuery<any[]>({
+  const { data: clientsData } = useQuery<{ contacts: any[] }>({
     queryKey: ['/api/clients'],
   });
+  const clients = clientsData?.contacts || [];
 
   const { data: leads } = useQuery<Lead[]>({
     queryKey: ['/api/leads'],

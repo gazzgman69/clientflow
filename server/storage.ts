@@ -49,6 +49,8 @@ import {
   type LeadCustomField, type InsertLeadCustomField,
   type LeadCustomFieldResponse, type InsertLeadCustomFieldResponse,
   type AdminAuditLog, type InsertAdminAuditLog,
+  // Audit logs
+  type AuditLog, type InsertAuditLog,
   // Form submission and consent types
   type FormSubmission, type InsertFormSubmission,
   type LeadConsent, type InsertLeadConsent,
@@ -66,6 +68,8 @@ import {
   leadCustomFields, leadCustomFieldResponses,
   // Admin Audit Logs table
   adminAuditLogs,
+  // Audit Logs table
+  auditLogs,
   // Security and compliance tables
   formSubmissions, leadConsents, autoResponderLogs
 } from "@shared/schema";
@@ -466,6 +470,15 @@ export interface IStorage {
 
   // Tenant management
   getAllTenants(): Promise<import('@shared/schema').Tenant[]>;
+
+  // Calendar Disconnect Flow
+  markEventsAsReadonly(integrationId: string, tenantId: string, userId: string): Promise<number>;
+  purgeGoogleEvents(integrationId: string, tenantId: string, userId: string): Promise<number>;
+  getDisconnectedIntegrations(tenantId: string, userId: string): Promise<CalendarIntegration[]>;
+  
+  // Audit Logs
+  createAuditLog(auditLog: InsertAuditLog, tenantId: string): Promise<AuditLog>;
+  getAuditLogs(tenantId: string, userId?: string, action?: string): Promise<AuditLog[]>;
 
   // Tenant-scoped storage wrapper
   withTenant(tenantId: string): TenantScopedStorage;
@@ -5828,6 +5841,93 @@ export class DrizzleStorage implements IStorage {
       console.error('Error decrypting email account secrets:', error);
       return null;
     }
+  }
+
+  // Calendar Disconnect Flow
+  async markEventsAsReadonly(integrationId: string, tenantId: string, userId: string): Promise<number> {
+    const result = await this.db
+      .update(events)
+      .set({
+        isReadonly: true,
+        syncState: 'disconnected',
+        updatedAt: new Date()
+      })
+      .where(and(
+        eq(events.tenantId, tenantId),
+        eq(events.calendarIntegrationId, integrationId),
+        eq(events.source, 'google')
+      ))
+      .returning({ id: events.id });
+    
+    console.log(`📅 Marked ${result.length} Google events as read-only for integration ${integrationId}`);
+    return result.length;
+  }
+
+  async purgeGoogleEvents(integrationId: string, tenantId: string, userId: string): Promise<number> {
+    const result = await this.db
+      .delete(events)
+      .where(and(
+        eq(events.tenantId, tenantId),
+        eq(events.calendarIntegrationId, integrationId),
+        eq(events.source, 'google')
+      ))
+      .returning({ id: events.id });
+    
+    console.log(`🗑️ Purged ${result.length} Google events for integration ${integrationId}`);
+    return result.length;
+  }
+
+  async getDisconnectedIntegrations(tenantId: string, userId: string): Promise<CalendarIntegration[]> {
+    const integrations = await this.db
+      .select()
+      .from(calendarIntegrations)
+      .where(and(
+        eq(calendarIntegrations.tenantId, tenantId),
+        eq(calendarIntegrations.userId, userId),
+        eq(calendarIntegrations.isActive, false),
+        isNotNull(calendarIntegrations.disconnectedAt)
+      ))
+      .orderBy(desc(calendarIntegrations.disconnectedAt));
+    
+    // Decrypt tokens for use
+    return integrations.map(integration => ({
+      ...integration,
+      accessToken: integration.accessToken ? this.safeDecrypt(integration.accessToken) : null,
+      refreshToken: integration.refreshToken ? this.safeDecrypt(integration.refreshToken) : null,
+    }));
+  }
+
+  // Audit Logs
+  async createAuditLog(auditLog: InsertAuditLog, tenantId: string): Promise<AuditLog> {
+    const result = await this.db
+      .insert(auditLogs)
+      .values({
+        ...auditLog,
+        tenantId,
+        timestamp: new Date()
+      })
+      .returning();
+    
+    console.log(`📝 Audit log created: ${auditLog.action} for user ${auditLog.userId}`);
+    return result[0];
+  }
+
+  async getAuditLogs(tenantId: string, userId?: string, action?: string): Promise<AuditLog[]> {
+    const conditions = [eq(auditLogs.tenantId, tenantId)];
+    
+    if (userId) {
+      conditions.push(eq(auditLogs.userId, userId));
+    }
+    
+    if (action) {
+      conditions.push(eq(auditLogs.action, action));
+    }
+    
+    return await this.db
+      .select()
+      .from(auditLogs)
+      .where(and(...conditions))
+      .orderBy(desc(auditLogs.timestamp));
   }
 
   // Tenant-scoped storage wrapper

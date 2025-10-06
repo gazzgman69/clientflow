@@ -354,6 +354,26 @@ export class EmailSyncService {
       }
 
       console.log(`✅ Gmail sync complete: ${synced} synced, ${skipped} skipped${errors.length > 0 ? `, ${errors.length} errors` : ''}`);
+      
+      // Update last_synced_at timestamp in email_accounts table
+      try {
+        const { emailAccounts } = await import('../../shared/schema');
+        await db
+          .update(emailAccounts)
+          .set({ lastSyncedAt: new Date() })
+          .where(
+            and(
+              eq(emailAccounts.userId, userId),
+              eq(emailAccounts.providerKey, 'google'),
+              eq(emailAccounts.tenantId, this.tenantId || 'default-tenant')
+            )
+          );
+        console.log('✅ Updated last_synced_at timestamp for Gmail account');
+      } catch (updateError) {
+        console.error('⚠️ Failed to update last_synced_at timestamp:', updateError);
+        // Don't fail the sync if timestamp update fails
+      }
+      
       return { synced, skipped, errors };
     } catch (error: any) {
       console.error('❌ Gmail sync failed:', error);

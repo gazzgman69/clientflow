@@ -340,7 +340,7 @@ export class PostgreSQLJobQueue implements IJobQueue {
       .where(
         and(
           eq(jobs.status, 'pending'),
-          ne(jobs.tenantId, null), // SECURITY: Only process jobs with valid tenant
+          isNotNull(jobs.tenantId), // SECURITY: Only process jobs with valid tenant
           or(
             eq(jobs.nextRunAt, null),
             lt(jobs.nextRunAt, new Date())

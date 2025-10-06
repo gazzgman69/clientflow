@@ -126,15 +126,17 @@ class JobsService {
    * Initialize the jobs service
    */
   async initialize(): Promise<void> {
-    console.log('📋 Initializing jobs service...');
+    console.log('📋 INIT STEP 1: Initializing jobs service...');
     
     // Register built-in job handlers
+    console.log('📋 INIT STEP 2: Registering built-in handlers...');
     this.registerBuiltInHandlers();
     
     // Start the job queue
+    console.log('📋 INIT STEP 3: Starting job queue...');
     await jobQueue.start();
     
-    console.log('✅ Jobs service initialized successfully');
+    console.log('✅ INIT COMPLETE: Jobs service initialized successfully');
   }
 
   /**

@@ -114,7 +114,7 @@ export class EmailAutoSyncService {
           console.log(`🔄 Processing email sync for tenant: ${tenant.name} (${tenant.id})`);
           
           // Get Gmail OAuth connections from email_accounts for this tenant only
-          const { emailAccounts: emailAccountsTable } = await import('../../shared/schema');
+          const { emailAccounts: emailAccountsTable } = await import('@shared/schema');
           const gmailAccounts = await db
             .select()
             .from(emailAccountsTable)
@@ -161,7 +161,7 @@ export class EmailAutoSyncService {
                 
                 // Update last sync time for email accounts
                 const userAccounts = gmailAccounts.filter(account => account.userId === userId);
-                const { emailAccounts: emailAccountsTable } = await import('../../shared/schema');
+                const { emailAccounts: emailAccountsTable } = await import('@shared/schema');
                 for (const account of userAccounts) {
                   await db
                     .update(emailAccountsTable)

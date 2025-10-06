@@ -354,9 +354,10 @@ app.use('/auth', (req, res, next) => {
 
     // Initialize jobs service for background task management
     try {
-      console.log('📋 Initializing centralized job processing system...');
+      console.log('📋 Initializing job queue service...');
       const { jobs } = await import('./src/services/jobsService');
       await jobs.initialize();
+      console.log('📋 Job queue service initialized successfully');
       
       // Schedule recurring background jobs using the job queue
       console.log('📅 Scheduling recurring background jobs...');

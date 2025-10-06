@@ -459,35 +459,30 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
       // Auto-create calendar event if lead has a projectDate
       if (lead.projectDate) {
         try {
-          // Initialize calendar pipeline if not already done
-          await storage.initializeCalendarPipeline(req.tenantId);
+          const eventStart = new Date(lead.projectDate);
+          const eventEnd = new Date(eventStart);
+          eventEnd.setHours(eventEnd.getHours() + 1); // Default 1-hour duration
           
-          // Get the Leads calendar
-          const calendars = await storage.getCalendars(req.tenantId);
-          const leadsCalendar = calendars.find(c => c.type === 'leads');
+          // Create event with 17hats-style title: "New Lead Project • [Name]"
+          const leadName = lead.fullName || lead.email || 'Unknown';
+          const eventTitle = `New Lead Project • ${leadName}`;
           
-          if (leadsCalendar) {
-            // Create event on Leads calendar
-            const eventStart = new Date(lead.projectDate);
-            const eventEnd = new Date(eventStart);
-            eventEnd.setHours(eventEnd.getHours() + 1); // Default 1-hour duration
-            
-            await storage.createEvent({
-              title: lead.fullName || 'New Lead',
-              description: lead.notes || undefined,
-              startTime: eventStart,
-              endTime: eventEnd,
-              location: undefined,
-              attendees: lead.email ? [lead.email] : undefined,
-              userId: req.userId,
-              calendarId: leadsCalendar.id,
-              timezone: 'UTC', // Default timezone
-              status: 'tentative',
-              history: []
-            }, req.tenantId);
-            
-            console.log(`📅 Auto-created calendar event for lead ${lead.id} on Leads calendar`);
-          }
+          await storage.createEvent({
+            title: eventTitle,
+            description: lead.notes || undefined,
+            startTime: eventStart,
+            endTime: eventEnd,
+            location: lead.eventLocation || undefined,
+            attendees: lead.email ? [lead.email] : undefined,
+            userId: req.userId,
+            leadId: lead.id,
+            type: 'lead',
+            status: 'tentative',
+            allDay: false,
+            tenantId: req.tenantId
+          });
+          
+          console.log(`📅 Auto-created calendar event for lead ${lead.id}: "${eventTitle}"`);
         } catch (calError) {
           console.error('Failed to auto-create calendar event for lead:', calError);
           // Don't fail the lead creation if calendar event fails

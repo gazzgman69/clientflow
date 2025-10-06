@@ -4881,12 +4881,17 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
 
-  app.post("/api/events", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
+  app.post("/api/events", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req: any, res) => {
     try {
-      console.log('📅 Event creation request body:', JSON.stringify(req.body, null, 2));
       const validatedData = insertEventSchema.parse(req.body);
-      console.log('✅ Validated event data:', JSON.stringify(validatedData, null, 2));
-      const event = await storage.createEvent(validatedData, req.tenantId);
+      
+      // Set createdBy from authenticated user session
+      const eventData = {
+        ...validatedData,
+        createdBy: req.userId // From ensureUserAuth middleware
+      };
+      
+      const event = await storage.createEvent(eventData, req.tenantId);
       
       // Auto-sync to Google Calendar if user has an active integration
       try {

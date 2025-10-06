@@ -130,7 +130,7 @@ export default function CalendarView({ viewMode = 'month' }: CalendarViewProps) 
       const eventData = {
         ...data,
         attendees: data.attendees ? data.attendees.split(',').map(email => email.trim()).filter(Boolean) : null,
-        createdBy: currentUser?.id || '',
+        // createdBy is set by the backend from the authenticated user session
       };
       const response = await apiRequest('POST', '/api/events', eventData);
       if (!response.ok) {

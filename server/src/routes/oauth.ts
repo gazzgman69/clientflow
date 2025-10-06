@@ -460,7 +460,15 @@ router.post('/auth/google/start', requireAuth, async (req: any, res) => {
 /**
  * Start Gmail OAuth flow - Generate auth URL for Gmail-specific scopes
  */
-router.post('/auth/google/gmail/start', requireAuth, async (req: any, res) => {
+router.post('/auth/google/gmail/start', (req, res, next) => {
+  console.log('🎯 PRE-MIDDLEWARE: /auth/google/gmail/start', {
+    hasSession: !!req.session,
+    sessionKeys: req.session ? Object.keys(req.session) : [],
+    userId: req.session?.userId,
+    tenantId: req.session?.tenantId
+  });
+  next();
+}, requireAuth, async (req: any, res) => {
   console.log('🎯 ROUTE HIT: /auth/google/gmail/start');
   try {
     const { email, popup, origin, returnTo } = req.body;

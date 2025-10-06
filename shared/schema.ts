@@ -95,8 +95,9 @@ export const projects = pgTable("projects", {
   description: text("description"),
   contactId: varchar("contact_id").notNull(), // Note: Removed .references(() => contacts.id) to break circular FK dependency
   venueId: varchar("venue_id"), // Note: Removed .references(() => venues.id) to break circular FK dependency
-  status: text("status").notNull().default('active'), // active, completed, on-hold, cancelled
+  status: text("status").notNull().default('lead'), // lead, booked, completed, cancelled - calendar pipeline states
   progress: integer("progress").default(0), // 0-100
+  primaryEventId: varchar("primary_event_id"), // Link to the primary calendar event for this project
   startDate: timestamp("start_date"),
   endDate: timestamp("end_date"),
   estimatedValue: decimal("estimated_value", { precision: 10, scale: 2 }),
@@ -611,10 +612,27 @@ export const auditLogs = pgTable("audit_logs", {
   timestampIdx: index("audit_logs_timestamp_idx").on(table.timestamp),
 }));
 
+// System Calendars (Leads, Booked, Completed)
+export const calendars = pgTable("calendars", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").references(() => tenants.id).notNull(),
+  name: text("name").notNull(), // "Leads", "Booked", "Completed", or custom
+  color: text("color").notNull().default('#3b82f6'), // Hex color for calendar display
+  type: text("type").notNull(), // 'leads', 'booked', 'completed', 'custom'
+  isSystem: boolean("is_system").default(false), // true for auto-created system calendars
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  tenantIdIdx: index("calendars_tenant_id_idx").on(table.tenantId),
+  tenantTypeIdx: index("calendars_tenant_type_idx").on(table.tenantId, table.type),
+}));
+
 // Events/Calendar System
 export const events = pgTable("events", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   tenantId: varchar("tenant_id").references(() => tenants.id).notNull(),
+  calendarId: varchar("calendar_id").references(() => calendars.id), // Link to system calendar (Leads/Booked/Completed)
   title: text("title").notNull(),
   description: text("description"),
   location: text("location"),
@@ -642,10 +660,13 @@ export const events = pgTable("events", {
   reminderMinutes: integer("reminder_minutes").default(15), // Minutes before event to send reminder
   attendees: text("attendees").array(), // Email addresses of attendees
   isOrphaned: boolean("is_orphaned").default(false), // Flag for events with tenant_id=NULL (quarantine)
+  timezone: text("timezone").default('UTC'), // Timezone for the event (e.g., 'Europe/London', 'America/New_York')
+  history: text("history"), // JSON array of change history [{ timestamp, action, userId, changes }]
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => ({
   tenantIdIdx: index("events_tenant_id_idx").on(table.tenantId),
+  calendarIdIdx: index("events_calendar_id_idx").on(table.calendarId),
   sourceStateIdx: index("events_source_state_idx").on(table.source, table.syncState),
   externalEventIdx: index("events_external_event_idx").on(table.externalEventId),
 }));
@@ -972,6 +993,7 @@ export const insertEventSchema = createInsertSchema(events).omit({ id: true, ten
     return [];
   })
 });
+export const insertCalendarSchema = createInsertSchema(calendars).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertCalendarIntegrationSchema = createInsertSchema(calendarIntegrations).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertCalendarSyncLogSchema = createInsertSchema(calendarSyncLog).omit({ id: true, startedAt: true });
 export const insertAuditLogSchema = createInsertSchema(auditLogs).omit({ id: true, timestamp: true });
@@ -1082,6 +1104,8 @@ export type MessageTemplate = typeof messageTemplates.$inferSelect;
 export type InsertMessageTemplate = z.infer<typeof insertMessageTemplateSchema>;
 export type MessageThread = typeof messageThreads.$inferSelect;
 export type InsertMessageThread = z.infer<typeof insertMessageThreadSchema>;
+export type Calendar = typeof calendars.$inferSelect;
+export type InsertCalendar = z.infer<typeof insertCalendarSchema>;
 export type Event = typeof events.$inferSelect;
 export type InsertEvent = z.infer<typeof insertEventSchema>;
 export type CalendarIntegration = typeof calendarIntegrations.$inferSelect;

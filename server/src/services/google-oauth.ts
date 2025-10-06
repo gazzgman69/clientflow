@@ -323,12 +323,12 @@ export class GoogleOAuthService {
         await storage.updateCalendarIntegration(integration.id, {
           refreshToken: secureStore.encrypt(tokens.refresh_token),
           accessToken: secureStore.encrypt(tokens.access_token!)
-        });
+        }, integration.tenantId);
         console.log('🔐 SECURITY: Refresh and access tokens encrypted and updated');
       } else if (tokens.access_token) {
         await storage.updateCalendarIntegration(integration.id, {
           accessToken: secureStore.encrypt(tokens.access_token)
-        });
+        }, integration.tenantId);
         console.log('🔐 SECURITY: Access token encrypted and updated');
       }
     });
@@ -343,8 +343,8 @@ export class GoogleOAuthService {
     try {
       console.log('Starting CRM → Google Calendar sync...');
       
-      // Get all CRM events for this user
-      const crmEvents = await storage.getEventsByUser(integration.userId);
+      // Get all CRM events for this user (tenant-scoped)
+      const crmEvents = await storage.getEventsByUser(integration.userId, integration.tenantId);
       console.log(`Found ${crmEvents.length} CRM events to potentially sync`);
       
       let syncedCount = 0;
@@ -363,7 +363,7 @@ export class GoogleOAuthService {
             // Check if event is cancelled/deleted (Google marks as status: 'cancelled')
             if (googleEvent.data.status === 'cancelled') {
               console.log(`🗑️ Event "${event.title}" was cancelled in Google Calendar, deleting from CRM...`);
-              await storage.deleteEvent(event.id);
+              await storage.deleteEvent(event.id, integration.tenantId);
               skippedCount++;
               continue;
             } else {
@@ -376,7 +376,7 @@ export class GoogleOAuthService {
             if (error.code === 404 || error.status === 404) {
               // Event doesn't exist in Google Calendar anymore, delete from CRM
               console.log(`🗑️ Event "${event.title}" missing from Google Calendar, deleting from CRM...`);
-              await storage.deleteEvent(event.id);
+              await storage.deleteEvent(event.id, integration.tenantId);
               skippedCount++;
               continue;
             } else {
@@ -519,7 +519,7 @@ export class GoogleOAuthService {
       await storage.updateCalendarIntegration(integration.id, {
         lastSyncAt: new Date(),
         syncToken: response.data.nextSyncToken || null
-      });
+      }, integration.tenantId);
       
       return { success: true, syncedCount: events.length };
     } catch (error: any) {
@@ -536,7 +536,7 @@ export class GoogleOAuthService {
         // Clear the expired sync token and retry with full sync
         await storage.updateCalendarIntegration(integration.id, {
           syncToken: null
-        });
+        }, integration.tenantId);
         
         // Retry sync without sync token (full sync)
         console.log('🔄 Retrying Google → CRM sync with full sync...');
@@ -557,7 +557,7 @@ export class GoogleOAuthService {
             type: 'auto-sync',
             requiresReconnection: true
           })
-        });
+        }, integration.tenantId);
       } else {
         await storage.updateCalendarIntegration(integration.id, {
           syncErrors: JSON.stringify({
@@ -565,7 +565,7 @@ export class GoogleOAuthService {
             timestamp: new Date().toISOString(),
             type: 'auto-sync'
           })
-        });
+        }, integration.tenantId);
       }
       
       throw error;
@@ -629,11 +629,11 @@ export class GoogleOAuthService {
           requestBody: googleEvent
         });
         
-        // Store the Google event ID
+        // Store the Google event ID (tenant-scoped)
         await storage.updateEvent(eventId, {
           externalEventId: response.data.id!,
           providerData: JSON.stringify(response.data)
-        });
+        }, integration.tenantId);
       }
       
       return { success: true, googleEventId: response.data.id };
@@ -733,7 +733,7 @@ export class GoogleOAuthService {
       
       await storage.updateCalendarIntegration(integration.id, {
         webhookId: response.data.resourceId || null
-      });
+      }, integration.tenantId);
       
       return { success: true, webhookId: response.data.resourceId };
     } catch (error: any) {

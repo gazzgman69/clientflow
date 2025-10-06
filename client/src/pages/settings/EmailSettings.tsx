@@ -163,10 +163,10 @@ export default function EmailSettings() {
     queryKey: ['/api/settings/mail/current']
   });
 
-  // Fetch Gmail connection status
+  // Fetch Gmail connection status (refetch every 30s to catch sync updates)
   const { data: gmailStatusData, isLoading: gmailStatusLoading } = useQuery({
     queryKey: ['/api/auth/google/gmail/status'],
-    refetchInterval: false
+    refetchInterval: 30000
   });
 
   // Fetch Microsoft connection status

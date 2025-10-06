@@ -363,6 +363,11 @@ export default function EmailSettings() {
         queryClient.invalidateQueries({ queryKey: ['/api/auth/google/gmail/status'] });
         queryClient.invalidateQueries({ queryKey: ['/api/email/provider-catalog/active'] });
         setAlertMessage({ type: 'success', message: 'Gmail connected successfully!' });
+        
+        // Refetch after delay to catch the lastSyncAt timestamp update (sync runs in background)
+        setTimeout(() => {
+          queryClient.invalidateQueries({ queryKey: ['/api/auth/google/gmail/status'] });
+        }, 3000);
       }
       window.addEventListener('message', onMsg, { once: true });
     } catch (error: any) {
@@ -410,6 +415,11 @@ export default function EmailSettings() {
         queryClient.invalidateQueries({ queryKey: ['/api/auth/microsoft/status'] });
         queryClient.invalidateQueries({ queryKey: ['/api/email/provider-catalog/active'] });
         setAlertMessage({ type: 'success', message: 'Microsoft account connected successfully!' });
+        
+        // Refetch after delay to catch the lastSyncAt timestamp update (sync runs in background)
+        setTimeout(() => {
+          queryClient.invalidateQueries({ queryKey: ['/api/auth/microsoft/status'] });
+        }, 3000);
       }
       window.addEventListener('message', onMsg, { once: true });
     } catch (error: any) {

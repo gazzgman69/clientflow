@@ -443,24 +443,23 @@ router.post('/auth/google/gmail/start', requireAuth, async (req: any, res) => {
     const { email, popup, origin, returnTo } = req.body;
     const userId = req.authenticatedUserId;
     
-    if (!email) {
-      return res.status(400).json({ error: 'Email is required' });
-    }
-    
-    // Check if Gmail integration already exists for this email
-    const integrations = await storage.getCalendarIntegrationsByUser(userId, req.tenantId);
-    const existing = integrations.find(i => 
-      i.provider === 'google' && 
-      i.providerAccountId === email && 
-      (i.serviceType === 'gmail' || !i.serviceType) && // Handle existing records without serviceType
-      i.refreshToken
-    );
-    
-    if (existing) {
-      return res.json({ 
-        message: 'Gmail already connected',
-        integration: existing 
-      });
+    // Email is optional for OAuth - user authenticates through OAuth provider
+    // If email is provided and account exists, skip re-auth
+    if (email) {
+      const integrations = await storage.getCalendarIntegrationsByUser(userId, req.tenantId);
+      const existing = integrations.find(i => 
+        i.provider === 'google' && 
+        i.providerAccountId === email && 
+        (i.serviceType === 'gmail' || !i.serviceType) && // Handle existing records without serviceType
+        i.refreshToken
+      );
+      
+      if (existing) {
+        return res.json({ 
+          message: 'Gmail already connected',
+          integration: existing 
+        });
+      }
     }
     
     // Note: State is created and signed by googleOAuthService.generateAuthUrl()
@@ -521,6 +520,67 @@ router.post('/auth/google/calendar/start', requireAuth, async (req: any, res) =>
     res.json({ authUrl });
   } catch (error: any) {
     console.error('Error starting Calendar OAuth:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * Start Microsoft OAuth flow - Generate auth URL for popup-based authentication
+ */
+router.post('/auth/microsoft/start', requireAuth, async (req: any, res) => {
+  try {
+    const { email, popup, origin, returnTo } = req.body;
+    const userId = req.authenticatedUserId;
+    const provider = 'microsoft';
+    
+    // Email is optional for OAuth - user authenticates through OAuth provider
+    // If email is provided and account exists, skip re-auth
+    if (email) {
+      const emailAccounts = await storage.getEmailAccountsByUser(userId, req.tenantId);
+      const existing = emailAccounts.find(acc => 
+        acc.providerKey === 'microsoft' && 
+        acc.login === email
+      );
+      
+      if (existing) {
+        return res.json({ 
+          message: 'Microsoft account already connected',
+          account: existing 
+        });
+      }
+    }
+    
+    // Build state object with popup metadata
+    const stateObj = {
+      tenantId: req.tenantId,
+      userId,
+      popup: popup === true,
+      origin: origin || `${req.protocol}://${req.get('host')}`,
+      returnTo: returnTo || '/settings/email-and-calendar',
+      provider
+    };
+    
+    // Build Microsoft OAuth URL
+    const params = new URLSearchParams({
+      client_id: process.env.MICROSOFT_CLIENT_ID!,
+      response_type: 'code',
+      redirect_uri: process.env.MICROSOFT_REDIRECT_URI || `${req.protocol}://${req.get('host')}/api/auth/microsoft/callback`,
+      response_mode: 'query',
+      scope: [
+        'openid', 'email', 'profile', 'offline_access',
+        'Mail.Read', 'Mail.Send', 'Contacts.Read'
+      ].join(' '),
+      prompt: 'consent',
+      state: encodeState(stateObj)
+    });
+    
+    const authUrl = `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?${params.toString()}`;
+    
+    console.log('🔐 SECURITY: POST /auth/microsoft/start - popup:', popup, 'userId:', userId);
+    
+    res.json({ authUrl });
+  } catch (error: any) {
+    console.error('Error starting Microsoft OAuth:', error);
     res.status(500).json({ error: error.message });
   }
 });

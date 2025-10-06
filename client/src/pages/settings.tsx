@@ -65,7 +65,7 @@ export default function Settings() {
     },
   });
 
-  // Calendar auth status query
+  // Calendar auth status query (refetch every 30s to catch sync updates)
   const { data: calendarStatus, isLoading: calendarStatusLoading, refetch: refetchCalendarStatus } = useQuery({
     queryKey: ['/api/auth/google/calendar/status'],
     queryFn: async () => {
@@ -74,6 +74,7 @@ export default function Settings() {
       });
       return response.json();
     },
+    refetchInterval: 30000 // Poll every 30 seconds to show updated sync timestamp
   });
 
   // Scope check query - only run if calendar is connected

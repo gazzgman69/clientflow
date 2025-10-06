@@ -1,5 +1,5 @@
 import { db } from "../../db";
-import { emailThreads, emails, emailAttachments, contacts, projects, leads } from "@shared/schema";
+import { emailThreads, emails, emailAttachments, contacts, projects, leads, emailAccounts } from "@shared/schema";
 import { eq, and, or, desc, isNotNull, sql, not } from "drizzle-orm";
 import type { gmail_v1 } from "googleapis";
 import type { EmailThread, Email, InsertEmailThread, InsertEmail, InsertEmailAttachment } from "@shared/schema";
@@ -357,10 +357,6 @@ export class EmailSyncService {
       
       // Update last_synced_at timestamp in email_accounts table
       try {
-        const { db } = await import('../../db');
-        const { emailAccounts } = await import('@shared/schema');
-        const { eq, and } = await import('drizzle-orm');
-        
         await db
           .update(emailAccounts)
           .set({ lastSyncedAt: new Date() })

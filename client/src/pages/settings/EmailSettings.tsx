@@ -324,55 +324,103 @@ export default function EmailSettings() {
   };
   
   // Connect Google with popup and postMessage
-  const connectGoogleWithPopup = () => {
+  const connectGoogleWithPopup = async () => {
     // Close dialog immediately
     setShowConnectDialog(false);
     
-    const origin = window.location.origin;
-    const w = window.open(
-      `/api/auth/google/start?popup=1&origin=${encodeURIComponent(origin)}`,
-      'oauth-google',
-      'width=520,height=700,menubar=0,toolbar=0,status=0'
-    );
-
-    function onMsg(ev: MessageEvent) {
-      // In dev (Replit) origins can shift. Accept only our message type.
-      if (!ev?.data || ev.data.type !== 'oauth:connected' || ev.data.provider !== 'google') return;
-      window.removeEventListener('message', onMsg);
-      try { w?.close(); } catch {}
-      
-      // Refresh connected state (or refetch accounts)
-      queryClient.invalidateQueries({ queryKey: ['/api/auth/google/gmail/status'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/email/provider-catalog/active'] });
-      setAlertMessage({ type: 'success', message: 'Gmail connected successfully!' });
+    const email = emailSyncForm.login;
+    if (!email) {
+      setAlertMessage({ type: 'error', message: 'Please enter your email address' });
+      return;
     }
-    window.addEventListener('message', onMsg, { once: true });
+    
+    const origin = window.location.origin;
+    
+    // Get OAuth URL from backend
+    try {
+      const response = await apiRequest('POST', '/api/auth/google/gmail/start', {
+        email,
+        popup: true,
+        origin
+      });
+      
+      const data = await response.json();
+      if (!data.authUrl) {
+        throw new Error('No auth URL received');
+      }
+      
+      // Open popup with the OAuth URL
+      const w = window.open(
+        data.authUrl,
+        'oauth-google',
+        'width=520,height=700,menubar=0,toolbar=0,status=0'
+      );
+
+      function onMsg(ev: MessageEvent) {
+        // In dev (Replit) origins can shift. Accept only our message type.
+        if (!ev?.data || ev.data.type !== 'oauth:connected' || ev.data.provider !== 'google') return;
+        window.removeEventListener('message', onMsg);
+        try { w?.close(); } catch {}
+        
+        // Refresh connected state (or refetch accounts)
+        queryClient.invalidateQueries({ queryKey: ['/api/auth/google/gmail/status'] });
+        queryClient.invalidateQueries({ queryKey: ['/api/email/provider-catalog/active'] });
+        setAlertMessage({ type: 'success', message: 'Gmail connected successfully!' });
+      }
+      window.addEventListener('message', onMsg, { once: true });
+    } catch (error: any) {
+      setAlertMessage({ type: 'error', message: error.message || 'Failed to start OAuth' });
+    }
   };
 
   // Connect Microsoft with popup and postMessage
-  const connectMicrosoftWithPopup = () => {
+  const connectMicrosoftWithPopup = async () => {
     // Close dialog immediately
     setShowConnectDialog(false);
     
-    const origin = window.location.origin;
-    const w = window.open(
-      `/api/auth/microsoft/start?popup=1&origin=${encodeURIComponent(origin)}`,
-      'oauth-microsoft',
-      'width=520,height=700,menubar=0,toolbar=0,status=0'
-    );
-
-    function onMsg(ev: MessageEvent) {
-      // In dev (Replit) origins can shift. Accept only our message type.
-      if (!ev?.data || ev.data.type !== 'oauth:connected' || ev.data.provider !== 'microsoft') return;
-      window.removeEventListener('message', onMsg);
-      try { w?.close(); } catch {}
-      
-      // Refresh connected state (or refetch accounts)
-      queryClient.invalidateQueries({ queryKey: ['/api/auth/microsoft/status'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/email/provider-catalog/active'] });
-      setAlertMessage({ type: 'success', message: 'Microsoft account connected successfully!' });
+    const email = emailSyncForm.login;
+    if (!email) {
+      setAlertMessage({ type: 'error', message: 'Please enter your email address' });
+      return;
     }
-    window.addEventListener('message', onMsg, { once: true });
+    
+    const origin = window.location.origin;
+    
+    // Get OAuth URL from backend
+    try {
+      const response = await apiRequest('POST', '/api/auth/microsoft/start', {
+        email,
+        popup: true,
+        origin
+      });
+      
+      const data = await response.json();
+      if (!data.authUrl) {
+        throw new Error('No auth URL received');
+      }
+      
+      // Open popup with the OAuth URL
+      const w = window.open(
+        data.authUrl,
+        'oauth-microsoft',
+        'width=520,height=700,menubar=0,toolbar=0,status=0'
+      );
+
+      function onMsg(ev: MessageEvent) {
+        // In dev (Replit) origins can shift. Accept only our message type.
+        if (!ev?.data || ev.data.type !== 'oauth:connected' || ev.data.provider !== 'microsoft') return;
+        window.removeEventListener('message', onMsg);
+        try { w?.close(); } catch {}
+        
+        // Refresh connected state (or refetch accounts)
+        queryClient.invalidateQueries({ queryKey: ['/api/auth/microsoft/status'] });
+        queryClient.invalidateQueries({ queryKey: ['/api/email/provider-catalog/active'] });
+        setAlertMessage({ type: 'success', message: 'Microsoft account connected successfully!' });
+      }
+      window.addEventListener('message', onMsg, { once: true });
+    } catch (error: any) {
+      setAlertMessage({ type: 'error', message: error.message || 'Failed to start OAuth' });
+    }
   };
 
   // Handle email sync connect

@@ -956,12 +956,21 @@ export const insertMessageThreadSchema = createInsertSchema(messageThreads).omit
 export const insertEventSchema = createInsertSchema(events).omit({ id: true, tenantId: true, createdAt: true, updatedAt: true }).extend({
   startDate: z.string().or(z.date()).transform((val) => new Date(val)),
   endDate: z.string().or(z.date()).transform((val) => new Date(val)),
-  attendees: z.string().optional().transform((val) => {
-    if (!val || val.trim() === '') return [];
-    return val.split(',')
-      .map(email => email.trim())
-      .filter(email => email && email.includes('@'));
-  }).or(z.array(z.string())).optional()
+  attendees: z.union([
+    z.string().transform((val) => {
+      if (!val || val.trim() === '') return [];
+      return val.split(',')
+        .map(email => email.trim())
+        .filter(email => email && email.includes('@'));
+    }),
+    z.array(z.string()),
+    z.null(),
+    z.undefined()
+  ]).optional().transform((val) => {
+    if (val === null || val === undefined) return [];
+    if (Array.isArray(val)) return val;
+    return [];
+  })
 });
 export const insertCalendarIntegrationSchema = createInsertSchema(calendarIntegrations).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertCalendarSyncLogSchema = createInsertSchema(calendarSyncLog).omit({ id: true, startedAt: true });

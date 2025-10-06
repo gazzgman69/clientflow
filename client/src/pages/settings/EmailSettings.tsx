@@ -356,7 +356,7 @@ export default function EmailSettings() {
 
       function onMsg(ev: MessageEvent) {
         // In dev (Replit) origins can shift. Accept only our message type.
-        if (!ev?.data || ev.data.type !== 'oauth:connected' || ev.data.provider !== 'google') return;
+        if (!ev?.data || ev.data.type !== 'oauth:connected' || ev.data.provider !== 'google' || ev.data.serviceType !== 'gmail') return;
         window.removeEventListener('message', onMsg);
         try { w?.close(); } catch {}
         

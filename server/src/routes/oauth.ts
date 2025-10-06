@@ -857,7 +857,7 @@ async function googleCallbackHandler(req: any, res: any) {
           try { 
             if (window.opener) {
               console.log('✅ window.opener exists, sending message');
-              window.opener.postMessage({type:'oauth:connected', provider:'google', ok:true}, '*');
+              window.opener.postMessage({type:'oauth:connected', provider:'google', serviceType:'${serviceType || 'gmail'}', ok:true}, '*');
             } else {
               console.error('❌ window.opener is null');
             }

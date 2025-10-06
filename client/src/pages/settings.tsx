@@ -770,7 +770,7 @@ export default function Settings() {
                               const handleMessage = (event: MessageEvent) => {
                                 if (event.origin !== window.location.origin) return;
                                 
-                                if (event.data.type === 'oauth:connected' && event.data.provider === 'google') {
+                                if (event.data.type === 'oauth:connected' && event.data.provider === 'google' && event.data.serviceType === 'calendar') {
                                   window.removeEventListener('message', handleMessage);
                                   if (popup && !popup.closed) popup.close();
                                   // Refresh Calendar status
@@ -834,7 +834,7 @@ export default function Settings() {
                             const handleMessage = (event: MessageEvent) => {
                               if (event.origin !== window.location.origin) return;
                               
-                              if (event.data.type === 'oauth:connected' && event.data.provider === 'google') {
+                              if (event.data.type === 'oauth:connected' && event.data.provider === 'google' && event.data.serviceType === 'calendar') {
                                 window.removeEventListener('message', handleMessage);
                                 if (popup && !popup.closed) popup.close();
                                 // Refresh Calendar status

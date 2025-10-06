@@ -338,7 +338,7 @@ export default function EmailSettings() {
     
     // Get OAuth URL from backend
     try {
-      const response = await apiRequest('POST', '/api/auth/google/gmail/start', {
+      const response = await apiRequest('POST', '/auth/google/gmail/start', {
         email,
         popup: true,
         origin
@@ -388,7 +388,7 @@ export default function EmailSettings() {
     
     // Get OAuth URL from backend
     try {
-      const response = await apiRequest('POST', '/api/auth/microsoft/start', {
+      const response = await apiRequest('POST', '/auth/microsoft/start', {
         email,
         popup: true,
         origin

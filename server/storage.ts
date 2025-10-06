@@ -3041,7 +3041,10 @@ export class DrizzleStorage implements IStorage {
 
   async updateCalendarIntegration(id: string, updates: Partial<InsertCalendarIntegration>, tenantId: string): Promise<CalendarIntegration | undefined> {
     // Encrypt sensitive OAuth tokens if they're being updated
-    const secureUpdates = { ...updates };
+    const secureUpdates: any = { 
+      ...updates,
+      updatedAt: new Date() // Always update timestamp
+    };
     if (updates.accessToken !== undefined) {
       secureUpdates.accessToken = updates.accessToken ? secureStore.encrypt(updates.accessToken) : null;
     }

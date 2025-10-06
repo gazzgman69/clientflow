@@ -173,43 +173,33 @@ export default function Settings() {
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <TabsList className="grid w-full grid-cols-9" data-testid="settings-tabs">
             <TabsTrigger value="profile" data-testid="tab-profile">
-              <User className="h-4 w-4 mr-2" />
               Profile
             </TabsTrigger>
             <TabsTrigger value="notifications" data-testid="tab-notifications">
-              <Bell className="h-4 w-4 mr-2" />
               Notifications
             </TabsTrigger>
             <TabsTrigger value="security" data-testid="tab-security">
-              <Shield className="h-4 w-4 mr-2" />
               Security
             </TabsTrigger>
             <TabsTrigger value="portal" data-testid="tab-portal">
-              <ExternalLink className="h-4 w-4 mr-2" />
               Client Portal
             </TabsTrigger>
             <TabsTrigger value="integrations" data-testid="tab-integrations">
-              <Globe className="h-4 w-4 mr-2" />
               Integrations
             </TabsTrigger>
             <TabsTrigger value="email" data-testid="tab-email">
-              <Mail className="h-4 w-4 mr-2" />
               Email
             </TabsTrigger>
             <TabsTrigger value="calendar" data-testid="tab-calendar">
-              <Calendar className="h-4 w-4 mr-2" />
               Calendar
             </TabsTrigger>
             <TabsTrigger value="templates" data-testid="tab-templates">
-              <FileText className="h-4 w-4 mr-2" />
               Templates
             </TabsTrigger>
             <TabsTrigger value="appearance" data-testid="tab-appearance">
-              <Palette className="h-4 w-4 mr-2" />
               Appearance
             </TabsTrigger>
             <TabsTrigger value="data" data-testid="tab-data">
-              <Database className="h-4 w-4 mr-2" />
               Data
             </TabsTrigger>
           </TabsList>

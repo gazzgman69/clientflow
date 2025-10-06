@@ -357,7 +357,7 @@ export class EmailSyncService {
       
       // Update last_synced_at timestamp in email_accounts table
       try {
-        const { emailAccounts } = await import('../../shared/schema');
+        const { emailAccounts } = await import('../../../shared/schema');
         await db
           .update(emailAccounts)
           .set({ lastSyncedAt: new Date() })

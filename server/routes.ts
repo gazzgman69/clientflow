@@ -5432,6 +5432,192 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
 
+  // ===== CALENDAR PIPELINE ROUTES (Lead → Booked → Completed) =====
+  
+  // Get system calendars for tenant
+  app.get('/api/calendars', ...withTenantSecurity(ensureUserAuth, tenantResolver, requireTenant), async (req: TenantRequest, res) => {
+    try {
+      const calendars = await storage.getCalendars(req.tenantId!);
+      res.json(calendars);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Initialize system calendars for tenant
+  app.post('/api/calendars/init', ...withTenantSecurity(ensureUserAuth, tenantResolver, requireTenant, csrf), async (req: TenantRequest, res) => {
+    try {
+      const calendars = await storage.createSystemCalendars(req.tenantId!);
+      res.json(calendars);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Get events by calendar
+  app.get('/api/calendars/:id/events', ...withTenantSecurity(ensureUserAuth, tenantResolver, requireTenant), async (req: TenantRequest, res) => {
+    try {
+      const events = await storage.getEventsByCalendar(req.params.id, req.tenantId!);
+      res.json(events);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Check for event conflicts
+  app.post('/api/events/check-conflict', ...withTenantSecurity(ensureUserAuth, tenantResolver, requireTenant, csrf), async (req: TenantRequest, res) => {
+    try {
+      const { startDate, endDate, userId, excludeEventId } = req.body;
+      const result = await storage.checkEventConflict(
+        new Date(startDate),
+        new Date(endDate),
+        req.tenantId!,
+        userId,
+        excludeEventId
+      );
+      res.json(result);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Move event to different calendar (for status changes)
+  app.patch('/api/events/:id/move', ...withTenantSecurity(ensureUserAuth, tenantResolver, requireTenant, csrf), async (req: TenantRequest, res) => {
+    try {
+      const { targetCalendarId } = req.body;
+      const event = await storage.moveEventToCalendar(req.params.id, targetCalendarId, req.tenantId!);
+      if (!event) {
+        return res.status(404).json({ message: 'Event not found' });
+      }
+      res.json(event);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Create project with automatic event creation on Leads calendar
+  app.post('/api/calendar-projects', ...withTenantSecurity(ensureUserAuth, tenantResolver, requireTenant, csrf), async (req: TenantRequest, res) => {
+    try {
+      const projectData = insertProjectSchema.parse(req.body);
+      
+      // Ensure tenant isolation
+      const project = await storage.createProject(projectData, req.tenantId!);
+      
+      // If project has dates, create an event on Leads calendar
+      if (project.startDate && project.endDate) {
+        const leadsCalendar = await storage.getCalendarByType('leads', req.tenantId!);
+        
+        if (leadsCalendar) {
+          const event = await storage.createEvent({
+            tenantId: req.tenantId!,
+            calendarId: leadsCalendar.id,
+            title: project.name,
+            description: project.description || '',
+            location: '',
+            startDate: project.startDate,
+            endDate: project.endDate,
+            projectId: project.id,
+            createdBy: req.authenticatedUserId!,
+            timezone: 'UTC',
+            history: JSON.stringify([{
+              timestamp: new Date().toISOString(),
+              action: 'created',
+              userId: req.authenticatedUserId,
+              calendar: 'leads'
+            }])
+          }, req.tenantId!);
+          
+          // Link event to project
+          await storage.updateProject(project.id, { primaryEventId: event.id }, req.tenantId!);
+        }
+      }
+      
+      res.json(project);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  // Update project status and move event to appropriate calendar
+  app.patch('/api/calendar-projects/:id/status', ...withTenantSecurity(ensureUserAuth, tenantResolver, requireTenant, csrf), async (req: TenantRequest, res) => {
+    try {
+      const { status } = req.body;
+      const project = await storage.getProject(req.params.id, req.tenantId!);
+      
+      if (!project) {
+        return res.status(404).json({ message: 'Project not found' });
+      }
+      
+      // Update project status
+      const updatedProject = await storage.updateProject(project.id, { status }, req.tenantId!);
+      
+      // Move event to appropriate calendar based on new status
+      if (project.primaryEventId && updatedProject) {
+        let targetCalendar;
+        if (status === 'lead') {
+          targetCalendar = await storage.getCalendarByType('leads', req.tenantId!);
+        } else if (status === 'booked') {
+          targetCalendar = await storage.getCalendarByType('booked', req.tenantId!);
+        } else if (status === 'completed') {
+          targetCalendar = await storage.getCalendarByType('completed', req.tenantId!);
+        }
+        
+        if (targetCalendar) {
+          await storage.moveEventToCalendar(project.primaryEventId, targetCalendar.id, req.tenantId!);
+        }
+      }
+      
+      res.json(updatedProject);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  // Export calendar to .ics format
+  app.get('/api/calendars/:id/export.ics', ...withTenantSecurity(ensureUserAuth, tenantResolver, requireTenant), async (req: TenantRequest, res) => {
+    try {
+      const events = await storage.getEventsByCalendar(req.params.id, req.tenantId!);
+      const calendar = await storage.getCalendar(req.params.id, req.tenantId!);
+      
+      if (!calendar) {
+        return res.status(404).json({ message: 'Calendar not found' });
+      }
+      
+      // Generate .ics content
+      let icsContent = [
+        'BEGIN:VCALENDAR',
+        'VERSION:2.0',
+        'PRODID:-//BusinessCRM//Calendar Pipeline//EN',
+        `X-WR-CALNAME:${calendar.name}`,
+        'X-WR-TIMEZONE:UTC',
+      ];
+      
+      for (const event of events) {
+        icsContent.push('BEGIN:VEVENT');
+        icsContent.push(`UID:${event.id}@businesscrm.com`);
+        icsContent.push(`DTSTAMP:${new Date().toISOString().replace(/[-:]/g, '').split('.')[0]}Z`);
+        icsContent.push(`DTSTART:${new Date(event.startDate).toISOString().replace(/[-:]/g, '').split('.')[0]}Z`);
+        icsContent.push(`DTEND:${new Date(event.endDate).toISOString().replace(/[-:]/g, '').split('.')[0]}Z`);
+        icsContent.push(`SUMMARY:${event.title}`);
+        if (event.description) {
+          icsContent.push(`DESCRIPTION:${event.description.replace(/\n/g, '\\n')}`);
+        }
+        if (event.location) {
+          icsContent.push(`LOCATION:${event.location}`);
+        }
+        icsContent.push('END:VEVENT');
+      }
+      
+      icsContent.push('END:VCALENDAR');
+      
+      res.setHeader('Content-Type', 'text/calendar; charset=utf-8');
+      res.setHeader('Content-Disposition', `attachment; filename="${calendar.name.toLowerCase()}_calendar.ics"`);
+      res.send(icsContent.join('\r\n'));
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

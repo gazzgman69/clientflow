@@ -23,6 +23,18 @@ declare module 'express-session' {
 
 const router = Router();
 
+// DEBUG: Router-level logging to track if requests reach the router
+router.use((req, res, next) => {
+  console.log('🔄 OAUTH ROUTER HIT:', {
+    method: req.method,
+    path: req.path,
+    url: req.url,
+    originalUrl: req.originalUrl,
+    baseUrl: req.baseUrl
+  });
+  next();
+});
+
 // DEBUG: Safe state decoder for logging
 function decodeStateSafe(s?: string) {
   try { 

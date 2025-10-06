@@ -137,6 +137,20 @@ const csrfProtection = csrf({
   }
 });
 
+// DEBUG: CSRF error handler
+app.use((err: any, req: any, res: any, next: any) => {
+  if (err.code === 'EBADCSRFTOKEN') {
+    console.error('🛡️ CSRF TOKEN ERROR:', {
+      url: req.url,
+      method: req.method,
+      csrfToken: req.headers['x-csrf-token'],
+      cookie: req.headers.cookie
+    });
+    return res.status(403).json({ error: 'Invalid CSRF token' });
+  }
+  next(err);
+});
+
 // CSRF token endpoint - apply CSRF middleware to generate token and cookie
 app.get('/api/csrf-token', csrfProtection, (req, res) => {
   res.json({ csrfToken: req.csrfToken() });

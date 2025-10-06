@@ -523,6 +523,39 @@ router.post('/:slug/submit', formSubmissionLimiter, async (req, res) => {
                 tenantId: form.tenantId,
                 slug
               });
+
+              // Auto-create calendar event if lead has a projectDate
+              if (lead.projectDate) {
+                try {
+                  const eventStart = new Date(lead.projectDate);
+                  const eventEnd = new Date(eventStart);
+                  eventEnd.setHours(eventEnd.getHours() + 1); // Default 1-hour duration
+                  
+                  // Create event with 17hats-style title: "New Lead Project • [Name]"
+                  const leadName = lead.fullName || lead.email || 'Unknown';
+                  const eventTitle = `New Lead Project • ${leadName}`;
+                  
+                  await tenantStorage.createEvent({
+                    title: eventTitle,
+                    description: lead.notes || undefined,
+                    startTime: eventStart,
+                    endTime: eventEnd,
+                    location: lead.eventLocation || undefined,
+                    attendees: lead.email ? [lead.email] : undefined,
+                    userId,
+                    leadId: lead.id,
+                    type: 'lead',
+                    status: 'tentative',
+                    allDay: false,
+                    tenantId: form.tenantId
+                  });
+                  
+                  console.log(`📅 Auto-created calendar event for duplicate submission lead ${lead.id}: "${eventTitle}"`);
+                } catch (calError) {
+                  console.error('Failed to auto-create calendar event for lead:', calError);
+                  // Don't fail the lead creation if calendar event fails
+                }
+              }
               
               // Continue with the rest of the submission flow...
               // Store consent if required
@@ -665,6 +698,39 @@ router.post('/:slug/submit', formSubmissionLimiter, async (req, res) => {
       slug,
       timestamp: new Date().toISOString()
     });
+
+    // Auto-create calendar event if lead has a projectDate
+    if (lead.projectDate) {
+      try {
+        const eventStart = new Date(lead.projectDate);
+        const eventEnd = new Date(eventStart);
+        eventEnd.setHours(eventEnd.getHours() + 1); // Default 1-hour duration
+        
+        // Create event with 17hats-style title: "New Lead Project • [Name]"
+        const leadName = lead.fullName || lead.email || 'Unknown';
+        const eventTitle = `New Lead Project • ${leadName}`;
+        
+        await tenantStorage.createEvent({
+          title: eventTitle,
+          description: lead.notes || undefined,
+          startTime: eventStart,
+          endTime: eventEnd,
+          location: lead.eventLocation || undefined,
+          attendees: lead.email ? [lead.email] : undefined,
+          userId,
+          leadId: lead.id,
+          type: 'lead',
+          status: 'tentative',
+          allDay: false,
+          tenantId: form.tenantId
+        });
+        
+        console.log(`📅 Auto-created calendar event for lead ${lead.id}: "${eventTitle}"`);
+      } catch (calError) {
+        console.error('Failed to auto-create calendar event for lead:', calError);
+        // Don't fail the lead creation if calendar event fails
+      }
+    }
 
     // SECURITY: Store consent information for GDPR compliance - Use tenant-scoped storage
     if (form.consentRequired && consentGiven) {

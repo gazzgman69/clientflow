@@ -4883,19 +4883,11 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
 
   app.post("/api/events", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req: any, res) => {
     try {
-      console.log('🔍 DEBUG createdBy:', {
-        authenticatedUserId: req.authenticatedUserId,
-        sessionUserId: req.session?.userId,
-        userId: req.userId
-      });
-      
       // Add createdBy from authenticated user session before validation
       const requestWithCreatedBy = {
         ...req.body,
         createdBy: req.session?.userId || req.authenticatedUserId // From ensureUserAuth middleware
       };
-      
-      console.log('📦 Request with createdBy:', requestWithCreatedBy.createdBy);
       
       // Validate the complete event data
       const validatedData = insertEventSchema.parse(requestWithCreatedBy);

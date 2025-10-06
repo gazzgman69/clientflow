@@ -164,7 +164,7 @@ export default function CalendarView({ viewMode = 'month' }: CalendarViewProps) 
         ...eventData,
         attendees: eventData.attendees ? eventData.attendees.split(',').map(email => email.trim()).filter(Boolean) : null,
       };
-      const response = await apiRequest('PUT', `/api/events/${id}`, updateData);
+      const response = await apiRequest('PATCH', `/api/events/${id}`, updateData);
       if (!response.ok) {
         throw new Error('Failed to update event');
       }

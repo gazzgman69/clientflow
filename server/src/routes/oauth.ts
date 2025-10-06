@@ -1909,4 +1909,159 @@ router.post('/api/auth/google/calendar/disconnect', requireAuth, async (req: any
   }
 });
 
+/**
+ * Purge Google Calendar events (destructive action)
+ * Permanently deletes all Google-sourced events for the disconnected integration
+ */
+router.post('/api/auth/google/calendar/purge', requireAuth, async (req: any, res) => {
+  try {
+    const userId = req.authenticatedUserId;
+    const tenantId = req.tenantId;
+    const { integrationId } = req.body;
+    
+    if (!integrationId) {
+      return res.status(400).json({ ok: false, error: 'Integration ID is required' });
+    }
+    
+    // Verify the integration belongs to this user and is disconnected
+    const integration = await storage.getCalendarIntegration(integrationId, tenantId);
+    
+    if (!integration) {
+      return res.status(404).json({ ok: false, error: 'Integration not found' });
+    }
+    
+    if (integration.userId !== userId) {
+      return res.status(403).json({ ok: false, error: 'Unauthorized' });
+    }
+    
+    if (integration.isActive) {
+      return res.status(400).json({ ok: false, error: 'Cannot purge events from active integration. Disconnect first.' });
+    }
+    
+    // Purge all Google events
+    const purgedCount = await storage.purgeGoogleEvents(integrationId, tenantId, userId);
+    
+    // Create audit log
+    await storage.createAuditLog({
+      userId,
+      action: 'events_purged',
+      resourceType: 'event',
+      resourceId: integrationId,
+      metadata: JSON.stringify({
+        provider: 'google',
+        integration_id: integrationId,
+        events_count: purgedCount,
+        purged_at: new Date().toISOString()
+      }),
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent']
+    }, tenantId);
+    
+    console.log(`🗑️ Purged ${purgedCount} Google events for integration ${integrationId}`);
+    
+    res.json({
+      ok: true,
+      message: `Successfully purged ${purgedCount} Google events`,
+      purgedCount
+    });
+  } catch (error: any) {
+    console.error('Error purging Google Calendar events:', error);
+    res.status(500).json({ ok: false, error: 'Internal server error' });
+  }
+});
+
+/**
+ * Export Google Calendar events as .ics file
+ * Generates a downloadable iCalendar file with all Google-sourced events
+ */
+router.get('/api/auth/google/calendar/export/:integrationId', requireAuth, async (req: any, res) => {
+  try {
+    const userId = req.authenticatedUserId;
+    const tenantId = req.tenantId;
+    const { integrationId } = req.params;
+    
+    // Verify the integration belongs to this user
+    const integration = await storage.getCalendarIntegration(integrationId, tenantId);
+    
+    if (!integration) {
+      return res.status(404).json({ error: 'Integration not found' });
+    }
+    
+    if (integration.userId !== userId) {
+      return res.status(403).json({ error: 'Unauthorized' });
+    }
+    
+    // Get all Google events for this integration
+    const events = await storage.getEventsByIntegration(integrationId, tenantId);
+    const googleEvents = events.filter(e => e.source === 'google');
+    
+    // Generate .ics file
+    const icsLines = [
+      'BEGIN:VCALENDAR',
+      'VERSION:2.0',
+      'PRODID:-//CRM Calendar//EN',
+      'CALSCALE:GREGORIAN',
+      'METHOD:PUBLISH'
+    ];
+    
+    for (const event of googleEvents) {
+      const dtstart = event.allDay 
+        ? event.startDate.toISOString().split('T')[0].replace(/-/g, '')
+        : event.startDate.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+      
+      const dtend = event.allDay
+        ? event.endDate.toISOString().split('T')[0].replace(/-/g, '')
+        : event.endDate.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+      
+      icsLines.push('BEGIN:VEVENT');
+      icsLines.push(`UID:${event.externalEventId || event.id}`);
+      icsLines.push(`DTSTAMP:${new Date().toISOString().replace(/[-:]/g, '').split('.')[0]}Z`);
+      icsLines.push(`DTSTART${event.allDay ? ';VALUE=DATE' : ''}:${dtstart}`);
+      icsLines.push(`DTEND${event.allDay ? ';VALUE=DATE' : ''}:${dtend}`);
+      icsLines.push(`SUMMARY:${event.title.replace(/\n/g, '\\n')}`);
+      
+      if (event.description) {
+        icsLines.push(`DESCRIPTION:${event.description.replace(/\n/g, '\\n')}`);
+      }
+      
+      if (event.location) {
+        icsLines.push(`LOCATION:${event.location.replace(/\n/g, '\\n')}`);
+      }
+      
+      icsLines.push(`STATUS:${event.status.toUpperCase()}`);
+      icsLines.push('END:VEVENT');
+    }
+    
+    icsLines.push('END:VCALENDAR');
+    
+    const icsContent = icsLines.join('\r\n');
+    
+    // Create audit log
+    await storage.createAuditLog({
+      userId,
+      action: 'events_exported',
+      resourceType: 'event',
+      resourceId: integrationId,
+      metadata: JSON.stringify({
+        provider: 'google',
+        integration_id: integrationId,
+        events_count: googleEvents.length,
+        exported_at: new Date().toISOString()
+      }),
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent']
+    }, tenantId);
+    
+    console.log(`📤 Exported ${googleEvents.length} Google events for integration ${integrationId}`);
+    
+    // Send file
+    res.setHeader('Content-Type', 'text/calendar; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="google-calendar-export-${new Date().toISOString().split('T')[0]}.ics"`);
+    res.send(icsContent);
+  } catch (error: any) {
+    console.error('Error exporting Google Calendar events:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 export default router;

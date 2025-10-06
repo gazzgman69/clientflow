@@ -1843,76 +1843,65 @@ router.post('/api/auth/google/sync', requireAuth, async (req: any, res) => {
 
 /**
  * Disconnect Google Calendar (Calendar only, not Gmail)
+ * Events are preserved as read-only instead of being deleted
  */
 router.post('/api/auth/google/calendar/disconnect', requireAuth, async (req: any, res) => {
   try {
     const userId = req.authenticatedUserId;
     const tenantId = req.tenantId;
+    const disconnectReason = req.body.reason || 'User disconnected';
     
-    let deletedCount = 0;
+    let disconnectedCount = 0;
+    let markedReadonlyCount = 0;
     
-    try {
-      // Get all calendar integrations for this user
-      const integrations = await storage.getCalendarIntegrationsByUser(userId, tenantId);
-      const googleCalendarIntegrations = integrations.filter(i => i.provider === 'google');
+    // Get all calendar integrations for this user
+    const integrations = await storage.getCalendarIntegrationsByUser(userId, tenantId);
+    const googleCalendarIntegrations = integrations.filter(i => i.provider === 'google' && i.serviceType === 'calendar');
+    
+    for (const integration of googleCalendarIntegrations) {
+      // Mark all Google events as read-only (preserves data)
+      const readonlyCount = await storage.markEventsAsReadonly(integration.id, tenantId, userId);
+      markedReadonlyCount += readonlyCount;
       
-      // Delete each Google Calendar integration
-      for (const integration of googleCalendarIntegrations) {
-        const success = await storage.deleteCalendarIntegration(integration.id, tenantId);
-        if (success) deletedCount++;
-      }
+      // Update integration to mark as disconnected (but keep the record)
+      await storage.updateCalendarIntegration(integration.id, {
+        isActive: false,
+        disconnectedAt: new Date(),
+        disconnectReason: disconnectReason
+      }, tenantId);
       
-      console.log(`🔌 Successfully disconnected ${deletedCount} Google Calendar integration(s) for user ${userId} in tenant ${tenantId}`);
-    } catch (decryptionError: any) {
-      console.warn('⚠️ Token decryption failed, using direct database cleanup:', decryptionError.message);
+      disconnectedCount++;
       
-      // If decryption fails, delete Google calendar integrations directly from database
-      const { calendarIntegrations, events } = await import('@shared/schema');
-      const { eq, and, inArray } = await import('drizzle-orm');
-      const { neon } = await import('@neondatabase/serverless');
-      const { drizzle } = await import('drizzle-orm/neon-http');
-      
-      const sql = neon(process.env.DATABASE_URL!);
-      const db = drizzle(sql);
-      
-      // Get all Google calendar integration IDs for this user in this tenant
-      const googleIntegrations = await db.select({ id: calendarIntegrations.id })
-        .from(calendarIntegrations)
-        .where(and(
-          eq(calendarIntegrations.userId, userId),
-          eq(calendarIntegrations.tenantId, tenantId),
-          eq(calendarIntegrations.provider, 'google')
-        ));
-      
-      if (googleIntegrations.length > 0) {
-        const integrationIds = googleIntegrations.map(i => i.id);
-        
-        // Delete related calendar events first
-        const deletedEvents = await db.delete(events)
-          .where(inArray(events.calendarIntegrationId, integrationIds))
-          .returning({ id: events.id });
-        
-        console.log(`🗑️ Deleted ${deletedEvents.length} calendar events before removing Google Calendar integrations`);
-        
-        // Now delete the calendar integrations
-        const result = await db.delete(calendarIntegrations)
-          .where(and(
-            eq(calendarIntegrations.userId, userId),
-            eq(calendarIntegrations.tenantId, tenantId),
-            eq(calendarIntegrations.provider, 'google')
-          ))
-          .returning({ id: calendarIntegrations.id });
-        
-        deletedCount = result.length;
-        console.log(`🔌 Direct database cleanup: removed ${deletedCount} corrupted Google Calendar integration(s) for user ${userId}`);
-      } else {
-        console.log(`🔌 No Google Calendar integrations found for user ${userId} in tenant ${tenantId}`);
-      }
+      console.log(`🔌 Disconnected Google Calendar integration ${integration.id}: ${readonlyCount} events marked read-only`);
     }
+    
+    // Create audit log entry
+    if (disconnectedCount > 0) {
+      await storage.createAuditLog({
+        userId,
+        action: 'calendar_disconnected',
+        resourceType: 'calendar_integration',
+        resourceId: googleCalendarIntegrations[0]?.id,
+        metadata: JSON.stringify({
+          provider: 'google',
+          integrations_count: disconnectedCount,
+          events_marked_readonly: markedReadonlyCount,
+          disconnected_at: new Date().toISOString(),
+          reason: disconnectReason
+        }),
+        ipAddress: req.ip,
+        userAgent: req.headers['user-agent']
+      }, tenantId);
+    }
+    
+    console.log(`🔌 Successfully disconnected ${disconnectedCount} Google Calendar integration(s) for user ${userId} in tenant ${tenantId}`);
+    console.log(`📅 Marked ${markedReadonlyCount} events as read-only (preserved)`);
     
     res.json({ 
       ok: true, 
-      message: `Disconnected ${deletedCount} Google Calendar integration(s)` 
+      message: `Disconnected ${disconnectedCount} Google Calendar integration(s). ${markedReadonlyCount} events preserved as read-only.`,
+      disconnectedCount,
+      eventsMarkedReadonly: markedReadonlyCount
     });
   } catch (error: any) {
     console.error('Error disconnecting Google Calendar:', error);

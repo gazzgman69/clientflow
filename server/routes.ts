@@ -4905,7 +4905,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
       // Auto-sync to Google Calendar if user has an active integration
       try {
         console.log(`Attempting to sync new event "${event.title}" to Google Calendar`);
-        const integrations = await storage.getCalendarIntegrationsByUser(event.createdBy);
+        const integrations = await storage.getCalendarIntegrationsByUser(event.createdBy, req.tenantId);
         const googleIntegration = integrations.find(int => int.provider === 'google' && int.isActive);
         
         if (googleIntegration) {
@@ -4938,7 +4938,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
       
       // Auto-sync to Google Calendar if user has an active integration
       try {
-        const integrations = await storage.getCalendarIntegrationsByUser(event.createdBy);
+        const integrations = await storage.getCalendarIntegrationsByUser(event.createdBy, req.tenantId);
         const googleIntegration = integrations.find(int => int.provider === 'google' && int.isActive);
         
         if (googleIntegration) {

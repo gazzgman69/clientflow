@@ -328,11 +328,8 @@ export default function EmailSettings() {
     // Close dialog immediately
     setShowConnectDialog(false);
     
-    const email = emailSyncForm.login;
-    if (!email) {
-      setAlertMessage({ type: 'error', message: 'Please enter your email address' });
-      return;
-    }
+    // Email is optional for OAuth - user will authenticate through OAuth provider
+    const email = emailSyncForm.login || '';
     
     const origin = window.location.origin;
     
@@ -378,11 +375,8 @@ export default function EmailSettings() {
     // Close dialog immediately
     setShowConnectDialog(false);
     
-    const email = emailSyncForm.login;
-    if (!email) {
-      setAlertMessage({ type: 'error', message: 'Please enter your email address' });
-      return;
-    }
+    // Email is optional for OAuth - user will authenticate through OAuth provider
+    const email = emailSyncForm.login || '';
     
     const origin = window.location.origin;
     

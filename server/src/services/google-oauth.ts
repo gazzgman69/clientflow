@@ -409,7 +409,7 @@ export class GoogleOAuthService {
    * Sync events from Google Calendar to CRM
    */
   async syncFromGoogle(integration: CalendarIntegration) {
-    try:
+    try {
       console.log('Starting Google → CRM sync...');
       const calendar = await this.getCalendarService(integration);
       

@@ -1,5 +1,6 @@
 import { config } from 'dotenv';
-config();
+import { resolve } from 'path';
+config({ path: resolve(process.cwd(), '.env') });
 
 import express, { type Request, Response, NextFunction } from "express";
 import helmet from "helmet";

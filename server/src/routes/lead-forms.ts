@@ -523,41 +523,7 @@ router.post('/:slug/submit', formSubmissionLimiter, async (req, res) => {
                 tenantId: form.tenantId,
                 slug
               });
-
-              // Auto-create calendar event if lead has a projectDate
-              if (lead.projectDate) {
-                try {
-                  const eventStart = new Date(lead.projectDate);
-                  const eventEnd = new Date(eventStart);
-                  eventEnd.setHours(eventEnd.getHours() + 1); // Default 1-hour duration
-                  
-                  // Create event with 17hats-style title: "New Lead Project • [Name]"
-                  const leadName = lead.fullName || lead.email || 'Unknown';
-                  const eventTitle = `New Lead Project • ${leadName}`;
-                  
-                  await tenantStorage.createEvent({
-                    title: eventTitle,
-                    description: lead.notes || undefined,
-                    startTime: eventStart,
-                    endTime: eventEnd,
-                    location: lead.eventLocation || undefined,
-                    attendees: lead.email ? [lead.email] : undefined,
-                    userId,
-                    leadId: lead.id,
-                    type: 'lead',
-                    status: 'tentative',
-                    allDay: false,
-                    tenantId: form.tenantId
-                  });
-                  
-                  console.log(`📅 Auto-created calendar event for duplicate submission lead ${lead.id}: "${eventTitle}"`);
-                } catch (calError) {
-                  console.error('Failed to auto-create calendar event for lead:', calError);
-                  // Don't fail the lead creation if calendar event fails
-                }
-              }
               
-              // Continue with the rest of the submission flow...
               // Store consent if required
               if (form.consentRequired && consentGiven) {
                 try {
@@ -596,10 +562,44 @@ router.post('/:slug/submit', formSubmissionLimiter, async (req, res) => {
               });
               
               // Update lead with project reference
-              await tenantStorage.updateLead(lead.id, { 
+              const updatedLead = await tenantStorage.updateLead(lead.id, { 
                 projectId: project.id,
                 notes: `Auto-linked to Contact: ${existingContact.id} and Project: ${project.id} on ${new Date().toLocaleDateString()}`
               });
+
+              // Auto-create calendar event if lead has a projectDate
+              if (updatedLead && updatedLead.projectDate) {
+                try {
+                  const eventStart = new Date(updatedLead.projectDate);
+                  const eventEnd = new Date(eventStart);
+                  eventEnd.setHours(eventEnd.getHours() + 1); // Default 1-hour duration
+                  
+                  // Create event with 17hats-style title: "New Lead Project • [Name]"
+                  const leadName = updatedLead.fullName || updatedLead.email || 'Unknown';
+                  const eventTitle = `New Lead Project • ${leadName}`;
+                  
+                  await storage.createEvent({
+                    title: eventTitle,
+                    description: updatedLead.notes || undefined,
+                    startDate: eventStart,
+                    endDate: eventEnd,
+                    location: updatedLead.eventLocation || undefined,
+                    attendees: updatedLead.email ? [updatedLead.email] : undefined,
+                    userId,
+                    leadId: updatedLead.id,
+                    projectId: project.id, // Link to project so it updates with project changes
+                    type: 'lead',
+                    status: 'tentative',
+                    allDay: false,
+                    tenantId: form.tenantId
+                  });
+                  
+                  console.log(`📅 Auto-created calendar event for duplicate submission lead ${updatedLead.id} linked to project ${project.id}: "${eventTitle}"`);
+                } catch (calError) {
+                  console.error('Failed to auto-create calendar event for lead:', calError);
+                  // Don't fail the lead creation if calendar event fails
+                }
+              }
               
               // Record new form submission
               await tenantStorage.createFormSubmission({
@@ -699,8 +699,8 @@ router.post('/:slug/submit', formSubmissionLimiter, async (req, res) => {
       timestamp: new Date().toISOString()
     });
 
-    // Auto-create calendar event if lead has a projectDate
-    if (lead.projectDate) {
+    // Auto-create calendar event if lead has a projectDate and project
+    if (lead.projectDate && lead.projectId) {
       try {
         const eventStart = new Date(lead.projectDate);
         const eventEnd = new Date(eventStart);
@@ -710,22 +710,23 @@ router.post('/:slug/submit', formSubmissionLimiter, async (req, res) => {
         const leadName = lead.fullName || lead.email || 'Unknown';
         const eventTitle = `New Lead Project • ${leadName}`;
         
-        await tenantStorage.createEvent({
+        await storage.createEvent({
           title: eventTitle,
           description: lead.notes || undefined,
-          startTime: eventStart,
-          endTime: eventEnd,
+          startDate: eventStart,
+          endDate: eventEnd,
           location: lead.eventLocation || undefined,
           attendees: lead.email ? [lead.email] : undefined,
           userId,
           leadId: lead.id,
+          projectId: lead.projectId, // Link to project so it updates with project changes
           type: 'lead',
           status: 'tentative',
           allDay: false,
           tenantId: form.tenantId
         });
         
-        console.log(`📅 Auto-created calendar event for lead ${lead.id}: "${eventTitle}"`);
+        console.log(`📅 Auto-created calendar event for lead ${lead.id} linked to project ${lead.projectId}: "${eventTitle}"`);
       } catch (calError) {
         console.error('Failed to auto-create calendar event for lead:', calError);
         // Don't fail the lead creation if calendar event fails

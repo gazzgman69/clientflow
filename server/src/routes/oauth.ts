@@ -814,6 +814,25 @@ async function googleCallbackHandler(req: any, res: any) {
       }, tenantId);
       
       console.log('✅ CALENDAR OAUTH: Successfully saved to calendar_integrations');
+      
+      // Trigger immediate first sync (like Gmail does)
+      try {
+        console.log('🔄 CALENDAR OAUTH: Triggering immediate first sync...');
+        const { GoogleCalendarService } = await import('../services/google-calendar');
+        const calendarService = new GoogleCalendarService(userId, tenantId);
+        
+        // Run sync in background without blocking the response
+        calendarService.syncCalendar()
+          .then(result => {
+            console.log('✅ CALENDAR OAUTH: First sync completed', result);
+          })
+          .catch(error => {
+            console.error('❌ CALENDAR OAUTH: First sync failed', error);
+          });
+      } catch (syncError) {
+        console.error('⚠️ CALENDAR OAUTH: Could not trigger immediate sync', syncError);
+        // Don't fail the OAuth flow if sync fails
+      }
     } else {
       // Save to email_accounts table for Gmail
       console.log('📧 GMAIL OAUTH: Saving to email_accounts table', {

@@ -461,16 +461,16 @@ export class GoogleOAuthService {
         // Handle cancelled events (deletions)
         if (googleEvent.status === 'cancelled') {
           console.log(`Google Calendar event "${googleEvent.summary}" was cancelled, removing from CRM`);
-          const existing = await storage.getEventByExternalId(googleEvent.id);
+          const existing = await storage.getEventByExternalId(googleEvent.id, integration.tenantId);
           if (existing) {
-            await storage.deleteEvent(existing.id);
+            await storage.deleteEvent(existing.id, integration.tenantId);
             console.log(`Deleted CRM event: ${existing.title}`);
           }
           continue;
         }
         
         // Check if event exists
-        const existing = await storage.getEventByExternalId(googleEvent.id);
+        const existing = await storage.getEventByExternalId(googleEvent.id, integration.tenantId);
         
         const eventData = {
           title: googleEvent.summary,

@@ -138,13 +138,26 @@ export default function CalendarWeekView() {
                       {dayEvents.slice(0, 1).map((event, eventIndex) => (
                         <div
                           key={`event-${eventIndex}`}
-                          className="text-[9px] p-1 rounded border-l border-blue-400 bg-blue-50 dark:bg-blue-900/20"
+                          className={`text-[9px] p-1 rounded border-l ${
+                            event.isReadonly 
+                              ? 'border-orange-400 bg-orange-50 dark:bg-orange-900/20' 
+                              : 'border-blue-400 bg-blue-50 dark:bg-blue-900/20'
+                          }`}
                           data-testid={`event-${index}-${eventIndex}`}
                         >
-                          <div className="font-medium text-blue-700 dark:text-blue-300 truncate leading-tight">
+                          <div className={`font-medium truncate leading-tight ${
+                            event.isReadonly 
+                              ? 'text-orange-700 dark:text-orange-300' 
+                              : 'text-blue-700 dark:text-blue-300'
+                          }`}>
                             {event.title}
+                            {event.isReadonly && ' 🔒'}
                           </div>
-                          <div className="text-blue-600 dark:text-blue-400 truncate leading-tight">
+                          <div className={`truncate leading-tight ${
+                            event.isReadonly 
+                              ? 'text-orange-600 dark:text-orange-400' 
+                              : 'text-blue-600 dark:text-blue-400'
+                          }`}>
                             {format(new Date(event.startDate), 'HH:mm')}
                           </div>
                         </div>
@@ -193,17 +206,41 @@ export default function CalendarWeekView() {
                           {dayEvents.map((event, eventIndex) => (
                             <div
                               key={`detail-event-${eventIndex}`}
-                              className="p-1 rounded border-l border-blue-400 bg-blue-50 dark:bg-blue-900/20"
+                              className={`p-1 rounded border-l ${
+                                event.isReadonly 
+                                  ? 'border-orange-400 bg-orange-50 dark:bg-orange-900/20' 
+                                  : 'border-blue-400 bg-blue-50 dark:bg-blue-900/20'
+                              }`}
                             >
-                              <div className="font-medium text-blue-700 dark:text-blue-300 text-xs">
+                              <div className={`font-medium text-xs flex items-center gap-1 ${
+                                event.isReadonly 
+                                  ? 'text-orange-700 dark:text-orange-300' 
+                                  : 'text-blue-700 dark:text-blue-300'
+                              }`}>
                                 {event.title}
+                                {event.isReadonly && event.source === 'google' && (
+                                  <Badge 
+                                    variant="outline" 
+                                    className="text-[8px] px-1 py-0 ml-1 border-orange-300 text-orange-700 dark:border-orange-600 dark:text-orange-400"
+                                  >
+                                    🔒 Google (disconnected)
+                                  </Badge>
+                                )}
                               </div>
-                              <div className="flex items-center gap-1 text-blue-600 dark:text-blue-400 text-xs">
+                              <div className={`flex items-center gap-1 text-xs ${
+                                event.isReadonly 
+                                  ? 'text-orange-600 dark:text-orange-400' 
+                                  : 'text-blue-600 dark:text-blue-400'
+                              }`}>
                                 <Clock className="h-2 w-2" />
                                 {format(new Date(event.startDate), 'HH:mm')}
                               </div>
                               {event.location && (
-                                <div className="text-blue-600 dark:text-blue-400 text-xs">
+                                <div className={`text-xs ${
+                                  event.isReadonly 
+                                    ? 'text-orange-600 dark:text-orange-400' 
+                                    : 'text-blue-600 dark:text-blue-400'
+                                }`}>
                                   📍 {event.location}
                                 </div>
                               )}

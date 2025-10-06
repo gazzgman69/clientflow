@@ -381,13 +381,22 @@ router.get('/auth/microsoft/mail', (req, res) => {
 
 // Authentication middleware for OAuth routes
 const requireAuth = async (req: any, res: any, next: any) => {
+  console.log('🔐 requireAuth middleware:', { 
+    hasSession: !!req.session,
+    userId: req.session?.userId,
+    tenantId: req.session?.tenantId,
+    path: req.path
+  });
+  
   if (!req.session?.userId) {
+    console.log('❌ requireAuth: No userId in session');
     return res.status(401).json({ 
       error: 'Authentication required', 
       message: 'Please log in to access this endpoint'
     });
   }
   if (!req.session?.tenantId) {
+    console.log('❌ requireAuth: No tenantId in session');
     return res.status(400).json({ 
       error: 'Tenant context required', 
       message: 'Session missing tenant information'
@@ -395,6 +404,7 @@ const requireAuth = async (req: any, res: any, next: any) => {
   }
   req.authenticatedUserId = req.session.userId;
   req.tenantId = req.session.tenantId;
+  console.log('✅ requireAuth: Authenticated', { userId: req.authenticatedUserId, tenantId: req.tenantId });
   next();
 };
 

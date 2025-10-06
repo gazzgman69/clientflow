@@ -455,6 +455,45 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     try {
       const leadData = insertLeadSchema.parse(req.body);
       const lead = await storage.createLead(leadData, req.tenantId);
+      
+      // Auto-create calendar event if lead has a projectDate
+      if (lead.projectDate) {
+        try {
+          // Initialize calendar pipeline if not already done
+          await storage.initializeCalendarPipeline(req.tenantId);
+          
+          // Get the Leads calendar
+          const calendars = await storage.getCalendars(req.tenantId);
+          const leadsCalendar = calendars.find(c => c.type === 'leads');
+          
+          if (leadsCalendar) {
+            // Create event on Leads calendar
+            const eventStart = new Date(lead.projectDate);
+            const eventEnd = new Date(eventStart);
+            eventEnd.setHours(eventEnd.getHours() + 1); // Default 1-hour duration
+            
+            await storage.createEvent({
+              title: lead.fullName || 'New Lead',
+              description: lead.notes || undefined,
+              startTime: eventStart,
+              endTime: eventEnd,
+              location: undefined,
+              attendees: lead.email ? [lead.email] : undefined,
+              userId: req.userId,
+              calendarId: leadsCalendar.id,
+              timezone: 'UTC', // Default timezone
+              status: 'tentative',
+              history: []
+            }, req.tenantId);
+            
+            console.log(`📅 Auto-created calendar event for lead ${lead.id} on Leads calendar`);
+          }
+        } catch (calError) {
+          console.error('Failed to auto-create calendar event for lead:', calError);
+          // Don't fail the lead creation if calendar event fails
+        }
+      }
+      
       res.status(201).json(lead);
     } catch (error) {
       res.status(400).json({ message: "Invalid lead data" });

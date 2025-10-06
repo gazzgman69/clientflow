@@ -562,39 +562,41 @@ router.post('/:slug/submit', formSubmissionLimiter, async (req, res) => {
               });
               
               // Update lead with project reference
-              const updatedLead = await tenantStorage.updateLead(lead.id, { 
+              await tenantStorage.updateLead(lead.id, { 
                 projectId: project.id,
                 notes: `Auto-linked to Contact: ${existingContact.id} and Project: ${project.id} on ${new Date().toLocaleDateString()}`
               });
 
               // Auto-create calendar event if lead has a projectDate
-              if (updatedLead && updatedLead.projectDate) {
+              // Use original lead object since updateLead only returns updated fields
+              if (lead && lead.projectDate) {
                 try {
-                  const eventStart = new Date(updatedLead.projectDate);
+                  const eventStart = new Date(lead.projectDate);
                   const eventEnd = new Date(eventStart);
                   eventEnd.setHours(eventEnd.getHours() + 1); // Default 1-hour duration
                   
                   // Create event with 17hats-style title: "New Lead Project • [Name]"
-                  const leadName = updatedLead.fullName || updatedLead.email || 'Unknown';
+                  const leadName = lead.fullName || lead.email || 'Unknown';
                   const eventTitle = `New Lead Project • ${leadName}`;
                   
                   await storage.createEvent({
                     title: eventTitle,
-                    description: updatedLead.notes || undefined,
+                    description: lead.notes || undefined,
                     startDate: eventStart,
                     endDate: eventEnd,
-                    location: updatedLead.eventLocation || undefined,
-                    attendees: updatedLead.email ? [updatedLead.email] : undefined,
+                    location: lead.eventLocation || undefined,
+                    attendees: lead.email ? [lead.email] : undefined,
                     userId,
-                    leadId: updatedLead.id,
+                    leadId: lead.id,
                     projectId: project.id, // Link to project so it updates with project changes
                     type: 'lead',
                     status: 'tentative',
                     allDay: false,
-                    tenantId: form.tenantId
+                    tenantId: form.tenantId,
+                    createdBy: userId || form.createdBy
                   });
                   
-                  console.log(`📅 Auto-created calendar event for duplicate submission lead ${updatedLead.id} linked to project ${project.id}: "${eventTitle}"`);
+                  console.log(`📅 Auto-created calendar event for duplicate submission lead ${lead.id} linked to project ${project.id}: "${eventTitle}"`);
                 } catch (calError) {
                   console.error('Failed to auto-create calendar event for lead:', calError);
                   // Don't fail the lead creation if calendar event fails
@@ -963,7 +965,7 @@ router.post('/:slug/submit', formSubmissionLimiter, async (req, res) => {
     });
 
     // Update lead to link it to the created contact and project using TENANT-SCOPED storage
-    const updatedLead = await tenantStorage.updateLead(lead.id, { 
+    await tenantStorage.updateLead(lead.id, { 
       projectId: project.id,
       notes: `Auto-linked to Contact: ${contact.id} and Project: ${project.id} on ${new Date().toLocaleDateString('en-GB')}`
     });
@@ -978,25 +980,26 @@ router.post('/:slug/submit', formSubmissionLimiter, async (req, res) => {
     });
 
     // Auto-create calendar event if lead has a projectDate (now that we have projectId)
-    if (updatedLead && updatedLead.projectDate) {
+    // Use original lead object since updateLead only returns updated fields
+    if (lead && lead.projectDate) {
       try {
-        const eventStart = new Date(updatedLead.projectDate);
+        const eventStart = new Date(lead.projectDate);
         const eventEnd = new Date(eventStart);
         eventEnd.setHours(eventEnd.getHours() + 1); // Default 1-hour duration
         
         // Create event with 17hats-style title: "New Lead Project • [Name]"
-        const leadName = updatedLead.fullName || updatedLead.email || 'Unknown';
+        const leadName = lead.fullName || lead.email || 'Unknown';
         const eventTitle = `New Lead Project • ${leadName}`;
         
         await storage.createEvent({
           title: eventTitle,
-          description: updatedLead.notes || undefined,
+          description: lead.notes || undefined,
           startDate: eventStart,
           endDate: eventEnd,
-          location: updatedLead.eventLocation || undefined,
-          attendees: updatedLead.email ? [updatedLead.email] : undefined,
+          location: lead.eventLocation || undefined,
+          attendees: lead.email ? [lead.email] : undefined,
           userId,
-          leadId: updatedLead.id,
+          leadId: lead.id,
           projectId: project.id, // Link to project so it updates with project changes
           type: 'lead',
           status: 'tentative',
@@ -1005,7 +1008,7 @@ router.post('/:slug/submit', formSubmissionLimiter, async (req, res) => {
           createdBy: userId || form.createdBy
         });
         
-        console.log(`📅 Auto-created calendar event for lead ${updatedLead.id} linked to project ${project.id}: "${eventTitle}"`);
+        console.log(`📅 Auto-created calendar event for lead ${lead.id} linked to project ${project.id}: "${eventTitle}"`);
       } catch (calError) {
         console.error('Failed to auto-create calendar event for lead:', calError);
         // Don't fail the lead creation if calendar event fails

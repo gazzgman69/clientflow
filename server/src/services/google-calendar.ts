@@ -208,7 +208,7 @@ class GoogleCalendarService {
   /**
    * Convert Google Calendar event to CRM event
    */
-  convertGoogleEventToCRMEvent(googleEvent: GoogleCalendarEvent, integrationId: string): Omit<InsertEvent, 'createdBy'> {
+  convertGoogleEventToCRMEvent(googleEvent: GoogleCalendarEvent, integrationId: string, calendarId?: string): Omit<InsertEvent, 'createdBy'> {
     const startDate = googleEvent.start?.dateTime 
       ? new Date(googleEvent.start.dateTime)
       : googleEvent.start?.date 
@@ -234,7 +234,12 @@ class GoogleCalendarService {
       status: googleEvent.status === 'cancelled' ? 'cancelled' : 'confirmed',
       priority: 'medium',
       externalEventId: googleEvent.id || null,
+      externalCalendarId: calendarId || null,
       calendarIntegrationId: integrationId,
+      source: 'google',
+      syncState: 'active',
+      isReadonly: false,
+      lastSyncedAt: new Date(),
       attendees: googleEvent.attendees?.map(attendee => attendee.email) || null,
       reminderMinutes: googleEvent.reminders?.overrides?.[0]?.minutes || 15,
       recurring: (googleEvent.recurrence && googleEvent.recurrence.length > 0) || false,
@@ -342,11 +347,15 @@ class GoogleCalendarService {
           }
         } else {
           // Convert Google event to CRM event
-          const crmEventData = this.convertGoogleEventToCRMEvent(googleEvent, integration.id);
+          const crmEventData = this.convertGoogleEventToCRMEvent(googleEvent, integration.id, integration.calendarId || undefined);
           
           if (existingEvent) {
-            // Update existing event
-            await storage.updateEvent(existingEvent.id, crmEventData);
+            // Update existing event - if it was read-only (disconnected), reactivate it
+            await storage.updateEvent(existingEvent.id, {
+              ...crmEventData,
+              syncState: 'active',
+              isReadonly: false
+            });
             eventsUpdated++;
           } else {
             // Create new event

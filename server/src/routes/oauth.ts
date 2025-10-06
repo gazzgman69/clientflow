@@ -277,6 +277,15 @@ router.get('/auth/google/calendar', async (req, res) => {
     const returnTo = (req.query.returnTo as string) || '/calendar';
     const origin = (req.query.origin as string) || '';
     
+    console.log('🚨🚨🚨 CALENDAR OAUTH START - RAW PARAMS:', {
+      rawPopup: req.query.popup,
+      popupType: typeof req.query.popup,
+      booleanPopup: popup,
+      booleanType: typeof popup,
+      returnTo,
+      origin
+    });
+    
     console.log('🔐 OAUTH START /auth/google/calendar:', {
       popup,
       hasSession: !!req.session,

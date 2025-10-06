@@ -193,6 +193,11 @@ export class GoogleOAuthService {
       timestamp: Date.now()
     };
     
+    if (process.env.DEBUG_OAUTH) {
+      console.log('🔍 DEBUG: oauthState BEFORE signing:', JSON.stringify(oauthState, null, 2));
+      console.log('🔍 DEBUG: popup parameter value:', popup, 'type:', typeof popup);
+    }
+    
     const state = this.signOAuthState(oauthState);
     
     // Generate PKCE challenge and verifier

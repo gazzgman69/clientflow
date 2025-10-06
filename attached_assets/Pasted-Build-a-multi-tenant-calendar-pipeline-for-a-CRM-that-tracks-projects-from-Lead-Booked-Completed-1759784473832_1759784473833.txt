@@ -1,0 +1,95 @@
+Build a multi-tenant calendar pipeline for a CRM that tracks projects from Lead → Booked → Completed using separate calendars and event moves. You choose schema, database, endpoints, jobs, and UI. All user-visible dates must display as dd/mm/yyyy (and dd/mm/yyyy HH:mm for times).
+
+Scope (calendar only)
+
+No emails, invoices, contracts, or non-calendar workflows.
+
+Optional provider sync (Google/Microsoft) is allowed, but keep it calendar-focused.
+
+Core requirements
+
+Calendars (per tenant): create three system calendars: Leads, Booked, Completed (configurable names/colours).
+
+Projects & Events:
+
+Creating a project with a date/time creates an Event on the Leads calendar.
+
+Changing project status to Booked moves the same event from Leads → Booked.
+
+Changing project status to Completed moves the event from Booked → Completed (or mark with a Completed badge—your choice, but be consistent).
+
+Allow reschedule (update start/end) and preserve a simple history trail on the event.
+
+Conflict checks:
+
+Prevent double-booking for the same resource/user over overlapping times.
+
+On conflict, show clear error and suggest nearest available slots.
+
+Views & UX:
+
+Calendar view with filters/toggles for Leads / Booked / Completed (multi-select).
+
+Event badges: Lead, Booked, Completed. Tooltip shows source/provider and project link.
+
+A project sidebar/panel with date/time picker, status picker, and “Move to Booked/Completed” actions.
+
+All dates/times in UI formatted dd/mm/yyyy (and dd/mm/yyyy HH:mm where needed).
+
+Multi-tenant & users:
+
+Everything scoped to {tenantId} and {userId}. Enforce isolation on reads/writes.
+
+Two-way sync (optional but scaffold):
+
+Implement provider adapter interfaces for Google/Microsoft calendars (create/update/delete/list, webhook/watch if you implement it).
+
+If not fully implementing APIs, stub the adapters with clear TODOs and keep de-duplication keys: (provider, externalCalendarId, externalEventId).
+
+Store source, external_* ids, lastSyncedAt.
+
+Disconnect behaviour (if providers included):
+
+On disconnect, stop sync immediately; keep provider-sourced events read-only.
+
+Show banner: “Google/Microsoft Calendar disconnected on dd/mm/yyyy.”
+
+Provide [Reconnect] [Purge provider events] [Export .ics] actions.
+
+Data model (name things as you like):
+
+Project (id, tenantId, userId, status: lead|booked|completed|cancelled, primaryEventId)
+
+Calendar (id, tenantId, name, color, type: leads|booked|completed|custom)
+
+Event (id, tenantId, calendarId, projectId, title, start, end, timezone, source, external ids, lastSyncedAt, isReadonly, history[])
+
+IntegrationState (per user/provider) if you implement sync.
+
+AuditLog for key actions (create, move, reschedule, purge, export).
+
+Export/Import:
+
+Provide .ics export for any calendar or filtered view (e.g., all Booked in a range).
+
+(Optional) Simple .ics import for seeds/demos.
+
+Acceptance criteria
+
+Creating a project with a date places an event on the Leads calendar.
+
+Switching status to Booked moves the same event to Booked (no duplicate).
+
+Switching status to Completed moves/marks appropriately.
+
+Rescheduling updates the event and records a simple history entry.
+
+Conflict detection prevents overlapping bookings for the same resource/user.
+
+Calendar view filters by Leads/Booked/Completed and shows badges/tooltips.
+
+All dates/times render as dd/mm/yyyy (and dd/mm/yyyy HH:mm where needed).
+
+Multi-tenant isolation is enforced (seed at least 2 tenants).
+
+If provider sync is included: disconnect sets events read-only, shows the banner with dd/mm/yyyy, and supports Reconnect / Purge / Export .ics.

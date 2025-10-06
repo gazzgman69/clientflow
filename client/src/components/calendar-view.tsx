@@ -4,7 +4,7 @@ import { ChevronLeft, ChevronRight, Plus, Calendar as CalendarIcon, Clock, MapPi
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -132,13 +132,7 @@ export default function CalendarView({ viewMode = 'month' }: CalendarViewProps) 
         attendees: data.attendees ? data.attendees.split(',').map(email => email.trim()).filter(Boolean) : null,
         createdBy: currentUser?.id || '',
       };
-      const response = await fetch('/api/events', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(eventData),
-      });
+      const response = await apiRequest('POST', '/api/events', eventData);
       if (!response.ok) {
         const errorData = await response.json();
         console.error('Event creation failed:', errorData);
@@ -170,13 +164,7 @@ export default function CalendarView({ viewMode = 'month' }: CalendarViewProps) 
         ...eventData,
         attendees: eventData.attendees ? eventData.attendees.split(',').map(email => email.trim()).filter(Boolean) : null,
       };
-      const response = await fetch(`/api/events/${id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(updateData),
-      });
+      const response = await apiRequest('PUT', `/api/events/${id}`, updateData);
       if (!response.ok) {
         throw new Error('Failed to update event');
       }
@@ -201,9 +189,7 @@ export default function CalendarView({ viewMode = 'month' }: CalendarViewProps) 
   // Delete event mutation
   const deleteEventMutation = useMutation({
     mutationFn: async (eventId: string) => {
-      const response = await fetch(`/api/events/${eventId}`, {
-        method: 'DELETE',
-      });
+      const response = await apiRequest('DELETE', `/api/events/${eventId}`);
       if (!response.ok) {
         throw new Error('Failed to delete event');
       }
@@ -819,6 +805,9 @@ export default function CalendarView({ viewMode = 'month' }: CalendarViewProps) 
               <CalendarIcon className="h-5 w-5" />
               All Events ({events?.length || 0} total)
             </DialogTitle>
+            <DialogDescription>
+              View and manage all your calendar events
+            </DialogDescription>
           </DialogHeader>
           
           <div className="space-y-4">
@@ -943,6 +932,9 @@ export default function CalendarView({ viewMode = 'month' }: CalendarViewProps) 
                 })
               }
             </DialogTitle>
+            <DialogDescription>
+              View all events scheduled for this day
+            </DialogDescription>
           </DialogHeader>
           
           <div className="space-y-3">

@@ -696,6 +696,8 @@ router.post('/:slug/submit', formSubmissionLimiter, async (req, res) => {
       leadId: lead.id,
       leadEmail: lead.email,
       leadName: lead.fullName,
+      projectDate: lead.projectDate,
+      hasProjectDate: !!lead.projectDate,
       tenantId: form.tenantId,
       slug,
       timestamp: new Date().toISOString()
@@ -981,6 +983,15 @@ router.post('/:slug/submit', formSubmissionLimiter, async (req, res) => {
 
     // Auto-create calendar event if lead has a projectDate (now that we have projectId)
     // Use original lead object since updateLead only returns updated fields
+    console.log('🔍 CALENDAR EVENT CHECK:', {
+      leadId: lead.id,
+      projectId: project.id,
+      hasLead: !!lead,
+      hasProjectDate: !!lead.projectDate,
+      projectDateValue: lead.projectDate,
+      projectDateType: typeof lead.projectDate
+    });
+    
     if (lead && lead.projectDate) {
       try {
         const eventStart = new Date(lead.projectDate);

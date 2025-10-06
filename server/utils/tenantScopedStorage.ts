@@ -265,6 +265,27 @@ export class TenantScopedStorage {
     return this.baseStorage.deleteCalendarIntegration(id, this.tenantId);
   }
 
+  // Events
+  async getEvents(userId?: string) {
+    return this.baseStorage.getEvents(this.tenantId, userId);
+  }
+
+  async getEvent(id: string) {
+    return this.baseStorage.getEvent(id, this.tenantId);
+  }
+
+  async createEvent(event: any) {
+    return this.baseStorage.createEvent(event, this.tenantId);
+  }
+
+  async updateEvent(id: string, event: any) {
+    return this.baseStorage.updateEvent(id, event, this.tenantId);
+  }
+
+  async deleteEvent(id: string) {
+    return this.baseStorage.deleteEvent(id, this.tenantId);
+  }
+
   // Members
   async getMembers() {
     return this.baseStorage.getMembers(this.tenantId);

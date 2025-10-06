@@ -120,7 +120,7 @@ export class CalendarAutoSyncService {
           await storage.updateCalendarIntegration(integration.id, {
             lastSyncAt: new Date(),
             syncErrors: null // Clear any previous errors
-          });
+          }, integration.tenantId);
 
           successCount++;
           console.log(`✅ Successfully auto-synced ${integration.calendarName}`);
@@ -137,7 +137,7 @@ export class CalendarAutoSyncService {
               timestamp: new Date(),
               type: 'auto-sync'
             })
-          });
+          }, integration.tenantId);
         }
       }
 

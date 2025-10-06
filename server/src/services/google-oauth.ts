@@ -578,7 +578,7 @@ export class GoogleOAuthService {
   async syncToGoogle(integration: CalendarIntegration, eventId: string) {
     try {
       const calendar = await this.getCalendarService(integration);
-      const event = await storage.getEvent(eventId);
+      const event = await storage.getEvent(eventId, integration.tenantId);
       
       if (!event) throw new Error('Event not found');
       

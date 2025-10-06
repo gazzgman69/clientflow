@@ -449,9 +449,11 @@ router.post('/auth/google/start', requireAuth, async (req: any, res) => {
  * Start Gmail OAuth flow - Generate auth URL for Gmail-specific scopes
  */
 router.post('/auth/google/gmail/start', requireAuth, async (req: any, res) => {
+  console.log('🎯 ROUTE HIT: /auth/google/gmail/start');
   try {
     const { email, popup, origin, returnTo } = req.body;
     const userId = req.authenticatedUserId;
+    console.log('📧 Gmail OAuth start:', { email, popup, userId, tenantId: req.tenantId });
     
     // Email is optional for OAuth - user authenticates through OAuth provider
     // If email is provided and account exists, skip re-auth

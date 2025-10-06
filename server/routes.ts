@@ -502,6 +502,75 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
       if (!lead) {
         return res.status(404).json({ message: "Lead not found" });
       }
+      
+      // Auto-update calendar event if it exists
+      try {
+        const events = await storage.getEvents(req.tenantId);
+        const leadEvent = events.find(e => e.leadId === lead.id);
+        
+        if (leadEvent) {
+          const updates: any = {};
+          
+          // Update title if name changed
+          if (lead.fullName) {
+            const leadName = lead.fullName || lead.email || 'Unknown';
+            updates.title = `New Lead Project • ${leadName}`;
+          }
+          
+          // Update dates if project date changed
+          if (leadData.projectDate) {
+            const eventStart = new Date(leadData.projectDate);
+            const eventEnd = new Date(eventStart);
+            eventEnd.setHours(eventEnd.getHours() + 1);
+            updates.startTime = eventStart;
+            updates.endTime = eventEnd;
+          }
+          
+          // Update attendees if email changed
+          if (leadData.email) {
+            updates.attendees = [leadData.email];
+          }
+          
+          // Update notes if changed
+          if (leadData.notes !== undefined) {
+            updates.description = leadData.notes;
+          }
+          
+          if (Object.keys(updates).length > 0) {
+            await storage.updateEvent(leadEvent.id, updates, req.tenantId);
+            console.log(`📅 Auto-updated calendar event for lead ${lead.id}`);
+          }
+        } else if (lead.projectDate && leadData.projectDate) {
+          // Create event if projectDate was just added
+          const eventStart = new Date(lead.projectDate);
+          const eventEnd = new Date(eventStart);
+          eventEnd.setHours(eventEnd.getHours() + 1);
+          
+          const leadName = lead.fullName || lead.email || 'Unknown';
+          const eventTitle = `New Lead Project • ${leadName}`;
+          
+          await storage.createEvent({
+            title: eventTitle,
+            description: lead.notes || undefined,
+            startTime: eventStart,
+            endTime: eventEnd,
+            location: lead.eventLocation || undefined,
+            attendees: lead.email ? [lead.email] : undefined,
+            userId: req.userId,
+            leadId: lead.id,
+            type: 'lead',
+            status: 'tentative',
+            allDay: false,
+            tenantId: req.tenantId
+          });
+          
+          console.log(`📅 Auto-created calendar event for updated lead ${lead.id}: "${eventTitle}"`);
+        }
+      } catch (calError) {
+        console.error('Failed to update calendar event for lead:', calError);
+        // Don't fail the lead update if calendar event fails
+      }
+      
       res.json(lead);
     } catch (error) {
       res.status(400).json({ message: "Invalid lead data" });
@@ -555,6 +624,20 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
 
   app.delete("/api/leads/:id", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
     try {
+      // Delete associated calendar event first
+      try {
+        const events = await storage.getEvents(req.tenantId);
+        const leadEvent = events.find(e => e.leadId === req.params.id);
+        
+        if (leadEvent) {
+          await storage.deleteEvent(leadEvent.id, req.tenantId);
+          console.log(`📅 Auto-deleted calendar event for lead ${req.params.id}`);
+        }
+      } catch (calError) {
+        console.error('Failed to delete calendar event for lead:', calError);
+        // Continue with lead deletion even if calendar event fails
+      }
+      
       const deleted = await storage.deleteLead(req.params.id, req.tenantId);
       if (!deleted) {
         return res.status(404).json({ message: "Lead not found" });

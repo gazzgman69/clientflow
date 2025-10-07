@@ -249,7 +249,7 @@ export const emailThreads = pgTable("email_threads", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   tenantId: varchar("tenant_id").references(() => tenants.id).notNull(), // SECURITY FIX: Made NOT NULL for tenant isolation
   userId: varchar("user_id").references(() => users.id), // Made nullable initially for safe migration
-  projectId: varchar("project_id").references(() => projects.id, { onDelete: 'cascade' }),
+  projectId: varchar("project_id").references(() => projects.id, { onDelete: 'set null' }), // Changed to SET NULL to prevent FK errors when project deleted
   subject: text("subject"),
   lastMessageAt: timestamp("last_message_at"),
   createdAt: timestamp("created_at").defaultNow(),

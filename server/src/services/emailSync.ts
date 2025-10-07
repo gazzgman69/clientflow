@@ -71,6 +71,29 @@ export class EmailSyncService {
   }
 
   /**
+   * Verify if a project exists for the given tenant (defensive check for FK violations)
+   */
+  private async projectExists(projectId: string | null | undefined, tenantId: string): Promise<boolean> {
+    if (!projectId) return false;
+    
+    try {
+      const result = await db
+        .select({ id: projects.id })
+        .from(projects)
+        .where(and(
+          eq(projects.id, projectId),
+          eq(projects.tenantId, tenantId)
+        ))
+        .limit(1);
+      
+      return result.length > 0;
+    } catch (error) {
+      console.error('Error checking project existence:', error);
+      return false;
+    }
+  }
+
+  /**
    * Sync Gmail threads to database for instant access
    */
   async syncGmailThreadsToDatabase(userId: string, specificProjectId?: string, sessionTenantId?: string): Promise<{
@@ -280,6 +303,16 @@ export class EmailSyncService {
             }
           }
           
+          // DEFENSIVE: Verify project exists before linking (prevents FK violations on deleted projects)
+          if (matchedProjectId && !(await this.projectExists(matchedProjectId, tenantId))) {
+            console.info('📧 EMAIL SYNC: Project deleted, detaching from thread', {
+              tenantId,
+              threadId,
+              intendedProjectId: matchedProjectId
+            });
+            matchedProjectId = null; // Detach instead of failing
+          }
+          
           // PII-SAFE LOGGING: Use direction info only
           console.log(`📧 THREAD DIRECTION: ${direction} message (contactId: ${contactId})`);
           
@@ -387,7 +420,7 @@ export class EmailSyncService {
    * Find or create thread based on RFC email headers (Message-ID, In-Reply-To, References)
    * This replaces subject-based threading with proper RFC compliance
    */
-  private async findRFCThread(messageId: string, inReplyTo?: string | null, references?: string | null, projectId?: string | null): Promise<string> {
+  private async findRFCThread(messageId: string, inReplyTo?: string | null, references?: string | null, projectId?: string | null, tenantId?: string): Promise<string> {
     try {
       // If this message has In-Reply-To header, find the thread containing that Message-ID
       if (inReplyTo) {
@@ -422,12 +455,23 @@ export class EmailSyncService {
         }
       }
 
+      // DEFENSIVE: Verify project exists before linking (prevents FK violations)
+      let safeProjectId = projectId || null;
+      if (safeProjectId && tenantId && !(await this.projectExists(safeProjectId, tenantId))) {
+        console.info('📧 RFC THREADING: Project deleted, creating thread without project link', {
+          tenantId,
+          messageId,
+          intendedProjectId: safeProjectId
+        });
+        safeProjectId = null;
+      }
+
       // No RFC headers match existing threads - create new thread
       const newThreadId = `thread_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
       
       await db.insert(emailThreads).values({
         id: newThreadId,
-        projectId: projectId || null,
+        projectId: safeProjectId,
         subject: null, // Subject is display-only, not used for threading
         lastMessageAt: new Date(),
         createdAt: new Date(),
@@ -439,12 +483,12 @@ export class EmailSyncService {
       
     } catch (error) {
       console.error('❌ Error in RFC thread finding:', error);
-      // Fallback: create unique thread
+      // Fallback: create unique thread (no project link on error to prevent FK violations)
       const fallbackThreadId = `fallback_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
       
       await db.insert(emailThreads).values({
         id: fallbackThreadId,
-        projectId: projectId || null,
+        projectId: null, // Never link project on error fallback
         subject: null,
         lastMessageAt: new Date(),
         createdAt: new Date(),
@@ -796,8 +840,19 @@ export class EmailSyncService {
       const inReplyTo = headers['in-reply-to'] || null;
       const references = headers.references || null;
 
-      // Use RFC headers to find/create the correct thread
-      const correctThreadId = await this.findRFCThread(messageId, inReplyTo, references, projectId);
+      // INGESTION GUARD: Get tenant ID from authenticated context and check if sender is a known contact  
+      // SECURITY FIX: Use session-aware tenant resolution
+      let tenantId: string;
+      if (this.tenantId) {
+        tenantId = this.tenantId;
+      } else {
+        // This should not happen in authenticated contexts - log for debugging
+        // SECURITY: Require authenticated tenant context for outbound emails
+        throw new Error(`Outbound email sync requires authenticated tenant context for user ${userId}. Session-based tenant ID must be provided.`);
+      }
+
+      // Use RFC headers to find/create the correct thread (with tenant verification)
+      const correctThreadId = await this.findRFCThread(messageId, inReplyTo, references, projectId, tenantId);
 
       // Extract email addresses
       const fromEmails = this.extractEmails(headers.from || '');
@@ -817,18 +872,7 @@ export class EmailSyncService {
       });
       
       const direction = matches.some(match => match) ? 'outbound' : 'inbound';
-      console.log(`📧 FINAL DIRECTION: ${direction} (${fromEmails[0]} → ${direction})`);
-
-      // INGESTION GUARD: Get tenant ID from authenticated context and check if sender is a known contact  
-      // SECURITY FIX: Use session-aware tenant resolution
-      let tenantId: string;
-      if (this.tenantId) {
-        tenantId = this.tenantId;
-      } else {
-        // This should not happen in authenticated contexts - log for debugging
-        // SECURITY: Require authenticated tenant context for outbound emails
-        throw new Error(`Outbound email sync requires authenticated tenant context for user ${userId}. Session-based tenant ID must be provided.`);
-      }
+      console.log(`📧 FINAL DIRECTION: ${direction} (${fromEmails[0]} → ${direction})`)
       let contactId: string | null = null;
 
       if (direction === 'inbound') {
@@ -1011,14 +1055,6 @@ export class EmailSyncService {
       // Generate a Message-ID for this outbound email (RFC 2822 compliant)
       const messageId = `<${Date.now()}.${Math.random().toString(36).substr(2, 9)}@crm.system>`;
       
-      // Use RFC threading to find/create the correct thread
-      const correctThreadId = await this.findRFCThread(
-        messageId, 
-        data.inReplyTo, 
-        data.references, 
-        data.projectId
-      );
-
       // Find contact for primary recipient
       // SECURITY FIX: Use session-aware tenant resolution
       let tenantId: string;
@@ -1032,6 +1068,15 @@ export class EmailSyncService {
         // SECURITY: Require authenticated tenant context for email creation
         throw new Error(`Email creation requires authenticated tenant context for user ${userId}. Session-based tenant ID must be provided.`);
       }
+      
+      // Use RFC threading to find/create the correct thread (with tenant verification)
+      const correctThreadId = await this.findRFCThread(
+        messageId, 
+        data.inReplyTo, 
+        data.references, 
+        data.projectId,
+        tenantId
+      );
       const contactId = data.to.length > 0 
         ? await this.findOrCreateContact(data.to[0], tenantId, data.projectId)
         : null;

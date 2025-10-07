@@ -1,0 +1,205 @@
+You are an expert code mechanic. Apply the changes below exactly. Keep business logic intact. Be multi-tenant safe. After changes, run the included verifier and print its PASS/FAIL.
+
+GOAL
+Fix foreign key errors like:
+  insert/update on table "email_threads" violates constraint "email_threads_project_id_projects_id_fk"
+when Gmail sync references a deleted project. Emails should persist and simply detach from the deleted project.
+
+PLAN (do in this order)
+1) SCHEMA: Make email_threads.project_id NULLable and change FK to ON DELETE SET NULL.
+2) CODE GUARD: In the Gmail/email sync, if target project doesn’t exist (for the same tenant), set projectId=null and log (don’t throw).
+3) IDEMPOTENCY/UNIQUENESS: Ensure we upsert threads by (tenant_id, provider, thread_id) so retries don’t duplicate.
+4) VERIFIER: Add a tiny script that:
+   - Creates a test project + simulates 1 synced thread attached to it
+   - Deletes the project
+   - Runs the minimal sync path that would re-upsert the same thread
+   - Expects: no crash, thread row exists with project_id=null
+
+ASSUMPTIONS
+- Drizzle ORM (ts) with a shared/schema.ts
+- email_threads has: id (uuid), tenant_id, provider ('google'), thread_id (string), project_id (uuid), updated_at, etc.
+- Gmail sync code paths live under server/services/gmail/* or similar (adjust imports accordingly).
+- Multi-tenant: all storage calls carry tenantId.
+
+────────────────────────────────────────────────────────────────
+1) SCHEMA CHANGE (Drizzle + SQL migration)
+────────────────────────────────────────────────────────────────
+A) Update shared/schema.ts (or wherever email_threads is defined):
+- Make projectId nullable.
+- Change FK to ON DELETE SET NULL.
+- Add unique composite on (tenantId, provider, threadId).
+
+// BEFORE (illustrative)
+export const emailThreads = pgTable('email_threads', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: varchar('tenant_id').notNull(),
+  provider: varchar('provider').notNull(), // 'google'
+  threadId: varchar('thread_id').notNull(),
+  projectId: varchar('project_id').references(() => projects.id, { onDelete: 'cascade' }), // <- change this
+  // ...
+}, (t) => ({
+  // maybe had a unique on threadId only (bad cross-tenant)
+}));
+
+// AFTER
+export const emailThreads = pgTable('email_threads', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: varchar('tenant_id').notNull(),
+  provider: varchar('provider').notNull(),
+  threadId: varchar('thread_id').notNull(),
+  projectId: varchar('project_id').nullable().references(() => projects.id, { onDelete: 'set null' }), // <- updated
+  // ...
+}, (t) => ({
+  emailThreadTenantUniq: unique().on(t.tenantId, t.provider, t.threadId), // idempotent upserts per tenant/provider
+}));
+
+B) Create a SQL migration named e.g. 20251007_email_threads_setnull.sql:
+-- Make column nullable
+ALTER TABLE email_threads ALTER COLUMN project_id DROP NOT NULL;
+
+-- Drop old FK and add new one (names may differ; adjust with \d email_threads if needed)
+ALTER TABLE email_threads DROP CONSTRAINT IF EXISTS email_threads_project_id_projects_id_fk;
+ALTER TABLE email_threads
+  ADD CONSTRAINT email_threads_project_id_projects_id_fk
+  FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE SET NULL;
+
+-- Add unique compound index for idempotency
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_indexes 
+    WHERE schemaname = 'public' AND indexname = 'email_threads_tenant_provider_thread_unique'
+  ) THEN
+    CREATE UNIQUE INDEX email_threads_tenant_provider_thread_unique
+      ON email_threads(tenant_id, provider, thread_id);
+  END IF;
+END $$;
+
+Run migrations.
+
+────────────────────────────────────────────────────────────────
+2) SYNC GUARD (don’t fail, detach instead)
+────────────────────────────────────────────────────────────────
+Find the Gmail sync upsert path, e.g. server/services/gmail/sync.ts (adjust path):
+- Right before writing/attaching the thread to a project, verify project exists under the same tenant.
+- If missing, set projectId=null and log an INFO. Do not throw.
+
+Pseudo-diff (TypeScript):
+
+// helper (shared place if you have storage methods)
+async function projectExists(storage, tenantId: string, projectId?: string | null) {
+  if (!projectId) return false;
+  const p = await storage.getProjectById(projectId, tenantId); // must filter by tenantId
+  return !!p;
+}
+
+// in the upsert loop for each thread:
+const intendedProjectId = resolvedProjectIdFromYourLogic ?? null;
+
+let finalProjectId: string | null = null;
+if (await projectExists(storage, tenantId, intendedProjectId)) {
+  finalProjectId = intendedProjectId;
+} else if (intendedProjectId) {
+  console.info('email.sync.detached_missing_project', {
+    tenantId, threadId: gThread.id, intendedProjectId
+  });
+  finalProjectId = null; // detach instead of failing
+}
+
+// Idempotent upsert by (tenantId, provider, threadId)
+await storage.upsertEmailThread({
+  tenantId,
+  provider: 'google',
+  threadId: gThread.id,
+  projectId: finalProjectId,
+  // ... other columns
+});
+
+Ensure `upsertEmailThread` uses the unique (tenantId, provider, threadId) key.
+
+────────────────────────────────────────────────────────────────
+3) STORAGE: idempotent upsert
+────────────────────────────────────────────────────────────────
+Implement/verify storage.upsertEmailThread(…) does:
+- INSERT … ON CONFLICT (tenant_id, provider, thread_id) DO UPDATE SET …
+- And writes nullable project_id.
+
+Drizzle example:
+
+await db
+  .insert(emailThreads)
+  .values(payload)
+  .onConflictDoUpdate({
+    target: [emailThreads.tenantId, emailThreads.provider, emailThreads.threadId],
+    set: {
+      projectId: payload.projectId ?? null,
+      updatedAt: sql`now()`,
+      // any other mutable fields
+    },
+  });
+
+────────────────────────────────────────────────────────────────
+4) VERIFIER (read-only safety check)
+────────────────────────────────────────────────────────────────
+Create scripts/verify-email-detach.ts that:
+- Creates a temp project + simulates a synced thread attached to it
+- Deletes the project
+- Re-invokes the same upsert for that (tenant, provider, threadId)
+- PASS if no error and the row remains with project_id NULL
+
+#!/usr/bin/env tsx
+import { neon } from '@neondatabase/serverless';
+const sql = neon(process.env.DATABASE_URL!);
+const TENANT = process.env.TENANT_ID || 'default-tenant';
+const PROVIDER = 'google';
+const THREAD = 'triage-thread-' + Date.now();
+
+async function main() {
+  // create project
+  const proj = await sql(`INSERT INTO projects (id, tenant_id, name) VALUES (gen_random_uuid(), $1, 'TEMP PROJ') RETURNING id`, [TENANT]);
+  const projectId = proj[0].id;
+
+  // seed thread attached to project
+  await sql(`INSERT INTO email_threads (id, tenant_id, provider, thread_id, project_id)
+             VALUES (gen_random_uuid(), $1, $2, $3, $4)`, [TENANT, PROVIDER, THREAD, projectId]);
+
+  // delete project (should set thread.project_id = NULL on cascade, after migration)
+  await sql(`DELETE FROM projects WHERE id=$1 AND tenant_id=$2`, [projectId, TENANT]);
+
+  // simulate sync re-upsert the same thread (should not fail, should keep NULL project)
+  -- this step just reads the row to ensure we didn’t violate FK; if you have a sync function, call it instead
+
+  const rows = await sql(`SELECT thread_id, project_id FROM email_threads WHERE tenant_id=$1 AND provider=$2 AND thread_id=$3`, [TENANT, PROVIDER, THREAD]);
+  if (rows.length === 1 && rows[0].project_id === null) {
+    console.log('✅ PASS: thread present and detached (project_id IS NULL)');
+    process.exit(0);
+  } else {
+    console.error('❌ FAIL: expected row with project_id NULL, got:', rows);
+    process.exit(1);
+  }
+}
+main().catch(e => { console.error('❌ FAIL:', e); process.exit(1); });
+
+Run:
+  tsx scripts/verify-email-detach.ts
+
+────────────────────────────────────────────────────────────────
+5) LOGGING (observability)
+────────────────────────────────────────────────────────────────
+Add logs where you detached:
+- INFO email.sync.detached_missing_project { tenantId, threadId, intendedProjectId }
+- WARN email.sync.upsert_error { tenantId, threadId, err } (but do not throw if the only issue is missing project)
+
+────────────────────────────────────────────────────────────────
+6) ROLLBACK (if you ever want to undo)
+────────────────────────────────────────────────────────────────
+- Revert Drizzle schema change to make projectId NOT NULL and FK ON DELETE CASCADE.
+- Reverse the SQL migration (drop the SET NULL FK, add CASCADE, set NOT NULL).
+- Remove the guard (not recommended).
+
+After applying, print:
+- \d email_threads (show project_id nullable, FK = SET NULL)
+- SELECT count(*) FROM email_threads WHERE project_id IS NULL AND updated_at > now() - interval '1 hour';
+- Run the verifier script and display its output.
+
+END

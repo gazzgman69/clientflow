@@ -985,6 +985,9 @@ router.post('/:slug/submit', formSubmissionLimiter, async (req, res) => {
       timestamp: new Date().toISOString()
     });
 
+    console.log('🚨 DEBUG: About to check for calendar event creation');
+    console.log('🚨 DEBUG: Lead object:', JSON.stringify(lead, null, 2));
+
     // Auto-create calendar event if lead has a projectDate (now that we have projectId)
     // Use original lead object since updateLead only returns updated fields
     console.log('🔍 CALENDAR EVENT CHECK:', {

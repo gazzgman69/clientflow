@@ -1,0 +1,129 @@
+PROMPT — End-to-End “Lead → Calendar Event” Verification (no code changes)
+
+Create scripts/e2e-calendar-check.ts that:
+
+Purpose
+
+Prove that a calendar event is created when a lead capture is submitted.
+
+Do not modify schemas or business logic; only call existing endpoints & DB.
+
+Print raw results + a final PASS/FAIL table.
+
+Inputs
+
+DATABASE_URL (required), BASE_URL (default http://localhost:5000)
+
+LCF_SLUG (optional). If missing, pick the first active slug.
+
+Steps
+
+Resolve slug:
+
+If LCF_SLUG set, use it; else query:
+
+SELECT slug FROM lead_capture_forms WHERE is_active = true LIMIT 1;
+
+
+Load form questions JSON for the slug and parse:
+
+SELECT questions FROM lead_capture_forms WHERE slug = $1 LIMIT 1;
+
+
+Determine:
+
+The ordered list of questions (by orderIndex ascending).
+
+The projectDate question id (where mapTo === 'projectDate').
+
+Which fields are required (boolean flag in the JSON).
+
+Build two valid payloads that satisfy all required fields:
+
+Numeric payload: keys "1","2","3",... follow orderIndex + 1.
+
+Q-style payload: keys are actual question ids.
+
+Fill values:
+
+Name: "E2E Calendar Triage"
+
+Email: unique value like triage+${Date.now()}@example.com
+
+Phone: "+44 7700 900123"
+
+Event Type: "Wedding"
+
+Event Location: "Test Venue"
+
+Date: "25/12/2025" (dd/mm/yyyy)
+
+Any other requireds: sensible dummy strings.
+
+Submit Numeric then Q-style:
+
+POST /api/leads/public/:slug/submit
+
+Headers: Content-Type: application/json
+
+Body shape: { "data": {...}, "consent": true }
+
+Record HTTP status and response bodies.
+
+Query events (most recent first) and print:
+
+SELECT title, type,
+       to_char(start_date,'DD/MM/YYYY HH24:MI') AS start,
+       to_char(created_at,'DD/MM/YYYY HH24:MI') AS created
+FROM events
+ORDER BY created_at DESC
+LIMIT 10;
+
+
+Determine PASS/FAIL:
+
+A) Numeric → Event: PASS if a new event exists with title like New Lead Project • E2E Calendar Triage and a start date of 25/12/2025 (any time).
+
+B) Q-style → Event: Same check after the second submit.
+
+C) Missing requireds handled: If either submit returned 400, print which required fields were missing (from response) and mark that check FAIL.
+
+D) Idempotency (informational): Re-submit the exact same numeric payload immediately; ensure the total events for that exact title + start date increased by ≤ 1 (duplicate skip counts as OK). Print result.
+
+Print final table (columns: Check, Status, Details) and exit non-zero if any A or B failed.
+
+Implementation notes
+
+Use TypeScript with tsx. Use @neondatabase/serverless or pg (you choose) for SQL.
+
+No external tools like jq. Parse JSON in TS.
+
+When printing dates, always format dd/mm/yyyy HH:mm (use SQL to_char as above).
+
+Don’t mutate any server files.
+
+Run commands to output
+After creating the file, print the commands to run:
+
+# with explicit slug (optional)
+LCF_SLUG=YOUR_FORM_SLUG tsx scripts/e2e-calendar-check.ts
+
+# or rely on first active slug
+tsx scripts/e2e-calendar-check.ts
+
+
+Expected output (example)
+
+Raw HTTP statuses + bodies for both submits.
+
+Last 10 events with titles and DD/MM/YYYY HH:MI.
+
+PASS/FAIL table:
+
+A: Numeric → Event ✅/❌
+
+B: Q-style → Event ✅/❌
+
+C: Requireds handled ✅/❌
+
+D: Idempotency info ✅/⚠️

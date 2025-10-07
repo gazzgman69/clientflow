@@ -597,7 +597,13 @@ router.post('/:slug/submit', formSubmissionLimiter, async (req, res) => {
                   
                   console.log(`📅 Auto-created calendar event for duplicate submission lead ${lead.id} linked to project ${project.id}: "${eventTitle}"`);
                 } catch (calError) {
-                  console.error('Failed to auto-create calendar event for lead:', calError);
+                  console.error('❌ CALENDAR EVENT CREATION FAILED (duplicate submission path):', {
+                    leadId: lead.id,
+                    projectId: project.id,
+                    error: calError instanceof Error ? calError.message : String(calError),
+                    stack: calError instanceof Error ? calError.stack : undefined,
+                    tenantId: form.tenantId
+                  });
                   // Don't fail the lead creation if calendar event fails
                 }
               }
@@ -1019,7 +1025,13 @@ router.post('/:slug/submit', formSubmissionLimiter, async (req, res) => {
         
         console.log(`📅 Auto-created calendar event for lead ${lead.id} linked to project ${project.id}: "${eventTitle}"`);
       } catch (calError) {
-        console.error('Failed to auto-create calendar event for lead:', calError);
+        console.error('❌ CALENDAR EVENT CREATION FAILED:', {
+          leadId: lead.id,
+          projectId: project.id,
+          error: calError instanceof Error ? calError.message : String(calError),
+          stack: calError instanceof Error ? calError.stack : undefined,
+          tenantId: form.tenantId
+        });
         // Don't fail the lead creation if calendar event fails
       }
     }

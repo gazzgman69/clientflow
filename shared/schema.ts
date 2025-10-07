@@ -283,7 +283,6 @@ export const emails = pgTable("emails", {
   contactId: varchar("contact_id").references(() => contacts.id, { onDelete: 'cascade' }),
   projectId: varchar("project_id").references(() => projects.id, { onDelete: 'cascade' }),
   leadId: varchar("lead_id").references(() => leads.id, { onDelete: 'cascade' }),
-  clientId: varchar("client_id").references(() => contacts.id, { onDelete: 'cascade' }),
   status: text("status").default('delivered'), // delivered, failed, pending
   sentBy: varchar("sent_by").references(() => users.id),
   createdAt: timestamp("created_at").defaultNow(),
@@ -332,7 +331,6 @@ export const smsMessages = pgTable("sms_messages", {
   threadId: varchar("thread_id"),
   leadId: varchar("lead_id").references(() => leads.id),
   contactId: varchar("contact_id").references(() => contacts.id),
-  clientId: varchar("client_id").references(() => contacts.id), // Alias for contactId for backward compatibility
   projectId: varchar("project_id").references(() => projects.id),
   sentBy: varchar("sent_by").references(() => users.id),
   sentAt: timestamp("sent_at"),
@@ -361,7 +359,6 @@ export const messageThreads = pgTable("message_threads", {
   participants: text("participants").array().notNull(), // Phone numbers or emails
   leadId: varchar("lead_id").references(() => leads.id),
   contactId: varchar("contact_id").references(() => contacts.id),
-  clientId: varchar("client_id").references(() => contacts.id), // Alias for contactId for backward compatibility
   projectId: varchar("project_id").references(() => projects.id),
   lastMessageAt: timestamp("last_message_at"),
   createdAt: timestamp("created_at").defaultNow(),

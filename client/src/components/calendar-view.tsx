@@ -88,15 +88,9 @@ export default function CalendarView({ viewMode = 'month' }: CalendarViewProps) 
 
   const { data: events, isLoading: eventsLoading } = useQuery<Event[]>({
     queryKey: ['/api/events'],
-    queryFn: async () => {
-      const response = await fetch('/api/events', {
-        credentials: 'include'
-      });
-      if (!response.ok) throw new Error('Failed to fetch events');
-      return response.json();
-    },
     enabled: !!currentUser,
-    refetchInterval: 30000, // Auto-refresh every 30 seconds to show new lead events
+    refetchInterval: 10000, // Auto-refresh every 10 seconds for better responsiveness
+    refetchIntervalInBackground: false, // Don't poll when tab is inactive
   });
 
   const { data: clientsData } = useQuery<{ contacts: any[] }>({

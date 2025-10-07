@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 import Header from "@/components/layout/header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -74,6 +75,7 @@ export default function Projects() {
   const [previewProjectId, setPreviewProjectId] = useState<string | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [, setLocation] = useLocation();
 
   const { data: projectsData, isLoading } = useQuery<{projects: Project[], pagination: any}>({
     queryKey: ["/api/projects"],
@@ -315,8 +317,7 @@ export default function Projects() {
   };
 
   const handleViewDetails = (project: Project) => {
-    setSelectedProject(project);
-    setShowDetailModal(true);
+    setLocation(`/projects/${project.id}`);
   };
 
   const handleCloseDetailModal = () => {

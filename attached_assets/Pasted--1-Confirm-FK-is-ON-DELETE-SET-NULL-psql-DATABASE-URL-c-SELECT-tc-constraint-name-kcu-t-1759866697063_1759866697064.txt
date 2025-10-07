@@ -1,0 +1,60 @@
+# 1) Confirm FK is ON DELETE SET NULL
+psql "$DATABASE_URL" -c "
+SELECT
+  tc.constraint_name,
+  kcu.table_name,
+  kcu.column_name,
+  rc.update_rule,
+  rc.delete_rule
+FROM information_schema.table_constraints tc
+JOIN information_schema.key_column_usage kcu
+  ON tc.constraint_name = kcu.constraint_name
+JOIN information_schema.referential_constraints rc
+  ON rc.constraint_name = tc.constraint_name
+WHERE tc.table_name = 'email_threads'
+  AND kcu.column_name = 'project_id'
+  AND tc.constraint_type = 'FOREIGN KEY';
+"
+
+# 2) Show a small sample proving detached threads don’t break reads
+psql "$DATABASE_URL" -c "
+SELECT thread_id, tenant_id, project_id IS NULL AS detached
+FROM email_threads
+ORDER BY updated_at DESC NULLS LAST
+LIMIT 5;
+"
+
+# 3) Transactional simulation (no lasting writes): create project+thread, delete project ➜ project_id becomes NULL
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c "
+BEGIN;
+  -- temp ids
+  WITH ids AS (
+    SELECT gen_random_uuid() AS pid, gen_random_uuid() AS tid
+  ),
+  new_project AS (
+    INSERT INTO projects (id, tenant_id, name, created_at, updated_at)
+    SELECT pid, 'default-tenant', 'Temp Verify Project', now(), now() FROM ids
+    RETURNING id
+  ),
+  new_thread AS (
+    INSERT INTO email_threads (thread_id, tenant_id, project_id, created_at, updated_at)
+    SELECT (SELECT tid FROM ids), 'default-tenant', (SELECT id FROM new_project), now(), now()
+    RETURNING thread_id
+  )
+  SELECT 'created', (SELECT id FROM new_project) AS project_id, (SELECT thread_id FROM new_thread) AS thread_id;
+
+  -- delete project ➜ FK should SET NULL on email_threads.project_id
+  DELETE FROM projects WHERE id = (SELECT id FROM new_project);
+
+  -- verify thread is detached
+  SELECT 'after_delete' AS step,
+         t.thread_id,
+         t.project_id IS NULL AS detached
+  FROM email_threads t
+  WHERE t.thread_id = (SELECT tid FROM ids);
+
+ROLLBACK;
+"
+
+# 4) Grep server logs for any FK errors in last run (optional)
+grep -a -E "violates foreign key constraint|email_threads.*foreign key" /tmp/logs/* 2>/dev/null | tail -5 || echo "No FK errors found in recent logs ✅"

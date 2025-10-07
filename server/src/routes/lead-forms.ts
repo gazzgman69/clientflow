@@ -366,6 +366,21 @@ router.post('/:slug/submit', formSubmissionLimiter, async (req, res) => {
       // Fall back to default questions
     }
 
+    // Read-layer shim: normalize numeric keys ("1","2","3") to q-style ("q1","q_123...")
+    function normalizeKeys(data: any, questions: any[]) {
+      const byIndex = new Map<string, string>(); // "1" -> "q1", "2" -> "q2"
+      questions
+        .slice()
+        .sort((a, b) => (a.orderIndex ?? 0) - (b.orderIndex ?? 0))
+        .forEach((q, i) => byIndex.set(String(i + 1), q.id)); // q.id can be "q1" or "q_123..."
+      const out: any = {};
+      for (const [k, v] of Object.entries(data || {})) {
+        const qid = byIndex.get(k) || k; // translate "1"->"q1"; keep real q_* ids
+        out[qid] = v;
+      }
+      return out;
+    }
+
     // Check if consent is required and validate
     const consentGiven = formData.consent === true || formData.consent === 'true';
     if (form.consentRequired && !consentGiven) {
@@ -382,31 +397,20 @@ router.post('/:slug/submit', formSubmissionLimiter, async (req, res) => {
     // ADAPTER LAYER: Map numeric/q-style keys to canonical question IDs
     // ============================================================================
     
-    // Extract the data payload (handle both nested and flat structures)
-    let dataPayload: Record<string, any> = {};
-    let nonDataFields: Record<string, any> = {};
-    
-    if (formData.data && typeof formData.data === 'object') {
-      // Nested structure: { data: { "1": "value", ... }, consent: true }
-      dataPayload = formData.data;
-      for (const [key, value] of Object.entries(formData)) {
-        if (key !== 'data') {
-          nonDataFields[key] = value;
-        }
-      }
-    } else {
-      // Flat structure: { "1": "value", ..., consent: true }
-      for (const [key, value] of Object.entries(formData)) {
-        if (['consent', 'website_url'].includes(key)) {
-          nonDataFields[key] = value;
-        } else {
-          dataPayload[key] = value;
-        }
-      }
-    }
+    // Extract raw data and normalize numeric keys to q-style
+    const raw = (typeof req.body?.data === 'object') ? req.body.data : req.body;
+    const dataNormalized = normalizeKeys(raw, questions);
     
     // Apply adapter to map incoming keys to question IDs
-    const adapterResult = adaptFormDataKeys(dataPayload, questions);
+    const adapterResult = adaptFormDataKeys(dataNormalized, questions);
+    
+    // Extract non-data fields for later
+    let nonDataFields: Record<string, any> = {};
+    for (const [key, value] of Object.entries(formData)) {
+      if (key !== 'data' && ['consent', 'website_url'].includes(key)) {
+        nonDataFields[key] = value;
+      }
+    }
     
     // Log if numeric keys were translated
     if (adapterResult.translatedKeys.length > 0) {
@@ -458,7 +462,7 @@ router.post('/:slug/submit', formSubmissionLimiter, async (req, res) => {
     }
     
     console.log('🔄 FIELD TRANSFORMATION DEBUG:', {
-      originalKeys: Object.keys(dataPayload),
+      originalKeys: Object.keys(raw),
       adapterTranslations: adapterResult.translatedKeys.length,
       questionMappings: questionIdToMapTo,
       transformedKeys: Object.keys(transformedData),
@@ -484,7 +488,7 @@ router.post('/:slug/submit', formSubmissionLimiter, async (req, res) => {
         formId: form.id,
         tenantId: form.tenantId,
         missingField: 'leadEmail',
-        submittedKeys: Object.keys(dataPayload),
+        submittedKeys: Object.keys(raw),
         mappingResult: {
           leadDataKeys: Object.keys(mappingResult.leadData),
           contactDataKeys: Object.keys(mappingResult.contactData)
@@ -508,7 +512,7 @@ router.post('/:slug/submit', formSubmissionLimiter, async (req, res) => {
         formId: form.id,
         tenantId: form.tenantId,
         missingFields: validation.missingFields,
-        submittedKeys: Object.keys(dataPayload),
+        submittedKeys: Object.keys(raw),
         timestamp: new Date().toISOString()
       });
       

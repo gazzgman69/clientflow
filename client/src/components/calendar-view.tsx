@@ -527,7 +527,7 @@ export default function CalendarView({ viewMode = 'month' }: CalendarViewProps) 
                                   data-testid={`event-${day}-${eventIndex}`}
                                 >
                                   <div className={`font-medium text-xs leading-tight break-words ${event.isCancelled ? 'line-through opacity-60' : ''}`}>
-                                    {event.isCancelled ? '(CANCELLED) ' : ''}{event.title}
+                                    {event.title}
                                   </div>
                                   <div className="text-xs opacity-80 leading-tight">
                                     {formatEventTime(event.startDate, event.endDate, event.allDay)}

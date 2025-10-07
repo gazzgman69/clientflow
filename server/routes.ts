@@ -467,21 +467,47 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
           const leadName = lead.fullName || lead.email || 'Unknown';
           const eventTitle = `New Lead Project • ${leadName}`;
           
-          await storage.createEvent({
-            title: eventTitle,
-            description: lead.notes || undefined,
-            startTime: eventStart,
-            endTime: eventEnd,
-            location: lead.eventLocation || undefined,
-            attendees: lead.email ? [lead.email] : undefined,
-            userId: req.userId,
-            leadId: lead.id,
-            type: 'lead',
-            allDay: false,
-            tenantId: req.tenantId
-          });
+          // Idempotency guard: check for duplicate events within 5 minutes
+          const existingEvents = await storage.getEvents(req.tenantId);
+          const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+          const isDuplicate = existingEvents.some(e => 
+            e.leadId === lead.id && 
+            e.type === 'lead' && 
+            e.title === eventTitle &&
+            new Date(e.createdAt) > fiveMinutesAgo
+          );
           
-          console.log(`📅 Auto-created calendar event for lead ${lead.id}: "${eventTitle}"`);
+          if (!isDuplicate) {
+            const createdEvent = await storage.createEvent({
+              title: eventTitle,
+              description: lead.notes || undefined,
+              startTime: eventStart,
+              endTime: eventEnd,
+              location: lead.eventLocation || undefined,
+              attendees: lead.email ? [lead.email] : undefined,
+              userId: req.userId,
+              leadId: lead.id,
+              type: 'lead',
+              allDay: false,
+              tenantId: req.tenantId
+            });
+            
+            // Format start time as dd/mm/yyyy HH:mm
+            const day = String(eventStart.getDate()).padStart(2, '0');
+            const month = String(eventStart.getMonth() + 1).padStart(2, '0');
+            const year = eventStart.getFullYear();
+            const hours = String(eventStart.getHours()).padStart(2, '0');
+            const minutes = String(eventStart.getMinutes()).padStart(2, '0');
+            const formattedStart = `${day}/${month}/${year} ${hours}:${minutes}`;
+            
+            console.log('ℹ️ INFO: calendar.event.created', {
+              eventId: createdEvent.id,
+              leadId: lead.id,
+              title: eventTitle,
+              start: formattedStart,
+              timestamp: new Date().toISOString()
+            });
+          }
         } catch (calError) {
           console.error('Failed to auto-create calendar event for lead:', calError);
           // Don't fail the lead creation if calendar event fails

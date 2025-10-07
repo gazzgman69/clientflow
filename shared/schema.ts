@@ -1146,7 +1146,7 @@ export type LeadCustomFieldResponse = typeof leadCustomFieldResponses.$inferSele
 export type InsertLeadCustomFieldResponse = z.infer<typeof insertLeadCustomFieldResponseSchema>;
 export const leadStatusHistory = pgTable("lead_status_history", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  leadId: varchar("lead_id").references(() => leads.id).notNull(),
+  leadId: varchar("lead_id").references(() => leads.id, { onDelete: 'cascade' }).notNull(),
   fromStatus: text("from_status"),
   toStatus: text("to_status").notNull(),
   reason: text("reason").notNull(), // manual, auto, event

@@ -350,7 +350,16 @@ class GoogleCalendarService {
           const crmEventData = this.convertGoogleEventToCRMEvent(googleEvent, integration.id, integration.calendarId || undefined);
           
           if (existingEvent) {
-            // Update existing event - if it was read-only (disconnected), reactivate it
+            // CONFLICT RESOLUTION: Check if this is a CRM-created event (has project_id, lead_id, or type='lead')
+            const isCRMEvent = existingEvent.projectId || existingEvent.leadId || existingEvent.type === 'lead';
+            
+            if (isCRMEvent) {
+              // Preserve CRM events - skip Google Calendar overwrite
+              console.log(`🛡️ CONFLICT RESOLUTION: Skipping Google sync for CRM event "${existingEvent.title}" (projectId: ${existingEvent.projectId}, leadId: ${existingEvent.leadId})`);
+              continue;
+            }
+            
+            // Update existing Google Calendar event - if it was read-only (disconnected), reactivate it
             await storage.updateEvent(existingEvent.id, {
               ...crmEventData,
               syncState: 'active',

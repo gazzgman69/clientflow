@@ -4856,6 +4856,8 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
         queryBranch,
         eventsCount: events.length,
         eventsWithTenantId: events.filter(e => e.tenantId).length,
+        leadEvents: events.filter(e => e.type === 'lead').length,
+        eventTypes: [...new Set(events.map(e => e.type))],
         timestamp: new Date().toISOString()
       });
       

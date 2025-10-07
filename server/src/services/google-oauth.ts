@@ -447,6 +447,11 @@ export class GoogleOAuthService {
         requestParams.orderBy = 'startTime';
       }
       
+      // CRITICAL: Sync CRM events TO Google Calendar FIRST
+      // This ensures CRM events (like lead events) get their externalEventId before we import
+      // Otherwise we create duplicates when importing from Google
+      await this.syncToGoogleAll(integration);
+      
       const response = await calendar.events.list(requestParams);
       
       const events = response.data.items || [];
@@ -457,9 +462,6 @@ export class GoogleOAuthService {
       } else {
         console.log(`Found ${events.length} events in Google Calendar (full sync)`);
       }
-
-      // Also sync CRM events TO Google Calendar
-      await this.syncToGoogleAll(integration);
       
       // For deletion checking: only during full sync can we safely determine deletions
       // During incremental sync, we only have changes, not the complete event list

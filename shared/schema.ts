@@ -93,8 +93,8 @@ export const projects = pgTable("projects", {
   userId: varchar("user_id").references(() => users.id), // Made nullable initially for safe migration
   name: text("name").notNull(),
   description: text("description"),
-  contactId: varchar("contact_id").notNull(), // Note: Removed .references(() => contacts.id) to break circular FK dependency
-  venueId: varchar("venue_id"), // Note: Removed .references(() => venues.id) to break circular FK dependency
+  contactId: varchar("contact_id").notNull().references(() => contacts.id, { onDelete: 'cascade' }),
+  venueId: varchar("venue_id"),
   status: text("status").notNull().default('lead'), // lead, booked, completed, cancelled - calendar pipeline states
   progress: integer("progress").default(0), // 0-100
   primaryEventId: varchar("primary_event_id"), // Link to the primary calendar event for this project
@@ -130,7 +130,7 @@ export const leads = pgTable("leads", {
   status: text("status").notNull().default('new'), // new, qualified, follow-up, converted, lost
   notes: text("notes"),
   assignedTo: varchar("assigned_to").references(() => users.id),
-  projectId: varchar("project_id"), // Note: Removed .references(() => projects.id) to break circular FK dependency
+  projectId: varchar("project_id").references(() => projects.id, { onDelete: 'cascade' }),
   lastContactAt: timestamp("last_contact_at"), // updated on outbound email or logged call
   lastManualStatusAt: timestamp("last_manual_status_at"), // set when status changed by a user
   projectDate: timestamp("project_date"), // event/project date from form
@@ -153,8 +153,8 @@ export const quotes = pgTable("quotes", {
   tenantId: varchar("tenant_id").references(() => tenants.id).notNull(), // SECURITY FIX: Made NOT NULL for tenant isolation
   userId: varchar("user_id").references(() => users.id), // Made nullable initially for safe migration
   quoteNumber: text("quote_number").notNull().unique(),
-  contactId: varchar("contact_id"), // Note: Removed .references(() => contacts.id) to break circular FK dependency
-  leadId: varchar("lead_id"), // Note: Removed .references(() => leads.id) to break circular FK dependency
+  contactId: varchar("contact_id").references(() => contacts.id, { onDelete: 'cascade' }),
+  leadId: varchar("lead_id").references(() => leads.id, { onDelete: 'cascade' }),
   title: text("title").notNull(),
   description: text("description"),
   eventDate: timestamp("event_date"), // Event/project date for quote
@@ -183,9 +183,9 @@ export const contracts = pgTable("contracts", {
   tenantId: varchar("tenant_id").references(() => tenants.id).notNull(), // SECURITY FIX: Made NOT NULL for tenant isolation
   userId: varchar("user_id").references(() => users.id), // Made nullable initially for safe migration
   contractNumber: text("contract_number").notNull().unique(),
-  contactId: varchar("contact_id").notNull(), // Note: Removed .references(() => contacts.id) to break circular FK dependency
-  projectId: varchar("project_id"), // Note: Removed .references(() => projects.id) to break circular FK dependency
-  quoteId: varchar("quote_id"), // Note: Removed .references(() => quotes.id) to break circular FK dependency
+  contactId: varchar("contact_id").notNull().references(() => contacts.id, { onDelete: 'cascade' }),
+  projectId: varchar("project_id").references(() => projects.id, { onDelete: 'cascade' }),
+  quoteId: varchar("quote_id").references(() => quotes.id, { onDelete: 'cascade' }),
   title: text("title").notNull(),
   description: text("description"),
   terms: text("terms"),
@@ -208,9 +208,9 @@ export const invoices = pgTable("invoices", {
   tenantId: varchar("tenant_id").references(() => tenants.id).notNull(), // SECURITY FIX: Made NOT NULL for tenant isolation
   userId: varchar("user_id").references(() => users.id), // Made nullable initially for safe migration
   invoiceNumber: text("invoice_number").notNull().unique(),
-  contactId: varchar("contact_id").notNull(), // Note: Removed .references(() => contacts.id) to break circular FK dependency
-  projectId: varchar("project_id"), // Note: Removed .references(() => projects.id) to break circular FK dependency
-  contractId: varchar("contract_id"), // Note: Removed .references(() => contracts.id) to break circular FK dependency
+  contactId: varchar("contact_id").notNull().references(() => contacts.id, { onDelete: 'cascade' }),
+  projectId: varchar("project_id").references(() => projects.id, { onDelete: 'cascade' }),
+  contractId: varchar("contract_id").references(() => contracts.id, { onDelete: 'cascade' }),
   title: text("title").notNull(),
   description: text("description"),
   subtotal: decimal("subtotal", { precision: 10, scale: 2 }).notNull(),
@@ -236,9 +236,9 @@ export const tasks = pgTable("tasks", {
   dueDate: timestamp("due_date"),
   completedAt: timestamp("completed_at"),
   assignedTo: varchar("assigned_to").references(() => users.id),
-  leadId: varchar("lead_id"), // Note: Removed .references(() => leads.id) to break circular FK dependency
-  contactId: varchar("contact_id"), // Note: Removed .references(() => contacts.id) to break circular FK dependency
-  projectId: varchar("project_id"), // Note: Removed .references(() => projects.id) to break circular FK dependency
+  leadId: varchar("lead_id").references(() => leads.id, { onDelete: 'cascade' }),
+  contactId: varchar("contact_id").references(() => contacts.id, { onDelete: 'cascade' }),
+  projectId: varchar("project_id").references(() => projects.id, { onDelete: 'cascade' }),
   createdBy: varchar("created_by").references(() => users.id).notNull(),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
@@ -249,7 +249,7 @@ export const emailThreads = pgTable("email_threads", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   tenantId: varchar("tenant_id").references(() => tenants.id).notNull(), // SECURITY FIX: Made NOT NULL for tenant isolation
   userId: varchar("user_id").references(() => users.id), // Made nullable initially for safe migration
-  projectId: varchar("project_id"), // Note: Removed .references(() => projects.id) to break circular FK dependency
+  projectId: varchar("project_id").references(() => projects.id, { onDelete: 'cascade' }),
   subject: text("subject"),
   lastMessageAt: timestamp("last_message_at"),
   createdAt: timestamp("created_at").defaultNow(),
@@ -262,7 +262,7 @@ export const emails = pgTable("emails", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   tenantId: varchar("tenant_id").references(() => tenants.id).notNull(), // SECURITY FIX: Made NOT NULL for tenant isolation
   userId: varchar("user_id").references(() => users.id), // Made nullable initially for safe migration
-  threadId: varchar("thread_id").references(() => emailThreads.id).notNull(),
+  threadId: varchar("thread_id").references(() => emailThreads.id, { onDelete: 'cascade' }).notNull(),
   provider: text("provider"), // 'gmail'
   providerMessageId: text("provider_message_id"),
   providerThreadId: text("provider_thread_id"),
@@ -280,10 +280,10 @@ export const emails = pgTable("emails", {
   bodyHtml: text("body_html"),
   bodyText: text("body_text"),
   hasAttachments: boolean("has_attachments").default(false),
-  contactId: varchar("contact_id"), // Note: Removed .references(() => contacts.id) to break circular FK dependency
-  projectId: varchar("project_id"), // Note: Removed .references(() => projects.id) to break circular FK dependency
-  leadId: varchar("lead_id"), // Note: Removed .references(() => leads.id) to break circular FK dependency
-  clientId: varchar("client_id"), // Note: Removed .references(() => contacts.id) to break circular FK dependency
+  contactId: varchar("contact_id").references(() => contacts.id, { onDelete: 'cascade' }),
+  projectId: varchar("project_id").references(() => projects.id, { onDelete: 'cascade' }),
+  leadId: varchar("lead_id").references(() => leads.id, { onDelete: 'cascade' }),
+  clientId: varchar("client_id").references(() => contacts.id, { onDelete: 'cascade' }),
   status: text("status").default('delivered'), // delivered, failed, pending
   sentBy: varchar("sent_by").references(() => users.id),
   createdAt: timestamp("created_at").defaultNow(),
@@ -644,9 +644,9 @@ export const events = pgTable("events", {
   type: text("type").notNull().default('meeting'), // meeting, call, event, appointment, reminder
   status: text("status").notNull().default('confirmed'), // confirmed, tentative, cancelled
   priority: text("priority").notNull().default('medium'), // low, medium, high, urgent
-  leadId: varchar("lead_id").references(() => leads.id),
-  contactId: varchar("contact_id").references(() => contacts.id),
-  projectId: varchar("project_id").references(() => projects.id),
+  leadId: varchar("lead_id").references(() => leads.id, { onDelete: 'cascade' }),
+  contactId: varchar("contact_id").references(() => contacts.id, { onDelete: 'cascade' }),
+  projectId: varchar("project_id").references(() => projects.id, { onDelete: 'cascade' }),
   assignedTo: varchar("assigned_to").references(() => users.id),
   createdBy: varchar("created_by").references(() => users.id).notNull(),
   externalEventId: text("external_event_id"), // For synced events from external calendars (Google event ID)

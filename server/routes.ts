@@ -2816,6 +2816,10 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
         shouldDeleteContact = contactProjects.length === 1;
       }
 
+      // Mark all associated events as cancelled before deleting the project
+      // This preserves historical records rather than deleting them
+      await storage.markEventsCancelledForProject(req.params.id, req.tenantId, req.userId);
+
       // Delete the project - CASCADE will handle all related data automatically
       const deleted = await storage.deleteProject(req.params.id, req.tenantId);
       if (!deleted) {

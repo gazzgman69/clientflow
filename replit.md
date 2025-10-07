@@ -1,57 +1,6 @@
 # Overview
 
-BusinessCRM is a comprehensive customer relationship management system built with a modern full-stack architecture. The application provides lead management, client tracking, project management, quotation system, contract management, invoicing, email integration, calendar functionality, and workflow automation. It's designed to streamline business operations from lead capture through project completion and billing.
-
-## Recent Changes (October 1, 2025)
-
-**Project Email Visibility Fix - Multi-User Collaboration**: Fixed critical visibility bug where project emails were only visible to the user who sent them. Implementation includes:
-- **Query Fix**: Changed GET `/api/email/projects/:projectId/email-messages` to filter by `tenantId` instead of `userId`, allowing all team members with project access to view ALL emails for that project
-- **Access Control**: Project ownership verification (assignedTo or userId match) ensures users can only access emails for projects they have access to
-- **Tenant Isolation**: Maintained strict multi-tenant security with tenantId filtering on all email queries
-- **Diagnostic Logging**: Added email storage logging to track when emails are stored successfully or skipped (missing projectId/messageId)
-- **Frontend Verification**: Confirmed UI uses correct endpoint `/api/email/projects/${projectId}/email-messages`
-- **Security Pattern**: All email queries now use tenantId scoping with proper access verification before database query execution
-
-**Email Send Pipeline with Proper MIME & Token Resolution**: Fixed critical email body and token issues with production-ready MIME formatting. Implementation includes:
-- **Proper MIME Formatting**: Implemented RFC-compliant multipart/alternative MIME messages with quoted-printable encoding for both text/plain and text/html parts
-- **Gmail Send Service**: Created dedicated `gmail-send.ts` with proper boundary handling, subject encoding, and base64url encoding for Gmail API
-- **HTML-to-Text Fallback**: Automatic conversion of HTML to plain text when only HTML is provided, ensuring all emails have both formats
-- **Token Resolution for HTML**: Fixed backend to apply token interpolation to HTML field in addition to subject and text
-- **Frontend Fix**: Email composer now properly sends HTML content in `html` field (previously sent as `text`)
-- **Square Bracket Support**: System supports both `[Token]` and `{{legacy.token}}` formats with fallback values `[Token|default]`
-- **Empty Body Guard**: Validation prevents sending emails with empty content after token resolution
-- **Diagnostics Logging**: Added payload logging showing htmlLen, textLen, toCount for debugging
-
-## Previous Changes (September 30, 2025)
-
-**Gmail OAuth Popup Flow with PostMessage**: Completed popup-based OAuth flow replacing full-page redirects with seamless popup windows. Implementation includes:
-- **Frontend**: `connectGoogleWithPopup()` opens centered popup (520x700px) with postMessage listener
-- **Backend Start Route**: `/auth/google/start` captures `popup=1` and `origin` parameters in session
-- **Backend Callback**: Returns minimal HTML that posts `{type: 'oauth:connected', provider: 'google'}` to opener using `'*'` target for Replit dev-friendliness
-- **Security**: Parent window filters messages by type/provider (no origin checking to avoid Replit subdomain mismatches)
-- **User Experience**: Popup closes automatically on success, parent reloads to show connection status
-- **Fallback**: Shows "Connected. You can close this window." if auto-close fails
-- **Microsoft**: Similar route created at `/auth/microsoft/start` (ready for full implementation)
-
-**Gmail OAuth Integration for Email Accounts**: Completed full Google OAuth flow for Gmail email provider with direct integration to email_accounts table. Implementation includes:
-- Updated Gmail scopes: gmail.modify, contacts.readonly, openid, email, profile
-- Created GET /auth/google/start route with PKCE protection and signed state parameters
-- Modified /auth/google/callback to save Gmail tokens to email_accounts table (provider_key='google')
-- Integrated with existing GmailEmailProvider service for token refresh
-- Modal UI bypasses provider selection, goes directly to dropdown+form with OAuth redirect
-- Production-ready OAuth flow with environment variable validation (GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET)
-
-**Email Provider Storage Layer Migration**: Completed migration from email_provider_integrations to email_accounts table with new unified schema supporting both OAuth and IMAP/SMTP providers. Key accomplishments:
-- Migrated all storage methods to use email_accounts table with providerKey column
-- Implemented JSON-based secrets_enc encryption for unified credential storage
-- Added legacy compatibility layer mapping providerKey→provider for backward compatibility
-- Created and seeded email_providers catalog with 20 providers (OAuth + IMAP/SMTP)
-- All OAuth flows (Gmail, Microsoft) continue working without interruption
-- Production-ready storage layer with architect approval
-
-**Previous Changes (September 29, 2025)**: Email Provider OAuth Integration System - Built comprehensive 17hats-style email provider catalog with production OAuth connectors for Google Gmail and Microsoft 365/Outlook. Implemented secure token storage with encryption, multi-tenant provider management, contacts-only email sync worker, and outgoing email dispatch with provider fallback.
-
-**Previous Changes (September 27, 2025)**: Comprehensive Multi-Tenant Security Audit & Hardening - Completed critical security audit that identified and resolved 16 major tenant isolation vulnerabilities in the storage layer. Implemented database-level constraints with NOT NULL tenant_id columns and foreign keys across all core tables.
+BusinessCRM is a comprehensive customer relationship management system designed to streamline business operations from lead capture through project completion and billing. It offers lead management, client tracking, project management, a quotation system, contract management, invoicing, email integration, calendar functionality, and workflow automation. The project aims to provide a modern, full-stack solution for businesses to manage their customer relationships effectively.
 
 # User Preferences
 
@@ -60,136 +9,51 @@ Preferred communication style: Simple, everyday language.
 # System Architecture
 
 ## Frontend Architecture
-The client-side is built with React 18 using TypeScript and Vite as the build tool. The application follows a component-based architecture with:
-
-- **UI Framework**: shadcn/ui components built on Radix UI primitives for accessible, customizable components
-- **Styling**: Tailwind CSS with CSS variables for theming and a design system based on the "new-york" style
-- **Routing**: Wouter for client-side routing with a simple, lightweight approach
-- **State Management**: TanStack Query (React Query) for server state management and caching
-- **Forms**: React Hook Form with Zod validation for type-safe form handling
-- **Layout**: Responsive design with a sidebar navigation and main content area
-
-The frontend is organized into logical directories:
-- `/pages` - Route components for each main section
-- `/components` - Reusable UI components including layout, dashboard widgets, and modals
-- `/lib` - Utility functions and configuration
-- `/hooks` - Custom React hooks
+The client-side is built with React 18, TypeScript, and Vite. It utilizes a component-based architecture with `shadcn/ui` (built on Radix UI) for components, Tailwind CSS for styling, Wouter for routing, TanStack Query for server state management, and React Hook Form with Zod for form handling. The layout is responsive with a sidebar navigation.
 
 ## Backend Architecture
-The server is built with Express.js using TypeScript and follows a layered architecture:
-
-- **API Layer**: RESTful endpoints organized by resource (leads, clients, projects, etc.)
-- **Storage Layer**: Abstract storage interface allowing for different database implementations
-- **Middleware**: Request logging, JSON parsing, and error handling
-- **Development Tools**: Vite integration for hot module replacement in development
-
-The backend uses a service-oriented approach with clear separation between HTTP handling and business logic.
+The server is built with Express.js and TypeScript, following a layered architecture. It features RESTful APIs, an abstract storage layer, and middleware for request handling and error management. A service-oriented approach separates HTTP handling from business logic.
 
 ## Multitenancy Architecture
-The system now includes scaffolding for multitenancy support to allow multiple organizations to use the same infrastructure:
-
-- **Tenants Table**: Core tenant management with slug, domain, plan, and settings
-- **Tenant Resolution**: Middleware for identifying tenant context from subdomain, domain, or user context
-- **Data Isolation**: Tenant ID foreign keys added to core tables (users, leads, contacts, projects, quotes, contracts, invoices, tasks, emails)
-- **Query Utilities**: Helper functions for tenant-aware database operations with proper data filtering
-- **Security**: Whitelisted table names and proper reference handling for safe database operations
-
-**Current Implementation Status:**
-- ✅ Database schema with tenant_id columns on 10 core tables
-- ✅ Tenant resolver middleware integrated into Express server
-- ✅ Query utility functions for tenant-aware operations
-- ✅ Performance indexes on all tenant_id columns
-- ✅ Safe nullable references for existing data compatibility
-
-**Next Steps for Production:**
-1. **Enhanced Tenant Resolution**: Implement database-backed tenant lookup with domain validation
-2. **Query Enforcement**: Apply tenant filtering across all storage operations and API routes
-3. **Constraint Updates**: Make quote/invoice numbers unique per tenant instead of globally
-4. **Missing Tables**: Add tenant_id to auxiliary tables (smsMessages, messageTemplates, activities, automations, members)
-5. **Security Hardening**: Add requireTenant checks to sensitive routes and background services
-6. **Data Migration**: Backfill existing data with default tenant and enforce NOT NULL constraints
+The system includes scaffolding for multitenancy, allowing multiple organizations to use the same infrastructure. Key aspects include a `Tenants` table, middleware for tenant resolution (subdomain, domain, user context), data isolation using `tenant_id` foreign keys across core tables, and helper functions for tenant-aware database operations. Performance indexes are applied to `tenant_id` columns.
 
 ## Data Storage
-The application uses PostgreSQL as the primary database with:
-
-- **ORM**: Drizzle ORM for type-safe database operations and migrations
-- **Database Provider**: Neon Database (serverless PostgreSQL)
-- **Schema Management**: Centralized schema definitions in `/shared/schema.ts`
-- **Migrations**: Drizzle Kit for database schema migrations
-
-The database schema includes comprehensive tables for users, leads, clients, projects, quotes, contracts, invoices, tasks, emails, activities, and automations with proper foreign key relationships.
+PostgreSQL is the primary database, utilizing Drizzle ORM for type-safe operations and migrations. Neon Database provides serverless PostgreSQL hosting. The schema, defined in `/shared/schema.ts`, includes tables for users, leads, clients, projects, quotes, contracts, invoices, tasks, emails, activities, and automations.
 
 ## Email Provider OAuth Integration
-The system includes a comprehensive email provider integration system modeled after 17hats:
-
-- **Provider Catalog**: Database-backed email provider catalog with support for Gmail, Microsoft 365/Outlook
-- **OAuth Flows**: Production OAuth 2.0 with PKCE for Gmail and Microsoft Graph API
-- **Secure Token Storage**: Encrypted access/refresh token storage using AES-256-GCM
-- **Multi-Tenant Support**: Tenant-scoped provider integrations with one-active-provider-per-tenant enforcement
-- **Email Dispatch**: Outgoing email service with provider fallback (Gmail → Microsoft)
-- **Background Sync**: Periodic email sync worker for contacts-only email ingestion
-- **Provider Services**: 
-  - `EmailProviderGmail`: Gmail API integration with OAuth, send, and contacts-only sync
-  - `EmailProviderMicrosoft`: Microsoft Graph integration with OAuth, send, and contacts-only sync
-  - `EmailDispatcher`: Provider-aware email dispatch with fallback logic
-  - `EmailSyncWorker`: Background worker for periodic email ingestion
-
-**Key Features:**
-- PKCE-based OAuth flows for enhanced security
-- Tenant isolation at database and service layers
-- Automatic token refresh on expiration
-- Structured JSON logging for monitoring
-- Per-tenant email preferences and quotas
-- Status tracking (connected/disconnected/error)
+The system incorporates a comprehensive email provider integration system. This includes a database-backed provider catalog supporting Gmail and Microsoft 365/Outlook, secure OAuth 2.0 flows with PKCE, encrypted token storage, and multi-tenant support with one-active-provider-per-tenant enforcement. It features an outgoing email service with provider fallback and a background worker for contacts-only email synchronization. Automatic calendar event creation for leads with Google Calendar sync conflict resolution is also implemented, ensuring CRM-created events are protected from overwrites and support cascade deletion with projects.
 
 ## Authentication & Session Management
-While authentication routes aren't fully implemented in the current codebase, the architecture includes:
-
-- Session-based authentication preparation with connect-pg-simple for PostgreSQL session storage
-- User management schema with secure password handling
-- Protected routes structure ready for implementation
-
-## Development & Build Process
-The build process uses:
-
-- **Development**: Vite dev server with HMR and TypeScript checking
-- **Production Build**: Vite for client bundle and esbuild for server bundle
-- **TypeScript**: Strict configuration with path mapping for clean imports
-- **Linting**: ESM modules with modern JavaScript features
+The architecture includes preparations for session-based authentication using `connect-pg-simple` for PostgreSQL session storage, user management schema with secure password handling, and a structure for protected routes.
 
 # External Dependencies
 
 ## Core Framework Dependencies
-- **React 18**: Frontend framework with hooks and modern features
+- **React 18**: Frontend framework
 - **Express.js**: Backend web framework
-- **TypeScript**: Type safety across the entire stack
+- **TypeScript**: Language
 - **Vite**: Build tool and development server
 
 ## Database & ORM
-- **Neon Database**: Serverless PostgreSQL database service
+- **Neon Database**: Serverless PostgreSQL
 - **Drizzle ORM**: Type-safe database toolkit
-- **connect-pg-simple**: PostgreSQL session store for Express
+- **connect-pg-simple**: PostgreSQL session store
 
 ## UI & Component Libraries
-- **Radix UI**: Accessible component primitives for complex UI components
+- **Radix UI**: Accessible component primitives
 - **Tailwind CSS**: Utility-first CSS framework
 - **Lucide React**: Icon library
 - **shadcn/ui**: Pre-built component system
 
 ## Data Management
-- **TanStack Query**: Server state management and caching
-- **React Hook Form**: Form handling and validation
-- **Zod**: TypeScript-first schema validation
+- **TanStack Query**: Server state management
+- **React Hook Form**: Form handling
+- **Zod**: Schema validation
 - **date-fns**: Date manipulation utilities
-
-## Development Tools
-- **@replit/vite-plugin-runtime-error-modal**: Development error overlay
-- **@replit/vite-plugin-cartographer**: Development tooling for Replit
-- **PostCSS**: CSS processing with Autoprefixer
 
 ## Additional Utilities
 - **clsx & tailwind-merge**: Conditional CSS class handling
 - **class-variance-authority**: Component variant management
 - **cmdk**: Command palette functionality
-- **embla-carousel-react**: Carousel component functionality
-- **wouter**: Lightweight routing library
+- **embla-carousel-react**: Carousel component
+- **wouter**: Routing library

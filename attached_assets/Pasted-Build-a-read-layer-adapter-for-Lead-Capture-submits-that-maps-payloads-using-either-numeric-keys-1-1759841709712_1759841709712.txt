@@ -1,0 +1,133 @@
+Build a read-layer adapter for Lead Capture submits that maps payloads using either numeric keys ("1","2","3"...) or q-style keys ("q1","q2","q_123...") into canonical fields, then triggers the existing Leads calendar event creation. Do not change existing schemas or downstream calendar logic. You choose files, functions, and structure.
+
+Objectives
+
+Accept both key styles and both body shapes:
+
+Wrapped: { "data": { ... }, "consent": true }
+
+Flat: { ... , "consent": true }
+
+Normalize dates; display all user-visible dates as dd/mm/yyyy (and dd/mm/yyyy HH:mm for times).
+
+Keep current Lead → Event on Leads calendar flow intact.
+
+Requirements
+
+Single source of truth (contract)
+
+Read the active form’s questions for :slug from DB (includes questionId, targetField, orderIndex, optional formVersion).
+
+Treat "1" ≡ "q1", "2" ≡ "q2", etc.
+
+Preserve long IDs (e.g., q_1758575106312).
+
+Adapter function (pure)
+
+normalizeLeadPayload({ slug, body }): { canonical, customFieldData, issues[], mappingMeta }
+
+Mapping rules:
+
+First try exact q* id match.
+
+Fallback: numeric key → the current question with the same orderIndex. Record a warning if used.
+
+Requireds: leadEmail (required), projectDate (optional).
+
+Date parsing: accept dd/mm/yyyy and yyyy-mm-dd (or ISO), store internally as ISO; always render as dd/mm/yyyy (and dd/mm/yyyy HH:mm).
+
+Return issues[] with any missing required fields or ambiguous mappings.
+
+Submit handler integration
+
+Run adapter before existing transform/insert logic.
+
+If leadEmail missing → HTTP 400 with a friendly message listing expected questionIds.
+
+If projectDate missing → create lead only, do not create calendar event; include an "info": "No project date—no calendar event created" flag in response.
+
+Keep all existing business logic for creating the Leads calendar event when projectDate is present.
+
+Transactions & idempotency
+
+Wrap lead insert + event insert in a transaction or make event creation idempotent with a safe unique guard (e.g., (tenantId, projectId, start, title)).
+
+Ensure retries don’t create duplicate events.
+
+Time zones
+
+Use tenant time zone (fallback: Europe/London) when creating event datetimes from date-only input (default time: 12:00 unless an existing rule applies).
+
+Rate limiting & spam guard
+
+Add a simple per-slug/IP rate limit (e.g., sliding window).
+
+Keep honeypot/anti-spam already present.
+
+Logging (PII-safe)
+
+INFO lead_form.mapping.translated → when numeric→q translations occur (include counts, slug, tenantId).
+
+WARN lead_form.mapping.missing_required → which required fields; include slug, tenantId.
+
+INFO calendar.event.created → event id, project id, start (dd/mm/yyyy HH:mm).
+
+Versioning (lightweight)
+
+If formVersion exists on the form, include it in the submission record so future audits map against the right question set.
+
+Non-Goals
+
+No schema changes, no changes to calendar move logic (Leads → Booked → Completed).
+
+No provider sync changes.
+
+Acceptance Criteria (automated/verifiable)
+
+Numeric keys payload creates a Lead and a Leads calendar event when projectDate is present.
+
+Q-style keys payload does the same.
+
+Missing leadEmail → HTTP 400, no inserts; response names which question IDs are required.
+
+Missing projectDate → Lead inserted, no event, response includes info flag.
+
+Duplicate retry of the same submission does not create duplicate events (transaction/idempotency holds).
+
+All user-visible dates are dd/mm/yyyy (and dd/mm/yyyy HH:mm for times).
+
+Logs include the three messages described above.
+
+Deliverables
+
+Adapter module (you choose file path/name) + unit tests for:
+
+numeric → canonical
+
+q-style → canonical
+
+missing requireds
+
+ambiguous numeric mapping (orderIndex fallback warns)
+
+Updated submit handler wiring (read-only to downstream logic).
+
+A short DEV NOTES section in code comments with:
+
+Example minimal payloads (numeric & q-style)
+
+How to toggle tenant time zone for testing
+
+Quick test payloads to print in console (don’t create docs unless asked)
+
+Numeric keys (dd/mm/yyyy) should create event:
+
+{ "data": { "1": "Alice Numeric", "2": "alice@example.com", "3": "07700 900123", "6": "25/12/2025" }, "consent": true }
+
+
+Q-style keys (yyyy-mm-dd) should create event:
+
+{ "data": { "q1": "Bob Q", "q2": "bob@example.com", "q_1758575123356": "2025-12-31" }, "consent": true }
+
+
+Constraints: Keep everything multi-tenant safe; do not change schemas; do not modify existing calendar business rules—only add the read-layer adapter and the minimal transaction/idempotency guard.

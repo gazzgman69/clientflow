@@ -985,19 +985,8 @@ router.post('/:slug/submit', formSubmissionLimiter, async (req, res) => {
       timestamp: new Date().toISOString()
     });
 
-    console.log('🚨 DEBUG: About to check for calendar event creation');
-    console.log('🚨 DEBUG: Lead object:', JSON.stringify(lead, null, 2));
-
     // Auto-create calendar event if lead has a projectDate (now that we have projectId)
     // Use original lead object since updateLead only returns updated fields
-    console.log('🔍 CALENDAR EVENT CHECK:', {
-      leadId: lead.id,
-      projectId: project.id,
-      hasLead: !!lead,
-      hasProjectDate: !!lead.projectDate,
-      projectDateValue: lead.projectDate,
-      projectDateType: typeof lead.projectDate
-    });
     
     if (lead && lead.projectDate) {
       try {
@@ -1010,7 +999,7 @@ router.post('/:slug/submit', formSubmissionLimiter, async (req, res) => {
         const eventTitle = `New Lead Project • ${leadName}`;
         
         // Get Leads Calendar for this tenant
-        const leadsCalendar = await tenantStorage.getCalendarByType('leads');
+        const leadsCalendar = await tenantStorage.getCalendarByType('leads', form.tenantId);
         
         await tenantStorage.createEvent({
           title: eventTitle,

@@ -1,0 +1,88 @@
+I’m debugging why a Calendar Event isn’t created when a Lead Capture is submitted. Please do not fix anything yet. Collect and print the following so I can review.
+
+1) Verify expected files exist
+
+Check these paths (or closest equivalents). For each, print EXISTS / MISSING:
+
+scripts/diagnose-lead-calendar.ts
+
+docs/diagnostics/lead-to-calendar.md
+
+Lead submit route/controller
+
+Lead→Project creation logic
+
+Event creation function (the function that writes the calendar event)
+
+Calendar model/schema (events/calendars and relationships)
+
+Any job/worker used for event creation
+
+2) Show key file contents (with line numbers)
+
+For each found file above, print the first 200 lines (or entire file if shorter) with line numbers:
+
+Lead submit route/controller
+
+Lead→Project creation logic
+
+Event creation function
+
+Calendar schema/models
+
+Job/worker file (if used)
+
+3) Grep for call sites
+
+Search the codebase and print matches (path + line) for:
+
+createEvent OR the function actually used to create calendar events
+
+projectDate (or similar field used to set event date)
+
+The lead submit endpoint path (e.g., /api/leads/public)
+
+4) Run the diagnostic script verbatim
+
+If scripts/diagnose-lead-calendar.ts exists, run:
+
+DEBUG=1 tsx scripts/diagnose-lead-calendar.ts
+
+
+Print the full PASS/FAIL table and any debug logs it emits.
+
+If the script doesn’t exist, say so and do not create a new one.
+
+5) Minimal reproduction (dry run + live)
+
+Print the exact curl command to create a test lead (include whatever fields are required by validation).
+
+If the dev server is running, run the curl against localhost and print the HTTP response (status + body).
+
+After that request, query the data store and print a compact events table for the relevant tenantId showing:
+
+eventId, tenantId, projectId, calendarId, title, start, end
+
+Limit to the last 10 events, ordered by createdAt desc.
+
+6) Current guards/flags
+
+Print the values (and where they’re read) of any flags that could block event creation, e.g.:
+
+“createEventOnLead” / “requireProjectDateForEvent” / queues disabled / provider-only mode
+
+Any feature flags or ENV vars (mask secrets)
+
+7) One-paragraph summary
+
+Based on the above, output a short summary:
+
+Where the lead submit hits (route → controller → service)
+
+Whether the event creation function is called
+
+If called, whether the DB write succeeds
+
+The most likely failing step (A–L style), in one line
+
+Please return only the requested information (no refactors or fixes). All user-facing dates should be shown as dd/mm/yyyy in the output.

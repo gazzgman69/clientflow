@@ -1013,7 +1013,6 @@ router.post('/:slug/submit', formSubmissionLimiter, async (req, res) => {
           startDate: eventStart,
           endDate: eventEnd,
           location: lead.eventLocation || undefined,
-          attendees: lead.email ? [lead.email] : undefined,
           userId,
           leadId: lead.id,
           projectId: project.id, // Link to project so it updates with project changes

@@ -505,6 +505,13 @@ export class GoogleOAuthService {
         // Check if event exists
         const existing = await storage.getEventByExternalId(googleEvent.id, integration.tenantId);
         
+        // CRITICAL: NEVER overwrite cancelled events
+        // If an event is cancelled in CRM (e.g., project deleted), preserve the cancellation
+        if (existing && existing.isCancelled) {
+          console.log(`⚠️ Skipping sync for cancelled event: "${existing.title}" - preserving CRM cancellation status`);
+          continue;
+        }
+        
         const eventData = {
           title: googleEvent.summary,
           description: googleEvent.description || '',

@@ -2074,6 +2074,18 @@ export class MemStorage implements IStorage {
     const event = this.events.get(id);
     if (!event || event.tenantId !== tenantId) return undefined;
     
+    // Protect cancelled events from being overwritten by external sync
+    if (event.isCancelled) {
+      console.log('🛡️ PROTECTED CANCELLED EVENT FROM UPDATE (MemStorage)', {
+        eventId: id,
+        eventTitle: event.title,
+        reason: 'Event is cancelled - blocking external sync overwrites',
+        attemptedUpdates: Object.keys(eventUpdate),
+        timestamp: new Date().toISOString()
+      });
+      return event; // Return existing event without updating
+    }
+    
     const updatedEvent: Event = {
       ...event,
       ...omitUndefined(eventUpdate),
@@ -3370,6 +3382,26 @@ export class DrizzleStorage implements IStorage {
       const error = 'SECURITY: tenantId is required for event updates to prevent cross-tenant data access';
       console.error('❌ EVENT UPDATE FAILED', { error, eventId: id });
       throw new Error(error);
+    }
+    
+    // Check if event is cancelled - protect from Google Calendar overwriting
+    const existingEvent = await db.select().from(events).where(and(
+      eq(events.id, id),
+      eq(events.tenantId, tenantId)
+    )).limit(1);
+    
+    if (existingEvent[0]?.isCancelled) {
+      console.log('🛡️ PROTECTED CANCELLED EVENT FROM UPDATE', {
+        action: 'updateEvent',
+        tenantId,
+        eventId: id,
+        eventTitle: existingEvent[0].title,
+        reason: 'Event is cancelled - blocking external sync overwrites',
+        attemptedUpdates: Object.keys(updates),
+        timestamp: new Date().toISOString()
+      });
+      // Return existing event without updating
+      return existingEvent[0];
     }
     
     console.log('📅 EVENT UPDATE', {

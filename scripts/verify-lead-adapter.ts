@@ -275,6 +275,51 @@ async function runTests() {
   }
 
   // ========================================
+  // TEST E: Idempotency (no duplicate event on repeat submit)
+  // ========================================
+  console.log('📝 Test E: Idempotency → No duplicate event on repeat submit');
+  const testEName = 'Repeat Check-' + Date.now();
+  const testEData = {
+    data: {
+      "1": testEName,
+      "2": `repeat.${Date.now()}@example.com`,
+      "3": "+44 7700 900999",
+      "4": "Wedding",
+      "5": "Repeat Test Venue",
+      "6": "25/12/2025"
+    },
+    consent: true
+  };
+
+  // Count events for this specific name before submissions
+  const beforeE = await getRecentEvents(10);
+  const beforeECount = beforeE.filter(e => e.title.includes(testEName)).length;
+  
+  // Submit the same form twice within a few seconds
+  const respE1 = await submitForm(testEData);
+  await sleep(1000); // Wait 1 second
+  const respE2 = await submitForm(testEData);
+  await sleep(1000); // Wait for DB operations
+  
+  const afterE = await getRecentEvents(10);
+  const afterECount = afterE.filter(e => e.title.includes(testEName)).length;
+  const eventsCreated = afterECount - beforeECount;
+
+  if (respE1.status >= 200 && respE1.status < 300 && respE2.status >= 200 && respE2.status < 300 && eventsCreated === 1) {
+    results.push({
+      name: 'E: Idempotency',
+      status: 'PASS',
+      details: `2 submits → 1 event (before=${beforeECount}, after=${afterECount})`
+    });
+  } else {
+    results.push({
+      name: 'E: Idempotency',
+      status: 'FAIL',
+      details: `2 submits → ${eventsCreated} events (before=${beforeECount}, after=${afterECount})`
+    });
+  }
+
+  // ========================================
   // Print Results
   // ========================================
   console.log('\n' + '='.repeat(60));

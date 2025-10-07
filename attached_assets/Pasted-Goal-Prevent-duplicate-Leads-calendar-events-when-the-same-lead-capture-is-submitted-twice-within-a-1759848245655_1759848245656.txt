@@ -1,0 +1,136 @@
+Goal:
+Prevent duplicate Leads calendar events when the same lead capture is submitted twice within a short window, and log a clear INFO line when an event is created. Do not change schemas or calendar logic.
+
+1) Add npm script
+
+Edit package.json → "scripts" add:
+
+"verify:lead-adapter": "tsx scripts/verify-lead-adapter.ts"
+
+2) Idempotency + INFO log (in the form submit path)
+
+File: server/src/routes/lead-forms.ts (the public form POST /api/leads/public/:slug/submit handler)
+
+Add utilities at top (if not present):
+
+import crypto from 'crypto';
+
+// dd/mm/yyyy HH:mm formatter (for logs)
+function fmtDateTime(d: Date | string) {
+  const dt = typeof d === 'string' ? new Date(d) : d;
+  const pad = (n:number)=>String(n).padStart(2,'0');
+  return `${pad(dt.getDate())}/${pad(dt.getMonth()+1)}/${dt.getFullYear()} ${pad(dt.getHours())}:${pad(dt.getMinutes())}`;
+}
+
+
+Right before you create the calendar event (where you currently check if (lead && lead.projectDate)):
+
+Compute an idempotency key from stable fields
+
+Look back ±5 minutes for an existing lead event for the same project/start/title
+
+If found → skip create; else → create and log INFO
+
+// assume you have: tenantId, projectId, title, startDate (Date), calendarId, type='lead'
+const keyPayload = `${tenantId}|${slug}|${lead?.email ?? ''}|${project?.id ?? ''}|${startDate.toISOString().slice(0,10)}`;
+const idemKey = crypto.createHash('sha256').update(keyPayload).digest('hex');
+
+// Query for recent duplicate (±5 minutes window)
+const fiveMinAgo = new Date(Date.now() - 5*60*1000);
+const fiveMinAhead = new Date(Date.now() + 5*60*1000);
+
+const existing = await storage.findEvents({
+  tenantId,
+  type: 'lead',
+  projectId: project.id,
+  title,                       // e.g., "New Lead Project • NAME"
+  startGte: fiveMinAgo,
+  startLte: fiveMinAhead,
+  limit: 1
+});
+
+if (existing.length > 0) {
+  console.info('INFO: calendar.event.duplicate_skipped', {
+    tenantId, projectId: project.id, title,
+    start: fmtDateTime(existing[0].startDate),
+    window: '±5m'
+  });
+} else {
+  const created = await storage.createEvent({
+    tenantId,
+    calendarId,
+    projectId: project.id,
+    title,
+    startDate,
+    endDate,
+    type: 'lead',
+    metadata: { idemKey } // optional; do not rely on schema change
+  });
+
+  console.info('INFO: calendar.event.created', {
+    tenantId, projectId: project.id, eventId: created.id, title,
+    start: fmtDateTime(startDate)
+  });
+}
+
+
+Notes:
+
+Use whatever storage.findEvents you have (or equivalent) to filter by tenantId, type, projectId, title, and a time range around startDate.
+
+Do not add columns or constraints; this is a read-before-write guard only.
+
+Keep all user-visible dates dd/mm/yyyy HH:mm in logs and UI.
+
+3) Extend the verifier (duplicate submit check)
+
+File: scripts/verify-lead-adapter.ts
+Add a new step E) Idempotency: send the same successful payload twice within 60 seconds and confirm only one new event row appears.
+
+Pseudocode to add:
+
+// before: get count of events for "New Lead Project • Repeat Check"
+const before = await countEvents('New Lead Project • Repeat Check');
+
+// submit twice (same payload)
+await submitForm({ data: { "1":"Repeat Check", "2":"repeat@example.com", "6":"25/12/2025" }, consent: true });
+await submitForm({ data: { "1":"Repeat Check", "2":"repeat@example.com", "6":"25/12/2025" }, consent: true });
+
+// after: count again
+const after = await countEvents('New Lead Project • Repeat Check');
+
+results.push({
+  name: 'E: Idempotency (no duplicate event on repeat submit)',
+  status: (after - before) === 1 ? 'PASS' : 'FAIL',
+  details: `Before=${before}, After=${after}`
+});
+
+
+Ensure the script still prints a PASS/FAIL table and exits non-zero on any failures. All printed dates must be dd/mm/yyyy (or dd/mm/yyyy HH:mm).
+
+4) Print a short release note (no code files, just output)
+
+At the end, print:
+
+What changed: added minimal normalizeKeys shim + idempotency guard + INFO log.
+
+Why: ensure events are created for numeric/q-style keys and prevent duplicates on repeat submits.
+
+Tests run: A, B, C, (D if you have it), and E: Idempotency.
+
+Rollback: remove the 10-line shim and the idempotency block in lead-forms.ts.
+
+Acceptance
+
+Numeric keys → Lead + Leads event created.
+
+Q-style keys → Lead + Leads event created.
+
+Missing email → 400, no DB writes.
+
+Duplicate repeat submit within 5 minutes → no second event (idempotent).
+
+Logs include INFO: calendar.event.created with dd/mm/yyyy HH:mm.
+
+Constraints:
+Do not change schemas; do not change existing calendar move logic; keep everything multi-tenant-safe.

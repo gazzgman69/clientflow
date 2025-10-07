@@ -16,6 +16,13 @@ import {
   formatDateTimeForDisplay
 } from '../../utils/formDataAdapter';
 
+// dd/mm/yyyy HH:mm formatter (for logs)
+function fmtDateTime(d: Date | string) {
+  const dt = typeof d === 'string' ? new Date(d) : d;
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${pad(dt.getDate())}/${pad(dt.getMonth() + 1)}/${dt.getFullYear()} ${pad(dt.getHours())}:${pad(dt.getMinutes())}`;
+}
+
 // Honeypot spam protection helper
 function validateHoneypot(formData: Record<string, any>): boolean {
   // Check if honeypot field is filled (indicates spam)
@@ -1106,23 +1113,54 @@ router.post('/:slug/submit', formSubmissionLimiter, async (req, res) => {
           leadId: lead.id
         });
         
-        await tenantStorage.createEvent({
-          title: eventTitle,
-          description: lead.notes || undefined,
-          startDate: eventStart,
-          endDate: eventEnd,
-          location: lead.eventLocation || undefined,
-          calendarId: leadsCalendar?.id, // Assign to Leads Calendar
-          userId,
-          leadId: lead.id,
-          projectId: project.id, // Link to project so it updates with project changes
-          contactId: null, // Explicitly set to null to avoid CASCADE delete when contact is deleted
-          type: 'lead',
-          allDay: false,
-          createdBy: userId || form.createdBy
-        });
+        // Idempotency guard: check for duplicate events within ±5 minutes of submission
+        // Match by title + projectDate (not projectId, as re-submissions create new projects)
+        const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000);
+        const fiveMinAhead = new Date(Date.now() + 5 * 60 * 1000);
+        const dateStr = eventStart.toISOString().split('T')[0]; // yyyy-mm-dd
         
-        console.log(`📅 Auto-created calendar event for lead ${lead.id} linked to project ${project.id}: "${eventTitle}"`);
+        // Query for existing lead events with same title, created recently
+        const allEvents = await tenantStorage.getEvents();
+        const existing = allEvents.filter(e => 
+          e.type === 'lead' &&
+          e.title === eventTitle &&
+          e.startDate.toISOString().split('T')[0] === dateStr &&
+          e.createdAt && e.createdAt >= fiveMinAgo && e.createdAt <= fiveMinAhead
+        );
+        
+        if (existing.length > 0) {
+          console.info('ℹ️ INFO: calendar.event.duplicate_skipped', {
+            tenantId: form.tenantId,
+            projectId: project.id,
+            title: eventTitle,
+            start: fmtDateTime(existing[0].startDate),
+            window: '±5m'
+          });
+        } else {
+          const created = await tenantStorage.createEvent({
+            title: eventTitle,
+            description: lead.notes || undefined,
+            startDate: eventStart,
+            endDate: eventEnd,
+            location: lead.eventLocation || undefined,
+            calendarId: leadsCalendar?.id, // Assign to Leads Calendar
+            userId,
+            leadId: lead.id,
+            projectId: project.id, // Link to project so it updates with project changes
+            contactId: null, // Explicitly set to null to avoid CASCADE delete when contact is deleted
+            type: 'lead',
+            allDay: false,
+            createdBy: userId || form.createdBy
+          });
+          
+          console.info('ℹ️ INFO: calendar.event.created', {
+            tenantId: form.tenantId,
+            projectId: project.id,
+            eventId: created.id,
+            title: eventTitle,
+            start: fmtDateTime(eventStart)
+          });
+        }
       } catch (calError) {
         console.error('❌ CALENDAR EVENT CREATION FAILED:', {
           leadId: lead.id,

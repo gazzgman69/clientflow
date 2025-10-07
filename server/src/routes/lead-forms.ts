@@ -671,7 +671,7 @@ router.post('/:slug/submit', formSubmissionLimiter, async (req, res) => {
                   const leadName = lead.fullName || lead.email || 'Unknown';
                   const eventTitle = `New Lead Project • ${leadName}`;
                   
-                  await tenantStorage.createEvent({
+                  const createdEvent = await tenantStorage.createEvent({
                     title: eventTitle,
                     description: lead.notes || undefined,
                     startDate: eventStart,
@@ -688,6 +688,10 @@ router.post('/:slug/submit', formSubmissionLimiter, async (req, res) => {
                   });
                   
                   console.log(`📅 Auto-created calendar event for duplicate submission lead ${lead.id} linked to project ${project.id}: "${eventTitle}"`);
+
+                  // Enqueue for async Google Calendar push
+                  const { googleOutbox } = await import('../../services/googleOutbox');
+                  googleOutbox.enqueue({ eventId: createdEvent.id });
                 } catch (calError) {
                   console.error('❌ CALENDAR EVENT CREATION FAILED (duplicate submission path):', {
                     leadId: lead.id,
@@ -1160,6 +1164,10 @@ router.post('/:slug/submit', formSubmissionLimiter, async (req, res) => {
             title: eventTitle,
             start: fmtDateTime(eventStart)
           });
+
+          // Enqueue for async Google Calendar push
+          const { googleOutbox } = await import('../../services/googleOutbox');
+          googleOutbox.enqueue({ eventId: created.id });
         }
       } catch (calError) {
         console.error('❌ CALENDAR EVENT CREATION FAILED:', {

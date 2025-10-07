@@ -1,0 +1,237 @@
+Goal (CRM-first)
+
+Create/Update events in CRM first → they appear in my CRM calendar UI immediately.
+
+Then push those events to Google asynchronously.
+
+Never delete CRM events because they’re missing in Google.
+
+If Google is missing an event that CRM has, re-push (or unlink Google id), but do not delete the CRM event.
+
+Assumptions (keep exactly as-is)
+
+events table has: id, title, type, start_date, end_date, calendar_id, is_cancelled (boolean), provider_event_id (nullable).
+
+“Google-owned” = provider_event_id IS NOT NULL.
+
+“CRM-owned” = provider_event_id IS NULL or type = 'lead'.
+
+Lead capture already creates a CRM event.
+
+1) Sync Policy (tiny module)
+
+Create server/services/syncPolicy.ts:
+
+export const SyncPolicy = {
+  isCrmOwned: (e: { provider_event_id: string | null; type: string }) =>
+    !e.provider_event_id || e.type === 'lead',
+
+  canDeleteLocallyFromProvider: (e: { provider_event_id: string | null; type: string }) =>
+    !!e.provider_event_id && e.type !== 'lead', // Only Google-linked & not lead
+
+  onProviderMissing: 'repush', // 'repush' or 'unlink'
+};
+
+2) Outbox to push to Google (no schema changes)
+
+Create two files.
+
+server/services/googleOutbox.ts
+
+type Job = { eventId: string; attempt?: number };
+const q: Job[] = [];
+
+export const googleOutbox = {
+  enqueue(job: Job) { q.push({ ...job, attempt: job.attempt ?? 0 }); },
+  _take(): Job | undefined { return q.shift(); },
+  _size(): number { return q.length; }
+};
+
+
+server/workers/googleOutboxWorker.ts
+
+import { googleOutbox } from '@/server/services/googleOutbox';
+import { storage } from '@/server/storage'; // your existing storage svc
+import { googleApi } from '@/server/services/googleApi'; // wrapper you already use
+
+function sleep(ms: number) { return new Promise(r => setTimeout(r, ms)); }
+
+async function handleJob(job: { eventId: string; attempt: number }) {
+  const ev = await storage.events.getById(job.eventId);
+  if (!ev) return;
+
+  try {
+    if (!ev.provider_event_id) {
+      const gId = await googleApi.createEvent(ev);
+      await storage.events.update(ev.id, { provider_event_id: gId });
+      console.info('INFO google.outbox.create', { eventId: ev.id, gEventId: gId });
+    } else {
+      await googleApi.updateEvent(ev.provider_event_id, ev);
+      console.info('INFO google.outbox.update', { eventId: ev.id, gEventId: ev.provider_event_id });
+    }
+  } catch (err: any) {
+    const next = job.attempt + 1;
+    if (next <= 5) {
+      console.warn('WARN google.outbox.retry', { eventId: ev.id, attempt: next, reason: err?.message });
+      await sleep(2 ** next * 250);
+      googleOutbox.enqueue({ eventId: ev.id, attempt: next });
+    } else {
+      console.warn('WARN google.outbox.gave_up', { eventId: ev.id, reason: err?.message });
+    }
+  }
+}
+
+export async function runGoogleOutboxWorker(loop = false) {
+  do {
+    const job = googleOutbox._take();
+    if (!job) { await sleep(500); continue; }
+    await handleJob(job);
+  } while (loop);
+}
+
+3) Lead → Event path: enqueue outbox after CRM insert
+
+In your lead-capture submit handler (where you already insert the event into CRM), do not change the insert. After successful storage.events.create(...), enqueue:
+
+import { googleOutbox } from '@/server/services/googleOutbox';
+
+// after event insert:
+googleOutbox.enqueue({ eventId: createdEvent.id });
+
+
+Result: the event shows in CRM UI immediately; worker will push to Google in background.
+
+4) Harden the Google sync job (no deletions of CRM events)
+
+Open your Google sync job/service (search for “sync” + “provider_event_id”). In the reconcile deletions section, replace with:
+
+import { SyncPolicy } from '@/server/services/syncPolicy';
+import { googleOutbox } from '@/server/services/googleOutbox';
+
+// crmEventsWithProviderId = list from DB where provider_event_id IS NOT NULL
+for (const ev of crmEventsWithProviderId) {
+  const existsInGoogle = googleIndex.has(ev.provider_event_id!); // built from provider feed
+
+  if (!existsInGoogle) {
+    console.info('INFO google.sync.provider_missing', { eventId: ev.id, gEventId: ev.provider_event_id });
+
+    // NEVER delete CRM if it's CRM-owned or a lead
+    if (SyncPolicy.isCrmOwned(ev)) {
+      console.info('INFO google.sync.protect_crm', { eventId: ev.id, reason: 'crm-owned-or-lead' });
+      // Optionally repush if it was previously linked but now missing:
+      if (process.env.GOOGLE_SYNC_REPUSH_ON_MISSING === 'true') {
+        googleOutbox.enqueue({ eventId: ev.id });
+        console.info('INFO google.sync.repush_scheduled', { eventId: ev.id });
+      }
+      continue;
+    }
+
+    // Google-owned & not lead → unlink or repush (but DO NOT delete CRM row)
+    if ((process.env.GOOGLE_SYNC_REPUSH_ON_MISSING ?? 'true') === 'true') {
+      googleOutbox.enqueue({ eventId: ev.id });
+      console.info('INFO google.sync.repush_scheduled', { eventId: ev.id });
+    } else {
+      await storage.events.update(ev.id, { provider_event_id: null });
+      console.info('INFO google.sync.unlinked', { eventId: ev.id });
+    }
+  }
+}
+
+// Summary logging (keep your imports/updates as-is)
+console.info('INFO google.sync.summary', {
+  imported, updated, unlinked, repush_scheduled, skipped
+});
+
+
+Important: Remove any code that deletes CRM events because they’re absent in Google. Only cancel/delete in CRM on explicit CRM user action.
+
+5) Minimal logs to keep
+
+INFO google.outbox.create|update|retry|gave_up
+
+INFO google.sync.provider_missing|protect_crm|repush_scheduled|unlinked|summary
+
+6) Read-only verification (quick proof it works)
+
+Add one script scripts/e2e-calendar-check.ts (or update yours) to only call APIs/DB and print results; no code changes.
+
+Rules for the script
+
+Use /api/events (not /api/calendar/events).
+
+Treat status as: status_text = is_cancelled ? 'cancelled' : 'confirmed'.
+
+Show last 10 events (id, title, type, status_text, calendar_id, start dd/mm/yyyy HH:mm).
+
+Submit one lead; confirm CRM wrote event; then run the outbox worker once; confirm provider_event_id set; run Google sync with GOOGLE_SYNC_DRY_RUN=true; ensure logs show protection/repush (no deletions).
+
+(You can keep your existing script if it already does this; just ensure it hits /api/events and the right columns.)
+
+7) How to run (copy these commands)
+# ENV you likely already have
+export BASE_URL=${BASE_URL:-http://localhost:5000}
+export TENANT_ID=${TENANT_ID:-default-tenant}
+export GOOGLE_SYNC_REPUSH_ON_MISSING=true
+export GOOGLE_SYNC_DRY_RUN=true
+
+# 1) Find an active form + its date question id
+export SLUG="${LCF_SLUG:-$(psql "$DATABASE_URL" -t -c "SELECT slug FROM lead_capture_forms WHERE is_active = true LIMIT 1;")}"
+export DATE_QID=$(psql "$DATABASE_URL" -t -c "
+  SELECT (jsonb_path_query(questions::jsonb, '$[*] ? (@.mapTo == \"projectDate\")')->>'id')
+  FROM lead_capture_forms WHERE slug='${SLUG}' LIMIT 1;" | tr -d '[:space:]')
+echo "SLUG=${SLUG}  DATE_QID=${DATE_QID}"
+
+# 2) Submit a lead (event appears in CRM UI immediately)
+curl -s -X POST "${BASE_URL}/api/leads/public/${SLUG}/submit" \
+ -H "Content-Type: application/json" \
+ -d '{
+  "data": {
+    "q1":"CRM First Test",
+    "q2":"crm.first+'$(date +%s)'@example.com",
+    "q_1758575106312":"+44 7700 900123",
+    "q_1758575155875":"Wedding",
+    "q3":"Test Venue",
+    "'${DATE_QID}'":"25/12/2025"
+  },
+  "consent": true
+}' | sed -e 's/{/\
+{/g' | head -20
+
+# 3) Show newest events (dd/mm/yyyy HH:mm). Should include the new Lead event now.
+psql "$DATABASE_URL" -c "
+SELECT id, title, type,
+       CASE WHEN is_cancelled THEN 'cancelled' ELSE 'confirmed' END AS status_text,
+       calendar_id,
+       to_char(start_date,'DD/MM/YYYY HH24:MI') AS start
+FROM events
+WHERE tenant_id='${TENANT_ID}'
+ORDER BY created_at DESC
+LIMIT 10;"
+
+# 4) Run outbox once to push to Google (replace with your worker command)
+echo "Run your outbox worker now, e.g.: tsx server/workers/googleOutboxWorker.ts"
+
+# 5) Confirm provider_event_id is now set
+psql "$DATABASE_URL" -c "
+SELECT title, type, (provider_event_id IS NOT NULL) AS linked,
+       to_char(start_date,'DD/MM/YYYY HH24:MI') AS start
+FROM events
+WHERE tenant_id='${TENANT_ID}'
+ORDER BY created_at DESC
+LIMIT 5;"
+
+# 6) Run Google sync in DRY RUN (replace with your sync command)
+echo "Run your google sync in DRY RUN mode."
+
+# 7) Check logs (you should see protect/repush, not deletes)
+grep -a "google.sync" /tmp/logs/Start_application* | tail -80 || true
+
+Acceptance Criteria
+
+Creating a lead immediately shows a “Lead” event in the CRM calendar UI.
+
+Outbox later sets provider_event_id (linked to Google).
+
+Google sync does not delete CRM events if Google is missing them; it repushes or unlinks.
+
+Logs show google.outbox.* and google.sync.* actions clearly.

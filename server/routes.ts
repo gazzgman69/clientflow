@@ -507,6 +507,10 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
               start: formattedStart,
               timestamp: new Date().toISOString()
             });
+
+            // Enqueue for async Google Calendar push
+            const { googleOutbox } = await import('../services/googleOutbox');
+            googleOutbox.enqueue({ eventId: createdEvent.id });
           }
         } catch (calError) {
           console.error('Failed to auto-create calendar event for lead:', calError);

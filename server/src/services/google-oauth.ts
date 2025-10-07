@@ -362,6 +362,13 @@ export class GoogleOAuthService {
             
             // Check if event is cancelled/deleted (Google marks as status: 'cancelled')
             if (googleEvent.data.status === 'cancelled') {
+              const { SyncPolicy } = await import('../../services/syncPolicy');
+              // NEVER delete CRM-owned events (lead events, etc.)
+              if (SyncPolicy.isCrmOwned({ external_event_id: event.externalEventId, type: event.type })) {
+                console.log(`⚠️ Event "${event.title}" was cancelled in Google Calendar but preserving in CRM (CRM-owned event)`);
+                skippedCount++;
+                continue;
+              }
               console.log(`🗑️ Event "${event.title}" was cancelled in Google Calendar, deleting from CRM...`);
               await storage.deleteEvent(event.id, integration.tenantId);
               skippedCount++;
@@ -375,26 +382,28 @@ export class GoogleOAuthService {
           } catch (error: any) {
             if (error.code === 404 || error.status === 404) {
               // Event doesn't exist in Google Calendar anymore
-              // CRITICAL: Only delete events that originated FROM Google Calendar (type='meeting')
-              // CRM-created events (type='lead') should be preserved even if missing from Google
-              if (event.type === 'meeting') {
-                console.log(`🗑️ Event "${event.title}" (type: meeting) missing from Google Calendar, deleting from CRM...`);
-                await storage.deleteEvent(event.id, integration.tenantId);
-                skippedCount++;
-                continue;
-              } else {
-                console.log(`⚠️ Event "${event.title}" (type: ${event.type}) missing from Google Calendar but preserving in CRM (CRM-originated event)`);
+              const { SyncPolicy } = await import('../../services/syncPolicy');
+              
+              // NEVER delete CRM-owned events
+              if (SyncPolicy.isCrmOwned({ external_event_id: event.externalEventId, type: event.type })) {
+                console.log(`⚠️ Event "${event.title}" (type: ${event.type}) missing from Google Calendar but preserving in CRM (CRM-owned event)`);
                 // Re-sync to Google Calendar
                 try {
                   await this.syncToGoogle(integration, event.id);
                   syncedCount++;
-                  console.log(`✅ Re-synced CRM-originated event "${event.title}" to Google Calendar`);
+                  console.log(`✅ Re-synced CRM-owned event "${event.title}" to Google Calendar`);
                 } catch (syncError) {
                   console.error(`❌ Failed to re-sync "${event.title}":`, syncError);
                   skippedCount++;
                 }
                 continue;
               }
+              
+              // Google-owned event missing from Google - delete from CRM
+              console.log(`🗑️ Event "${event.title}" (type: meeting) missing from Google Calendar, deleting from CRM...`);
+              await storage.deleteEvent(event.id, integration.tenantId);
+              skippedCount++;
+              continue;
             } else {
               console.error(`⚠️ Error checking event "${event.title}":`, error.message);
               skippedCount++;
@@ -478,9 +487,15 @@ export class GoogleOAuthService {
         
         // Handle cancelled events (deletions)
         if (googleEvent.status === 'cancelled') {
-          console.log(`Google Calendar event "${googleEvent.summary}" was cancelled, removing from CRM`);
+          console.log(`Google Calendar event "${googleEvent.summary}" was cancelled`);
           const existing = await storage.getEventByExternalId(googleEvent.id, integration.tenantId);
           if (existing) {
+            const { SyncPolicy } = await import('../../services/syncPolicy');
+            // NEVER delete CRM-owned events
+            if (SyncPolicy.isCrmOwned({ external_event_id: existing.externalEventId, type: existing.type })) {
+              console.log(`⚠️ Event "${existing.title}" was cancelled in Google but preserving in CRM (CRM-owned event)`);
+              continue;
+            }
             await storage.deleteEvent(existing.id, integration.tenantId);
             console.log(`Deleted CRM event: ${existing.title}`);
           }
@@ -525,12 +540,45 @@ export class GoogleOAuthService {
         
         console.log(`Checking ${eventsToCheck.length} CRM events for deletion from Google Calendar...`);
         
+        const { SyncPolicy } = await import('../../services/syncPolicy');
+        const { googleOutbox } = await import('../../services/googleOutbox');
+        let repushScheduled = 0;
+        let unlinked = 0;
+        
         for (const crmEvent of eventsToCheck) {
           if (crmEvent.externalEventId && !currentGoogleEventIds.has(crmEvent.externalEventId)) {
-            console.log(`🗑️ Event "${crmEvent.title}" (ID: ${crmEvent.externalEventId}) no longer exists in Google Calendar, removing from CRM`);
-            await storage.deleteEvent(crmEvent.id, integration.tenantId!);
+            console.info('INFO google.sync.provider_missing', { eventId: crmEvent.id, gEventId: crmEvent.externalEventId });
+            
+            // NEVER delete CRM if it's CRM-owned or a lead
+            if (SyncPolicy.isCrmOwned({ external_event_id: crmEvent.externalEventId, type: crmEvent.type })) {
+              console.info('INFO google.sync.protect_crm', { eventId: crmEvent.id, reason: 'crm-owned-or-lead' });
+              // Optionally repush if it was previously linked but now missing:
+              if ((process.env.GOOGLE_SYNC_REPUSH_ON_MISSING ?? 'true') === 'true') {
+                googleOutbox.enqueue({ eventId: crmEvent.id });
+                repushScheduled++;
+                console.info('INFO google.sync.repush_scheduled', { eventId: crmEvent.id });
+              }
+              continue;
+            }
+            
+            // Google-owned & not lead → unlink or repush (but DO NOT delete CRM row)
+            if ((process.env.GOOGLE_SYNC_REPUSH_ON_MISSING ?? 'true') === 'true') {
+              googleOutbox.enqueue({ eventId: crmEvent.id });
+              repushScheduled++;
+              console.info('INFO google.sync.repush_scheduled', { eventId: crmEvent.id });
+            } else {
+              await storage.updateEvent(crmEvent.id, { externalEventId: null }, integration.tenantId!);
+              unlinked++;
+              console.info('INFO google.sync.unlinked', { eventId: crmEvent.id });
+            }
           }
         }
+        
+        console.info('INFO google.sync.summary', {
+          repush_scheduled: repushScheduled,
+          unlinked: unlinked,
+          protected: eventsToCheck.length - repushScheduled - unlinked
+        });
       } else {
         console.log('Skipping deletion check - incremental sync only shows changes, not complete event list');
       }

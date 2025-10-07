@@ -1007,12 +1007,16 @@ router.post('/:slug/submit', formSubmissionLimiter, async (req, res) => {
         const leadName = lead.fullName || lead.email || 'Unknown';
         const eventTitle = `New Lead Project • ${leadName}`;
         
+        // Get Leads Calendar for this tenant
+        const leadsCalendar = await tenantStorage.getCalendarByType('leads');
+        
         await tenantStorage.createEvent({
           title: eventTitle,
           description: lead.notes || undefined,
           startDate: eventStart,
           endDate: eventEnd,
           location: lead.eventLocation || undefined,
+          calendarId: leadsCalendar?.id, // Assign to Leads Calendar
           userId,
           leadId: lead.id,
           projectId: project.id, // Link to project so it updates with project changes

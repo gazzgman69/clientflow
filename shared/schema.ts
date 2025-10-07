@@ -642,7 +642,6 @@ export const events = pgTable("events", {
   recurring: boolean("recurring").default(false),
   recurrenceRule: text("recurrence_rule"), // RRULE format for recurring events
   type: text("type").notNull().default('meeting'), // meeting, call, event, appointment, reminder
-  status: text("status").notNull().default('confirmed'), // confirmed, tentative, cancelled
   priority: text("priority").notNull().default('medium'), // low, medium, high, urgent
   leadId: varchar("lead_id").references(() => leads.id, { onDelete: 'cascade' }),
   contactId: varchar("contact_id").references(() => contacts.id, { onDelete: 'cascade' }),

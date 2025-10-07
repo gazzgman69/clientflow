@@ -2036,7 +2036,6 @@ export class MemStorage implements IStorage {
       ...insertEvent,
       tenantId, // Always include tenantId for tenant isolation
       type: insertEvent.type ?? 'meeting',
-      status: insertEvent.status ?? 'confirmed',
       priority: insertEvent.priority ?? 'medium',
       allDay: insertEvent.allDay ?? false,
       recurring: insertEvent.recurring ?? false,

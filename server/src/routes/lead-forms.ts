@@ -590,7 +590,6 @@ router.post('/:slug/submit', formSubmissionLimiter, async (req, res) => {
                     leadId: lead.id,
                     projectId: project.id, // Link to project so it updates with project changes
                     type: 'lead',
-                    status: 'tentative',
                     allDay: false,
                     createdBy: userId || form.createdBy
                   });
@@ -1021,7 +1020,6 @@ router.post('/:slug/submit', formSubmissionLimiter, async (req, res) => {
           leadId: lead.id,
           projectId: project.id, // Link to project so it updates with project changes
           type: 'lead',
-          status: 'tentative',
           allDay: false,
           createdBy: userId || form.createdBy
         });

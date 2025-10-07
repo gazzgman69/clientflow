@@ -134,7 +134,6 @@ router.post("/appointments", async (req, res) => {
       endDate: end,
       location,
       attendees: contact.email ? [contact.email] : [],
-      status: 'confirmed',
       source: 'portal',
       reminders: [15], // 15 minute reminder
     });
@@ -242,10 +241,8 @@ router.delete("/appointments/:eventId", async (req, res) => {
       return res.status(403).json({ error: 'Access denied' });
     }
 
-    // Mark as cancelled instead of deleting
-    await storage.updateEvent(eventId, {
-      status: 'cancelled',
-    });
+    // Delete the appointment
+    await storage.deleteEvent(eventId, contact.tenantId);
 
     // Note: Google Calendar sync functionality would be implemented here
     // when proper individual event sync is available

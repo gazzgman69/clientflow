@@ -477,7 +477,6 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
             userId: req.userId,
             leadId: lead.id,
             type: 'lead',
-            status: 'tentative',
             allDay: false,
             tenantId: req.tenantId
           });
@@ -559,7 +558,6 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
             userId: req.userId,
             leadId: lead.id,
             type: 'lead',
-            status: 'tentative',
             allDay: false,
             tenantId: req.tenantId
           });

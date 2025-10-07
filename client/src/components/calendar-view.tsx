@@ -40,6 +40,8 @@ interface Event {
   createdBy: string;
   createdAt: string;
   updatedAt: string;
+  isCancelled?: boolean;
+  cancelledAt?: string | null;
 }
 
 const eventSchema = z.object({
@@ -412,12 +414,17 @@ export default function CalendarView({ viewMode = 'month' }: CalendarViewProps) 
                   {getUpcomingEvents().slice(0, 3).map((event, index) => (
                     <div 
                       key={event.id} 
-                      className="text-xs px-2 py-1 bg-primary/10 text-primary rounded cursor-pointer hover:bg-primary/20 transition-colors"
+                      className="text-xs px-2 py-1 bg-primary/10 text-primary rounded cursor-pointer hover:bg-primary/20 transition-colors flex items-center gap-1"
                       onClick={() => handleEditEvent(event)}
                       data-testid={`upcoming-event-${index + 1}`}
                       title={`${event.title} - ${new Date(event.startDate).toLocaleDateString()} at ${formatEventTime(event.startDate, event.endDate, event.allDay)}`}
                     >
-                      {event.title}
+                      <span className={event.isCancelled ? 'line-through text-muted-foreground' : ''}>
+                        {event.title}
+                      </span>
+                      {event.isCancelled && (
+                        <Badge variant="outline" className="text-[10px] px-1 py-0">CANC</Badge>
+                      )}
                     </div>
                   ))}
                   {getUpcomingEvents().length > 3 && (
@@ -521,7 +528,7 @@ export default function CalendarView({ viewMode = 'month' }: CalendarViewProps) 
                                   }}
                                   data-testid={`event-${day}-${eventIndex}`}
                                 >
-                                  <div className="font-medium text-xs leading-tight break-words">{event.title}</div>
+                                  <div className={`font-medium text-xs leading-tight break-words ${event.isCancelled ? 'line-through opacity-60' : ''}`}>{event.title}</div>
                                   <div className="text-xs opacity-80 leading-tight">
                                     {formatEventTime(event.startDate, event.endDate, event.allDay)}
                                   </div>
@@ -835,7 +842,14 @@ export default function CalendarView({ viewMode = 'month' }: CalendarViewProps) 
                           }}
                           data-testid={`all-events-upcoming-${index}`}
                         >
-                          <div className="font-medium text-sm">{event.title}</div>
+                          <div className="flex items-center gap-2">
+                            <div className={`font-medium text-sm ${event.isCancelled ? 'line-through text-muted-foreground' : ''}`}>
+                              {event.title}
+                            </div>
+                            {event.isCancelled && (
+                              <Badge variant="outline" className="text-xs">CANCELLED</Badge>
+                            )}
+                          </div>
                           <div className="text-sm text-muted-foreground mt-1">
                             {new Date(event.startDate).toLocaleDateString()} at {formatEventTime(event.startDate, event.endDate, event.allDay)}
                           </div>
@@ -872,7 +886,14 @@ export default function CalendarView({ viewMode = 'month' }: CalendarViewProps) 
                             }}
                             data-testid={`all-events-past-${index}`}
                           >
-                            <div className="font-medium text-sm">{event.title}</div>
+                            <div className="flex items-center gap-2">
+                              <div className={`font-medium text-sm ${event.isCancelled ? 'line-through text-muted-foreground' : ''}`}>
+                                {event.title}
+                              </div>
+                              {event.isCancelled && (
+                                <Badge variant="outline" className="text-xs">CANCELLED</Badge>
+                              )}
+                            </div>
                             <div className="text-sm text-muted-foreground mt-1">
                               {new Date(event.startDate).toLocaleDateString()} at {formatEventTime(event.startDate, event.endDate, event.allDay)}
                             </div>
@@ -948,7 +969,14 @@ export default function CalendarView({ viewMode = 'month' }: CalendarViewProps) 
                 }}
                 data-testid={`day-event-${index}`}
               >
-                <div className="font-medium text-sm">{event.title}</div>
+                <div className="flex items-center gap-2">
+                  <div className={`font-medium text-sm ${event.isCancelled ? 'line-through text-muted-foreground' : ''}`}>
+                    {event.title}
+                  </div>
+                  {event.isCancelled && (
+                    <Badge variant="outline" className="text-xs">CANCELLED</Badge>
+                  )}
+                </div>
                 <div className="text-sm text-muted-foreground mt-1">
                   {formatEventTime(event.startDate, event.endDate, event.allDay)}
                 </div>

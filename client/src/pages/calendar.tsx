@@ -33,6 +33,8 @@ interface Event {
   location?: string;
   clientId?: string;
   projectId?: string;
+  isCancelled?: boolean;
+  cancelledAt?: string | null;
 }
 
 export default function CalendarPage() {

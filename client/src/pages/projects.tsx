@@ -628,7 +628,7 @@ export default function Projects() {
       />
 
       {/* Enhanced Deletion Preview Dialog */}
-      {(deletionPreview || previewLoading) && (
+      {(deletionPreview || previewLoading || previewProjectId) && (
         <AlertDialog open={true} onOpenChange={handleCancelDelete}>
           <AlertDialogContent className="max-w-2xl">
             <AlertDialogHeader>

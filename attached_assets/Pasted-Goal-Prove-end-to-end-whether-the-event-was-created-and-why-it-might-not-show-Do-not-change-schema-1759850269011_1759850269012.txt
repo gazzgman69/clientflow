@@ -1,0 +1,84 @@
+Goal: Prove end-to-end whether the event was created and why it might not show. Do not change schemas or logic; just run checks and print results.
+
+Run the following checks and print raw outputs exactly.
+
+Inputs:
+- Use LCF_SLUG env if set; else pick the first active form slug.
+- All dates displayed as dd/mm/yyyy (and dd/mm/yyyy HH:mm).
+
+Steps:
+
+1) Identify active form slug
+- Command:
+  export SLUG="${LCF_SLUG:-$(psql \"$DATABASE_URL\" -t -c \"SELECT slug FROM lead_capture_forms WHERE is_active = true LIMIT 1;\")}"
+  echo "SLUG=${SLUG}"
+
+2) Submit a test lead (numeric keys)
+- Command:
+  curl -i -s -X POST "http://localhost:5000/api/leads/public/${SLUG}/submit" \
+   -H "Content-Type: application/json" \
+   -d '{ "data": { "1":"Calendar Triage","2":"triage@example.com","6":"25/12/2025" }, "consent": true }'
+- Print HTTP status + body.
+
+3) Show newest events (proof)
+- SQL:
+  SELECT title, type,
+         to_char(start_date,'DD/MM/YYYY HH24:MI') AS start,
+         to_char(created_at,'DD/MM/YYYY HH24:MI') AS created
+  FROM events
+  ORDER BY created_at DESC
+  LIMIT 10;
+
+4) Fetch the form questions to confirm the DATE field id/position
+- SQL:
+  SELECT slug, questions
+  FROM lead_capture_forms
+  WHERE slug = '${SLUG}'
+  LIMIT 1;
+
+5) If no event row appears in step 3:
+   5a) Submit using the q-style DATE id (replace <DATE_QID> with the id from step 4):
+       curl -i -s -X POST "http://localhost:5000/api/leads/public/${SLUG}/submit" \
+         -H "Content-Type: application/json" \
+         -d '{ "data": { "q1":"Calendar Triage Q","q2":"triage.q@example.com","<DATE_QID>":"25/12/2025" }, "consent": true }'
+   5b) Re-run the “newest events” SQL from step 3.
+
+6) Check duplicate-skip logs (if you tried twice)
+- Command:
+  grep -a "calendar.event.created\|calendar.event.duplicate_skipped" /tmp/logs/Start_application* | tail -40
+
+7) Print a PASS/FAIL summary
+- PASS if an event row exists with title like "New Lead Project • Calendar Triage*" and correct date.
+- If FAIL, print which condition failed:
+  - HTTP 4xx with missing fields
+  - Wrong numeric index for date field (mismatch with questions order)
+  - Duplicate skipped (idempotency window)
+  - Different tenant/calendar (print tenant_id, calendar_id for last hour):
+    SELECT tenant_id, calendar_id, title, to_char(start_date,'DD/MM/YYYY HH24:MI') AS start, created_at
+    FROM events
+    WHERE created_at > now() - interval '1 hour'
+    ORDER BY created_at DESC;
+
+PROMPT — Hardening (optional): Make date mapping resilient to form reordering
+
+Goal: Avoid relying on numeric index "6" for the date; prefer the question whose mapping is projectDate. Do not change schemas or calendar logic.
+
+In server/src/routes/lead-forms.ts, just before mapping/validation:
+
+1) After loading the form `questions`, compute the date question id:
+   const dateQ = Array.isArray(questions)
+     ? questions.find(q => q.mapTo === 'projectDate')?.id
+     : undefined;
+
+2) Enhance the existing normalizeKeys shim:
+   - When you see the incoming numeric key you currently expect for date (e.g., "6"), if `dateQ` exists, rewrite that key specifically to `dateQ`.
+   - Keep the rest of the normalize-by-order behaviour unchanged.
+
+   Example patch inside normalizeKeys loop:
+   for (const [k,v] of Object.entries(data||{})) {
+     let qid = byIndex.get(k) || k;
+     if (dateQ && k === "6") qid = dateQ; // prefer canonical date id
+     out[qid] = v;
+   }
+
+3) Do not alter validation or calendar logic. Re-run the triage prompt and print results.

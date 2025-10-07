@@ -680,11 +680,8 @@ router.post('/:slug/submit', formSubmissionLimiter, async (req, res) => {
                   const leadName = lead.fullName || lead.email || 'Unknown';
                   const eventTitle = `New Lead Project • ${leadName}`;
                   
-                  // Build description with form details + "Time TBC" if date-only
+                  // Build description with form details
                   let eventDescription = lead.notes || '';
-                  if (isDateOnly) {
-                    eventDescription = `Time TBC\n\n${eventDescription}`.trim();
-                  }
                   
                   const createdEvent = await tenantStorage.createEvent({
                     title: eventTitle,
@@ -1128,11 +1125,8 @@ router.post('/:slug/submit', formSubmissionLimiter, async (req, res) => {
         const leadName = lead.fullName || lead.email || 'Unknown';
         const eventTitle = `New Lead Project • ${leadName}`;
         
-        // Build description with form details + "Time TBC" if date-only
+        // Build description with form details
         let eventDescription = lead.notes || '';
-        if (isDateOnly) {
-          eventDescription = `Time TBC\n\n${eventDescription}`.trim();
-        }
         
         console.log('🔍 Getting Leads Calendar for tenant:', form.tenantId);
         // Get Leads Calendar for this tenant (tenantId handled by wrapper)

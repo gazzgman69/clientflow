@@ -476,11 +476,8 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
           const leadName = lead.fullName || lead.email || 'Unknown';
           const eventTitle = `New Lead Project • ${leadName}`;
           
-          // Build description with form details + "Time TBC" if date-only
+          // Build description with form details
           let eventDescription = lead.notes || '';
-          if (isDateOnly) {
-            eventDescription = `Time TBC\n\n${eventDescription}`.trim();
-          }
           
           // Idempotency guard: check for duplicate events within 5 minutes
           const existingEvents = await storage.getEvents(req.tenantId);

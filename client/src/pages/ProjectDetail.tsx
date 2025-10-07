@@ -3,7 +3,7 @@ import { useRoute, useLocation } from "wouter";
 import { Link } from "wouter";
 import { useEffect, useState } from "react";
 import Header from "@/components/layout/header";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
@@ -12,18 +12,110 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
-import { ArrowLeft, Mail, Phone, Calendar, Briefcase, MessageSquare, ExternalLink, Shield, Info } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { 
+  ArrowLeft, Mail, Phone, Calendar, Briefcase, MessageSquare, ExternalLink, Shield, Info,
+  Users, FileText, Upload, Download, Trash, Clock, DollarSign, MapPin,
+  Receipt, File, Send, Check, Edit, Trash2, Plus
+} from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useUserPrefs } from "@/hooks/useUserPrefs";
-import type { Project, Client } from "@shared/schema";
+import { useForm } from "react-hook-form";
+import { z } from "zod";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { formatDistanceToNow } from "date-fns";
+import type { 
+  Project, Client, Member, Venue, ProjectFile, 
+  ProjectNote, ProjectMember, Quote, Contract, Invoice, Contact
+} from "@shared/schema";
 import ProjectEmailPanel from "@/components/email/ProjectEmailPanel";
+import ContactPicker from "@/components/quote/ContactPicker";
+import QuoteEditor from "@/components/quote/QuoteEditor";
+import ContractEditor from "@/components/contracts/ContractEditor";
+
+const noteSchema = z.object({
+  note: z.string().min(1, "Note is required"),
+});
+
+const memberAssignmentSchema = z.object({
+  memberId: z.string().min(1, "Member is required"),
+  role: z.string().optional(),
+  fee: z.string().optional(),
+});
+
+// Contract edit schema
+const contractEditSchema = z.object({
+  title: z.string().min(1, "Title is required"),
+  description: z.string().optional(),
+  amount: z.string().min(1, "Amount is required"),
+  terms: z.string().optional(),
+});
+
+// Invoice edit schema  
+const invoiceEditSchema = z.object({
+  title: z.string().min(1, "Title is required"),
+  description: z.string().optional(),
+  subtotal: z.string().min(1, "Subtotal is required"),
+  taxAmount: z.string().optional(),
+  total: z.string().min(1, "Total is required"),
+});
+
+type NoteFormData = z.infer<typeof noteSchema>;
+type MemberAssignmentData = z.infer<typeof memberAssignmentSchema>;
+type ContractEditData = z.infer<typeof contractEditSchema>;
+type InvoiceEditData = z.infer<typeof invoiceEditSchema>;
 
 export default function ProjectDetail() {
   const [match, params] = useRoute("/projects/:id");
   const [, setLocation] = useLocation();
   const projectId = params?.id;
   const { toast } = useToast();
+  
+  // State variables
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [selectedDocument, setSelectedDocument] = useState<{
+    type: 'quote' | 'contract' | 'invoice';
+    data: Quote | Contract | Invoice;
+    mode?: 'view' | 'edit';
+  } | null>(null);
+  
+  // Quote creation flow state
+  const [showContactPicker, setShowContactPicker] = useState(false);
+  const [showQuoteEditor, setShowQuoteEditor] = useState(false);
+  const [selectedContactId, setSelectedContactId] = useState<string>("");
+  const [selectedContactName, setSelectedContactName] = useState<string>("");
+  
+  // Contract creation flow state
+  const [showContractEditor, setShowContractEditor] = useState(false);
+  const [editingContract, setEditingContract] = useState<Contract | null>(null);
+  
+  // State for editing quotes
+  const [editingQuote, setEditingQuote] = useState<Quote | null>(null);
   
   // Get portal status for this project (tenant setting + project override)
   const { data: portalStatus } = useQuery({
@@ -88,6 +180,506 @@ export default function ProjectDetail() {
     },
     enabled: !!project?.clientId,
   });
+
+  // Additional queries from modal
+  const { data: members = [] } = useQuery<Member[]>({
+    queryKey: ["/api/members"],
+    enabled: !!project,
+  });
+
+  const { data: venues = [] } = useQuery<Venue[]>({
+    queryKey: ["/api/venues"],
+    enabled: !!project,
+  });
+
+  const { data: projectFiles = [] } = useQuery<ProjectFile[]>({
+    queryKey: ["/api/projects", project?.id, "files"],
+    enabled: !!project,
+  });
+
+  const { data: projectNotes = [] } = useQuery<ProjectNote[]>({
+    queryKey: ["/api/projects", project?.id, "notes"],
+    enabled: !!project,
+  });
+
+  const { data: projectMembers = [] } = useQuery<ProjectMember[]>({
+    queryKey: ["/api/projects", project?.id, "members"],
+    enabled: !!project,
+  });
+
+  // Fetch documents for this project's client
+  const { data: projectQuotes = [] } = useQuery<Quote[]>({
+    queryKey: ["/api/contacts", project?.contactId, "quotes"],
+    enabled: !!project && !!project.contactId,
+  });
+
+  const { data: projectContracts = [] } = useQuery<Contract[]>({
+    queryKey: ["/api/contacts", project?.contactId, "contracts"],
+    enabled: !!project && !!project.contactId,
+  });
+
+  const { data: projectInvoices = [] } = useQuery<Invoice[]>({
+    queryKey: ["/api/contacts", project?.contactId, "invoices"],
+    enabled: !!project && !!project.contactId,
+  });
+
+  // Fetch venue information if project has a venue
+  const { data: projectVenue } = useQuery<Venue>({
+    queryKey: ["/api/venues", project?.venueId],
+    enabled: !!project && !!project.venueId,
+  });
+
+  // Fetch contact information for the project
+  const { data: projectContact } = useQuery<Contact>({
+    queryKey: ["/api/contacts", project?.contactId],
+    enabled: !!project && !!project.contactId,
+  });
+
+  // Forms
+  const noteForm = useForm<NoteFormData>({
+    resolver: zodResolver(noteSchema),
+    defaultValues: { note: "" },
+  });
+
+  const memberForm = useForm<MemberAssignmentData>({
+    resolver: zodResolver(memberAssignmentSchema),
+    defaultValues: { memberId: "", role: "", fee: "" },
+  });
+
+  const contractEditForm = useForm<ContractEditData>({
+    resolver: zodResolver(contractEditSchema),
+  });
+  
+  const invoiceEditForm = useForm<InvoiceEditData>({
+    resolver: zodResolver(invoiceEditSchema),
+  });
+
+  // Mutations
+  const uploadFileMutation = useMutation({
+    mutationFn: async (file: File) => {
+      const fileData = {
+        fileName: `${Date.now()}-${file.name}`,
+        originalName: file.name,
+        fileSize: file.size,
+        mimeType: file.type,
+        uploadedBy: "current-user-id", // Would come from auth context
+      };
+      return apiRequest(`/api/projects/${project?.id}/files`, "POST", fileData);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/projects", project?.id, "files"] });
+      setSelectedFile(null);
+      toast({
+        title: "Success",
+        description: "File uploaded successfully",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to upload file",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const addNoteMutation = useMutation({
+    mutationFn: (data: NoteFormData) =>
+      apiRequest(`/api/projects/${project?.id}/notes`, "POST", {
+        ...data,
+        createdBy: "current-user-id", // Would come from auth context
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/projects", project?.id, "notes"] });
+      noteForm.reset();
+      toast({
+        title: "Success",
+        description: "Note added successfully",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to add note",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const assignMemberMutation = useMutation({
+    mutationFn: (data: MemberAssignmentData) =>
+      apiRequest(`/api/projects/${project?.id}/members`, "POST", {
+        ...data,
+        fee: data.fee ? parseFloat(data.fee) : undefined,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/projects", project?.id, "members"] });
+      memberForm.reset();
+      toast({
+        title: "Success",
+        description: "Member assigned successfully",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to assign member",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const deleteFileMutation = useMutation({
+    mutationFn: (fileId: string) => apiRequest(`/api/files/${fileId}`, "DELETE"),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/projects", project?.id, "files"] });
+      toast({
+        title: "Success",
+        description: "File deleted successfully",
+      });
+    },
+  });
+
+  const removeMemberMutation = useMutation({
+    mutationFn: (memberId: string) =>
+      apiRequest(`/api/projects/${project?.id}/members/${memberId}`, "DELETE"),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/projects", project?.id, "members"] });
+      toast({
+        title: "Success",
+        description: "Member removed successfully",
+      });
+    },
+  });
+
+  // Document status workflow mutations
+  const sendDocumentMutation = useMutation({
+    mutationFn: async ({ id, type }: { id: string; type: string }) => {
+      const response = await apiRequest("POST", `/api/${type}s/${id}/send`, {});
+      return response.json();
+    },
+    onSuccess: () => {
+      // Invalidate all document queries to refresh the lists
+      queryClient.invalidateQueries({ queryKey: ["/api/contacts", project?.contactId, "quotes"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/contacts", project?.contactId, "contracts"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/contacts", project?.contactId, "invoices"] });
+      toast({
+        title: "Success",
+        description: "Document sent successfully!",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to send document. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const approveDocumentMutation = useMutation({
+    mutationFn: async ({ id, type }: { id: string; type: string }) => {
+      const endpoint = type === 'quote' ? 'approve' : type === 'contract' ? 'sign' : 'pay';
+      const response = await apiRequest("POST", `/api/${type}s/${id}/${endpoint}`, {});
+      return response.json();
+    },
+    onSuccess: () => {
+      // Invalidate all document queries to refresh the lists
+      queryClient.invalidateQueries({ queryKey: ["/api/contacts", project?.contactId, "quotes"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/contacts", project?.contactId, "contracts"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/contacts", project?.contactId, "invoices"] });
+      toast({
+        title: "Success",
+        description: "Document status updated successfully!",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to update document status. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Document creation mutations
+  const createContractMutation = useMutation({
+    mutationFn: async () => {
+      const contractData = {
+        contactId: project?.contactId,
+        projectId: project?.id,
+        title: `Contract for ${project?.name}`,
+        description: `Contract for project: ${project?.name}`,
+        amount: "0.00",
+        contractNumber: `C-${Date.now()}`
+      };
+      const response = await apiRequest("POST", "/api/contracts", contractData);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/contacts", project?.contactId, "contracts"] });
+      toast({
+        title: "Success",
+        description: "Contract created successfully!",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to create contract. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const createInvoiceMutation = useMutation({
+    mutationFn: async () => {
+      const invoiceData = {
+        contactId: project?.contactId,
+        projectId: project?.id,
+        title: `Invoice for ${project?.name}`,
+        description: `Invoice for project: ${project?.name}`,
+        subtotal: "0.00",
+        total: "0.00",
+        invoiceNumber: `I-${Date.now()}`
+      };
+      const response = await apiRequest("POST", "/api/invoices", invoiceData);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/contacts", project?.contactId, "invoices"] });
+      toast({
+        title: "Success",
+        description: "Invoice created successfully!",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to create invoice. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Delete mutations for documents
+  const deleteQuoteMutation = useMutation({
+    mutationFn: (quoteId: string) => apiRequest("DELETE", `/api/quotes/${quoteId}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/contacts", project?.contactId, "quotes"] });
+      toast({
+        title: "Success",
+        description: "Quote deleted successfully!",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error", 
+        description: "Failed to delete quote. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const deleteContractMutation = useMutation({
+    mutationFn: (contractId: string) => apiRequest("DELETE", `/api/contracts/${contractId}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/contacts", project?.contactId, "contracts"] });
+      toast({
+        title: "Success",
+        description: "Contract deleted successfully!",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to delete contract. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const deleteInvoiceMutation = useMutation({
+    mutationFn: (invoiceId: string) => apiRequest("DELETE", `/api/invoices/${invoiceId}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/contacts", project?.contactId, "invoices"] });
+      toast({
+        title: "Success", 
+        description: "Invoice deleted successfully!",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to delete invoice. Please try again.", 
+        variant: "destructive",
+      });
+    },
+  });
+  
+  // Update mutations
+  const updateContractMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: ContractEditData }) => 
+      apiRequest("PATCH", `/api/contracts/${id}`, {
+        ...data,
+        amount: parseFloat(data.amount),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/contacts", project?.contactId, "contracts"] });
+      setSelectedDocument(null);
+      toast({
+        title: "Success",
+        description: "Contract updated successfully!",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to update contract. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+  
+  const updateInvoiceMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: InvoiceEditData }) => 
+      apiRequest("PATCH", `/api/invoices/${id}`, {
+        ...data,
+        subtotal: parseFloat(data.subtotal),
+        taxAmount: data.taxAmount ? parseFloat(data.taxAmount) : 0,
+        total: parseFloat(data.total),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/contacts", project?.contactId, "invoices"] });
+      setSelectedDocument(null);
+      toast({
+        title: "Success",
+        description: "Invoice updated successfully!",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to update invoice. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Handler functions for new quote creation flow
+  const handleCreateQuote = () => {
+    if (project?.contactId) {
+      setSelectedContactId(project.contactId);
+      const contactName = projectContact 
+        ? `${projectContact.firstName} ${projectContact.lastName}`
+        : "Loading contact...";
+      setSelectedContactName(contactName);
+      setShowQuoteEditor(true);
+    } else {
+      setShowContactPicker(true);
+    }
+  };
+
+  const handleContactSelected = (contactId: string, contactName: string, contactType?: 'contact' | 'client') => {
+    setSelectedContactId(contactId);
+    setSelectedContactName(contactName);
+    setShowContactPicker(false);
+    setShowQuoteEditor(true);
+  };
+
+  const handleQuoteEditorClose = () => {
+    setEditingQuote(null);
+    setShowQuoteEditor(false);
+    setSelectedContactId("");
+    setSelectedContactName("");
+  };
+
+  // Handler functions for new contract creation flow
+  const handleCreateContract = () => {
+    if (project?.contactId) {
+      setSelectedContactId(project.contactId);
+      const contactName = projectContact 
+        ? `${projectContact.firstName} ${projectContact.lastName}`
+        : "Loading contact...";
+      setSelectedContactName(contactName);
+      setEditingContract(null);
+      setShowContractEditor(true);
+    } else {
+      toast({
+        title: "Contact Required",
+        description: "Please assign a contact to this project before creating a contract.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleContractEditorClose = () => {
+    setEditingContract(null);
+    setShowContractEditor(false);
+    setSelectedContactId("");
+    setSelectedContactName("");
+  };
+
+  // Handle edit operations
+  const handleEditQuote = (quote: Quote) => {
+    setEditingQuote(quote);
+    setShowQuoteEditor(true);
+  };
+
+  const handleEditContract = (contract: Contract) => {
+    setEditingContract(contract);
+    setSelectedContactId(contract.contactId);
+    const contactName = projectContact 
+      ? `${projectContact.firstName} ${projectContact.lastName}`
+      : "Loading contact...";
+    setSelectedContactName(contactName);
+    setShowContractEditor(true);
+  };
+
+  const handleEditInvoice = (invoice: any) => {
+    invoiceEditForm.reset({
+      title: invoice.title,
+      description: invoice.description || '',
+      subtotal: invoice.subtotal.toString(),
+      taxAmount: invoice.taxAmount ? invoice.taxAmount.toString() : '0',
+      total: invoice.total.toString(),
+    });
+    setSelectedDocument({ type: 'invoice', data: invoice, mode: 'edit' });
+  };
+
+  // Handle delete operations with confirmation
+  const handleDeleteDocument = async (id: string, type: 'quote' | 'contract' | 'invoice', title: string) => {
+    const confirmDelete = window.confirm(`Are you sure you want to delete ${type} "${title}"?`);
+    if (confirmDelete) {
+      switch (type) {
+        case 'quote':
+          deleteQuoteMutation.mutate(id);
+          break;
+        case 'contract':
+          deleteContractMutation.mutate(id);
+          break;
+        case 'invoice':
+          deleteInvoiceMutation.mutate(id);
+          break;
+      }
+    }
+  };
+
+  const handleFileUpload = () => {
+    if (selectedFile) {
+      uploadFileMutation.mutate(selectedFile);
+    }
+  };
+
+  const getMemberName = (memberId: string) => {
+    const member = members.find(m => m.id === memberId);
+    return member ? `${member.firstName} ${member.lastName}` : "Unknown Member";
+  };
+
+  const getVenueName = (venueId: string) => {
+    const venue = venues.find(v => v.id === venueId);
+    return venue ? venue.name : "No venue selected";
+  };
 
   const formatDate = (dateString: string | null) => {
     if (!dateString) return "No date";
@@ -161,11 +753,15 @@ export default function ProjectDetail() {
 
           {/* Project Tabs */}
           <Tabs defaultValue="overview" className="w-full">
-            <TabsList className="grid w-full grid-cols-2">
+            <TabsList className="grid w-full grid-cols-6">
               <TabsTrigger value="overview" className="flex items-center gap-2">
                 <Briefcase className="h-4 w-4" />
                 Overview
               </TabsTrigger>
+              <TabsTrigger value="members">Members</TabsTrigger>
+              <TabsTrigger value="files">Files</TabsTrigger>
+              <TabsTrigger value="documents">Documents</TabsTrigger>
+              <TabsTrigger value="notes">Notes</TabsTrigger>
               <TabsTrigger value="email" className="flex items-center gap-2">
                 <MessageSquare className="h-4 w-4" />
                 Email
@@ -444,12 +1040,617 @@ export default function ProjectDetail() {
               </Card>
             </TabsContent>
 
+            {/* Members Tab */}
+            <TabsContent value="members" className="space-y-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Users className="h-5 w-5" />
+                    Assigned Members
+                  </CardTitle>
+                  <CardDescription>
+                    Manage musicians and band members for this gig
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {/* Add Member Form */}
+                  <form
+                    onSubmit={memberForm.handleSubmit((data) => assignMemberMutation.mutate(data))}
+                    className="flex gap-2"
+                  >
+                    <Select onValueChange={(value) => memberForm.setValue("memberId", value)}>
+                      <SelectTrigger data-testid="select-member">
+                        <SelectValue placeholder="Select member" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {members.map((member) => (
+                          <SelectItem key={member.id} value={member.id}>
+                            {member.firstName} {member.lastName}
+                            {member.instruments && member.instruments.length > 0 && 
+                              ` (${member.instruments.join(", ")})`
+                            }
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Input
+                      placeholder="Role (optional)"
+                      {...memberForm.register("role")}
+                      data-testid="input-member-role"
+                    />
+                    <Input
+                      placeholder="Fee (optional)"
+                      type="number"
+                      step="0.01"
+                      {...memberForm.register("fee")}
+                      data-testid="input-member-fee"
+                    />
+                    <Button 
+                      type="submit" 
+                      disabled={assignMemberMutation.isPending}
+                      data-testid="button-assign-member"
+                    >
+                      {assignMemberMutation.isPending ? "Adding..." : "Add"}
+                    </Button>
+                  </form>
+
+                  {/* Members List */}
+                  {projectMembers.length > 0 ? (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Member</TableHead>
+                          <TableHead>Role</TableHead>
+                          <TableHead>Fee</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead>Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {projectMembers.map((pm) => (
+                          <TableRow key={pm.memberId}>
+                            <TableCell data-testid={`text-member-${pm.memberId}`}>
+                              {getMemberName(pm.memberId)}
+                            </TableCell>
+                            <TableCell>{pm.role || "-"}</TableCell>
+                            <TableCell>
+                              {pm.fee ? `$${pm.fee}` : "-"}
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant="outline">{pm.status}</Badge>
+                            </TableCell>
+                            <TableCell>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => removeMemberMutation.mutate(pm.memberId)}
+                                data-testid={`button-remove-${pm.memberId}`}
+                              >
+                                <Trash className="h-4 w-4" />
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  ) : (
+                    <p className="text-muted-foreground text-center py-4">
+                      No members assigned yet
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            {/* Files Tab */}
+            <TabsContent value="files" className="space-y-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <FileText className="h-5 w-5" />
+                    Project Files
+                  </CardTitle>
+                  <CardDescription>
+                    Upload setlists, contracts, itineraries, and other documents
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {/* File Upload */}
+                  <div className="flex gap-2">
+                    <Input
+                      type="file"
+                      onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
+                      data-testid="input-file-upload"
+                    />
+                    <Button
+                      onClick={handleFileUpload}
+                      disabled={!selectedFile || uploadFileMutation.isPending}
+                      data-testid="button-upload-file"
+                    >
+                      <Upload className="h-4 w-4 mr-2" />
+                      {uploadFileMutation.isPending ? "Uploading..." : "Upload"}
+                    </Button>
+                  </div>
+
+                  {/* Files List */}
+                  {projectFiles.length > 0 ? (
+                    <div className="space-y-2">
+                      {projectFiles.map((file) => (
+                        <div
+                          key={file.id}
+                          className="flex items-center justify-between p-3 border rounded-lg"
+                        >
+                          <div className="flex items-center gap-3">
+                            <FileText className="h-4 w-4" />
+                            <div>
+                              <p className="font-medium" data-testid={`text-filename-${file.id}`}>
+                                {file.originalName}
+                              </p>
+                              <p className="text-sm text-muted-foreground">
+                                {file.fileSize && `${Math.round(file.fileSize / 1024)}KB`} • 
+                                {formatDistanceToNow(new Date(file.createdAt!))} ago
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex gap-2">
+                            <Button variant="ghost" size="sm" data-testid={`button-download-${file.id}`}>
+                              <Download className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => deleteFileMutation.mutate(file.id)}
+                              data-testid={`button-delete-file-${file.id}`}
+                            >
+                              <Trash className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-muted-foreground text-center py-4">
+                      No files uploaded yet
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            {/* Documents Tab */}
+            <TabsContent value="documents" className="space-y-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Receipt className="h-5 w-5" />
+                    Project Documents
+                  </CardTitle>
+                  <CardDescription>
+                    Manage quotes, contracts, and invoices for this project
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  {/* Document Creation Buttons */}
+                  <div className="flex gap-2">
+                    <Button 
+                      variant="outline" 
+                      className="flex-1"
+                      onClick={handleCreateQuote}
+                      data-testid="button-create-quote"
+                    >
+                      <FileText className="h-4 w-4 mr-2" />
+                      Create Quote
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      className="flex-1"
+                      onClick={handleCreateContract}
+                      data-testid="button-create-contract"
+                    >
+                      <File className="h-4 w-4 mr-2" />
+                      Create Contract
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      className="flex-1"
+                      onClick={() => createInvoiceMutation.mutate()}
+                      disabled={createInvoiceMutation.isPending}
+                      data-testid="button-create-invoice"
+                    >
+                      <Receipt className="h-4 w-4 mr-2" />
+                      {createInvoiceMutation.isPending ? "Creating..." : "Create Invoice"}
+                    </Button>
+                  </div>
+
+                  {/* Quotes Section */}
+                  <div className="space-y-3">
+                    <h4 className="font-medium flex items-center gap-2">
+                      <FileText className="h-4 w-4" />
+                      Quotes ({projectQuotes.length})
+                    </h4>
+                    {projectQuotes.length > 0 ? (
+                      <div className="space-y-2">
+                        {projectQuotes.map((quote) => (
+                          <div
+                            key={quote.id}
+                            className="flex items-center justify-between p-3 border rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                            onClick={() => setSelectedDocument({ type: 'quote', data: quote })}
+                            data-testid={`document-quote-${quote.id}`}
+                          >
+                            <div className="flex items-center gap-3">
+                              <FileText className="h-4 w-4 text-blue-500" />
+                              <div>
+                                <p className="font-medium" data-testid={`text-quote-title-${quote.id}`}>
+                                  {quote.title}
+                                </p>
+                                <p className="text-sm text-muted-foreground">
+                                  ${quote.total} • {quote.status}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="flex gap-2">
+                              <Button 
+                                variant="ghost" 
+                                size="sm"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleEditQuote(quote);
+                                }}
+                                data-testid={`button-edit-quote-${quote.id}`}
+                                aria-label={`Edit quote ${quote.title}`}
+                              >
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                              <Button 
+                                variant="ghost" 
+                                size="sm"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDeleteDocument(quote.id, 'quote', quote.title);
+                                }}
+                                data-testid={`button-delete-quote-${quote.id}`}
+                                aria-label={`Delete quote ${quote.title}`}
+                                disabled={deleteQuoteMutation.isPending}
+                              >
+                                <Trash2 className="h-4 w-4 text-red-500" />
+                              </Button>
+                              {quote.status === 'draft' && (
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    sendDocumentMutation.mutate({ id: quote.id, type: 'quote' });
+                                  }}
+                                  disabled={sendDocumentMutation.isPending}
+                                  data-testid={`button-send-quote-${quote.id}`}
+                                >
+                                  <Send className="h-4 w-4" />
+                                </Button>
+                              )}
+                              {quote.status === 'sent' && (
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    approveDocumentMutation.mutate({ id: quote.id, type: 'quote' });
+                                  }}
+                                  disabled={approveDocumentMutation.isPending}
+                                  data-testid={`button-approve-quote-${quote.id}`}
+                                >
+                                  <Check className="h-4 w-4" />
+                                </Button>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-muted-foreground text-center py-3 text-sm">
+                        No quotes created yet
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Contracts Section */}
+                  <div className="space-y-3">
+                    <h4 className="font-medium flex items-center gap-2">
+                      <File className="h-4 w-4" />
+                      Contracts ({projectContracts.length})
+                    </h4>
+                    {projectContracts.length > 0 ? (
+                      <div className="space-y-2">
+                        {projectContracts.map((contract) => (
+                          <div
+                            key={contract.id}
+                            className="flex items-center justify-between p-3 border rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                            onClick={() => setSelectedDocument({ type: 'contract', data: contract })}
+                            data-testid={`document-contract-${contract.id}`}
+                          >
+                            <div className="flex items-center gap-3">
+                              <File className="h-4 w-4 text-green-500" />
+                              <div>
+                                <p className="font-medium" data-testid={`text-contract-title-${contract.id}`}>
+                                  {contract.title}
+                                </p>
+                                <p className="text-sm text-muted-foreground">
+                                  ${contract.amount} • {contract.status}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="flex gap-2">
+                              <Button 
+                                variant="ghost" 
+                                size="sm"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleEditContract(contract);
+                                }}
+                                data-testid={`button-edit-contract-${contract.id}`}
+                                aria-label={`Edit contract ${contract.title}`}
+                              >
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                              <Button 
+                                variant="ghost" 
+                                size="sm"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDeleteDocument(contract.id, 'contract', contract.title);
+                                }}
+                                data-testid={`button-delete-contract-${contract.id}`}
+                                aria-label={`Delete contract ${contract.title}`}
+                                disabled={deleteContractMutation.isPending}
+                              >
+                                <Trash2 className="h-4 w-4 text-red-500" />
+                              </Button>
+                              {contract.status === 'draft' && (
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    sendDocumentMutation.mutate({ id: contract.id, type: 'contract' });
+                                  }}
+                                  disabled={sendDocumentMutation.isPending}
+                                  data-testid={`button-send-contract-${contract.id}`}
+                                >
+                                  <Send className="h-4 w-4" />
+                                </Button>
+                              )}
+                              {contract.status === 'sent' && (
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    approveDocumentMutation.mutate({ id: contract.id, type: 'contract' });
+                                  }}
+                                  disabled={approveDocumentMutation.isPending}
+                                  data-testid={`button-sign-contract-${contract.id}`}
+                                >
+                                  <Check className="h-4 w-4" />
+                                </Button>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-muted-foreground text-center py-3 text-sm">
+                        No contracts created yet
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Invoices Section */}
+                  <div className="space-y-3">
+                    <h4 className="font-medium flex items-center gap-2">
+                      <Receipt className="h-4 w-4" />
+                      Invoices ({projectInvoices.length})
+                    </h4>
+                    {projectInvoices.length > 0 ? (
+                      <div className="space-y-2">
+                        {projectInvoices.map((invoice) => (
+                          <div
+                            key={invoice.id}
+                            className="flex items-center justify-between p-3 border rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                            onClick={() => setSelectedDocument({ type: 'invoice', data: invoice })}
+                            data-testid={`document-invoice-${invoice.id}`}
+                          >
+                            <div className="flex items-center gap-3">
+                              <Receipt className="h-4 w-4 text-orange-500" />
+                              <div>
+                                <p className="font-medium" data-testid={`text-invoice-title-${invoice.id}`}>
+                                  {invoice.title}
+                                </p>
+                                <p className="text-sm text-muted-foreground">
+                                  ${invoice.total} • {invoice.status}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="flex gap-2">
+                              <Button 
+                                variant="ghost" 
+                                size="sm"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleEditInvoice(invoice);
+                                }}
+                                data-testid={`button-edit-invoice-${invoice.id}`}
+                                aria-label={`Edit invoice ${invoice.title}`}
+                              >
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                              <Button 
+                                variant="ghost" 
+                                size="sm"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDeleteDocument(invoice.id, 'invoice', invoice.title);
+                                }}
+                                data-testid={`button-delete-invoice-${invoice.id}`}
+                                aria-label={`Delete invoice ${invoice.title}`}
+                                disabled={deleteInvoiceMutation.isPending}
+                              >
+                                <Trash2 className="h-4 w-4 text-red-500" />
+                              </Button>
+                              {invoice.status === 'draft' && (
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    sendDocumentMutation.mutate({ id: invoice.id, type: 'invoice' });
+                                  }}
+                                  disabled={sendDocumentMutation.isPending}
+                                  data-testid={`button-send-invoice-${invoice.id}`}
+                                >
+                                  <Send className="h-4 w-4" />
+                                </Button>
+                              )}
+                              {invoice.status === 'sent' && (
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    approveDocumentMutation.mutate({ id: invoice.id, type: 'invoice' });
+                                  }}
+                                  disabled={approveDocumentMutation.isPending}
+                                  data-testid={`button-pay-invoice-${invoice.id}`}
+                                >
+                                  <Check className="h-4 w-4" />
+                                </Button>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-muted-foreground text-center py-3 text-sm">
+                        No invoices created yet
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Document Summary */}
+                  <div className="pt-4 border-t">
+                    <div className="grid grid-cols-3 gap-4 text-center">
+                      <div>
+                        <p className="text-2xl font-bold text-blue-600">{projectQuotes.length}</p>
+                        <p className="text-sm text-muted-foreground">Quotes</p>
+                      </div>
+                      <div>
+                        <p className="text-2xl font-bold text-green-600">{projectContracts.length}</p>
+                        <p className="text-sm text-muted-foreground">Contracts</p>
+                      </div>
+                      <div>
+                        <p className="text-2xl font-bold text-orange-600">{projectInvoices.length}</p>
+                        <p className="text-sm text-muted-foreground">Invoices</p>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            {/* Notes Tab */}
+            <TabsContent value="notes" className="space-y-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <MessageSquare className="h-5 w-5" />
+                    Project Notes
+                  </CardTitle>
+                  <CardDescription>
+                    Track important information and communications
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {/* Add Note Form */}
+                  <form
+                    onSubmit={noteForm.handleSubmit((data) => addNoteMutation.mutate(data))}
+                    className="space-y-2"
+                  >
+                    <Textarea
+                      placeholder="Add a note..."
+                      {...noteForm.register("note")}
+                      data-testid="textarea-note"
+                    />
+                    <Button 
+                      type="submit" 
+                      disabled={addNoteMutation.isPending}
+                      data-testid="button-add-note"
+                    >
+                      {addNoteMutation.isPending ? "Adding..." : "Add Note"}
+                    </Button>
+                  </form>
+
+                  {/* Notes List */}
+                  {projectNotes.length > 0 ? (
+                    <div className="space-y-4">
+                      {projectNotes.map((note) => (
+                        <div key={note.id} className="border-l-4 border-primary pl-4">
+                          <p className="text-sm" data-testid={`text-note-${note.id}`}>
+                            {note.note}
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            <Clock className="h-3 w-3 inline mr-1" />
+                            {formatDistanceToNow(new Date(note.createdAt!))} ago
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-muted-foreground text-center py-4">
+                      No notes added yet
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+
             <TabsContent value="email" className="space-y-6">
               <ProjectEmailPanel projectId={projectId!} />
             </TabsContent>
           </Tabs>
         </div>
       </main>
+
+      {/* Contact Picker Modal */}
+      {showContactPicker && (
+        <ContactPicker
+          isOpen={showContactPicker}
+          onClose={() => setShowContactPicker(false)}
+          onSelect={handleContactSelected}
+        />
+      )}
+
+      {/* Quote Editor Modal */}
+      {showQuoteEditor && (
+        <QuoteEditor
+          isOpen={showQuoteEditor}
+          onClose={handleQuoteEditorClose}
+          contactId={selectedContactId}
+          contactName={selectedContactName}
+          projectId={project?.id}
+          quote={editingQuote}
+        />
+      )}
+
+      {/* Contract Editor Modal */}
+      {showContractEditor && (
+        <ContractEditor
+          isOpen={showContractEditor}
+          onClose={handleContractEditorClose}
+          contactId={selectedContactId}
+          contactName={selectedContactName}
+          projectId={project?.id}
+          contract={editingContract}
+        />
+      )}
     </>
   );
 }

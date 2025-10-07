@@ -1,0 +1,45 @@
+# 1) Prove we’re not changing anything
+pwd
+git status --porcelain -uno
+
+# 2) Show key files (EXISTS/MISSING)
+for p in \
+  server/src/routes/lead-forms.ts \
+  server/src/routes.ts \
+  server/storage.ts \
+  shared/schema.ts \
+  scripts/diagnose-lead-calendar.ts \
+  docs/diagnostics/lead-to-calendar.md
+do [ -f "$p" ] && echo "EXISTS  $p" || echo "MISSING $p"; done
+
+# 3) Show the actual submit handler + mapping + event creation (first 200 lines around each)
+nl -ba server/src/routes/lead-forms.ts | sed -n '1,200p' | sed -n '1,200p' >/dev/null 2>&1 || echo "lead-forms.ts unreadable"
+rg -n "/api/leads/public|:slug/submit" server/src/routes/lead-forms.ts
+rg -n "map|transform|q1|projectDate|createEvent" server/src/routes/lead-forms.ts | head -50
+# If you get line numbers from rg above, show those ranges (example below; adjust ranges based on hits):
+nl -ba server/src/routes/lead-forms.ts | sed -n '350,500p'
+nl -ba server/src/routes/lead-forms.ts | sed -n '900,1050p'
+
+# 4) Find the storage createEvent implementation
+rg -n "async .*createEvent|function createEvent" server | head -20
+nl -ba server/storage.ts | sed -n '3200,3480p' 2>/dev/null || true
+
+# 5) Quick DB sanity (Postgres)
+# Recent events (last 10) for your tenant; change tenant if needed
+psql "$DATABASE_URL" -c "
+SELECT id, tenant_id, project_id, calendar_id, title,
+       to_char(start_date, 'DD/MM/YYYY HH24:MI') AS start,
+       to_char(end_date,   'DD/MM/YYYY HH24:MI') AS finish
+FROM events
+ORDER BY created_at DESC
+LIMIT 10;
+"
+
+# 6) Show one active lead form slug + its question IDs, if stored
+psql "$DATABASE_URL" -c "SELECT slug FROM lead_capture_forms WHERE is_active = true LIMIT 1;"
+# If you have a questions table/json:
+psql "$DATABASE_URL" -c "SELECT id, question_id, label FROM lead_form_questions ORDER BY position LIMIT 20;"
+
+# 7) Don’t run it yet—just show the EXACT curl your endpoint expects
+# (Replace SLUG with the real one printed above, and use the exact keys your validator requires)
+echo curl -X POST \"http://localhost:5000/api/leads/public/SLUG/submit\" -H \"Content-Type: application/json\" -d '{\"data\":{...},\"consent\":true}'

@@ -1,0 +1,95 @@
+I’m seeing that when a Lead Capture is created, a matching Calendar Event is NOT appearing. Please generate a concise diagnostics bundle and a one-shot script to verify each step in the flow. You choose the tooling, but keep it simple and readable.
+
+Deliverables
+
+Script: scripts/diagnose-lead-calendar.ts (or .js) that:
+
+Runs end-to-end checks and prints a PASS/FAIL table for each step below.
+
+Exits with non-zero code if any step fails.
+
+Markdown report: docs/diagnostics/lead-to-calendar.md summarising:
+
+Code paths, configs, logs, and your findings.
+
+A minimal reproduction command (curl or HTTPie) with a sample lead payload.
+
+What the script must check (in order)
+
+A. Route wired: Lead submit endpoint (e.g., POST /api/leads/public/:slug/submit or equivalent) is registered and reachable.
+
+B. Tenant resolution: {tenantId} is resolved and passed downstream (no undefined/null).
+
+C. Lead creation: Lead/Project record is actually inserted (print new IDs).
+
+D. Project date present: There is a project/lead date that the calendar relies on; if not, note “TBD date” branch.
+
+E. Calendar available: The tenant has system calendars (Leads/Booked/Completed). If missing, create or warn.
+
+F. Event creation call: The function that should create the Event is invoked (print function name + file path).
+
+G. DB write: Event row/document exists after lead creation with correct tenantId, projectId, calendarId, start, end.
+
+H. Status rules: Any guards like feature flags, “require payment before calendar”, or “lead must be verified”.
+
+I. Queue/jobs: If event creation is queued, confirm the job is enqueued and the worker is running/healthy.
+
+J. Errors/logs: Capture and print recent logs/exceptions from the lead submit request and the event creation worker.
+
+K. Permissions: Confirm user/service has permission to write to the calendar for that tenant.
+
+L. Provider sync (if enabled): If relying on Google/Microsoft to show the event, confirm local event exists even if provider is disconnected (we should still create locally). Print provider status.
+
+For each step, print something like:
+
+[A] Route wired .......... PASS  (/server/routes/leads.ts:42 -> controller: createLead)
+[B] Tenant resolution .... FAIL  expected tenantId, got undefined (middleware/tenant.ts:88)
+...
+
+Code intel I need extracted into the markdown
+
+File paths + short excerpts for:
+
+Lead submit route/controller.
+
+Lead→Project creation logic.
+
+Project date handling.
+
+Event creation function (and where it’s called).
+
+Any job queue/worker config (Bull/Cloud tasks/etc).
+
+Calendar model/schema (events, calendars, projects relationships).
+
+Current ENV/feature flags relevant to this flow (mask secrets).
+
+The exact condition that decides whether to create an event (pseudo-code is fine).
+
+Any idempotency checks that might prevent event creation on duplicates.
+
+Repro commands
+
+Provide a curl (or HTTPie) command that:
+
+Seeds/ensures a tenant + system calendars.
+
+Submits a minimal lead payload.
+
+Queries events for that tenant/time range and prints them.
+
+If queue-based, include a command to run the worker and a note on where output logs appear.
+
+Nice to have (if quick)
+
+Add LOG_LEVEL=debug switch to show detailed traces for a single request.
+
+Add a --dry-run flag to diagnose-lead-calendar to print what would be created without writing.
+
+Constraints
+
+Do NOT refactor the app—just instrument and report.
+
+Keep the report focused and under ~200 lines.
+
+Dates in any user-facing output should be dd/mm/yyyy.

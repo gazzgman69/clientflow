@@ -1,0 +1,112 @@
+Goal: When a lead capture is submitted with numeric keys ("1","2","3"...) instead of q-style ("q1","q2","q_123"...), the server should still create the lead and the Leads calendar event.
+Do NOT change schemas, calendar logic, provider sync, or other files. Only add a tiny read-layer shim and prove it works.
+
+Part 1 — Implement the tiniest read-layer shim
+
+File to edit: server/src/routes/lead-forms.ts (the public submit handler)
+
+Add this helper right after the form is loaded and you have questions (with id and orderIndex):
+
+function normalizeKeys(data: any, questions: any[]) {
+  const byIndex = new Map<string, string>(); // "1" -> "q1", "2" -> "q2"
+  questions
+    .slice()
+    .sort((a, b) => (a.orderIndex ?? 0) - (b.orderIndex ?? 0))
+    .forEach((q, i) => byIndex.set(String(i + 1), q.id)); // q.id can be "q1" or "q_123..."
+  const out: any = {};
+  for (const [k, v] of Object.entries(data || {})) {
+    const qid = byIndex.get(k) || k; // translate numeric; keep real q_* ids
+    out[qid] = v;
+  }
+  return out;
+}
+
+
+Use it BEFORE the existing mapping/validation (do not alter downstream logic):
+
+// Extract raw payload (support both wrapped {data:{}} and flat)
+const raw = (typeof req.body?.data === 'object') ? req.body.data : req.body;
+// Normalize numeric keys to q-style
+const dataNormalized = normalizeKeys(raw, questions);
+// Now pass dataNormalized into the existing transform/mapping code
+// (Replace the old variable you used to pass in, e.g., `dataPayload`, with `dataNormalized`.)
+
+
+Leave everything else intact:
+
+Same required fields you currently enforce.
+
+Same calendar event creation rules.
+
+Same DB/schema.
+
+Dates shown to users remain dd/mm/yyyy (and dd/mm/yyyy HH:mm where times appear).
+
+Part 2 — Verify it works (print outputs)
+
+Use the first active form slug you find (or respect LCF_SLUG if set). Run these and print raw outputs:
+
+Show working dir + git (read-only proof)
+
+pwd
+git status --porcelain -uno || true
+
+
+Find a slug
+
+export SLUG="${LCF_SLUG:-$(psql \"$DATABASE_URL\" -t -c \"SELECT slug FROM lead_capture_forms WHERE is_active = true LIMIT 1;\")}"
+echo "SLUG=${SLUG}"
+
+
+Test A — Numeric keys create lead + event
+
+curl -s -X POST "http://localhost:5000/api/leads/public/${SLUG}/submit" \
+ -H "Content-Type: application/json" \
+ -d '{ "data": { "1":"Test Lead Numeric","2":"test.numeric@example.com","3":"+44 7700 900111","4":"Wedding","5":"Test Venue","6":"25/12/2025" }, "consent": true }'
+
+
+Test B — Q-style keys still work
+
+Replace <PROJECT_DATE_QID> with the actual project date question id if you can read it from the form JSON.
+
+curl -s -X POST "http://localhost:5000/api/leads/public/${SLUG}/submit" \
+ -H "Content-Type: application/json" \
+ -d '{ "data": { "q1":"Test Lead Q","q2":"test.q@example.com","q_1758575106312":"+44 7700 900222","q_1758575155875":"Corporate","q3":"Manchester","q_1758575123356":"2025-12-31" }, "consent": true }'
+
+
+Show newest events (proof)
+
+psql "$DATABASE_URL" -c "
+SELECT title,
+       type,
+       to_char(start_date,'DD/MM/YYYY HH24:MI') AS start
+FROM events
+ORDER BY created_at DESC
+LIMIT 5;"
+
+
+Expect to see:
+
+New Lead Project • Test Lead Numeric — 25/12/2025 HH:MM
+
+New Lead Project • Test Lead Q — 31/12/2025 HH:MM
+
+Part 3 — Acceptance checklist (print as lines)
+
+Submitting numeric keys creates a lead and a Leads calendar event (no duplicates).
+
+Submitting q-style keys still works the same.
+
+No schema changes, no calendar logic changes.
+
+User-visible dates appear as dd/mm/yyyy (and dd/mm/yyyy HH:mm).
+
+Print a short PASS/FAIL summary at the end using only what actually ran.
+
+Important constraints:
+
+Don’t refactor or touch other modules.
+
+Don’t change validation beyond the one-line pre-normalization.
+
+Keep multi-tenant safety as-is.

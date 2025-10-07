@@ -380,65 +380,188 @@ export default function ContactDetail() {
 
             {/* Overview Tab */}
             <TabsContent value="overview" data-testid="tab-content-overview">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Contact Information</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div data-testid="overview-name">
-                      <p className="text-sm font-medium">Full Name</p>
-                      <p className="text-sm text-muted-foreground">{displayName}</p>
-                    </div>
-                    <div data-testid="overview-email">
-                      <p className="text-sm font-medium">Email</p>
-                      <p className="text-sm text-muted-foreground">{contact.email || '-'}</p>
-                    </div>
-                    <div data-testid="overview-phone">
-                      <p className="text-sm font-medium">Phone</p>
-                      <p className="text-sm text-muted-foreground">{contact.phone || '-'}</p>
-                    </div>
-                    <div data-testid="overview-company">
-                      <p className="text-sm font-medium">Company</p>
-                      <p className="text-sm text-muted-foreground">{contact.company || '-'}</p>
-                    </div>
-                    <div data-testid="overview-job-title">
-                      <p className="text-sm font-medium">Job Title</p>
-                      <p className="text-sm text-muted-foreground">{contact.jobTitle || '-'}</p>
-                    </div>
-                    <div data-testid="overview-website">
-                      <p className="text-sm font-medium">Website</p>
-                      <p className="text-sm text-muted-foreground">{contact.website || '-'}</p>
-                    </div>
-                  </div>
-
-                  {(contact.venueAddress || contact.venueCity) && (
-                    <>
-                      <Separator />
-                      <div data-testid="overview-venue-info">
-                        <p className="text-sm font-medium mb-2">Venue Information</p>
-                        <p className="text-sm text-muted-foreground">
-                          {contact.venueAddress && <span>{contact.venueAddress}<br /></span>}
-                          {contact.venueCity && <span>{contact.venueCity}</span>}
-                          {contact.venueState && <span>, {contact.venueState}</span>}
-                          {contact.venueZipCode && <span> {contact.venueZipCode}</span>}
-                          {contact.venueCountry && <><br />{contact.venueCountry}</>}
-                        </p>
+              <div className="space-y-6">
+                {/* Basic Info Section */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <User className="h-5 w-5" />
+                      Basic Info
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div data-testid="overview-name">
+                        <p className="text-sm font-medium mb-1">Full Name</p>
+                        <p className="text-sm text-muted-foreground">{displayName || '-'}</p>
                       </div>
-                    </>
-                  )}
+                      <div data-testid="overview-email">
+                        <p className="text-sm font-medium mb-1">Email</p>
+                        <p className="text-sm text-muted-foreground">{contact.email || '-'}</p>
+                      </div>
+                      <div data-testid="overview-phone">
+                        <p className="text-sm font-medium mb-1">Phone</p>
+                        <p className="text-sm text-muted-foreground">{contact.phone || '-'}</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
 
-                  {contact.notes && (
-                    <>
-                      <Separator />
-                      <div data-testid="overview-notes">
-                        <p className="text-sm font-medium mb-2">Notes</p>
+                {/* Address Section */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Home className="h-5 w-5" />
+                      Address
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div data-testid="overview-address">
+                        <p className="text-sm font-medium mb-1">Street Address</p>
+                        <p className="text-sm text-muted-foreground">{contact.address || '-'}</p>
+                      </div>
+                      <div data-testid="overview-city">
+                        <p className="text-sm font-medium mb-1">City</p>
+                        <p className="text-sm text-muted-foreground">{contact.city || '-'}</p>
+                      </div>
+                      <div data-testid="overview-state">
+                        <p className="text-sm font-medium mb-1">State</p>
+                        <p className="text-sm text-muted-foreground">{contact.state || '-'}</p>
+                      </div>
+                      <div data-testid="overview-zipcode">
+                        <p className="text-sm font-medium mb-1">Zip Code</p>
+                        <p className="text-sm text-muted-foreground">{contact.zipCode || '-'}</p>
+                      </div>
+                      <div data-testid="overview-country">
+                        <p className="text-sm font-medium mb-1">Country</p>
+                        <p className="text-sm text-muted-foreground">{contact.country || '-'}</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Venue Section */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <MapPin className="h-5 w-5" />
+                      Venue
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {contact.venueId || contact.venueName || contact.venueAddress || contact.venueCity ? (
+                      <div className="p-3 bg-muted/50 dark:bg-muted/20 rounded-md border" data-testid="overview-venue-info">
+                        <div className="text-sm font-medium mb-1">Selected Venue:</div>
+                        {contact.venueName && (
+                          <div className="text-sm font-semibold text-foreground mb-1">
+                            {contact.venueName}
+                          </div>
+                        )}
+                        <div className="text-sm text-muted-foreground">
+                          {[
+                            contact.venueAddress,
+                            contact.venueCity,
+                            contact.venueState,
+                            contact.venueZipCode,
+                            contact.venueCountry
+                          ].filter(Boolean).join(', ') || '-'}
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground" data-testid="overview-venue-empty">No venue selected</p>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* Business Info Section */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Briefcase className="h-5 w-5" />
+                      Business Info
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div data-testid="overview-company">
+                        <p className="text-sm font-medium mb-1">Company Name</p>
+                        <p className="text-sm text-muted-foreground">{contact.company || '-'}</p>
+                      </div>
+                      <div data-testid="overview-job-title">
+                        <p className="text-sm font-medium mb-1">Job Title / Role</p>
+                        <p className="text-sm text-muted-foreground">{contact.jobTitle || '-'}</p>
+                      </div>
+                      <div data-testid="overview-website" className="md:col-span-2">
+                        <p className="text-sm font-medium mb-1">Website</p>
+                        {contact.website ? (
+                          <a 
+                            href={contact.website} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="text-sm text-primary hover:underline"
+                          >
+                            {contact.website}
+                          </a>
+                        ) : (
+                          <p className="text-sm text-muted-foreground">-</p>
+                        )}
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Classification Section */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Tag className="h-5 w-5" />
+                      Classification
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div data-testid="overview-tags">
+                        <p className="text-sm font-medium mb-2">Tags</p>
+                        {contact.tags && contact.tags.length > 0 ? (
+                          <div className="flex flex-wrap gap-2">
+                            {contact.tags.map((tag, index) => (
+                              <Badge key={index} variant="secondary" data-testid={`overview-tag-${index}`}>
+                                {tag}
+                              </Badge>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-sm text-muted-foreground">-</p>
+                        )}
+                      </div>
+                      <div data-testid="overview-lead-source">
+                        <p className="text-sm font-medium mb-1">Lead Source</p>
+                        <p className="text-sm text-muted-foreground">{contact.leadSource || '-'}</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Notes Section */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <FileText className="h-5 w-5" />
+                      Notes
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div data-testid="overview-notes">
+                      {contact.notes ? (
                         <p className="text-sm text-muted-foreground whitespace-pre-wrap">{contact.notes}</p>
-                      </div>
-                    </>
-                  )}
-                </CardContent>
-              </Card>
+                      ) : (
+                        <p className="text-sm text-muted-foreground">No notes available</p>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
             </TabsContent>
 
             {/* Projects Tab */}

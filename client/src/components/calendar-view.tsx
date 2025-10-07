@@ -96,6 +96,7 @@ export default function CalendarView({ viewMode = 'month' }: CalendarViewProps) 
       return response.json();
     },
     enabled: !!currentUser,
+    refetchInterval: 30000, // Auto-refresh every 30 seconds to show new lead events
   });
 
   const { data: clientsData } = useQuery<{ contacts: any[] }>({

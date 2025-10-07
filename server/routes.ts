@@ -2527,11 +2527,10 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
 
   app.delete("/api/contacts/:id", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
     try {
-      // Check if contact has associated projects and get their details
+      // Check if contact has associated projects
       const associatedProjects = await storage.getProjectsByContact(req.params.id, req.tenantId);
       
       if (associatedProjects.length > 0) {
-        // Check if cascade deletion is requested
         const cascade = req.query.cascade === 'true';
         
         if (!cascade) {
@@ -2545,66 +2544,9 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
             contactId: req.params.id
           });
         }
-        
-        // Perform cascade deletion - delete all related data first
-        for (const project of associatedProjects) {
-          // Delete related project data in the correct order to avoid foreign key violations
-          try {
-            // Get and delete emails for this project
-            const emails = await storage.getEmailsByProject(project.id, req.tenantId);
-            for (const email of emails) {
-              await storage.deleteEmail(email.id, req.tenantId);
-            }
-            
-            // Get and delete tasks for this project  
-            const tasks = await storage.getTasksByProject(project.id, req.tenantId);
-            for (const task of tasks) {
-              await storage.deleteTask(task.id, req.tenantId);
-            }
-            
-            // Get and delete quotes for this project
-            const quotes = await storage.getQuotesByProject(project.id, req.tenantId);
-            for (const quote of quotes) {
-              await storage.deleteQuote(quote.id, req.tenantId);
-            }
-            
-            // Get and delete contracts for this project
-            const contracts = await storage.getContractsByProject(project.id, req.tenantId);
-            for (const contract of contracts) {
-              await storage.deleteContract(contract.id, req.tenantId);
-            }
-            
-            // Get and delete invoices for this project
-            const invoices = await storage.getInvoicesByProject(project.id, req.tenantId);
-            for (const invoice of invoices) {
-              await storage.deleteInvoice(invoice.id, req.tenantId);
-            }
-            
-            // Get and delete leads associated with this project
-            const leads = await storage.getLeadsByProject(project.id, req.tenantId);
-            for (const lead of leads) {
-              await storage.deleteLead(lead.id, req.tenantId);
-            }
-          } catch (error: any) {
-            console.log('Error deleting related project data:', error.message);
-          }
-          
-          // Now delete the project itself
-          await storage.deleteProject(project.id, req.tenantId);
-        }
       }
 
-      // Delete emails directly associated with this contact
-      try {
-        const contactEmails = await storage.getEmailsByContact(req.params.id, req.tenantId);
-        for (const email of contactEmails) {
-          await storage.deleteEmail(email.id, req.tenantId);
-        }
-      } catch (error: any) {
-        console.log('Error deleting contact emails:', error.message);
-      }
-
-      // Delete the contact
+      // Delete the contact - CASCADE will handle all related data automatically
       const deleted = await storage.deleteContact(req.params.id, req.tenantId);
       if (!deleted) {
         return res.status(404).json({ message: "Contact not found" });
@@ -2876,80 +2818,16 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
         shouldDeleteContact = contactProjects.length === 1;
       }
 
-      // Delete all related project data first (similar to contact deletion)
-      try {
-        // Get and delete emails for this project
-        const emails = await storage.getEmailsByProject(project.id, req.tenantId);
-        for (const email of emails) {
-          await storage.deleteEmail(email.id, req.tenantId);
-        }
-        
-        // Get and delete tasks for this project  
-        const tasks = await storage.getTasksByProject(project.id, req.tenantId);
-        for (const task of tasks) {
-          await storage.deleteTask(task.id, req.tenantId);
-        }
-        
-        // Get and delete quotes for this project
-        const quotes = await storage.getQuotesByProject(project.id, req.tenantId);
-        for (const quote of quotes) {
-          await storage.deleteQuote(quote.id, req.tenantId);
-        }
-        
-        // Get and delete contracts for this project
-        const contracts = await storage.getContractsByProject(project.id, req.tenantId);
-        for (const contract of contracts) {
-          await storage.deleteContract(contract.id, req.tenantId);
-        }
-        
-        // Get and delete invoices for this project
-        const invoices = await storage.getInvoicesByProject(project.id, req.tenantId);
-        for (const invoice of invoices) {
-          await storage.deleteInvoice(invoice.id, req.tenantId);
-        }
-        
-        // Get and delete leads associated with this project
-        const leads = await storage.getLeadsByProject(project.id, req.tenantId);
-        for (const lead of leads) {
-          await storage.deleteLead(lead.id, req.tenantId);
-        }
-      } catch (error: any) {
-        console.log('Error deleting related project data:', error.message);
-      }
-
-      // Now delete the project itself
+      // Delete the project - CASCADE will handle all related data automatically
       const deleted = await storage.deleteProject(req.params.id, req.tenantId);
       if (!deleted) {
         return res.status(404).json({ message: "Project not found" });
       }
 
-      // If this was the contact's only project, delete the contact too (reverse cascading)
+      // If this was the contact's only project, delete the contact too (CASCADE will handle contact's data)
       if (shouldDeleteContact && contactId) {
         try {
-          // Get and delete any remaining contact-specific data
-          const contactEmails = await storage.getEmailsByContact(contactId, req.tenantId);
-          for (const email of contactEmails) {
-            await storage.deleteEmail(email.id, req.tenantId);
-          }
-
-          const contactQuotes = await storage.getQuotesByContact(contactId, req.tenantId);
-          for (const quote of contactQuotes) {
-            await storage.deleteQuote(quote.id, req.tenantId);
-          }
-
-          const contactContracts = await storage.getContractsByContact(contactId, req.tenantId);
-          for (const contract of contactContracts) {
-            await storage.deleteContract(contract.id, req.tenantId);
-          }
-
-          const contactInvoices = await storage.getInvoicesByContactId(contactId, req.tenantId);
-          for (const invoice of contactInvoices) {
-            await storage.deleteInvoice(invoice.id, req.tenantId);
-          }
-
-          // Delete the contact
           await storage.deleteContact(contactId, req.tenantId);
-          
           console.log('✅ REVERSE CASCADE: Contact deleted after removing their only project', {
             projectId: req.params.id,
             contactId,

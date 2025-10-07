@@ -150,6 +150,19 @@ export default function CalendarPage() {
     syncMutation.mutate(integrationId);
   };
 
+  // Auto-trigger sync when calendar page loads (for active Google integrations)
+  useEffect(() => {
+    if (integrations && integrations.length > 0) {
+      const activeGoogleIntegration = integrations.find(
+        (i) => i.isActive && i.provider === 'google'
+      );
+      if (activeGoogleIntegration) {
+        // Silently trigger sync in background (no loading state or toast)
+        syncMutation.mutate(activeGoogleIntegration.id);
+      }
+    }
+  }, [integrations?.length]); // Only run when integrations first load
+
   const handleAddICal = () => {
     if (!icalUrl.trim() || !calendarName.trim()) {
       toast({ 

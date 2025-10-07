@@ -367,9 +367,9 @@ app.use('/auth', (req, res, next) => {
       // Note: These jobs are multi-tenant aware and process all tenants internally
       console.log('📅 Scheduling recurring background jobs...');
       
-      // Calendar auto-sync: every 5 minutes (300000ms) - processes all tenants
-      await jobs.enqueueRecurring('calendar-sync', {}, 5 * 60 * 1000, { tenantId: 'system' });
-      console.log('✅ Calendar auto-sync job scheduled (every 5 minutes)');
+      // Calendar auto-sync: every 1 minute (60000ms) - processes all tenants
+      await jobs.enqueueRecurring('calendar-sync', {}, 1 * 60 * 1000, { tenantId: 'system' });
+      console.log('✅ Calendar auto-sync job scheduled (every 1 minute)');
       
       // Email auto-sync: every 3 minutes (180000ms) - processes all tenants
       await jobs.enqueueRecurring('email-sync', {}, 3 * 60 * 1000, { tenantId: 'system' });

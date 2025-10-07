@@ -1,0 +1,127 @@
+You are in READ-ONLY triage mode. Do not modify code or schema. Run the commands below, print raw outputs, then print a concise PASS/FAIL summary with likely cause.
+
+# ─────────────────────────
+# 0) Setup & guards
+# ─────────────────────────
+set -euo pipefail
+echo "=== DIAG START $(date '+%d/%m/%Y %H:%M:%S') (read-only) ==="
+
+export BASE_URL="${BASE_URL:-http://localhost:5000}"
+export TENANT_ID="${TENANT_ID:-default-tenant}"
+
+# pick active form
+export SLUG="${LCF_SLUG:-$(psql "$DATABASE_URL" -t -c "SELECT slug FROM lead_capture_forms WHERE is_active = true LIMIT 1;")}"
+export SLUG="$(echo "$SLUG" | tr -d '[:space:]')"
+echo "SLUG=${SLUG}  BASE_URL=${BASE_URL}"
+
+# ─────────────────────────
+# 1) Inspect form questions (find required fields + date ID)
+# ─────────────────────────
+echo "=== FORM QUESTIONS (show id, label, required, mapTo, orderIndex) ==="
+psql "$DATABASE_URL" -t -c "
+SELECT jsonb_pretty(questions::jsonb) 
+FROM lead_capture_forms 
+WHERE slug='${SLUG}' LIMIT 1;" | sed -e 's/\\n/\n/g' | head -300
+
+# Extract projectDate question id
+export DATE_QID=$(psql "$DATABASE_URL" -t -c "
+  SELECT (jsonb_path_query(questions::jsonb, '$[*] ? (@.mapTo == \"projectDate\")')->>'id')
+  FROM lead_capture_forms
+  WHERE slug='${SLUG}' LIMIT 1;" | tr -d '[:space:]')
+echo "DATE_QID=${DATE_QID}"
+
+# ─────────────────────────
+# 2) Submit a brand-new lead with ALL required fields (Q-style keys)
+# ─────────────────────────
+ts=$(date +%s)
+export TEST_NAME="CRM Triage ${ts}"
+export TEST_EMAIL="triage+${ts}@example.com"
+export TEST_PHONE="+44 7700 900${ts: -3}"
+export TEST_TYPE="Wedding"
+export TEST_LOCATION="Test Venue ${ts}"
+export TEST_DATE="25/12/2025"   # dd/mm/yyyy per your convention
+
+echo "=== SUBMIT LEAD (Q-style keys) ==="
+curl -i -s -X POST "${BASE_URL}/api/leads/public/${SLUG}/submit" \
+ -H "Content-Type: application/json" \
+ -d "{
+  \"data\": {
+    \"q1\": \"${TEST_NAME}\",
+    \"q2\": \"${TEST_EMAIL}\",
+    \"q_1758575106312\": \"${TEST_PHONE}\",
+    \"q_1758575155875\": \"${TEST_TYPE}\",
+    \"q3\": \"${TEST_LOCATION}\",
+    \"${DATE_QID}\": \"${TEST_DATE}\"
+  },
+  \"consent\": true
+}" | sed -e 's/{/\
+{/g' | head -60
+
+# ─────────────────────────
+# 3) Did the CRM EVENT get written? (Should be immediate)
+# ─────────────────────────
+echo "=== RECENT EVENTS (last 15 min) ==="
+psql "$DATABASE_URL" -c "
+SELECT id, title, type,
+       CASE WHEN is_cancelled THEN 'cancelled' ELSE 'confirmed' END AS status_text,
+       calendar_id,
+       (provider_event_id IS NOT NULL) AS linked,
+       to_char(start_date,'DD/MM/YYYY HH24:MI') AS start,
+       to_char(created_at,'DD/MM/YYYY HH24:MI') AS created
+FROM events
+WHERE tenant_id='${TENANT_ID}'
+  AND created_at > now() - interval '15 minutes'
+ORDER BY created_at DESC
+LIMIT 20;"
+
+# Try to match by name OR email in title (some builds title from name, some from email)
+echo "=== MATCH BY TITLE (name/email) ==="
+psql "$DATABASE_URL" -c "
+SELECT id, title, type,
+       (provider_event_id IS NOT NULL) AS linked,
+       to_char(start_date,'DD/MM/YYYY HH24:MI') AS start
+FROM events
+WHERE tenant_id='${TENANT_ID}'
+  AND created_at > now() - interval '30 minutes'
+  AND (title ILIKE '%'||replace('${TEST_NAME}','%','')||'%' 
+       OR title ILIKE '%'||replace('${TEST_EMAIL}','%','')||'%')
+ORDER BY created_at DESC
+LIMIT 10;"
+
+# ─────────────────────────
+# 4) If NO event, check why: mapping/required/idempotency/logs
+# ─────────────────────────
+echo "=== CHECK LOGS for mapping/validation/idempotency ==="
+# Field mapping / required missing:
+grep -a "lead_form.mapping" /tmp/logs/Start_application* | tail -80 || true
+# Idempotency skip:
+grep -a "calendar.event.duplicate_skipped" /tmp/logs/Start_application* | tail -40 || true
+# Event created log (if you log it):
+grep -a "calendar.event.created" /tmp/logs/Start_application* | tail -40 || true
+
+# ─────────────────────────
+# 5) UI feed check (make sure UI endpoint includes lead events)
+#    Adjust path if your UI uses a different route.
+# ─────────────────────────
+echo "=== UI FEED /api/events?limit=10 (ensure it returns type='lead') ==="
+curl -s "${BASE_URL}/api/events?limit=10" | sed -e 's/{/\
+{/g' | head -60
+
+# ─────────────────────────
+# 6) Quick outbox visibility (optional) — proves push to Google is queued
+#    (If you expose a metric or log line; otherwise skip silently)
+# ─────────────────────────
+echo "=== OUTBOX / SYNC LOGS (if any) ==="
+grep -a "google.outbox\|google.sync" /tmp/logs/Start_application* | tail -120 || true
+
+# ─────────────────────────
+# 7) PASS/FAIL summary heuristic
+# ─────────────────────────
+echo "=== SUMMARY ==="
+echo "- If step 3/Match shows a new row with type='lead' created within the last few minutes → CRM WRITE = PASS."
+echo "- If no row, but logs show lead_form.mapping.missing_required → payload was incomplete (fix required fields)."
+echo "- If no row, but logs show mapping ids (q vs numeric) mismatch → check DATE_QID and key normalization."
+echo "- If logs show calendar.event.duplicate_skipped → idempotency guard skipped a near-duplicate (same title+date ±5m)."
+echo "- If DB shows the event but UI feed (step 5) doesn't, your UI query is filtering out type='lead' or provider_event_id IS NULL."
+
+echo "=== DIAG END $(date '+%d/%m/%Y %H:%M:%S') ==="

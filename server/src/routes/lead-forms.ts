@@ -1007,8 +1007,8 @@ router.post('/:slug/submit', formSubmissionLimiter, async (req, res) => {
         const eventTitle = `New Lead Project • ${leadName}`;
         
         console.log('🔍 Getting Leads Calendar for tenant:', form.tenantId);
-        // Get Leads Calendar for this tenant
-        const leadsCalendar = await tenantStorage.getCalendarByType('leads', form.tenantId);
+        // Get Leads Calendar for this tenant (tenantId handled by wrapper)
+        const leadsCalendar = await tenantStorage.getCalendarByType('leads');
         console.log('📅 Leads Calendar found:', leadsCalendar);
         
         console.log('🔍 Creating event with data:', {

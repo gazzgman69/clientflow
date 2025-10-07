@@ -232,6 +232,43 @@ export class TenantScopedStorage {
     return this.baseStorage.updateAutoResponderLog(id, log, this.tenantId);
   }
 
+  // Calendars (System Calendars: Leads, Booked, Completed)
+  async getCalendars() {
+    return this.baseStorage.getCalendars(this.tenantId);
+  }
+
+  async getCalendar(id: string) {
+    return this.baseStorage.getCalendar(id, this.tenantId);
+  }
+
+  async getCalendarByType(type: string) {
+    return this.baseStorage.getCalendarByType(type, this.tenantId);
+  }
+
+  async createCalendar(calendar: any) {
+    return this.baseStorage.createCalendar(calendar, this.tenantId);
+  }
+
+  async updateCalendar(id: string, calendar: any) {
+    return this.baseStorage.updateCalendar(id, calendar, this.tenantId);
+  }
+
+  async createSystemCalendars() {
+    return this.baseStorage.createSystemCalendars(this.tenantId);
+  }
+
+  async getEventsByCalendar(calendarId: string) {
+    return this.baseStorage.getEventsByCalendar(calendarId, this.tenantId);
+  }
+
+  async moveEventToCalendar(eventId: string, targetCalendarId: string) {
+    return this.baseStorage.moveEventToCalendar(eventId, targetCalendarId, this.tenantId);
+  }
+
+  async checkEventConflict(startDate: Date, endDate: Date, userId?: string, excludeEventId?: string) {
+    return this.baseStorage.checkEventConflict(startDate, endDate, this.tenantId, userId, excludeEventId);
+  }
+
   // Calendar Integrations
   async getCalendarIntegrations() {
     return this.baseStorage.getCalendarIntegrations(this.tenantId);

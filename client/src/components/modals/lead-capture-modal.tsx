@@ -55,6 +55,7 @@ export default function LeadCaptureModal({ isOpen, onClose }: LeadCaptureModalPr
       queryClient.invalidateQueries({ queryKey: ["/api/leads"] });
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard/metrics"] });
       queryClient.invalidateQueries({ queryKey: ["/api/activities/recent"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/events"] }); // Refresh calendar to show new lead event
       toast({
         title: "Success",
         description: "Lead added successfully!",

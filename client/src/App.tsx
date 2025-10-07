@@ -24,6 +24,7 @@ import LeadsInbox from "@/pages/leads/LeadsInbox";
 import LeadFormHosted from "@/pages/public/LeadFormHosted";
 import PublicQuote from "@/pages/public/PublicQuote";
 import ProjectDetail from "@/pages/ProjectDetail";
+import ContactDetail from "@/pages/ContactDetail";
 import Members from "@/pages/members";
 import Venues from "@/pages/venues";
 import MusicianPortal from "@/pages/portal/musician-portal";
@@ -109,6 +110,7 @@ function Router() {
                   <Route path="/leads">
                     <Redirect to="/leads/board" replace />
                   </Route>
+                  <Route path="/contacts/:id" component={ContactDetail} />
                   <Route path="/contacts" component={Contacts} />
                   <Route path="/projects/:id" component={ProjectDetail} />
                   <Route path="/projects" component={Projects} />

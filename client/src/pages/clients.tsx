@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 import Header from "@/components/layout/header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -50,6 +51,7 @@ interface ContactDeletionPreview {
 }
 
 export default function Contacts() {
+  const [, setLocation] = useLocation();
   const [showContactModal, setShowContactModal] = useState(false);
   const [editingContact, setEditingContact] = useState<Contact | null>(null);
   const [contactToDelete, setContactToDelete] = useState<any>(null);
@@ -270,27 +272,7 @@ export default function Contacts() {
                       key={contact.id} 
                       data-testid={`contact-row-${contact.id}`}
                       className="cursor-pointer"
-                      onClick={() => {
-                        setEditingContact(contact);
-                        // Calculate fullName from existing name parts for editing
-                        const displayName = getDisplayName(contact);
-                        form.reset({
-                          ...contact,
-                          fullName: displayName,
-                          tags: contact.tags || [],
-                          jobTitle: contact.jobTitle || "",
-                          website: contact.website || "",
-                          leadSource: contact.leadSource || "",
-                          notes: contact.notes || "",
-                          venueAddress: contact.venueAddress || "",
-                          venueCity: contact.venueCity || "",
-                          venueState: contact.venueState || "",
-                          venueZipCode: contact.venueZipCode || "",
-                          venueCountry: contact.venueCountry || "",
-                          venueId: contact.venueId || null
-                        });
-                        setShowContactModal(true);
-                      }}
+                      onClick={() => setLocation(`/contacts/${contact.id}`)}
                     >
                       <TableCell className="font-medium" data-testid={`contact-name-${contact.id}`}>
                         {getDisplayName(contact)}
@@ -342,17 +324,47 @@ export default function Contacts() {
                         {contact.createdAt ? formatDistanceToNow(new Date(contact.createdAt), { addSuffix: true }) : 'Unknown'}
                       </TableCell>
                       <TableCell onClick={(e) => e.stopPropagation()}>
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDeleteClick(contact.id);
-                          }}
-                          data-testid={`delete-contact-${contact.id}`}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        <div className="flex gap-2">
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setEditingContact(contact);
+                              const displayName = getDisplayName(contact);
+                              form.reset({
+                                ...contact,
+                                fullName: displayName,
+                                tags: contact.tags || [],
+                                jobTitle: contact.jobTitle || "",
+                                website: contact.website || "",
+                                leadSource: contact.leadSource || "",
+                                notes: contact.notes || "",
+                                venueAddress: contact.venueAddress || "",
+                                venueCity: contact.venueCity || "",
+                                venueState: contact.venueState || "",
+                                venueZipCode: contact.venueZipCode || "",
+                                venueCountry: contact.venueCountry || "",
+                                venueId: contact.venueId || null
+                              });
+                              setShowContactModal(true);
+                            }}
+                            data-testid={`edit-contact-${contact.id}`}
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteClick(contact.id);
+                            }}
+                            data-testid={`delete-contact-${contact.id}`}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}

@@ -192,8 +192,10 @@ export default function CalendarView({ viewMode = 'month' }: CalendarViewProps) 
   const deleteEventMutation = useMutation({
     mutationFn: async (eventId: string) => {
       const response = await apiRequest('DELETE', `/api/events/${eventId}`);
-      if (!response.ok) {
-        throw new Error('Failed to delete event');
+      // Treat 404 as success - event is already gone
+      if (!response.ok && response.status !== 404) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || 'Failed to delete event');
       }
       return true; // DELETE returns 204 with no body
     },

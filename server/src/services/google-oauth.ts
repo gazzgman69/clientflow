@@ -374,11 +374,27 @@ export class GoogleOAuthService {
             }
           } catch (error: any) {
             if (error.code === 404 || error.status === 404) {
-              // Event doesn't exist in Google Calendar anymore, delete from CRM
-              console.log(`🗑️ Event "${event.title}" missing from Google Calendar, deleting from CRM...`);
-              await storage.deleteEvent(event.id, integration.tenantId);
-              skippedCount++;
-              continue;
+              // Event doesn't exist in Google Calendar anymore
+              // CRITICAL: Only delete events that originated FROM Google Calendar (type='meeting')
+              // CRM-created events (type='lead') should be preserved even if missing from Google
+              if (event.type === 'meeting') {
+                console.log(`🗑️ Event "${event.title}" (type: meeting) missing from Google Calendar, deleting from CRM...`);
+                await storage.deleteEvent(event.id, integration.tenantId);
+                skippedCount++;
+                continue;
+              } else {
+                console.log(`⚠️ Event "${event.title}" (type: ${event.type}) missing from Google Calendar but preserving in CRM (CRM-originated event)`);
+                // Re-sync to Google Calendar
+                try {
+                  await this.syncToGoogle(integration, event.id);
+                  syncedCount++;
+                  console.log(`✅ Re-synced CRM-originated event "${event.title}" to Google Calendar`);
+                } catch (syncError) {
+                  console.error(`❌ Failed to re-sync "${event.title}":`, syncError);
+                  skippedCount++;
+                }
+                continue;
+              }
             } else {
               console.error(`⚠️ Error checking event "${event.title}":`, error.message);
               skippedCount++;

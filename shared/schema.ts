@@ -645,8 +645,10 @@ export const events = pgTable("events", {
   priority: text("priority").notNull().default('medium'), // low, medium, high, urgent
   leadId: varchar("lead_id").references(() => leads.id, { onDelete: 'cascade' }),
   contactId: varchar("contact_id").references(() => contacts.id, { onDelete: 'cascade' }),
-  projectId: varchar("project_id").references(() => projects.id, { onDelete: 'cascade' }),
+  projectId: varchar("project_id").references(() => projects.id, { onDelete: 'set null' }),
   assignedTo: varchar("assigned_to").references(() => users.id),
+  isCancelled: boolean("is_cancelled").default(false), // True when linked project/lead is deleted
+  cancelledAt: timestamp("cancelled_at"), // Timestamp when event was marked as cancelled
   createdBy: varchar("created_by").references(() => users.id).notNull(),
   externalEventId: text("external_event_id"), // For synced events from external calendars (Google event ID)
   externalCalendarId: text("external_calendar_id"), // External calendar ID where this event belongs

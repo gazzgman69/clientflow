@@ -1,0 +1,81 @@
+Add a feature to a multi-tenant CRM calendar so that when a Project is deleted, any linked calendar Event(s) are retained but their title is prefixed with “(CANCELLED) ”. You choose schema, database, endpoints, jobs, and UI. Preserve existing calendar behaviour (Leads → Booked → Completed moves). All user-visible dates must display as dd/mm/yyyy (and dd/mm/yyyy HH:mm for times).
+
+Functional requirements
+
+Trigger: On Project deletion (soft or hard—your choice), run a handler that finds all Events linked to that Project for {tenantId}.
+
+Event update:
+
+If the Event title does not start with “(CANCELLED) ”, prefix it.
+
+If it already starts with “(CANCELLED) ”, do nothing (idempotent).
+
+Mark event state/flag as cancelled (your field name), but keep the event visible in the calendar.
+
+UI/UX:
+
+In calendar views, cancelled events show a strikethrough title and/or a small “Cancelled” badge.
+
+Tooltips for cancelled events: “This event remains for history/audit. The linked project was deleted on dd/mm/yyyy.”
+
+Add an optional restore control on the event detail to remove the prefix if the project is restored (only if you implement project restore).
+
+Multi-tenant & security: All operations scoped to {tenantId} and {userId} with strict isolation.
+
+Provider sync (optional but supported):
+
+If Google/Microsoft sync is present, update the external event:
+
+Prefer native cancellation/status fields if available without deleting the event.
+
+Always also update the title prefix so users can see “(CANCELLED)” across clients.
+
+If the provider is disconnected, only update locally; changes sync on reconnect.
+
+De-duplication keys (if you have them): (provider, externalCalendarId, externalEventId).
+
+.ics export:
+
+When exporting, include the SUMMARY with “(CANCELLED) …”.
+
+If feasible, set STATUS:CANCELLED in VEVENT while keeping the entry in the feed.
+
+Audit logging:
+
+Log: {tenantId, userId, projectId, eventId, action: 'mark_event_cancelled', timestamp}.
+
+If restored, log corresponding ‘restore_event_title’ action.
+
+Implementation notes (you decide details)
+
+Provide a server-side function like markEventsCancelledForProject(projectId, tenantId) that:
+
+Queries linked events, updates titles atomically, sets a cancelled flag, writes audit rows, and (optionally) enqueues provider sync updates.
+
+Make the handler idempotent and safe to retry (no duplicate prefixes).
+
+Keep existing calendar filters (Leads/Booked/Completed). Add an optional “Show cancelled” toggle if you think it’s useful.
+
+Acceptance criteria
+
+Deleting a Project prefixes all linked Events with “(CANCELLED) ”, keeps them visible, and sets a cancelled state/flag.
+
+Running the delete flow twice does not duplicate the prefix.
+
+Calendar UI shows cancelled styling/badge and dd/mm/yyyy dates everywhere.
+
+If provider sync exists, external events reflect the prefix (and native cancelled status when available) without deleting the event.
+
+.ics export includes the (CANCELLED) prefix (and STATUS:CANCELLED if you implement it).
+
+Audit entries are written for cancel and restore actions.
+
+Multi-tenant isolation verified with at least 2 tenants in seed data.
+
+Deliverables
+
+Code + minimal UI demonstrating project delete → event title update.
+
+Seed script to create a tenant, a project with events, then delete the project and show the calendar state before/after.
+
+Short README: how to run, where the dd/mm/yyyy formatting is configured, how to test the cancel/restore path, and (if present) how to simulate provider sync.

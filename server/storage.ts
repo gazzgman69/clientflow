@@ -3268,6 +3268,23 @@ export class DrizzleStorage implements IStorage {
       timestamp: new Date().toISOString()
     });
     
+    // DEFENSIVE: Auto-fix any cancelled events missing the (CANCELLED) prefix
+    for (const event of results) {
+      if (event.isCancelled && !event.title.startsWith('(CANCELLED)')) {
+        const oldTitle = event.title;
+        const fixedTitle = `(CANCELLED) ${event.title}`;
+        await db.update(events)
+          .set({ title: fixedTitle })
+          .where(eq(events.id, event.id));
+        event.title = fixedTitle; // Update in-memory too
+        console.log('🔧 AUTO-FIXED: Added (CANCELLED) prefix to event', {
+          eventId: event.id,
+          oldTitle,
+          newTitle: fixedTitle
+        });
+      }
+    }
+    
     return results;
   }
 

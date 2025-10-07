@@ -1,0 +1,101 @@
+DO NOT MODIFY ANY FILES. DO NOT FIX ANYTHING.
+Collect and print the following exactly as specified. If a file/path is missing, just say “MISSING: <path>”. Show outputs in this single reply.
+
+0) Echo guard
+
+First print this line verbatim:
+MODE: READ-ONLY DIAGNOSTICS — NO CODE CHANGES PERMITTED
+
+1) Paths check (exists / missing)
+
+For each, print EXISTS/MISSING:
+
+server/src/routes/lead-forms.ts
+
+server/src/routes.ts (or your router entry)
+
+Calendar event creation function file (best guess)
+
+Calendar schema/model file (best guess)
+
+Project/Lead model/schema file (best guess)
+
+Any worker/job file used in event creation (best guess)
+
+scripts/diagnose-lead-calendar.ts
+
+docs/diagnostics/lead-to-calendar.md
+
+2) Key code excerpts (with line numbers)
+
+For each file that EXISTS, print only the relevant sections with line numbers:
+
+Lead submit handler in server/src/routes/lead-forms.ts (the function handling POST /api/leads/public/:slug/submit) — show from function signature through to where it calls project/lead creation and (if present) event creation.
+
+Mapping/transform code that converts form keys to canonical fields (the part that deals with “q1/q2/…”, numeric “1/2/…”, etc.).
+
+Event creation function (where an event is inserted/created).
+
+Calendar schema/model: definition of events table/collection (fields for title/start/end/tenantId/projectId/etc).
+
+Project/Lead schema: fields for email/date etc that are required.
+(If functions are split across files, show each snippet with its file path header.)
+
+3) Grep results (paths + lines)
+
+Print the top 30 matches for each:
+
+createEvent OR .createEvent( across the repo.
+
+projectDate OR eventDate OR date within lead routes/services.
+
+The route string for the public submit endpoint (e.g., /api/leads/public).
+
+4) Run diagnostics (but don’t alter code)
+
+If scripts/diagnose-lead-calendar.ts exists, run:
+
+DEBUG=1 tsx scripts/diagnose-lead-calendar.ts
+
+
+Paste the full PASS/FAIL table it prints.
+
+If it doesn’t exist, print: diagnostic script missing — skipping step 4.
+
+5) Minimal repro (live check)
+
+If you can, print the exact curl command to create a minimal valid Lead (with whatever JSON shape your validation requires). Show the command and then run it against localhost if the dev server is up. Paste the HTTP status + response body.
+
+Then query your data store for the 10 most recent events for the same tenant and print a compact table:
+eventId | tenantId | projectId | calendarId | title | start | end
+Use dd/mm/yyyy HH:mm formatting for dates in the output.
+
+6) Feature flags / guards
+
+List any flags/conditions that can block event creation (source lines + current values), e.g.:
+
+create-on-lead disabled
+
+require project date
+
+queues disabled/provider-only mode
+
+anything else that short-circuits event creation
+
+7) One-paragraph summary
+
+In 5–7 sentences, explain:
+
+Route → controller → service path hit on lead submit
+
+Whether mapping from form keys to canonical fields is succeeding
+
+Whether lead/project is created
+
+Whether event creation function is called
+
+Whether DB write for event succeeds
+
+The most likely failing step (A–L style label if you use one)
+
+Important: Return only these items. Do not propose or perform fixes. All user-facing dates in your output must be formatted as dd/mm/yyyy (or dd/mm/yyyy HH:mm for timestamps).

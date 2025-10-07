@@ -495,7 +495,9 @@ export class GoogleOAuthService {
           endDate: new Date(googleEvent.end?.dateTime || googleEvent.end?.date || new Date()),
           location: googleEvent.location || null,
           allDay: !googleEvent.start?.dateTime,
-          type: 'meeting',
+          // CRITICAL: Preserve CRM-specific type for existing events (lead, etc.)
+          // Only set to 'meeting' for NEW events created from Google Calendar
+          type: existing && existing.type !== 'meeting' ? existing.type : 'meeting',
           createdBy: integration.userId,
           calendarIntegrationId: integration.id,
           externalEventId: googleEvent.id,

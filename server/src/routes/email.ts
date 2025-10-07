@@ -95,8 +95,8 @@ const debugTestEmailSchema = z.object({
 // Middleware to require proper authentication - SESSION ONLY
 const requireAuth = async (req: any, res: any, next: any) => {
   try {
-    // Get user ID from session (enforces proper auth)
-    const userId = req.session?.userId;
+    // Get user ID from session OR from middleware (ensureUserAuth sets req.userId)
+    const userId = req.userId || req.session?.userId;
     
     if (!userId) {
       return res.status(401).json({ 

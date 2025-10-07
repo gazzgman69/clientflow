@@ -89,8 +89,9 @@ export default function CalendarView({ viewMode = 'month' }: CalendarViewProps) 
   const { data: events, isLoading: eventsLoading } = useQuery<Event[]>({
     queryKey: ['/api/events'],
     enabled: !!currentUser,
-    refetchInterval: 10000, // Auto-refresh every 10 seconds for better responsiveness
-    refetchIntervalInBackground: false, // Don't poll when tab is inactive
+    refetchInterval: 10000, // Refresh every 10 seconds for better responsiveness
+    refetchIntervalInBackground: true, // Keep polling even when tab is inactive
+    refetchOnWindowFocus: true, // Refresh when tab/window gains focus
   });
 
   const { data: clientsData } = useQuery<{ contacts: any[] }>({

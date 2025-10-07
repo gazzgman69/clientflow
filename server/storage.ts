@@ -342,6 +342,7 @@ export interface IStorage {
   createEvent(event: InsertEvent, tenantId: string): Promise<Event>;
   updateEvent(id: string, event: Partial<InsertEvent>, tenantId: string): Promise<Event | undefined>;
   deleteEvent(id: string, tenantId: string): Promise<boolean>;
+  markEventsCancelledForProject(projectId: string, tenantId: string, userId: string): Promise<number>; // Returns count of events marked as cancelled
   
   // System Calendars (Leads, Booked, Completed)
   getCalendars(tenantId: string): Promise<Calendar[]>;
@@ -2088,6 +2089,34 @@ export class MemStorage implements IStorage {
     return this.events.delete(id);
   }
 
+  async markEventsCancelledForProject(projectId: string, tenantId: string, userId: string): Promise<number> {
+    const projectEvents = Array.from(this.events.values()).filter(
+      e => e.projectId === projectId && e.tenantId === tenantId
+    );
+    
+    let markedCount = 0;
+    for (const event of projectEvents) {
+      // Only prefix if not already cancelled (idempotent)
+      if (!event.title.startsWith('(CANCELLED) ')) {
+        event.title = `(CANCELLED) ${event.title}`;
+        event.isCancelled = true;
+        event.cancelledAt = new Date();
+        event.updatedAt = new Date();
+        markedCount++;
+        
+        console.log('📅 EVENT MARKED AS CANCELLED (MemStorage)', {
+          eventId: event.id,
+          projectId,
+          tenantId,
+          userId,
+          newTitle: event.title
+        });
+      }
+    }
+    
+    return markedCount;
+  }
+
   // System Calendars (Leads, Booked, Completed)
   async getCalendars(tenantId: string): Promise<Calendar[]> {
     return Array.from(this.calendars.values()).filter(cal => cal.tenantId === tenantId);
@@ -3396,6 +3425,72 @@ export class DrizzleStorage implements IStorage {
     }
     
     return deleted;
+  }
+
+  async markEventsCancelledForProject(projectId: string, tenantId: string, userId: string): Promise<number> {
+    // Defensive check: tenantId is required
+    if (!tenantId) {
+      const error = 'SECURITY: tenantId is required to mark events as cancelled';
+      console.error('❌ EVENT CANCEL FAILED', { error, projectId });
+      throw new Error(error);
+    }
+    
+    console.log('📅 MARKING EVENTS AS CANCELLED', {
+      action: 'markEventsCancelledForProject',
+      projectId,
+      tenantId,
+      userId,
+      timestamp: new Date().toISOString()
+    });
+    
+    // Get all events for this project
+    const projectEvents = await db.select().from(events).where(and(
+      eq(events.projectId, projectId),
+      eq(events.tenantId, tenantId)
+    ));
+    
+    let markedCount = 0;
+    
+    for (const event of projectEvents) {
+      // Only prefix if not already cancelled (idempotent)
+      if (!event.title.startsWith('(CANCELLED) ')) {
+        const newTitle = `(CANCELLED) ${event.title}`;
+        
+        await db.update(events)
+          .set({
+            title: newTitle,
+            isCancelled: true,
+            cancelledAt: new Date(),
+            updatedAt: new Date()
+          })
+          .where(and(
+            eq(events.id, event.id),
+            eq(events.tenantId, tenantId)
+          ));
+        
+        markedCount++;
+        
+        console.log('✅ EVENT MARKED AS CANCELLED', {
+          eventId: event.id,
+          projectId,
+          tenantId,
+          userId,
+          oldTitle: event.title,
+          newTitle,
+          timestamp: new Date().toISOString()
+        });
+      }
+    }
+    
+    console.log('📅 EVENTS CANCELLATION COMPLETE', {
+      projectId,
+      tenantId,
+      userId,
+      eventsMarked: markedCount,
+      timestamp: new Date().toISOString()
+    });
+    
+    return markedCount;
   }
 
   // System Calendars (Leads, Booked, Completed)

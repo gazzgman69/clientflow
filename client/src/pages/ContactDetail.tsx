@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { 
   ArrowLeft, Mail, Phone, Briefcase, MessageSquare, MapPin,
-  FileText, Plus, Edit, Trash2, Send, Check, Building, Tag, Globe
+  FileText, Plus, Edit, Trash2, Send, Check, Building, Tag, Globe, User, Home
 } from "lucide-react";
 import {
   Table,

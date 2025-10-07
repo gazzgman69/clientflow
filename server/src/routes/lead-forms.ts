@@ -589,6 +589,7 @@ router.post('/:slug/submit', formSubmissionLimiter, async (req, res) => {
                     userId,
                     leadId: lead.id,
                     projectId: project.id, // Link to project so it updates with project changes
+                    contactId: null, // Explicitly set to null to avoid CASCADE delete when contact is deleted
                     type: 'lead',
                     allDay: false,
                     createdBy: userId || form.createdBy
@@ -1030,6 +1031,7 @@ router.post('/:slug/submit', formSubmissionLimiter, async (req, res) => {
           userId,
           leadId: lead.id,
           projectId: project.id, // Link to project so it updates with project changes
+          contactId: null, // Explicitly set to null to avoid CASCADE delete when contact is deleted
           type: 'lead',
           allDay: false,
           createdBy: userId || form.createdBy

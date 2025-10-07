@@ -8,6 +8,13 @@ import { applyMapping, FORM_FIELD_REGISTRY } from '@shared/formMappingRegistry';
 import { venuesService } from '../services/venues';
 import crypto from 'crypto';
 import { TenantRequest } from '../../middleware/tenantResolver';
+import { 
+  adaptFormDataKeys, 
+  validateRequiredFields, 
+  normalizeDateInput,
+  formatDateForDisplay,
+  formatDateTimeForDisplay
+} from '../../utils/formDataAdapter';
 
 // Honeypot spam protection helper
 function validateHoneypot(formData: Record<string, any>): boolean {
@@ -371,7 +378,49 @@ router.post('/:slug/submit', formSubmissionLimiter, async (req, res) => {
     // Public submissions: assign to form owner so they can access the resulting projects
     const userId = form.createdBy;
     
-    // Transform question IDs to canonical field names using form questions
+    // ============================================================================
+    // ADAPTER LAYER: Map numeric/q-style keys to canonical question IDs
+    // ============================================================================
+    
+    // Extract the data payload (handle both nested and flat structures)
+    let dataPayload: Record<string, any> = {};
+    let nonDataFields: Record<string, any> = {};
+    
+    if (formData.data && typeof formData.data === 'object') {
+      // Nested structure: { data: { "1": "value", ... }, consent: true }
+      dataPayload = formData.data;
+      for (const [key, value] of Object.entries(formData)) {
+        if (key !== 'data') {
+          nonDataFields[key] = value;
+        }
+      }
+    } else {
+      // Flat structure: { "1": "value", ..., consent: true }
+      for (const [key, value] of Object.entries(formData)) {
+        if (['consent', 'website_url'].includes(key)) {
+          nonDataFields[key] = value;
+        } else {
+          dataPayload[key] = value;
+        }
+      }
+    }
+    
+    // Apply adapter to map incoming keys to question IDs
+    const adapterResult = adaptFormDataKeys(dataPayload, questions);
+    
+    // Log if numeric keys were translated
+    if (adapterResult.translatedKeys.length > 0) {
+      console.log('ℹ️ INFO: lead_form.mapping.translated', {
+        slug,
+        formId: form.id,
+        tenantId: form.tenantId,
+        translatedCount: adapterResult.translatedKeys.length,
+        translations: adapterResult.translatedKeys,
+        timestamp: new Date().toISOString()
+      });
+    }
+    
+    // Now transform adapted question IDs to canonical field names
     const transformedData: Record<string, any> = {};
     const questionIdToMapTo: Record<string, string> = {};
     
@@ -382,51 +431,35 @@ router.post('/:slug/submit', formSubmissionLimiter, async (req, res) => {
       }
     }
     
-    // Handle both flat and nested form data structures
-    
-    // If form data has a nested 'data' structure, extract it
-    if (formData.data && typeof formData.data === 'object') {
-      // Check if nested data contains question IDs or canonical field names
-      const nestedKeys = Object.keys(formData.data);
-      const hasQuestionIds = nestedKeys.some(key => questionIdToMapTo[key]);
-      
-      if (hasQuestionIds) {
-        // Apply transformations to the nested data object (question IDs to canonical names)
-        for (const [key, value] of Object.entries(formData.data)) {
-          if (questionIdToMapTo[key]) {
-            transformedData[questionIdToMapTo[key]] = value;
+    // Apply transformation: question ID → canonical field name
+    for (const [key, value] of Object.entries(adapterResult.mappedData)) {
+      if (questionIdToMapTo[key]) {
+        // Normalize dates if this is the projectDate field
+        if (questionIdToMapTo[key] === 'projectDate' && value) {
+          const normalizedDate = normalizeDateInput(value);
+          if (normalizedDate) {
+            transformedData[questionIdToMapTo[key]] = normalizedDate;
           } else {
-            transformedData[key] = value;
+            console.warn('⚠️ WARN: Invalid date format for projectDate:', value);
+            transformedData[questionIdToMapTo[key]] = value; // Keep original, will be handled later
           }
+        } else {
+          transformedData[questionIdToMapTo[key]] = value;
         }
       } else {
-        // Data already contains canonical field names, flatten them directly
-        for (const [key, value] of Object.entries(formData.data)) {
-          transformedData[key] = value;
-        }
-      }
-      
-      // Keep other top-level fields (like consent, honeypot)
-      for (const [key, value] of Object.entries(formData)) {
-        if (key !== 'data') {
-          transformedData[key] = value;
-        }
-      }
-    } else {
-      // Handle flat structure (legacy format)
-      for (const [key, value] of Object.entries(formData)) {
-        if (questionIdToMapTo[key]) {
-          // Map question ID to canonical field name
-          transformedData[questionIdToMapTo[key]] = value;
-        } else {
-          // Keep non-question fields as-is (consent, honeypot, etc.)
-          transformedData[key] = value;
-        }
+        // Keep unmapped keys as-is (for customFieldData)
+        transformedData[key] = value;
       }
     }
     
+    // Add back non-data fields (consent, honeypot, etc.)
+    for (const [key, value] of Object.entries(nonDataFields)) {
+      transformedData[key] = value;
+    }
+    
     console.log('🔄 FIELD TRANSFORMATION DEBUG:', {
-      originalKeys: Object.keys(formData),
+      originalKeys: Object.keys(dataPayload),
+      adapterTranslations: adapterResult.translatedKeys.length,
       questionMappings: questionIdToMapTo,
       transformedKeys: Object.keys(transformedData),
       transformedData: JSON.stringify(transformedData, null, 2)
@@ -438,6 +471,54 @@ router.post('/:slug/submit', formSubmissionLimiter, async (req, res) => {
       allowUnknownKeys: true, // Allow custom fields for now
       enableDeprecationWarnings: true
     });
+
+    // ============================================================================
+    // VALIDATION: Check required fields after mapping
+    // ============================================================================
+    
+    // Validate that leadEmail is present (required for lead creation)
+    const leadEmail = mappingResult.leadData.email || mappingResult.contactData.email;
+    if (!leadEmail || (typeof leadEmail === 'string' && leadEmail.trim() === '')) {
+      console.warn('⚠️ WARN: lead_form.mapping.missing_required', {
+        slug,
+        formId: form.id,
+        tenantId: form.tenantId,
+        missingField: 'leadEmail',
+        submittedKeys: Object.keys(dataPayload),
+        mappingResult: {
+          leadDataKeys: Object.keys(mappingResult.leadData),
+          contactDataKeys: Object.keys(mappingResult.contactData)
+        },
+        timestamp: new Date().toISOString()
+      });
+      
+      return res.status(400).json({
+        error: 'Missing required field',
+        message: 'Email address is required. Please provide a valid email address.',
+        field: 'email',
+        hint: 'Make sure your form includes an email field with the correct mapping.'
+      });
+    }
+    
+    // Validate other required fields from questions
+    const validation = validateRequiredFields(transformedData, questions);
+    if (!validation.valid) {
+      console.warn('⚠️ WARN: lead_form.mapping.missing_required', {
+        slug,
+        formId: form.id,
+        tenantId: form.tenantId,
+        missingFields: validation.missingFields,
+        submittedKeys: Object.keys(dataPayload),
+        timestamp: new Date().toISOString()
+      });
+      
+      return res.status(400).json({
+        error: 'Missing required fields',
+        message: `The following required fields are missing: ${validation.missingFields.join(', ')}`,
+        fields: validation.missingFields,
+        hint: 'Please fill in all required fields and try again.'
+      });
+    }
 
     // SECURITY: Create submission fingerprint AFTER mapping to use normalized data
     const submissionFingerprint = {

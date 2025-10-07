@@ -988,7 +988,15 @@ router.post('/:slug/submit', formSubmissionLimiter, async (req, res) => {
     // Auto-create calendar event if lead has a projectDate (now that we have projectId)
     // Use original lead object since updateLead only returns updated fields
     
+    console.log('🔍 CALENDAR EVENT CHECK:', {
+      leadId: lead.id,
+      hasProjectDate: !!lead.projectDate,
+      projectDate: lead.projectDate,
+      fullLead: lead
+    });
+    
     if (lead && lead.projectDate) {
+      console.log('✅ Starting calendar event creation for lead:', lead.id);
       try {
         const eventStart = new Date(lead.projectDate);
         const eventEnd = new Date(eventStart);
@@ -998,8 +1006,19 @@ router.post('/:slug/submit', formSubmissionLimiter, async (req, res) => {
         const leadName = lead.fullName || lead.email || 'Unknown';
         const eventTitle = `New Lead Project • ${leadName}`;
         
+        console.log('🔍 Getting Leads Calendar for tenant:', form.tenantId);
         // Get Leads Calendar for this tenant
         const leadsCalendar = await tenantStorage.getCalendarByType('leads', form.tenantId);
+        console.log('📅 Leads Calendar found:', leadsCalendar);
+        
+        console.log('🔍 Creating event with data:', {
+          title: eventTitle,
+          startDate: eventStart,
+          endDate: eventEnd,
+          calendarId: leadsCalendar?.id,
+          projectId: project.id,
+          leadId: lead.id
+        });
         
         await tenantStorage.createEvent({
           title: eventTitle,
@@ -1027,6 +1046,13 @@ router.post('/:slug/submit', formSubmissionLimiter, async (req, res) => {
         });
         // Don't fail the lead creation if calendar event fails
       }
+    } else {
+      console.log('⚠️ NO CALENDAR EVENT - Condition failed:', {
+        hasLead: !!lead,
+        leadId: lead?.id,
+        hasProjectDate: !!lead?.projectDate,
+        projectDate: lead?.projectDate
+      });
     }
 
     // SECURITY: Record successful submission for idempotency tracking - Use tenant-scoped storage

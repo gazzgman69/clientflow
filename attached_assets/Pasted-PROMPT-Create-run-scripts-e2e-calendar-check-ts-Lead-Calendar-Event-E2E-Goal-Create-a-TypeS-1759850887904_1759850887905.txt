@@ -1,3 +1,22 @@
+PROMPT — Create & run scripts/e2e-calendar-check.ts (Lead → Calendar Event E2E)
+
+Goal
+Create a TypeScript script that proves calendar events are created from lead capture submissions. It must:
+
+Test numeric and q-style key formats.
+
+Include idempotency (repeat submit → no duplicate event).
+
+Auto-detect required fields from the form’s questions JSON.
+
+Print raw results and a final PASS/FAIL table.
+
+Do not modify any server code, schemas, or business logic.
+
+Do this exactly
+
+Create file: scripts/e2e-calendar-check.ts with the following code:
+
 #!/usr/bin/env tsx
 /**
  * End-to-End Lead → Calendar Event Verification (read-only)
@@ -118,10 +137,7 @@ async function countEventsByTitleAndDate(titleLike: string, ddmmyyyy: string) {
   console.log(`Questions loaded: ${qs.length}`);
 
   // Build values for all REQUIRED fields
-  // Use a unique date to avoid idempotency guard from previous test runs
-  const testDate = new Date();
-  testDate.setDate(testDate.getDate() + Math.floor(Math.random() * 90) + 30); // 30-120 days from now
-  const DATE = `${String(testDate.getDate()).padStart(2, '0')}/${String(testDate.getMonth() + 1).padStart(2, '0')}/${testDate.getFullYear()}`;
+  const DATE = '25/12/2025'; // dd/mm/yyyy
   const valuesById = makeValuesFor(qs, DATE);
 
   // Payloads
@@ -130,48 +146,34 @@ async function countEventsByTitleAndDate(titleLike: string, ddmmyyyy: string) {
 
   // Show what we'll submit
   console.log('\nSubmitting Numeric payload:', JSON.stringify(numericPayload));
-  
-  // Get baseline count BEFORE submit
-  const titleLike = 'E2E Calendar Triage'; // Match either name or email format
-  const beforeNum = await countEventsByTitleAndDate(titleLike, DATE);
-  
   const resNum = await submit(slug, numericPayload);
   console.log('Numeric submit →', resNum.status, resNum.body);
 
   // Verify numeric → event exists
+  const titleLike = 'New Lead Project • E2E Calendar Triage';
+  let beforeQ = await countEventsByTitleAndDate(titleLike, DATE);
+  // If 400, mark fail now
   if (resNum.status >= 400) {
     results.push({ check: 'A) Numeric → Event', status: '❌ FAIL', details: `HTTP ${resNum.status}: ${JSON.stringify(resNum.body)}` });
   } else {
-    // Wait for DB commit
-    await new Promise(r => setTimeout(r, 500));
+    // small grace: fetch after submit
     const afterNum = await countEventsByTitleAndDate(titleLike, DATE);
     results.push({
       check: 'A) Numeric → Event',
-      status: afterNum > beforeNum ? '✅ PASS' : '❌ FAIL',
-      details: `events before=${beforeNum}, after=${afterNum}`
+      status: afterNum > beforeQ ? '✅ PASS' : '❌ FAIL',
+      details: `events before=${beforeQ}, after=${afterNum}`
     });
   }
 
-  // Wait a bit to avoid rapid-fire duplicate detection
-  await new Promise(r => setTimeout(r, 1000));
-  
-  // Generate fresh q-style payload with unique email and slightly different date (1 day later)
-  const qDate = new Date(testDate);
-  qDate.setDate(qDate.getDate() + 1);
-  const QDATE = `${String(qDate.getDate()).padStart(2, '0')}/${String(qDate.getMonth() + 1).padStart(2, '0')}/${qDate.getFullYear()}`;
-  const qStylePayload2 = makeValuesFor(qs, QDATE);
-  console.log('\nSubmitting Q-style payload:', JSON.stringify(qStylePayload2));
-  
-  const beforeQ = await countEventsByTitleAndDate(titleLike, QDATE);
-  const resQ = await submit(slug, qStylePayload2);
+  console.log('\nSubmitting Q-style payload:', JSON.stringify(qStylePayload));
+  const resQ = await submit(slug, qStylePayload);
   console.log('Q-style submit →', resQ.status, resQ.body);
 
+  beforeQ = await countEventsByTitleAndDate(titleLike, DATE);
   if (resQ.status >= 400) {
     results.push({ check: 'B) Q-style → Event', status: '❌ FAIL', details: `HTTP ${resQ.status}: ${JSON.stringify(resQ.body)}` });
   } else {
-    // Wait for DB commit
-    await new Promise(r => setTimeout(r, 500));
-    const afterQ = await countEventsByTitleAndDate(titleLike, QDATE);
+    const afterQ = await countEventsByTitleAndDate(titleLike, DATE);
     results.push({
       check: 'B) Q-style → Event',
       status: afterQ > beforeQ ? '✅ PASS' : '❌ FAIL',
@@ -183,14 +185,11 @@ async function countEventsByTitleAndDate(titleLike: string, ddmmyyyy: string) {
   const beforeDup = await countEventsByTitleAndDate(titleLike, DATE);
   const resDup = await submit(slug, numericPayload);
   console.log('\nDuplicate numeric submit →', resDup.status, resDup.body);
-  
-  await new Promise(r => setTimeout(r, 500));
   const afterDup = await countEventsByTitleAndDate(titleLike, DATE);
-  const newFromDup = afterDup - beforeDup;
   results.push({
     check: 'C) Idempotency (duplicate submit ≤5m → no second event)',
-    status: newFromDup <= 0 ? '✅ PASS' : '⚠️ INFO',
-    details: `events before=${beforeDup}, after=${afterDup}, new=${newFromDup}`
+    status: (afterDup - beforeDup) <= 1 ? '✅ PASS' : '❌ FAIL',
+    details: `events before=${beforeDup}, after=${afterDup}`
   });
 
   // Print last 10 events for visibility
@@ -217,3 +216,33 @@ async function countEventsByTitleAndDate(titleLike: string, ddmmyyyy: string) {
   console.error('❌ Script error:', e);
   process.exit(1);
 });
+
+
+Make executable & print how to run
+
+Make exec:
+
+chmod +x scripts/e2e-calendar-check.ts
+
+
+Show run commands:
+
+# Auto-pick the first active form
+tsx scripts/e2e-calendar-check.ts
+
+# Or specify a slug
+LCF_SLUG=your-form-slug tsx scripts/e2e-calendar-check.ts
+
+# Custom base URL (if not localhost)
+BASE_URL=https://your-app.example.com tsx scripts/e2e-calendar-check.ts
+
+
+Acceptance
+
+Prints HTTP status/bodies for numeric & q-style submissions.
+
+Confirms at least one new event row per successful submit.
+
+Duplicate submit doesn’t inflate count (>1).
+
+Shows last 10 events with dd/mm/yyyy HH:mm.

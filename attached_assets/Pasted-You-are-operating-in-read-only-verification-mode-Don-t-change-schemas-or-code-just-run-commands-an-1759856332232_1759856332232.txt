@@ -1,0 +1,82 @@
+You are operating in read-only verification mode. Don’t change schemas or code; just run commands and print results.
+
+Goal
+- Prove CRM-first flow works end-to-end:
+  1) Submit lead → CRM event visible immediately
+  2) Run outbox once → provider_event_id set (linked to Google)
+  3) Run Google sync DRY RUN → no deletions; missing events are repushed/unlinked
+  4) Confirm CRM calendar UI API returns the new lead event
+
+Steps
+
+1) Resolve active form + date question id
+export BASE_URL="${BASE_URL:-http://localhost:5000}"
+export TENANT_ID="${TENANT_ID:-default-tenant}"
+export SLUG="${LCF_SLUG:-$(psql "$DATABASE_URL" -t -c "SELECT slug FROM lead_capture_forms WHERE is_active = true LIMIT 1;")}"
+export DATE_QID=$(psql "$DATABASE_URL" -t -c "
+  SELECT (jsonb_path_query(questions::jsonb, '$[*] ? (@.mapTo == \"projectDate\")')->>'id')
+  FROM lead_capture_forms
+  WHERE slug='${SLUG}'
+  LIMIT 1;" | tr -d '[:space:]')
+echo "SLUG=${SLUG}  DATE_QID=${DATE_QID}"
+
+2) Submit a lead (unique email; date 25/12/2025)
+curl -s -X POST "${BASE_URL}/api/leads/public/${SLUG}/submit" \
+ -H "Content-Type: application/json" \
+ -d '{
+  "data": {
+    "q1":"CRM First Test",
+    "q2":"crm.first+'$(date +%s)'@example.com",
+    "q_1758575106312":"+44 7700 900123",
+    "q_1758575155875":"Wedding",
+    "q3":"Test Venue",
+    "'${DATE_QID}'":"25/12/2025"
+  },
+  "consent": true
+}' | sed -e 's/{/\
+{/g' | head -20
+
+3) Confirm CRM wrote the event (should appear in your CRM calendar UI source)
+psql "$DATABASE_URL" -c "
+SELECT id, title, type,
+       CASE WHEN is_cancelled THEN 'cancelled' ELSE 'confirmed' END AS status_text,
+       calendar_id,
+       (provider_event_id IS NOT NULL) AS linked,
+       to_char(start_date,'DD/MM/YYYY HH24:MI') AS start
+FROM events
+WHERE tenant_id='${TENANT_ID}'
+ORDER BY created_at DESC
+LIMIT 10;"
+
+4) Run the outbox worker ONCE (replace with your actual command)
+echo "Run your outbox worker now, e.g.: tsx server/workers/googleOutboxWorker.ts"
+# After running it, confirm provider_event_id set:
+psql "$DATABASE_URL" -c "
+SELECT title, type, (provider_event_id IS NOT NULL) AS linked,
+       to_char(start_date,'DD/MM/YYYY HH24:MI') AS start
+FROM events
+WHERE tenant_id='${TENANT_ID}'
+ORDER BY created_at DESC
+LIMIT 5;"
+
+5) Run Google sync in DRY RUN (no deletions; repush/unlink allowed)
+export GOOGLE_SYNC_REPUSH_ON_MISSING=true
+export GOOGLE_SYNC_DRY_RUN=true
+echo "Run your google sync job here in DRY RUN mode."
+# Show sync/outbox logs:
+grep -a "google.outbox\|google.sync" /tmp/logs/Start_application* | tail -120 || true
+
+6) Verify CRM Calendar UI API returns lead events (adjust if your route differs)
+curl -s "${BASE_URL}/api/events?limit=10" \
+ | sed -e 's/{/\
+{/g' | head -50
+# If your UI uses a different endpoint, call that one instead.
+
+7) PASS/FAIL summary (quick rules)
+# PASS when:
+#  - Step 3 shows the new event (type='lead') immediately after submit
+#  - Step 4 shows linked=true for that event (provider_event_id set)
+#  - Logs contain one of:
+#       INFO google.outbox.create / update
+#       INFO google.sync.provider_missing / protect_crm / repush_scheduled / unlinked / summary
+#  - Step 6 returns the event in the UI feed

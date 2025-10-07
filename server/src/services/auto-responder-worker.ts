@@ -141,10 +141,39 @@ class AutoResponderWorker {
         throw new Error(result.error || 'Email dispatch failed');
       }
 
+      // Store the sent email in the database for project email tracking
+      if (result.messageId && lead.projectId) {
+        try {
+          const createdBy = template.createdBy || log.tenantId;
+          await storage.createEmail({
+            tenantId: log.tenantId,
+            userId: createdBy,
+            threadId: result.messageId,
+            fromEmail: result.fromEmail || '',
+            toEmails: [lead.email],
+            ccEmails: [],
+            bccEmails: [],
+            subject,
+            bodyText: textBody,
+            bodyHtml: htmlBody,
+            sentAt: new Date(),
+            projectId: lead.projectId,
+            isSent: true,
+            direction: 'outbound',
+            snippet: textBody?.substring(0, 100)
+          }, log.tenantId);
+          console.log(`[AutoResponderWorker] Stored auto-responder email in database for project ${lead.projectId}`);
+        } catch (dbError) {
+          console.error(`[AutoResponderWorker] Failed to store email in database:`, dbError);
+          // Continue - email was sent successfully
+        }
+      }
+
       // Update log to sent
       await storage.updateAutoResponderLog(log.id, {
         status: 'sent',
         sentAt: new Date(),
+        providerMessageId: result.messageId || null,
         errorMessage: null
       }, log.tenantId);
 

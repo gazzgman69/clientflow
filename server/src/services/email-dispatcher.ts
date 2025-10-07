@@ -33,7 +33,7 @@ export class EmailDispatcher {
   /**
    * Send email using any available provider for the tenant (for auto-responders)
    */
-  async sendEmail(params: DispatchEmailParams & { tenantId: string }): Promise<{ success: boolean; messageId?: string; error?: string }> {
+  async sendEmail(params: DispatchEmailParams & { tenantId: string }): Promise<{ success: boolean; messageId?: string; fromEmail?: string; error?: string }> {
     try {
       // Get any connected email account for this tenant
       const users = await storage.getUsers(params.tenantId);
@@ -48,6 +48,7 @@ export class EmailDispatcher {
           return {
             success: result.ok,
             messageId: result.messageId,
+            fromEmail: result.fromEmail,
             error: result.error
           };
         }

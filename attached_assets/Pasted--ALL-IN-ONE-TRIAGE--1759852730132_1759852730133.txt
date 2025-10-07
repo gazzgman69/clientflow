@@ -1,0 +1,159 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# ALL-IN-ONE TRIAGE: “In Google but not in my Calendar UI”
+# Read-only checks first; safe fix snippets included at the end (commented).
+# ─────────────────────────────────────────────────────────────────────────────
+
+# 0) Context
+export TENANT_ID="${TENANT_ID:-default-tenant}"
+export BASE_URL="${BASE_URL:-http://localhost:5000}"
+export SLUG="${LCF_SLUG:-$(psql "$DATABASE_URL" -t -c "SELECT slug FROM lead_capture_forms WHERE is_active = true LIMIT 1;")}"
+
+# UI time window (wide enough to catch lead events)
+FROM=$(date -u +"%Y-%m-01")
+TO=$(date -u -d "+90 days" +"%Y-%m-%d")
+
+echo "────────────────────────────────────────────────────────"
+echo "TENANT_ID=${TENANT_ID}"
+echo "BASE_URL=${BASE_URL}"
+echo "SLUG=${SLUG}"
+echo "UI window: ${FROM} → ${TO}"
+echo "────────────────────────────────────────────────────────"
+
+# 1) DB — newest events (proof they exist locally; dd/mm/yyyy HH:mm)
+echo "#1) DB: newest 15 events"
+psql "$DATABASE_URL" -c "
+SELECT id, title, type, status, calendar_id,
+       to_char(start_date,'DD/MM/YYYY HH24:MI') AS start,
+       to_char(created_at,'DD/MM/YYYY HH24:MI') AS created
+FROM events
+WHERE tenant_id='${TENANT_ID}'
+ORDER BY created_at DESC
+LIMIT 15;"
+
+# 2) DB — calendars visible to the UI
+echo
+echo "#2) DB: calendars (check is_visible / provider)"
+psql "$DATABASE_URL" -c "
+SELECT id, name, provider, provider_calendar_id, is_visible, is_primary, kind,
+       to_char(created_at,'DD/MM/YYYY HH24:MI') AS created
+FROM calendars
+WHERE tenant_id='${TENANT_ID}'
+ORDER BY created_at DESC;"
+
+# 3) API — does the UI endpoint return your event in the visible window?
+echo
+echo "#3) API: /api/calendar/events (first 400 lines)"
+curl -s "${BASE_URL}/api/calendar/events?from=${FROM}&to=${TO}" | head -400
+
+# 4) Fast flags — common reasons UI hides events
+echo
+echo "#4A) Events with NULL calendar_id (can’t display without a calendar)"
+psql "$DATABASE_URL" -c "
+SELECT id, title, type,
+       to_char(start_date,'DD/MM/YYYY HH24:MI') AS start
+FROM events
+WHERE tenant_id='${TENANT_ID}' AND calendar_id IS NULL
+ORDER BY created_at DESC
+LIMIT 20;"
+
+echo
+echo "#4B) Leads calendar visibility"
+psql "$DATABASE_URL" -c "
+SELECT id, name, is_visible
+FROM calendars
+WHERE tenant_id='${TENANT_ID}' AND name ILIKE '%lead%';"
+
+echo
+echo "#4C) Events hidden by status"
+psql "$DATABASE_URL" -c "
+SELECT id, title, status,
+       to_char(start_date,'DD/MM/YYYY HH24:MI') AS start
+FROM events
+WHERE tenant_id='${TENANT_ID}' AND status IN ('cancelled','hidden')
+ORDER BY created_at DESC
+LIMIT 20;"
+
+echo
+echo "#4D) Timezone sanity (could the start slip out of UI range?)"
+psql "$DATABASE_URL" -c "
+SELECT id, title,
+       start_date AT TIME ZONE 'UTC'               AS start_utc,
+       start_date AT TIME ZONE 'Europe/London'     AS start_london
+FROM events
+WHERE tenant_id='${TENANT_ID}'
+ORDER BY created_at DESC
+LIMIT 10;"
+
+# 5) Provider linkage (useful when it’s in Google but UI has a mismatch)
+echo
+echo "#5) Provider linkage on recent events"
+psql "$DATABASE_URL" -c "
+SELECT id, title, provider, provider_event_id, calendar_id,
+       to_char(start_date,'DD/MM/YYYY HH24:MI') AS start
+FROM events
+WHERE tenant_id='${TENANT_ID}'
+ORDER BY created_at DESC
+LIMIT 20;"
+
+# 6) App logs for duplicate-skip / created messages
+echo
+echo "#6) Logs: created vs duplicate-skip (last 40 lines)"
+grep -a "calendar.event.created\|calendar.event.duplicate_skipped" /tmp/logs/Start_application* | tail -40 || true
+
+# 7) One-shot summary (events joined to calendar visibility)
+echo
+echo "#7) SUMMARY (last 10)"
+psql "$DATABASE_URL" -c "
+WITH latest AS (
+  SELECT e.id, e.title, e.type, e.status, e.calendar_id,
+         to_char(e.start_date,'DD/MM/YYYY HH24:MI') AS start,
+         c.name AS calendar_name, c.is_visible, c.provider
+  FROM events e
+  LEFT JOIN calendars c ON c.id = e.calendar_id
+  WHERE e.tenant_id='${TENANT_ID}'
+  ORDER BY e.created_at DESC
+  LIMIT 10
+)
+SELECT * FROM latest;"
+
+# ──────────────────────────────────────────────────────────────
+# SAFE FIX SNIPPETS (UNCOMMENT AND FILL IDS ONLY IF NEEDED)
+# ──────────────────────────────────────────────────────────────
+# 8) Attach an event with NULL calendar_id to a visible “Leads” calendar
+#: <<'FIX_NULL_CAL'
+# LEADS_CAL_ID=$(psql "$DATABASE_URL" -t -c "
+#   SELECT id FROM calendars
+#   WHERE tenant_id='${TENANT_ID}' AND name ILIKE '%lead%' AND is_visible=true
+#   ORDER BY created_at ASC LIMIT 1;")
+# echo "LEADS_CAL_ID=$LEADS_CAL_ID"
+# EVENT_ID="<PASTE_EVENT_ID_WITH_NULL_CALENDAR_ID>"
+# psql "$DATABASE_URL" -c "
+# UPDATE events
+# SET calendar_id='${LEADS_CAL_ID}'
+# WHERE id='${EVENT_ID}' AND tenant_id='${TENANT_ID}';"
+# FIX_NULL_CAL
+
+# 9) Make a specific calendar visible to the UI
+#: <<'FIX_VIS'
+# CAL_ID="<PASTE_CALENDAR_ID>"
+# psql "$DATABASE_URL" -c "
+# UPDATE calendars
+# SET is_visible = true
+# WHERE id='${CAL_ID}' AND tenant_id='${TENANT_ID}';"
+# FIX_VIS
+
+# 10) Unhide an event status for UI visibility
+#: <<'FIX_STATUS'
+# EVENT_ID="<PASTE_EVENT_ID>"
+# psql "$DATABASE_URL" -c "
+# UPDATE events
+# SET status = 'confirmed'
+# WHERE id='${EVENT_ID}' AND tenant_id='${TENANT_ID}';"
+# FIX_STATUS
+
+echo
+echo "Done. Review sections #1–#7:"
+echo "- If DB shows the event but calendar_id is NULL → use snippet #8."
+echo "- If calendar exists but is_visible=false → use snippet #9."
+echo "- If status=cancelled/hidden and UI filters hide it → use snippet #10."
+echo "- If API (#3) doesn’t include the event while DB does, check date window and filters."

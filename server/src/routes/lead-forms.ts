@@ -664,16 +664,31 @@ router.post('/:slug/submit', formSubmissionLimiter, async (req, res) => {
               if (lead && lead.projectDate) {
                 try {
                   const eventStart = new Date(lead.projectDate);
+                  
+                  // Detect if projectDate is date-only (no time component)
+                  const projectDateStr = String(lead.projectDate);
+                  const isDateOnly = /^\d{4}-\d{2}-\d{2}$/.test(projectDateStr) || 
+                                     (eventStart.getHours() === 0 && eventStart.getMinutes() === 0 && eventStart.getSeconds() === 0);
+                  
+                  // For date-only: all-day + transparent (free). For timed: 1-hour + busy
                   const eventEnd = new Date(eventStart);
-                  eventEnd.setHours(eventEnd.getHours() + 1); // Default 1-hour duration
+                  if (!isDateOnly) {
+                    eventEnd.setHours(eventEnd.getHours() + 1); // Timed event: 1-hour duration
+                  }
                   
                   // Create event with 17hats-style title: "New Lead Project • [Name]"
                   const leadName = lead.fullName || lead.email || 'Unknown';
                   const eventTitle = `New Lead Project • ${leadName}`;
                   
+                  // Build description with form details + "Time TBC" if date-only
+                  let eventDescription = lead.notes || '';
+                  if (isDateOnly) {
+                    eventDescription = `Time TBC\n\n${eventDescription}`.trim();
+                  }
+                  
                   const createdEvent = await tenantStorage.createEvent({
                     title: eventTitle,
-                    description: lead.notes || undefined,
+                    description: eventDescription || undefined,
                     startDate: eventStart,
                     endDate: eventEnd,
                     location: lead.eventLocation || undefined,
@@ -683,7 +698,8 @@ router.post('/:slug/submit', formSubmissionLimiter, async (req, res) => {
                     projectId: project.id, // Link to project so it updates with project changes
                     contactId: null, // Explicitly set to null to avoid CASCADE delete when contact is deleted
                     type: 'lead',
-                    allDay: false,
+                    allDay: isDateOnly,
+                    transparency: isDateOnly ? 'free' : 'busy',
                     createdBy: userId || form.createdBy
                   });
                   
@@ -1096,12 +1112,27 @@ router.post('/:slug/submit', formSubmissionLimiter, async (req, res) => {
       console.log('✅ Starting calendar event creation for lead:', lead.id);
       try {
         const eventStart = new Date(lead.projectDate);
+        
+        // Detect if projectDate is date-only (no time component)
+        const projectDateStr = String(lead.projectDate);
+        const isDateOnly = /^\d{4}-\d{2}-\d{2}$/.test(projectDateStr) || 
+                           (eventStart.getHours() === 0 && eventStart.getMinutes() === 0 && eventStart.getSeconds() === 0);
+        
+        // For date-only: all-day + transparent (free). For timed: 1-hour + busy
         const eventEnd = new Date(eventStart);
-        eventEnd.setHours(eventEnd.getHours() + 1); // Default 1-hour duration
+        if (!isDateOnly) {
+          eventEnd.setHours(eventEnd.getHours() + 1); // Timed event: 1-hour duration
+        }
         
         // Create event with 17hats-style title: "New Lead Project • [Name]"
         const leadName = lead.fullName || lead.email || 'Unknown';
         const eventTitle = `New Lead Project • ${leadName}`;
+        
+        // Build description with form details + "Time TBC" if date-only
+        let eventDescription = lead.notes || '';
+        if (isDateOnly) {
+          eventDescription = `Time TBC\n\n${eventDescription}`.trim();
+        }
         
         console.log('🔍 Getting Leads Calendar for tenant:', form.tenantId);
         // Get Leads Calendar for this tenant (tenantId handled by wrapper)
@@ -1143,7 +1174,7 @@ router.post('/:slug/submit', formSubmissionLimiter, async (req, res) => {
         } else {
           const created = await tenantStorage.createEvent({
             title: eventTitle,
-            description: lead.notes || undefined,
+            description: eventDescription || undefined,
             startDate: eventStart,
             endDate: eventEnd,
             location: lead.eventLocation || undefined,
@@ -1153,7 +1184,8 @@ router.post('/:slug/submit', formSubmissionLimiter, async (req, res) => {
             projectId: project.id, // Link to project so it updates with project changes
             contactId: null, // Explicitly set to null to avoid CASCADE delete when contact is deleted
             type: 'lead',
-            allDay: false,
+            allDay: isDateOnly,
+            transparency: isDateOnly ? 'free' : 'busy',
             createdBy: userId || form.createdBy
           });
           

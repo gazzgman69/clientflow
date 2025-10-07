@@ -139,7 +139,8 @@ export class MicrosoftCalendarService {
         content: eventData.description || '',
         contentType: 'text'
       },
-      isAllDay: eventData.allDay || false
+      isAllDay: eventData.allDay || false,
+      showAs: (eventData as any).transparency === 'free' ? 'free' : 'busy'
     };
 
     if (eventData.startDate) {

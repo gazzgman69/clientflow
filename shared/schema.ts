@@ -636,6 +636,7 @@ export const events = pgTable("events", {
   startDate: timestamp("start_date").notNull(),
   endDate: timestamp("end_date").notNull(),
   allDay: boolean("all_day").default(false),
+  transparency: text("transparency").default('busy'), // 'free' or 'busy' - for calendar availability
   recurring: boolean("recurring").default(false),
   recurrenceRule: text("recurrence_rule"), // RRULE format for recurring events
   type: text("type").notNull().default('meeting'), // meeting, call, event, appointment, reminder

@@ -23,6 +23,7 @@ interface GoogleCalendarEvent {
     displayName?: string;
   }>;
   status?: string;
+  transparency?: 'transparent' | 'opaque';
   recurrence?: string[];
   reminders?: {
     useDefault?: boolean;
@@ -255,7 +256,8 @@ class GoogleCalendarService {
       summary: crmEvent.title,
       description: crmEvent.description || undefined,
       location: crmEvent.location || undefined,
-      status: crmEvent.status === 'cancelled' ? 'cancelled' : 'confirmed'
+      status: crmEvent.status === 'cancelled' ? 'cancelled' : 'confirmed',
+      transparency: (crmEvent as any).transparency === 'free' ? 'transparent' : 'opaque'
     };
     
     if (crmEvent.allDay) {

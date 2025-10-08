@@ -175,7 +175,7 @@ export function TokenDropdown({
       
       <DropdownMenuContent 
         ref={menuRef}
-        className="w-80 p-0 !max-h-96"
+        className="w-80 p-0"
         align="start"
         data-testid="token-dropdown-content"
       >
@@ -211,56 +211,58 @@ export function TokenDropdown({
           </div>
         </div>
 
-        {isLoading ? (
-          <div className="p-4 text-center text-muted-foreground">
-            Loading tokens...
-          </div>
-        ) : filteredTokens.length === 0 ? (
-          <div className="p-4 text-center text-muted-foreground">
-            {searchQuery ? 'No tokens found' : 'No tokens available'}
-          </div>
-        ) : (
-          <div className="p-2 space-y-3">
-            {Object.entries(groupedFilteredTokens).map(([category, categoryTokens]) => (
-              <div key={category} className="space-y-1">
-                <div className="flex items-center gap-2 px-2 py-1">
-                  <Badge 
-                    variant="secondary" 
-                    className={`text-xs font-medium ${getCategoryColor(category)}`}
-                  >
-                    {getCategoryDisplayName(category)}
-                  </Badge>
-                  <span className="text-xs text-muted-foreground">
-                    {categoryTokens.length} token{categoryTokens.length !== 1 ? 's' : ''}
-                  </span>
-                </div>
-                
-                {categoryTokens.map((item, index) => {
-                  const globalIndex = filteredTokens.findIndex(t => t === item);
-                  const isSelected = globalIndex === selectedIndex;
-                  
-                  return (
-                    <div
-                      key={`${category}-${item.token}`}
-                      className={`px-2 py-2 rounded cursor-pointer transition-colors ${
-                        isSelected ? 'bg-accent text-accent-foreground' : 'hover:bg-muted'
-                      }`}
-                      onClick={() => handleTokenSelect(item.fullToken)}
-                      data-testid={`token-option-${category}-${item.token.replace(/[^a-zA-Z0-9]/g, '-')}`}
+        <ScrollArea className="h-96">
+          {isLoading ? (
+            <div className="p-4 text-center text-muted-foreground">
+              Loading tokens...
+            </div>
+          ) : filteredTokens.length === 0 ? (
+            <div className="p-4 text-center text-muted-foreground">
+              {searchQuery ? 'No tokens found' : 'No tokens available'}
+            </div>
+          ) : (
+            <div className="p-2 space-y-3">
+              {Object.entries(groupedFilteredTokens).map(([category, categoryTokens]) => (
+                <div key={category} className="space-y-1">
+                  <div className="flex items-center gap-2 px-2 py-1">
+                    <Badge 
+                      variant="secondary" 
+                      className={`text-xs font-medium ${getCategoryColor(category)}`}
                     >
-                      <div className="font-mono text-sm font-medium text-primary">
-                        {item.fullToken}
+                      {getCategoryDisplayName(category)}
+                    </Badge>
+                    <span className="text-xs text-muted-foreground">
+                      {categoryTokens.length} token{categoryTokens.length !== 1 ? 's' : ''}
+                    </span>
+                  </div>
+                  
+                  {categoryTokens.map((item, index) => {
+                    const globalIndex = filteredTokens.findIndex(t => t === item);
+                    const isSelected = globalIndex === selectedIndex;
+                    
+                    return (
+                      <div
+                        key={`${category}-${item.token}`}
+                        className={`px-2 py-2 rounded cursor-pointer transition-colors ${
+                          isSelected ? 'bg-accent text-accent-foreground' : 'hover:bg-muted'
+                        }`}
+                        onClick={() => handleTokenSelect(item.fullToken)}
+                        data-testid={`token-option-${category}-${item.token.replace(/[^a-zA-Z0-9]/g, '-')}`}
+                      >
+                        <div className="font-mono text-sm font-medium text-primary">
+                          {item.fullToken}
+                        </div>
+                        <div className="text-xs text-muted-foreground mt-1">
+                          {item.description}
+                        </div>
                       </div>
-                      <div className="text-xs text-muted-foreground mt-1">
-                        {item.description}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            ))}
-          </div>
-        )}
+                    );
+                  })}
+                </div>
+              ))}
+            </div>
+          )}
+        </ScrollArea>
       </DropdownMenuContent>
     </DropdownMenu>
   );

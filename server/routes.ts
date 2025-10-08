@@ -3036,6 +3036,12 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   });
 
   app.patch("/api/contracts/:id", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
+    console.log('[CONTRACT UPDATE] Handler called - Route reached!', {
+      contractId: req.params.id,
+      tenantId: req.tenantId,
+      userId: req.session?.userId
+    });
+    
     try {
       console.log('[CONTRACT UPDATE] Request body:', JSON.stringify(req.body, null, 2));
       const contractData = insertContractSchema.partial().parse(req.body);

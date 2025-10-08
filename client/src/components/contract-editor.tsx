@@ -99,7 +99,7 @@ export default function ContractEditor({
   return (
     <div className="border rounded-lg">
       {/* Toolbar */}
-      <div className="border-b bg-muted/30 p-2 flex flex-wrap gap-1 items-center">
+      <div className="sticky top-0 z-10 border-b bg-background p-2 flex flex-wrap gap-1 items-center">
         <Toggle
           size="sm"
           pressed={editor.isActive('bold')}

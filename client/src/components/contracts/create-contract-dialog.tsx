@@ -86,7 +86,8 @@ export default function CreateContractDialog({
     isLoadingTemplates, 
     templatesError, 
     open,
-    hasTemplates: templates && templates.length > 0 
+    hasTemplates: templates && templates.length > 0,
+    errorMessage: templatesError?.message || 'No error message'
   });
 
   const form = useForm<z.infer<typeof createContractFormSchema>>({

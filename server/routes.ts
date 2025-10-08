@@ -3254,7 +3254,10 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   app.get("/api/contacts/:contactId/contracts", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
     try {
       const contracts = await storage.getContractsByClient(req.params.contactId);
-      console.log('[CONTRACTS LIST] First contract dueDate:', contracts[0]?.dueDate, 'has dueDate?', !!contracts[0]?.dueDate);
+      console.log('[CONTRACTS LIST] Total contracts:', contracts.length);
+      contracts.forEach((c, i) => {
+        console.log(`[CONTRACT ${i}] id: ${c.id}, title: ${c.title}, dueDate: ${c.dueDate}, type: ${typeof c.dueDate}`);
+      });
       res.json(contracts);
     } catch (error) {
       console.error("Error fetching contracts for contact:", error);

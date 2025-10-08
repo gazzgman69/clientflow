@@ -175,11 +175,11 @@ export function TokenDropdown({
       
       <DropdownMenuContent 
         ref={menuRef}
-        className="w-80 p-0"
+        className="w-80 p-0 max-h-[600px] flex flex-col"
         align="start"
         data-testid="token-dropdown-content"
       >
-        <div className="p-3 border-b">
+        <div className="p-3 border-b flex-shrink-0">
           <div className="relative">
             <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
@@ -211,7 +211,7 @@ export function TokenDropdown({
           </div>
         </div>
 
-        <div className="max-h-96 overflow-y-auto">
+        <div className="flex-1 overflow-y-auto min-h-0">
           {isLoading ? (
             <div className="p-4 text-center text-muted-foreground">
               Loading tokens...
@@ -264,7 +264,7 @@ export function TokenDropdown({
           )}
         </div>
 
-        <div className="p-2 border-t bg-muted/50 text-xs text-muted-foreground">
+        <div className="p-2 border-t bg-muted/50 text-xs text-muted-foreground flex-shrink-0">
           <div className="flex items-center justify-between">
             <span>Use ↑↓ to navigate, Enter to select</span>
             <span>Esc to close</span>

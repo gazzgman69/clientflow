@@ -106,21 +106,14 @@ export default function CreateContractDialog({
 
   const createContractMutation = useMutation({
     mutationFn: async (data: z.infer<typeof createContractFormSchema>) => {
-      console.log('🚀 Mutation started with data:', data);
-      console.log('🚀 bodyHtml:', bodyHtml);
-      console.log('🚀 formFields:', formFields);
-      
       const contractData = {
         ...data,
         bodyHtml,
         formFields: JSON.stringify(formFields),
       };
       
-      console.log('🚀 Contract data to be sent:', contractData);
       const response = await apiRequest('POST', '/api/contracts', contractData);
-      console.log('🚀 Response received:', response);
       const contract = await response.json();
-      console.log('🚀 Contract created:', contract);
       
       // If save as template is checked, also create a template
       if (saveAsTemplate) {
@@ -134,16 +127,7 @@ export default function CreateContractDialog({
           bodyHtml,
           formFields: JSON.stringify(formFields),
         };
-        console.log('🎯 Creating template with data:', templateData);
-        try {
-          const templateResponse = await apiRequest('POST', '/api/contract-templates', templateData);
-          console.log('🎯 Template response:', templateResponse);
-          const template = await templateResponse.json();
-          console.log('🎯 Template created:', template);
-        } catch (error) {
-          console.error('🎯 Template creation error:', error);
-          throw error;
-        }
+        await apiRequest('POST', '/api/contract-templates', templateData);
       }
       
       return contract;
@@ -196,8 +180,6 @@ export default function CreateContractDialog({
   }, [selectedTemplateId, templates, form]);
 
   const onSubmit = (data: z.infer<typeof createContractFormSchema>) => {
-    console.log('Form submitted with data:', data);
-    console.log('Form errors:', form.formState.errors);
     createContractMutation.mutate(data);
   };
 

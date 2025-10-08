@@ -109,7 +109,6 @@ export default function CalendarView({ viewMode = 'month' }: CalendarViewProps) 
       endDate: "",
       allDay: false,
       location: "",
-      type: "meeting",
       status: "confirmed",
       priority: "medium",
       attendees: "",
@@ -270,7 +269,6 @@ export default function CalendarView({ viewMode = 'month' }: CalendarViewProps) 
       endDate: endDateTime.toISOString().slice(0, 16),
       allDay: false,
       location: "",
-      type: "meeting",
       status: "confirmed",
       priority: "medium",
       attendees: "",
@@ -306,7 +304,6 @@ export default function CalendarView({ viewMode = 'month' }: CalendarViewProps) 
       endDate: formatForInput(endDate),
       allDay: event.allDay,
       location: event.location || "",
-      type: event.type as any,
       status: event.status as any,
       priority: event.priority as any,
       attendees: event.attendees ? event.attendees.join(', ') : "",
@@ -504,7 +501,7 @@ export default function CalendarView({ viewMode = 'month' }: CalendarViewProps) 
                               {dayEvents.map((event, eventIndex) => (
                                 <div
                                   key={event.id}
-                                  className={`text-xs p-1 rounded cursor-pointer hover:opacity-80 ${getEventTypeColor(event.type)}`}
+                                  className="text-xs p-1 rounded cursor-pointer hover:opacity-80 bg-primary/10 text-primary"
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     handleEditEvent(event);
@@ -621,58 +618,29 @@ export default function CalendarView({ viewMode = 'month' }: CalendarViewProps) 
                 )}
               />
               
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <FormField
-                  control={form.control}
-                  name="type"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Event Type</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <FormControl>
-                          <SelectTrigger data-testid="select-event-type">
-                            <SelectValue />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="meeting">Meeting</SelectItem>
-                          <SelectItem value="call">Call</SelectItem>
-                          <SelectItem value="email">Email</SelectItem>
-                          <SelectItem value="task">Task</SelectItem>
-                          <SelectItem value="deadline">Deadline</SelectItem>
-                          <SelectItem value="reminder">Reminder</SelectItem>
-                          <SelectItem value="other">Other</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="priority"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Priority</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <FormControl>
-                          <SelectTrigger data-testid="select-event-priority">
-                            <SelectValue />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="low">Low</SelectItem>
-                          <SelectItem value="medium">Medium</SelectItem>
-                          <SelectItem value="high">High</SelectItem>
-                          <SelectItem value="urgent">Urgent</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
+              <FormField
+                control={form.control}
+                name="priority"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Priority</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormControl>
+                        <SelectTrigger data-testid="select-event-priority">
+                          <SelectValue />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="low">Low</SelectItem>
+                        <SelectItem value="medium">Medium</SelectItem>
+                        <SelectItem value="high">High</SelectItem>
+                        <SelectItem value="urgent">Urgent</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
               
               <FormField
                 control={form.control}
@@ -795,7 +763,7 @@ export default function CalendarView({ viewMode = 'month' }: CalendarViewProps) 
                       {getUpcomingEvents().map((event, index) => (
                         <div
                           key={event.id}
-                          className={`p-3 rounded-lg cursor-pointer border transition-colors hover:bg-muted/50 ${getEventTypeColor(event.type)}`}
+                          className="p-3 rounded-lg cursor-pointer border transition-colors hover:bg-muted/50"
                           onClick={() => {
                             setShowAllEventsModal(false);
                             handleEditEvent(event);
@@ -819,9 +787,6 @@ export default function CalendarView({ viewMode = 'month' }: CalendarViewProps) 
                               {event.location}
                             </div>
                           )}
-                          <Badge variant="outline" className="text-xs mt-2">
-                            {event.type}
-                          </Badge>
                         </div>
                       ))}
                     </div>
@@ -839,7 +804,7 @@ export default function CalendarView({ viewMode = 'month' }: CalendarViewProps) 
                         .map((event, index) => (
                           <div
                             key={event.id}
-                            className={`p-3 rounded-lg cursor-pointer border transition-colors hover:bg-muted/50 opacity-75 ${getEventTypeColor(event.type)}`}
+                            className="p-3 rounded-lg cursor-pointer border transition-colors hover:bg-muted/50 opacity-75"
                             onClick={() => {
                               setShowAllEventsModal(false);
                               handleEditEvent(event);
@@ -863,9 +828,6 @@ export default function CalendarView({ viewMode = 'month' }: CalendarViewProps) 
                                 {event.location}
                               </div>
                             )}
-                            <Badge variant="outline" className="text-xs mt-2">
-                              {event.type}
-                            </Badge>
                           </div>
                         ))
                       }
@@ -922,7 +884,7 @@ export default function CalendarView({ viewMode = 'month' }: CalendarViewProps) 
             {selectedDayEvents?.events.map((event, index) => (
               <div
                 key={event.id}
-                className={`p-3 rounded-lg cursor-pointer border transition-colors hover:bg-muted/50 ${getEventTypeColor(event.type)}`}
+                className="p-3 rounded-lg cursor-pointer border transition-colors hover:bg-muted/50"
                 onClick={() => {
                   setShowDayEventsModal(false);
                   handleEditEvent(event);
@@ -946,9 +908,6 @@ export default function CalendarView({ viewMode = 'month' }: CalendarViewProps) 
                     {event.location}
                   </div>
                 )}
-                <Badge variant="outline" className="text-xs mt-2">
-                  {event.type}
-                </Badge>
               </div>
             )) || (
               <div className="text-center py-4 text-muted-foreground">

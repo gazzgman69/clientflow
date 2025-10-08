@@ -175,12 +175,11 @@ export function TokenDropdown({
       
       <DropdownMenuContent 
         ref={menuRef}
-        className="w-80 p-0 !max-h-[200px] !overflow-y-scroll pointer-events-auto"
+        className="w-80 p-0 !max-h-[400px] flex flex-col !overflow-hidden pointer-events-auto"
         align="start"
         data-testid="token-dropdown-content"
-        onWheel={(e) => e.stopPropagation()}
       >
-        <div className="p-3 border-b bg-background">
+        <div className="p-3 border-b bg-background shrink-0">
           <div className="relative">
             <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
@@ -212,16 +211,20 @@ export function TokenDropdown({
           </div>
         </div>
 
-        {isLoading ? (
-          <div className="p-4 text-center text-muted-foreground">
-            Loading tokens...
-          </div>
-        ) : filteredTokens.length === 0 ? (
-          <div className="p-4 text-center text-muted-foreground">
-            {searchQuery ? 'No tokens found' : 'No tokens available'}
-          </div>
-        ) : (
-          <div className="p-2 space-y-3">
+        <div 
+          className="flex-1 overflow-y-auto min-h-0"
+          onWheel={(e) => e.stopPropagation()}
+        >
+          {isLoading ? (
+            <div className="p-4 text-center text-muted-foreground">
+              Loading tokens...
+            </div>
+          ) : filteredTokens.length === 0 ? (
+            <div className="p-4 text-center text-muted-foreground">
+              {searchQuery ? 'No tokens found' : 'No tokens available'}
+            </div>
+          ) : (
+            <div className="p-2 space-y-3">
             {Object.entries(groupedFilteredTokens).map(([category, categoryTokens]) => (
               <div key={category} className="space-y-1">
                 <div className="flex items-center gap-2 px-2 py-1">
@@ -260,8 +263,9 @@ export function TokenDropdown({
                 })}
               </div>
             ))}
-          </div>
-        )}
+            </div>
+          )}
+        </div>
       </DropdownMenuContent>
     </DropdownMenu>
   );

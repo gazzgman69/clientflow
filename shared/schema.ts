@@ -186,21 +186,47 @@ export const contracts = pgTable("contracts", {
   contactId: varchar("contact_id").notNull().references(() => contacts.id, { onDelete: 'cascade' }),
   projectId: varchar("project_id").references(() => projects.id, { onDelete: 'cascade' }),
   quoteId: varchar("quote_id").references(() => quotes.id, { onDelete: 'cascade' }),
-  title: text("title").notNull(),
+  title: text("title").notNull(), // Internal title
+  displayTitle: text("display_title"), // Display title shown to client
   description: text("description"),
+  bodyHtml: text("body_html"), // Rich text content with tokens and embedded forms
   terms: text("terms"),
-  status: text("status").notNull().default('draft'), // draft, sent, signed, cancelled
+  dueDate: timestamp("due_date"), // When contract is due
+  status: text("status").notNull().default('draft'), // draft, sent, awaiting_counter_signature, signed, cancelled
   signedAt: timestamp("signed_at"),
   expiresAt: timestamp("expires_at"),
   // Signature workflow and fields
   signatureWorkflow: text("signature_workflow").default('counter_sign_after_client'), // not_required, sign_upon_creation, counter_sign_after_client
-  businessSignature: text("business_signature"), // Base64 encoded signature or typed name
-  clientSignature: text("client_signature"), // Base64 encoded signature or typed name
+  businessSignature: text("business_signature"), // Typed name for soft signature
+  clientSignature: text("client_signature"), // Typed name for soft signature
   businessSignedAt: timestamp("business_signed_at"),
   clientSignedAt: timestamp("client_signed_at"),
+  // Embedded form fields and responses
+  formFields: text("form_fields"), // JSON array of embedded form field definitions
+  formResponses: text("form_responses"), // JSON object of client responses to form fields
+  sentAt: timestamp("sent_at"), // When contract was sent to client
   createdBy: varchar("created_by").references(() => users.id).notNull(),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Contract Templates table
+export const contractTemplates = pgTable("contract_templates", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").references(() => tenants.id).notNull(),
+  name: text("name").notNull(), // Template name
+  displayTitle: text("display_title"), // Default display title
+  bodyHtml: text("body_html"), // Rich text content with tokens and form fields
+  formFields: text("form_fields"), // JSON array of embedded form field definitions
+  signatureWorkflow: text("signature_workflow").default('counter_sign_after_client'),
+  isDefault: boolean("is_default").default(false), // Mark as default template
+  createdBy: varchar("created_by").references(() => users.id).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => {
+  return {
+    tenantIdIdx: index("contract_templates_tenant_id_idx").on(table.tenantId),
+  };
 });
 
 export const invoices = pgTable("invoices", {
@@ -954,6 +980,7 @@ export const insertContactSchema = createInsertSchema(contacts).omit({ id: true,
 export const insertProjectSchema = createInsertSchema(projects).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertQuoteSchema = createInsertSchema(quotes).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertContractSchema = createInsertSchema(contracts).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertContractTemplateSchema = createInsertSchema(contractTemplates).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertInvoiceSchema = createInsertSchema(invoices).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertTaskSchema = createInsertSchema(tasks).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertEmailThreadSchema = createInsertSchema(emailThreads).omit({ id: true, createdAt: true, updatedAt: true });
@@ -1067,6 +1094,8 @@ export type Quote = typeof quotes.$inferSelect;
 export type InsertQuote = z.infer<typeof insertQuoteSchema>;
 export type Contract = typeof contracts.$inferSelect;
 export type InsertContract = z.infer<typeof insertContractSchema>;
+export type ContractTemplate = typeof contractTemplates.$inferSelect;
+export type InsertContractTemplate = z.infer<typeof insertContractTemplateSchema>;
 export type Invoice = typeof invoices.$inferSelect;
 export type InsertInvoice = z.infer<typeof insertInvoiceSchema>;
 export type Task = typeof tasks.$inferSelect;

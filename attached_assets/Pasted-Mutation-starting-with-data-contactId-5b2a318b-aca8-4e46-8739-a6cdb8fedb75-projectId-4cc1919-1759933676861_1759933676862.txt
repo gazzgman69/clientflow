@@ -1,0 +1,99 @@
+Mutation starting with data: {contactId: '5b2a318b-aca8-4e46-8739-a6cdb8fedb75', projectId: '4cc19196-6f1d-46ce-83a2-965a62b815df', title: 'Club Kudo Contract 2025', displayTitle: 'Club Kudo Contract', bodyHtml: '', …}
+injected.js:27 Sending contract data: {contactId: '5b2a318b-aca8-4e46-8739-a6cdb8fedb75', projectId: '4cc19196-6f1d-46ce-83a2-965a62b815df', title: 'Club Kudo Contract 2025', displayTitle: 'Club Kudo Contract', bodyHtml: '<p>Dear<strong>&nbsp;</strong>[FirstName]<strong> …od, and agreed to the terms of this contract.</p>', …}
+_app-f9c55a4cd60d6608.js:13 An error occurred! For more details, see the full error text at https://go.apollo.dev/c/err#%7B%22version%22%3A%223.14.0%22%2C%22message%22%3A78%2C%22args%22%3A%5B%22useLazyQuery%22%2C%22variables%22%2C%22Pass%20all%20%60variables%60%20to%20the%20returned%20%60execute%60%20function%20instead.%22%5D%7D
+overrideMethod @ hook.js:608
+(anonymous) @ _app-f9c55a4cd60d6608.js:13
+(anonymous) @ _app-f9c55a4cd60d6608.js:30
+(anonymous) @ _app-f9c55a4cd60d6608.js:18
+o @ _app-f9c55a4cd60d6608.js:30
+b @ _app-f9c55a4cd60d6608.js:30
+C @ 6657-0389b1eb3c61b182.js:1
+c @ 6657-0389b1eb3c61b182.js:1
+T @ 6657-0389b1eb3c61b182.js:1
+eE @ 6657-0389b1eb3c61b182.js:1
+ld @ framework-e34fbe5dfc86a706.js:1
+i @ framework-e34fbe5dfc86a706.js:1
+uI @ framework-e34fbe5dfc86a706.js:1
+uM @ framework-e34fbe5dfc86a706.js:1
+u_ @ framework-e34fbe5dfc86a706.js:1
+r6 @ framework-e34fbe5dfc86a706.js:1
+(anonymous) @ framework-e34fbe5dfc86a706.js:1Understand this warning
+_app-f9c55a4cd60d6608.js:13 An error occurred! For more details, see the full error text at https://go.apollo.dev/c/err#%7B%22version%22%3A%223.14.0%22%2C%22message%22%3A78%2C%22args%22%3A%5B%22useQuery%22%2C%22onCompleted%22%2C%22If%20your%20%60onCompleted%60%20callback%20sets%20local%20state%2C%20switch%20to%20use%20derived%20state%20using%20%60data%60%20returned%20from%20the%20hook%20instead.%20Use%20%60useEffect%60%20to%20perform%20side-effects%20as%20a%20result%20of%20updates%20to%20%60data%60.%22%5D%7D
+overrideMethod @ hook.js:608
+(anonymous) @ _app-f9c55a4cd60d6608.js:13
+(anonymous) @ _app-f9c55a4cd60d6608.js:30
+(anonymous) @ _app-f9c55a4cd60d6608.js:18
+o @ _app-f9c55a4cd60d6608.js:30
+O @ _app-f9c55a4cd60d6608.js:30
+T @ _app-f9c55a4cd60d6608.js:30
+d @ 6657-0389b1eb3c61b182.js:1
+c @ 6657-0389b1eb3c61b182.js:1
+d @ 6657-0389b1eb3c61b182.js:1
+T @ 6657-0389b1eb3c61b182.js:1
+eE @ 6657-0389b1eb3c61b182.js:1
+ld @ framework-e34fbe5dfc86a706.js:1
+i @ framework-e34fbe5dfc86a706.js:1
+uI @ framework-e34fbe5dfc86a706.js:1
+uM @ framework-e34fbe5dfc86a706.js:1
+u_ @ framework-e34fbe5dfc86a706.js:1
+r6 @ framework-e34fbe5dfc86a706.js:1
+(anonymous) @ framework-e34fbe5dfc86a706.js:1Understand this warning
+injected.js:204  POST https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/api/contracts 400 (Bad Request)
+apply @ injected.js:204
+apiRequest @ queryClient.ts:66
+await in apiRequest
+mutationFn @ create-contract-dialog.tsx:110
+fn @ @tanstack_react-query.js?v=47958d7b:1189
+run @ @tanstack_react-query.js?v=47958d7b:494
+start @ @tanstack_react-query.js?v=47958d7b:536
+execute @ @tanstack_react-query.js?v=47958d7b:1225
+await in execute
+mutate @ @tanstack_react-query.js?v=47958d7b:2630
+(anonymous) @ @tanstack_react-query.js?v=47958d7b:3295
+onSubmit @ create-contract-dialog.tsx:181
+(anonymous) @ chunk-4BFJKWC4.js?v=47958d7b:1465
+await in (anonymous)
+callCallback2 @ chunk-RPCDYKBN.js?v=47958d7b:3674
+invokeGuardedCallbackDev @ chunk-RPCDYKBN.js?v=47958d7b:3699
+invokeGuardedCallback @ chunk-RPCDYKBN.js?v=47958d7b:3733
+invokeGuardedCallbackAndCatchFirstError @ chunk-RPCDYKBN.js?v=47958d7b:3736
+executeDispatch @ chunk-RPCDYKBN.js?v=47958d7b:7014
+processDispatchQueueItemsInOrder @ chunk-RPCDYKBN.js?v=47958d7b:7034
+processDispatchQueue @ chunk-RPCDYKBN.js?v=47958d7b:7043
+dispatchEventsForPlugins @ chunk-RPCDYKBN.js?v=47958d7b:7051
+(anonymous) @ chunk-RPCDYKBN.js?v=47958d7b:7174
+batchedUpdates$1 @ chunk-RPCDYKBN.js?v=47958d7b:18913
+batchedUpdates @ chunk-RPCDYKBN.js?v=47958d7b:3579
+dispatchEventForPluginEventSystem @ chunk-RPCDYKBN.js?v=47958d7b:7173
+dispatchEventWithEnableCapturePhaseSelectiveHydrationWithoutDiscreteEventReplay @ chunk-RPCDYKBN.js?v=47958d7b:5478
+dispatchEvent @ chunk-RPCDYKBN.js?v=47958d7b:5472
+dispatchDiscreteEvent @ chunk-RPCDYKBN.js?v=47958d7b:5449Understand this error
+injected.js:27 Contract mutation error: Error: 400: {"message":"Invalid contract data"}
+    at throwIfResNotOk (queryClient.ts:6:11)
+    at async apiRequest (queryClient.ts:102:3)
+    at async Object.mutationFn (create-contract-dialog.tsx:110:24)
+(anonymous) @ injected.js:27
+onError @ create-contract-dialog.tsx:151
+execute @ @tanstack_react-query.js?v=47958d7b:1254
+await in execute
+mutate @ @tanstack_react-query.js?v=47958d7b:2630
+(anonymous) @ @tanstack_react-query.js?v=47958d7b:3295
+onSubmit @ create-contract-dialog.tsx:181
+(anonymous) @ chunk-4BFJKWC4.js?v=47958d7b:1465
+await in (anonymous)
+callCallback2 @ chunk-RPCDYKBN.js?v=47958d7b:3674
+invokeGuardedCallbackDev @ chunk-RPCDYKBN.js?v=47958d7b:3699
+invokeGuardedCallback @ chunk-RPCDYKBN.js?v=47958d7b:3733
+invokeGuardedCallbackAndCatchFirstError @ chunk-RPCDYKBN.js?v=47958d7b:3736
+executeDispatch @ chunk-RPCDYKBN.js?v=47958d7b:7014
+processDispatchQueueItemsInOrder @ chunk-RPCDYKBN.js?v=47958d7b:7034
+processDispatchQueue @ chunk-RPCDYKBN.js?v=47958d7b:7043
+dispatchEventsForPlugins @ chunk-RPCDYKBN.js?v=47958d7b:7051
+(anonymous) @ chunk-RPCDYKBN.js?v=47958d7b:7174
+batchedUpdates$1 @ chunk-RPCDYKBN.js?v=47958d7b:18913
+batchedUpdates @ chunk-RPCDYKBN.js?v=47958d7b:3579
+dispatchEventForPluginEventSystem @ chunk-RPCDYKBN.js?v=47958d7b:7173
+dispatchEventWithEnableCapturePhaseSelectiveHydrationWithoutDiscreteEventReplay @ chunk-RPCDYKBN.js?v=47958d7b:5478
+dispatchEvent @ chunk-RPCDYKBN.js?v=47958d7b:5472
+dispatchDiscreteEvent @ chunk-RPCDYKBN.js?v=47958d7b:5449Understand this error
+injected.js:27 Error details: {message: '400: {"message":"Invalid contract data"}', stack: 'Error: 400: {"message":"Invalid contract data"}\n  …reate-contract-dialog.tsx?t=1759933659121:107:24)'}

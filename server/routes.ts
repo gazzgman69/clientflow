@@ -2924,7 +2924,13 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   app.post("/api/contracts", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
     try {
       const contractData = insertContractSchema.parse(req.body);
-      const contract = await storage.createContract(contractData, req.tenantId);
+      const contractNumber = `C-${Date.now()}`;
+      const contract = await storage.createContract({
+        ...contractData,
+        tenantId: req.tenantId!,
+        contractNumber,
+        createdBy: req.session.userId!,
+      });
       res.status(201).json(contract);
     } catch (error) {
       console.error("Contract creation error:", error);

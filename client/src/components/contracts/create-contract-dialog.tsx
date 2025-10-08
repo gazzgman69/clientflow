@@ -100,15 +100,12 @@ export default function CreateContractDialog({
 
   const createContractMutation = useMutation({
     mutationFn: async (data: z.infer<typeof createContractFormSchema>) => {
-      console.log('Mutation starting with data:', data);
       const contractData = {
         ...data,
         bodyHtml,
         formFields: JSON.stringify(formFields),
       };
-      console.log('Sending contract data:', contractData);
       const response = await apiRequest('POST', '/api/contracts', contractData);
-      console.log('Got response:', response.status);
       const contract = await response.json();
       
       // If save as template is checked, also create a template
@@ -148,8 +145,6 @@ export default function CreateContractDialog({
       onOpenChange(false);
     },
     onError: (error: any) => {
-      console.error('Contract mutation error:', error);
-      console.error('Error details:', { message: error?.message, stack: error?.stack });
       toast({
         title: 'Error',
         description: error?.message || 'Failed to create contract. Please try again.',

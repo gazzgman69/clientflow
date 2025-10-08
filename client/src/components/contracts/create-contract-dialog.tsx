@@ -74,9 +74,10 @@ export default function CreateContractDialog({
   });
   const contacts = contactsData?.contacts;
 
-  const { data: projects } = useQuery<Project[]>({
+  const { data: projectsData } = useQuery<{ projects: Project[] }>({
     queryKey: ['/api/projects'],
   });
+  const projects = projectsData?.projects;
 
   const { data: templates } = useQuery<ContractTemplate[]>({
     queryKey: ['/api/contract-templates'],

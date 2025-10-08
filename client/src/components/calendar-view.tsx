@@ -51,7 +51,6 @@ const eventSchema = z.object({
   endDate: z.string().min(1, "End date is required"),
   allDay: z.boolean().default(false),
   location: z.string().optional(),
-  clientId: z.string().optional(),
   projectId: z.string().optional(),
   type: z.enum(['meeting', 'call', 'email', 'task', 'deadline', 'reminder', 'other']).default('meeting'),
   status: z.enum(['confirmed', 'tentative', 'cancelled']).default('confirmed'),
@@ -699,31 +698,6 @@ export default function CalendarView({ viewMode = 'month' }: CalendarViewProps) 
                     <FormControl>
                       <Input {...field} placeholder="Meeting room, address, or online link" data-testid="input-event-location" />
                     </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="clientId"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Related Client</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value || ""}>
-                      <FormControl>
-                        <SelectTrigger data-testid="select-event-client">
-                          <SelectValue placeholder="Select a client..." />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {clients?.map((client) => (
-                          <SelectItem key={client.id} value={client.id}>
-                            {client.firstName} {client.lastName}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
                     <FormMessage />
                   </FormItem>
                 )}

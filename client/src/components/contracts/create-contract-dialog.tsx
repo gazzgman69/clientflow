@@ -72,6 +72,7 @@ export default function CreateContractDialog({
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>('');
   const [saveAsTemplate, setSaveAsTemplate] = useState(false);
   const [templateName, setTemplateName] = useState('');
+  const [datePickerOpen, setDatePickerOpen] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -297,7 +298,7 @@ export default function CreateContractDialog({
                 render={({ field }) => (
                   <FormItem className="flex flex-col">
                     <FormLabel>Due Date:</FormLabel>
-                    <Popover>
+                    <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
                       <PopoverTrigger asChild>
                         <FormControl>
                           <Button
@@ -321,7 +322,10 @@ export default function CreateContractDialog({
                         <Calendar
                           mode="single"
                           selected={field.value ? new Date(field.value) : undefined}
-                          onSelect={(date) => field.onChange(date?.toISOString())}
+                          onSelect={(date) => {
+                            field.onChange(date?.toISOString());
+                            setDatePickerOpen(false);
+                          }}
                           initialFocus
                         />
                       </PopoverContent>

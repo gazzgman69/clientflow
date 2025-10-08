@@ -14,19 +14,18 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Toggle } from '@/components/ui/toggle';
+import TokenDropdown from '@/components/contracts/token-dropdown';
 
 interface ContractEditorProps {
   content: string;
   onChange: (html: string) => void;
-  onInsertToken?: () => void;
-  onInsertForm?: () => void;
+  showFormButton?: boolean;
 }
 
 export default function ContractEditor({ 
   content, 
   onChange,
-  onInsertToken,
-  onInsertForm 
+  showFormButton = true
 }: ContractEditorProps) {
   const editor = useEditor({
     extensions: [
@@ -64,6 +63,17 @@ export default function ContractEditor({
     if (url) {
       editor.chain().focus().setLink({ href: url }).run();
     }
+  };
+
+  const insertToken = (tokenName: string) => {
+    if (!editor) return;
+    editor.chain().focus().insertContent(`{{${tokenName}}}`).run();
+  };
+
+  const insertFormField = () => {
+    // Will be implemented in next task
+    if (!editor) return;
+    alert('Form field insertion will be implemented next');
   };
 
   return (
@@ -145,28 +155,16 @@ export default function ContractEditor({
           <LinkIcon className="h-4 w-4" />
         </Button>
 
-        {onInsertToken && (
-          <>
-            <div className="w-px h-6 bg-border mx-1" />
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              onClick={onInsertToken}
-              className="h-8"
-              data-testid="button-insert-token"
-            >
-              INSERT TOKEN
-            </Button>
-          </>
-        )}
+        <div className="w-px h-6 bg-border mx-1" />
+        
+        <TokenDropdown onInsert={insertToken} />
 
-        {onInsertForm && (
+        {showFormButton && (
           <Button
             type="button"
             size="sm"
             variant="outline"
-            onClick={onInsertForm}
+            onClick={insertFormField}
             className="h-8"
             data-testid="button-insert-form"
           >

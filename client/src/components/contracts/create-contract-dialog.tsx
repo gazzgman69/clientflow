@@ -62,9 +62,10 @@ export default function CreateContractDialog({ open, onOpenChange }: CreateContr
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: contacts } = useQuery<Contact[]>({
+  const { data: contactsData } = useQuery<{ contacts: Contact[] }>({
     queryKey: ['/api/contacts'],
   });
+  const contacts = contactsData?.contacts;
 
   const { data: projects } = useQuery<Project[]>({
     queryKey: ['/api/projects'],

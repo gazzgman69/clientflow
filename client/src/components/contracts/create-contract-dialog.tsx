@@ -106,13 +106,21 @@ export default function CreateContractDialog({
 
   const createContractMutation = useMutation({
     mutationFn: async (data: z.infer<typeof createContractFormSchema>) => {
+      console.log('🚀 Mutation started with data:', data);
+      console.log('🚀 bodyHtml:', bodyHtml);
+      console.log('🚀 formFields:', formFields);
+      
       const contractData = {
         ...data,
         bodyHtml,
         formFields: JSON.stringify(formFields),
       };
+      
+      console.log('🚀 Contract data to be sent:', contractData);
       const response = await apiRequest('POST', '/api/contracts', contractData);
+      console.log('🚀 Response received:', response);
       const contract = await response.json();
+      console.log('🚀 Contract created:', contract);
       
       // If save as template is checked, also create a template
       if (saveAsTemplate) {

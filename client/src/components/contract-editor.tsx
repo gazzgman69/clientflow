@@ -9,7 +9,10 @@ import {
   List, 
   ListOrdered,
   Link as LinkIcon,
-  Strikethrough
+  Quote,
+  Code,
+  Undo,
+  Redo
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Toggle } from '@/components/ui/toggle';
@@ -127,15 +130,18 @@ export default function ContractEditor({
           <UnderlineIcon className="h-4 w-4" />
         </Toggle>
 
-        <Toggle
+        <div className="w-px h-6 bg-border mx-1" />
+
+        <Button
+          type="button"
           size="sm"
-          pressed={editor.isActive('strike')}
-          onPressedChange={() => editor.chain().focus().toggleStrike().run()}
-          aria-label="Toggle strike"
-          data-testid="editor-strike"
+          variant="ghost"
+          onClick={addLink}
+          className="h-8"
+          data-testid="editor-link"
         >
-          <Strikethrough className="h-4 w-4" />
-        </Toggle>
+          <LinkIcon className="h-4 w-4" />
+        </Button>
 
         <div className="w-px h-6 bg-border mx-1" />
 
@@ -159,17 +165,50 @@ export default function ContractEditor({
           <ListOrdered className="h-4 w-4" />
         </Toggle>
 
-        <div className="w-px h-6 bg-border mx-1" />
+        <Toggle
+          size="sm"
+          pressed={editor.isActive('blockquote')}
+          onPressedChange={() => editor.chain().focus().toggleBlockquote().run()}
+          aria-label="Toggle quote"
+          data-testid="editor-blockquote"
+        >
+          <Quote className="h-4 w-4" />
+        </Toggle>
+
+        <Toggle
+          size="sm"
+          pressed={editor.isActive('code')}
+          onPressedChange={() => editor.chain().focus().toggleCode().run()}
+          aria-label="Toggle code"
+          data-testid="editor-code"
+        >
+          <Code className="h-4 w-4" />
+        </Toggle>
 
         <Button
           type="button"
           size="sm"
           variant="ghost"
-          onClick={addLink}
-          className="h-8"
-          data-testid="editor-link"
+          onClick={() => editor.chain().focus().undo().run()}
+          disabled={!editor.can().undo()}
+          className="h-8 w-8 p-0"
+          aria-label="Undo"
+          data-testid="editor-undo"
         >
-          <LinkIcon className="h-4 w-4" />
+          <Undo className="h-3 w-3" />
+        </Button>
+
+        <Button
+          type="button"
+          size="sm"
+          variant="ghost"
+          onClick={() => editor.chain().focus().redo().run()}
+          disabled={!editor.can().redo()}
+          className="h-8 w-8 p-0"
+          aria-label="Redo"
+          data-testid="editor-redo"
+        >
+          <Redo className="h-3 w-3" />
         </Button>
 
         <div className="w-px h-6 bg-border mx-1" />

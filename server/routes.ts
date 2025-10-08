@@ -292,7 +292,31 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   app.use(emailOAuthRoutes);
   
   // Apply CSRF protection to state-changing routes if provided
-  const csrf = csrfProtection || ((req: any, res: any, next: any) => next());
+  const csrfBase = csrfProtection || ((req: any, res: any, next: any) => next());
+  
+  // Debug wrapper for CSRF
+  const csrf = (req: any, res: any, next: any) => {
+    console.log('[CSRF MIDDLEWARE] Called for:', {
+      method: req.method,
+      path: req.path,
+      hasCsrfToken: !!req.headers['x-csrf-token'],
+      hasCookie: !!req.headers.cookie
+    });
+    
+    csrfBase(req, res, (err: any) => {
+      if (err) {
+        console.error('[CSRF MIDDLEWARE] Error:', {
+          code: err.code,
+          message: err.message,
+          method: req.method,
+          path: req.path
+        });
+      } else {
+        console.log('[CSRF MIDDLEWARE] Passed successfully');
+      }
+      next(err);
+    });
+  };
 
   // CSRF-free public venue endpoints for lead capture forms (must be before general venue mount)
   app.post('/api/venues/suggest', async (req, res) => {

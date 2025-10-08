@@ -3052,6 +3052,66 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
 
+  // Contract Templates
+  app.get("/api/contract-templates", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
+    try {
+      const templates = await storage.getContractTemplates(req.tenantId!);
+      res.json(templates);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch contract templates" });
+    }
+  });
+
+  app.get("/api/contract-templates/:id", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
+    try {
+      const template = await storage.getContractTemplate(req.params.id, req.tenantId!);
+      if (!template) {
+        return res.status(404).json({ message: "Contract template not found" });
+      }
+      res.json(template);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch contract template" });
+    }
+  });
+
+  app.post("/api/contract-templates", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
+    try {
+      const templateData = insertContractTemplateSchema.parse(req.body);
+      const template = await storage.createContractTemplate({
+        ...templateData,
+        createdBy: req.session.userId!,
+      }, req.tenantId!);
+      res.status(201).json(template);
+    } catch (error) {
+      res.status(400).json({ message: "Failed to create contract template" });
+    }
+  });
+
+  app.patch("/api/contract-templates/:id", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
+    try {
+      const templateData = insertContractTemplateSchema.partial().parse(req.body);
+      const template = await storage.updateContractTemplate(req.params.id, templateData, req.tenantId!);
+      if (!template) {
+        return res.status(404).json({ message: "Contract template not found" });
+      }
+      res.json(template);
+    } catch (error) {
+      res.status(400).json({ message: "Failed to update contract template" });
+    }
+  });
+
+  app.delete("/api/contract-templates/:id", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
+    try {
+      const deleted = await storage.deleteContractTemplate(req.params.id, req.tenantId!);
+      if (!deleted) {
+        return res.status(404).json({ message: "Contract template not found" });
+      }
+      res.json({ message: "Contract template deleted successfully" });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to delete contract template" });
+    }
+  });
+
   // Invoice operations  
   app.get("/api/invoices/:id", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
     try {

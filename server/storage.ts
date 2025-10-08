@@ -225,6 +225,13 @@ export interface IStorage {
   updateContract(id: string, contract: Partial<InsertContract>, tenantId: string): Promise<Contract | undefined>;
   deleteContract(id: string, tenantId: string): Promise<boolean>;
   
+  // Contract Templates
+  getContractTemplates(tenantId: string): Promise<ContractTemplate[]>;
+  getContractTemplate(id: string, tenantId: string): Promise<ContractTemplate | undefined>;
+  createContractTemplate(template: InsertContractTemplate, tenantId: string): Promise<ContractTemplate>;
+  updateContractTemplate(id: string, template: Partial<InsertContractTemplate>, tenantId: string): Promise<ContractTemplate | undefined>;
+  deleteContractTemplate(id: string, tenantId: string): Promise<boolean>;
+  
   // Invoices
   getInvoices(tenantId: string): Promise<Invoice[]>;
   getInvoice(id: string, tenantId: string): Promise<Invoice | undefined>;
@@ -522,6 +529,7 @@ export class MemStorage implements IStorage {
   private projects: Map<string, Project> = new Map();
   private quotes: Map<string, Quote> = new Map();
   private contracts: Map<string, Contract> = new Map();
+  private contractTemplates: Map<string, ContractTemplate> = new Map();
   private invoices: Map<string, Invoice> = new Map();
   private tasks: Map<string, Task> = new Map();
   private emails: Map<string, Email> = new Map();
@@ -1176,6 +1184,47 @@ export class MemStorage implements IStorage {
 
   async deleteContract(id: string): Promise<boolean> {
     return this.contracts.delete(id);
+  }
+
+  // Contract Templates
+  async getContractTemplates(): Promise<ContractTemplate[]> {
+    return Array.from(this.contractTemplates.values()).sort((a, b) => 
+      new Date(b.createdAt!).getTime() - new Date(a.createdAt!).getTime()
+    );
+  }
+
+  async getContractTemplate(id: string): Promise<ContractTemplate | undefined> {
+    return this.contractTemplates.get(id);
+  }
+
+  async createContractTemplate(insertTemplate: InsertContractTemplate): Promise<ContractTemplate> {
+    const id = randomUUID();
+    const template: ContractTemplate = {
+      ...insertTemplate,
+      id,
+      isDefault: insertTemplate.isDefault ?? false,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    this.contractTemplates.set(id, template);
+    return template;
+  }
+
+  async updateContractTemplate(id: string, updates: Partial<InsertContractTemplate>): Promise<ContractTemplate | undefined> {
+    const template = this.contractTemplates.get(id);
+    if (!template) return undefined;
+
+    const updatedTemplate = {
+      ...template,
+      ...updates,
+      updatedAt: new Date(),
+    };
+    this.contractTemplates.set(id, updatedTemplate);
+    return updatedTemplate;
+  }
+
+  async deleteContractTemplate(id: string): Promise<boolean> {
+    return this.contractTemplates.delete(id);
   }
 
   // Invoices
@@ -4107,6 +4156,39 @@ export class DrizzleStorage implements IStorage {
   }
   async getContractsByProject(projectId: string) { 
     return await this.db.select().from(contracts).where(eq(contracts.projectId, projectId));
+  }
+  
+  // Contract Templates - PostgreSQL implementation
+  async getContractTemplates(tenantId: string) {
+    return await this.db.select().from(contractTemplates)
+      .where(eq(contractTemplates.tenantId, tenantId))
+      .orderBy(desc(contractTemplates.createdAt));
+  }
+  async getContractTemplate(id: string, tenantId: string) {
+    const result = await this.db.select().from(contractTemplates)
+      .where(and(eq(contractTemplates.id, id), eq(contractTemplates.tenantId, tenantId)));
+    return result[0];
+  }
+  async createContractTemplate(template: InsertContractTemplate, tenantId: string) {
+    const result = await this.db.insert(contractTemplates).values({
+      ...template,
+      tenantId,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    }).returning();
+    return result[0];
+  }
+  async updateContractTemplate(id: string, template: Partial<InsertContractTemplate>, tenantId: string) {
+    const result = await this.db.update(contractTemplates).set({
+      ...template,
+      updatedAt: new Date(),
+    }).where(and(eq(contractTemplates.id, id), eq(contractTemplates.tenantId, tenantId))).returning();
+    return result[0];
+  }
+  async deleteContractTemplate(id: string, tenantId: string) {
+    const result = await this.db.delete(contractTemplates)
+      .where(and(eq(contractTemplates.id, id), eq(contractTemplates.tenantId, tenantId)));
+    return result.rowCount > 0;
   }
   
   // Invoices - PostgreSQL implementation

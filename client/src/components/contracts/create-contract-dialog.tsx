@@ -111,7 +111,6 @@ export default function CreateContractDialog({
 
   const createContractMutation = useMutation({
     mutationFn: async (data: z.infer<typeof createContractFormSchema>) => {
-      console.log('[MUTATION] Starting mutation with form data:', data);
       const contractData = {
         ...data,
         dueDate: data.dueDate ? new Date(data.dueDate).toISOString() : undefined,
@@ -119,18 +118,12 @@ export default function CreateContractDialog({
         formFields: JSON.stringify(formFields),
       };
       
-      console.log('[MUTATION] Prepared contract data:', contractData);
-      console.log('[MUTATION] Contract exists?', !!contract);
-      console.log('[MUTATION] Contract ID:', contract?.id);
-      
       // Update existing contract or create new one
       const response = contract 
         ? await apiRequest('PATCH', `/api/contracts/${contract.id}`, contractData)
         : await apiRequest('POST', '/api/contracts', contractData);
       
-      console.log('[MUTATION] Response status:', response.status);
       const savedContract = await response.json();
-      console.log('[MUTATION] Saved contract:', savedContract);
       
       // If save as template is checked, also create a template
       if (saveAsTemplate) {

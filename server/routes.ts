@@ -2948,7 +2948,14 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
 
   app.post("/api/contracts", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
     try {
-      const contractData = insertContractSchema.parse(req.body);
+      // Transform ISO string dates to Date objects
+      const bodyWithDates = {
+        ...req.body,
+        dueDate: req.body.dueDate ? new Date(req.body.dueDate) : undefined,
+        clientSignedAt: req.body.clientSignedAt ? new Date(req.body.clientSignedAt) : undefined,
+      };
+      
+      const contractData = insertContractSchema.parse(bodyWithDates);
       const contractNumber = `C-${Date.now()}`;
       const contract = await storage.createContract({
         ...contractData,
@@ -3060,23 +3067,21 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   });
 
   app.patch("/api/contracts/:id", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
-    console.log('[CONTRACT UPDATE] Handler called - Route reached!', {
-      contractId: req.params.id,
-      tenantId: req.tenantId,
-      userId: req.session?.userId
-    });
-    
     try {
-      console.log('[CONTRACT UPDATE] Request body:', JSON.stringify(req.body, null, 2));
-      const contractData = insertContractSchema.partial().parse(req.body);
-      console.log('[CONTRACT UPDATE] Parsed data:', JSON.stringify(contractData, null, 2));
+      // Transform ISO string dates to Date objects
+      const bodyWithDates = {
+        ...req.body,
+        dueDate: req.body.dueDate ? new Date(req.body.dueDate) : undefined,
+        clientSignedAt: req.body.clientSignedAt ? new Date(req.body.clientSignedAt) : undefined,
+      };
+      
+      const contractData = insertContractSchema.partial().parse(bodyWithDates);
       const contract = await storage.updateContract(req.params.id, contractData);
       if (!contract) {
         return res.status(404).json({ message: "Contract not found" });
       }
       res.json(contract);
     } catch (error) {
-      console.error('[CONTRACT UPDATE] Error:', error);
       res.status(400).json({ message: "Failed to update contract", error: error instanceof Error ? error.message : String(error) });
     }
   });

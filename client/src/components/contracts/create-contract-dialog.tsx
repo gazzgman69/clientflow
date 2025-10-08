@@ -28,6 +28,7 @@ import {
 } from '@/components/ui/select';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Checkbox } from '@/components/ui/checkbox';
 import { CalendarIcon } from 'lucide-react';
 import { format } from 'date-fns';
 import ContractEditor from '@/components/contract-editor';
@@ -69,6 +70,7 @@ export default function CreateContractDialog({
   const [bodyHtml, setBodyHtml] = useState('');
   const [formFields, setFormFields] = useState<FormField[]>([]);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>('');
+  const [saveAsTemplate, setSaveAsTemplate] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -103,18 +105,38 @@ export default function CreateContractDialog({
         formFields: JSON.stringify(formFields),
       };
       const response = await apiRequest('POST', '/api/contracts', contractData);
-      return response.json();
+      const contract = await response.json();
+      
+      // If save as template is checked, also create a template
+      if (saveAsTemplate) {
+        const templateData = {
+          name: data.title,
+          displayTitle: data.displayTitle,
+          signatureWorkflow: data.signatureWorkflow,
+          bodyHtml,
+          formFields: JSON.stringify(formFields),
+        };
+        await apiRequest('POST', '/api/contract-templates', templateData);
+      }
+      
+      return contract;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/contracts'] });
+      if (saveAsTemplate) {
+        queryClient.invalidateQueries({ queryKey: ['/api/contract-templates'] });
+      }
       toast({
         title: 'Success',
-        description: 'Contract created successfully!',
+        description: saveAsTemplate 
+          ? 'Contract and template created successfully!' 
+          : 'Contract created successfully!',
       });
       form.reset();
       setBodyHtml('');
       setFormFields([]);
       setSelectedTemplateId('');
+      setSaveAsTemplate(false);
       onOpenChange(false);
     },
     onError: () => {
@@ -290,8 +312,24 @@ export default function CreateContractDialog({
                 )}
               />
 
+              {/* Save as Template Checkbox */}
+              <div className="flex justify-end items-center gap-2 pt-4">
+                <Checkbox 
+                  id="save-as-template" 
+                  checked={saveAsTemplate}
+                  onCheckedChange={(checked) => setSaveAsTemplate(checked === true)}
+                  data-testid="checkbox-save-as-template"
+                />
+                <label 
+                  htmlFor="save-as-template" 
+                  className="text-sm font-medium cursor-pointer"
+                >
+                  Save as template
+                </label>
+              </div>
+
               {/* Action Buttons */}
-              <div className="flex justify-end gap-3 pt-4">
+              <div className="flex justify-end gap-3">
                 <Button 
                   type="button" 
                   variant="outline" 

@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Toggle } from '@/components/ui/toggle';
-import TokenDropdown from '@/components/contracts/token-dropdown';
+import { TokenDropdown } from '@/components/ui/token-dropdown';
 import FormFieldDropdown from '@/components/contracts/form-field-dropdown';
 
 interface FormField {
@@ -75,9 +75,9 @@ export default function ContractEditor({
     }
   };
 
-  const insertToken = (tokenName: string) => {
+  const insertToken = (token: string) => {
     if (!editor) return;
-    editor.chain().focus().insertContent(`{{${tokenName}}}`).run();
+    editor.chain().focus().insertContent(token).run();
   };
 
   const insertFormField = (field: FormField) => {
@@ -174,7 +174,7 @@ export default function ContractEditor({
 
         <div className="w-px h-6 bg-border mx-1" />
         
-        <TokenDropdown onInsert={insertToken} />
+        <TokenDropdown onTokenSelect={insertToken} size="sm" />
 
         {showFormButton && <FormFieldDropdown onInsert={insertFormField} />}
       </div>

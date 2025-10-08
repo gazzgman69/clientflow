@@ -144,6 +144,7 @@ export default function CreateContractDialog({
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/contracts'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/contacts'] });
       if (saveAsTemplate) {
         queryClient.invalidateQueries({ queryKey: ['/api/contract-templates'] });
       }

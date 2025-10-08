@@ -175,7 +175,7 @@ export function TokenDropdown({
       
       <DropdownMenuContent 
         ref={menuRef}
-        className="w-80 p-0 max-h-[400px]"
+        className="w-80 p-0 !max-h-[200px]"
         align="start"
         data-testid="token-dropdown-content"
       >

@@ -266,6 +266,11 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   // JSON parsing middleware
   app.use(express.json());
   
+  // CSRF token endpoint (must be after session middleware)
+  app.get('/api/csrf-token', (req, res) => {
+    res.json({ csrfToken: (req as any).csrfToken() });
+  });
+  
   // DEBUG: Log before OAuth routes
   app.use((req, res, next) => {
     if (req.path.includes('/auth/')) {

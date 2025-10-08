@@ -18,7 +18,7 @@ import FormFieldDropdown from '@/components/contracts/form-field-dropdown';
 
 interface FormField {
   id: string;
-  type: 'checkbox' | 'text_input' | 'initials' | 'signature';
+  type: 'checkbox' | 'text_input' | 'long_text_input' | 'initials' | 'signature';
   label: string;
   required: boolean;
 }

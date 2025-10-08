@@ -323,7 +323,7 @@ export default function CreateContractDialog({
                           mode="single"
                           selected={field.value ? new Date(field.value) : undefined}
                           onSelect={(date) => {
-                            field.onChange(date?.toISOString());
+                            field.onChange(date);
                             setDatePickerOpen(false);
                           }}
                           initialFocus

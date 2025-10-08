@@ -46,9 +46,7 @@ interface FormField {
 }
 
 const createContractFormSchema = insertContractSchema.omit({ 
-  createdBy: true, 
-  createdAt: true, 
-  updatedAt: true 
+  createdBy: true
 }).extend({
   contactId: z.string().min(1, 'Contact is required'),
   title: z.string().min(1, 'Title is required'),

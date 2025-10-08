@@ -78,6 +78,7 @@ export default function CreateContractDialog({
 
   const { data: templates } = useQuery<ContractTemplate[]>({
     queryKey: ['/api/contract-templates'],
+    enabled: open,
   });
 
   const form = useForm<z.infer<typeof createContractFormSchema>>({

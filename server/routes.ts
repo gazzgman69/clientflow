@@ -3037,14 +3037,17 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
 
   app.patch("/api/contracts/:id", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
     try {
+      console.log('[CONTRACT UPDATE] Request body:', JSON.stringify(req.body, null, 2));
       const contractData = insertContractSchema.partial().parse(req.body);
+      console.log('[CONTRACT UPDATE] Parsed data:', JSON.stringify(contractData, null, 2));
       const contract = await storage.updateContract(req.params.id, contractData);
       if (!contract) {
         return res.status(404).json({ message: "Contract not found" });
       }
       res.json(contract);
     } catch (error) {
-      res.status(400).json({ message: "Failed to update contract" });
+      console.error('[CONTRACT UPDATE] Error:', error);
+      res.status(400).json({ message: "Failed to update contract", error: error instanceof Error ? error.message : String(error) });
     }
   });
 

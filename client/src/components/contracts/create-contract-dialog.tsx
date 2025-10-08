@@ -6,7 +6,6 @@ import { z } from 'zod';
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
@@ -27,12 +26,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { CalendarIcon } from 'lucide-react';
+import { format } from 'date-fns';
 import ContractEditor from '@/components/contract-editor';
 import { apiRequest } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
 import { insertContractSchema } from '@shared/schema';
 import type { Contact, Project, ContractTemplate } from '@shared/schema';
+import { cn } from '@/lib/utils';
 
 interface FormField {
   id: string;
@@ -74,27 +77,26 @@ export default function CreateContractDialog({
   });
   const contacts = contactsData?.contacts;
 
-  const { data: projectsData } = useQuery<{ projects: Project[] }>({
-    queryKey: ['/api/projects'],
-  });
-  const projects = projectsData?.projects;
-
   const { data: templates } = useQuery<ContractTemplate[]>({
     queryKey: ['/api/contract-templates'],
   });
+
+  // Get contact name for signature display
+  const selectedContact = contacts?.find(c => c.id === initialContactId);
+  const contactDisplayName = selectedContact ? 
+    `${selectedContact.firstName} ${selectedContact.lastName}` : '';
 
   const form = useForm<z.infer<typeof createContractFormSchema>>({
     resolver: zodResolver(createContractFormSchema),
     defaultValues: {
       title: '',
       displayTitle: '',
-      description: '',
       contactId: initialContactId || '',
       projectId: initialProjectId || '',
       bodyHtml: '',
-      terms: '',
       signatureWorkflow: 'counter_sign_after_client',
       status: 'draft',
+      dueDate: undefined,
     },
   });
 
@@ -156,178 +158,175 @@ export default function CreateContractDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-5xl max-h-[90vh] overflow-hidden flex flex-col">
         <DialogHeader>
-          <DialogTitle>Create New Contract</DialogTitle>
-          <DialogDescription>
-            Create a contract with dynamic fields and embedded forms
-          </DialogDescription>
+          <DialogTitle>Contract</DialogTitle>
         </DialogHeader>
 
-        <Tabs defaultValue="details" className="flex-1 overflow-hidden flex flex-col">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="details">Contract Details</TabsTrigger>
-            <TabsTrigger value="content">Content & Editor</TabsTrigger>
-          </TabsList>
-
-          <div className="flex-1 overflow-y-auto">
-            <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                <TabsContent value="details" className="space-y-4 mt-4">
-                  {templates && templates.length > 0 && (
-                    <div>
-                      <label className="text-sm font-medium">Load from Template</label>
-                      <Select value={selectedTemplateId} onValueChange={setSelectedTemplateId}>
-                        <SelectTrigger data-testid="select-template">
-                          <SelectValue placeholder="Select a template (optional)" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {templates.map((template) => (
-                            <SelectItem key={template.id} value={template.id}>
-                              {template.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
+        <div className="flex-1 overflow-y-auto">
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 p-1">
+              {/* Title with inline Templates dropdown */}
+              <div className="flex gap-4">
+                <FormField
+                  control={form.control}
+                  name="title"
+                  render={({ field }) => (
+                    <FormItem className="flex-1">
+                      <FormLabel>Title:</FormLabel>
+                      <FormControl>
+                        <Input {...field} data-testid="input-contract-title" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
                   )}
+                />
+                
+                {templates && templates.length > 0 && (
+                  <FormItem className="w-48">
+                    <FormLabel>&nbsp;</FormLabel>
+                    <Select
+                      value={selectedTemplateId}
+                      onValueChange={setSelectedTemplateId}
+                    >
+                      <SelectTrigger data-testid="select-template">
+                        <SelectValue placeholder="Templates" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {templates.map((template) => (
+                          <SelectItem key={template.id} value={template.id} data-testid={`template-${template.id}`}>
+                            {template.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </FormItem>
+                )}
+              </div>
 
-                  <FormField
-                    control={form.control}
-                    name="title"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Internal Title *</FormLabel>
-                        <FormControl>
-                          <Input {...field} placeholder="e.g., Photography Contract 2024" data-testid="input-contract-title" />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+              {/* Display Title */}
+              <FormField
+                control={form.control}
+                name="displayTitle"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Display Title:</FormLabel>
+                    <FormControl>
+                      <Input {...field} value={field.value || ''} data-testid="input-display-title" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-                  <FormField
-                    control={form.control}
-                    name="displayTitle"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Display Title (shown to client)</FormLabel>
-                        <FormControl>
-                          <Input {...field} value={field.value || ''} placeholder="e.g., Service Agreement" data-testid="input-display-title" />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="contactId"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Contact *</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                          <FormControl>
-                            <SelectTrigger data-testid="select-contact">
-                              <SelectValue placeholder="Select contact..." />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {contacts?.map((contact) => (
-                              <SelectItem key={contact.id} value={contact.id}>
-                                {contact.firstName} {contact.lastName}
-                                {contact.company && ` (${contact.company})`}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="projectId"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Project (optional)</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value || undefined}>
-                          <FormControl>
-                            <SelectTrigger data-testid="select-project">
-                              <SelectValue placeholder="Link to project..." />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {projects?.map((project) => (
-                              <SelectItem key={project.id} value={project.id}>
-                                {project.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="signatureWorkflow"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Signature Workflow</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value || 'counter_sign_after_client'}>
-                          <FormControl>
-                            <SelectTrigger data-testid="select-signature-workflow">
-                              <SelectValue />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="not_required">No signature required</SelectItem>
-                            <SelectItem value="sign_upon_creation">I sign when creating</SelectItem>
-                            <SelectItem value="counter_sign_after_client">Client signs first, then I counter-sign</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </TabsContent>
-
-                <TabsContent value="content" className="mt-4">
-                  <div className="space-y-4">
-                    <div>
-                      <label className="text-sm font-medium mb-2 block">Contract Body</label>
-                      <ContractEditor
-                        content={bodyHtml}
-                        onChange={setBodyHtml}
-                        formFields={formFields}
-                        onFormFieldsChange={setFormFields}
-                      />
-                    </div>
-                  </div>
-                </TabsContent>
-
-                <div className="flex items-center justify-end space-x-3 pt-4 border-t">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => onOpenChange(false)}
-                    data-testid="button-cancel"
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    type="submit"
-                    disabled={createContractMutation.isPending}
-                    data-testid="button-create-contract"
-                  >
-                    {createContractMutation.isPending ? 'Creating...' : 'Create Contract'}
-                  </Button>
+              {/* Signature (Contact Name Display) */}
+              <div>
+                <FormLabel>Signature:</FormLabel>
+                <div className="mt-2">
+                  <span className="inline-block px-3 py-1.5 bg-green-600 text-white rounded" data-testid="text-contact-signature">
+                    {contactDisplayName}
+                  </span>
                 </div>
-              </form>
-            </Form>
-          </div>
-        </Tabs>
+              </div>
+
+              {/* My Signature (Signature Workflow) */}
+              <FormField
+                control={form.control}
+                name="signatureWorkflow"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>My Signature:</FormLabel>
+                    <Select
+                      onValueChange={field.onChange}
+                      defaultValue={field.value || 'counter_sign_after_client'}
+                    >
+                      <FormControl>
+                        <SelectTrigger data-testid="select-signature-workflow">
+                          <SelectValue placeholder="Select signature workflow" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="not_required" data-testid="workflow-not-required">Not required</SelectItem>
+                        <SelectItem value="sign_upon_creation" data-testid="workflow-sign-upon-creation">Sign upon creation</SelectItem>
+                        <SelectItem value="counter_sign_after_client" data-testid="workflow-counter-sign">Counter-sign after client(s)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              {/* Contract Editor */}
+              <div>
+                <ContractEditor
+                  content={bodyHtml}
+                  onChange={setBodyHtml}
+                  formFields={formFields}
+                  onFormFieldsChange={setFormFields}
+                />
+              </div>
+
+              {/* Due Date */}
+              <FormField
+                control={form.control}
+                name="dueDate"
+                render={({ field }) => (
+                  <FormItem className="flex flex-col">
+                    <FormLabel>Due Date:</FormLabel>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <FormControl>
+                          <Button
+                            variant="outline"
+                            className={cn(
+                              'w-64 pl-3 text-left font-normal',
+                              !field.value && 'text-muted-foreground'
+                            )}
+                            data-testid="button-due-date"
+                          >
+                            {field.value ? (
+                              format(new Date(field.value), 'PPP')
+                            ) : (
+                              <span>Pick a date</span>
+                            )}
+                            <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                          </Button>
+                        </FormControl>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={field.value ? new Date(field.value) : undefined}
+                          onSelect={(date) => field.onChange(date?.toISOString())}
+                          initialFocus
+                        />
+                      </PopoverContent>
+                    </Popover>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              {/* Action Buttons */}
+              <div className="flex justify-end gap-3 pt-4">
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  onClick={() => onOpenChange(false)}
+                  data-testid="button-cancel"
+                >
+                  Cancel
+                </Button>
+                <Button 
+                  type="submit" 
+                  className="bg-green-600 hover:bg-green-700"
+                  disabled={createContractMutation.isPending}
+                  data-testid="button-save"
+                >
+                  {createContractMutation.isPending ? 'Saving...' : 'Save'}
+                </Button>
+              </div>
+            </form>
+          </Form>
+        </div>
       </DialogContent>
     </Dialog>
   );

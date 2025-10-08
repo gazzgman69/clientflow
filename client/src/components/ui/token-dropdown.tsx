@@ -175,9 +175,10 @@ export function TokenDropdown({
       
       <DropdownMenuContent 
         ref={menuRef}
-        className="w-80 p-0 !max-h-[200px]"
+        className="w-80 p-0 !max-h-[200px] !overflow-y-scroll pointer-events-auto"
         align="start"
         data-testid="token-dropdown-content"
+        onWheel={(e) => e.stopPropagation()}
       >
         <div className="p-3 border-b bg-background">
           <div className="relative">

@@ -171,6 +171,8 @@ export default function CreateContractDialog({
   }, [selectedTemplateId, templates, form]);
 
   const onSubmit = (data: z.infer<typeof createContractFormSchema>) => {
+    console.log('Form submitted:', data);
+    console.log('Form errors:', form.formState.errors);
     createContractMutation.mutate(data);
   };
 

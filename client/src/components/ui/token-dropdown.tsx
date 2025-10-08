@@ -261,13 +261,6 @@ export function TokenDropdown({
             ))}
           </div>
         )}
-
-        <div className="p-2 border-t bg-muted/50 text-xs text-muted-foreground">
-          <div className="flex items-center justify-between">
-            <span>Use ↑↓ to navigate, Enter to select</span>
-            <span>Esc to close</span>
-          </div>
-        </div>
       </DropdownMenuContent>
     </DropdownMenu>
   );

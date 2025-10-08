@@ -365,6 +365,12 @@ export default function CreateContractDialog({
                   type="submit" 
                   className="bg-green-600 hover:bg-green-700"
                   disabled={createContractMutation.isPending}
+                  onClick={() => {
+                    console.log('Save button clicked');
+                    console.log('Form state:', form.formState);
+                    console.log('Form values:', form.getValues());
+                    console.log('Form errors:', form.formState.errors);
+                  }}
                   data-testid="button-save"
                 >
                   {createContractMutation.isPending ? 'Saving...' : 'Save'}

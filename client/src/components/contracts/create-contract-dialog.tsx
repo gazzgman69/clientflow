@@ -299,24 +299,22 @@ export default function CreateContractDialog({
                     <FormLabel>Due Date:</FormLabel>
                     <Popover>
                       <PopoverTrigger asChild>
-                        <FormControl>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            className={cn(
-                              'w-64 pl-3 text-left font-normal',
-                              !field.value && 'text-muted-foreground'
-                            )}
-                            data-testid="button-due-date"
-                          >
-                            {field.value ? (
-                              format(new Date(field.value), 'PPP')
-                            ) : (
-                              <span>Pick a date</span>
-                            )}
-                            <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                          </Button>
-                        </FormControl>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className={cn(
+                            'w-64 pl-3 text-left font-normal',
+                            !field.value && 'text-muted-foreground'
+                          )}
+                          data-testid="button-due-date"
+                        >
+                          {field.value ? (
+                            format(new Date(field.value), 'PPP')
+                          ) : (
+                            <span>Pick a date</span>
+                          )}
+                          <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                        </Button>
                       </PopoverTrigger>
                       <PopoverContent className="w-auto p-0" align="start">
                         <Calendar

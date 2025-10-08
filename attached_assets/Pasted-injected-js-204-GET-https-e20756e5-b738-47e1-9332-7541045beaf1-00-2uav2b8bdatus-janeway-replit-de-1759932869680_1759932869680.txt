@@ -1,0 +1,82 @@
+injected.js:204  GET https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/api/contract-templates 500 (Internal Server Error)
+apply @ injected.js:204
+(anonymous) @ queryClient.ts:112
+fetchFn @ @tanstack_react-query.js?v=47958d7b:840
+run @ @tanstack_react-query.js?v=47958d7b:494
+start @ @tanstack_react-query.js?v=47958d7b:536
+fetch @ @tanstack_react-query.js?v=47958d7b:926
+executeFetch_fn @ @tanstack_react-query.js?v=47958d7b:2211
+onSubscribe @ @tanstack_react-query.js?v=47958d7b:1898
+subscribe @ @tanstack_react-query.js?v=47958d7b:24
+(anonymous) @ @tanstack_react-query.js?v=47958d7b:3022
+subscribeToStore @ chunk-RPCDYKBN.js?v=47958d7b:11984
+commitHookEffectListMount @ chunk-RPCDYKBN.js?v=47958d7b:16915
+commitPassiveMountOnFiber @ chunk-RPCDYKBN.js?v=47958d7b:18156
+commitPassiveMountEffects_complete @ chunk-RPCDYKBN.js?v=47958d7b:18129
+commitPassiveMountEffects_begin @ chunk-RPCDYKBN.js?v=47958d7b:18119
+commitPassiveMountEffects @ chunk-RPCDYKBN.js?v=47958d7b:18109
+flushPassiveEffectsImpl @ chunk-RPCDYKBN.js?v=47958d7b:19490
+flushPassiveEffects @ chunk-RPCDYKBN.js?v=47958d7b:19447
+commitRootImpl @ chunk-RPCDYKBN.js?v=47958d7b:19416
+commitRoot @ chunk-RPCDYKBN.js?v=47958d7b:19277
+performSyncWorkOnRoot @ chunk-RPCDYKBN.js?v=47958d7b:18895
+flushSyncCallbacks @ chunk-RPCDYKBN.js?v=47958d7b:9119
+flushSync @ chunk-RPCDYKBN.js?v=47958d7b:18959
+scheduleRefresh @ chunk-RPCDYKBN.js?v=47958d7b:20004
+(anonymous) @ @react-refresh:267
+performReactRefresh @ @react-refresh:256
+(anonymous) @ @react-refresh:677
+setTimeout
+(anonymous) @ @react-refresh:666
+validateRefreshBoundaryAndEnqueueUpdate @ @react-refresh:728
+(anonymous) @ create-contract-dialog.tsx?t=1759932720319:688
+(anonymous) @ client:34
+(anonymous) @ client:218
+(anonymous) @ client:193
+queueUpdate @ client:193
+await in queueUpdate
+(anonymous) @ client:642
+handleMessage @ client:640
+(anonymous) @ client:550Understand this error
+_app-f9c55a4cd60d6608.js:13 An error occurred! For more details, see the full error text at https://go.apollo.dev/c/err#%7B%22version%22%3A%223.14.0%22%2C%22message%22%3A78%2C%22args%22%3A%5B%22useLazyQuery%22%2C%22variables%22%2C%22Pass%20all%20%60variables%60%20to%20the%20returned%20%60execute%60%20function%20instead.%22%5D%7D
+overrideMethod @ hook.js:608
+(anonymous) @ _app-f9c55a4cd60d6608.js:13
+(anonymous) @ _app-f9c55a4cd60d6608.js:30
+(anonymous) @ _app-f9c55a4cd60d6608.js:18
+o @ _app-f9c55a4cd60d6608.js:30
+b @ _app-f9c55a4cd60d6608.js:30
+C @ 6657-0389b1eb3c61b182.js:1
+c @ 6657-0389b1eb3c61b182.js:1
+T @ 6657-0389b1eb3c61b182.js:1
+eE @ 6657-0389b1eb3c61b182.js:1
+ld @ framework-e34fbe5dfc86a706.js:1
+i @ framework-e34fbe5dfc86a706.js:1
+uI @ framework-e34fbe5dfc86a706.js:1
+uM @ framework-e34fbe5dfc86a706.js:1
+u_ @ framework-e34fbe5dfc86a706.js:1
+r6 @ framework-e34fbe5dfc86a706.js:1
+(anonymous) @ framework-e34fbe5dfc86a706.js:1Understand this warning
+_app-f9c55a4cd60d6608.js:13 An error occurred! For more details, see the full error text at https://go.apollo.dev/c/err#%7B%22version%22%3A%223.14.0%22%2C%22message%22%3A78%2C%22args%22%3A%5B%22useQuery%22%2C%22onCompleted%22%2C%22If%20your%20%60onCompleted%60%20callback%20sets%20local%20state%2C%20switch%20to%20use%20derived%20state%20using%20%60data%60%20returned%20from%20the%20hook%20instead.%20Use%20%60useEffect%60%20to%20perform%20side-effects%20as%20a%20result%20of%20updates%20to%20%60data%60.%22%5D%7D
+overrideMethod @ hook.js:608
+(anonymous) @ _app-f9c55a4cd60d6608.js:13
+(anonymous) @ _app-f9c55a4cd60d6608.js:30
+(anonymous) @ _app-f9c55a4cd60d6608.js:18
+o @ _app-f9c55a4cd60d6608.js:30
+O @ _app-f9c55a4cd60d6608.js:30
+T @ _app-f9c55a4cd60d6608.js:30
+d @ 6657-0389b1eb3c61b182.js:1
+c @ 6657-0389b1eb3c61b182.js:1
+d @ 6657-0389b1eb3c61b182.js:1
+T @ 6657-0389b1eb3c61b182.js:1
+eE @ 6657-0389b1eb3c61b182.js:1
+ld @ framework-e34fbe5dfc86a706.js:1
+i @ framework-e34fbe5dfc86a706.js:1
+uI @ framework-e34fbe5dfc86a706.js:1
+uM @ framework-e34fbe5dfc86a706.js:1
+u_ @ framework-e34fbe5dfc86a706.js:1
+r6 @ framework-e34fbe5dfc86a706.js:1
+(anonymous) @ framework-e34fbe5dfc86a706.js:1Understand this warning
+injected.js:27 Save button clicked
+injected.js:27 Form state: {defaultValues: {…}, …}
+injected.js:27 Form values: {title: 'Club Kudo Contract 2025', displayTitle: 'Club Kudo Contract', contactId: '5b2a318b-aca8-4e46-8739-a6cdb8fedb75', projectId: '4cc19196-6f1d-46ce-83a2-965a62b815df', bodyHtml: '', …}
+injected.js:27 Form errors: {tenantId: {…}, contractNumber: {…}}

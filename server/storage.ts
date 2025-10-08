@@ -1187,21 +1187,28 @@ export class MemStorage implements IStorage {
   }
 
   // Contract Templates
-  async getContractTemplates(): Promise<ContractTemplate[]> {
-    return Array.from(this.contractTemplates.values()).sort((a, b) => 
-      new Date(b.createdAt!).getTime() - new Date(a.createdAt!).getTime()
-    );
+  async getContractTemplates(tenantId: string): Promise<ContractTemplate[]> {
+    return Array.from(this.contractTemplates.values())
+      .filter(t => t.tenantId === tenantId)
+      .sort((a, b) => 
+        new Date(b.createdAt!).getTime() - new Date(a.createdAt!).getTime()
+      );
   }
 
-  async getContractTemplate(id: string): Promise<ContractTemplate | undefined> {
-    return this.contractTemplates.get(id);
+  async getContractTemplate(id: string, tenantId: string): Promise<ContractTemplate | undefined> {
+    const template = this.contractTemplates.get(id);
+    if (template && template.tenantId === tenantId) {
+      return template;
+    }
+    return undefined;
   }
 
-  async createContractTemplate(insertTemplate: InsertContractTemplate): Promise<ContractTemplate> {
+  async createContractTemplate(insertTemplate: InsertContractTemplate, tenantId: string): Promise<ContractTemplate> {
     const id = randomUUID();
     const template: ContractTemplate = {
       ...insertTemplate,
       id,
+      tenantId,
       isDefault: insertTemplate.isDefault ?? false,
       createdAt: new Date(),
       updatedAt: new Date(),
@@ -1210,9 +1217,9 @@ export class MemStorage implements IStorage {
     return template;
   }
 
-  async updateContractTemplate(id: string, updates: Partial<InsertContractTemplate>): Promise<ContractTemplate | undefined> {
+  async updateContractTemplate(id: string, updates: Partial<InsertContractTemplate>, tenantId: string): Promise<ContractTemplate | undefined> {
     const template = this.contractTemplates.get(id);
-    if (!template) return undefined;
+    if (!template || template.tenantId !== tenantId) return undefined;
 
     const updatedTemplate = {
       ...template,
@@ -1223,8 +1230,12 @@ export class MemStorage implements IStorage {
     return updatedTemplate;
   }
 
-  async deleteContractTemplate(id: string): Promise<boolean> {
-    return this.contractTemplates.delete(id);
+  async deleteContractTemplate(id: string, tenantId: string): Promise<boolean> {
+    const template = this.contractTemplates.get(id);
+    if (template && template.tenantId === tenantId) {
+      return this.contractTemplates.delete(id);
+    }
+    return false;
   }
 
   // Invoices

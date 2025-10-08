@@ -45,11 +45,7 @@ interface FormField {
   required: boolean;
 }
 
-const createContractFormSchema = insertContractSchema.omit({ 
-  createdBy: true,
-  tenantId: true,
-  contractNumber: true
-}).extend({
+const createContractFormSchema = insertContractSchema.extend({
   contactId: z.string().min(1, 'Contact is required'),
   title: z.string().min(1, 'Title is required'),
 });

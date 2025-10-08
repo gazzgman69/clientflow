@@ -81,11 +81,6 @@ export default function CreateContractDialog({
     queryKey: ['/api/contract-templates'],
   });
 
-  // Get contact name for signature display
-  const selectedContact = contacts?.find(c => c.id === initialContactId);
-  const contactDisplayName = selectedContact ? 
-    `${selectedContact.firstName} ${selectedContact.lastName}` : '';
-
   const form = useForm<z.infer<typeof createContractFormSchema>>({
     resolver: zodResolver(createContractFormSchema),
     defaultValues: {
@@ -216,16 +211,6 @@ export default function CreateContractDialog({
                   </FormItem>
                 )}
               />
-
-              {/* Signature (Contact Name Display) */}
-              <div>
-                <FormLabel>Signature:</FormLabel>
-                <div className="mt-2">
-                  <span className="inline-block px-3 py-1.5 bg-green-600 text-white rounded" data-testid="text-contact-signature">
-                    {contactDisplayName}
-                  </span>
-                </div>
-              </div>
 
               {/* My Signature (Signature Workflow) */}
               <FormField

@@ -55,16 +55,20 @@ interface CreateContractDialogProps {
   onOpenChange: (open: boolean) => void;
   initialContactId?: string;
   initialProjectId?: string;
+  contract?: any;
 }
 
 export default function CreateContractDialog({ 
   open, 
   onOpenChange,
   initialContactId,
-  initialProjectId 
+  initialProjectId,
+  contract 
 }: CreateContractDialogProps) {
-  const [bodyHtml, setBodyHtml] = useState('');
-  const [formFields, setFormFields] = useState<FormField[]>([]);
+  const [bodyHtml, setBodyHtml] = useState(contract?.bodyHtml || '');
+  const [formFields, setFormFields] = useState<FormField[]>(
+    contract?.formFields ? JSON.parse(contract.formFields) : []
+  );
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>('');
   const [saveAsTemplate, setSaveAsTemplate] = useState(false);
   const [templateName, setTemplateName] = useState('');
@@ -93,14 +97,14 @@ export default function CreateContractDialog({
   const form = useForm<z.infer<typeof createContractFormSchema>>({
     resolver: zodResolver(createContractFormSchema),
     defaultValues: {
-      title: '',
-      displayTitle: '',
-      contactId: initialContactId || '',
-      projectId: initialProjectId || '',
-      bodyHtml: '',
-      signatureWorkflow: 'counter_sign_after_client',
-      status: 'draft',
-      dueDate: undefined,
+      title: contract?.title || '',
+      displayTitle: contract?.displayTitle || '',
+      contactId: contract?.contactId || initialContactId || '',
+      projectId: contract?.projectId || initialProjectId || '',
+      bodyHtml: contract?.bodyHtml || '',
+      signatureWorkflow: contract?.signatureWorkflow || 'counter_sign_after_client',
+      status: contract?.status || 'draft',
+      dueDate: contract?.dueDate ? new Date(contract.dueDate) : undefined,
     },
   });
 
@@ -112,8 +116,11 @@ export default function CreateContractDialog({
         formFields: JSON.stringify(formFields),
       };
       
-      const response = await apiRequest('POST', '/api/contracts', contractData);
-      const contract = await response.json();
+      // Update existing contract or create new one
+      const response = contract 
+        ? await apiRequest('PATCH', `/api/contracts/${contract.id}`, contractData)
+        : await apiRequest('POST', '/api/contracts', contractData);
+      const savedContract = await response.json();
       
       // If save as template is checked, also create a template
       if (saveAsTemplate) {
@@ -130,7 +137,7 @@ export default function CreateContractDialog({
         await apiRequest('POST', '/api/contract-templates', templateData);
       }
       
-      return contract;
+      return savedContract;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/contracts'] });
@@ -139,9 +146,9 @@ export default function CreateContractDialog({
       }
       toast({
         title: 'Success',
-        description: saveAsTemplate 
-          ? 'Contract and template created successfully!' 
-          : 'Contract created successfully!',
+        description: contract 
+          ? (saveAsTemplate ? 'Contract updated and template saved!' : 'Contract updated successfully!')
+          : (saveAsTemplate ? 'Contract and template created successfully!' : 'Contract created successfully!'),
       });
       form.reset();
       setBodyHtml('');
@@ -154,7 +161,7 @@ export default function CreateContractDialog({
     onError: (error: any) => {
       toast({
         title: 'Error',
-        description: error?.message || 'Failed to create contract. Please try again.',
+        description: error?.message || `Failed to ${contract ? 'update' : 'create'} contract. Please try again.`,
         variant: 'destructive',
       });
     },
@@ -187,7 +194,7 @@ export default function CreateContractDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-5xl max-h-[90vh] overflow-hidden flex flex-col">
         <DialogHeader>
-          <DialogTitle>Contract</DialogTitle>
+          <DialogTitle>{contract ? 'Edit Contract' : 'Create Contract'}</DialogTitle>
         </DialogHeader>
 
         <div className="flex-1 overflow-y-auto">
@@ -209,7 +216,7 @@ export default function CreateContractDialog({
                   )}
                 />
                 
-                {templates && templates.length > 0 && (
+                {!contract && templates && templates.length > 0 && (
                   <FormItem className="w-48">
                     <FormLabel>&nbsp;</FormLabel>
                     <Select

@@ -1649,6 +1649,7 @@ export default function ProjectDetail() {
           }}
           initialContactId={selectedContactId}
           initialProjectId={project?.id}
+          contract={editingContract}
         />
       )}
     </>

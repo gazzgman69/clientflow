@@ -134,7 +134,16 @@ export default function CreateContractDialog({
           bodyHtml,
           formFields: JSON.stringify(formFields),
         };
-        await apiRequest('POST', '/api/contract-templates', templateData);
+        console.log('🎯 Creating template with data:', templateData);
+        try {
+          const templateResponse = await apiRequest('POST', '/api/contract-templates', templateData);
+          console.log('🎯 Template response:', templateResponse);
+          const template = await templateResponse.json();
+          console.log('🎯 Template created:', template);
+        } catch (error) {
+          console.error('🎯 Template creation error:', error);
+          throw error;
+        }
       }
       
       return contract;

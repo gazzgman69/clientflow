@@ -639,7 +639,6 @@ export const events = pgTable("events", {
   transparency: text("transparency").default('busy'), // 'free' or 'busy' - for calendar availability
   recurring: boolean("recurring").default(false),
   recurrenceRule: text("recurrence_rule"), // RRULE format for recurring events
-  priority: text("priority").notNull().default('medium'), // low, medium, high, urgent
   leadId: varchar("lead_id").references(() => leads.id, { onDelete: 'cascade' }),
   contactId: varchar("contact_id").references(() => contacts.id, { onDelete: 'cascade' }),
   projectId: varchar("project_id").references(() => projects.id, { onDelete: 'set null' }),

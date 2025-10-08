@@ -298,27 +298,27 @@ export default function CreateContractDialog({
                 render={({ field }) => (
                   <FormItem className="flex flex-col">
                     <FormLabel>Due Date:</FormLabel>
-                    <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
+                    <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen} modal={true}>
                       <PopoverTrigger asChild>
-                        <FormControl>
-                          <Button
-                            variant="outline"
-                            className={cn(
-                              'w-64 pl-3 text-left font-normal',
-                              !field.value && 'text-muted-foreground'
-                            )}
-                            data-testid="button-due-date"
-                          >
-                            {field.value ? (
-                              format(new Date(field.value), 'PPP')
-                            ) : (
-                              <span>Pick a date</span>
-                            )}
-                            <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                          </Button>
-                        </FormControl>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className={cn(
+                            'w-64 pl-3 text-left font-normal',
+                            !field.value && 'text-muted-foreground'
+                          )}
+                          data-testid="button-due-date"
+                          onClick={() => setDatePickerOpen(true)}
+                        >
+                          {field.value ? (
+                            format(new Date(field.value), 'PPP')
+                          ) : (
+                            <span>Pick a date</span>
+                          )}
+                          <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                        </Button>
                       </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
+                      <PopoverContent className="w-auto p-0 z-[9999]" align="start">
                         <Calendar
                           mode="single"
                           selected={field.value ? new Date(field.value) : undefined}

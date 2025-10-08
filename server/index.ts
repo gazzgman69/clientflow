@@ -143,6 +143,13 @@ const csrfProtection = csrf({
 
 // DEBUG: CSRF error handler
 app.use((err: any, req: any, res: any, next: any) => {
+  console.error('🔴 ERROR HANDLER HIT:', {
+    code: err.code,
+    message: err.message,
+    url: req.url,
+    method: req.method
+  });
+  
   if (err.code === 'EBADCSRFTOKEN') {
     console.error('🛡️ CSRF TOKEN ERROR:', {
       url: req.url,

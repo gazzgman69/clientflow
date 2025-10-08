@@ -5,6 +5,7 @@ import {
   type Project, type InsertProject,
   type Quote, type InsertQuote,
   type Contract, type InsertContract,
+  type ContractTemplate, type InsertContractTemplate,
   type Invoice, type InsertInvoice,
   type Task, type InsertTask,
   type Email, type InsertEmail,
@@ -57,7 +58,7 @@ import {
   type LeadConsent, type InsertLeadConsent,
   // Auto-responder types
   type AutoResponderLog, type InsertAutoResponderLog,
-  users, leads, contacts, projects, quotes, contracts, invoices, tasks, emails, emailThreads, activities, automations, 
+  users, leads, contacts, projects, quotes, contracts, contractTemplates, invoices, tasks, emails, emailThreads, activities, automations, 
   members, venues, projectMembers, memberAvailability, projectFiles, projectNotes, smsMessages, 
   messageTemplates, messageThreads, calendars, events, calendarIntegrations, calendarSyncLog, templates, leadCaptureForms,
   leadStatusHistory, emailSignatures, emailProviderCatalog, emailProviderConfigs, emailAccounts, emailProviderIntegrations, tenantEmailPrefs, portalForms, paymentSessions, webhookEvents, tenants,

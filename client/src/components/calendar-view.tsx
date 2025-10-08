@@ -308,7 +308,6 @@ export default function CalendarView({ viewMode = 'month' }: CalendarViewProps) 
       endDate: formatForInput(endDate),
       allDay: event.allDay,
       location: event.location || "",
-      clientId: event.clientId || "",
       type: event.type as any,
       status: event.status as any,
       priority: event.priority as any,

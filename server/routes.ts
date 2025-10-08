@@ -3091,14 +3091,18 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
 
   app.post("/api/contract-templates", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
     try {
+      console.log('[CONTRACT TEMPLATE CREATE] Request body:', req.body);
       const templateData = insertContractTemplateSchema.parse(req.body);
+      console.log('[CONTRACT TEMPLATE CREATE] Parsed template data:', templateData);
       const template = await storage.createContractTemplate({
         ...templateData,
         createdBy: req.session.userId!,
       }, req.tenantId!);
+      console.log('[CONTRACT TEMPLATE CREATE] Template created:', template);
       res.status(201).json(template);
     } catch (error) {
-      res.status(400).json({ message: "Failed to create contract template" });
+      console.error('[CONTRACT TEMPLATE CREATE] Error:', error);
+      res.status(400).json({ message: "Failed to create contract template", error: error instanceof Error ? error.message : 'Unknown error' });
     }
   });
 

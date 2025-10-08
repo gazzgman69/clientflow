@@ -3062,9 +3062,12 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   // Contract Templates
   app.get("/api/contract-templates", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
     try {
+      console.log('[CONTRACT TEMPLATES] Fetching templates for tenant:', req.tenantId);
       const templates = await storage.getContractTemplates(req.tenantId!);
+      console.log('[CONTRACT TEMPLATES] Found templates:', templates.length);
       res.json(templates);
     } catch (error) {
+      console.error('[CONTRACT TEMPLATES] Error fetching templates:', error);
       res.status(500).json({ message: "Failed to fetch contract templates" });
     }
   });

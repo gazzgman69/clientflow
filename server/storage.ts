@@ -530,7 +530,7 @@ export class MemStorage implements IStorage {
   private projects: Map<string, Project> = new Map();
   private quotes: Map<string, Quote> = new Map();
   private contracts: Map<string, Contract> = new Map();
-  private contractTemplates: Map<string, ContractTemplate> = new Map();
+  private inMemoryContractTemplates: Map<string, ContractTemplate> = new Map();
   private invoices: Map<string, Invoice> = new Map();
   private tasks: Map<string, Task> = new Map();
   private emails: Map<string, Email> = new Map();
@@ -1189,7 +1189,7 @@ export class MemStorage implements IStorage {
 
   // Contract Templates
   async getContractTemplates(tenantId: string): Promise<ContractTemplate[]> {
-    return Array.from(this.contractTemplates.values())
+    return Array.from(this.inMemoryContractTemplates.values())
       .filter(t => t.tenantId === tenantId)
       .sort((a, b) => 
         new Date(b.createdAt!).getTime() - new Date(a.createdAt!).getTime()
@@ -1197,7 +1197,7 @@ export class MemStorage implements IStorage {
   }
 
   async getContractTemplate(id: string, tenantId: string): Promise<ContractTemplate | undefined> {
-    const template = this.contractTemplates.get(id);
+    const template = this.inMemoryContractTemplates.get(id);
     if (template && template.tenantId === tenantId) {
       return template;
     }
@@ -1214,12 +1214,12 @@ export class MemStorage implements IStorage {
       createdAt: new Date(),
       updatedAt: new Date(),
     };
-    this.contractTemplates.set(id, template);
+    this.inMemoryContractTemplates.set(id, template);
     return template;
   }
 
   async updateContractTemplate(id: string, updates: Partial<InsertContractTemplate>, tenantId: string): Promise<ContractTemplate | undefined> {
-    const template = this.contractTemplates.get(id);
+    const template = this.inMemoryContractTemplates.get(id);
     if (!template || template.tenantId !== tenantId) return undefined;
 
     const updatedTemplate = {
@@ -1232,9 +1232,9 @@ export class MemStorage implements IStorage {
   }
 
   async deleteContractTemplate(id: string, tenantId: string): Promise<boolean> {
-    const template = this.contractTemplates.get(id);
+    const template = this.inMemoryContractTemplates.get(id);
     if (template && template.tenantId === tenantId) {
-      return this.contractTemplates.delete(id);
+      return this.inMemoryContractTemplates.delete(id);
     }
     return false;
   }

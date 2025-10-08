@@ -285,6 +285,7 @@ export default function CreateContractDialog({
                       <PopoverTrigger asChild>
                         <FormControl>
                           <Button
+                            type="button"
                             variant="outline"
                             className={cn(
                               'w-64 pl-3 text-left font-normal',

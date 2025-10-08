@@ -1,0 +1,42 @@
+Form submitted with data: {contactId: '5b2a318b-aca8-4e46-8739-a6cdb8fedb75', projectId: '4cc19196-6f1d-46ce-83a2-965a62b815df', title: 'Club Kudo Contract 2025', displayTitle: 'Service Agreement', bodyHtml: '', …}
+injected.js:27 Form errors: {}
+injected.js:27 Templates query state: {templates: Array(1), isLoadingTemplates: false, templatesError: null, open: true, hasTemplates: true, …}
+injected.js:27 Templates query state: {templates: Array(1), isLoadingTemplates: false, templatesError: null, open: true, hasTemplates: true, …}
+injected.js:27 🚀 Mutation started with data: {contactId: '5b2a318b-aca8-4e46-8739-a6cdb8fedb75', projectId: '4cc19196-6f1d-46ce-83a2-965a62b815df', title: 'Club Kudo Contract 2025', displayTitle: 'Service Agreement', bodyHtml: '', …}
+injected.js:27 🚀 bodyHtml: <p>This Service Agreement is entered into between <strong>[ClientName]</strong> and our company.</p><p><br></p><p><strong>Terms and Conditions:</strong></p><ul><li>Service will be provided as described</li><li>Payment terms as agreed</li><li>Both parties agree to the terms outlined herein</li></ul>
+injected.js:27 🚀 formFields: []
+injected.js:27 🚀 Contract data to be sent: {contactId: '5b2a318b-aca8-4e46-8739-a6cdb8fedb75', projectId: '4cc19196-6f1d-46ce-83a2-965a62b815df', title: 'Club Kudo Contract 2025', displayTitle: 'Service Agreement', bodyHtml: '<p>This Service Agreement is entered into between …ties agree to the terms outlined herein</li></ul>', …}
+injected.js:27 🚀 Response received: Response {type: 'basic', url: 'https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/api/contracts', redirected: false, status: 201, ok: true, …}
+injected.js:27 🚀 Contract created: {id: '2daf691c-f7df-45c9-9351-a5cb37faf4cb', tenantId: 'default-tenant', userId: null, contractNumber: 'C-1759950275078', contactId: '5b2a318b-aca8-4e46-8739-a6cdb8fedb75', …}
+injected.js:204  POST https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/api/contract-templates 400 (Bad Request)
+apply @ injected.js:204
+apiRequest @ queryClient.ts:66
+await in apiRequest
+mutationFn @ create-contract-dialog.tsx:137
+await in mutationFn
+fn @ @tanstack_react-query.js?v=47958d7b:1189
+run @ @tanstack_react-query.js?v=47958d7b:494
+start @ @tanstack_react-query.js?v=47958d7b:536
+execute @ @tanstack_react-query.js?v=47958d7b:1225
+await in execute
+mutate @ @tanstack_react-query.js?v=47958d7b:2630
+(anonymous) @ @tanstack_react-query.js?v=47958d7b:3295
+onSubmit @ create-contract-dialog.tsx:192
+(anonymous) @ chunk-4BFJKWC4.js?v=47958d7b:1465
+await in (anonymous)
+callCallback2 @ chunk-RPCDYKBN.js?v=47958d7b:3674
+invokeGuardedCallbackDev @ chunk-RPCDYKBN.js?v=47958d7b:3699
+invokeGuardedCallback @ chunk-RPCDYKBN.js?v=47958d7b:3733
+invokeGuardedCallbackAndCatchFirstError @ chunk-RPCDYKBN.js?v=47958d7b:3736
+executeDispatch @ chunk-RPCDYKBN.js?v=47958d7b:7014
+processDispatchQueueItemsInOrder @ chunk-RPCDYKBN.js?v=47958d7b:7034
+processDispatchQueue @ chunk-RPCDYKBN.js?v=47958d7b:7043
+dispatchEventsForPlugins @ chunk-RPCDYKBN.js?v=47958d7b:7051
+(anonymous) @ chunk-RPCDYKBN.js?v=47958d7b:7174
+batchedUpdates$1 @ chunk-RPCDYKBN.js?v=47958d7b:18913
+batchedUpdates @ chunk-RPCDYKBN.js?v=47958d7b:3579
+dispatchEventForPluginEventSystem @ chunk-RPCDYKBN.js?v=47958d7b:7173
+dispatchEventWithEnableCapturePhaseSelectiveHydrationWithoutDiscreteEventReplay @ chunk-RPCDYKBN.js?v=47958d7b:5478
+dispatchEvent @ chunk-RPCDYKBN.js?v=47958d7b:5472
+dispatchDiscreteEvent @ chunk-RPCDYKBN.js?v=47958d7b:5449Understand this error
+injected.js:27 Templates query state: {templates: Array(1), isLoadingTemplates: false, templatesError: null, open: true, hasTemplates: true, …}

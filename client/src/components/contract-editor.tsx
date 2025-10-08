@@ -65,7 +65,7 @@ export default function ContractEditor({
         class: 'prose prose-sm sm:prose lg:prose-lg xl:prose-xl focus:outline-none min-h-[400px] max-w-none p-4',
       },
     },
-  });
+  }, []);
 
   if (!editor) {
     return null;

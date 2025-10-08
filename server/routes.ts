@@ -2927,7 +2927,8 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
       const contract = await storage.createContract(contractData, req.tenantId);
       res.status(201).json(contract);
     } catch (error) {
-      res.status(400).json({ message: "Invalid contract data" });
+      console.error("Contract creation error:", error);
+      res.status(400).json({ message: "Invalid contract data", error: error instanceof Error ? error.message : String(error) });
     }
   });
 

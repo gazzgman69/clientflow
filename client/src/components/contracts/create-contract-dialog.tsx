@@ -113,6 +113,7 @@ export default function CreateContractDialog({
     mutationFn: async (data: z.infer<typeof createContractFormSchema>) => {
       const contractData = {
         ...data,
+        dueDate: data.dueDate ? new Date(data.dueDate).toISOString() : undefined,
         bodyHtml,
         formFields: JSON.stringify(formFields),
       };

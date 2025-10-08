@@ -15,16 +15,28 @@ import {
 import { Button } from '@/components/ui/button';
 import { Toggle } from '@/components/ui/toggle';
 import TokenDropdown from '@/components/contracts/token-dropdown';
+import FormFieldDropdown from '@/components/contracts/form-field-dropdown';
+
+interface FormField {
+  id: string;
+  type: 'checkbox' | 'text_input' | 'initials' | 'signature';
+  label: string;
+  required: boolean;
+}
 
 interface ContractEditorProps {
   content: string;
   onChange: (html: string) => void;
+  formFields?: FormField[];
+  onFormFieldsChange?: (fields: FormField[]) => void;
   showFormButton?: boolean;
 }
 
 export default function ContractEditor({ 
   content, 
   onChange,
+  formFields = [],
+  onFormFieldsChange,
   showFormButton = true
 }: ContractEditorProps) {
   const editor = useEditor({
@@ -70,10 +82,17 @@ export default function ContractEditor({
     editor.chain().focus().insertContent(`{{${tokenName}}}`).run();
   };
 
-  const insertFormField = () => {
-    // Will be implemented in next task
+  const insertFormField = (field: FormField) => {
     if (!editor) return;
-    alert('Form field insertion will be implemented next');
+    
+    // Add field to formFields array
+    if (onFormFieldsChange) {
+      onFormFieldsChange([...formFields, field]);
+    }
+    
+    // Insert placeholder in editor
+    const placeholder = `[FORM:${field.id}]`;
+    editor.chain().focus().insertContent(placeholder).run();
   };
 
   return (
@@ -159,18 +178,7 @@ export default function ContractEditor({
         
         <TokenDropdown onInsert={insertToken} />
 
-        {showFormButton && (
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            onClick={insertFormField}
-            className="h-8"
-            data-testid="button-insert-form"
-          >
-            INSERT FORM
-          </Button>
-        )}
+        {showFormButton && <FormFieldDropdown onInsert={insertFormField} />}
       </div>
 
       {/* Editor Content */}

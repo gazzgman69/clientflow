@@ -29,7 +29,6 @@ interface Event {
   clientId?: string;
   projectId?: string;
   status: string;
-  priority: string;
   attendees?: string[];
   reminderMinutes?: number;
   recurring: boolean;
@@ -52,7 +51,6 @@ const eventSchema = z.object({
   location: z.string().optional(),
   projectId: z.string().optional(),
   status: z.enum(['confirmed', 'tentative', 'cancelled']).default('confirmed'),
-  priority: z.enum(['low', 'medium', 'high', 'urgent']).default('medium'),
   attendees: z.string().optional(),
   reminderMinutes: z.number().default(15),
   recurring: z.boolean().default(false),
@@ -270,7 +268,6 @@ export default function CalendarView({ viewMode = 'month' }: CalendarViewProps) 
       allDay: false,
       location: "",
       status: "confirmed",
-      priority: "medium",
       attendees: "",
       reminderMinutes: 15,
       recurring: false,
@@ -305,7 +302,6 @@ export default function CalendarView({ viewMode = 'month' }: CalendarViewProps) 
       allDay: event.allDay,
       location: event.location || "",
       status: event.status as any,
-      priority: event.priority as any,
       attendees: event.attendees ? event.attendees.join(', ') : "",
       reminderMinutes: event.reminderMinutes || 15,
       recurring: event.recurring,
@@ -614,30 +610,6 @@ export default function CalendarView({ viewMode = 'month' }: CalendarViewProps) 
                     <div className="space-y-1 leading-none">
                       <FormLabel>All Day Event</FormLabel>
                     </div>
-                  </FormItem>
-                )}
-              />
-              
-              <FormField
-                control={form.control}
-                name="priority"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Priority</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                      <FormControl>
-                        <SelectTrigger data-testid="select-event-priority">
-                          <SelectValue />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="low">Low</SelectItem>
-                        <SelectItem value="medium">Medium</SelectItem>
-                        <SelectItem value="high">High</SelectItem>
-                        <SelectItem value="urgent">Urgent</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
                   </FormItem>
                 )}
               />

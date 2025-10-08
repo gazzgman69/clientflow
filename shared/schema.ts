@@ -188,9 +188,7 @@ export const contracts = pgTable("contracts", {
   quoteId: varchar("quote_id").references(() => quotes.id, { onDelete: 'cascade' }),
   title: text("title").notNull(), // Internal title
   displayTitle: text("display_title"), // Display title shown to client
-  description: text("description"),
   bodyHtml: text("body_html"), // Rich text content with tokens and embedded forms
-  terms: text("terms"),
   dueDate: timestamp("due_date"), // When contract is due
   status: text("status").notNull().default('draft'), // draft, sent, awaiting_counter_signature, signed, cancelled
   signedAt: timestamp("signed_at"),

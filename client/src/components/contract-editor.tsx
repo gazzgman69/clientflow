@@ -2,7 +2,6 @@ import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Underline from '@tiptap/extension-underline';
 import Link from '@tiptap/extension-link';
-import TextStyle from '@tiptap/extension-text-style';
 import { 
   Bold, 
   Italic, 
@@ -53,7 +52,6 @@ export default function ContractEditor({
           class: 'text-primary underline',
         },
       }),
-      TextStyle,
     ],
     content,
     onUpdate: ({ editor }) => {

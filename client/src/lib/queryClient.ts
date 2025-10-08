@@ -65,12 +65,28 @@ export async function apiRequest(
     console.log('📤 STRINGIFIED BODY (first 200 chars):', stringifiedBody.substring(0, 200));
   }
   
-  const res = await fetch(url, {
-    method,
-    headers,
-    body: stringifiedBody,
-    credentials: "include",
+  console.log(`[API REQUEST] About to fetch ${method} ${url}`, {
+    hasHeaders: Object.keys(headers).length > 0,
+    hasBody: !!stringifiedBody,
+    bodyLength: stringifiedBody?.length
   });
+  
+  let res;
+  try {
+    res = await fetch(url, {
+      method,
+      headers,
+      body: stringifiedBody,
+      credentials: "include",
+    });
+    console.log(`[API REQUEST] Fetch completed for ${method} ${url}`, {
+      status: res.status,
+      ok: res.ok
+    });
+  } catch (fetchError) {
+    console.error(`[API REQUEST] Fetch failed for ${method} ${url}:`, fetchError);
+    throw fetchError;
+  }
 
   // If we get a CSRF error, clear the cache and retry once
   if (res.status === 403 && needsCsrfToken) {

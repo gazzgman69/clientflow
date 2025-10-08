@@ -3090,8 +3090,12 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   });
 
   app.post("/api/contract-templates", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
+    console.log('[CONTRACT TEMPLATE CREATE] Route handler reached!');
+    console.log('[CONTRACT TEMPLATE CREATE] Request body:', req.body);
+    console.log('[CONTRACT TEMPLATE CREATE] Session userId:', req.session.userId);
+    console.log('[CONTRACT TEMPLATE CREATE] Tenant ID:', req.tenantId);
+    
     try {
-      console.log('[CONTRACT TEMPLATE CREATE] Request body:', req.body);
       const templateData = insertContractTemplateSchema.parse(req.body);
       console.log('[CONTRACT TEMPLATE CREATE] Parsed template data:', templateData);
       const template = await storage.createContractTemplate({
@@ -3102,6 +3106,10 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
       res.status(201).json(template);
     } catch (error) {
       console.error('[CONTRACT TEMPLATE CREATE] Error:', error);
+      if (error instanceof z.ZodError) {
+        console.error('[CONTRACT TEMPLATE CREATE] Zod validation errors:', JSON.stringify(error.errors, null, 2));
+        return res.status(400).json({ message: "Validation error", errors: error.errors });
+      }
       res.status(400).json({ message: "Failed to create contract template", error: error instanceof Error ? error.message : 'Unknown error' });
     }
   });

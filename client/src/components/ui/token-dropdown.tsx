@@ -211,7 +211,7 @@ export function TokenDropdown({
           </div>
         </div>
 
-        <ScrollArea className="h-96">
+        <div className="max-h-96 overflow-y-auto">
           {isLoading ? (
             <div className="p-4 text-center text-muted-foreground">
               Loading tokens...
@@ -262,7 +262,7 @@ export function TokenDropdown({
               ))}
             </div>
           )}
-        </ScrollArea>
+        </div>
 
         <div className="p-2 border-t bg-muted/50 text-xs text-muted-foreground">
           <div className="flex items-center justify-between">

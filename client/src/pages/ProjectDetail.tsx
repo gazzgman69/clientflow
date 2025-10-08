@@ -56,7 +56,7 @@ import type {
 import ProjectEmailPanel from "@/components/email/ProjectEmailPanel";
 import ContactPicker from "@/components/quote/ContactPicker";
 import QuoteEditor from "@/components/quote/QuoteEditor";
-import ContractEditor from "@/components/contracts/ContractEditor";
+import CreateContractDialog from "@/components/contracts/create-contract-dialog";
 
 const noteSchema = z.object({
   note: z.string().min(1, "Note is required"),
@@ -1642,13 +1642,13 @@ export default function ProjectDetail() {
 
       {/* Contract Editor Modal */}
       {showContractEditor && (
-        <ContractEditor
-          isOpen={showContractEditor}
-          onClose={handleContractEditorClose}
-          contactId={selectedContactId}
-          contactName={selectedContactName}
-          projectId={project?.id}
-          contract={editingContract}
+        <CreateContractDialog
+          open={showContractEditor}
+          onOpenChange={(open) => {
+            if (!open) handleContractEditorClose();
+          }}
+          initialContactId={selectedContactId}
+          initialProjectId={project?.id}
         />
       )}
     </>

@@ -53,9 +53,16 @@ const createContractFormSchema = insertContractSchema.omit({
 interface CreateContractDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  initialContactId?: string;
+  initialProjectId?: string;
 }
 
-export default function CreateContractDialog({ open, onOpenChange }: CreateContractDialogProps) {
+export default function CreateContractDialog({ 
+  open, 
+  onOpenChange,
+  initialContactId,
+  initialProjectId 
+}: CreateContractDialogProps) {
   const [bodyHtml, setBodyHtml] = useState('');
   const [formFields, setFormFields] = useState<FormField[]>([]);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>('');
@@ -81,8 +88,8 @@ export default function CreateContractDialog({ open, onOpenChange }: CreateContr
       title: '',
       displayTitle: '',
       description: '',
-      contactId: '',
-      projectId: '',
+      contactId: initialContactId || '',
+      projectId: initialProjectId || '',
       bodyHtml: '',
       terms: '',
       signatureWorkflow: 'counter_sign_after_client',

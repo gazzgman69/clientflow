@@ -249,14 +249,13 @@ export default function CreateContractDialog({
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Project (optional)</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value || ''}>
+                        <Select onValueChange={field.onChange} value={field.value || undefined}>
                           <FormControl>
                             <SelectTrigger data-testid="select-project">
                               <SelectValue placeholder="Link to project..." />
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            <SelectItem value="">No project</SelectItem>
                             {projects?.map((project) => (
                               <SelectItem key={project.id} value={project.id}>
                                 {project.name}

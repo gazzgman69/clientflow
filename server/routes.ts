@@ -1654,8 +1654,8 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
 
-  // Get current impersonation status
-  app.get('/api/admin/impersonate/status', ensureSuperAdminAuth, async (req, res) => {
+  // Get current impersonation status (all users can check their own status)
+  app.get('/api/admin/impersonate/status', ensureUserAuth, async (req, res) => {
     try {
       if (req.session?.isImpersonating && req.session?.impersonatedUserId) {
         if (!req.session.tenantId || !req.session.originalTenantId) {
@@ -2635,11 +2635,6 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   app.get("/api/admin/templates", ensureUserAuth, tenantResolver, requireTenant, async (req: any, res) => {
     // Admin templates feature not yet implemented
     res.json([]);
-  });
-
-  app.get("/api/admin/impersonate/status", ensureUserAuth, tenantResolver, requireTenant, async (req: any, res) => {
-    // Admin impersonation feature not yet implemented
-    res.json({ impersonating: false });
   });
 
   // Projects

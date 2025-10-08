@@ -16,7 +16,17 @@ declare global {
  * Checks for valid user session and sets req.authenticatedUserId with security tracking
  */
 export const ensureUserAuth = (req: Request, res: Response, next: NextFunction) => {
+  console.log('[ensureUserAuth] Middleware called:', {
+    path: req.path,
+    method: req.method,
+    hasSession: !!req.session,
+    sessionId: req.session?.id,
+    userId: req.session?.userId,
+    tenantId: req.session?.tenantId
+  });
+  
   if (!req.session?.userId) {
+    console.error('[ensureUserAuth] ❌ Auth failed - no userId in session');
     // Log failed authentication attempt
     logSecurityEvent('auth_failure', {
       ip: req.ip,
@@ -30,6 +40,8 @@ export const ensureUserAuth = (req: Request, res: Response, next: NextFunction) 
       message: 'Please log in to access this endpoint'
     });
   }
+  
+  console.log('[ensureUserAuth] ✅ Auth passed for userId:', req.session.userId);
   
   // Log successful authentication
   logSecurityEvent('auth_success', {

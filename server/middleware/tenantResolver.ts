@@ -318,12 +318,27 @@ function extractSubdomain(host: string): string | null {
  * Use this on routes that must have tenant isolation
  */
 export const requireTenant = (req: TenantRequest, res: Response, next: NextFunction) => {
+  console.log('[requireTenant] Middleware called:', {
+    path: req.path,
+    method: req.method,
+    tenantId: req.tenantId,
+    hasSession: !!req.session,
+    sessionTenantId: req.session?.tenantId
+  });
+  
   if (!req.tenantId) {
+    console.error('[requireTenant] ❌ Missing tenantId!', {
+      hasSession: !!req.session,
+      sessionTenantId: req.session?.tenantId,
+      sessionUserId: req.session?.userId
+    });
     return res.status(400).json({ 
       error: 'Tenant context required',
       message: 'This operation requires tenant context'
     });
   }
+  
+  console.log('[requireTenant] ✅ Tenant context present:', req.tenantId);
   next();
 };
 

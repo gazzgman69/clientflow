@@ -71,6 +71,7 @@ export default function CreateContractDialog({
   const [formFields, setFormFields] = useState<FormField[]>([]);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>('');
   const [saveAsTemplate, setSaveAsTemplate] = useState(false);
+  const [templateName, setTemplateName] = useState('');
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -109,8 +110,11 @@ export default function CreateContractDialog({
       
       // If save as template is checked, also create a template
       if (saveAsTemplate) {
+        if (!templateName.trim()) {
+          throw new Error('Template name is required');
+        }
         const templateData = {
-          name: data.title,
+          name: templateName.trim(),
           displayTitle: data.displayTitle,
           signatureWorkflow: data.signatureWorkflow,
           bodyHtml,
@@ -137,12 +141,13 @@ export default function CreateContractDialog({
       setFormFields([]);
       setSelectedTemplateId('');
       setSaveAsTemplate(false);
+      setTemplateName('');
       onOpenChange(false);
     },
-    onError: () => {
+    onError: (error: any) => {
       toast({
         title: 'Error',
-        description: 'Failed to create contract. Please try again.',
+        description: error?.message || 'Failed to create contract. Please try again.',
         variant: 'destructive',
       });
     },
@@ -317,7 +322,10 @@ export default function CreateContractDialog({
                 <Checkbox 
                   id="save-as-template" 
                   checked={saveAsTemplate}
-                  onCheckedChange={(checked) => setSaveAsTemplate(checked === true)}
+                  onCheckedChange={(checked) => {
+                    setSaveAsTemplate(checked === true);
+                    if (!checked) setTemplateName('');
+                  }}
                   data-testid="checkbox-save-as-template"
                 />
                 <label 
@@ -327,6 +335,20 @@ export default function CreateContractDialog({
                   Save as template
                 </label>
               </div>
+
+              {/* Template Name Input - shown when save as template is checked */}
+              {saveAsTemplate && (
+                <div className="flex justify-end">
+                  <div className="w-64">
+                    <Input
+                      placeholder="Template name"
+                      value={templateName}
+                      onChange={(e) => setTemplateName(e.target.value)}
+                      data-testid="input-template-name"
+                    />
+                  </div>
+                </div>
+              )}
 
               {/* Action Buttons */}
               <div className="flex justify-end gap-3">

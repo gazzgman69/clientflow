@@ -221,8 +221,8 @@ app.post('/api/venues/place-details', async (req, res) => {
   }
 });
 
-// Tenant resolution middleware - identifies tenant context from subdomain/domain/user
-app.use('/api', tenantResolver);
+// NOTE: tenantResolver is applied per-route in routes.ts, not globally
+// Applying it globally here causes session access issues before session middleware runs
 
 // Real-time tenant monitoring and orphan prevention (Task 3 Security)
 app.use('/api', tenantMonitoringMiddleware);

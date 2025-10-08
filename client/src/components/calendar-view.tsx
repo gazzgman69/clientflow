@@ -28,7 +28,6 @@ interface Event {
   location?: string;
   clientId?: string;
   projectId?: string;
-  type: string;
   status: string;
   priority: string;
   attendees?: string[];
@@ -52,7 +51,6 @@ const eventSchema = z.object({
   allDay: z.boolean().default(false),
   location: z.string().optional(),
   projectId: z.string().optional(),
-  type: z.enum(['meeting', 'call', 'email', 'task', 'deadline', 'reminder', 'other']).default('meeting'),
   status: z.enum(['confirmed', 'tentative', 'cancelled']).default('confirmed'),
   priority: z.enum(['low', 'medium', 'high', 'urgent']).default('medium'),
   attendees: z.string().optional(),
@@ -365,18 +363,6 @@ export default function CalendarView({ viewMode = 'month' }: CalendarViewProps) 
     });
   };
 
-  const getEventTypeColor = (type: string) => {
-    switch (type) {
-      case 'meeting': return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200';
-      case 'call': return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200';
-      case 'email': return 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200';
-      case 'task': return 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200';
-      case 'deadline': return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200';
-      case 'reminder': return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200';
-      case 'lead': return 'bg-teal-100 text-teal-800 dark:bg-teal-900 dark:text-teal-200';
-      default: return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200';
-    }
-  };
 
   const formatEventTime = (startDate: string, endDate: string, allDay: boolean) => {
     if (allDay) return 'All Day';

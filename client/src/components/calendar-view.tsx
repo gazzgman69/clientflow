@@ -494,10 +494,12 @@ export default function CalendarView({ viewMode = 'month' }: CalendarViewProps) 
                           <>
                             <div className="font-medium mb-1">{day}</div>
                             <div className="space-y-1">
-                              {dayEvents.map((event, eventIndex) => (
+                              {dayEvents.map((event, eventIndex) => {
+                                const isNewLead = event.title.includes('New Lead Project •');
+                                return (
                                 <div
                                   key={event.id}
-                                  className="text-xs p-1 rounded cursor-pointer hover:opacity-80 bg-primary/10 text-primary"
+                                  className={`text-xs p-1 rounded cursor-pointer hover:opacity-80 ${isNewLead ? 'bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-300' : 'bg-primary/10 text-primary'}`}
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     handleEditEvent(event);
@@ -514,7 +516,8 @@ export default function CalendarView({ viewMode = 'month' }: CalendarViewProps) 
                                     <div className="text-xs opacity-70 leading-tight break-words">📍 {event.location}</div>
                                   )}
                                 </div>
-                              ))}
+                              )
+                              })}
                             </div>
                           </>
                         )}

@@ -48,7 +48,9 @@ export async function apiRequest(
   const needsCsrfToken = ['POST', 'PATCH', 'PUT', 'DELETE'].includes(method.toUpperCase());
   if (needsCsrfToken) {
     try {
+      console.log(`[CSRF] Fetching CSRF token for ${method} ${url}`);
       const csrfToken = await getCsrfToken();
+      console.log(`[CSRF] Got CSRF token:`, csrfToken ? 'present' : 'missing');
       headers['X-CSRF-Token'] = csrfToken;
     } catch (error) {
       console.error('Failed to get CSRF token, continuing without it:', error);

@@ -3060,6 +3060,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
       if (!contract) {
         return res.status(404).json({ message: "Contract not found" });
       }
+      console.log('[CONTRACT GET] Returning contract:', { id: contract.id, dueDate: contract.dueDate, hasDueDate: !!contract.dueDate });
       res.json(contract);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch contract" });

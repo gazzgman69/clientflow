@@ -390,6 +390,7 @@ export default function CreateContractDialog({
                     id="save-as-template" 
                     checked={saveAsTemplate}
                     onCheckedChange={(checked) => {
+                      console.log('Save as template checked:', checked, 'selectedTemplateId:', selectedTemplateId);
                       setSaveAsTemplate(checked === true);
                       if (!checked) {
                         setTemplateName('');

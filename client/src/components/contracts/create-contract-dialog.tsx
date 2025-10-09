@@ -266,7 +266,7 @@ export default function CreateContractDialog({
                   )}
                 />
                 
-                {!contract && templates && templates.length > 0 && (
+                {templates && templates.length > 0 && (
                   <FormItem className="w-48">
                     <FormLabel>&nbsp;</FormLabel>
                     <Select

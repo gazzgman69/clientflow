@@ -237,8 +237,9 @@ export default function ContractPreview() {
   };
 
   const handleLiveView = () => {
-    // TODO: Open client-facing contract view
-    console.log("Live view");
+    // Open the contract in a new window (client view)
+    const url = `${window.location.origin}/contracts/${id}/preview`;
+    window.open(url, '_blank');
   };
 
   const handlePrint = () => {

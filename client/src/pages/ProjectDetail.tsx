@@ -1365,7 +1365,7 @@ export default function ProjectDetail() {
                           <div
                             key={contract.id}
                             className="flex items-center justify-between p-3 border rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
-                            onClick={() => handleEditContract(contract)}
+                            onClick={() => setLocation(`/contracts/${contract.id}/preview`)}
                             data-testid={`document-contract-${contract.id}`}
                           >
                             <div className="flex items-center gap-3">

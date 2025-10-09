@@ -3977,10 +3977,10 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
       let venue = null;
       console.log('📋 Contract projectId:', contract.projectId);
       if (contract.projectId) {
-        project = await storage.getProject(contract.projectId);
+        project = await storage.getProject(contract.projectId, contract.tenantId);
         console.log('🎯 Fetched project:', project ? project.name : 'null');
         if (project && project.venueId) {
-          venue = await storage.getVenue(project.venueId);
+          venue = await storage.getVenue(project.venueId, contract.tenantId);
           console.log('📍 Fetched venue:', venue ? venue.name : 'null');
         }
       }

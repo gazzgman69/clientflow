@@ -1,8 +1,10 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { FileText, CreditCard, FileCheck, UserCheck, ExternalLink, Clock, AlertTriangle } from "lucide-react";
+import { FileText, CreditCard, FileCheck, UserCheck, ExternalLink, Clock, AlertTriangle, FileSignature } from "lucide-react";
 import { formatDistanceToNow, format, isAfter, addDays } from "date-fns";
+import { useQuery } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 
 interface PendingItem {
   id: string;
@@ -18,11 +20,52 @@ interface PendingItem {
   projectId: string;
   isOverdue?: boolean;
   urgency: 'low' | 'medium' | 'high';
+  requiresCounterSignature?: boolean;
 }
 
 export default function PendingItems() {
-  // Mock pending items - in real app, this would come from API
-  const pendingItems: PendingItem[] = [
+  const [, setLocation] = useLocation();
+
+  // Fetch contracts requiring counter-signature
+  const { data: contracts } = useQuery<any[]>({
+    queryKey: ["/api/contracts"],
+  });
+
+  // Fetch contacts to get client names
+  const { data: contacts } = useQuery<any[]>({
+    queryKey: ["/api/contacts"],
+  });
+
+  // Fetch projects to get project names
+  const { data: projects } = useQuery<any[]>({
+    queryKey: ["/api/projects"],
+  });
+
+  // Build pending items from contracts requiring counter-signature
+  const counterSignatureItems: PendingItem[] = (contracts || [])
+    .filter(contract => contract.status === 'awaiting_counter_signature')
+    .map(contract => {
+      const contact = contacts?.find(c => c.id === contract.contactId);
+      const project = projects?.find(p => p.id === contract.projectId);
+      
+      return {
+        id: contract.id,
+        type: 'contract' as const,
+        title: contract.displayTitle || contract.title,
+        clientName: contact ? `${contact.firstName} ${contact.lastName}` : 'Unknown Client',
+        projectName: project?.name || 'No Project',
+        sentDate: contract.clientSignedAt ? new Date(contract.clientSignedAt) : new Date(contract.createdAt),
+        dueDate: contract.dueDate ? new Date(contract.dueDate) : undefined,
+        status: 'awaiting_counter_signature',
+        clientId: contract.contactId,
+        projectId: contract.projectId || '',
+        urgency: 'high' as const,
+        requiresCounterSignature: true,
+      };
+    });
+
+  // Mock pending items for demonstration - in real app, would fetch from API
+  const mockPendingItems: PendingItem[] = [
     {
       id: "1",
       type: "quote",
@@ -108,6 +151,9 @@ export default function PendingItems() {
     }
   ];
 
+  // Combine counter-signature items with mock items
+  const pendingItems = [...counterSignatureItems, ...mockPendingItems];
+
   const getItemIcon = (type: string) => {
     switch (type) {
       case 'quote': return <FileText className="h-4 w-4 text-blue-500" />;
@@ -123,6 +169,13 @@ export default function PendingItems() {
       return <Badge variant="destructive" className="flex items-center gap-1">
         <AlertTriangle className="h-3 w-3" />
         Overdue
+      </Badge>;
+    }
+
+    if (item.requiresCounterSignature) {
+      return <Badge variant="secondary" className="bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300 flex items-center gap-1">
+        <FileSignature className="h-3 w-3" />
+        Counter-Signature Required
       </Badge>;
     }
     
@@ -145,8 +198,13 @@ export default function PendingItems() {
   };
 
   const handleClientClick = (clientId: string, projectId: string) => {
-    // In real app, this would navigate to the project page
-    console.log(`Navigate to project ${projectId} for client ${clientId}`);
+    if (projectId) {
+      setLocation(`/projects/${projectId}`);
+    }
+  };
+
+  const handleContractClick = (contractId: string) => {
+    setLocation(`/contracts/${contractId}`);
   };
 
   // Sort by urgency and overdue status
@@ -190,9 +248,19 @@ export default function PendingItems() {
                   
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
-                      <h4 className="font-medium text-foreground truncate">
-                        {item.title}
-                      </h4>
+                      {item.requiresCounterSignature ? (
+                        <button
+                          onClick={() => handleContractClick(item.id)}
+                          className="font-medium text-foreground hover:text-primary hover:underline truncate cursor-pointer"
+                          data-testid={`contract-title-${item.id}`}
+                        >
+                          {item.title}
+                        </button>
+                      ) : (
+                        <h4 className="font-medium text-foreground truncate">
+                          {item.title}
+                        </h4>
+                      )}
                       {getStatusBadge(item)}
                     </div>
                     

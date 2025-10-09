@@ -129,7 +129,7 @@ export default function ContractPreview() {
   });
 
   // Fetch document views
-  const { data: documentViews } = useQuery<any[]>({
+  const { data: documentViews, refetch: refetchViews } = useQuery<any[]>({
     queryKey: ['/api/documents/contract', id, 'views'],
     enabled: !!id,
   });
@@ -424,7 +424,7 @@ export default function ContractPreview() {
               )}
               
               {/* Timeline Dropdown */}
-              <DropdownMenu>
+              <DropdownMenu onOpenChange={(open) => { if (open) refetchViews(); }}>
                 <DropdownMenuTrigger asChild>
                   <Button 
                     variant="ghost" 

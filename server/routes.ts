@@ -3254,7 +3254,6 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   app.get("/api/contacts/:contactId/contracts", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
     try {
       const contracts = await storage.getContractsByClient(req.params.contactId);
-      console.log('📝 Contracts from DB:', JSON.stringify(contracts, null, 2));
       res.json(contracts);
     } catch (error) {
       console.error("Error fetching contracts for contact:", error);

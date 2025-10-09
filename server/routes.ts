@@ -4792,13 +4792,11 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
         body: req.body
       });
       
-      const templateData = {
-        ...insertMessageTemplateSchema.parse({
-          ...req.body,
-          createdBy: userId
-        }),
+      const templateData = insertMessageTemplateSchema.parse({
+        ...req.body,
+        createdBy: userId,
         tenantId: req.tenantId
-      };
+      });
       
       console.log('🐛 DEBUG Parsed template data:', templateData);
       

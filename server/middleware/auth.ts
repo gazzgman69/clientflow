@@ -16,6 +16,7 @@ declare global {
  * Checks for valid user session and sets req.authenticatedUserId with security tracking
  */
 export const ensureUserAuth = (req: Request, res: Response, next: NextFunction) => {
+  console.log('🔵 [ensureUserAuth] ENTRY POINT - middleware starting');
   console.log('[ensureUserAuth] Middleware called:', {
     path: req.path,
     method: req.method,

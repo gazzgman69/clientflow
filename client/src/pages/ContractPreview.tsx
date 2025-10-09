@@ -907,36 +907,16 @@ export default function ContractPreview() {
                 </p>
               </div>
             ) : (
-              <div className="space-y-3">
+              <div className="space-y-2">
                 {emailTemplates?.map((template: any) => (
-                  <Card 
+                  <div
                     key={template.id}
-                    className="cursor-pointer hover:bg-muted/50 transition-colors border-l-4 border-l-primary/20"
+                    className="p-3 rounded-lg border cursor-pointer hover:bg-muted/50 transition-colors"
                     onClick={() => applyTemplate(template)}
                     data-testid={`card-template-${template.id}`}
                   >
-                    <CardHeader className="pb-2">
-                      <div className="flex justify-between items-start">
-                        <div className="flex-1">
-                          <CardTitle className="text-base font-semibold">
-                            {template.name}
-                          </CardTitle>
-                          {template.subject && (
-                            <p className="text-sm text-muted-foreground mt-1">
-                              Subject: {template.subject}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                    </CardHeader>
-                    <CardContent className="pt-0">
-                      <div className="bg-muted/30 dark:bg-muted/10 p-3 rounded text-sm border border-border/20 dark:border-border/10">
-                        <p className="text-muted-foreground dark:text-muted-foreground line-clamp-3 leading-relaxed">
-                          {template.body ? stripHtml(template.body).substring(0, 150) : 'No preview available'}{template.body && stripHtml(template.body).length > 150 ? '...' : ''}
-                        </p>
-                      </div>
-                    </CardContent>
-                  </Card>
+                    <p className="font-medium">{template.name}</p>
+                  </div>
                 ))}
               </div>
             )}

@@ -180,8 +180,8 @@ export default function ContractPreview() {
 
   // Apply signature function
   const applySignature = (signature: any) => {
-    if (messageEditorRef.current) {
-      const success = messageEditorRef.current.appendSignature(signature.html);
+    if (messageEditorRef.current && signature.content) {
+      const success = messageEditorRef.current.appendSignature(signature.content);
       if (success) {
         toast({ 
           title: 'Signature added', 
@@ -959,7 +959,7 @@ export default function ContractPreview() {
                       <div className="bg-muted/30 dark:bg-muted/10 p-3 rounded text-sm border border-border/20 dark:border-border/10">
                         <div 
                           className="prose prose-sm dark:prose-invert max-w-none"
-                          dangerouslySetInnerHTML={{ __html: signature.html?.substring(0, 300) || 'No preview available' }}
+                          dangerouslySetInnerHTML={{ __html: signature.content?.substring(0, 300) || 'No preview available' }}
                         />
                       </div>
                     </CardContent>

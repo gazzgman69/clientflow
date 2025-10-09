@@ -176,10 +176,9 @@ export default function ContractPreview() {
       }
     }
     setSelectedTemplate(template);
-    setShowTemplateModal(false);
     toast({ 
       title: 'Template applied', 
-      description: `Applied "${template.title}" to your email` 
+      description: `Applied "${template.name}" to your email` 
     });
   };
 

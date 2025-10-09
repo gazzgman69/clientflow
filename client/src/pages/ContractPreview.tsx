@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ArrowLeft, Send, Eye, Printer, Edit, X, FileText, ChevronDown, Edit3, Loader2, Clock } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
@@ -14,6 +15,7 @@ import { TokenDropdown } from "@/components/ui/token-dropdown";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { TEMPLATE_CATEGORIES } from "@shared/schema";
 
 type Contract = {
   id: string;
@@ -88,6 +90,7 @@ export default function ContractPreview() {
   // Save template state
   const [showSaveTemplateDialog, setShowSaveTemplateDialog] = useState(false);
   const [templateName, setTemplateName] = useState("");
+  const [templateCategory, setTemplateCategory] = useState("contract_send");
   
   // Signature state
   const [showBusinessSignDialog, setShowBusinessSignDialog] = useState(false);
@@ -121,11 +124,14 @@ export default function ContractPreview() {
     queryKey: ['/api/tenant/config'],
   });
 
-  // Fetch email templates
+  // Fetch email templates - get all contract-related categories
   const { data: emailTemplates, isLoading: templatesLoading } = useQuery({
     queryKey: ['/api/message-templates', 'email', 'contract'],
     queryFn: async () => {
-      const response = await fetch('/api/message-templates?type=email&category=contract');
+      // Fetch templates with contract-related categories
+      const categories = ['contract_send', 'contract_confirmation', 'contract_upcoming_send', 'contract_due_send'];
+      const categoryParams = categories.map(c => `category=${c}`).join('&');
+      const response = await fetch(`/api/message-templates?type=email&${categoryParams}`);
       if (!response.ok) throw new Error('Failed to fetch email templates');
       return response.json();
     },
@@ -234,13 +240,13 @@ export default function ContractPreview() {
 
   // Save template mutation
   const saveTemplateMutation = useMutation({
-    mutationFn: async (templateData: { name: string; subject: string; body: string }) => {
+    mutationFn: async (templateData: { name: string; subject: string; body: string; category: string }) => {
       const response = await apiRequest('POST', '/api/message-templates', {
         name: templateData.name,
         type: 'email',
         subject: templateData.subject,
         body: templateData.body,
-        category: 'contract'
+        category: templateData.category
       });
       return response.json();
     },
@@ -248,6 +254,7 @@ export default function ContractPreview() {
       queryClient.invalidateQueries({ queryKey: ['/api/message-templates', 'email', 'contract'] });
       setShowSaveTemplateDialog(false);
       setTemplateName("");
+      setTemplateCategory("contract_send"); // Reset to default
       toast({
         title: "Template saved",
         description: "Email template saved successfully",
@@ -408,7 +415,8 @@ export default function ContractPreview() {
     saveTemplateMutation.mutate({
       name: templateName,
       subject: emailSubject,
-      body: emailMessage
+      body: emailMessage,
+      category: templateCategory
     });
   };
 
@@ -947,12 +955,28 @@ export default function ContractPreview() {
               />
             </div>
 
+            <div>
+              <Label htmlFor="template-category">Template Category</Label>
+              <Select value={templateCategory} onValueChange={setTemplateCategory}>
+                <SelectTrigger id="template-category" data-testid="select-template-category">
+                  <SelectValue placeholder="Select a category" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={TEMPLATE_CATEGORIES.CONTRACT_SEND}>Contract Send</SelectItem>
+                  <SelectItem value={TEMPLATE_CATEGORIES.CONTRACT_CONFIRMATION}>Contract Confirmation</SelectItem>
+                  <SelectItem value={TEMPLATE_CATEGORIES.CONTRACT_UPCOMING_SEND}>Contract Upcoming Reminder</SelectItem>
+                  <SelectItem value={TEMPLATE_CATEGORIES.CONTRACT_DUE_SEND}>Contract Overdue Reminder</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
             <div className="flex justify-end gap-2">
               <Button
                 variant="outline"
                 onClick={() => {
                   setShowSaveTemplateDialog(false);
                   setTemplateName("");
+                  setTemplateCategory("contract_send");
                 }}
                 data-testid="button-cancel-save-template"
               >

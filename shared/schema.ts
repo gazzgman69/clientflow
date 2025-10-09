@@ -1014,6 +1014,132 @@ export const insertProjectFileSchema = createInsertSchema(projectFiles).omit({ i
 export const insertProjectNoteSchema = createInsertSchema(projectNotes).omit({ id: true, createdAt: true });
 export const insertSmsMessageSchema = createInsertSchema(smsMessages).omit({ id: true, createdAt: true });
 export const insertMessageTemplateSchema = createInsertSchema(messageTemplates).omit({ id: true, createdAt: true, updatedAt: true });
+
+// Template Categories - organized by document/feature type (similar to 17hats)
+export const TEMPLATE_CATEGORIES = {
+  // Contract-related templates
+  CONTRACT_SEND: 'contract_send',
+  CONTRACT_CONFIRMATION: 'contract_confirmation',
+  CONTRACT_UPCOMING_SEND: 'contract_upcoming_send',
+  CONTRACT_DUE_SEND: 'contract_due_send',
+  
+  // Invoice-related templates
+  INVOICE_SEND: 'invoice_send',
+  INVOICE_CONFIRMATION: 'invoice_confirmation',
+  INVOICE_UPCOMING_SEND: 'invoice_upcoming_send',
+  INVOICE_DUE_SEND: 'invoice_due_send',
+  INVOICE_AUTOBILL_CONFIRMATION: 'invoice_autobill_confirmation',
+  INVOICE_AUTOBILL_UPCOMING_SEND: 'invoice_autobill_upcoming_send',
+  INVOICE_DUE_AND_UPCOMING_SEND: 'invoice_due_and_upcoming_send',
+  
+  // Quote-related templates
+  QUOTE_SEND: 'quote_send',
+  QUOTE_CONFIRMATION: 'quote_confirmation',
+  QUOTE_UPCOMING_SEND: 'quote_upcoming_send',
+  QUOTE_DUE_SEND: 'quote_due_send',
+  
+  // Questionnaire-related templates
+  QUESTIONNAIRE_SEND: 'questionnaire_send',
+  QUESTIONNAIRE_CONFIRMATION: 'questionnaire_confirmation',
+  QUESTIONNAIRE_UPCOMING_SEND: 'questionnaire_upcoming_send',
+  QUESTIONNAIRE_DUE_SEND: 'questionnaire_due_send',
+  
+  // Scheduling templates
+  SCHEDULING: 'scheduling',
+  
+  // Lead-related templates
+  LEAD_SEND: 'lead_send',
+  
+  // Regular/General email
+  REGULAR_EMAIL: 'regular_email',
+} as const;
+
+// Helper function to get display name for category
+export function getTemplateCategoryDisplay(category: string | null): string {
+  if (!category) return 'Regular Email';
+  
+  const displays: Record<string, string> = {
+    [TEMPLATE_CATEGORIES.CONTRACT_SEND]: 'Contract Send',
+    [TEMPLATE_CATEGORIES.CONTRACT_CONFIRMATION]: 'Contract Confirmation',
+    [TEMPLATE_CATEGORIES.CONTRACT_UPCOMING_SEND]: 'Contract Upcoming Reminder',
+    [TEMPLATE_CATEGORIES.CONTRACT_DUE_SEND]: 'Contract Overdue Reminder',
+    
+    [TEMPLATE_CATEGORIES.INVOICE_SEND]: 'Invoice Send',
+    [TEMPLATE_CATEGORIES.INVOICE_CONFIRMATION]: 'Invoice Confirmation',
+    [TEMPLATE_CATEGORIES.INVOICE_UPCOMING_SEND]: 'Invoice Upcoming Reminder',
+    [TEMPLATE_CATEGORIES.INVOICE_DUE_SEND]: 'Invoice Overdue Reminder',
+    [TEMPLATE_CATEGORIES.INVOICE_AUTOBILL_CONFIRMATION]: 'Invoice Auto-Bill Confirmation',
+    [TEMPLATE_CATEGORIES.INVOICE_AUTOBILL_UPCOMING_SEND]: 'Invoice Auto-Bill Upcoming',
+    [TEMPLATE_CATEGORIES.INVOICE_DUE_AND_UPCOMING_SEND]: 'Invoice Due & Upcoming',
+    
+    [TEMPLATE_CATEGORIES.QUOTE_SEND]: 'Quote Send',
+    [TEMPLATE_CATEGORIES.QUOTE_CONFIRMATION]: 'Quote Confirmation',
+    [TEMPLATE_CATEGORIES.QUOTE_UPCOMING_SEND]: 'Quote Upcoming Reminder',
+    [TEMPLATE_CATEGORIES.QUOTE_DUE_SEND]: 'Quote Overdue Reminder',
+    
+    [TEMPLATE_CATEGORIES.QUESTIONNAIRE_SEND]: 'Questionnaire Send',
+    [TEMPLATE_CATEGORIES.QUESTIONNAIRE_CONFIRMATION]: 'Questionnaire Confirmation',
+    [TEMPLATE_CATEGORIES.QUESTIONNAIRE_UPCOMING_SEND]: 'Questionnaire Upcoming Reminder',
+    [TEMPLATE_CATEGORIES.QUESTIONNAIRE_DUE_SEND]: 'Questionnaire Overdue Reminder',
+    
+    [TEMPLATE_CATEGORIES.SCHEDULING]: 'Scheduling',
+    [TEMPLATE_CATEGORIES.LEAD_SEND]: 'Lead Response',
+    [TEMPLATE_CATEGORIES.REGULAR_EMAIL]: 'Regular Email',
+  };
+  
+  return displays[category] || category;
+}
+
+// Group categories for UI dropdowns
+export const TEMPLATE_CATEGORY_GROUPS = [
+  {
+    label: 'Contract Templates',
+    categories: [
+      { value: TEMPLATE_CATEGORIES.CONTRACT_SEND, label: 'Contract Send' },
+      { value: TEMPLATE_CATEGORIES.CONTRACT_CONFIRMATION, label: 'Contract Confirmation' },
+      { value: TEMPLATE_CATEGORIES.CONTRACT_UPCOMING_SEND, label: 'Contract Upcoming Reminder' },
+      { value: TEMPLATE_CATEGORIES.CONTRACT_DUE_SEND, label: 'Contract Overdue Reminder' },
+    ]
+  },
+  {
+    label: 'Invoice Templates',
+    categories: [
+      { value: TEMPLATE_CATEGORIES.INVOICE_SEND, label: 'Invoice Send' },
+      { value: TEMPLATE_CATEGORIES.INVOICE_CONFIRMATION, label: 'Invoice Confirmation' },
+      { value: TEMPLATE_CATEGORIES.INVOICE_UPCOMING_SEND, label: 'Invoice Upcoming Reminder' },
+      { value: TEMPLATE_CATEGORIES.INVOICE_DUE_SEND, label: 'Invoice Overdue Reminder' },
+      { value: TEMPLATE_CATEGORIES.INVOICE_AUTOBILL_CONFIRMATION, label: 'Invoice Auto-Bill Confirmation' },
+      { value: TEMPLATE_CATEGORIES.INVOICE_AUTOBILL_UPCOMING_SEND, label: 'Invoice Auto-Bill Upcoming' },
+      { value: TEMPLATE_CATEGORIES.INVOICE_DUE_AND_UPCOMING_SEND, label: 'Invoice Due & Upcoming' },
+    ]
+  },
+  {
+    label: 'Quote Templates',
+    categories: [
+      { value: TEMPLATE_CATEGORIES.QUOTE_SEND, label: 'Quote Send' },
+      { value: TEMPLATE_CATEGORIES.QUOTE_CONFIRMATION, label: 'Quote Confirmation' },
+      { value: TEMPLATE_CATEGORIES.QUOTE_UPCOMING_SEND, label: 'Quote Upcoming Reminder' },
+      { value: TEMPLATE_CATEGORIES.QUOTE_DUE_SEND, label: 'Quote Overdue Reminder' },
+    ]
+  },
+  {
+    label: 'Questionnaire Templates',
+    categories: [
+      { value: TEMPLATE_CATEGORIES.QUESTIONNAIRE_SEND, label: 'Questionnaire Send' },
+      { value: TEMPLATE_CATEGORIES.QUESTIONNAIRE_CONFIRMATION, label: 'Questionnaire Confirmation' },
+      { value: TEMPLATE_CATEGORIES.QUESTIONNAIRE_UPCOMING_SEND, label: 'Questionnaire Upcoming Reminder' },
+      { value: TEMPLATE_CATEGORIES.QUESTIONNAIRE_DUE_SEND, label: 'Questionnaire Overdue Reminder' },
+    ]
+  },
+  {
+    label: 'Other Templates',
+    categories: [
+      { value: TEMPLATE_CATEGORIES.SCHEDULING, label: 'Scheduling' },
+      { value: TEMPLATE_CATEGORIES.LEAD_SEND, label: 'Lead Response' },
+      { value: TEMPLATE_CATEGORIES.REGULAR_EMAIL, label: 'Regular Email' },
+    ]
+  }
+];
 export const insertMessageThreadSchema = createInsertSchema(messageThreads).omit({ id: true, createdAt: true });
 export const insertEventSchema = createInsertSchema(events).omit({ id: true, tenantId: true, createdAt: true, updatedAt: true }).extend({
   startDate: z.string().or(z.date()).transform((val) => new Date(val)),

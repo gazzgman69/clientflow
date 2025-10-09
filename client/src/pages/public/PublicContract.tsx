@@ -203,14 +203,11 @@ export default function PublicContract({ id }: PublicContractProps) {
   return (
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-4xl mx-auto px-4">
-        {/* Header */}
-        <div className="mb-6">
-          <div className="flex items-center justify-between mb-4">
-            <h1 className="text-2xl font-bold text-gray-900">Contract {contract.contractNumber}</h1>
-            <Badge className={`${statusColors[contract.status]} text-white`}>
-              {contract.status.replace('_', ' ').toUpperCase()}
-            </Badge>
-          </div>
+        {/* Status Badge */}
+        <div className="mb-6 flex justify-end">
+          <Badge className={`${statusColors[contract.status]} text-white`}>
+            {contract.status.replace('_', ' ').toUpperCase()}
+          </Badge>
         </div>
 
         {/* Contract Card */}

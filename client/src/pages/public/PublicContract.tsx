@@ -30,6 +30,20 @@ type Contact = {
   firstName: string;
   lastName: string;
   fullName: string | null;
+  email?: string;
+  phone?: string;
+  company?: string;
+};
+
+type Project = {
+  name: string;
+  description?: string;
+  startDate?: string;
+};
+
+type Venue = {
+  name: string;
+  address?: string;
 };
 
 type Tenant = {
@@ -42,7 +56,7 @@ export default function PublicContract({ id }: PublicContractProps) {
   const [clientSignatureName, setClientSignatureName] = useState("");
   
   // Fetch contract data
-  const { data, isLoading, error } = useQuery<{ contract: Contract; contact: Contact; tenant: Tenant }>({
+  const { data, isLoading, error } = useQuery<{ contract: Contract; contact: Contact; project?: Project; venue?: Venue; tenant: Tenant }>({
     queryKey: ['/api/public/contracts', id],
     queryFn: async () => {
       const response = await fetch(`/api/public/contracts/${id}`);
@@ -97,6 +111,56 @@ export default function PublicContract({ id }: PublicContractProps) {
       return;
     }
     clientSignMutation.mutate(clientSignatureName);
+  };
+
+  // Token replacement function
+  const replaceTokens = (html: string | null): string => {
+    if (!html || !data) return html || "";
+    
+    let replaced = html;
+    const { contact, project, venue, contract, tenant } = data;
+    
+    if (contact) {
+      // Handle HTML entities like &nbsp; before/after tokens
+      replaced = replaced.replace(/(&nbsp;|\s)*\[FirstName\](&nbsp;|\s)*/gi, contact.firstName || "");
+      replaced = replaced.replace(/(&nbsp;|\s)*\[LastName\](&nbsp;|\s)*/gi, contact.lastName || "");
+      replaced = replaced.replace(/(&nbsp;|\s)*\[FullName\](&nbsp;|\s)*/gi, contact.fullName || `${contact.firstName} ${contact.lastName}`.trim());
+      replaced = replaced.replace(/(&nbsp;|\s)*\[Email\](&nbsp;|\s)*/gi, contact.email || "");
+      replaced = replaced.replace(/(&nbsp;|\s)*\[Phone\](&nbsp;|\s)*/gi, contact.phone || "");
+      replaced = replaced.replace(/(&nbsp;|\s)*\[Company\](&nbsp;|\s)*/gi, contact.company || "");
+    }
+    
+    if (project) {
+      replaced = replaced.replace(/(&nbsp;|\s)*\[ProjectName\](&nbsp;|\s)*/gi, project.name || "");
+      replaced = replaced.replace(/(&nbsp;|\s)*\[ProjectNotes\](&nbsp;|\s)*/gi, project.description || "");
+      
+      if (project.startDate) {
+        const startDate = new Date(project.startDate);
+        replaced = replaced.replace(/(&nbsp;|\s)*\[ProjectDate\](&nbsp;|\s)*/gi, format(startDate, "MMMM d, yyyy"));
+      }
+    }
+    
+    if (venue) {
+      const venueLocation = `${venue.name || ''} ${venue.address || ''}`.trim();
+      replaced = replaced.replace(/(&nbsp;|\s)*\[ProjectLocation\](&nbsp;|\s)*/gi, venueLocation);
+      replaced = replaced.replace(/(&nbsp;|\s)*\[ProjectAddress\](&nbsp;|\s)*/gi, venue.address || "");
+    }
+    
+    if (contract) {
+      replaced = replaced.replace(/(&nbsp;|\s)*\[ContractNumber\](&nbsp;|\s)*/gi, contract.contractNumber || "");
+      replaced = replaced.replace(/(&nbsp;|\s)*\[ContractTitle\](&nbsp;|\s)*/gi, contract.displayTitle || contract.title || "");
+      
+      if (contract.dueDate) {
+        const dueDate = new Date(contract.dueDate);
+        replaced = replaced.replace(/(&nbsp;|\s)*\[ContractDueDate\](&nbsp;|\s)*/gi, format(dueDate, "MMMM d, yyyy"));
+      }
+    }
+    
+    if (tenant) {
+      replaced = replaced.replace(/(&nbsp;|\s)*\[BusinessName\](&nbsp;|\s)*/gi, tenant.name || "");
+    }
+    
+    return replaced;
   };
 
   if (isLoading) {
@@ -157,7 +221,7 @@ export default function PublicContract({ id }: PublicContractProps) {
             {/* Contract Body */}
             <div
               className="prose prose-sm max-w-none"
-              dangerouslySetInnerHTML={{ __html: contract.bodyHtml || '' }}
+              dangerouslySetInnerHTML={{ __html: replaceTokens(contract.bodyHtml) }}
             />
 
             {/* Signature Section */}

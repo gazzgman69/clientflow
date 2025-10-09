@@ -3971,6 +3971,16 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
       // Get contact info
       const contact = await storage.getContactById(contract.contactId);
       
+      // Get project info if available
+      let project = null;
+      let venue = null;
+      if (contract.projectId) {
+        project = await storage.getProject(contract.projectId);
+        if (project && project.venueId) {
+          venue = await storage.getVenue(project.venueId);
+        }
+      }
+      
       // Get tenant info
       const tenant = await storage.getTenant(contract.tenantId);
       
@@ -4000,6 +4010,18 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
           firstName: contact.firstName,
           lastName: contact.lastName,
           fullName: contact.fullName,
+          email: contact.email,
+          phone: contact.phone,
+          company: contact.company,
+        } : null,
+        project: project ? {
+          name: project.name,
+          description: project.description,
+          startDate: project.startDate,
+        } : null,
+        venue: venue ? {
+          name: venue.name,
+          address: venue.address,
         } : null,
         tenant: tenant ? {
           name: tenant.name,

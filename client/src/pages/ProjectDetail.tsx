@@ -1381,7 +1381,7 @@ export default function ProjectDetail() {
                         {projectContracts.map((contract) => (
                           <div
                             key={contract.id}
-                            className="flex items-center justify-between p-3 border rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                            className="flex items-center justify-between p-3 border rounded-lg cursor-pointer bg-green-50/30 hover:bg-green-50 dark:bg-green-950/20 dark:hover:bg-green-950/40 transition-colors"
                             onClick={() => setLocation(`/contracts/${contract.id}/preview`)}
                             data-testid={`document-contract-${contract.id}`}
                           >

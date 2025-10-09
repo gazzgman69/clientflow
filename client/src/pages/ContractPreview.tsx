@@ -848,14 +848,7 @@ export default function ContractPreview() {
                               onClick={() => applyTemplate(template)}
                               data-testid={`dropdown-template-${template.id}`}
                             >
-                              <div className="flex flex-col">
-                                <span className="font-medium">{template.name}</span>
-                                {template.category && (
-                                  <span className="text-xs text-muted-foreground capitalize">
-                                    {template.category.replace(/_/g, ' ')}
-                                  </span>
-                                )}
-                              </div>
+                              <span className="font-medium">{template.name}</span>
                             </DropdownMenuItem>
                           ))
                         )}

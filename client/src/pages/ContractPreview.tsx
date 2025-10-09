@@ -69,6 +69,10 @@ export default function ContractPreview() {
   const [emailMessage, setEmailMessage] = useState("");
   const [selectedTemplateId, setSelectedTemplateId] = useState("");
   const messageEditorRef = useRef<RichTextEditorRef>(null);
+  
+  // Signature state
+  const [showBusinessSignDialog, setShowBusinessSignDialog] = useState(false);
+  const [businessSignatureName, setBusinessSignatureName] = useState("");
 
   // Fetch contract
   const { data: contract, isLoading: contractLoading } = useQuery<Contract>({
@@ -127,6 +131,33 @@ export default function ContractPreview() {
         title: 'Failed to send contract', 
         description: error.message,
         variant: 'destructive' 
+      });
+    },
+  });
+
+  // Business signature mutation
+  const businessSignMutation = useMutation({
+    mutationFn: async (signature: string) => {
+      const response = await apiRequest('POST', `/api/contracts/${id}/sign`, {
+        signature,
+        signatureType: 'business'
+      });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/contracts', id] });
+      setShowBusinessSignDialog(false);
+      setBusinessSignatureName("");
+      toast({
+        title: "Success",
+        description: "Contract counter-signed successfully",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
       });
     },
   });
@@ -253,6 +284,31 @@ export default function ContractPreview() {
 
   const handlePrint = () => {
     window.print();
+  };
+
+  const handleBusinessSign = () => {
+    if (!contract?.clientSignature) {
+      toast({
+        title: "Cannot counter-sign",
+        description: "Client must sign first",
+        variant: "destructive",
+      });
+      return;
+    }
+    setBusinessSignatureName(tenantConfig?.name || "");
+    setShowBusinessSignDialog(true);
+  };
+
+  const handleBusinessSignSubmit = () => {
+    if (!businessSignatureName.trim()) {
+      toast({
+        title: "Error",
+        description: "Please enter your name",
+        variant: "destructive",
+      });
+      return;
+    }
+    businessSignMutation.mutate(businessSignatureName);
   };
 
   if (contractLoading) {
@@ -442,12 +498,14 @@ export default function ContractPreview() {
                             <div className="border-b-2 border-gray-300 pb-2 h-12" />
                           )}
                         </div>
-                        {!contract.businessSignature && (
+                        {!contract.businessSignature && contract.clientSignature && (
                           <Button 
+                            onClick={handleBusinessSign}
+                            disabled={businessSignMutation.isPending}
                             className="bg-amber-600 hover:bg-amber-700 text-white"
                             data-testid="button-sign-business"
                           >
-                            Sign Contract
+                            {businessSignMutation.isPending ? 'Signing...' : 'Counter-Sign'}
                           </Button>
                         )}
                       </div>
@@ -540,6 +598,56 @@ export default function ContractPreview() {
                 data-testid="button-send-email"
               >
                 {sendEmailMutation.isPending ? "Sending..." : "Send Now"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Business Signature Dialog */}
+      <Dialog open={showBusinessSignDialog} onOpenChange={setShowBusinessSignDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Counter-Sign Contract</DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              By counter-signing this contract, you confirm that you have reviewed and approved the terms.
+            </p>
+
+            <div>
+              <Label htmlFor="business-signature">Your Name</Label>
+              <Input
+                id="business-signature"
+                value={businessSignatureName}
+                onChange={(e) => setBusinessSignatureName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    handleBusinessSignSubmit();
+                  }
+                }}
+                placeholder="Enter your name"
+                className="font-signature text-lg"
+                data-testid="input-business-signature-name"
+              />
+            </div>
+
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setShowBusinessSignDialog(false)}
+                data-testid="button-cancel-business-sign"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleBusinessSignSubmit}
+                disabled={businessSignMutation.isPending || !businessSignatureName.trim()}
+                className="bg-amber-600 hover:bg-amber-700 text-white"
+                data-testid="button-submit-business-sign"
+              >
+                {businessSignMutation.isPending ? "Signing..." : "Sign Contract"}
               </Button>
             </div>
           </div>

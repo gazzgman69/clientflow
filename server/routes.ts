@@ -4101,15 +4101,49 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
 
   app.post("/api/contracts/:id/sign", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
     try {
-      const contract = await storage.updateContract(req.params.id, {
-        status: 'signed',
-        signedAt: new Date()
-      });
+      const contractId = req.params.id;
+      const { signature, signatureType = 'business' } = req.body;
+
+      if (!signature || !signature.trim()) {
+        return res.status(400).json({ message: "Signature is required" });
+      }
+
+      const contract = await storage.getContract(contractId);
+      
       if (!contract) {
         return res.status(404).json({ message: "Contract not found" });
       }
-      res.json(contract);
+
+      // Business counter-signing (authenticated users only)
+      if (signatureType === 'business') {
+        if (!contract.clientSignature) {
+          return res.status(400).json({ message: "Client must sign first" });
+        }
+
+        if (contract.businessSignature) {
+          return res.status(400).json({ message: "Contract has already been counter-signed" });
+        }
+
+        // Update contract with business signature
+        const updatedContract = await storage.updateContract(contractId, {
+          businessSignature: signature.trim(),
+          businessSignedAt: new Date(),
+          status: 'signed',
+        });
+
+        if (!updatedContract) {
+          return res.status(404).json({ message: "Failed to update contract" });
+        }
+
+        res.json({ 
+          message: "Contract counter-signed successfully",
+          contract: updatedContract 
+        });
+      } else {
+        return res.status(400).json({ message: "Invalid signature type" });
+      }
     } catch (error) {
+      console.error("Error signing contract:", error);
       res.status(500).json({ message: "Failed to sign contract" });
     }
   });

@@ -375,10 +375,30 @@ export default function ContractPreview() {
       return;
     }
 
+    // Add contract view button to email (17hats style)
+    const contractUrl = `${window.location.origin}/c/${id}`;
+    const buttonHtml = `
+      <div style="margin-top: 40px; text-align: center;">
+        <a href="${contractUrl}" 
+           style="display: inline-block; 
+                  background-color: #B8860B; 
+                  color: white; 
+                  padding: 16px 48px; 
+                  text-decoration: none; 
+                  border-radius: 8px; 
+                  font-size: 18px; 
+                  font-weight: 600;
+                  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
+          Review &amp; Sign Contract
+        </a>
+      </div>
+    `;
+    const emailBodyWithButton = emailBody + buttonHtml;
+
     sendEmailMutation.mutate({
       to: emailTo,
       subject: emailSubject,
-      html: emailBody,
+      html: emailBodyWithButton,
     });
   };
 

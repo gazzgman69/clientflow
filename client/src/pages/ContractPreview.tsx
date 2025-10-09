@@ -147,7 +147,14 @@ export default function ContractPreview() {
 
   // Fetch email signatures
   const { data: emailSignatures, isLoading: signaturesLoading } = useQuery({
-    queryKey: ['/api/email/signatures'],
+    queryKey: ['/api/signatures'],
+    queryFn: async () => {
+      const response = await fetch('/api/signatures', {
+        credentials: 'include'
+      });
+      if (!response.ok) throw new Error('Failed to fetch signatures');
+      return response.json();
+    },
     enabled: showEmailDialog,
   });
 

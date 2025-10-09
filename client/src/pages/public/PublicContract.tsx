@@ -40,7 +40,6 @@ export default function PublicContract({ id }: PublicContractProps) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const [clientSignatureName, setClientSignatureName] = useState("");
-  const [businessSignatureName, setBusinessSignatureName] = useState("");
   
   // Fetch contract data
   const { data, isLoading, error } = useQuery<{ contract: Contract; contact: Contact; tenant: Tenant }>({
@@ -88,37 +87,6 @@ export default function PublicContract({ id }: PublicContractProps) {
     },
   });
 
-  // Business signature mutation
-  const businessSignMutation = useMutation({
-    mutationFn: async (signature: string) => {
-      const response = await fetch(`/api/public/contracts/${id}/sign`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ signature, signatureType: 'business' }),
-      });
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to sign contract');
-      }
-      return response.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/public/contracts', id] });
-      setBusinessSignatureName("");
-      toast({
-        title: "Success",
-        description: "Business signature added successfully",
-      });
-    },
-    onError: (error: Error) => {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
-  });
-
   const handleClientSign = () => {
     if (!clientSignatureName.trim()) {
       toast({
@@ -129,18 +97,6 @@ export default function PublicContract({ id }: PublicContractProps) {
       return;
     }
     clientSignMutation.mutate(clientSignatureName);
-  };
-
-  const handleBusinessSign = () => {
-    if (!businessSignatureName.trim()) {
-      toast({
-        title: "Error",
-        description: "Please enter your name",
-        variant: "destructive",
-      });
-      return;
-    }
-    businessSignMutation.mutate(businessSignatureName);
   };
 
   if (isLoading) {
@@ -268,33 +224,10 @@ export default function PublicContract({ id }: PublicContractProps) {
                             </p>
                           )}
                         </div>
-                      ) : contract.clientSignature ? (
-                        <div className="flex items-center gap-3">
-                          <Input
-                            placeholder="Type business representative name"
-                            value={businessSignatureName}
-                            onChange={(e) => setBusinessSignatureName(e.target.value)}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter') {
-                                handleBusinessSign();
-                              }
-                            }}
-                            className="flex-1 font-signature text-lg"
-                            data-testid="input-business-signature"
-                          />
-                          <Button 
-                            onClick={handleBusinessSign}
-                            disabled={businessSignMutation.isPending || !businessSignatureName.trim()}
-                            className="bg-amber-600 hover:bg-amber-700 text-white"
-                            data-testid="button-sign-business"
-                          >
-                            {businessSignMutation.isPending ? 'Signing...' : 'Sign Contract'}
-                          </Button>
-                        </div>
                       ) : (
                         <div className="border-b-2 border-gray-300 pb-2 h-12 flex items-center">
                           <p className="text-sm text-muted-foreground italic">
-                            Awaiting client signature
+                            {contract.clientSignature ? 'Awaiting business signature' : 'Awaiting client signature'}
                           </p>
                         </div>
                       )}

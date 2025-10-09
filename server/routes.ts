@@ -4778,12 +4778,17 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
 
-  app.post("/api/message-templates", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
+  app.post("/api/message-templates", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req: any, res) => {
     try {
-      const templateData = insertMessageTemplateSchema.parse(req.body);
-      const template = await storage.createMessageTemplate(templateData, req.tenantId);
+      const templateData = insertMessageTemplateSchema.parse({
+        ...req.body,
+        tenantId: req.tenantId,
+        createdBy: req.userId
+      });
+      const template = await storage.createMessageTemplate(templateData);
       res.status(201).json(template);
     } catch (error) {
+      console.error('Template creation error:', error);
       res.status(400).json({ message: "Invalid template data" });
     }
   });

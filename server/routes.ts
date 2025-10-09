@@ -3988,6 +3988,60 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
 
+  // Public contract signing endpoint - no authentication required
+  app.post("/api/public/contracts/:id/sign", authLimiter, async (req, res) => {
+    try {
+      const contractId = req.params.id;
+      const { signature } = req.body;
+
+      if (!signature || !signature.trim()) {
+        return res.status(400).json({ message: "Signature is required" });
+      }
+
+      const contract = await storage.getContract(contractId);
+      
+      if (!contract) {
+        return res.status(404).json({ message: "Contract not found" });
+      }
+
+      // Check if contract can be signed
+      if (contract.signatureWorkflow === 'not_required') {
+        return res.status(400).json({ message: "This contract does not require a signature" });
+      }
+
+      if (contract.clientSignature) {
+        return res.status(400).json({ message: "Contract has already been signed" });
+      }
+
+      // Determine new status based on workflow
+      let newStatus = contract.status;
+      if (contract.signatureWorkflow === 'sign_upon_creation') {
+        newStatus = 'signed';
+      } else if (contract.signatureWorkflow === 'counter_sign_after_client') {
+        newStatus = 'awaiting_counter_signature';
+      }
+
+      // Update contract with client signature
+      const updatedContract = await storage.updateContract(contractId, {
+        clientSignature: signature.trim(),
+        clientSignedAt: new Date(),
+        status: newStatus,
+      });
+
+      if (!updatedContract) {
+        return res.status(404).json({ message: "Failed to update contract" });
+      }
+
+      res.json({ 
+        message: "Contract signed successfully",
+        contract: updatedContract 
+      });
+    } catch (error) {
+      console.error("Error signing contract:", error);
+      res.status(500).json({ message: "Failed to sign contract" });
+    }
+  });
+
   app.post("/api/contracts/:id/send", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
     try {
       const contract = await storage.updateContract(req.params.id, {

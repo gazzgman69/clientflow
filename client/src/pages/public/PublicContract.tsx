@@ -1,8 +1,13 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { format } from "date-fns";
+import { useState } from "react";
+import { useToast } from "@/hooks/use-toast";
 
 interface PublicContractProps {
   id: string;
@@ -34,6 +39,11 @@ type Tenant = {
 };
 
 export default function PublicContract({ id }: PublicContractProps) {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const [showSignDialog, setShowSignDialog] = useState(false);
+  const [signatureName, setSignatureName] = useState("");
+  
   // Fetch contract data
   const { data, isLoading, error } = useQuery<{ contract: Contract; contact: Contact; tenant: Tenant }>({
     queryKey: ['/api/public/contracts', id],
@@ -48,6 +58,49 @@ export default function PublicContract({ id }: PublicContractProps) {
       return response.json();
     },
   });
+
+  // Sign contract mutation
+  const signMutation = useMutation({
+    mutationFn: async (signature: string) => {
+      const response = await fetch(`/api/public/contracts/${id}/sign`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ signature }),
+      });
+      if (!response.ok) {
+        throw new Error('Failed to sign contract');
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/public/contracts', id] });
+      setShowSignDialog(false);
+      setSignatureName("");
+      toast({
+        title: "Success",
+        description: "Contract signed successfully",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to sign contract",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleSign = () => {
+    if (!signatureName.trim()) {
+      toast({
+        title: "Error",
+        description: "Please enter your name",
+        variant: "destructive",
+      });
+      return;
+    }
+    signMutation.mutate(signatureName);
+  };
 
   if (isLoading) {
     return (
@@ -141,7 +194,9 @@ export default function PublicContract({ id }: PublicContractProps) {
                       </div>
                       {!contract.clientSignature && (
                         <Button 
+                          onClick={() => setShowSignDialog(true)}
                           className="bg-amber-600 hover:bg-amber-700 text-white"
+                          data-testid="button-sign-contract"
                         >
                           Sign Contract
                         </Button>
@@ -178,6 +233,52 @@ export default function PublicContract({ id }: PublicContractProps) {
             )}
           </CardContent>
         </Card>
+
+        {/* Sign Dialog */}
+        <Dialog open={showSignDialog} onOpenChange={setShowSignDialog}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Sign Contract</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label htmlFor="signature">Type your full name to sign</Label>
+                <Input
+                  id="signature"
+                  placeholder="Your full name"
+                  value={signatureName}
+                  onChange={(e) => setSignatureName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      handleSign();
+                    }
+                  }}
+                  data-testid="input-signature"
+                />
+              </div>
+              <div className="text-sm text-muted-foreground">
+                By typing your name above, you are creating a legal electronic signature that has the same legal effect as a handwritten signature.
+              </div>
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setShowSignDialog(false)}
+                data-testid="button-cancel-sign"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleSign}
+                disabled={signMutation.isPending}
+                className="bg-amber-600 hover:bg-amber-700 text-white"
+                data-testid="button-confirm-sign"
+              >
+                {signMutation.isPending ? 'Signing...' : 'Sign Contract'}
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );

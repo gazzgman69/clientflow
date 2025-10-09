@@ -442,15 +442,13 @@ export default function CreateContractDialog({
                         </RadioGroup>
                       ) : null}
                       
-                      {/* Template name input - only show for new templates */}
-                      {(!updateExistingTemplate || !selectedTemplateId) && (
-                        <Input
-                          placeholder="Template name"
-                          value={templateName}
-                          onChange={(e) => setTemplateName(e.target.value)}
-                          data-testid="input-template-name"
-                        />
-                      )}
+                      {/* Template name input - always show so user can edit the name */}
+                      <Input
+                        placeholder="Template name"
+                        value={templateName}
+                        onChange={(e) => setTemplateName(e.target.value)}
+                        data-testid="input-template-name"
+                      />
                     </div>
                   </div>
                 )}

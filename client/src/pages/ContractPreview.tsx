@@ -293,7 +293,7 @@ export default function ContractPreview() {
       // Replace tokens directly, preserving any surrounding spaces or &nbsp; entities
       replaced = replaced.replace(/\[FirstName\]/gi, contact.firstName || "");
       replaced = replaced.replace(/\[LastName\]/gi, contact.lastName || "");
-      replaced = replaced.replace(/\[FullName\]/gi, contact.fullName || `${contact.firstName} ${contact.lastName}`.trim());
+      replaced = replaced.replace(/\[FullName\]/gi, `${contact.firstName} ${contact.lastName}`.trim());
       replaced = replaced.replace(/\[Email\]/gi, contact.email || "");
       replaced = replaced.replace(/\[Phone\]/gi, contact.phone || "");
       replaced = replaced.replace(/\[Company\]/gi, contact.company || "");
@@ -305,7 +305,7 @@ export default function ContractPreview() {
       replaced = replaced.replace(/\[Province\]/gi, contact.state || "");
       replaced = replaced.replace(/\[Zip\]/gi, contact.zipCode || "");
       replaced = replaced.replace(/\[PostalCode\]/gi, contact.zipCode || "");
-      replaced = replaced.replace(/\[Country\]/gi, contact.country || "");
+      replaced = replaced.replace(/\[Country\]/gi, "");
     }
     
     if (project) {
@@ -650,7 +650,7 @@ export default function ContractPreview() {
                     <div className="flex items-end justify-between gap-4">
                       <div className="flex-1">
                         <label className="block text-sm font-medium text-muted-foreground uppercase mb-2">
-                          {contact?.fullName || contact?.firstName + ' ' + contact?.lastName}
+                          {contact?.firstName} {contact?.lastName}
                         </label>
                         {contract.clientSignature ? (
                           <div className="border-b-2 border-gray-300 pb-2">

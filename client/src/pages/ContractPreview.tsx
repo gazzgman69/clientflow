@@ -84,7 +84,6 @@ export default function ContractPreview() {
   const [emailSubject, setEmailSubject] = useState("");
   const [emailMessage, setEmailMessage] = useState("");
   const [showTemplateModal, setShowTemplateModal] = useState(false);
-  const [showSignatureModal, setShowSignatureModal] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState<any>(null);
   const messageEditorRef = useRef<RichTextEditorRef>(null);
   
@@ -769,16 +768,47 @@ export default function ContractPreview() {
                     />
                   )}
                   onSignatureSelect={() => (
-                    <Button 
-                      variant="outline" 
-                      size="sm"
-                      className="h-7 px-2 text-xs"
-                      onClick={() => setShowSignatureModal(true)}
-                      data-testid="button-select-signature"
-                    >
-                      <Edit3 className="h-2.5 w-2.5 mr-1" />
-                      Signature
-                    </Button>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button 
+                          variant="outline"
+                          size="sm"
+                          className="h-7 px-2 text-xs"
+                          data-testid="button-select-signature"
+                        >
+                          <Edit3 className="h-2.5 w-2.5 mr-1" />
+                          Signature
+                          <ChevronDown className="h-2.5 w-2.5 ml-1" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="start" className="w-56">
+                        {signaturesLoading ? (
+                          <div className="flex items-center justify-center py-2">
+                            <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                            Loading...
+                          </div>
+                        ) : emailSignatures?.length === 0 ? (
+                          <div className="text-center py-2 text-muted-foreground text-sm">
+                            No signatures found
+                          </div>
+                        ) : (
+                          emailSignatures?.map((signature: any) => (
+                            <DropdownMenuItem 
+                              key={signature.id}
+                              onClick={() => applySignature(signature)}
+                              data-testid={`dropdown-signature-${signature.id}`}
+                            >
+                              <div className="flex flex-col">
+                                <span className="font-medium">{signature.name}</span>
+                                {signature.isDefault && (
+                                  <span className="text-xs text-muted-foreground">Default</span>
+                                )}
+                              </div>
+                            </DropdownMenuItem>
+                          ))
+                        )}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   )}
                   onTemplateSelect={() => (
                     <Button 
@@ -895,72 +925,6 @@ export default function ContractPreview() {
                         <p className="text-muted-foreground dark:text-muted-foreground line-clamp-3 leading-relaxed">
                           {template.body?.substring(0, 200) || 'No preview available'}...
                         </p>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Signature Selection Modal */}
-      <Dialog open={showSignatureModal} onOpenChange={setShowSignatureModal}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Edit3 className="h-5 w-5" />
-              Select Email Signature
-            </DialogTitle>
-            <DialogDescription>
-              Choose a signature to insert into your email
-            </DialogDescription>
-          </DialogHeader>
-          
-          <div className="max-h-96 overflow-auto">
-            {signaturesLoading ? (
-              <div className="flex items-center justify-center py-8">
-                <Loader2 className="h-6 w-6 animate-spin mr-2" />
-                Loading signatures...
-              </div>
-            ) : emailSignatures?.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">
-                <p>No email signatures found</p>
-                <p className="text-sm mt-2">
-                  Create signatures in Settings to use them here
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {emailSignatures?.map((signature: any) => (
-                  <Card 
-                    key={signature.id}
-                    className="cursor-pointer hover:bg-muted/50 transition-colors"
-                    onClick={() => {
-                      applySignature(signature);
-                      setShowSignatureModal(false);
-                    }}
-                    data-testid={`card-signature-${signature.id}`}
-                  >
-                    <CardHeader className="pb-2">
-                      <div className="flex justify-between items-start">
-                        <div className="flex-1">
-                          <CardTitle className="text-base font-semibold">
-                            {signature.name}
-                          </CardTitle>
-                          {signature.isDefault && (
-                            <Badge variant="secondary" className="mt-1">Default</Badge>
-                          )}
-                        </div>
-                      </div>
-                    </CardHeader>
-                    <CardContent className="pt-0">
-                      <div className="bg-muted/30 dark:bg-muted/10 p-3 rounded text-sm border border-border/20 dark:border-border/10">
-                        <div 
-                          className="prose prose-sm dark:prose-invert max-w-none"
-                          dangerouslySetInnerHTML={{ __html: signature.content?.substring(0, 300) || 'No preview available' }}
-                        />
                       </div>
                     </CardContent>
                   </Card>

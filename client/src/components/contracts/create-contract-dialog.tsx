@@ -172,6 +172,29 @@ export default function CreateContractDialog({
   });
 
   useEffect(() => {
+    if (contract) {
+      form.reset({
+        title: contract.title || '',
+        displayTitle: contract.displayTitle || '',
+        contactId: contract.contactId || initialContactId || '',
+        projectId: contract.projectId || initialProjectId || '',
+        bodyHtml: contract.bodyHtml || '',
+        signatureWorkflow: contract.signatureWorkflow || 'counter_sign_after_client',
+        status: contract.status || 'draft',
+        dueDate: contract.dueDate ? new Date(contract.dueDate) : undefined,
+      });
+      setBodyHtml(contract.bodyHtml || '');
+      try {
+        const fields = contract.formFields ? JSON.parse(contract.formFields) : [];
+        setFormFields(fields);
+      } catch (error) {
+        console.error('Failed to parse contract form fields:', error);
+        setFormFields([]);
+      }
+    }
+  }, [contract, initialContactId, initialProjectId, form]);
+
+  useEffect(() => {
     if (selectedTemplateId && templates) {
       const template = templates.find(t => t.id === selectedTemplateId);
       if (template) {

@@ -7,7 +7,7 @@ const router = Router();
 // GET /api/admin/templates?type=&q=
 router.get('/admin/templates', async (req, res) => {
   try {
-    const { type, q } = req.query;
+    const { type, q, activeOnly } = req.query;
     const tenantId = req.tenantId || 'default-tenant';
     
     const options: {
@@ -24,6 +24,11 @@ router.get('/admin/templates', async (req, res) => {
     
     if (q && typeof q === 'string') {
       options.q = q;
+    }
+    
+    // Handle activeOnly parameter - convert string to boolean
+    if (activeOnly !== undefined) {
+      options.activeOnly = activeOnly === 'true' || activeOnly === true;
     }
     
     const templates = await templatesService.listTemplates(options, tenantId);

@@ -1,0 +1,59 @@
+VM7 injected.js:204 
+ POST https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/api/message-templates 400 (Bad Request)
+
+VM7 injected.js:27 ❌ Template save error: Error: 400: {"message":"Invalid template data"}
+    at throwIfResNotOk (VM25 queryClient.ts:5:11)
+    at async apiRequest (VM25 queryClient.ts:77:3)
+    at async Object.mutationFn (VM34 ContractPreview.tsx:179:24)
+(anonymous)	@	VM7 injected.js:27
+onError	@	VM34 ContractPreview.tsx:199
+execute	@	VM24 @tanstack_react-query.js:1254
+await in execute		
+mutate	@	VM24 @tanstack_react-query.js:2630
+(anonymous)	@	VM24 @tanstack_react-query.js:3295
+handleSaveTemplate	@	VM34 ContractPreview.tsx:319
+callCallback2	@	VM19 chunk-RPCDYKBN.js:3674
+invokeGuardedCallbackDev	@	VM19 chunk-RPCDYKBN.js:3699
+invokeGuardedCallback	@	VM19 chunk-RPCDYKBN.js:3733
+invokeGuardedCallbackAndCatchFirstError	@	VM19 chunk-RPCDYKBN.js:3736
+executeDispatch	@	VM19 chunk-RPCDYKBN.js:7014
+processDispatchQueueItemsInOrder	@	VM19 chunk-RPCDYKBN.js:7034
+processDispatchQueue	@	VM19 chunk-RPCDYKBN.js:7043
+dispatchEventsForPlugins	@	VM19 chunk-RPCDYKBN.js:7051
+(anonymous)	@	VM19 chunk-RPCDYKBN.js:7174
+batchedUpdates$1	@	VM19 chunk-RPCDYKBN.js:18913
+batchedUpdates	@	VM19 chunk-RPCDYKBN.js:3579
+dispatchEventForPluginEventSystem	@	VM19 chunk-RPCDYKBN.js:7173
+dispatchEventWithEnableCapturePhaseSelectiveHydrationWithoutDiscreteEventReplay	@	VM19 chunk-RPCDYKBN.js:5478
+dispatchEvent	@	VM19 chunk-RPCDYKBN.js:5472
+dispatchDiscreteEvent	@	VM19 chunk-RPCDYKBN.js:5449
+faviconV2?client=SOC…5-b738-47e1-9332…:1 
+ GET https://t1.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=T…e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev&size=32 404 (Not Found)
+faviconV2?client=SOC…e5-b738-47e1-933…:1 
+ GET https://t2.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=T…5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/&size=32 404 (Not Found)
+VM7 injected.js:27 [vite] server connection lost. Polling for restart...
+recaptcha__en.js:563 The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+recaptcha__en.js:563 The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+recaptcha__en.js:563 The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+recaptcha__en.js:663 The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+recaptcha__en.js:663 The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+recaptcha__en.js:663 The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+recaptcha__en.js:663 The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+recaptcha__en.js:663 The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+recaptcha__en.js:663 The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+injected.js:27 [tiptap warn]: Duplicate extension names found: ['underline']. This can lead to issues.
+injected.js:27 Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+injected.js:27 💾 Saving template: 
+{name: 'contract send', subject: 'Contract: Club Kudo Contract', body: '<p></p><p>Kind Regards</p><p>Gareth Gwyn</p>', category: 'contract_send'}
+injected.js:27 [CSRF] Fetching CSRF token for POST /api/message-templates
+injected.js:27 [CSRF] Got CSRF token: present
+injected.js:204 
+ POST https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/api/message-templates 400 (Bad Request)
+injected.js:27 ❌ Template save error: Error: 400: {"message":"Invalid template data"}
+    at throwIfResNotOk (queryClient.ts:6:11)
+    at async apiRequest (queryClient.ts:104:3)
+    at async Object.mutationFn (ContractPreview.tsx:252:24)
+(anonymous)	@	injected.js:27
+onError	@	ContractPreview.tsx:272
+await in execute		
+handleSaveTemplate	@	ContractPreview.tsx:424

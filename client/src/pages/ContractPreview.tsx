@@ -24,6 +24,10 @@ type Contract = {
   dueDate: string | null;
   status: string;
   signatureWorkflow: string;
+  clientSignature: string | null;
+  clientSignedAt: string | null;
+  businessSignature: string | null;
+  businessSignedAt: string | null;
   createdAt: string;
 };
 
@@ -306,6 +310,11 @@ export default function ContractPreview() {
               <Badge className={statusColors[contract.status]} data-testid="badge-status">
                 {contract.status}
               </Badge>
+              {contract.status === 'awaiting_counter_signature' && (
+                <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-300 dark:bg-amber-950 dark:text-amber-300 dark:border-amber-800" data-testid="badge-counter-signature-required">
+                  Requires Counter-Signature
+                </Badge>
+              )}
             </div>
           </div>
         </div>

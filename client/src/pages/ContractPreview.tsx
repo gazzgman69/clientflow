@@ -109,19 +109,19 @@ export default function ContractPreview() {
 
   // Fetch contact
   const { data: contact } = useQuery<Contact>({
-    queryKey: contract?.contactId ? ["/api/contacts", contract.contactId] : null,
+    queryKey: ["/api/contacts", contract?.contactId],
     enabled: !!contract?.contactId,
   });
 
   // Fetch project if exists
   const { data: project } = useQuery<Project>({
-    queryKey: contract?.projectId ? ["/api/projects", contract.projectId] : null,
+    queryKey: ["/api/projects", contract?.projectId],
     enabled: !!contract?.projectId,
   });
 
   // Fetch venue if project has one
   const { data: venue } = useQuery<Venue>({
-    queryKey: project?.venueId ? ["/api/venues", project.venueId] : null,
+    queryKey: ["/api/venues", project?.venueId],
     enabled: !!project?.venueId,
   });
 

@@ -1,10 +1,17 @@
 import { useParams, useLocation } from "wouter";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { ArrowLeft, Send, Eye, Printer, Edit } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { ArrowLeft, Send, Eye, Printer, Edit, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
+import RichTextEditor, { RichTextEditorRef } from "@/components/ui/rich-text-editor";
+import { apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 
 type Contract = {
   id: string;
@@ -48,6 +55,16 @@ type Project = {
 export default function ContractPreview() {
   const { id } = useParams<{ id: string }>();
   const [, setLocation] = useLocation();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  
+  // Email dialog state
+  const [showEmailDialog, setShowEmailDialog] = useState(false);
+  const [emailTo, setEmailTo] = useState("");
+  const [emailSubject, setEmailSubject] = useState("");
+  const [emailMessage, setEmailMessage] = useState("");
+  const [selectedTemplateId, setSelectedTemplateId] = useState("");
+  const messageEditorRef = useRef<RichTextEditorRef>(null);
 
   // Fetch contract
   const { data: contract, isLoading: contractLoading } = useQuery<Contract>({
@@ -64,6 +81,45 @@ export default function ContractPreview() {
   const { data: project } = useQuery<Project>({
     queryKey: contract?.projectId ? ["/api/projects", contract.projectId] : null,
     enabled: !!contract?.projectId,
+  });
+
+  // Fetch contract-specific email templates
+  const { data: contractTemplates } = useQuery({
+    queryKey: ['/api/templates', 'contract'],
+    queryFn: async () => {
+      const response = await fetch('/api/templates?type=contract');
+      if (!response.ok) throw new Error('Failed to fetch contract templates');
+      return response.json();
+    },
+    enabled: showEmailDialog,
+  });
+
+  // Send email mutation
+  const sendEmailMutation = useMutation({
+    mutationFn: async (emailData: { to: string; subject: string; html: string }) => {
+      const response = await apiRequest('POST', '/api/email/send', {
+        ...emailData,
+        projectId: contract?.projectId,
+        contactId: contract?.contactId,
+      });
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({ title: 'Contract sent successfully!' });
+      setShowEmailDialog(false);
+      setEmailMessage("");
+      setEmailSubject("");
+      setSelectedTemplateId("");
+      // Update contract status to 'sent'
+      queryClient.invalidateQueries({ queryKey: ['/api/contracts', id] });
+    },
+    onError: (error: any) => {
+      toast({ 
+        title: 'Failed to send contract', 
+        description: error.message,
+        variant: 'destructive' 
+      });
+    },
   });
 
   // Token replacement function
@@ -141,8 +197,43 @@ export default function ContractPreview() {
   };
 
   const handleSend = () => {
-    // TODO: Open email composer with contract-filtered templates
-    console.log("Send contract");
+    // Pre-populate email with contact details
+    if (contact) {
+      setEmailTo(contact.email);
+      setEmailSubject(`Contract: ${contract?.displayTitle || contract?.title}`);
+    }
+    setShowEmailDialog(true);
+  };
+
+  const handleSendEmail = () => {
+    const emailBody = messageEditorRef.current?.getContent() || emailMessage;
+    
+    if (!emailTo || !emailSubject || !emailBody) {
+      toast({
+        title: "Missing fields",
+        description: "Please fill in all required fields",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    sendEmailMutation.mutate({
+      to: emailTo,
+      subject: emailSubject,
+      html: emailBody,
+    });
+  };
+
+  const handleTemplateSelect = (templateId: string) => {
+    setSelectedTemplateId(templateId);
+    const template = contractTemplates?.find((t: any) => t.id === templateId);
+    if (template) {
+      setEmailSubject(template.subject || '');
+      setEmailMessage(template.body || '');
+      if (messageEditorRef.current) {
+        messageEditorRef.current.setContent(template.body || '');
+      }
+    }
   };
 
   const handleLiveView = () => {
@@ -276,6 +367,91 @@ export default function ContractPreview() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Email Dialog */}
+      <Dialog open={showEmailDialog} onOpenChange={setShowEmailDialog}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Send Contract</DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            {/* Template Selection */}
+            {contractTemplates && contractTemplates.length > 0 && (
+              <div>
+                <Label>Email Template (Contract Templates)</Label>
+                <select
+                  className="w-full mt-1 rounded-md border border-input bg-background px-3 py-2"
+                  value={selectedTemplateId}
+                  onChange={(e) => handleTemplateSelect(e.target.value)}
+                  data-testid="select-template"
+                >
+                  <option value="">Select a template...</option>
+                  {contractTemplates.map((template: any) => (
+                    <option key={template.id} value={template.id}>
+                      {template.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {/* To Field */}
+            <div>
+              <Label htmlFor="email-to">To</Label>
+              <Input
+                id="email-to"
+                type="email"
+                value={emailTo}
+                onChange={(e) => setEmailTo(e.target.value)}
+                placeholder="recipient@example.com"
+                data-testid="input-email-to"
+              />
+            </div>
+
+            {/* Subject Field */}
+            <div>
+              <Label htmlFor="email-subject">Subject</Label>
+              <Input
+                id="email-subject"
+                value={emailSubject}
+                onChange={(e) => setEmailSubject(e.target.value)}
+                placeholder="Contract subject"
+                data-testid="input-email-subject"
+              />
+            </div>
+
+            {/* Message Field */}
+            <div>
+              <Label htmlFor="email-message">Message</Label>
+              <RichTextEditor
+                ref={messageEditorRef}
+                initialContent={emailMessage}
+                onChange={setEmailMessage}
+                placeholder="Write your message here..."
+              />
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setShowEmailDialog(false)}
+                data-testid="button-cancel-email"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleSendEmail}
+                disabled={sendEmailMutation.isPending}
+                data-testid="button-send-email"
+              >
+                {sendEmailMutation.isPending ? "Sending..." : "Send Now"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

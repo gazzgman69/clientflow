@@ -2919,7 +2919,8 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   // Quotes
   app.get("/api/quotes", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
     try {
-      const quotes = await storage.getQuotes();
+      const tenantId = req.session.tenantId!;
+      const quotes = await storage.getQuotes(tenantId);
       res.json(quotes);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch quotes" });
@@ -2939,7 +2940,8 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   // Contracts
   app.get("/api/contracts", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
     try {
-      const contracts = await storage.getContracts();
+      const tenantId = req.session.tenantId!;
+      const contracts = await storage.getContracts(tenantId);
       res.json(contracts);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch contracts" });
@@ -3009,7 +3011,8 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   // Invoices
   app.get("/api/invoices", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
     try {
-      const invoices = await storage.getInvoices();
+      const tenantId = req.session.tenantId!;
+      const invoices = await storage.getInvoices(tenantId);
       res.json(invoices);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch invoices" });
@@ -4103,8 +4106,9 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     try {
       const contractId = req.params.id;
       const { signature, signatureType = 'business' } = req.body;
+      const tenantId = req.session.tenantId;
 
-      console.log('[CONTRACT SIGN] Request:', { contractId, signature, signatureType, body: req.body });
+      console.log('[CONTRACT SIGN] Request:', { contractId, signature, signatureType, tenantId, body: req.body });
 
       if (!signature || !signature.trim()) {
         return res.status(400).json({ message: "Signature is required" });
@@ -4116,11 +4120,21 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
         return res.status(404).json({ message: "Contract not found" });
       }
 
+      // MULTITENANT SAFETY: Verify contract belongs to the authenticated tenant
+      if (contract.tenantId !== tenantId) {
+        console.log('[CONTRACT SIGN] SECURITY: Tenant mismatch!', { 
+          contractTenantId: contract.tenantId, 
+          sessionTenantId: tenantId 
+        });
+        return res.status(404).json({ message: "Contract not found" });
+      }
+
       console.log('[CONTRACT SIGN] Current contract:', { 
         id: contract.id, 
         clientSignature: contract.clientSignature,
         businessSignature: contract.businessSignature,
-        status: contract.status
+        status: contract.status,
+        tenantId: contract.tenantId
       });
 
       // Business counter-signing (authenticated users only)
@@ -5051,10 +5065,12 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
 
   app.get("/api/dashboard/pending-items", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
     try {
-      // Get pending quotes, contracts, invoices from database
-      const quotes = await storage.getQuotes();
-      const contracts = await storage.getContracts();
-      const invoices = await storage.getInvoices();
+      const tenantId = req.session.tenantId!;
+      
+      // Get pending quotes, contracts, invoices from database (TENANT FILTERED)
+      const quotes = await storage.getQuotes(tenantId);
+      const contracts = await storage.getContracts(tenantId);
+      const invoices = await storage.getInvoices(tenantId);
       
       const pendingQuotes = quotes.filter(q => q.status === 'sent').map(q => ({
         id: q.id,

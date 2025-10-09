@@ -85,6 +85,10 @@ export default function ContractPreview() {
   const [selectedTemplate, setSelectedTemplate] = useState<any>(null);
   const messageEditorRef = useRef<RichTextEditorRef>(null);
   
+  // Save template state
+  const [showSaveTemplateDialog, setShowSaveTemplateDialog] = useState(false);
+  const [templateName, setTemplateName] = useState("");
+  
   // Signature state
   const [showBusinessSignDialog, setShowBusinessSignDialog] = useState(false);
   const [businessSignatureName, setBusinessSignatureName] = useState("");
@@ -119,9 +123,9 @@ export default function ContractPreview() {
 
   // Fetch email templates
   const { data: emailTemplates, isLoading: templatesLoading } = useQuery({
-    queryKey: ['/api/templates', 'email'],
+    queryKey: ['/api/message-templates', 'email'],
     queryFn: async () => {
-      const response = await fetch('/api/templates?type=email');
+      const response = await fetch('/api/message-templates?type=email');
       if (!response.ok) throw new Error('Failed to fetch email templates');
       return response.json();
     },
@@ -222,6 +226,36 @@ export default function ContractPreview() {
     onError: (error: Error) => {
       toast({
         title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Save template mutation
+  const saveTemplateMutation = useMutation({
+    mutationFn: async (templateData: { name: string; subject: string; body: string }) => {
+      const response = await apiRequest('POST', '/api/message-templates', {
+        name: templateData.name,
+        type: 'email',
+        subject: templateData.subject,
+        body: templateData.body,
+        category: 'contract'
+      });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/message-templates', 'email'] });
+      setShowSaveTemplateDialog(false);
+      setTemplateName("");
+      toast({
+        title: "Template saved",
+        description: "Email template saved successfully",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Failed to save template",
         description: error.message,
         variant: "destructive",
       });
@@ -360,6 +394,22 @@ export default function ContractPreview() {
       return;
     }
     businessSignMutation.mutate(businessSignatureName);
+  };
+
+  const handleSaveTemplate = () => {
+    if (!templateName.trim()) {
+      toast({
+        title: "Error",
+        description: "Please enter a template name",
+        variant: "destructive",
+      });
+      return;
+    }
+    saveTemplateMutation.mutate({
+      name: templateName,
+      subject: emailSubject,
+      body: emailMessage
+    });
   };
 
   if (contractLoading) {
@@ -784,6 +834,17 @@ export default function ContractPreview() {
                   variant="outline" 
                   size="sm"
                   className="h-8"
+                  onClick={() => setShowSaveTemplateDialog(true)}
+                  data-testid="button-save-as-template"
+                >
+                  <FileText className="h-3.5 w-3.5 mr-1.5" />
+                  Save as Template
+                </Button>
+                
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  className="h-8"
                   onClick={() => setShowEmailDialog(false)}
                   data-testid="button-cancel-email"
                 >
@@ -855,6 +916,66 @@ export default function ContractPreview() {
                 ))}
               </div>
             )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Save Template Dialog */}
+      <Dialog open={showSaveTemplateDialog} onOpenChange={setShowSaveTemplateDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Save as Template</DialogTitle>
+            <DialogDescription>
+              Save this email as a template for future use
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="template-name">Template Name</Label>
+              <Input
+                id="template-name"
+                value={templateName}
+                onChange={(e) => setTemplateName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    handleSaveTemplate();
+                  }
+                }}
+                placeholder="e.g., Contract Follow-up"
+                data-testid="input-template-name"
+              />
+            </div>
+
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowSaveTemplateDialog(false);
+                  setTemplateName("");
+                }}
+                data-testid="button-cancel-save-template"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleSaveTemplate}
+                disabled={saveTemplateMutation.isPending || !templateName.trim()}
+                data-testid="button-submit-save-template"
+              >
+                {saveTemplateMutation.isPending ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <FileText className="h-4 w-4 mr-2" />
+                    Save Template
+                  </>
+                )}
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>

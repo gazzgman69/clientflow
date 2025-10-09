@@ -270,9 +270,9 @@ export default function ContractPreview() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <div className="h-full flex flex-col bg-gray-50 dark:bg-gray-900 overflow-hidden">
       {/* Header */}
-      <div className="bg-white dark:bg-gray-800 border-b sticky top-0 z-10 print:hidden">
+      <div className="bg-white dark:bg-gray-800 border-b z-10 print:hidden flex-shrink-0">
         <div className="max-w-6xl mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
@@ -306,7 +306,7 @@ export default function ContractPreview() {
       </div>
 
       {/* Action Buttons */}
-      <div className="bg-white dark:bg-gray-800 border-b print:hidden">
+      <div className="bg-white dark:bg-gray-800 border-b print:hidden flex-shrink-0">
         <div className="max-w-6xl mx-auto px-4 py-3">
           <div className="flex items-center gap-2 justify-end">
             <Button
@@ -345,8 +345,9 @@ export default function ContractPreview() {
         </div>
       </div>
 
-      {/* Contract Content */}
-      <div className="max-w-4xl mx-auto px-4 py-8">
+      {/* Contract Content - Scrollable */}
+      <div className="flex-1 overflow-y-auto">
+        <div className="max-w-4xl mx-auto px-4 py-8">
         <Card className="print:shadow-none print:border-0">
           <CardHeader className="text-center border-b">
             <h2 className="text-2xl font-bold" data-testid="text-display-title">
@@ -366,6 +367,7 @@ export default function ContractPreview() {
             />
           </CardContent>
         </Card>
+        </div>
       </div>
 
       {/* Email Dialog */}

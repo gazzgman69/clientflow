@@ -3992,7 +3992,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   app.post("/api/public/contracts/:id/sign", authLimiter, async (req, res) => {
     try {
       const contractId = req.params.id;
-      const { signature } = req.body;
+      const { signature, signatureType = 'client' } = req.body;
 
       if (!signature || !signature.trim()) {
         return res.status(400).json({ message: "Signature is required" });
@@ -4009,33 +4009,63 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
         return res.status(400).json({ message: "This contract does not require a signature" });
       }
 
-      if (contract.clientSignature) {
-        return res.status(400).json({ message: "Contract has already been signed" });
+      if (signatureType === 'client') {
+        // Client signing
+        if (contract.clientSignature) {
+          return res.status(400).json({ message: "Contract has already been signed by client" });
+        }
+
+        // Determine new status based on workflow
+        let newStatus = contract.status;
+        if (contract.signatureWorkflow === 'sign_upon_creation') {
+          newStatus = 'signed';
+        } else if (contract.signatureWorkflow === 'counter_sign_after_client') {
+          newStatus = 'awaiting_counter_signature';
+        }
+
+        // Update contract with client signature
+        const updatedContract = await storage.updateContract(contractId, {
+          clientSignature: signature.trim(),
+          clientSignedAt: new Date(),
+          status: newStatus,
+        });
+
+        if (!updatedContract) {
+          return res.status(404).json({ message: "Failed to update contract" });
+        }
+
+        res.json({ 
+          message: "Contract signed successfully",
+          contract: updatedContract 
+        });
+      } else if (signatureType === 'business') {
+        // Business counter-signing
+        if (!contract.clientSignature) {
+          return res.status(400).json({ message: "Client must sign first" });
+        }
+
+        if (contract.businessSignature) {
+          return res.status(400).json({ message: "Contract has already been counter-signed" });
+        }
+
+        // Update contract with business signature
+        const updatedContract = await storage.updateContract(contractId, {
+          businessSignature: signature.trim(),
+          businessSignedAt: new Date(),
+          status: 'signed',
+        });
+
+        if (!updatedContract) {
+          return res.status(404).json({ message: "Failed to update contract" });
+        }
+
+        res.json({ 
+          message: "Contract counter-signed successfully",
+          contract: updatedContract 
+        });
+      } else {
+        return res.status(400).json({ message: "Invalid signature type" });
       }
-
-      // Determine new status based on workflow
-      let newStatus = contract.status;
-      if (contract.signatureWorkflow === 'sign_upon_creation') {
-        newStatus = 'signed';
-      } else if (contract.signatureWorkflow === 'counter_sign_after_client') {
-        newStatus = 'awaiting_counter_signature';
-      }
-
-      // Update contract with client signature
-      const updatedContract = await storage.updateContract(contractId, {
-        clientSignature: signature.trim(),
-        clientSignedAt: new Date(),
-        status: newStatus,
-      });
-
-      if (!updatedContract) {
-        return res.status(404).json({ message: "Failed to update contract" });
-      }
-
-      res.json({ 
-        message: "Contract signed successfully",
-        contract: updatedContract 
-      });
     } catch (error) {
       console.error("Error signing contract:", error);
       res.status(500).json({ message: "Failed to sign contract" });

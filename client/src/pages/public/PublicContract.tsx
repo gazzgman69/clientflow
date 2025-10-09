@@ -2,9 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { format } from "date-fns";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
@@ -41,8 +39,8 @@ type Tenant = {
 export default function PublicContract({ id }: PublicContractProps) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
-  const [showSignDialog, setShowSignDialog] = useState(false);
-  const [signatureName, setSignatureName] = useState("");
+  const [clientSignatureName, setClientSignatureName] = useState("");
+  const [businessSignatureName, setBusinessSignatureName] = useState("");
   
   // Fetch contract data
   const { data, isLoading, error } = useQuery<{ contract: Contract; contact: Contact; tenant: Tenant }>({
@@ -59,39 +57,70 @@ export default function PublicContract({ id }: PublicContractProps) {
     },
   });
 
-  // Sign contract mutation
-  const signMutation = useMutation({
+  // Client signature mutation
+  const clientSignMutation = useMutation({
     mutationFn: async (signature: string) => {
       const response = await fetch(`/api/public/contracts/${id}/sign`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ signature }),
+        body: JSON.stringify({ signature, signatureType: 'client' }),
       });
       if (!response.ok) {
-        throw new Error('Failed to sign contract');
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to sign contract');
       }
       return response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/public/contracts', id] });
-      setShowSignDialog(false);
-      setSignatureName("");
+      setClientSignatureName("");
       toast({
         title: "Success",
         description: "Contract signed successfully",
       });
     },
-    onError: () => {
+    onError: (error: Error) => {
       toast({
         title: "Error",
-        description: "Failed to sign contract",
+        description: error.message,
         variant: "destructive",
       });
     },
   });
 
-  const handleSign = () => {
-    if (!signatureName.trim()) {
+  // Business signature mutation
+  const businessSignMutation = useMutation({
+    mutationFn: async (signature: string) => {
+      const response = await fetch(`/api/public/contracts/${id}/sign`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ signature, signatureType: 'business' }),
+      });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to sign contract');
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/public/contracts', id] });
+      setBusinessSignatureName("");
+      toast({
+        title: "Success",
+        description: "Business signature added successfully",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleClientSign = () => {
+    if (!clientSignatureName.trim()) {
       toast({
         title: "Error",
         description: "Please enter your name",
@@ -99,7 +128,19 @@ export default function PublicContract({ id }: PublicContractProps) {
       });
       return;
     }
-    signMutation.mutate(signatureName);
+    clientSignMutation.mutate(clientSignatureName);
+  };
+
+  const handleBusinessSign = () => {
+    if (!businessSignatureName.trim()) {
+      toast({
+        title: "Error",
+        description: "Please enter your name",
+        variant: "destructive",
+      });
+      return;
+    }
+    businessSignMutation.mutate(businessSignatureName);
   };
 
   if (isLoading) {
@@ -173,59 +214,90 @@ export default function PublicContract({ id }: PublicContractProps) {
 
                 <div className="space-y-6">
                   {/* Client Signature */}
-                  <div className="border-b pb-4">
-                    <div className="flex items-end justify-between gap-4">
-                      <div className="flex-1">
-                        <label className="block text-sm font-medium text-muted-foreground uppercase mb-2">
-                          {contact?.fullName || `${contact?.firstName} ${contact?.lastName}`}
-                        </label>
-                        {contract.clientSignature ? (
-                          <div className="border-b-2 border-gray-300 pb-2">
-                            <p className="font-signature text-xl">{contract.clientSignature}</p>
-                            {contract.clientSignedAt && (
-                              <p className="text-xs text-muted-foreground mt-1">
-                                Signed on {format(new Date(contract.clientSignedAt), "MMMM d, yyyy 'at' h:mm a")}
-                              </p>
-                            )}
-                          </div>
-                        ) : (
-                          <div className="border-b-2 border-gray-300 pb-2 h-12" />
+                  <div className="pb-4">
+                    <label className="block text-sm font-medium text-muted-foreground uppercase mb-2">
+                      {contact?.fullName || `${contact?.firstName} ${contact?.lastName}`}
+                    </label>
+                    {contract.clientSignature ? (
+                      <div className="border-b-2 border-gray-300 pb-2">
+                        <p className="font-signature text-2xl">{contract.clientSignature}</p>
+                        {contract.clientSignedAt && (
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Signed on {format(new Date(contract.clientSignedAt), "MMMM d, yyyy 'at' h:mm a")}
+                          </p>
                         )}
                       </div>
-                      {!contract.clientSignature && (
+                    ) : (
+                      <div className="flex items-center gap-3">
+                        <Input
+                          placeholder="Type your full name to sign"
+                          value={clientSignatureName}
+                          onChange={(e) => setClientSignatureName(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              handleClientSign();
+                            }
+                          }}
+                          className="flex-1 font-signature text-lg"
+                          data-testid="input-client-signature"
+                        />
                         <Button 
-                          onClick={() => setShowSignDialog(true)}
+                          onClick={handleClientSign}
+                          disabled={clientSignMutation.isPending || !clientSignatureName.trim()}
                           className="bg-amber-600 hover:bg-amber-700 text-white"
                           data-testid="button-sign-contract"
                         >
-                          Sign Contract
+                          {clientSignMutation.isPending ? 'Signing...' : 'Sign Contract'}
                         </Button>
-                      )}
-                    </div>
+                      </div>
+                    )}
                   </div>
 
                   {/* Business Signature - Only show for counter_sign_after_client */}
                   {contract.signatureWorkflow === 'counter_sign_after_client' && (
-                    <div className="border-b pb-4">
-                      <div className="flex items-end justify-between gap-4">
-                        <div className="flex-1">
-                          <label className="block text-sm font-medium text-muted-foreground uppercase mb-2">
-                            {tenant?.name || 'Business'}
-                          </label>
-                          {contract.businessSignature ? (
-                            <div className="border-b-2 border-gray-300 pb-2">
-                              <p className="font-signature text-xl">{contract.businessSignature}</p>
-                              {contract.businessSignedAt && (
-                                <p className="text-xs text-muted-foreground mt-1">
-                                  Signed on {format(new Date(contract.businessSignedAt), "MMMM d, yyyy 'at' h:mm a")}
-                                </p>
-                              )}
-                            </div>
-                          ) : (
-                            <div className="border-b-2 border-gray-300 pb-2 h-12" />
+                    <div className="pb-4">
+                      <label className="block text-sm font-medium text-muted-foreground uppercase mb-2">
+                        {tenant?.name || 'Business'}
+                      </label>
+                      {contract.businessSignature ? (
+                        <div className="border-b-2 border-gray-300 pb-2">
+                          <p className="font-signature text-2xl">{contract.businessSignature}</p>
+                          {contract.businessSignedAt && (
+                            <p className="text-xs text-muted-foreground mt-1">
+                              Signed on {format(new Date(contract.businessSignedAt), "MMMM d, yyyy 'at' h:mm a")}
+                            </p>
                           )}
                         </div>
-                      </div>
+                      ) : contract.clientSignature ? (
+                        <div className="flex items-center gap-3">
+                          <Input
+                            placeholder="Type business representative name"
+                            value={businessSignatureName}
+                            onChange={(e) => setBusinessSignatureName(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                handleBusinessSign();
+                              }
+                            }}
+                            className="flex-1 font-signature text-lg"
+                            data-testid="input-business-signature"
+                          />
+                          <Button 
+                            onClick={handleBusinessSign}
+                            disabled={businessSignMutation.isPending || !businessSignatureName.trim()}
+                            className="bg-amber-600 hover:bg-amber-700 text-white"
+                            data-testid="button-sign-business"
+                          >
+                            {businessSignMutation.isPending ? 'Signing...' : 'Sign Contract'}
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="border-b-2 border-gray-300 pb-2 h-12 flex items-center">
+                          <p className="text-sm text-muted-foreground italic">
+                            Awaiting client signature
+                          </p>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -233,52 +305,6 @@ export default function PublicContract({ id }: PublicContractProps) {
             )}
           </CardContent>
         </Card>
-
-        {/* Sign Dialog */}
-        <Dialog open={showSignDialog} onOpenChange={setShowSignDialog}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Sign Contract</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4 py-4">
-              <div className="space-y-2">
-                <Label htmlFor="signature">Type your full name to sign</Label>
-                <Input
-                  id="signature"
-                  placeholder="Your full name"
-                  value={signatureName}
-                  onChange={(e) => setSignatureName(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      handleSign();
-                    }
-                  }}
-                  data-testid="input-signature"
-                />
-              </div>
-              <div className="text-sm text-muted-foreground">
-                By typing your name above, you are creating a legal electronic signature that has the same legal effect as a handwritten signature.
-              </div>
-            </div>
-            <div className="flex justify-end gap-2">
-              <Button
-                variant="outline"
-                onClick={() => setShowSignDialog(false)}
-                data-testid="button-cancel-sign"
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={handleSign}
-                disabled={signMutation.isPending}
-                className="bg-amber-600 hover:bg-amber-700 text-white"
-                data-testid="button-confirm-sign"
-              >
-                {signMutation.isPending ? 'Signing...' : 'Sign Contract'}
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
       </div>
     </div>
   );

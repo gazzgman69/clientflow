@@ -883,16 +883,6 @@ export default function ContractPreview() {
       {/* Template Selection Modal */}
       <Dialog open={showTemplateModal} onOpenChange={setShowTemplateModal}>
         <DialogContent className="max-h-[80vh] overflow-hidden flex flex-col">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <FileText className="h-5 w-5" />
-              Select Email Template
-            </DialogTitle>
-            <DialogDescription>
-              Choose a template to apply to your email. You can modify it after applying.
-            </DialogDescription>
-          </DialogHeader>
-          
           <div className="flex-1 overflow-auto">
             {templatesLoading ? (
               <div className="flex items-center justify-center py-8">

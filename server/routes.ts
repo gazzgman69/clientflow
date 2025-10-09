@@ -4780,18 +4780,22 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
 
   app.post("/api/message-templates", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req: any, res) => {
     try {
+      // FIX: Use req.session.userId directly since req.authenticatedUserId isn't persisting
+      const userId = req.authenticatedUserId || req.session?.userId;
+      
       console.log('🐛 DEBUG Template creation:', {
         authenticatedUserId: req.authenticatedUserId,
         userId: req.userId,
         sessionUserId: req.session?.userId,
         tenantId: req.tenantId,
+        resolvedUserId: userId,
         body: req.body
       });
       
       const templateData = insertMessageTemplateSchema.parse({
         ...req.body,
         tenantId: req.tenantId,
-        createdBy: req.authenticatedUserId
+        createdBy: userId
       });
       
       console.log('🐛 DEBUG Parsed template data:', templateData);

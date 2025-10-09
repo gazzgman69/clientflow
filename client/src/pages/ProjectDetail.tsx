@@ -254,6 +254,23 @@ export default function ProjectDetail() {
     resolver: zodResolver(invoiceEditSchema),
   });
 
+  // Handle editContract query parameter
+  useEffect(() => {
+    const searchParams = new URLSearchParams(window.location.search);
+    const editContractId = searchParams.get('editContract');
+    
+    if (editContractId && projectContracts.length > 0) {
+      const contractToEdit = projectContracts.find(c => c.id === editContractId);
+      if (contractToEdit) {
+        setEditingContract(contractToEdit);
+        setShowContractEditor(true);
+        // Clear the query parameter from URL
+        const newUrl = window.location.pathname;
+        window.history.replaceState({}, '', newUrl);
+      }
+    }
+  }, [projectContracts]);
+
   // Mutations
   const uploadFileMutation = useMutation({
     mutationFn: async (file: File) => {

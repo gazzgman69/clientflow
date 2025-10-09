@@ -637,7 +637,7 @@ export default function ContractPreview() {
 
       {/* Email Dialog */}
       <Dialog open={showEmailDialog} onOpenChange={setShowEmailDialog}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-4xl h-[95vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Send Contract</DialogTitle>
           </DialogHeader>
@@ -687,7 +687,7 @@ export default function ContractPreview() {
                   content={emailMessage}
                   onChange={setEmailMessage}
                   placeholder="Enter your message..."
-                  minHeight="200px"
+                  minHeight="400px"
                   data-testid="editor-email-message"
                   onTokenInsert={(insertToken) => (
                     <TokenDropdown

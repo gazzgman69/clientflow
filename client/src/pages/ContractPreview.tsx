@@ -72,6 +72,13 @@ type Venue = {
   zipCode: string | null;
 };
 
+// Helper function to strip HTML tags and get plain text
+function stripHtml(html: string): string {
+  const tmp = document.createElement("DIV");
+  tmp.innerHTML = html;
+  return tmp.textContent || tmp.innerText || "";
+}
+
 export default function ContractPreview() {
   const { id } = useParams<{ id: string }>();
   const [, setLocation] = useLocation();
@@ -925,7 +932,7 @@ export default function ContractPreview() {
                     <CardContent className="pt-0">
                       <div className="bg-muted/30 dark:bg-muted/10 p-3 rounded text-sm border border-border/20 dark:border-border/10">
                         <p className="text-muted-foreground dark:text-muted-foreground line-clamp-3 leading-relaxed">
-                          {template.body?.substring(0, 200) || 'No preview available'}...
+                          {template.body ? stripHtml(template.body).substring(0, 150) : 'No preview available'}{template.body && stripHtml(template.body).length > 150 ? '...' : ''}
                         </p>
                       </div>
                     </CardContent>

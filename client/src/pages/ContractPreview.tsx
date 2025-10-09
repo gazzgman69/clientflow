@@ -433,7 +433,7 @@ export default function ContractPreview() {
                             <div className="border-b-2 border-gray-300 pb-2 h-12" />
                           )}
                         </div>
-                        {!contract.businessSignature && contract.clientSignature && (
+                        {!contract.businessSignature && (
                           <Button 
                             className="bg-amber-600 hover:bg-amber-700 text-white"
                             data-testid="button-sign-business"

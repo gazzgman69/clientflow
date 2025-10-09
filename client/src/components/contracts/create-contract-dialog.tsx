@@ -72,7 +72,7 @@ export default function CreateContractDialog({
   const [formFields, setFormFields] = useState<FormField[]>(
     contract?.formFields ? JSON.parse(contract.formFields) : []
   );
-  const [selectedTemplateId, setSelectedTemplateId] = useState<string>('');
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string>(contract?.templateId || '');
   const [saveAsTemplate, setSaveAsTemplate] = useState(false);
   const [updateExistingTemplate, setUpdateExistingTemplate] = useState(false);
   const [templateName, setTemplateName] = useState('');
@@ -121,6 +121,7 @@ export default function CreateContractDialog({
         dueDate: data.dueDate ? new Date(data.dueDate).toISOString() : undefined,
         bodyHtml,
         formFields: JSON.stringify(formFields),
+        templateId: selectedTemplateId || null, // Track which template was used
       };
       
       // Update existing contract or create new one

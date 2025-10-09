@@ -101,8 +101,8 @@ export default function ContractEditor({
       form.reset({
         contactId: editingContract.contactId,
         title: editingContract.title,
-        description: editingContract.description || "",
-        terms: editingContract.terms || "",
+        description: "",
+        terms: editingContract.bodyHtml || "",
         dueDate: editingContract.expiresAt ? new Date(editingContract.expiresAt) : undefined,
         status: editingContract.status as "draft" | "sent" | "signed" | "completed" | "cancelled",
         signatureWorkflow: (editingContract as any).signatureWorkflow || "counter_sign_after_client",
@@ -110,8 +110,8 @@ export default function ContractEditor({
         clientSignature: editingContract.clientSignature || "",
       });
       // Set editor content
-      if (editorRef.current && editingContract.terms) {
-        editorRef.current.setContent(editingContract.terms);
+      if (editorRef.current && editingContract.bodyHtml) {
+        editorRef.current.setContent(editingContract.bodyHtml);
       }
     } else {
       form.reset({

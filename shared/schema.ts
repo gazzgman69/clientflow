@@ -186,6 +186,7 @@ export const contracts = pgTable("contracts", {
   contactId: varchar("contact_id").notNull().references(() => contacts.id, { onDelete: 'cascade' }),
   projectId: varchar("project_id").references(() => projects.id, { onDelete: 'cascade' }),
   quoteId: varchar("quote_id").references(() => quotes.id, { onDelete: 'cascade' }),
+  templateId: varchar("template_id").references(() => contractTemplates.id, { onDelete: 'set null' }), // Track which template was used
   title: text("title").notNull(), // Internal title
   displayTitle: text("display_title"), // Display title shown to client
   bodyHtml: text("body_html"), // Rich text content with tokens and embedded forms

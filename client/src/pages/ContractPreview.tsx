@@ -882,7 +882,7 @@ export default function ContractPreview() {
 
       {/* Template Selection Modal */}
       <Dialog open={showTemplateModal} onOpenChange={setShowTemplateModal}>
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
+        <DialogContent className="max-h-[80vh] overflow-hidden flex flex-col">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <FileText className="h-5 w-5" />

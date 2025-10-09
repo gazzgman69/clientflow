@@ -4888,7 +4888,6 @@ export class DrizzleStorage implements IStorage {
   async getSmsMessagesByThread(threadId: string) { return []; }
   async getSmsMessagesByClient(clientId: string) { return []; }
   async getSmsMessagesByPhone(phone: string) { return []; }
-  async getMessageTemplatesByType(type: string) { return []; }
   async getMessageThreadsByClient(clientId: string) { return []; }
   async validateUser(username: string, password: string): Promise<User | undefined> { 
     const result = await this.db.select().from(users).where(and(

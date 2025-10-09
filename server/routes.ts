@@ -4775,6 +4775,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
       
       res.json(templates);
     } catch (error) {
+      console.error('❌ GET /api/message-templates ERROR:', error);
       res.status(500).json({ message: "Failed to fetch message templates" });
     }
   });

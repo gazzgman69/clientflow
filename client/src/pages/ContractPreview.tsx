@@ -2,14 +2,16 @@ import { useParams, useLocation } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, Send, Eye, Printer, Edit, X } from "lucide-react";
+import { ArrowLeft, Send, Eye, Printer, Edit, X, FileText, ChevronDown, Edit3, Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { RichTextEditor, RichTextEditorRef } from "@/components/ui/rich-text-editor";
+import { TokenDropdown } from "@/components/ui/token-dropdown";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 
@@ -67,7 +69,8 @@ export default function ContractPreview() {
   const [emailTo, setEmailTo] = useState("");
   const [emailSubject, setEmailSubject] = useState("");
   const [emailMessage, setEmailMessage] = useState("");
-  const [selectedTemplateId, setSelectedTemplateId] = useState("");
+  const [showTemplateModal, setShowTemplateModal] = useState(false);
+  const [selectedTemplate, setSelectedTemplate] = useState<any>(null);
   const messageEditorRef = useRef<RichTextEditorRef>(null);
   
   // Signature state
@@ -96,16 +99,55 @@ export default function ContractPreview() {
     queryKey: ['/api/tenant/config'],
   });
 
-  // Fetch contract-specific email templates
-  const { data: contractTemplates } = useQuery({
-    queryKey: ['/api/templates', 'contract'],
+  // Fetch email templates
+  const { data: emailTemplates, isLoading: templatesLoading } = useQuery({
+    queryKey: ['/api/templates', 'email'],
     queryFn: async () => {
-      const response = await fetch('/api/templates?type=contract');
-      if (!response.ok) throw new Error('Failed to fetch contract templates');
+      const response = await fetch('/api/templates?type=email');
+      if (!response.ok) throw new Error('Failed to fetch email templates');
       return response.json();
     },
     enabled: showEmailDialog,
   });
+
+  // Fetch email signatures
+  const { data: emailSignatures, isLoading: signaturesLoading } = useQuery({
+    queryKey: ['/api/email/signatures'],
+    enabled: showEmailDialog,
+  });
+
+  // Apply email template function
+  const applyTemplate = (template: any) => {
+    if (template.subject) {
+      setEmailSubject(template.subject);
+    }
+    if (template.body) {
+      setEmailMessage(template.body);
+      // Also update the Rich Text Editor content directly
+      if (messageEditorRef.current) {
+        messageEditorRef.current.setContent(template.body);
+      }
+    }
+    setSelectedTemplate(template);
+    setShowTemplateModal(false);
+    toast({ 
+      title: 'Template applied', 
+      description: `Applied "${template.title}" to your email` 
+    });
+  };
+
+  // Apply signature function
+  const applySignature = (signature: any) => {
+    if (messageEditorRef.current) {
+      const success = messageEditorRef.current.appendSignature(signature.html);
+      if (success) {
+        toast({ 
+          title: 'Signature added', 
+          description: `Added "${signature.name}" to your email` 
+        });
+      }
+    }
+  };
 
   // Send email mutation
   const sendEmailMutation = useMutation({
@@ -122,7 +164,7 @@ export default function ContractPreview() {
       setShowEmailDialog(false);
       setEmailMessage("");
       setEmailSubject("");
-      setSelectedTemplateId("");
+      setSelectedTemplate(null);
       // Update contract status to 'sent'
       queryClient.invalidateQueries({ queryKey: ['/api/contracts', id] });
     },
@@ -262,18 +304,6 @@ export default function ContractPreview() {
       subject: emailSubject,
       html: emailBody,
     });
-  };
-
-  const handleTemplateSelect = (templateId: string) => {
-    setSelectedTemplateId(templateId);
-    const template = contractTemplates?.find((t: any) => t.id === templateId);
-    if (template) {
-      setEmailSubject(template.subject || '');
-      setEmailMessage(template.body || '');
-      if (messageEditorRef.current) {
-        messageEditorRef.current.setContent(template.body || '');
-      }
-    }
   };
 
   const handleLiveView = () => {
@@ -525,85 +555,224 @@ export default function ContractPreview() {
 
       {/* Email Dialog */}
       <Dialog open={showEmailDialog} onOpenChange={setShowEmailDialog}>
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Send Contract</DialogTitle>
           </DialogHeader>
           
-          <div className="space-y-4">
-            {/* Template Selection */}
-            {contractTemplates && contractTemplates.length > 0 && (
-              <div>
-                <Label>Email Template (Contract Templates)</Label>
-                <select
-                  className="w-full mt-1 rounded-md border border-input bg-background px-3 py-2"
-                  value={selectedTemplateId}
-                  onChange={(e) => handleTemplateSelect(e.target.value)}
-                  data-testid="select-template"
-                >
-                  <option value="">Select a template...</option>
-                  {contractTemplates.map((template: any) => (
-                    <option key={template.id} value={template.id}>
-                      {template.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
-
+          <div className="space-y-2">
             {/* To Field */}
-            <div>
-              <Label htmlFor="email-to">To</Label>
+            <div className="flex items-center gap-3">
+              <Label htmlFor="email-to" className="w-20 text-right text-sm font-medium">To:</Label>
               <Input
                 id="email-to"
                 type="email"
                 value={emailTo}
                 onChange={(e) => setEmailTo(e.target.value)}
-                placeholder="recipient@example.com"
+                placeholder="Enter email address..."
+                className="flex-1 h-8 text-sm"
                 data-testid="input-email-to"
               />
             </div>
 
             {/* Subject Field */}
-            <div>
-              <Label htmlFor="email-subject">Subject</Label>
+            <div className="flex items-center gap-3">
+              <Label htmlFor="email-subject" className="w-20 text-right text-sm font-medium">Subject:</Label>
               <Input
                 id="email-subject"
                 value={emailSubject}
                 onChange={(e) => setEmailSubject(e.target.value)}
-                placeholder="Contract subject"
+                placeholder="Enter subject..."
+                className="flex-1 h-8 text-sm"
                 data-testid="input-email-subject"
+              />
+              <TokenDropdown
+                onTokenSelect={(token) => {
+                  setEmailSubject(prev => prev + (prev ? ' ' : '') + token);
+                }}
+                variant="link"
+                size="sm"
+                className="h-auto p-0 text-xs text-primary hover:text-primary/80"
               />
             </div>
 
             {/* Message Field */}
-            <div>
-              <Label htmlFor="email-message">Message</Label>
-              <RichTextEditor
-                ref={messageEditorRef}
-                initialContent={emailMessage}
-                onChange={setEmailMessage}
-                placeholder="Write your message here..."
-              />
+            <div className="flex gap-3 pt-1">
+              <Label htmlFor="email-message" className="w-20 text-right text-sm font-medium pt-2">Message:</Label>
+              <div className="flex-1">
+                <RichTextEditor
+                  ref={messageEditorRef}
+                  content={emailMessage}
+                  onChange={setEmailMessage}
+                  placeholder="Enter your message..."
+                  minHeight="200px"
+                  data-testid="editor-email-message"
+                  onTokenInsert={(insertToken) => (
+                    <TokenDropdown
+                      onTokenSelect={insertToken}
+                      onAfterInsert={() => {
+                        if (messageEditorRef.current) {
+                          messageEditorRef.current.focus();
+                        }
+                      }}
+                      variant="outline"
+                      size="sm"
+                      className="h-7 px-2 text-xs"
+                    />
+                  )}
+                  onSignatureSelect={() => (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button 
+                          variant="outline"
+                          size="sm"
+                          className="h-7 px-2 text-xs"
+                          data-testid="button-select-signature"
+                        >
+                          <Edit3 className="h-2.5 w-2.5 mr-1" />
+                          Signature
+                          <ChevronDown className="h-2.5 w-2.5 ml-1" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="start" className="w-56">
+                        {signaturesLoading ? (
+                          <div className="flex items-center justify-center py-2">
+                            <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                            Loading...
+                          </div>
+                        ) : emailSignatures?.length === 0 ? (
+                          <div className="text-center py-2 text-muted-foreground text-sm">
+                            No signatures found
+                          </div>
+                        ) : (
+                          emailSignatures?.map((signature: any) => (
+                            <DropdownMenuItem 
+                              key={signature.id}
+                              onClick={() => applySignature(signature)}
+                              data-testid={`dropdown-signature-${signature.id}`}
+                            >
+                              <div className="flex flex-col">
+                                <span className="font-medium">{signature.name}</span>
+                                {signature.isDefault && (
+                                  <span className="text-xs text-muted-foreground">Default</span>
+                                )}
+                              </div>
+                            </DropdownMenuItem>
+                          ))
+                        )}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  )}
+                  onTemplateSelect={() => (
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      className="h-7 px-2 text-xs"
+                      onClick={() => setShowTemplateModal(true)}
+                      data-testid="button-select-template"
+                    >
+                      <FileText className="h-2.5 w-2.5 mr-1" />
+                      Template
+                    </Button>
+                  )}
+                />
+              </div>
             </div>
 
             {/* Action Buttons */}
-            <div className="flex justify-end gap-2">
-              <Button
-                variant="outline"
-                onClick={() => setShowEmailDialog(false)}
-                data-testid="button-cancel-email"
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={handleSendEmail}
-                disabled={sendEmailMutation.isPending}
-                data-testid="button-send-email"
-              >
-                {sendEmailMutation.isPending ? "Sending..." : "Send Now"}
-              </Button>
+            <div className="flex gap-3 pt-2">
+              <div className="w-20"></div>
+              <div className="flex-1 flex gap-2 items-center">
+                <Button 
+                  onClick={handleSendEmail} 
+                  disabled={sendEmailMutation.isPending}
+                  size="sm"
+                  className="h-8"
+                  data-testid="button-send-email"
+                >
+                  {sendEmailMutation.isPending ? (
+                    <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                  ) : (
+                    <Send className="h-3.5 w-3.5 mr-1.5" />
+                  )}
+                  Send Now
+                </Button>
+                
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  className="h-8"
+                  onClick={() => setShowEmailDialog(false)}
+                  data-testid="button-cancel-email"
+                >
+                  Close
+                </Button>
+              </div>
             </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Template Selection Modal */}
+      <Dialog open={showTemplateModal} onOpenChange={setShowTemplateModal}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileText className="h-5 w-5" />
+              Select Email Template
+            </DialogTitle>
+            <DialogDescription>
+              Choose a template to apply to your email. You can modify it after applying.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="flex-1 overflow-auto">
+            {templatesLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin mr-2" />
+                Loading templates...
+              </div>
+            ) : emailTemplates?.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <p>No email templates found</p>
+                <p className="text-sm mt-2">
+                  Create templates in Settings to use them here
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {emailTemplates?.map((template: any) => (
+                  <Card 
+                    key={template.id}
+                    className="cursor-pointer hover:bg-muted/50 transition-colors border-l-4 border-l-primary/20"
+                    onClick={() => applyTemplate(template)}
+                    data-testid={`card-template-${template.id}`}
+                  >
+                    <CardHeader className="pb-2">
+                      <div className="flex justify-between items-start">
+                        <div className="flex-1">
+                          <CardTitle className="text-base font-semibold">
+                            {template.title}
+                          </CardTitle>
+                          {template.subject && (
+                            <p className="text-sm text-muted-foreground mt-1">
+                              Subject: {template.subject}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="pt-0">
+                      <div className="bg-muted/30 dark:bg-muted/10 p-3 rounded text-sm border border-border/20 dark:border-border/10">
+                        <p className="text-muted-foreground dark:text-muted-foreground line-clamp-3 leading-relaxed">
+                          {template.body?.substring(0, 200) || 'No preview available'}...
+                        </p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
           </div>
         </DialogContent>
       </Dialog>

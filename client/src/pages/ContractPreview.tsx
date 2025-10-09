@@ -444,7 +444,7 @@ export default function ContractPreview() {
                     {/* Views */}
                     {documentViews && documentViews.map((view) => (
                       <div key={view.id} className="px-2 py-2 text-sm text-muted-foreground border-b last:border-b-0">
-                        Viewed on {format(new Date(view.viewed_at), "MMM do, yyyy 'at' h:mm a")}
+                        Viewed on {format(new Date(view.viewedAt), "MMM do, yyyy 'at' h:mm a")}
                       </div>
                     ))}
                     

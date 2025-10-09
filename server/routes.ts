@@ -2957,8 +2957,21 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
       
       const contractData = insertContractSchema.parse(bodyWithDates);
       const contractNumber = `C-${Date.now()}`;
+      
+      // Get tenant information for auto-signing
+      const tenant = await storage.getTenant(req.tenantId!);
+      
+      // Auto-sign with tenant name if workflow is sign_upon_creation
+      const autoSignData = contractData.signatureWorkflow === 'sign_upon_creation' 
+        ? {
+            businessSignature: tenant?.name || 'Business',
+            businessSignedAt: new Date(),
+          }
+        : {};
+      
       const contract = await storage.createContract({
         ...contractData,
+        ...autoSignData,
         tenantId: req.tenantId!,
         contractNumber,
         createdBy: req.session.userId!,

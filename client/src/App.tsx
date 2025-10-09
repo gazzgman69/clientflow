@@ -106,9 +106,13 @@ function Router() {
         {() => (
           <AuthWrapper>
             <div className="flex h-screen bg-background">
-              <Sidebar />
+              <div className="print:hidden">
+                <Sidebar />
+              </div>
               <div className="flex-1 flex flex-col overflow-hidden">
-                <ImpersonationBanner />
+                <div className="print:hidden">
+                  <ImpersonationBanner />
+                </div>
                 <Switch>
                   <Route path="/" component={Dashboard} />
                   <Route path="/leads/capture" component={LeadCaptureBuilder} />

@@ -912,7 +912,7 @@ export default function ContractPreview() {
                       <div className="flex justify-between items-start">
                         <div className="flex-1">
                           <CardTitle className="text-base font-semibold">
-                            {template.title}
+                            {template.name}
                           </CardTitle>
                           {template.subject && (
                             <p className="text-sm text-muted-foreground mt-1">

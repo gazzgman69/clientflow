@@ -30,6 +30,8 @@ import {
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Checkbox } from '@/components/ui/checkbox';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Label } from '@/components/ui/label';
 import { CalendarIcon } from 'lucide-react';
 import { format } from 'date-fns';
 import ContractEditor from '@/components/contract-editor';
@@ -72,6 +74,7 @@ export default function CreateContractDialog({
   );
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>('');
   const [saveAsTemplate, setSaveAsTemplate] = useState(false);
+  const [updateExistingTemplate, setUpdateExistingTemplate] = useState(false);
   const [templateName, setTemplateName] = useState('');
   const [datePickerOpen, setDatePickerOpen] = useState(false);
   const { toast } = useToast();
@@ -127,11 +130,8 @@ export default function CreateContractDialog({
       
       const savedContract = await response.json();
       
-      // If save as template is checked, also create a template
+      // If save as template is checked, create or update template
       if (saveAsTemplate) {
-        if (!templateName.trim()) {
-          throw new Error('Template name is required');
-        }
         const templateData = {
           name: templateName.trim(),
           displayTitle: data.displayTitle,
@@ -139,7 +139,17 @@ export default function CreateContractDialog({
           bodyHtml,
           formFields: JSON.stringify(formFields),
         };
-        await apiRequest('POST', '/api/contract-templates', templateData);
+        
+        if (updateExistingTemplate && selectedTemplateId) {
+          // Update existing template
+          await apiRequest('PATCH', `/api/contract-templates/${selectedTemplateId}`, templateData);
+        } else {
+          // Create new template
+          if (!templateName.trim()) {
+            throw new Error('Template name is required');
+          }
+          await apiRequest('POST', '/api/contract-templates', templateData);
+        }
       }
       
       return savedContract;
@@ -150,11 +160,15 @@ export default function CreateContractDialog({
       if (saveAsTemplate) {
         queryClient.invalidateQueries({ queryKey: ['/api/contract-templates'] });
       }
+      const templateMessage = saveAsTemplate 
+        ? (updateExistingTemplate ? 'template updated!' : 'template saved!')
+        : '';
+      
       toast({
         title: 'Success',
         description: contract 
-          ? (saveAsTemplate ? 'Contract updated and template saved!' : 'Contract updated successfully!')
-          : (saveAsTemplate ? 'Contract and template created successfully!' : 'Contract created successfully!'),
+          ? `Contract updated${saveAsTemplate ? ` and ${templateMessage}` : ' successfully!'}`
+          : `Contract created${saveAsTemplate ? ` and ${templateMessage}` : ' successfully!'}`,
       });
       form.reset();
       setBodyHtml('');
@@ -214,6 +228,9 @@ export default function CreateContractDialog({
           console.error('Failed to parse template form fields:', error);
           setFormFields([]);
         }
+        
+        // Pre-fill template name for update option
+        setTemplateName(template.name);
       }
     }
   }, [selectedTemplateId, templates, form]);
@@ -366,38 +383,78 @@ export default function CreateContractDialog({
                 )}
               />
 
-              {/* Save as Template Checkbox */}
-              <div className="flex justify-end items-center gap-2 pt-4">
-                <Checkbox 
-                  id="save-as-template" 
-                  checked={saveAsTemplate}
-                  onCheckedChange={(checked) => {
-                    setSaveAsTemplate(checked === true);
-                    if (!checked) setTemplateName('');
-                  }}
-                  data-testid="checkbox-save-as-template"
-                />
-                <label 
-                  htmlFor="save-as-template" 
-                  className="text-sm font-medium cursor-pointer"
-                >
-                  Save as template
-                </label>
-              </div>
-
-              {/* Template Name Input - shown when save as template is checked */}
-              {saveAsTemplate && (
-                <div className="flex justify-end">
-                  <div className="w-64">
-                    <Input
-                      placeholder="Template name"
-                      value={templateName}
-                      onChange={(e) => setTemplateName(e.target.value)}
-                      data-testid="input-template-name"
-                    />
-                  </div>
+              {/* Save as Template Section */}
+              <div className="pt-4 space-y-3">
+                <div className="flex justify-end items-center gap-2">
+                  <Checkbox 
+                    id="save-as-template" 
+                    checked={saveAsTemplate}
+                    onCheckedChange={(checked) => {
+                      setSaveAsTemplate(checked === true);
+                      if (!checked) {
+                        setTemplateName('');
+                        setUpdateExistingTemplate(false);
+                      } else if (selectedTemplateId) {
+                        // Default to updating existing if a template was used
+                        setUpdateExistingTemplate(true);
+                      }
+                    }}
+                    data-testid="checkbox-save-as-template"
+                  />
+                  <label 
+                    htmlFor="save-as-template" 
+                    className="text-sm font-medium cursor-pointer"
+                  >
+                    Save as template
+                  </label>
                 </div>
-              )}
+
+                {/* Template options - shown when save as template is checked */}
+                {saveAsTemplate && (
+                  <div className="flex justify-end">
+                    <div className="w-80 space-y-3">
+                      {selectedTemplateId && templates?.find(t => t.id === selectedTemplateId) ? (
+                        // Show radio buttons if a template was used
+                        <RadioGroup 
+                          value={updateExistingTemplate ? 'update' : 'new'}
+                          onValueChange={(value) => {
+                            setUpdateExistingTemplate(value === 'update');
+                            if (value === 'new') {
+                              setTemplateName('');
+                            } else {
+                              const template = templates.find(t => t.id === selectedTemplateId);
+                              if (template) setTemplateName(template.name);
+                            }
+                          }}
+                        >
+                          <div className="flex items-center space-x-2">
+                            <RadioGroupItem value="update" id="update-template" />
+                            <Label htmlFor="update-template" className="text-sm cursor-pointer">
+                              Update "{templates.find(t => t.id === selectedTemplateId)?.name}"
+                            </Label>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <RadioGroupItem value="new" id="new-template" />
+                            <Label htmlFor="new-template" className="text-sm cursor-pointer">
+                              Save as new template
+                            </Label>
+                          </div>
+                        </RadioGroup>
+                      ) : null}
+                      
+                      {/* Template name input - only show for new templates */}
+                      {(!updateExistingTemplate || !selectedTemplateId) && (
+                        <Input
+                          placeholder="Template name"
+                          value={templateName}
+                          onChange={(e) => setTemplateName(e.target.value)}
+                          data-testid="input-template-name"
+                        />
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
 
               {/* Action Buttons */}
               <div className="flex justify-end gap-3">

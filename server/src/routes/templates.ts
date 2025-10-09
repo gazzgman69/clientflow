@@ -10,6 +10,8 @@ router.get('/admin/templates', async (req, res) => {
     const { type, q, activeOnly } = req.query;
     const tenantId = req.tenantId || 'default-tenant';
     
+    console.log('📋 GET /admin/templates called:', { type, q, activeOnly, tenantId });
+    
     const options: {
       type?: 'auto_responder' | 'email' | 'invoice' | 'contract';
       q?: string;
@@ -31,7 +33,10 @@ router.get('/admin/templates', async (req, res) => {
       options.activeOnly = activeOnly === 'true' || activeOnly === true;
     }
     
+    console.log('📋 Templates options:', options);
+    
     const templates = await templatesService.listTemplates(options, tenantId);
+    console.log('📋 Templates returned:', templates.length, 'items');
     res.json(templates);
   } catch (error) {
     console.error('Error fetching templates:', error);

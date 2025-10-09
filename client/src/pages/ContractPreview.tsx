@@ -915,7 +915,14 @@ export default function ContractPreview() {
                     onClick={() => applyTemplate(template)}
                     data-testid={`card-template-${template.id}`}
                   >
-                    <p className="font-medium">{template.name}</p>
+                    <div className="flex flex-col">
+                      <span className="font-medium">{template.name}</span>
+                      {template.category && (
+                        <span className="text-xs text-muted-foreground capitalize">
+                          {template.category.replace(/_/g, ' ')}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>

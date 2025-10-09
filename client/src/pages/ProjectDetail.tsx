@@ -1365,7 +1365,7 @@ export default function ProjectDetail() {
                           <div
                             key={contract.id}
                             className="flex items-center justify-between p-3 border rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
-                            onClick={() => setSelectedDocument({ type: 'contract', data: contract })}
+                            onClick={() => handleEditContract(contract)}
                             data-testid={`document-contract-${contract.id}`}
                           >
                             <div className="flex items-center gap-3">
@@ -1380,18 +1380,6 @@ export default function ProjectDetail() {
                               </div>
                             </div>
                             <div className="flex gap-2">
-                              <Button 
-                                variant="ghost" 
-                                size="sm"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleEditContract(contract);
-                                }}
-                                data-testid={`button-edit-contract-${contract.id}`}
-                                aria-label={`Edit contract ${contract.title}`}
-                              >
-                                <Edit className="h-4 w-4" />
-                              </Button>
                               <Button 
                                 variant="ghost" 
                                 size="sm"

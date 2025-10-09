@@ -3956,7 +3956,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
       const contact = await storage.getContactById(contract.contactId);
       
       // Get tenant info
-      const tenant = await storage.getTenantById(contract.tenantId);
+      const tenant = await storage.getTenant(contract.tenantId);
       
       res.json({
         contract: {

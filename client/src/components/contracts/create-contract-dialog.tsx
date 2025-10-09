@@ -173,6 +173,11 @@ export default function CreateContractDialog({
 
   useEffect(() => {
     if (contract) {
+      console.log('Contract prop:', contract);
+      console.log('Due date from contract:', contract.dueDate, typeof contract.dueDate);
+      const parsedDueDate = contract.dueDate ? new Date(contract.dueDate) : undefined;
+      console.log('Parsed due date:', parsedDueDate);
+      
       form.reset({
         title: contract.title || '',
         displayTitle: contract.displayTitle || '',
@@ -181,7 +186,7 @@ export default function CreateContractDialog({
         bodyHtml: contract.bodyHtml || '',
         signatureWorkflow: contract.signatureWorkflow || 'counter_sign_after_client',
         status: contract.status || 'draft',
-        dueDate: contract.dueDate ? new Date(contract.dueDate) : undefined,
+        dueDate: parsedDueDate,
       });
       setBodyHtml(contract.bodyHtml || '');
       try {

@@ -497,17 +497,15 @@ export default function ContractEditor({
                 </div>
 
                 {/* Save as Template Option */}
-                {!editingContract && (
-                  <div className="flex items-center space-x-2">
-                    <Checkbox
-                      id="save-as-template"
-                      checked={saveAsTemplate}
-                      onCheckedChange={(checked) => setSaveAsTemplate(checked === true)}
-                      data-testid="checkbox-save-as-template"
-                    />
-                    <Label htmlFor="save-as-template" className="text-sm">Save as template</Label>
-                  </div>
-                )}
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="save-as-template"
+                    checked={saveAsTemplate}
+                    onCheckedChange={(checked) => setSaveAsTemplate(checked === true)}
+                    data-testid="checkbox-save-as-template"
+                  />
+                  <Label htmlFor="save-as-template" className="text-sm">Save as template</Label>
+                </div>
 
                 {/* Action Buttons */}
                 <div className="flex gap-2 pt-4">

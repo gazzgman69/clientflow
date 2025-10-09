@@ -4783,7 +4783,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
       const templateData = insertMessageTemplateSchema.parse({
         ...req.body,
         tenantId: req.tenantId,
-        createdBy: req.userId
+        createdBy: req.authenticatedUserId
       });
       const template = await storage.createMessageTemplate(templateData);
       res.status(201).json(template);

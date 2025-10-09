@@ -644,11 +644,6 @@ export default function ContractPreview() {
             {/* Signature Section */}
             {contract.signatureWorkflow !== 'not_required' && (
               <div className="mt-12 pt-8 border-t">
-                <h3 className="text-lg font-semibold mb-4">Agreement Confirmation</h3>
-                <p className="text-sm text-muted-foreground mb-6">
-                  By signing below, you confirm that you have read, understood, and agreed to the terms of this contract.
-                </p>
-
                 <div className="space-y-6">
                   {/* Client Signature */}
                   <div className="border-b pb-4">

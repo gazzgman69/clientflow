@@ -90,7 +90,6 @@ export default function ContractPreview() {
   const [emailTo, setEmailTo] = useState("");
   const [emailSubject, setEmailSubject] = useState("");
   const [emailMessage, setEmailMessage] = useState("");
-  const [showTemplateModal, setShowTemplateModal] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState<any>(null);
   const messageEditorRef = useRef<RichTextEditorRef>(null);
   
@@ -820,16 +819,48 @@ export default function ContractPreview() {
                     </DropdownMenu>
                   )}
                   onTemplateSelect={() => (
-                    <Button 
-                      variant="outline" 
-                      size="sm"
-                      className="h-7 px-2 text-xs"
-                      onClick={() => setShowTemplateModal(true)}
-                      data-testid="button-select-template"
-                    >
-                      <FileText className="h-2.5 w-2.5 mr-1" />
-                      Template
-                    </Button>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          className="h-7 px-2 text-xs"
+                          data-testid="button-select-template"
+                        >
+                          <FileText className="h-2.5 w-2.5 mr-1" />
+                          Template
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="start" className="w-56">
+                        {templatesLoading ? (
+                          <div className="flex items-center justify-center py-2">
+                            <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                            Loading...
+                          </div>
+                        ) : emailTemplates?.length === 0 ? (
+                          <div className="text-center py-2 text-muted-foreground text-sm">
+                            No templates found
+                          </div>
+                        ) : (
+                          emailTemplates?.map((template: any) => (
+                            <DropdownMenuItem 
+                              key={template.id}
+                              onClick={() => applyTemplate(template)}
+                              data-testid={`dropdown-template-${template.id}`}
+                            >
+                              <div className="flex flex-col">
+                                <span className="font-medium">{template.name}</span>
+                                {template.category && (
+                                  <span className="text-xs text-muted-foreground capitalize">
+                                    {template.category.replace(/_/g, ' ')}
+                                  </span>
+                                )}
+                              </div>
+                            </DropdownMenuItem>
+                          ))
+                        )}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   )}
                 />
               </div>
@@ -876,47 +907,6 @@ export default function ContractPreview() {
                 </Button>
               </div>
             </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Template Selection Modal */}
-      <Dialog open={showTemplateModal} onOpenChange={setShowTemplateModal}>
-        <DialogContent className="max-h-[80vh] overflow-hidden flex flex-col">
-          <div className="flex-1 overflow-auto">
-            {templatesLoading ? (
-              <div className="flex items-center justify-center py-8">
-                <Loader2 className="h-6 w-6 animate-spin mr-2" />
-                Loading templates...
-              </div>
-            ) : emailTemplates?.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">
-                <p>No email templates found</p>
-                <p className="text-sm mt-2">
-                  Create templates in Settings to use them here
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {emailTemplates?.map((template: any) => (
-                  <div
-                    key={template.id}
-                    className="p-3 rounded-lg border cursor-pointer hover:bg-muted/50 transition-colors"
-                    onClick={() => applyTemplate(template)}
-                    data-testid={`card-template-${template.id}`}
-                  >
-                    <div className="flex flex-col">
-                      <span className="font-medium">{template.name}</span>
-                      {template.category && (
-                        <span className="text-xs text-muted-foreground capitalize">
-                          {template.category.replace(/_/g, ' ')}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
           </div>
         </DialogContent>
       </Dialog>

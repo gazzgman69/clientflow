@@ -233,6 +233,10 @@ export interface IStorage {
   updateContractTemplate(id: string, template: Partial<InsertContractTemplate>, tenantId: string): Promise<ContractTemplate | undefined>;
   deleteContractTemplate(id: string, tenantId: string): Promise<boolean>;
   
+  // Document Views
+  recordDocumentView(tenantId: string, documentType: string, documentId: string, ipAddress: string | null, userAgent: string | null): Promise<void>;
+  getDocumentViews(tenantId: string, documentType: string, documentId: string): Promise<any[]>;
+  
   // Invoices
   getInvoices(tenantId: string): Promise<Invoice[]>;
   getInvoice(id: string, tenantId: string): Promise<Invoice | undefined>;
@@ -4201,6 +4205,25 @@ export class DrizzleStorage implements IStorage {
     const result = await this.db.delete(contractTemplates)
       .where(and(eq(contractTemplates.id, id), eq(contractTemplates.tenantId, tenantId)));
     return result.rowCount > 0;
+  }
+  
+  // Document Views - PostgreSQL implementation
+  async recordDocumentView(tenantId: string, documentType: string, documentId: string, ipAddress: string | null, userAgent: string | null): Promise<void> {
+    await this.db.execute(sql`
+      INSERT INTO document_views (tenant_id, document_type, document_id, ip_address, user_agent, viewed_at)
+      VALUES (${tenantId}, ${documentType}, ${documentId}, ${ipAddress}, ${userAgent}, NOW())
+    `);
+  }
+  
+  async getDocumentViews(tenantId: string, documentType: string, documentId: string): Promise<any[]> {
+    const results = await this.db.execute(sql`
+      SELECT * FROM document_views
+      WHERE tenant_id = ${tenantId}
+        AND document_type = ${documentType}
+        AND document_id = ${documentId}
+      ORDER BY viewed_at DESC
+    `);
+    return results.rows as any[];
   }
   
   // Invoices - PostgreSQL implementation

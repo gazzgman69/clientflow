@@ -126,6 +126,12 @@ export default function ContractPreview() {
     enabled: showEmailDialog,
   });
 
+  // Fetch document views
+  const { data: documentViews } = useQuery<any[]>({
+    queryKey: ['/api/documents/contract', id, 'views'],
+    enabled: !!id,
+  });
+
   // Fetch email signatures
   const { data: emailSignatures, isLoading: signaturesLoading } = useQuery({
     queryKey: ['/api/email/signatures'],
@@ -418,6 +424,24 @@ export default function ContractPreview() {
           </div>
         </div>
       </div>
+
+      {/* View History */}
+      {documentViews && documentViews.length > 0 && (
+        <div className="bg-blue-50 dark:bg-blue-950/20 border-b print:hidden flex-shrink-0">
+          <div className="max-w-6xl mx-auto px-4 py-2">
+            <div className="text-sm text-blue-700 dark:text-blue-300">
+              <strong>Viewed by client:</strong>{' '}
+              {documentViews.slice(0, 3).map((view, index) => (
+                <span key={view.id}>
+                  {index > 0 && ', '}
+                  {format(new Date(view.viewed_at), "MMM d, yyyy 'at' h:mm a")}
+                </span>
+              ))}
+              {documentViews.length > 3 && ` (${documentViews.length - 3} more)`}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Action Buttons */}
       <div className="bg-white dark:bg-gray-800 border-b print:hidden flex-shrink-0">

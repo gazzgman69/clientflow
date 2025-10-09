@@ -206,6 +206,25 @@ export const contracts = pgTable("contracts", {
   createdBy: varchar("created_by").references(() => users.id).notNull(),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => {
+  return {
+    tenantIdIdx: index("contracts_tenant_id_idx").on(table.tenantId),
+  };
+});
+
+// Document Views - Track when documents are viewed by clients
+export const documentViews = pgTable("document_views", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").references(() => tenants.id).notNull(),
+  documentType: text("document_type").notNull(), // 'contract', 'quote', 'invoice'
+  documentId: varchar("document_id").notNull(), // ID of the contract/quote/invoice
+  viewedAt: timestamp("viewed_at").defaultNow(),
+  ipAddress: text("ip_address"), // Optional: track IP for security
+  userAgent: text("user_agent"), // Optional: track browser/device
+}, (table) => {
+  return {
+    tenantDocumentIdx: index("document_views_tenant_document_idx").on(table.tenantId, table.documentType, table.documentId),
+  };
 });
 
 // Contract Templates table

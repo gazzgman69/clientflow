@@ -3974,6 +3974,13 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
       // Get tenant info
       const tenant = await storage.getTenant(contract.tenantId);
       
+      // Track view (async, don't wait for it)
+      const ipAddress = req.ip || req.connection.remoteAddress || null;
+      const userAgent = req.get('user-agent') || null;
+      storage.recordDocumentView(contract.tenantId, 'contract', contractId, ipAddress, userAgent).catch(err => {
+        console.error("Error recording contract view:", err);
+      });
+      
       res.json({
         contract: {
           id: contract.id,
@@ -4001,6 +4008,36 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     } catch (error) {
       console.error("Error fetching public contract:", error);
       res.status(500).json({ message: "Failed to fetch contract" });
+    }
+  });
+
+  // Get document views - authenticated endpoint
+  app.get("/api/documents/:type/:id/views", ensureUserAuth, requireTenant, csrf, async (req, res) => {
+    try {
+      const { type, id } = req.params;
+      const tenantId = req.session.tenantId!;
+      
+      // Verify the document belongs to the tenant
+      let document;
+      if (type === 'contract') {
+        document = await storage.getContract(id);
+      } else if (type === 'quote') {
+        document = await storage.getQuoteById(id);
+      } else if (type === 'invoice') {
+        document = await storage.getInvoiceById(id);
+      } else {
+        return res.status(400).json({ message: "Invalid document type" });
+      }
+      
+      if (!document || document.tenantId !== tenantId) {
+        return res.status(404).json({ message: "Document not found" });
+      }
+      
+      const views = await storage.getDocumentViews(tenantId, type, id);
+      res.json(views);
+    } catch (error) {
+      console.error("Error fetching document views:", error);
+      res.status(500).json({ message: "Failed to fetch document views" });
     }
   });
 

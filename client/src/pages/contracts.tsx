@@ -18,7 +18,7 @@ export default function Contracts() {
   });
 
   const { data: contacts } = useQuery<Contact[]>({
-    queryKey: ["/api/contacts"],
+    queryKey: ["/api/contacts?simple=1&limit=100"],
   });
 
   const getStatusColor = (status: string) => {

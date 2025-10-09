@@ -4792,11 +4792,16 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
         body: req.body
       });
       
-      const templateData = insertMessageTemplateSchema.parse({
+      const dataToValidate = {
         ...req.body,
         createdBy: userId,
         tenantId: req.tenantId
-      });
+      };
+      
+      console.log('🐛 DEBUG Data before Zod parse:', JSON.stringify(dataToValidate, null, 2));
+      console.log('🐛 DEBUG req.tenantId type:', typeof req.tenantId, 'value:', req.tenantId);
+      
+      const templateData = insertMessageTemplateSchema.parse(dataToValidate);
       
       console.log('🐛 DEBUG Parsed template data:', templateData);
       

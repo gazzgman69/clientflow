@@ -4672,8 +4672,16 @@ export class DrizzleStorage implements IStorage {
   }
   
   // Message Templates - PostgreSQL implementation
-  async getMessageTemplates(): Promise<MessageTemplate[]> {
-    return await this.db.select().from(messageTemplates);
+  async getMessageTemplates(tenantId: string): Promise<MessageTemplate[]> {
+    return await this.db.select().from(messageTemplates).where(eq(messageTemplates.tenantId, tenantId));
+  }
+
+  async getMessageTemplatesByType(type: string, tenantId: string): Promise<MessageTemplate[]> {
+    return await this.db.select().from(messageTemplates)
+      .where(and(
+        eq(messageTemplates.type, type),
+        eq(messageTemplates.tenantId, tenantId)
+      ));
   }
 
   async getMessageTemplate(id: string): Promise<MessageTemplate | undefined> {

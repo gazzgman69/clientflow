@@ -3962,6 +3962,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   app.get("/api/public/contracts/:id", authLimiter, async (req, res) => {
     try {
       const contractId = req.params.id;
+      console.log('🔓 PUBLIC CONTRACT API CALLED:', contractId);
       const contract = await storage.getContract(contractId);
       
       if (!contract) {
@@ -3974,10 +3975,13 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
       // Get project info if available
       let project = null;
       let venue = null;
+      console.log('📋 Contract projectId:', contract.projectId);
       if (contract.projectId) {
         project = await storage.getProject(contract.projectId);
+        console.log('🎯 Fetched project:', project ? project.name : 'null');
         if (project && project.venueId) {
           venue = await storage.getVenue(project.venueId);
+          console.log('📍 Fetched venue:', venue ? venue.name : 'null');
         }
       }
       

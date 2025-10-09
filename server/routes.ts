@@ -4754,15 +4754,16 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   });
 
   // Message Templates
-  app.get("/api/message-templates", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
+  app.get("/api/message-templates", ensureUserAuth, tenantResolver, requireTenant, async (req: any, res) => {
     try {
       const { type, category } = req.query;
+      const tenantId = req.tenantId;
       let templates;
       
       if (type) {
-        templates = await storage.getMessageTemplatesByType(type as string);
+        templates = await storage.getMessageTemplatesByType(type as string, tenantId);
       } else {
-        templates = await storage.getMessageTemplates();
+        templates = await storage.getMessageTemplates(tenantId);
       }
       
       // Further filter by category if provided

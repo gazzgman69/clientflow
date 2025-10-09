@@ -117,6 +117,12 @@ export default function PublicContract({ id }: PublicContractProps) {
   const replaceTokens = (html: string | null): string => {
     if (!html || !data) return html || "";
     
+    console.log('Token replacement data:', { 
+      contact: data.contact, 
+      project: data.project, 
+      venue: data.venue 
+    });
+    
     let replaced = html;
     const { contact, project, venue, contract, tenant } = data;
     

@@ -3942,6 +3942,52 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
 
+  // Public contract view endpoint - no authentication required
+  app.get("/api/public/contracts/:id", authLimiter, async (req, res) => {
+    try {
+      const contractId = req.params.id;
+      const contract = await storage.getContract(contractId);
+      
+      if (!contract) {
+        return res.status(404).json({ message: "Contract not found" });
+      }
+
+      // Get contact info
+      const contact = await storage.getContactById(contract.contactId);
+      
+      // Get tenant info
+      const tenant = await storage.getTenantById(contract.tenantId);
+      
+      res.json({
+        contract: {
+          id: contract.id,
+          contractNumber: contract.contractNumber,
+          title: contract.title,
+          displayTitle: contract.displayTitle,
+          bodyHtml: contract.bodyHtml,
+          dueDate: contract.dueDate,
+          status: contract.status,
+          signatureWorkflow: contract.signatureWorkflow,
+          clientSignature: contract.clientSignature,
+          businessSignature: contract.businessSignature,
+          clientSignedAt: contract.clientSignedAt,
+          businessSignedAt: contract.businessSignedAt,
+        },
+        contact: contact ? {
+          firstName: contact.firstName,
+          lastName: contact.lastName,
+          fullName: contact.fullName,
+        } : null,
+        tenant: tenant ? {
+          name: tenant.name,
+        } : null,
+      });
+    } catch (error) {
+      console.error("Error fetching public contract:", error);
+      res.status(500).json({ message: "Failed to fetch contract" });
+    }
+  });
+
   app.post("/api/contracts/:id/send", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
     try {
       const contract = await storage.updateContract(req.params.id, {

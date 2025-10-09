@@ -242,8 +242,8 @@ export default function ContractPreview() {
   };
 
   const handleLiveView = () => {
-    // Open the contract in a new window (client view)
-    const url = `${window.location.origin}/contracts/${id}/preview`;
+    // Open the contract in a new window (client view) - public URL without auth
+    const url = `${window.location.origin}/c/${id}`;
     window.open(url, '_blank');
   };
 

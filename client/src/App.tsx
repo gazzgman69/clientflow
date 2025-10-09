@@ -24,6 +24,7 @@ import LeadsKanban from "@/pages/leads/LeadsKanban";
 import LeadsInbox from "@/pages/leads/LeadsInbox";
 import LeadFormHosted from "@/pages/public/LeadFormHosted";
 import PublicQuote from "@/pages/public/PublicQuote";
+import PublicContract from "@/pages/public/PublicContract";
 import ProjectDetail from "@/pages/ProjectDetail";
 import ContactDetail from "@/pages/ContactDetail";
 import Members from "@/pages/members";
@@ -93,6 +94,11 @@ function Router() {
       {/* Public Quote Routes - No Authentication Required */}
       <Route path="/q/:token">
         {(params) => <PublicQuote token={params.token} />}
+      </Route>
+      
+      {/* Public Contract Routes - No Authentication Required */}
+      <Route path="/c/:id">
+        {(params) => <PublicContract id={params.id} />}
       </Route>
       
       {/* Protected Routes - Require Authentication */}

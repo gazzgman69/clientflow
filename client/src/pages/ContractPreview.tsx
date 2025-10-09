@@ -366,6 +366,82 @@ export default function ContractPreview() {
               dangerouslySetInnerHTML={{ __html: replaceTokens(contract.bodyHtml) }}
               data-testid="contract-body"
             />
+
+            {/* Signature Section */}
+            {contract.signatureWorkflow !== 'not_required' && (
+              <div className="mt-12 pt-8 border-t">
+                <h3 className="text-lg font-semibold mb-4">Agreement Confirmation</h3>
+                <p className="text-sm text-muted-foreground mb-6">
+                  By signing below, you confirm that you have read, understood, and agreed to the terms of this contract.
+                </p>
+
+                <div className="space-y-6">
+                  {/* Client Signature */}
+                  <div className="border-b pb-4">
+                    <div className="flex items-end justify-between gap-4">
+                      <div className="flex-1">
+                        <label className="block text-sm font-medium text-muted-foreground uppercase mb-2">
+                          {contact?.fullName || contact?.firstName + ' ' + contact?.lastName}
+                        </label>
+                        {contract.clientSignature ? (
+                          <div className="border-b-2 border-gray-300 pb-2">
+                            <p className="font-signature text-xl">{contract.clientSignature}</p>
+                            {contract.clientSignedAt && (
+                              <p className="text-xs text-muted-foreground mt-1">
+                                Signed on {format(new Date(contract.clientSignedAt), "MMMM d, yyyy 'at' h:mm a")}
+                              </p>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="border-b-2 border-gray-300 pb-2 h-12" />
+                        )}
+                      </div>
+                      {!contract.clientSignature && (
+                        <Button 
+                          className="bg-amber-600 hover:bg-amber-700 text-white"
+                          data-testid="button-sign-client"
+                        >
+                          Sign Contract
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Business Signature - Only show for counter_sign_after_client */}
+                  {contract.signatureWorkflow === 'counter_sign_after_client' && (
+                    <div className="border-b pb-4">
+                      <div className="flex items-end justify-between gap-4">
+                        <div className="flex-1">
+                          <label className="block text-sm font-medium text-muted-foreground uppercase mb-2">
+                            {project?.name || 'Business'}
+                          </label>
+                          {contract.businessSignature ? (
+                            <div className="border-b-2 border-gray-300 pb-2">
+                              <p className="font-signature text-xl">{contract.businessSignature}</p>
+                              {contract.businessSignedAt && (
+                                <p className="text-xs text-muted-foreground mt-1">
+                                  Signed on {format(new Date(contract.businessSignedAt), "MMMM d, yyyy 'at' h:mm a")}
+                                </p>
+                              )}
+                            </div>
+                          ) : (
+                            <div className="border-b-2 border-gray-300 pb-2 h-12" />
+                          )}
+                        </div>
+                        {!contract.businessSignature && contract.clientSignature && (
+                          <Button 
+                            className="bg-amber-600 hover:bg-amber-700 text-white"
+                            data-testid="button-sign-business"
+                          >
+                            Sign Contract
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
         </div>

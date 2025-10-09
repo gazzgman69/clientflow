@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import { useLocation } from 'wouter';
 import {
   Dialog,
   DialogContent,
@@ -75,6 +76,7 @@ export default function CreateContractDialog({
   const [datePickerOpen, setDatePickerOpen] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [, setLocation] = useLocation();
 
   const { data: contactsData } = useQuery<{ contacts: Contact[] }>({
     queryKey: ['/api/contacts'],
@@ -142,7 +144,7 @@ export default function CreateContractDialog({
       
       return savedContract;
     },
-    onSuccess: () => {
+    onSuccess: (savedContract) => {
       queryClient.invalidateQueries({ queryKey: ['/api/contracts'] });
       queryClient.invalidateQueries({ queryKey: ['/api/contacts'] });
       if (saveAsTemplate) {
@@ -161,6 +163,9 @@ export default function CreateContractDialog({
       setSaveAsTemplate(false);
       setTemplateName('');
       onOpenChange(false);
+      
+      // Navigate to preview screen
+      setLocation(`/contracts/${savedContract.id}/preview`);
     },
     onError: (error: any) => {
       toast({

@@ -105,11 +105,11 @@ function Router() {
       <Route>
         {() => (
           <AuthWrapper>
-            <div className="flex h-screen bg-background">
+            <div className="flex h-screen bg-background print:h-auto print:block">
               <div className="print:hidden">
                 <Sidebar />
               </div>
-              <div className="flex-1 flex flex-col overflow-hidden">
+              <div className="flex-1 flex flex-col overflow-hidden print:overflow-visible print:block">
                 <div className="print:hidden">
                   <ImpersonationBanner />
                 </div>

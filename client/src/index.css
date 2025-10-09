@@ -137,3 +137,26 @@
     white-space: pre-wrap;
   }
 }
+
+/* Print Styles */
+@media print {
+  @page {
+    margin: 1cm;
+    size: A4;
+  }
+  
+  html, body {
+    height: auto !important;
+    overflow: visible !important;
+  }
+  
+  body {
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+  
+  * {
+    overflow: visible !important;
+    max-height: none !important;
+  }
+}

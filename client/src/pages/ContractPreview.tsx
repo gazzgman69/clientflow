@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { ArrowLeft, Send, Eye, Printer, Edit, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
-import RichTextEditor, { RichTextEditorRef } from "@/components/ui/rich-text-editor";
+import { RichTextEditor, RichTextEditorRef } from "@/components/ui/rich-text-editor";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 
@@ -206,7 +206,7 @@ export default function ContractPreview() {
   };
 
   const handleSendEmail = () => {
-    const emailBody = messageEditorRef.current?.getContent() || emailMessage;
+    const emailBody = messageEditorRef.current?.getHTML() || emailMessage;
     
     if (!emailTo || !emailSubject || !emailBody) {
       toast({

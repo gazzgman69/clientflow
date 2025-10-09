@@ -1013,7 +1013,7 @@ export const insertMemberAvailabilitySchema = createInsertSchema(memberAvailabil
 export const insertProjectFileSchema = createInsertSchema(projectFiles).omit({ id: true, createdAt: true });
 export const insertProjectNoteSchema = createInsertSchema(projectNotes).omit({ id: true, createdAt: true });
 export const insertSmsMessageSchema = createInsertSchema(smsMessages).omit({ id: true, createdAt: true });
-export const insertMessageTemplateSchema = createInsertSchema(messageTemplates).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertMessageTemplateSchema = createInsertSchema(messageTemplates).omit({ id: true, createdAt: true, updatedAt: true, tenantId: true, createdBy: true });
 
 // Template Categories - organized by document/feature type (similar to 17hats)
 export const TEMPLATE_CATEGORIES = {

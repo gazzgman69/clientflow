@@ -291,13 +291,13 @@ export default function ContractPreview() {
     
     if (contact) {
       // Contact tokens (matching actual token names from token-resolver service)
-      // Use global flag to replace all occurrences and handle HTML entities like &nbsp;
-      replaced = replaced.replace(/(&nbsp;|\s)*\[FirstName\](&nbsp;|\s)*/gi, contact.firstName || "");
-      replaced = replaced.replace(/(&nbsp;|\s)*\[LastName\](&nbsp;|\s)*/gi, contact.lastName || "");
-      replaced = replaced.replace(/(&nbsp;|\s)*\[FullName\](&nbsp;|\s)*/gi, contact.fullName || `${contact.firstName} ${contact.lastName}`.trim());
-      replaced = replaced.replace(/(&nbsp;|\s)*\[Email\](&nbsp;|\s)*/gi, contact.email || "");
-      replaced = replaced.replace(/(&nbsp;|\s)*\[Phone\](&nbsp;|\s)*/gi, contact.phone || "");
-      replaced = replaced.replace(/(&nbsp;|\s)*\[Company\](&nbsp;|\s)*/gi, contact.company || "");
+      // Strip only &nbsp; entities around tokens, preserve regular spaces
+      replaced = replaced.replace(/(&nbsp;)*\[FirstName\](&nbsp;)*/gi, contact.firstName || "");
+      replaced = replaced.replace(/(&nbsp;)*\[LastName\](&nbsp;)*/gi, contact.lastName || "");
+      replaced = replaced.replace(/(&nbsp;)*\[FullName\](&nbsp;)*/gi, contact.fullName || `${contact.firstName} ${contact.lastName}`.trim());
+      replaced = replaced.replace(/(&nbsp;)*\[Email\](&nbsp;)*/gi, contact.email || "");
+      replaced = replaced.replace(/(&nbsp;)*\[Phone\](&nbsp;)*/gi, contact.phone || "");
+      replaced = replaced.replace(/(&nbsp;)*\[Company\](&nbsp;)*/gi, contact.company || "");
       
       // Contact address tokens
       replaced = replaced.replace(/\[Address1\]/gi, contact.address || "");
@@ -311,24 +311,24 @@ export default function ContractPreview() {
     
     if (project) {
       // Project tokens (matching actual token names from token-resolver service)
-      // Handle HTML entities before and after tokens
-      replaced = replaced.replace(/(&nbsp;|\s)*\[ProjectName\](&nbsp;|\s)*/gi, project.name || "");
-      replaced = replaced.replace(/(&nbsp;|\s)*\[ProjectNotes\](&nbsp;|\s)*/gi, project.description || "");
+      // Strip only &nbsp; entities around tokens, preserve regular spaces
+      replaced = replaced.replace(/(&nbsp;)*\[ProjectName\](&nbsp;)*/gi, project.name || "");
+      replaced = replaced.replace(/(&nbsp;)*\[ProjectNotes\](&nbsp;)*/gi, project.description || "");
       
       // Project dates
       if (project.startDate) {
         const startDate = new Date(project.startDate);
-        replaced = replaced.replace(/(&nbsp;|\s)*\[ProjectDate\](&nbsp;|\s)*/gi, format(startDate, "MMMM d, yyyy"));
+        replaced = replaced.replace(/(&nbsp;)*\[ProjectDate\](&nbsp;)*/gi, format(startDate, "MMMM d, yyyy"));
       }
       
       // Project location - use venue data if available
       if (venue) {
         const venueLocation = `${venue.name || ''} ${venue.address || ''}`.trim();
-        replaced = replaced.replace(/(&nbsp;|\s)*\[ProjectLocation\](&nbsp;|\s)*/gi, venueLocation);
-        replaced = replaced.replace(/(&nbsp;|\s)*\[ProjectAddress\](&nbsp;|\s)*/gi, venue.address || "");
+        replaced = replaced.replace(/(&nbsp;)*\[ProjectLocation\](&nbsp;)*/gi, venueLocation);
+        replaced = replaced.replace(/(&nbsp;)*\[ProjectAddress\](&nbsp;)*/gi, venue.address || "");
       } else {
-        replaced = replaced.replace(/(&nbsp;|\s)*\[ProjectLocation\](&nbsp;|\s)*/gi, "");
-        replaced = replaced.replace(/(&nbsp;|\s)*\[ProjectAddress\](&nbsp;|\s)*/gi, "");
+        replaced = replaced.replace(/(&nbsp;)*\[ProjectLocation\](&nbsp;)*/gi, "");
+        replaced = replaced.replace(/(&nbsp;)*\[ProjectAddress\](&nbsp;)*/gi, "");
       }
     }
     

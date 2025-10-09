@@ -4104,6 +4104,8 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
       const contractId = req.params.id;
       const { signature, signatureType = 'business' } = req.body;
 
+      console.log('[CONTRACT SIGN] Request:', { contractId, signature, signatureType, body: req.body });
+
       if (!signature || !signature.trim()) {
         return res.status(400).json({ message: "Signature is required" });
       }
@@ -4114,21 +4116,40 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
         return res.status(404).json({ message: "Contract not found" });
       }
 
+      console.log('[CONTRACT SIGN] Current contract:', { 
+        id: contract.id, 
+        clientSignature: contract.clientSignature,
+        businessSignature: contract.businessSignature,
+        status: contract.status
+      });
+
       // Business counter-signing (authenticated users only)
       if (signatureType === 'business') {
         if (!contract.clientSignature) {
+          console.log('[CONTRACT SIGN] Error: Client must sign first');
           return res.status(400).json({ message: "Client must sign first" });
         }
 
         if (contract.businessSignature) {
+          console.log('[CONTRACT SIGN] Error: Already counter-signed');
           return res.status(400).json({ message: "Contract has already been counter-signed" });
         }
 
         // Update contract with business signature
-        const updatedContract = await storage.updateContract(contractId, {
+        const updateData = {
           businessSignature: signature.trim(),
           businessSignedAt: new Date(),
           status: 'signed',
+        };
+        console.log('[CONTRACT SIGN] Updating with:', updateData);
+        
+        const updatedContract = await storage.updateContract(contractId, updateData);
+
+        console.log('[CONTRACT SIGN] Updated contract:', {
+          id: updatedContract?.id,
+          businessSignature: updatedContract?.businessSignature,
+          businessSignedAt: updatedContract?.businessSignedAt,
+          status: updatedContract?.status
         });
 
         if (!updatedContract) {

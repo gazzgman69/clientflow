@@ -495,7 +495,11 @@ export default function ContractPreview() {
                               )}
                             </div>
                           ) : (
-                            <div className="border-b-2 border-gray-300 pb-2 h-12" />
+                            <div className="border-b-2 border-gray-300 pb-2 h-12 flex items-center">
+                              <p className="text-sm text-muted-foreground italic">
+                                {contract.clientSignature ? 'Awaiting counter-signature' : 'Awaiting client signature'}
+                              </p>
+                            </div>
                           )}
                         </div>
                         {!contract.businessSignature && contract.clientSignature && (

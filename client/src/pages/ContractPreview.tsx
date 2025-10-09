@@ -123,9 +123,9 @@ export default function ContractPreview() {
 
   // Fetch email templates
   const { data: emailTemplates, isLoading: templatesLoading } = useQuery({
-    queryKey: ['/api/message-templates', 'email'],
+    queryKey: ['/api/message-templates', 'email', 'contract'],
     queryFn: async () => {
-      const response = await fetch('/api/message-templates?type=email');
+      const response = await fetch('/api/message-templates?type=email&category=contract');
       if (!response.ok) throw new Error('Failed to fetch email templates');
       return response.json();
     },
@@ -245,7 +245,7 @@ export default function ContractPreview() {
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/message-templates', 'email'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/message-templates', 'email', 'contract'] });
       setShowSaveTemplateDialog(false);
       setTemplateName("");
       toast({

@@ -4756,13 +4756,18 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   // Message Templates
   app.get("/api/message-templates", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
     try {
-      const { type } = req.query;
+      const { type, category } = req.query;
       let templates;
       
       if (type) {
         templates = await storage.getMessageTemplatesByType(type as string);
       } else {
         templates = await storage.getMessageTemplates();
+      }
+      
+      // Further filter by category if provided
+      if (category && templates) {
+        templates = templates.filter(t => t.category === category);
       }
       
       res.json(templates);

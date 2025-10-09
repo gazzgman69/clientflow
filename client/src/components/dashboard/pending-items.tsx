@@ -45,8 +45,8 @@ export default function PendingItems() {
   const counterSignatureItems: PendingItem[] = (contracts || [])
     .filter(contract => contract.status === 'awaiting_counter_signature')
     .map(contract => {
-      const contact = contacts?.find(c => c.id === contract.contactId);
-      const project = projects?.find(p => p.id === contract.projectId);
+      const contact = Array.isArray(contacts) ? contacts.find(c => c.id === contract.contactId) : null;
+      const project = Array.isArray(projects) ? projects.find(p => p.id === contract.projectId) : null;
       
       return {
         id: contract.id,

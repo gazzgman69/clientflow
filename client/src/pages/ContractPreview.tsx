@@ -248,6 +248,7 @@ export default function ContractPreview() {
   // Save template mutation
   const saveTemplateMutation = useMutation({
     mutationFn: async (templateData: { name: string; subject: string; body: string; category: string }) => {
+      console.log('💾 Saving template:', templateData);
       const response = await apiRequest('POST', '/api/message-templates', {
         name: templateData.name,
         type: 'email',
@@ -267,10 +268,11 @@ export default function ContractPreview() {
         description: "Email template saved successfully",
       });
     },
-    onError: (error: Error) => {
+    onError: (error: any) => {
+      console.error('❌ Template save error:', error);
       toast({
-        title: "Failed to save template",
-        description: error.message,
+        title: "Error saving template",
+        description: error.message || "Failed to save template",
         variant: "destructive",
       });
     },

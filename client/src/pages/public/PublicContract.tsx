@@ -129,43 +129,43 @@ export default function PublicContract({ id }: PublicContractProps) {
     const { contact, project, venue, contract, tenant } = data;
     
     if (contact) {
-      // Handle HTML entities like &nbsp; before/after tokens
-      replaced = replaced.replace(/(&nbsp;|\s)*\[FirstName\](&nbsp;|\s)*/gi, contact.firstName || "");
-      replaced = replaced.replace(/(&nbsp;|\s)*\[LastName\](&nbsp;|\s)*/gi, contact.lastName || "");
-      replaced = replaced.replace(/(&nbsp;|\s)*\[FullName\](&nbsp;|\s)*/gi, contact.fullName || `${contact.firstName} ${contact.lastName}`.trim());
-      replaced = replaced.replace(/(&nbsp;|\s)*\[Email\](&nbsp;|\s)*/gi, contact.email || "");
-      replaced = replaced.replace(/(&nbsp;|\s)*\[Phone\](&nbsp;|\s)*/gi, contact.phone || "");
-      replaced = replaced.replace(/(&nbsp;|\s)*\[Company\](&nbsp;|\s)*/gi, contact.company || "");
+      // Strip only &nbsp; entities around tokens, preserve regular spaces
+      replaced = replaced.replace(/(&nbsp;)*\[FirstName\](&nbsp;)*/gi, contact.firstName || "");
+      replaced = replaced.replace(/(&nbsp;)*\[LastName\](&nbsp;)*/gi, contact.lastName || "");
+      replaced = replaced.replace(/(&nbsp;)*\[FullName\](&nbsp;)*/gi, contact.fullName || `${contact.firstName} ${contact.lastName}`.trim());
+      replaced = replaced.replace(/(&nbsp;)*\[Email\](&nbsp;)*/gi, contact.email || "");
+      replaced = replaced.replace(/(&nbsp;)*\[Phone\](&nbsp;)*/gi, contact.phone || "");
+      replaced = replaced.replace(/(&nbsp;)*\[Company\](&nbsp;)*/gi, contact.company || "");
     }
     
     if (project) {
-      replaced = replaced.replace(/(&nbsp;|\s)*\[ProjectName\](&nbsp;|\s)*/gi, project.name || "");
-      replaced = replaced.replace(/(&nbsp;|\s)*\[ProjectNotes\](&nbsp;|\s)*/gi, project.description || "");
+      replaced = replaced.replace(/(&nbsp;)*\[ProjectName\](&nbsp;)*/gi, project.name || "");
+      replaced = replaced.replace(/(&nbsp;)*\[ProjectNotes\](&nbsp;)*/gi, project.description || "");
       
       if (project.startDate) {
         const startDate = new Date(project.startDate);
-        replaced = replaced.replace(/(&nbsp;|\s)*\[ProjectDate\](&nbsp;|\s)*/gi, format(startDate, "MMMM d, yyyy"));
+        replaced = replaced.replace(/(&nbsp;)*\[ProjectDate\](&nbsp;)*/gi, format(startDate, "MMMM d, yyyy"));
       }
     }
     
     if (venue) {
       const venueLocation = `${venue.name || ''} ${venue.address || ''}`.trim();
-      replaced = replaced.replace(/(&nbsp;|\s)*\[ProjectLocation\](&nbsp;|\s)*/gi, venueLocation);
-      replaced = replaced.replace(/(&nbsp;|\s)*\[ProjectAddress\](&nbsp;|\s)*/gi, venue.address || "");
+      replaced = replaced.replace(/(&nbsp;)*\[ProjectLocation\](&nbsp;)*/gi, venueLocation);
+      replaced = replaced.replace(/(&nbsp;)*\[ProjectAddress\](&nbsp;)*/gi, venue.address || "");
     }
     
     if (contract) {
-      replaced = replaced.replace(/(&nbsp;|\s)*\[ContractNumber\](&nbsp;|\s)*/gi, contract.contractNumber || "");
-      replaced = replaced.replace(/(&nbsp;|\s)*\[ContractTitle\](&nbsp;|\s)*/gi, contract.displayTitle || contract.title || "");
+      replaced = replaced.replace(/(&nbsp;)*\[ContractNumber\](&nbsp;)*/gi, contract.contractNumber || "");
+      replaced = replaced.replace(/(&nbsp;)*\[ContractTitle\](&nbsp;)*/gi, contract.displayTitle || contract.title || "");
       
       if (contract.dueDate) {
         const dueDate = new Date(contract.dueDate);
-        replaced = replaced.replace(/(&nbsp;|\s)*\[ContractDueDate\](&nbsp;|\s)*/gi, format(dueDate, "MMMM d, yyyy"));
+        replaced = replaced.replace(/(&nbsp;)*\[ContractDueDate\](&nbsp;)*/gi, format(dueDate, "MMMM d, yyyy"));
       }
     }
     
     if (tenant) {
-      replaced = replaced.replace(/(&nbsp;|\s)*\[BusinessName\](&nbsp;|\s)*/gi, tenant.name || "");
+      replaced = replaced.replace(/(&nbsp;)*\[BusinessName\](&nbsp;)*/gi, tenant.name || "");
     }
     
     return replaced;

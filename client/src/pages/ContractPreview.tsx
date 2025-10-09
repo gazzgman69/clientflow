@@ -498,7 +498,7 @@ export default function ContractPreview() {
                         </label>
                         {contract.clientSignature ? (
                           <div className="border-b-2 border-gray-300 pb-2">
-                            <p className="font-signature text-xl">{contract.clientSignature}</p>
+                            <p className="font-signature text-3xl">{contract.clientSignature}</p>
                             {contract.clientSignedAt && (
                               <p className="text-xs text-muted-foreground mt-1">
                                 Signed on {format(new Date(contract.clientSignedAt), "MMMM d, yyyy 'at' h:mm a")}
@@ -530,7 +530,7 @@ export default function ContractPreview() {
                           </label>
                           {contract.businessSignature ? (
                             <div className="border-b-2 border-gray-300 pb-2">
-                              <p className="font-signature text-xl">{contract.businessSignature}</p>
+                              <p className="font-signature text-3xl">{contract.businessSignature}</p>
                               {contract.businessSignedAt && (
                                 <p className="text-xs text-muted-foreground mt-1">
                                   Signed on {format(new Date(contract.businessSignedAt), "MMMM d, yyyy 'at' h:mm a")}

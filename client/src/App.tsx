@@ -10,6 +10,7 @@ import Contacts from "@/pages/clients";
 import Projects from "@/pages/projects";
 import Quotes from "@/pages/quotes";
 import Contracts from "@/pages/contracts";
+import ContractPreview from "@/pages/ContractPreview";
 import Invoices from "@/pages/invoices";
 import Documents from "@/pages/documents";
 import Calendar from "@/pages/calendar";
@@ -118,6 +119,7 @@ function Router() {
                   <Route path="/venues" component={Venues} />
                   <Route path="/documents" component={Documents} />
                   <Route path="/quotes" component={Quotes} />
+                  <Route path="/contracts/:id/preview" component={ContractPreview} />
                   <Route path="/contracts" component={Contracts} />
                   <Route path="/invoices" component={Invoices} />
                   <Route path="/calendar" component={Calendar} />

@@ -211,44 +211,38 @@ export default function ContractPreview() {
     let replaced = html;
     
     if (contact) {
-      // Contact tokens
-      replaced = replaced.replace(/\[ContactFirstName\]/gi, contact.firstName || "");
-      replaced = replaced.replace(/\[ContactLastName\]/gi, contact.lastName || "");
-      replaced = replaced.replace(/\[ContactFullName\]/gi, `${contact.firstName} ${contact.lastName}`);
-      replaced = replaced.replace(/\[ContactEmail\]/gi, contact.email || "");
-      replaced = replaced.replace(/\[ContactPhone\]/gi, contact.phone || "");
-      replaced = replaced.replace(/\[ContactCompany\]/gi, contact.company || "");
+      // Contact tokens (matching actual token names from token-resolver service)
+      replaced = replaced.replace(/\[FirstName\]/gi, contact.firstName || "");
+      replaced = replaced.replace(/\[LastName\]/gi, contact.lastName || "");
+      replaced = replaced.replace(/\[FullName\]/gi, contact.fullName || `${contact.firstName} ${contact.lastName}`.trim());
+      replaced = replaced.replace(/\[Email\]/gi, contact.email || "");
+      replaced = replaced.replace(/\[Phone\]/gi, contact.phone || "");
+      replaced = replaced.replace(/\[Company\]/gi, contact.company || "");
       
       // Contact address tokens
-      replaced = replaced.replace(/\[ContactAddress\]/gi, contact.address || "");
-      replaced = replaced.replace(/\[ContactCity\]/gi, contact.city || "");
-      replaced = replaced.replace(/\[ContactState\]/gi, contact.state || "");
-      replaced = replaced.replace(/\[ContactZipCode\]/gi, contact.zipCode || "");
-      
-      // Venue tokens
-      replaced = replaced.replace(/\[VenueAddress\]/gi, contact.venueAddress || "");
-      replaced = replaced.replace(/\[VenueCity\]/gi, contact.venueCity || "");
-      replaced = replaced.replace(/\[VenueState\]/gi, contact.venueState || "");
-      replaced = replaced.replace(/\[VenueZipCode\]/gi, contact.venueZipCode || "");
+      replaced = replaced.replace(/\[Address1\]/gi, contact.address || "");
+      replaced = replaced.replace(/\[City\]/gi, contact.city || "");
+      replaced = replaced.replace(/\[State\]/gi, contact.state || "");
+      replaced = replaced.replace(/\[Province\]/gi, contact.state || "");
+      replaced = replaced.replace(/\[Zip\]/gi, contact.zipCode || "");
+      replaced = replaced.replace(/\[PostalCode\]/gi, contact.zipCode || "");
+      replaced = replaced.replace(/\[Country\]/gi, contact.country || "");
     }
     
     if (project) {
-      // Project tokens
+      // Project tokens (matching actual token names from token-resolver service)
       replaced = replaced.replace(/\[ProjectName\]/gi, project.name || "");
-      replaced = replaced.replace(/\[ProjectDescription\]/gi, project.description || "");
-      replaced = replaced.replace(/\[EventName\]/gi, project.name || "");
+      replaced = replaced.replace(/\[ProjectNotes\]/gi, project.description || "");
       
       // Project dates
       if (project.startDate) {
         const startDate = new Date(project.startDate);
-        replaced = replaced.replace(/\[ProjectStartDate\]/gi, format(startDate, "MMMM d, yyyy"));
-        replaced = replaced.replace(/\[EventDate\]/gi, format(startDate, "MMMM d, yyyy"));
+        replaced = replaced.replace(/\[ProjectDate\]/gi, format(startDate, "MMMM d, yyyy"));
       }
       
-      if (project.endDate) {
-        const endDate = new Date(project.endDate);
-        replaced = replaced.replace(/\[ProjectEndDate\]/gi, format(endDate, "MMMM d, yyyy"));
-      }
+      // Project location (simplified - full implementation would need venue lookup)
+      replaced = replaced.replace(/\[ProjectLocation\]/gi, project.location || "");
+      replaced = replaced.replace(/\[ProjectAddress\]/gi, project.location || "");
     }
     
     if (contract) {
@@ -262,11 +256,8 @@ export default function ContractPreview() {
       }
     }
     
-    // Business/User tokens - these would need to come from user context
-    // For now, placeholder values
-    replaced = replaced.replace(/\[BusinessName\]/gi, "[Your Business Name]");
-    replaced = replaced.replace(/\[BusinessEmail\]/gi, "[Your Email]");
-    replaced = replaced.replace(/\[BusinessPhone\]/gi, "[Your Phone]");
+    // Business/User tokens - use tenant config when available
+    replaced = replaced.replace(/\[BusinessName\]/gi, tenantConfig?.name || "");
     
     return replaced;
   };

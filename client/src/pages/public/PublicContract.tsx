@@ -59,7 +59,9 @@ export default function PublicContract({ id }: PublicContractProps) {
   const { data, isLoading, error } = useQuery<{ contract: Contract; contact: Contact; project?: Project; venue?: Venue; tenant: Tenant }>({
     queryKey: ['/api/public/contracts', id],
     queryFn: async () => {
-      const response = await fetch(`/api/public/contracts/${id}`);
+      const url = `/api/public/contracts/${id}`;
+      console.log('🔍 Fetching public contract from:', url);
+      const response = await fetch(url);
       if (!response.ok) {
         if (response.status === 404) {
           throw new Error('Contract not found');

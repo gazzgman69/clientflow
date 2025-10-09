@@ -4012,10 +4012,10 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   });
 
   // Get document views - authenticated endpoint
-  app.get("/api/documents/:type/:id/views", ensureUserAuth, requireTenant, csrf, async (req, res) => {
+  app.get("/api/documents/:type/:id/views", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
     try {
       const { type, id } = req.params;
-      const tenantId = req.session.tenantId!;
+      const tenantId = req.tenantId!;
       
       // Verify the document belongs to the tenant
       let document;

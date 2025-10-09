@@ -4209,21 +4209,24 @@ export class DrizzleStorage implements IStorage {
   
   // Document Views - PostgreSQL implementation
   async recordDocumentView(tenantId: string, documentType: string, documentId: string, ipAddress: string | null, userAgent: string | null): Promise<void> {
-    await this.db.execute(sql`
-      INSERT INTO document_views (tenant_id, document_type, document_id, ip_address, user_agent, viewed_at)
-      VALUES (${tenantId}, ${documentType}, ${documentId}, ${ipAddress}, ${userAgent}, NOW())
-    `);
+    await this.db.insert(documentViews).values({
+      tenantId,
+      documentType,
+      documentId,
+      ipAddress,
+      userAgent,
+      viewedAt: new Date(),
+    });
   }
   
   async getDocumentViews(tenantId: string, documentType: string, documentId: string): Promise<any[]> {
-    const results = await this.db.execute(sql`
-      SELECT * FROM document_views
-      WHERE tenant_id = ${tenantId}
-        AND document_type = ${documentType}
-        AND document_id = ${documentId}
-      ORDER BY viewed_at DESC
-    `);
-    return results.rows as any[];
+    return await this.db.select().from(documentViews)
+      .where(and(
+        eq(documentViews.tenantId, tenantId),
+        eq(documentViews.documentType, documentType),
+        eq(documentViews.documentId, documentId)
+      ))
+      .orderBy(desc(documentViews.viewedAt));
   }
   
   // Invoices - PostgreSQL implementation

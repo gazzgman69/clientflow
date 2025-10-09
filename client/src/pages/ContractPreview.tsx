@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, Send, Eye, Printer, Edit, X, FileText, ChevronDown, Edit3, Loader2 } from "lucide-react";
+import { ArrowLeft, Send, Eye, Printer, Edit, X, FileText, ChevronDown, Edit3, Loader2, Clock } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { RichTextEditor, RichTextEditorRef } from "@/components/ui/rich-text-editor";
@@ -30,7 +30,9 @@ type Contract = {
   clientSignedAt: string | null;
   businessSignature: string | null;
   businessSignedAt: string | null;
+  sentAt: string | null;
   createdAt: string;
+  updatedAt: string;
 };
 
 type Contact = {
@@ -420,28 +422,71 @@ export default function ContractPreview() {
                   Requires Counter-Signature
                 </Badge>
               )}
+              
+              {/* Timeline Dropdown */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button 
+                    variant="ghost" 
+                    size="sm"
+                    className="gap-1 text-muted-foreground hover:text-foreground"
+                    data-testid="button-timeline"
+                  >
+                    <Clock className="h-4 w-4" />
+                    Timeline
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-72">
+                  <div className="px-2 py-1.5 text-sm font-semibold text-foreground">
+                    Document Timeline
+                  </div>
+                  <div className="max-h-96 overflow-y-auto">
+                    {/* Views */}
+                    {documentViews && documentViews.map((view) => (
+                      <div key={view.id} className="px-2 py-2 text-sm text-muted-foreground border-b last:border-b-0">
+                        Viewed on {format(new Date(view.viewed_at), "MMM do, yyyy 'at' h:mm a")}
+                      </div>
+                    ))}
+                    
+                    {/* Business Signed */}
+                    {contract.businessSignedAt && (
+                      <div className="px-2 py-2 text-sm text-muted-foreground border-b">
+                        Counter-signed on {format(new Date(contract.businessSignedAt), "MMM do, yyyy 'at' h:mm a")}
+                      </div>
+                    )}
+                    
+                    {/* Client Signed */}
+                    {contract.clientSignedAt && (
+                      <div className="px-2 py-2 text-sm text-muted-foreground border-b">
+                        Signed on {format(new Date(contract.clientSignedAt), "MMM do, yyyy 'at' h:mm a")}
+                      </div>
+                    )}
+                    
+                    {/* Sent */}
+                    {contract.sentAt && (
+                      <div className="px-2 py-2 text-sm text-muted-foreground border-b">
+                        Sent on {format(new Date(contract.sentAt), "MMM do, yyyy 'at' h:mm a")}
+                      </div>
+                    )}
+                    
+                    {/* Edited */}
+                    {contract.updatedAt && contract.createdAt !== contract.updatedAt && (
+                      <div className="px-2 py-2 text-sm text-muted-foreground border-b">
+                        Edited on {format(new Date(contract.updatedAt), "MMM do, yyyy 'at' h:mm a")}
+                      </div>
+                    )}
+                    
+                    {/* Created */}
+                    <div className="px-2 py-2 text-sm text-muted-foreground">
+                      Created on {format(new Date(contract.createdAt), "MMM do, yyyy 'at' h:mm a")}
+                    </div>
+                  </div>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </div>
         </div>
       </div>
-
-      {/* View History */}
-      {documentViews && documentViews.length > 0 && (
-        <div className="bg-blue-50 dark:bg-blue-950/20 border-b print:hidden flex-shrink-0">
-          <div className="max-w-6xl mx-auto px-4 py-2">
-            <div className="text-sm text-blue-700 dark:text-blue-300">
-              <strong>Viewed by client:</strong>{' '}
-              {documentViews.slice(0, 3).map((view, index) => (
-                <span key={view.id}>
-                  {index > 0 && ', '}
-                  {format(new Date(view.viewed_at), "MMM d, yyyy 'at' h:mm a")}
-                </span>
-              ))}
-              {documentViews.length > 3 && ` (${documentViews.length - 3} more)`}
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Action Buttons */}
       <div className="bg-white dark:bg-gray-800 border-b print:hidden flex-shrink-0">

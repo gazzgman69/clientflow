@@ -73,7 +73,9 @@ import {
   // Audit Logs table
   auditLogs,
   // Security and compliance tables
-  formSubmissions, leadConsents, autoResponderLogs
+  formSubmissions, leadConsents, autoResponderLogs,
+  // Document views
+  documentViews
 } from "@shared/schema";
 import crypto from "crypto";
 import { TenantScopedStorage } from './utils/tenantScopedStorage';

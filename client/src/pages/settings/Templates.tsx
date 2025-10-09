@@ -20,6 +20,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { TokenDropdown } from '@/components/ui/token-dropdown';
 import { RichTextEditor, RichTextEditorRef } from '@/components/ui/rich-text-editor';
 import { z } from 'zod';
+import { useLocation } from 'wouter';
 
 interface Template {
   id: string;
@@ -90,6 +91,7 @@ export default function TemplatesPage() {
   const bodyEditorRef = useRef<RichTextEditorRef>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [, setLocation] = useLocation();
 
   // Get current authenticated user
   const { data: currentUser } = useQuery({
@@ -120,6 +122,21 @@ export default function TemplatesPage() {
       return response.json();
     },
     enabled: !!currentUser,
+  });
+
+  // Fetch contract templates
+  const { data: contractTemplates = [], isLoading: contractTemplatesLoading } = useQuery({
+    queryKey: ['/api/contract-templates'],
+    queryFn: async () => {
+      const response = await fetch('/api/contract-templates', {
+        credentials: 'include'
+      });
+      if (!response.ok) {
+        return []; 
+      }
+      return response.json();
+    },
+    enabled: !!currentUser && activeType === 'contract',
   });
 
   // Fetch available tokens (old system)
@@ -394,7 +411,7 @@ export default function TemplatesPage() {
                 <TabsTrigger value="contract" data-testid="tab-contracts">Contracts</TabsTrigger>
               </TabsList>
 
-              {(['auto_responder', 'email', 'invoice', 'contract'] as const).map((type) => (
+              {(['auto_responder', 'email', 'invoice'] as const).map((type) => (
                 <TabsContent key={type} value={type} className="space-y-4">
                   {isLoading ? (
                     <div className="space-y-4">
@@ -466,6 +483,63 @@ export default function TemplatesPage() {
                   )}
                 </TabsContent>
               ))}
+
+              {/* Contract Templates Tab - Special handling */}
+              <TabsContent value="contract" className="space-y-4">
+                {contractTemplatesLoading ? (
+                  <div className="space-y-4">
+                    {[...Array(3)].map((_, i) => (
+                      <div key={i} className="h-16 bg-muted rounded animate-pulse" />
+                    ))}
+                  </div>
+                ) : contractTemplates.length === 0 ? (
+                  <div className="text-center py-12" data-testid="empty-contract-templates">
+                    <FileText className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                    <p className="text-muted-foreground mb-4">No contract templates found</p>
+                    <p className="text-sm text-muted-foreground mb-4">Create contract templates from the Contracts section</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {contractTemplates.map((template: any) => (
+                      <div key={template.id} className="flex items-center justify-between p-4 border rounded-lg" data-testid={`contract-template-${template.id}`}>
+                        <div className="flex-1">
+                          <div className="flex items-center gap-3 mb-2">
+                            <h3 className="font-medium">{template.name}</h3>
+                            {template.isDefault && (
+                              <Badge variant="default" data-testid={`badge-default-${template.id}`}>
+                                Default
+                              </Badge>
+                            )}
+                          </div>
+                          <p className="text-sm text-muted-foreground">
+                            {template.displayTitle || 'No display title'}
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Updated {formatDate(template.updatedAt)}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              toast({
+                                title: "Navigate to Contracts",
+                                description: "Use 'Create Contract' and select this template to edit it",
+                              });
+                              setLocation('/contracts');
+                            }}
+                            data-testid={`button-view-contract-${template.id}`}
+                          >
+                            <Edit2 className="h-4 w-4 mr-1" />
+                            Edit
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </TabsContent>
             </Tabs>
           </CardContent>
         </Card>

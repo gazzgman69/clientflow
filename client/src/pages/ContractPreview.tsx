@@ -83,6 +83,11 @@ export default function ContractPreview() {
     enabled: !!contract?.projectId,
   });
 
+  // Fetch tenant config
+  const { data: tenantConfig } = useQuery<{ name: string; id: string }>({
+    queryKey: ['/api/tenant/config'],
+  });
+
   // Fetch contract-specific email templates
   const { data: contractTemplates } = useQuery({
     queryKey: ['/api/templates', 'contract'],
@@ -413,7 +418,7 @@ export default function ContractPreview() {
                       <div className="flex items-end justify-between gap-4">
                         <div className="flex-1">
                           <label className="block text-sm font-medium text-muted-foreground uppercase mb-2">
-                            {project?.name || 'Business'}
+                            {tenantConfig?.name || 'Business'}
                           </label>
                           {contract.businessSignature ? (
                             <div className="border-b-2 border-gray-300 pb-2">

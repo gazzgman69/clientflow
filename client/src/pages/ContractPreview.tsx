@@ -56,6 +56,16 @@ type Project = {
   description: string | null;
   startDate: string | null;
   endDate: string | null;
+  venueId: string | null;
+};
+
+type Venue = {
+  id: string;
+  name: string;
+  address: string | null;
+  city: string | null;
+  state: string | null;
+  zipCode: string | null;
 };
 
 export default function ContractPreview() {
@@ -92,6 +102,12 @@ export default function ContractPreview() {
   const { data: project } = useQuery<Project>({
     queryKey: contract?.projectId ? ["/api/projects", contract.projectId] : null,
     enabled: !!contract?.projectId,
+  });
+
+  // Fetch venue if project has one
+  const { data: venue } = useQuery<Venue>({
+    queryKey: project?.venueId ? ["/api/venues", project.venueId] : null,
+    enabled: !!project?.venueId,
   });
 
   // Fetch tenant config
@@ -240,9 +256,15 @@ export default function ContractPreview() {
         replaced = replaced.replace(/\[ProjectDate\]/gi, format(startDate, "MMMM d, yyyy"));
       }
       
-      // Project location (simplified - full implementation would need venue lookup)
-      replaced = replaced.replace(/\[ProjectLocation\]/gi, project.location || "");
-      replaced = replaced.replace(/\[ProjectAddress\]/gi, project.location || "");
+      // Project location - use venue data if available
+      if (venue) {
+        const venueLocation = `${venue.name || ''} ${venue.address || ''}`.trim();
+        replaced = replaced.replace(/\[ProjectLocation\]/gi, venueLocation);
+        replaced = replaced.replace(/\[ProjectAddress\]/gi, venue.address || "");
+      } else {
+        replaced = replaced.replace(/\[ProjectLocation\]/gi, "");
+        replaced = replaced.replace(/\[ProjectAddress\]/gi, "");
+      }
     }
     
     if (contract) {

@@ -379,7 +379,7 @@ export default function ContractPreview() {
   };
 
   return (
-    <div className="h-full flex flex-col bg-gray-50 dark:bg-gray-900 overflow-hidden">
+    <div className="h-full flex flex-col bg-gray-50 dark:bg-gray-900 overflow-hidden print:h-auto print:overflow-visible print:block">
       {/* Header */}
       <div className="bg-white dark:bg-gray-800 border-b z-10 print:hidden flex-shrink-0">
         <div className="max-w-6xl mx-auto px-4 py-4">
@@ -460,10 +460,10 @@ export default function ContractPreview() {
       </div>
 
       {/* Contract Content - Scrollable */}
-      <div className="flex-1 overflow-y-auto">
-        <div className="max-w-4xl mx-auto px-4 py-8">
-        <Card className="print:shadow-none print:border-0">
-          <CardHeader className="text-center border-b">
+      <div className="flex-1 overflow-y-auto print:overflow-visible print:h-auto">
+        <div className="max-w-4xl mx-auto px-4 py-8 print:py-0">
+        <Card className="print:shadow-none print:border-0 print:bg-white">
+          <CardHeader className="text-center border-b print:border-b-0">
             <h2 className="text-2xl font-bold" data-testid="text-display-title">
               {contract.displayTitle || contract.title}
             </h2>
@@ -473,7 +473,7 @@ export default function ContractPreview() {
               </p>
             )}
           </CardHeader>
-          <CardContent className="p-8">
+          <CardContent className="p-8 print:p-4">
             <div
               className="prose prose-sm max-w-none dark:prose-invert"
               dangerouslySetInnerHTML={{ __html: replaceTokens(contract.bodyHtml) }}

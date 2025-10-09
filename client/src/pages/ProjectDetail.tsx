@@ -1290,7 +1290,7 @@ export default function ProjectDetail() {
                         {projectQuotes.map((quote) => (
                           <div
                             key={quote.id}
-                            className="flex items-center justify-between p-3 border rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                            className="flex items-center justify-between p-3 border rounded-lg cursor-pointer bg-blue-50/30 hover:bg-blue-50 dark:bg-blue-950/20 dark:hover:bg-blue-950/40 transition-colors"
                             onClick={() => setSelectedDocument({ type: 'quote', data: quote })}
                             data-testid={`document-quote-${quote.id}`}
                           >
@@ -1460,7 +1460,7 @@ export default function ProjectDetail() {
                         {projectInvoices.map((invoice) => (
                           <div
                             key={invoice.id}
-                            className="flex items-center justify-between p-3 border rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                            className="flex items-center justify-between p-3 border rounded-lg cursor-pointer bg-orange-50/30 hover:bg-orange-50 dark:bg-orange-950/20 dark:hover:bg-orange-950/40 transition-colors"
                             onClick={() => setSelectedDocument({ type: 'invoice', data: invoice })}
                             data-testid={`document-invoice-${invoice.id}`}
                           >

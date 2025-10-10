@@ -30,6 +30,7 @@ router.get('/admin/templates', async (req, res) => {
     
     // Handle activeOnly parameter - convert string to boolean
     if (activeOnly !== undefined) {
+      console.log('🔍 RAW activeOnly value:', activeOnly, 'type:', typeof activeOnly);
       options.activeOnly = activeOnly === 'true' || activeOnly === true;
     }
     

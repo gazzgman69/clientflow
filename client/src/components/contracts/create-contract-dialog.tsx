@@ -59,6 +59,7 @@ interface CreateContractDialogProps {
   initialContactId?: string;
   initialProjectId?: string;
   contract?: any;
+  skipNavigationOnSave?: boolean;
 }
 
 export default function CreateContractDialog({ 
@@ -66,7 +67,8 @@ export default function CreateContractDialog({
   onOpenChange,
   initialContactId,
   initialProjectId,
-  contract 
+  contract,
+  skipNavigationOnSave = false
 }: CreateContractDialogProps) {
   const [bodyHtml, setBodyHtml] = useState(contract?.bodyHtml || '');
   const [formFields, setFormFields] = useState<FormField[]>(
@@ -179,8 +181,10 @@ export default function CreateContractDialog({
       setTemplateName('');
       onOpenChange(false);
       
-      // Navigate to preview screen
-      setLocation(`/contracts/${savedContract.id}/preview`);
+      // Navigate to preview screen only if not skipped
+      if (!skipNavigationOnSave) {
+        setLocation(`/contracts/${savedContract.id}/preview`);
+      }
     },
     onError: (error: any) => {
       toast({

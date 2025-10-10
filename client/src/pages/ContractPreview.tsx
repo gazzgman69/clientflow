@@ -16,6 +16,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger, DropdownMenuIte
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { TEMPLATE_CATEGORIES } from "@shared/schema";
+import CreateContractDialog from "@/components/contracts/create-contract-dialog";
 
 type Contract = {
   id: string;
@@ -101,6 +102,9 @@ export default function ContractPreview() {
   // Signature state
   const [showBusinessSignDialog, setShowBusinessSignDialog] = useState(false);
   const [businessSignatureName, setBusinessSignatureName] = useState("");
+  
+  // Edit dialog state
+  const [showEditDialog, setShowEditDialog] = useState(false);
 
   // Fetch contract
   const { data: contract, isLoading: contractLoading } = useQuery<Contract>({
@@ -348,10 +352,7 @@ export default function ContractPreview() {
   };
 
   const handleEdit = () => {
-    // Navigate back to project detail which will open the edit dialog
-    if (contract?.projectId) {
-      setLocation(`/projects/${contract.projectId}?editContract=${contract.id}`);
-    }
+    setShowEditDialog(true);
   };
 
   const handleSend = () => {
@@ -1042,6 +1043,18 @@ export default function ContractPreview() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Edit Contract Dialog */}
+      {contract && (
+        <CreateContractDialog
+          open={showEditDialog}
+          onOpenChange={setShowEditDialog}
+          contract={contract}
+          initialContactId={contract.contactId}
+          initialProjectId={contract.projectId || undefined}
+          skipNavigationOnSave={true}
+        />
+      )}
     </div>
   );
 }

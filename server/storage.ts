@@ -357,6 +357,7 @@ export interface IStorage {
   updateEvent(id: string, event: Partial<InsertEvent>, tenantId: string): Promise<Event | undefined>;
   deleteEvent(id: string, tenantId: string): Promise<boolean>;
   markEventsCancelledForProject(projectId: string, tenantId: string, userId: string): Promise<number>; // Returns count of events marked as cancelled
+  markEventsCancelledForContact(contactId: string, tenantId: string, userId: string): Promise<number>; // Returns count of events marked as cancelled
   
   // System Calendars (Leads, Booked, Completed)
   getCalendars(tenantId: string): Promise<Calendar[]>;
@@ -2184,6 +2185,34 @@ export class MemStorage implements IStorage {
     return markedCount;
   }
 
+  async markEventsCancelledForContact(contactId: string, tenantId: string, userId: string): Promise<number> {
+    const contactEvents = Array.from(this.events.values()).filter(
+      e => e.contactId === contactId && e.tenantId === tenantId
+    );
+    
+    let markedCount = 0;
+    for (const event of contactEvents) {
+      // Only prefix if not already cancelled (idempotent)
+      if (!event.title.startsWith('(CANCELLED) ')) {
+        event.title = `(CANCELLED) ${event.title}`;
+        event.isCancelled = true;
+        event.cancelledAt = new Date();
+        event.updatedAt = new Date();
+        markedCount++;
+        
+        console.log('📅 EVENT MARKED AS CANCELLED FOR CONTACT (MemStorage)', {
+          eventId: event.id,
+          contactId,
+          tenantId,
+          userId,
+          newTitle: event.title
+        });
+      }
+    }
+    
+    return markedCount;
+  }
+
   // System Calendars (Leads, Booked, Completed)
   async getCalendars(tenantId: string): Promise<Calendar[]> {
     return Array.from(this.calendars.values()).filter(cal => cal.tenantId === tenantId);
@@ -3568,6 +3597,72 @@ export class DrizzleStorage implements IStorage {
     
     console.log('📅 EVENTS CANCELLATION COMPLETE', {
       projectId,
+      tenantId,
+      userId,
+      eventsMarked: markedCount,
+      timestamp: new Date().toISOString()
+    });
+    
+    return markedCount;
+  }
+
+  async markEventsCancelledForContact(contactId: string, tenantId: string, userId: string): Promise<number> {
+    // Defensive check: tenantId is required
+    if (!tenantId) {
+      const error = 'SECURITY: tenantId is required to mark events as cancelled';
+      console.error('❌ EVENT CANCEL FAILED', { error, contactId });
+      throw new Error(error);
+    }
+    
+    console.log('📅 MARKING EVENTS AS CANCELLED FOR CONTACT', {
+      action: 'markEventsCancelledForContact',
+      contactId,
+      tenantId,
+      userId,
+      timestamp: new Date().toISOString()
+    });
+    
+    // Get all events for this contact
+    const contactEvents = await db.select().from(events).where(and(
+      eq(events.contactId, contactId),
+      eq(events.tenantId, tenantId)
+    ));
+    
+    let markedCount = 0;
+    
+    for (const event of contactEvents) {
+      // Only prefix if not already cancelled (idempotent)
+      if (!event.title.startsWith('(CANCELLED) ')) {
+        const newTitle = `(CANCELLED) ${event.title}`;
+        
+        await db.update(events)
+          .set({
+            title: newTitle,
+            isCancelled: true,
+            cancelledAt: new Date(),
+            updatedAt: new Date()
+          })
+          .where(and(
+            eq(events.id, event.id),
+            eq(events.tenantId, tenantId)
+          ));
+        
+        markedCount++;
+        
+        console.log('✅ EVENT MARKED AS CANCELLED FOR CONTACT', {
+          eventId: event.id,
+          contactId,
+          tenantId,
+          userId,
+          oldTitle: event.title,
+          newTitle,
+          timestamp: new Date().toISOString()
+        });
+      }
+    }
+    
+    console.log('📅 CONTACT EVENTS CANCELLATION COMPLETE', {
+      contactId,
       tenantId,
       userId,
       eventsMarked: markedCount,

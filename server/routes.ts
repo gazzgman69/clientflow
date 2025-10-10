@@ -2618,6 +2618,10 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
         }
       }
 
+      // Mark all associated events as cancelled before deleting the contact
+      // This preserves historical records rather than deleting them
+      await storage.markEventsCancelledForContact(req.params.id, req.tenantId, req.userId);
+
       // Delete the contact - CASCADE will handle all related data automatically
       const deleted = await storage.deleteContact(req.params.id, req.tenantId);
       if (!deleted) {

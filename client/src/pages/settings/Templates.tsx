@@ -111,7 +111,7 @@ export default function TemplatesPage() {
 
   // Fetch templates (including inactive ones)
   const { data: templates = [], isLoading } = useQuery<Template[]>({
-    queryKey: ['/api/admin/templates'],
+    queryKey: ['/api/admin/templates', { activeOnly: false }],
     queryFn: async () => {
       const response = await fetch('/api/admin/templates?activeOnly=false', {
         credentials: 'include'

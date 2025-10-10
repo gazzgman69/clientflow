@@ -116,12 +116,12 @@ export default function TemplatesPage() {
     },
   });
 
-  // Fetch templates (including inactive ones)
+  // Fetch templates (active ones only - soft-deleted templates are filtered out)
   const { data: templates = [], isLoading } = useQuery<Template[]>({
-    queryKey: ['/api/templates', { activeOnly: false }],
+    queryKey: ['/api/templates'],
     queryFn: async () => {
-      console.log('🔍 FETCHING TEMPLATES with activeOnly=false');
-      const response = await fetch('/api/templates?activeOnly=false', {
+      console.log('🔍 FETCHING TEMPLATES (active only)');
+      const response = await fetch('/api/templates', {
         credentials: 'include'
       });
       console.log('📡 Templates API response:', response.status, response.ok);
@@ -134,8 +134,6 @@ export default function TemplatesPage() {
       return data;
     },
     enabled: !!currentUser,
-    staleTime: 0, // Force fresh data every time
-    cacheTime: 0, // Don't cache
   });
 
   // Fetch contract templates
@@ -231,7 +229,7 @@ export default function TemplatesPage() {
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/templates/admin/templates'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/templates'] });
       toast({ title: 'Template created successfully' });
       setShowEditor(false);
       form.reset();
@@ -248,7 +246,7 @@ export default function TemplatesPage() {
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/templates/admin/templates'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/templates'] });
       toast({ title: 'Template updated successfully' });
       setShowEditor(false);
       setEditingTemplate(null);
@@ -267,7 +265,6 @@ export default function TemplatesPage() {
     },
     onSuccess: () => {
       console.log('✅ Template deleted successfully');
-      queryClient.invalidateQueries({ queryKey: ['/api/templates/admin/templates'] });
       queryClient.invalidateQueries({ queryKey: ['/api/templates'] });
       toast({ title: 'Template deleted successfully' });
     },
@@ -284,7 +281,7 @@ export default function TemplatesPage() {
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/templates/admin/templates'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/templates'] });
       toast({ title: 'Template status updated' });
     },
     onError: () => {

@@ -358,6 +358,7 @@ export interface IStorage {
   deleteEvent(id: string, tenantId: string): Promise<boolean>;
   markEventsCancelledForProject(projectId: string, tenantId: string, userId: string): Promise<number>; // Returns count of events marked as cancelled
   markEventsCancelledForContact(contactId: string, tenantId: string, userId: string): Promise<number>; // Returns count of events marked as cancelled
+  linkLeadEventsToProject(contactId: string, projectId: string, tenantId: string): Promise<number>; // Returns count of events linked to project (via contact's leadId)
   
   // System Calendars (Leads, Booked, Completed)
   getCalendars(tenantId: string): Promise<Calendar[]>;
@@ -2213,6 +2214,37 @@ export class MemStorage implements IStorage {
     return markedCount;
   }
 
+  async linkLeadEventsToProject(contactId: string, projectId: string, tenantId: string): Promise<number> {
+    // Get the contact to find its leadId
+    const contact = this.contacts.get(contactId);
+    if (!contact || !contact.leadId) {
+      return 0; // No lead associated with this contact
+    }
+    
+    const leadId = contact.leadId;
+    const leadEvents = Array.from(this.events.values()).filter(
+      e => e.leadId === leadId && e.tenantId === tenantId && !e.projectId
+    );
+    
+    let linkedCount = 0;
+    for (const event of leadEvents) {
+      event.projectId = projectId;
+      event.updatedAt = new Date();
+      linkedCount++;
+      
+      console.log('📅 EVENT LINKED TO PROJECT (MemStorage)', {
+        eventId: event.id,
+        leadId,
+        contactId,
+        projectId,
+        tenantId,
+        eventTitle: event.title
+      });
+    }
+    
+    return linkedCount;
+  }
+
   // System Calendars (Leads, Booked, Completed)
   async getCalendars(tenantId: string): Promise<Calendar[]> {
     return Array.from(this.calendars.values()).filter(cal => cal.tenantId === tenantId);
@@ -3670,6 +3702,81 @@ export class DrizzleStorage implements IStorage {
     });
     
     return markedCount;
+  }
+
+  async linkLeadEventsToProject(contactId: string, projectId: string, tenantId: string): Promise<number> {
+    // Defensive check: tenantId is required
+    if (!tenantId) {
+      const error = 'SECURITY: tenantId is required to link lead events to project';
+      console.error('❌ EVENT LINK FAILED', { error, contactId, projectId });
+      throw new Error(error);
+    }
+    
+    // Get the contact to find its leadId
+    const contact = await db.select().from(contacts).where(and(
+      eq(contacts.id, contactId),
+      eq(contacts.tenantId, tenantId)
+    )).limit(1);
+    
+    if (!contact[0] || !contact[0].leadId) {
+      console.log('ℹ️ No lead associated with contact, skipping event linking', { contactId, projectId, tenantId });
+      return 0; // No lead associated with this contact
+    }
+    
+    const leadId = contact[0].leadId;
+    
+    console.log('🔗 LINKING LEAD EVENTS TO PROJECT', {
+      action: 'linkLeadEventsToProject',
+      leadId,
+      contactId,
+      projectId,
+      tenantId,
+      timestamp: new Date().toISOString()
+    });
+    
+    // Get all events for this lead that don't already have a projectId
+    const leadEvents = await db.select().from(events).where(and(
+      eq(events.leadId, leadId),
+      eq(events.tenantId, tenantId),
+      isNull(events.projectId)
+    ));
+    
+    let linkedCount = 0;
+    
+    for (const event of leadEvents) {
+      await db.update(events)
+        .set({
+          projectId: projectId,
+          updatedAt: new Date()
+        })
+        .where(and(
+          eq(events.id, event.id),
+          eq(events.tenantId, tenantId)
+        ));
+      
+      linkedCount++;
+      
+      console.log('✅ EVENT LINKED TO PROJECT', {
+        eventId: event.id,
+        leadId,
+        contactId,
+        projectId,
+        tenantId,
+        eventTitle: event.title,
+        timestamp: new Date().toISOString()
+      });
+    }
+    
+    console.log('🔗 LEAD EVENTS LINK COMPLETE', {
+      leadId,
+      contactId,
+      projectId,
+      tenantId,
+      eventsLinked: linkedCount,
+      timestamp: new Date().toISOString()
+    });
+    
+    return linkedCount;
   }
 
   // System Calendars (Leads, Booked, Completed)

@@ -2819,6 +2819,19 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
         userId: req.session.userId, // Set from authenticated session, not from request body
       };
       const project = await storage.createProject(projectWithUser, req.tenantId);
+      
+      // CRITICAL FIX: Link lead events to project
+      // When a project is created from a lead, update the lead's calendar events 
+      // to reference the new project. This ensures events are properly cancelled
+      // when the project is deleted (fixes orphaned lead event bug)
+      // Find leadId through the contact's leadId field
+      if (project.contactId) {
+        const linkedCount = await storage.linkLeadEventsToProject(project.contactId, project.id, req.tenantId);
+        if (linkedCount > 0) {
+          console.log(`🔗 Linked ${linkedCount} lead event(s) to new project ${project.id}`);
+        }
+      }
+      
       res.status(201).json(project);
     } catch (error) {
       res.status(400).json({ message: "Invalid project data" });
@@ -5982,6 +5995,18 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
       
       // Ensure tenant isolation
       const project = await storage.createProject(projectData, req.tenantId!);
+      
+      // CRITICAL FIX: Link lead events to project
+      // When a project is created from a lead, update the lead's calendar events 
+      // to reference the new project. This ensures events are properly cancelled
+      // when the project is deleted (fixes orphaned lead event bug)
+      // Find leadId through the contact's leadId field
+      if (project.contactId) {
+        const linkedCount = await storage.linkLeadEventsToProject(project.contactId, project.id, req.tenantId!);
+        if (linkedCount > 0) {
+          console.log(`🔗 Linked ${linkedCount} lead event(s) to new project ${project.id}`);
+        }
+      }
       
       // If project has dates, create an event on Leads calendar
       if (project.startDate && project.endDate) {

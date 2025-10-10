@@ -262,13 +262,17 @@ export default function TemplatesPage() {
   // Delete template mutation
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
+      console.log('🗑️ Attempting to delete template:', id);
       await apiRequest('DELETE', `/api/templates/admin/templates/${id}`);
     },
     onSuccess: () => {
+      console.log('✅ Template deleted successfully');
       queryClient.invalidateQueries({ queryKey: ['/api/templates/admin/templates'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/templates'] });
       toast({ title: 'Template deleted successfully' });
     },
-    onError: () => {
+    onError: (error) => {
+      console.error('❌ Failed to delete template:', error);
       toast({ title: 'Failed to delete template', variant: 'destructive' });
     },
   });

@@ -98,6 +98,7 @@ export default function ContractPreview() {
   const [showSaveTemplateDialog, setShowSaveTemplateDialog] = useState(false);
   const [templateName, setTemplateName] = useState("");
   const [templateCategory, setTemplateCategory] = useState("contract_send");
+  const [isUpdatingTemplate, setIsUpdatingTemplate] = useState(false);
   
   // Signature state
   const [showBusinessSignDialog, setShowBusinessSignDialog] = useState(false);
@@ -258,29 +259,43 @@ export default function ContractPreview() {
   const saveTemplateMutation = useMutation({
     mutationFn: async (templateData: { name: string; subject: string; body: string; category: string }) => {
       console.log('💾 Saving template:', templateData);
-      const response = await apiRequest('POST', '/api/message-templates', {
-        name: templateData.name,
-        type: 'email',
-        subject: templateData.subject,
-        body: templateData.body,
-        category: templateData.category
-      });
-      return response.json();
+      
+      if (isUpdatingTemplate && selectedTemplate?.id) {
+        // Update existing template
+        const response = await apiRequest('PATCH', `/api/message-templates/${selectedTemplate.id}`, {
+          name: templateData.name,
+          subject: templateData.subject,
+          body: templateData.body,
+          category: templateData.category
+        });
+        return response.json();
+      } else {
+        // Create new template
+        const response = await apiRequest('POST', '/api/message-templates', {
+          name: templateData.name,
+          type: 'email',
+          subject: templateData.subject,
+          body: templateData.body,
+          category: templateData.category
+        });
+        return response.json();
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/message-templates', 'email', 'contract'] });
       setShowSaveTemplateDialog(false);
       setTemplateName("");
       setTemplateCategory("contract_send"); // Reset to default
+      setIsUpdatingTemplate(false);
       toast({
-        title: "Template saved",
-        description: "Email template saved successfully",
+        title: isUpdatingTemplate ? "Template updated" : "Template saved",
+        description: isUpdatingTemplate ? "Email template updated successfully" : "Email template saved successfully",
       });
     },
     onError: (error: any) => {
       console.error('❌ Template save error:', error);
       toast({
-        title: "Error saving template",
+        title: isUpdatingTemplate ? "Error updating template" : "Error saving template",
         description: error.message || "Failed to save template",
         variant: "destructive",
       });
@@ -892,15 +907,38 @@ export default function ContractPreview() {
                   Send Now
                 </Button>
                 
+                {selectedTemplate && (
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    className="h-8"
+                    onClick={() => {
+                      setTemplateName(selectedTemplate.name || "");
+                      setTemplateCategory(selectedTemplate.category || "contract_send");
+                      setIsUpdatingTemplate(true);
+                      setShowSaveTemplateDialog(true);
+                    }}
+                    data-testid="button-update-template"
+                  >
+                    <FileText className="h-3.5 w-3.5 mr-1.5" />
+                    Update Template
+                  </Button>
+                )}
+                
                 <Button 
                   variant="outline" 
                   size="sm"
                   className="h-8"
-                  onClick={() => setShowSaveTemplateDialog(true)}
+                  onClick={() => {
+                    setTemplateName("");
+                    setTemplateCategory("contract_send");
+                    setIsUpdatingTemplate(false);
+                    setShowSaveTemplateDialog(true);
+                  }}
                   data-testid="button-save-as-template"
                 >
                   <FileText className="h-3.5 w-3.5 mr-1.5" />
-                  Save as Template
+                  Save as New Template
                 </Button>
                 
                 <Button 
@@ -922,9 +960,9 @@ export default function ContractPreview() {
       <Dialog open={showSaveTemplateDialog} onOpenChange={setShowSaveTemplateDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Save as Template</DialogTitle>
+            <DialogTitle>{isUpdatingTemplate ? "Update Template" : "Save as Template"}</DialogTitle>
             <DialogDescription>
-              Save this email as a template for future use
+              {isUpdatingTemplate ? "Update the existing template with your changes" : "Save this email as a template for future use"}
             </DialogDescription>
           </DialogHeader>
           

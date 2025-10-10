@@ -61,6 +61,11 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
   const replyEditorRef = useRef<RichTextEditorRef>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  
+  // Save template state
+  const [showSaveTemplateDialog, setShowSaveTemplateDialog] = useState(false);
+  const [templateName, setTemplateName] = useState('');
+  const [isUpdatingTemplate, setIsUpdatingTemplate] = useState(false);
 
   // Get current authenticated user
   const { data: currentUser } = useQuery({
@@ -281,6 +286,47 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
         title: 'Failed to update template', 
         description: error.message,
         variant: 'destructive' 
+      });
+    },
+  });
+
+  // Save template mutation
+  const saveTemplateMutation = useMutation({
+    mutationFn: async (templateData: { name: string; subject: string; body: string }) => {
+      if (isUpdatingTemplate && selectedTemplate?.id) {
+        // Update existing template
+        const response = await apiRequest('PATCH', `/api/message-templates/${selectedTemplate.id}`, {
+          name: templateData.name,
+          subject: templateData.subject,
+          body: templateData.body,
+        });
+        return response.json();
+      } else {
+        // Create new template
+        const response = await apiRequest('POST', '/api/message-templates', {
+          name: templateData.name,
+          type: 'email',
+          subject: templateData.subject,
+          body: templateData.body,
+        });
+        return response.json();
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/templates'] });
+      setShowSaveTemplateDialog(false);
+      setTemplateName('');
+      setIsUpdatingTemplate(false);
+      toast({
+        title: isUpdatingTemplate ? "Template updated" : "Template saved",
+        description: isUpdatingTemplate ? "Email template updated successfully" : "Email template saved successfully",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: isUpdatingTemplate ? "Error updating template" : "Error saving template",
+        description: error.message || "Failed to save template",
+        variant: "destructive",
       });
     },
   });
@@ -758,6 +804,38 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
                       <Send className="h-3.5 w-3.5 mr-1.5" />
                     )}
                     Send Now
+                  </Button>
+                  
+                  {selectedTemplate && (
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      className="h-8"
+                      onClick={() => {
+                        setTemplateName(selectedTemplate.title || "");
+                        setIsUpdatingTemplate(true);
+                        setShowSaveTemplateDialog(true);
+                      }}
+                      data-testid="button-update-template"
+                    >
+                      <FileText className="h-3.5 w-3.5 mr-1.5" />
+                      Update Template
+                    </Button>
+                  )}
+                  
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    className="h-8"
+                    onClick={() => {
+                      setTemplateName("");
+                      setIsUpdatingTemplate(false);
+                      setShowSaveTemplateDialog(true);
+                    }}
+                    data-testid="button-save-as-template"
+                  >
+                    <FileText className="h-3.5 w-3.5 mr-1.5" />
+                    Save as New Template
                   </Button>
                   
                   <Button 
@@ -1455,6 +1533,79 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
                   <>
                     <Send className="h-4 w-4 mr-2" />
                     Send Reply
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Save Template Dialog */}
+      <Dialog open={showSaveTemplateDialog} onOpenChange={setShowSaveTemplateDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{isUpdatingTemplate ? "Update Template" : "Save as Template"}</DialogTitle>
+            <DialogDescription>
+              {isUpdatingTemplate ? "Update the existing template with your changes" : "Save this email as a template for future use"}
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="template-name">Template Name</Label>
+              <Input
+                id="template-name"
+                value={templateName}
+                onChange={(e) => setTemplateName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    const emailBody = messageEditorRef.current?.getHTML() || message;
+                    saveTemplateMutation.mutate({
+                      name: templateName,
+                      subject: subject,
+                      body: emailBody
+                    });
+                  }
+                }}
+                placeholder="e.g., Project Follow-up"
+                data-testid="input-template-name"
+              />
+            </div>
+
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowSaveTemplateDialog(false);
+                  setTemplateName("");
+                  setIsUpdatingTemplate(false);
+                }}
+                data-testid="button-cancel-save-template"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={() => {
+                  const emailBody = messageEditorRef.current?.getHTML() || message;
+                  saveTemplateMutation.mutate({
+                    name: templateName,
+                    subject: subject,
+                    body: emailBody
+                  });
+                }}
+                disabled={saveTemplateMutation.isPending || !templateName.trim()}
+                data-testid="button-submit-save-template"
+              >
+                {saveTemplateMutation.isPending ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    {isUpdatingTemplate ? "Updating..." : "Saving..."}
+                  </>
+                ) : (
+                  <>
+                    <FileText className="h-4 w-4 mr-2" />
+                    {isUpdatingTemplate ? "Update Template" : "Save Template"}
                   </>
                 )}
               </Button>

@@ -146,20 +146,25 @@ router.get('/templates/tokens', async (req, res) => {
 // GET /api/templates - Authenticated endpoint for email templates (for compose functionality)
 router.get('/templates', async (req, res) => {
   try {
-    const { type } = req.query;
+    const { type, activeOnly } = req.query;
     const tenantId = req.tenantId || 'default-tenant';
     
     const options: {
       type?: 'auto_responder' | 'email' | 'invoice' | 'contract';
       activeOnly?: boolean;
-    } = {
-      activeOnly: true // Only return active templates
-    };
+    } = {};
     
     if (type && typeof type === 'string') {
       if (['auto_responder', 'email', 'invoice', 'contract'].includes(type)) {
         options.type = type as 'auto_responder' | 'email' | 'invoice' | 'contract';
       }
+    }
+    
+    // Handle activeOnly parameter - convert string to boolean, default to true
+    if (activeOnly !== undefined) {
+      options.activeOnly = activeOnly === 'true' || activeOnly === true;
+    } else {
+      options.activeOnly = true; // Default to active only if not specified
     }
     
     const templates = await templatesService.listTemplates(options, tenantId);

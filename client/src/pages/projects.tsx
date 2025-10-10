@@ -443,7 +443,7 @@ export default function Projects() {
                     <TableHead>Status</TableHead>
                     <TableHead>Progress</TableHead>
                     <TableHead>Value</TableHead>
-                    <TableHead>Created</TableHead>
+                    <TableHead>Project Date</TableHead>
                     <TableHead>Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -475,17 +475,17 @@ export default function Projects() {
                       <TableCell data-testid={`project-value-${project.id}`}>
                         {project.estimatedValue ? `$${parseFloat(project.estimatedValue).toLocaleString()}` : '-'}
                       </TableCell>
-                      <TableCell data-testid={`project-created-${project.id}`}>
+                      <TableCell data-testid={`project-date-${project.id}`}>
                         {(() => {
-                          // Handle both camelCase and snake_case field names
-                          const dateValue = (project as any).created_at || (project as any).createdAt;
-                          if (!dateValue) return 'Unknown';
+                          // Show project start date if available
+                          const dateValue = (project as any).start_date || (project as any).startDate;
+                          if (!dateValue) return '-';
                           try {
                             const date = new Date(dateValue);
-                            if (isNaN(date.getTime())) return 'Invalid date';
-                            return format(date, 'MMM dd, yyyy h:mm a');
+                            if (isNaN(date.getTime())) return '-';
+                            return format(date, 'MMM dd, yyyy');
                           } catch {
-                            return 'Invalid date';
+                            return '-';
                           }
                         })()}
                       </TableCell>

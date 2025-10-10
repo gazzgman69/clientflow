@@ -399,11 +399,11 @@ export default function ContractPreview() {
            style="display: inline-block; 
                   background-color: #B8860B; 
                   color: white; 
-                  padding: 16px 48px; 
+                  padding: 12px 24px; 
                   text-decoration: none; 
-                  border-radius: 8px; 
-                  font-size: 18px; 
-                  font-weight: 600;
+                  border-radius: 6px; 
+                  font-size: 15px; 
+                  font-weight: 500;
                   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
           Review &amp; Sign Contract
         </a>

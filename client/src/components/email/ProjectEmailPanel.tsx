@@ -983,6 +983,9 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
                       <p className="text-sm text-muted-foreground">
                         From: {message.fromEmail} | To: {Array.isArray(message.toEmails) ? message.toEmails.join(', ') : message.toEmails}
                       </p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {messageDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+                      </p>
                     </div>
 
                     {/* Status Badges */}

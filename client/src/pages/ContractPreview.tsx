@@ -572,7 +572,7 @@ export default function ContractPreview() {
       {/* Action Buttons */}
       <div className="bg-white dark:bg-gray-800 border-b print:hidden flex-shrink-0">
         <div className="max-w-6xl mx-auto px-4 py-3">
-          <div className="flex items-center gap-2 justify-end">
+          <div className="flex items-center gap-2 justify-between">
             <Button
               variant="outline"
               onClick={() => setLocation(`/projects/${contract.projectId}`)}
@@ -581,38 +581,40 @@ export default function ContractPreview() {
               <ArrowLeft className="h-4 w-4 mr-2" />
               Back to Project
             </Button>
-            <Button
-              variant="default"
-              onClick={handleSend}
-              data-testid="button-send-contract"
-            >
-              <Send className="h-4 w-4 mr-2" />
-              Send Contract
-            </Button>
-            <Button
-              variant="outline"
-              onClick={handleLiveView}
-              data-testid="button-live-view"
-            >
-              <Eye className="h-4 w-4 mr-2" />
-              Live View
-            </Button>
-            <Button
-              variant="outline"
-              onClick={handlePrint}
-              data-testid="button-print"
-            >
-              <Printer className="h-4 w-4 mr-2" />
-              Print
-            </Button>
-            <Button
-              variant="outline"
-              onClick={handleEdit}
-              data-testid="button-edit"
-            >
-              <Edit className="h-4 w-4 mr-2" />
-              Edit
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="default"
+                onClick={handleSend}
+                data-testid="button-send-contract"
+              >
+                <Send className="h-4 w-4 mr-2" />
+                Send Contract
+              </Button>
+              <Button
+                variant="outline"
+                onClick={handleLiveView}
+                data-testid="button-live-view"
+              >
+                <Eye className="h-4 w-4 mr-2" />
+                Live View
+              </Button>
+              <Button
+                variant="outline"
+                onClick={handlePrint}
+                data-testid="button-print"
+              >
+                <Printer className="h-4 w-4 mr-2" />
+                Print
+              </Button>
+              <Button
+                variant="outline"
+                onClick={handleEdit}
+                data-testid="button-edit"
+              >
+                <Edit className="h-4 w-4 mr-2" />
+                Edit
+              </Button>
+            </div>
           </div>
         </div>
       </div>

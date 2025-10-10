@@ -481,14 +481,6 @@ export default function TemplatesPage() {
                             <Button
                               variant="outline"
                               size="sm"
-                              onClick={() => handlePreviewTemplate(template)}
-                              data-testid={`button-preview-${template.id}`}
-                            >
-                              <Eye className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
                               onClick={() => handleEditTemplate(template)}
                               data-testid={`button-edit-${template.id}`}
                             >

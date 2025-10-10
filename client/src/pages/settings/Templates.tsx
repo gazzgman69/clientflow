@@ -434,23 +434,27 @@ export default function TemplatesPage() {
                           <div className="flex-1">
                             <div className="flex items-center gap-3 mb-2">
                               <h3 className="font-medium">{template.title}</h3>
-                              <Badge variant={template.isActive ? "default" : "secondary"} data-testid={`badge-status-${template.id}`}>
-                                {template.isActive ? 'Active' : 'Inactive'}
-                              </Badge>
+                              {type !== 'auto_responder' && (
+                                <Badge variant={template.isActive ? "default" : "secondary"} data-testid={`badge-status-${template.id}`}>
+                                  {template.isActive ? 'Active' : 'Inactive'}
+                                </Badge>
+                              )}
                             </div>
                             <p className="text-sm text-muted-foreground">
                               Updated {formatDate(template.updatedAt)}
                             </p>
                           </div>
                           <div className="flex items-center gap-2">
-                            <Switch
-                              checked={template.isActive}
-                              onCheckedChange={(checked) => 
-                                toggleActiveMutation.mutate({ id: template.id, isActive: checked })
-                              }
-                              disabled={toggleActiveMutation.isPending}
-                              data-testid={`switch-active-${template.id}`}
-                            />
+                            {type !== 'auto_responder' && (
+                              <Switch
+                                checked={template.isActive}
+                                onCheckedChange={(checked) => 
+                                  toggleActiveMutation.mutate({ id: template.id, isActive: checked })
+                                }
+                                disabled={toggleActiveMutation.isPending}
+                                data-testid={`switch-active-${template.id}`}
+                              />
+                            )}
                             <Button
                               variant="outline"
                               size="sm"

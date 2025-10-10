@@ -133,7 +133,7 @@ router.delete('/admin/templates/:id', async (req, res) => {
 });
 
 // GET /api/templates/tokens - Get available template tokens
-router.get('/templates/tokens', async (req, res) => {
+router.get('/tokens', async (req, res) => {
   try {
     const tokens = templatesService.getAvailableTokens();
     res.json(tokens);
@@ -144,10 +144,12 @@ router.get('/templates/tokens', async (req, res) => {
 });
 
 // GET /api/templates - Authenticated endpoint for email templates (for compose functionality)
-router.get('/templates', async (req, res) => {
+router.get('/', async (req, res) => {
   try {
+    console.log('🔥 [TEMPLATES ROUTE] Called with query:', req.query);
     const { type, activeOnly } = req.query;
     const tenantId = req.tenantId || 'default-tenant';
+    console.log('🔥 [TEMPLATES ROUTE] tenantId:', tenantId);
     
     const options: {
       type?: 'auto_responder' | 'email' | 'invoice' | 'contract';
@@ -167,7 +169,9 @@ router.get('/templates', async (req, res) => {
       options.activeOnly = true; // Default to active only if not specified
     }
     
+    console.log('🔥 [TEMPLATES ROUTE] Final options:', options);
     const templates = await templatesService.listTemplates(options, tenantId);
+    console.log('🔥 [TEMPLATES ROUTE] Result count:', templates.length);
     res.json(templates);
   } catch (error) {
     console.error('Error fetching templates:', error);
@@ -176,7 +180,7 @@ router.get('/templates', async (req, res) => {
 });
 
 // POST /api/templates/preview - Preview template with email renderer
-router.post('/templates/preview', async (req, res) => {
+router.post('/preview', async (req, res) => {
   try {
     const { templateId, contactId, projectId } = req.body;
     const tenantId = req.tenantId || 'default-tenant';

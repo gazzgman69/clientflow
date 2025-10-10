@@ -131,6 +131,63 @@ export default function Projects() {
     },
   });
 
+  // Handle leadId query parameter - create contact from lead and pre-fill project form
+  useEffect(() => {
+    const searchParams = new URLSearchParams(window.location.search);
+    const leadId = searchParams.get('leadId');
+    
+    if (leadId) {
+      // Fetch the lead data
+      apiRequest("GET", `/api/leads/${leadId}`)
+        .then(res => res.json())
+        .then(async (lead) => {
+          // Create a contact from the lead WITH leadId field set!
+          const contactData = {
+            firstName: lead.firstName,
+            lastName: lead.lastName,
+            fullName: lead.fullName || `${lead.firstName} ${lead.lastName}`,
+            middleName: lead.middleName || "",
+            email: lead.email,
+            phone: lead.phone || "",
+            company: lead.company || "",
+            leadSource: lead.leadSource || "",
+            notes: lead.notes || "",
+            leadId: lead.id, // CRITICAL: Set the leadId field!
+          };
+          
+          const contactResponse = await apiRequest("POST", "/api/contacts", contactData);
+          const newContact = await contactResponse.json();
+          
+          // Pre-fill the project form with the new contact
+          form.setValue("contactId", newContact.id);
+          form.setValue("name", lead.eventType || "New Project");
+          if (lead.projectDate) {
+            form.setValue("startDate", lead.projectDate);
+            form.setValue("endDate", lead.projectDate);
+          }
+          
+          // Show the project modal
+          setShowProjectModal(true);
+          
+          // Clear the query parameter from URL
+          window.history.replaceState({}, '', '/projects');
+          
+          toast({
+            title: "Contact created",
+            description: `Created contact for ${lead.fullName || lead.firstName + ' ' + lead.lastName}`,
+          });
+        })
+        .catch(error => {
+          console.error("Error converting lead to contact:", error);
+          toast({
+            title: "Error",
+            description: "Failed to create contact from lead.",
+            variant: "destructive",
+          });
+        });
+    }
+  }, []); // Run only once on mount
+
   const createProjectMutation = useMutation({
     mutationFn: async (data: z.infer<typeof projectFormSchema>) => {
       let venueId = null;

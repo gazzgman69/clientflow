@@ -51,7 +51,7 @@ export default function FormFieldDropdown({ onInsert }: FormFieldDropdownProps) 
           className="gap-1"
           data-testid="button-insert-form"
         >
-          INSERT FORM
+          Insert Form
           <ChevronDown className="h-3 w-3" />
         </Button>
       </DropdownMenuTrigger>

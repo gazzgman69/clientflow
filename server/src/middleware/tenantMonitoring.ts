@@ -31,20 +31,20 @@ interface OrphanDetectionEvent {
 export function tenantMonitoringMiddleware(req: Request, res: Response, next: NextFunction) {
   const originalJson = res.json;
   const originalSend = res.send;
-  
-  // Track the request context
-  const requestContext = {
-    method: req.method,
-    path: req.path,
-    tenantId: req.session?.tenantId,
-    userId: req.session?.userId,
-    timestamp: new Date().toISOString(),
-    userAgent: req.get('User-Agent'),
-    ip: req.ip || req.connection.remoteAddress
-  };
 
   // Override res.json to monitor responses
   res.json = function(body: any) {
+    // Capture request context at response time (after all middleware has run)
+    const requestContext = {
+      method: req.method,
+      path: req.path,
+      tenantId: (req as any).tenantId || req.session?.tenantId,
+      userId: (req as any).userId || req.session?.userId,
+      timestamp: new Date().toISOString(),
+      userAgent: req.get('User-Agent'),
+      ip: req.ip || req.connection.remoteAddress
+    };
+    
     // Check for potential orphaned records in response data
     if (body && typeof body === 'object') {
       validateResponseForOrphans(body, requestContext);
@@ -55,6 +55,17 @@ export function tenantMonitoringMiddleware(req: Request, res: Response, next: Ne
 
   // Override res.send for additional monitoring
   res.send = function(body: any) {
+    // Capture request context at response time (after all middleware has run)
+    const requestContext = {
+      method: req.method,
+      path: req.path,
+      tenantId: (req as any).tenantId || req.session?.tenantId,
+      userId: (req as any).userId || req.session?.userId,
+      timestamp: new Date().toISOString(),
+      userAgent: req.get('User-Agent'),
+      ip: req.ip || req.connection.remoteAddress
+    };
+    
     // Log successful operations for audit trail
     if (res.statusCode >= 200 && res.statusCode < 300) {
       logSuccessfulOperation(requestContext, body);

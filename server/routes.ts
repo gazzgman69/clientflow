@@ -2797,6 +2797,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
 
+  // IMPORTANT: Specific routes must come BEFORE parameterized routes
   // Get document status summary for all projects
   app.get("/api/projects/document-statuses", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
     try {
@@ -2879,6 +2880,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
 
+  // Generic :id route comes AFTER specific routes
   app.get("/api/projects/:id", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
     try {
       const project = await storage.getProject(req.params.id, (req as any).tenantId);

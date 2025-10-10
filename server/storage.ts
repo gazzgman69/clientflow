@@ -4905,7 +4905,11 @@ export class DrizzleStorage implements IStorage {
   // Templates
   // Templates - PostgreSQL implementation
   async getTemplates(tenantId: string): Promise<Template[]> {
-    return await this.db.select().from(templates).where(eq(templates.tenantId, tenantId));
+    console.log('🔍 [getTemplates] Called with tenantId:', tenantId);
+    const result = await this.db.select().from(templates).where(eq(templates.tenantId, tenantId));
+    console.log('📦 [getTemplates] Query result:', result.length, 'templates found');
+    console.log('📦 [getTemplates] Full results:', JSON.stringify(result, null, 2));
+    return result;
   }
 
   async getTemplate(id: string, tenantId: string): Promise<Template | undefined> {

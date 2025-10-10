@@ -770,19 +770,18 @@ export default function ProjectDetail() {
 
           {/* Project Tabs */}
           <Tabs defaultValue="overview" className="w-full">
-            <TabsList className="grid w-full grid-cols-6">
+            <TabsList className="grid w-full grid-cols-5">
               <TabsTrigger value="overview" className="flex items-center gap-2">
                 <Briefcase className="h-4 w-4" />
                 Overview
               </TabsTrigger>
-              <TabsTrigger value="members">Members</TabsTrigger>
-              <TabsTrigger value="files">Files</TabsTrigger>
-              <TabsTrigger value="documents">Documents</TabsTrigger>
-              <TabsTrigger value="notes">Notes</TabsTrigger>
               <TabsTrigger value="email" className="flex items-center gap-2">
                 <MessageSquare className="h-4 w-4" />
                 Email
               </TabsTrigger>
+              <TabsTrigger value="documents">Documents</TabsTrigger>
+              <TabsTrigger value="files">Files</TabsTrigger>
+              <TabsTrigger value="notes">Notes</TabsTrigger>
             </TabsList>
 
             <TabsContent value="overview" className="space-y-6">

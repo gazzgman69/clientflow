@@ -109,6 +109,26 @@ export default function Projects() {
     staleTime: 5000,
   });
 
+  // Fetch document statuses for all projects
+  const { data: documentStatuses } = useQuery<Record<string, {
+    contracts: Array<{
+      status: string;
+      clientSignedAt: string | null;
+      businessSignedAt: string | null;
+      signatureWorkflow: string;
+    }>;
+    invoices: Record<string, number>;
+    quotes: Record<string, number>;
+  }>>({
+    queryKey: ["/api/projects/document-statuses"],
+    refetchInterval: 10000,
+    refetchIntervalInBackground: false,
+    refetchOnWindowFocus: true,
+    refetchOnMount: true,
+    refetchOnReconnect: true,
+    staleTime: 5000,
+  });
+
   const contacts = contactsData?.contacts || [];
   const venues = venuesData?.venues || [];
 
@@ -117,6 +137,50 @@ export default function Projects() {
     if (!venueId) return "No venue";
     const venue = venues.find(v => v.id === venueId);
     return venue ? venue.name : "No venue";
+  };
+
+  // Helper function to get document status for a project
+  const getDocumentStatus = (projectId: string) => {
+    const status = documentStatuses?.[projectId];
+    if (!status) return null;
+
+    // Check for contracts awaiting counter-signature
+    const awaitingCounterSig = status.contracts?.find(
+      c => c.status === 'awaiting_counter_signature'
+    );
+    
+    if (awaitingCounterSig) {
+      return {
+        type: 'contract',
+        status: 'awaiting_counter_signature',
+        message: 'Contract needs counter-signature',
+        variant: 'warning' as const,
+      };
+    }
+
+    // Check for signed contracts
+    const signedContract = status.contracts?.find(c => c.status === 'signed');
+    if (signedContract) {
+      return {
+        type: 'contract',
+        status: 'signed',
+        message: 'Contract signed',
+        variant: 'success' as const,
+      };
+    }
+
+    // Check for sent contracts
+    const sentContract = status.contracts?.find(c => c.status === 'sent');
+    if (sentContract) {
+      return {
+        type: 'contract',
+        status: 'sent',
+        message: 'Contract sent',
+        variant: 'default' as const,
+      };
+    }
+
+    return null;
   };
 
   const form = useForm<z.infer<typeof projectFormSchema>>({
@@ -441,6 +505,7 @@ export default function Projects() {
                     <TableHead>Project Name</TableHead>
                     <TableHead>Venue</TableHead>
                     <TableHead>Status</TableHead>
+                    <TableHead>Documents</TableHead>
                     <TableHead>Progress</TableHead>
                     <TableHead>Value</TableHead>
                     <TableHead>Project Date</TableHead>
@@ -465,6 +530,21 @@ export default function Projects() {
                         <Badge className={getStatusColor(project.status)}>
                           {project.status.charAt(0).toUpperCase() + project.status.slice(1)}
                         </Badge>
+                      </TableCell>
+                      <TableCell data-testid={`project-documents-${project.id}`}>
+                        {(() => {
+                          const docStatus = getDocumentStatus(project.id);
+                          if (!docStatus) return <span className="text-sm text-muted-foreground">-</span>;
+                          
+                          return (
+                            <Badge 
+                              variant={docStatus.variant}
+                              className={docStatus.variant === 'warning' ? 'bg-amber-500 hover:bg-amber-600' : ''}
+                            >
+                              {docStatus.message}
+                            </Badge>
+                          );
+                        })()}
                       </TableCell>
                       <TableCell data-testid={`project-progress-${project.id}`}>
                         <div className="flex items-center space-x-2">

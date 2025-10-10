@@ -829,7 +829,7 @@ export default function ProjectDetail() {
                       <div className="space-y-2 text-sm">
                         <div className="flex items-center gap-2">
                           <Calendar className="h-4 w-4 text-muted-foreground" />
-                          <span className="text-muted-foreground">Start Date:</span> {formatDate(project.startDate?.toString() || null)}
+                          <span className="text-muted-foreground">Project Date:</span> {formatDate(project.startDate?.toString() || null)}
                         </div>
                         <div className="flex items-center gap-2">
                           <Calendar className="h-4 w-4 text-muted-foreground" />

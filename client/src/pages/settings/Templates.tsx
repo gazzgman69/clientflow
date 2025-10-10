@@ -98,6 +98,13 @@ export default function TemplatesPage() {
     queryKey: ['/api/auth/me'],
     retry: false,
   });
+  
+  console.log('👤 Current user:', currentUser);
+  
+  // Force invalidate old cached queries on mount
+  useEffect(() => {
+    queryClient.invalidateQueries({ queryKey: ['/api/admin/templates'] });
+  }, [queryClient]);
 
   const form = useForm<TemplateFormData>({
     resolver: zodResolver(templateFormSchema),
@@ -113,15 +120,22 @@ export default function TemplatesPage() {
   const { data: templates = [], isLoading } = useQuery<Template[]>({
     queryKey: ['/api/admin/templates', { activeOnly: false }],
     queryFn: async () => {
+      console.log('🔍 FETCHING TEMPLATES with activeOnly=false');
       const response = await fetch('/api/admin/templates?activeOnly=false', {
         credentials: 'include'
       });
+      console.log('📡 Templates API response:', response.status, response.ok);
       if (!response.ok) {
+        console.error('❌ Templates API failed:', response.status);
         return []; // Return empty array if API fails
       }
-      return response.json();
+      const data = await response.json();
+      console.log('📦 Templates data received:', data.length, 'templates', data);
+      return data;
     },
     enabled: !!currentUser,
+    staleTime: 0, // Force fresh data every time
+    cacheTime: 0, // Don't cache
   });
 
   // Fetch contract templates
@@ -201,6 +215,14 @@ export default function TemplatesPage() {
 
   // Filter templates by active type
   const filteredTemplates = (templates || []).filter(template => template.type === activeType);
+  
+  console.log('🔍 TEMPLATES DEBUG:', {
+    totalTemplates: templates?.length || 0,
+    activeType,
+    filteredCount: filteredTemplates.length,
+    allTemplates: templates,
+    filteredTemplates
+  });
 
   // Create template mutation
   const createMutation = useMutation({

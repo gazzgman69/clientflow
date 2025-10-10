@@ -2797,6 +2797,88 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
 
+  // Get document status summary for all projects
+  app.get("/api/projects/document-statuses", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
+    try {
+      const neonClient = neon(process.env.DATABASE_URL!);
+      
+      // Get contract statuses for all projects in this tenant
+      const contractStatuses = await neonClient(`
+        SELECT 
+          c.project_id,
+          c.status,
+          c.client_signed_at,
+          c.business_signed_at,
+          c.signature_workflow
+        FROM contracts c
+        WHERE c.tenant_id = $1
+          AND c.project_id IS NOT NULL
+        ORDER BY c.created_at DESC
+      `, [req.tenantId]);
+
+      // Get invoice statuses
+      const invoiceStatuses = await neonClient(`
+        SELECT 
+          i.project_id,
+          i.status,
+          COUNT(*) as count
+        FROM invoices i
+        WHERE i.tenant_id = $1
+          AND i.project_id IS NOT NULL
+        GROUP BY i.project_id, i.status
+      `, [req.tenantId]);
+
+      // Get quote statuses  
+      const quoteStatuses = await neonClient(`
+        SELECT 
+          q.project_id,
+          q.status,
+          COUNT(*) as count
+        FROM quotes q
+        WHERE q.tenant_id = $1
+          AND q.project_id IS NOT NULL
+        GROUP BY q.project_id, q.status
+      `, [req.tenantId]);
+
+      // Organize by project
+      const projectStatuses: Record<string, any> = {};
+      
+      // Process contracts
+      for (const contract of contractStatuses as any[]) {
+        if (!projectStatuses[contract.project_id]) {
+          projectStatuses[contract.project_id] = { contracts: [], invoices: {}, quotes: {} };
+        }
+        projectStatuses[contract.project_id].contracts.push({
+          status: contract.status,
+          clientSignedAt: contract.client_signed_at,
+          businessSignedAt: contract.business_signed_at,
+          signatureWorkflow: contract.signature_workflow,
+        });
+      }
+
+      // Process invoices
+      for (const invoice of invoiceStatuses as any[]) {
+        if (!projectStatuses[invoice.project_id]) {
+          projectStatuses[invoice.project_id] = { contracts: [], invoices: {}, quotes: {} };
+        }
+        projectStatuses[invoice.project_id].invoices[invoice.status] = parseInt(invoice.count);
+      }
+
+      // Process quotes
+      for (const quote of quoteStatuses as any[]) {
+        if (!projectStatuses[quote.project_id]) {
+          projectStatuses[quote.project_id] = { contracts: [], invoices: {}, quotes: {} };
+        }
+        projectStatuses[quote.project_id].quotes[quote.status] = parseInt(quote.count);
+      }
+
+      res.json(projectStatuses);
+    } catch (error) {
+      console.error('Error fetching project document statuses:', error);
+      res.status(500).json({ message: "Failed to fetch document statuses" });
+    }
+  });
+
   app.get("/api/projects/:id", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
     try {
       const project = await storage.getProject(req.params.id, (req as any).tenantId);

@@ -6326,7 +6326,9 @@ export class DrizzleStorage implements IStorage {
       authType: 'oauth',
       expiresAt: integration.expiresAt,
       metadata: integration.metadata,
-      updatedAt: new Date()
+      updatedAt: new Date(),
+      // Set lastSyncedAt on connection/reconnection so UI shows current timestamp
+      lastSyncedAt: integration.status === 'connected' ? new Date() : undefined
     };
 
     // Create encrypted secrets JSON

@@ -532,19 +532,7 @@ export default function Projects() {
                         </Badge>
                       </TableCell>
                       <TableCell data-testid={`project-documents-${project.id}`}>
-                        {(() => {
-                          const docStatus = getDocumentStatus(project.id);
-                          if (!docStatus) return <span className="text-sm text-muted-foreground">-</span>;
-                          
-                          return (
-                            <Badge 
-                              variant={docStatus.variant}
-                              className={docStatus.variant === 'warning' ? 'bg-amber-500 hover:bg-amber-600' : ''}
-                            >
-                              {docStatus.message}
-                            </Badge>
-                          );
-                        })()}
+                        <span className="text-sm text-muted-foreground">-</span>
                       </TableCell>
                       <TableCell data-testid={`project-progress-${project.id}`}>
                         <div className="flex items-center space-x-2">

@@ -23,7 +23,6 @@ import { formatDistanceToNow } from "date-fns";
 import type { Contact } from "@shared/schema";
 import { z } from "zod";
 import { splitFullName, getDisplayName } from "@shared/utils/name-splitter";
-import { ContactPreviewPopup } from "@/components/ContactPreviewPopup";
 
 // Type for deletion preview response
 interface ContactDeletionPreview {
@@ -58,7 +57,7 @@ export default function Contacts() {
   const [contactToDelete, setContactToDelete] = useState<any>(null);
   const [deletionPreview, setDeletionPreview] = useState<ContactDeletionPreview | null>(null);
   const [previewContactId, setPreviewContactId] = useState<string | null>(null);
-  const [contactPreviewPopupId, setContactPreviewPopupId] = useState<string | null>(null);
+  const [expandedContactId, setExpandedContactId] = useState<string | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -73,6 +72,12 @@ export default function Contacts() {
   });
 
   const contacts = contactsData?.contacts || [];
+
+  // Fetch projects for expanded contact
+  const { data: expandedContactProjects = [] } = useQuery({
+    queryKey: ["/api/contacts", expandedContactId, "projects"],
+    enabled: !!expandedContactId,
+  });
 
   const form = useForm<z.infer<typeof insertContactSchema>>({
     resolver: zodResolver(insertContactSchema),
@@ -270,110 +275,187 @@ export default function Contacts() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {contacts.map((contact) => (
-                    <TableRow 
-                      key={contact.id} 
-                      data-testid={`contact-row-${contact.id}`}
-                      className="cursor-pointer hover:bg-accent"
-                      onClick={() => setContactPreviewPopupId(contact.id)}
-                    >
-                      <TableCell className="font-medium" data-testid={`contact-name-${contact.id}`}>
-                        {getDisplayName(contact)}
-                      </TableCell>
-                      <TableCell data-testid={`contact-company-${contact.id}`}>
-                        <div>
-                          <div className="font-medium">{contact.company || '-'}</div>
-                          {contact.jobTitle && (
-                            <div className="text-sm text-muted-foreground">{contact.jobTitle}</div>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell data-testid={`contact-email-${contact.id}`}>
-                        {contact.email}
-                      </TableCell>
-                      <TableCell data-testid={`contact-phone-${contact.id}`}>
-                        {contact.phone || '-'}
-                      </TableCell>
-                      <TableCell data-testid={`contact-location-${contact.id}`}>
-                        {contact.venueCity ? (
-                          <div className="text-sm">
-                            <span className="font-medium">{contact.venueCity}</span>
-                            {contact.venueState && <span className="text-muted-foreground">, {contact.venueState}</span>}
-                          </div>
-                        ) : contact.city ? (
-                          <div className="text-sm">
-                            <span className="font-medium">{contact.city}</span>
-                            {contact.state && <span className="text-muted-foreground">, {contact.state}</span>}
-                          </div>
-                        ) : '-'}
-                      </TableCell>
-                      <TableCell data-testid={`contact-tags-${contact.id}`}>
-                        {contact.tags && contact.tags.length > 0 ? (
-                          <div className="flex flex-wrap gap-1">
-                            {contact.tags.slice(0, 2).map((tag, index) => (
-                              <span key={index} className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
-                                {tag}
-                              </span>
-                            ))}
-                            {contact.tags.length > 2 && (
-                              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300">
-                                +{contact.tags.length - 2}
-                              </span>
-                            )}
-                          </div>
-                        ) : '-'}
-                      </TableCell>
-                      <TableCell data-testid={`contact-projects-${contact.id}`}>
-                        <span className="font-medium">{contact.projectsCount || 0}</span>
-                      </TableCell>
-                      <TableCell data-testid={`contact-created-${contact.id}`}>
-                        {contact.createdAt ? formatDistanceToNow(new Date(contact.createdAt), { addSuffix: true }) : 'Unknown'}
-                      </TableCell>
-                      <TableCell onClick={(e) => e.stopPropagation()}>
-                        <div className="flex gap-2">
-                          <Button 
-                            variant="ghost" 
-                            size="sm" 
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setEditingContact(contact);
-                              const displayName = getDisplayName(contact);
-                              form.reset({
-                                ...contact,
-                                fullName: displayName,
-                                tags: contact.tags || [],
-                                jobTitle: contact.jobTitle || "",
-                                website: contact.website || "",
-                                leadSource: contact.leadSource || "",
-                                notes: contact.notes || "",
-                                venueAddress: contact.venueAddress || "",
-                                venueCity: contact.venueCity || "",
-                                venueState: contact.venueState || "",
-                                venueZipCode: contact.venueZipCode || "",
-                                venueCountry: contact.venueCountry || "",
-                                venueId: contact.venueId || null
-                              });
-                              setShowContactModal(true);
-                            }}
-                            data-testid={`edit-contact-${contact.id}`}
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button 
-                            variant="ghost" 
-                            size="sm" 
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleDeleteClick(contact.id);
-                            }}
-                            data-testid={`delete-contact-${contact.id}`}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {contacts.map((contact) => {
+                    const isExpanded = expandedContactId === contact.id;
+                    const contactAddress = [contact.venueAddress || contact.address, contact.venueCity || contact.city, contact.venueState || contact.state, contact.zipCode]
+                      .filter(Boolean)
+                      .join(', ');
+                    
+                    return (
+                      <>
+                        <TableRow 
+                          data-testid={`contact-row-${contact.id}`}
+                          className="cursor-pointer hover:bg-accent"
+                          onClick={() => setExpandedContactId(expandedContactId === contact.id ? null : contact.id)}
+                        >
+                          <TableCell className="font-medium" data-testid={`contact-name-${contact.id}`}>
+                            {getDisplayName(contact)}
+                          </TableCell>
+                          <TableCell data-testid={`contact-company-${contact.id}`}>
+                            <div>
+                              <div className="font-medium">{contact.company || '-'}</div>
+                              {contact.jobTitle && (
+                                <div className="text-sm text-muted-foreground">{contact.jobTitle}</div>
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell data-testid={`contact-email-${contact.id}`}>
+                            {contact.email}
+                          </TableCell>
+                          <TableCell data-testid={`contact-phone-${contact.id}`}>
+                            {contact.phone || '-'}
+                          </TableCell>
+                          <TableCell data-testid={`contact-location-${contact.id}`}>
+                            {contact.venueCity ? (
+                              <div className="text-sm">
+                                <span className="font-medium">{contact.venueCity}</span>
+                                {contact.venueState && <span className="text-muted-foreground">, {contact.venueState}</span>}
+                              </div>
+                            ) : contact.city ? (
+                              <div className="text-sm">
+                                <span className="font-medium">{contact.city}</span>
+                                {contact.state && <span className="text-muted-foreground">, {contact.state}</span>}
+                              </div>
+                            ) : '-'}
+                          </TableCell>
+                          <TableCell data-testid={`contact-tags-${contact.id}`}>
+                            {contact.tags && contact.tags.length > 0 ? (
+                              <div className="flex flex-wrap gap-1">
+                                {contact.tags.slice(0, 2).map((tag, index) => (
+                                  <span key={index} className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
+                                    {tag}
+                                  </span>
+                                ))}
+                                {contact.tags.length > 2 && (
+                                  <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300">
+                                    +{contact.tags.length - 2}
+                                  </span>
+                                )}
+                              </div>
+                            ) : '-'}
+                          </TableCell>
+                          <TableCell data-testid={`contact-projects-${contact.id}`}>
+                            <span className="font-medium">{contact.projectsCount || 0}</span>
+                          </TableCell>
+                          <TableCell data-testid={`contact-created-${contact.id}`}>
+                            {contact.createdAt ? formatDistanceToNow(new Date(contact.createdAt), { addSuffix: true }) : 'Unknown'}
+                          </TableCell>
+                          <TableCell onClick={(e) => e.stopPropagation()}>
+                            <div className="flex gap-2">
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setEditingContact(contact);
+                                  const displayName = getDisplayName(contact);
+                                  form.reset({
+                                    ...contact,
+                                    fullName: displayName,
+                                    tags: contact.tags || [],
+                                    jobTitle: contact.jobTitle || "",
+                                    website: contact.website || "",
+                                    leadSource: contact.leadSource || "",
+                                    notes: contact.notes || "",
+                                    venueAddress: contact.venueAddress || "",
+                                    venueCity: contact.venueCity || "",
+                                    venueState: contact.venueState || "",
+                                    venueZipCode: contact.venueZipCode || "",
+                                    venueCountry: contact.venueCountry || "",
+                                    venueId: contact.venueId || null
+                                  });
+                                  setShowContactModal(true);
+                                }}
+                                data-testid={`edit-contact-${contact.id}`}
+                              >
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDeleteClick(contact.id);
+                                }}
+                                data-testid={`delete-contact-${contact.id}`}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                        
+                        {/* Inline Expansion Row */}
+                        {isExpanded && (
+                          <TableRow key={`${contact.id}-expansion`} data-testid={`contact-expansion-${contact.id}`}>
+                            <TableCell colSpan={9} className="bg-muted/50 p-6">
+                              <div className="grid grid-cols-3 gap-6">
+                                <div>
+                                  <p className="text-sm font-medium text-muted-foreground mb-2">Name:</p>
+                                  <p className="font-medium cursor-pointer hover:text-primary" onClick={() => setLocation(`/contacts/${contact.id}`)}>
+                                    {getDisplayName(contact)}
+                                  </p>
+                                </div>
+                                
+                                {contact.tags && contact.tags.length > 0 && (
+                                  <div>
+                                    <p className="text-sm font-medium text-muted-foreground mb-2">Tags:</p>
+                                    <div className="flex flex-wrap gap-1">
+                                      {contact.tags.map((tag) => (
+                                        <span key={tag} className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
+                                          {tag}
+                                        </span>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+                                
+                                {contactAddress && (
+                                  <div>
+                                    <p className="text-sm font-medium text-muted-foreground mb-2">Address:</p>
+                                    <p className="text-sm">{contactAddress}</p>
+                                  </div>
+                                )}
+                              </div>
+                              
+                              {contact.eventDate && (
+                                <div className="mt-4">
+                                  <p className="text-sm font-medium text-muted-foreground mb-2">Event Date:</p>
+                                  <p className="text-sm">{new Date(contact.eventDate).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</p>
+                                </div>
+                              )}
+                              
+                              <Separator className="my-4" />
+                              
+                              <div>
+                                <p className="text-sm font-medium text-muted-foreground mb-3">Projects:</p>
+                                {expandedContactProjects && expandedContactProjects.length > 0 ? (
+                                  <div className="space-y-2">
+                                    {expandedContactProjects.map((project: any) => (
+                                      <div 
+                                        key={project.id} 
+                                        className="flex items-center justify-between p-2 rounded hover:bg-background cursor-pointer"
+                                        onClick={() => setLocation(`/projects/${project.id}`)}
+                                      >
+                                        <span className="text-sm font-medium hover:text-primary">{project.name}</span>
+                                        {project.status && (
+                                          <span className="text-xs px-2 py-1 rounded bg-background">{project.status}</span>
+                                        )}
+                                      </div>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <p className="text-sm text-muted-foreground" data-testid={`no-projects-${contact.id}`}>
+                                    No projects linked to this contact
+                                  </p>
+                                )}
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </>
+                    );
+                  })}
                 </TableBody>
               </Table>
             )}
@@ -839,17 +921,6 @@ export default function Contacts() {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
-      )}
-
-      {/* Contact Preview Popup */}
-      {contactPreviewPopupId && (
-        <ContactPreviewPopup
-          contactId={contactPreviewPopupId}
-          open={!!contactPreviewPopupId}
-          onOpenChange={(open) => {
-            if (!open) setContactPreviewPopupId(null);
-          }}
-        />
       )}
     </>
   );

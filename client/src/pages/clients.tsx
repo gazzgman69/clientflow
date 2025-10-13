@@ -23,6 +23,7 @@ import { formatDistanceToNow } from "date-fns";
 import type { Contact } from "@shared/schema";
 import { z } from "zod";
 import { splitFullName, getDisplayName } from "@shared/utils/name-splitter";
+import { ContactPreviewPopup } from "@/components/ContactPreviewPopup";
 
 // Type for deletion preview response
 interface ContactDeletionPreview {
@@ -57,6 +58,7 @@ export default function Contacts() {
   const [contactToDelete, setContactToDelete] = useState<any>(null);
   const [deletionPreview, setDeletionPreview] = useState<ContactDeletionPreview | null>(null);
   const [previewContactId, setPreviewContactId] = useState<string | null>(null);
+  const [contactPreviewPopupId, setContactPreviewPopupId] = useState<string | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -262,6 +264,7 @@ export default function Contacts() {
                     <TableHead>Phone</TableHead>
                     <TableHead>Location</TableHead>
                     <TableHead>Tags</TableHead>
+                    <TableHead>Projects</TableHead>
                     <TableHead>Created</TableHead>
                     <TableHead>Actions</TableHead>
                   </TableRow>
@@ -271,8 +274,8 @@ export default function Contacts() {
                     <TableRow 
                       key={contact.id} 
                       data-testid={`contact-row-${contact.id}`}
-                      className="cursor-pointer"
-                      onClick={() => setLocation(`/contacts/${contact.id}`)}
+                      className="cursor-pointer hover:bg-accent"
+                      onClick={() => setContactPreviewPopupId(contact.id)}
                     >
                       <TableCell className="font-medium" data-testid={`contact-name-${contact.id}`}>
                         {getDisplayName(contact)}
@@ -319,6 +322,9 @@ export default function Contacts() {
                             )}
                           </div>
                         ) : '-'}
+                      </TableCell>
+                      <TableCell data-testid={`contact-projects-${contact.id}`}>
+                        <span className="font-medium">{contact.projectsCount || 0}</span>
                       </TableCell>
                       <TableCell data-testid={`contact-created-${contact.id}`}>
                         {contact.createdAt ? formatDistanceToNow(new Date(contact.createdAt), { addSuffix: true }) : 'Unknown'}
@@ -833,6 +839,17 @@ export default function Contacts() {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+      )}
+
+      {/* Contact Preview Popup */}
+      {contactPreviewPopupId && (
+        <ContactPreviewPopup
+          contactId={contactPreviewPopupId}
+          open={!!contactPreviewPopupId}
+          onOpenChange={(open) => {
+            if (!open) setContactPreviewPopupId(null);
+          }}
+        />
       )}
     </>
   );

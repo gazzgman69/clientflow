@@ -277,24 +277,15 @@ export default function Contacts() {
                 <TableBody>
                   {contacts.map((contact) => {
                     const isExpanded = expandedContactId === contact.id;
-                    // Client's address (not venue)
+                    // Client's personal address
                     const contactAddress = [contact.address, contact.city, contact.state, contact.zipCode]
                       .filter(Boolean)
                       .join(', ');
                     
-                    // Extract unique venues from projects
-                    const projectVenues = expandedContactProjects?.map((p: any) => ({
-                      name: p.venueName,
-                      address: [p.venueAddress, p.venueCity, p.venueState].filter(Boolean).join(', ')
-                    })).filter((v: any) => v.name || v.address) || [];
-                    
-                    const uniqueVenues = projectVenues.reduce((acc: any[], venue: any) => {
-                      const venueKey = `${venue.name}-${venue.address}`;
-                      if (!acc.some((v: any) => `${v.name}-${v.address}` === venueKey)) {
-                        acc.push(venue);
-                      }
-                      return acc;
-                    }, []);
+                    // Contact's venue information (stored on contact record)
+                    const contactVenueInfo = [contact.venueAddress, contact.venueCity, contact.venueState]
+                      .filter(Boolean)
+                      .join(', ');
                     
                     return (
                       <>
@@ -440,17 +431,10 @@ export default function Contacts() {
                                 </div>
                               )}
                               
-                              {uniqueVenues.length > 0 && (
+                              {contactVenueInfo && (
                                 <div className="mt-4">
-                                  <p className="text-sm font-medium text-muted-foreground mb-2">Venue{uniqueVenues.length > 1 ? 's' : ''}:</p>
-                                  {uniqueVenues.length === 1 ? (
-                                    <div className="text-sm">
-                                      {uniqueVenues[0].name && <div className="font-medium">{uniqueVenues[0].name}</div>}
-                                      {uniqueVenues[0].address && <div>{uniqueVenues[0].address}</div>}
-                                    </div>
-                                  ) : (
-                                    <p className="text-sm text-muted-foreground">Multiple venues across projects</p>
-                                  )}
+                                  <p className="text-sm font-medium text-muted-foreground mb-2">Venue:</p>
+                                  <p className="text-sm">{contactVenueInfo}</p>
                                 </div>
                               )}
                               

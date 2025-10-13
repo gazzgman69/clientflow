@@ -2639,6 +2639,93 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
 
+  // Custom Contact Field Definitions
+  app.get("/api/contact-field-definitions", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
+    try {
+      const fieldDefs = await storage.getContactFieldDefinitions(req.tenantId);
+      res.json(fieldDefs);
+    } catch (error) {
+      console.error('Error fetching contact field definitions:', error);
+      res.status(500).json({ message: "Failed to fetch field definitions" });
+    }
+  });
+
+  app.post("/api/contact-field-definitions", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
+    try {
+      const fieldDef = await storage.createContactFieldDefinition(req.body, req.tenantId);
+      res.status(201).json(fieldDef);
+    } catch (error) {
+      console.error('Error creating contact field definition:', error);
+      res.status(400).json({ message: "Failed to create field definition" });
+    }
+  });
+
+  app.patch("/api/contact-field-definitions/:id", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
+    try {
+      const fieldDef = await storage.updateContactFieldDefinition(req.params.id, req.body, req.tenantId);
+      if (!fieldDef) {
+        return res.status(404).json({ message: "Field definition not found" });
+      }
+      res.json(fieldDef);
+    } catch (error) {
+      console.error('Error updating contact field definition:', error);
+      res.status(400).json({ message: "Failed to update field definition" });
+    }
+  });
+
+  app.delete("/api/contact-field-definitions/:id", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
+    try {
+      const deleted = await storage.deleteContactFieldDefinition(req.params.id, req.tenantId);
+      if (!deleted) {
+        return res.status(404).json({ message: "Field definition not found" });
+      }
+      res.json({ message: "Field definition deleted successfully" });
+    } catch (error) {
+      console.error('Error deleting contact field definition:', error);
+      res.status(500).json({ message: "Failed to delete field definition" });
+    }
+  });
+
+  // Custom Contact Field Values
+  app.get("/api/contacts/:contactId/field-values", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
+    try {
+      const values = await storage.getContactFieldValues(req.params.contactId, req.tenantId);
+      res.json(values);
+    } catch (error) {
+      console.error('Error fetching contact field values:', error);
+      res.status(500).json({ message: "Failed to fetch field values" });
+    }
+  });
+
+  app.put("/api/contacts/:contactId/field-values", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
+    try {
+      const { fieldDefinitionId, value } = req.body;
+      const fieldValue = await storage.setContactFieldValue({
+        contactId: req.params.contactId,
+        fieldDefinitionId,
+        value,
+        tenantId: req.tenantId
+      }, req.tenantId);
+      res.json(fieldValue);
+    } catch (error) {
+      console.error('Error setting contact field value:', error);
+      res.status(400).json({ message: "Failed to set field value" });
+    }
+  });
+
+  app.delete("/api/contacts/:contactId/field-values/:fieldDefinitionId", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
+    try {
+      const deleted = await storage.deleteContactFieldValue(req.params.contactId, req.params.fieldDefinitionId, req.tenantId);
+      if (!deleted) {
+        return res.status(404).json({ message: "Field value not found" });
+      }
+      res.json({ message: "Field value deleted successfully" });
+    } catch (error) {
+      console.error('Error deleting contact field value:', error);
+      res.status(500).json({ message: "Failed to delete field value" });
+    }
+  });
+
   // Stub endpoints for missing admin features (to prevent 404 errors in console)
   app.get("/api/clients", ensureUserAuth, tenantResolver, requireTenant, async (req: any, res) => {
     // This endpoint is deprecated - redirecting to contacts

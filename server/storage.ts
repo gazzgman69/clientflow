@@ -58,6 +58,9 @@ import {
   type LeadConsent, type InsertLeadConsent,
   // Auto-responder types
   type AutoResponderLog, type InsertAutoResponderLog,
+  // Custom Contact Fields types
+  type ContactFieldDefinition, type InsertContactFieldDefinition,
+  type ContactFieldValue, type InsertContactFieldValue,
   users, leads, contacts, projects, quotes, contracts, contractTemplates, invoices, tasks, emails, emailThreads, activities, automations, 
   members, venues, projectMembers, memberAvailability, projectFiles, projectNotes, smsMessages, 
   messageTemplates, messageThreads, calendars, events, calendarIntegrations, calendarSyncLog, templates, leadCaptureForms,
@@ -75,7 +78,9 @@ import {
   // Security and compliance tables
   formSubmissions, leadConsents, autoResponderLogs,
   // Document views
-  documentViews
+  documentViews,
+  // Custom Contact Fields tables
+  contactFieldDefinitions, contactFieldValues
 } from "@shared/schema";
 import crypto from "crypto";
 import { TenantScopedStorage } from './utils/tenantScopedStorage';
@@ -128,6 +133,17 @@ export interface IStorage {
   createContact(contact: InsertContact, tenantId: string): Promise<Contact>;
   updateContact(id: string, contact: Partial<InsertContact>, tenantId: string): Promise<Contact | undefined>;
   deleteContact(id: string, tenantId: string): Promise<boolean>;
+  
+  // Custom Contact Fields
+  getContactFieldDefinitions(tenantId: string): Promise<ContactFieldDefinition[]>;
+  getContactFieldDefinition(id: string, tenantId: string): Promise<ContactFieldDefinition | undefined>;
+  createContactFieldDefinition(field: InsertContactFieldDefinition, tenantId: string): Promise<ContactFieldDefinition>;
+  updateContactFieldDefinition(id: string, field: Partial<InsertContactFieldDefinition>, tenantId: string): Promise<ContactFieldDefinition | undefined>;
+  deleteContactFieldDefinition(id: string, tenantId: string): Promise<boolean>;
+  getContactFieldValues(contactId: string, tenantId: string): Promise<ContactFieldValue[]>;
+  getContactFieldValue(contactId: string, fieldDefinitionId: string, tenantId: string): Promise<ContactFieldValue | undefined>;
+  setContactFieldValue(value: InsertContactFieldValue, tenantId: string): Promise<ContactFieldValue>;
+  deleteContactFieldValue(contactId: string, fieldDefinitionId: string, tenantId: string): Promise<boolean>;
   
   // Projects
   getProjects(tenantId: string, userId?: string, limit?: number, offset?: number): Promise<Project[]>;
@@ -4113,6 +4129,115 @@ export class DrizzleStorage implements IStorage {
   }
   async deleteContact(id: string, tenantId: string): Promise<boolean> {
     const result = await this.db.delete(contacts).where(and(eq(contacts.id, id), eq(contacts.tenantId, tenantId)));
+    return result.rowCount > 0;
+  }
+  
+  // Custom Contact Fields - Using PostgreSQL
+  async getContactFieldDefinitions(tenantId: string): Promise<ContactFieldDefinition[]> {
+    if (!tenantId) {
+      throw new Error("SECURITY: tenantId is required to prevent cross-tenant data access");
+    }
+    return await this.db.select().from(contactFieldDefinitions).where(
+      and(
+        eq(contactFieldDefinitions.tenantId, tenantId),
+        eq(contactFieldDefinitions.isActive, true)
+      )
+    ).orderBy(contactFieldDefinitions.displayOrder);
+  }
+
+  async getContactFieldDefinition(id: string, tenantId: string): Promise<ContactFieldDefinition | undefined> {
+    const result = await this.db.select().from(contactFieldDefinitions).where(
+      and(eq(contactFieldDefinitions.id, id), eq(contactFieldDefinitions.tenantId, tenantId))
+    );
+    return result[0];
+  }
+
+  async createContactFieldDefinition(field: InsertContactFieldDefinition, tenantId: string): Promise<ContactFieldDefinition> {
+    if (!tenantId) {
+      throw new Error("Tenant ID is required for multi-tenant field definition creation");
+    }
+    const result = await this.db.insert(contactFieldDefinitions).values({
+      ...field,
+      tenantId,
+    }).returning();
+    return result[0];
+  }
+
+  async updateContactFieldDefinition(id: string, fieldUpdate: Partial<InsertContactFieldDefinition>, tenantId: string): Promise<ContactFieldDefinition | undefined> {
+    const result = await this.db.update(contactFieldDefinitions).set({
+      ...fieldUpdate,
+      updatedAt: new Date(),
+    }).where(and(eq(contactFieldDefinitions.id, id), eq(contactFieldDefinitions.tenantId, tenantId))).returning();
+    return result[0];
+  }
+
+  async deleteContactFieldDefinition(id: string, tenantId: string): Promise<boolean> {
+    const result = await this.db.delete(contactFieldDefinitions).where(
+      and(eq(contactFieldDefinitions.id, id), eq(contactFieldDefinitions.tenantId, tenantId))
+    );
+    return result.rowCount > 0;
+  }
+
+  async getContactFieldValues(contactId: string, tenantId: string): Promise<ContactFieldValue[]> {
+    if (!tenantId) {
+      throw new Error("SECURITY: tenantId is required to prevent cross-tenant data access");
+    }
+    return await this.db.select().from(contactFieldValues).where(
+      and(
+        eq(contactFieldValues.contactId, contactId),
+        eq(contactFieldValues.tenantId, tenantId)
+      )
+    );
+  }
+
+  async getContactFieldValue(contactId: string, fieldDefinitionId: string, tenantId: string): Promise<ContactFieldValue | undefined> {
+    const result = await this.db.select().from(contactFieldValues).where(
+      and(
+        eq(contactFieldValues.contactId, contactId),
+        eq(contactFieldValues.fieldDefinitionId, fieldDefinitionId),
+        eq(contactFieldValues.tenantId, tenantId)
+      )
+    );
+    return result[0];
+  }
+
+  async setContactFieldValue(value: InsertContactFieldValue, tenantId: string): Promise<ContactFieldValue> {
+    if (!tenantId) {
+      throw new Error("Tenant ID is required for multi-tenant field value creation");
+    }
+    
+    // Use upsert pattern - insert or update if exists
+    const existing = await this.getContactFieldValue(value.contactId, value.fieldDefinitionId, tenantId);
+    
+    if (existing) {
+      const result = await this.db.update(contactFieldValues).set({
+        value: value.value,
+        updatedAt: new Date(),
+      }).where(
+        and(
+          eq(contactFieldValues.contactId, value.contactId),
+          eq(contactFieldValues.fieldDefinitionId, value.fieldDefinitionId),
+          eq(contactFieldValues.tenantId, tenantId)
+        )
+      ).returning();
+      return result[0];
+    } else {
+      const result = await this.db.insert(contactFieldValues).values({
+        ...value,
+        tenantId,
+      }).returning();
+      return result[0];
+    }
+  }
+
+  async deleteContactFieldValue(contactId: string, fieldDefinitionId: string, tenantId: string): Promise<boolean> {
+    const result = await this.db.delete(contactFieldValues).where(
+      and(
+        eq(contactFieldValues.contactId, contactId),
+        eq(contactFieldValues.fieldDefinitionId, fieldDefinitionId),
+        eq(contactFieldValues.tenantId, tenantId)
+      )
+    );
     return result.rowCount > 0;
   }
   

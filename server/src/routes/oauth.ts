@@ -1388,6 +1388,7 @@ router.get('/api/auth/google/status', requireAuth, async (req: any, res) => {
 
 /**
  * Gmail Auth Status - Check if user has connected Gmail specifically
+ * Now validates token like /api/auth/google/status for consistency
  */
 router.get('/api/auth/google/gmail/status', requireAuth, async (req: any, res) => {
   try {
@@ -1409,14 +1410,61 @@ router.get('/api/auth/google/gmail/status', requireAuth, async (req: any, res) =
     // Decrypt the tokens
     const decrypted = await storage.decryptEmailAccountSecrets(googleAccount.secretsEnc);
     
-    // Return Gmail connection info
-    res.json({ 
-      ok: true, 
-      connected: true,
-      email: googleAccount.accountEmail,
-      scopes: decrypted.scopes || [],
-      lastSyncAt: googleAccount.lastSyncedAt
-    });
+    if (!decrypted || !decrypted.accessToken) {
+      return res.json({ ok: true, connected: false, scopes: [] });
+    }
+    
+    // Test token validity by making a simple API call (same as /api/auth/google/status)
+    try {
+      const oauth2Client = new google.auth.OAuth2(
+        process.env.GOOGLE_CLIENT_ID,
+        process.env.GOOGLE_CLIENT_SECRET,
+        process.env.GOOGLE_REDIRECT_URI
+      );
+      
+      oauth2Client.setCredentials({
+        access_token: decrypted.accessToken,
+        refresh_token: decrypted.refreshToken,
+      });
+      
+      // Test the token with a simple API call
+      const oauth2 = google.oauth2({ version: 'v2', auth: oauth2Client });
+      await oauth2.userinfo.get();
+      
+      // If we get here, token is valid
+      return res.json({ 
+        ok: true, 
+        connected: true,
+        email: googleAccount.accountEmail,
+        scopes: decrypted.scopes || [],
+        lastSyncAt: googleAccount.lastSyncedAt
+      });
+      
+    } catch (tokenError: any) {
+      // Token is invalid or expired
+      console.log(`🔒 Gmail token validation failed for user ${userId}:`, tokenError.message);
+      
+      // If it's an invalid_grant or similar, the user needs to reconnect
+      if (tokenError.message && (tokenError.message.includes('invalid_grant') || 
+                                  tokenError.message.includes('invalid_token') ||
+                                  tokenError.message.includes('expired'))) {
+        return res.json({ 
+          ok: true, 
+          connected: false, 
+          needsReconnect: true,
+          error: 'Token expired or revoked',
+          scopes: [] 
+        });
+      }
+      
+      // For other errors, still report as disconnected
+      return res.json({ 
+        ok: true, 
+        connected: false, 
+        error: 'Token validation failed',
+        scopes: [] 
+      });
+    }
     
   } catch (error: any) {
     console.error('Error checking Gmail auth status:', error);

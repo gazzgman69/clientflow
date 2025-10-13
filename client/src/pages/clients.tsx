@@ -277,9 +277,24 @@ export default function Contacts() {
                 <TableBody>
                   {contacts.map((contact) => {
                     const isExpanded = expandedContactId === contact.id;
-                    const contactAddress = [contact.venueAddress || contact.address, contact.venueCity || contact.city, contact.venueState || contact.state, contact.zipCode]
+                    // Client's address (not venue)
+                    const contactAddress = [contact.address, contact.city, contact.state, contact.zipCode]
                       .filter(Boolean)
                       .join(', ');
+                    
+                    // Extract unique venues from projects
+                    const projectVenues = expandedContactProjects?.map((p: any) => ({
+                      name: p.venueName,
+                      address: [p.venueAddress, p.venueCity, p.venueState].filter(Boolean).join(', ')
+                    })).filter((v: any) => v.name || v.address) || [];
+                    
+                    const uniqueVenues = projectVenues.reduce((acc: any[], venue: any) => {
+                      const venueKey = `${venue.name}-${venue.address}`;
+                      if (!acc.some((v: any) => `${v.name}-${v.address}` === venueKey)) {
+                        acc.push(venue);
+                      }
+                      return acc;
+                    }, []);
                     
                     return (
                       <>
@@ -422,6 +437,20 @@ export default function Contacts() {
                                 <div className="mt-4">
                                   <p className="text-sm font-medium text-muted-foreground mb-2">Event Date:</p>
                                   <p className="text-sm">{new Date(contact.eventDate).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</p>
+                                </div>
+                              )}
+                              
+                              {uniqueVenues.length > 0 && (
+                                <div className="mt-4">
+                                  <p className="text-sm font-medium text-muted-foreground mb-2">Venue{uniqueVenues.length > 1 ? 's' : ''}:</p>
+                                  {uniqueVenues.length === 1 ? (
+                                    <div className="text-sm">
+                                      {uniqueVenues[0].name && <div className="font-medium">{uniqueVenues[0].name}</div>}
+                                      {uniqueVenues[0].address && <div>{uniqueVenues[0].address}</div>}
+                                    </div>
+                                  ) : (
+                                    <p className="text-sm text-muted-foreground">Multiple venues across projects</p>
+                                  )}
                                 </div>
                               )}
                               

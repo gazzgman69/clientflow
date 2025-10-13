@@ -75,7 +75,7 @@ export default function Contacts() {
 
   // Fetch projects for expanded contact
   const { data: expandedContactProjects = [] } = useQuery({
-    queryKey: ["/api/contacts", expandedContactId, "projects"],
+    queryKey: [`/api/contacts/${expandedContactId}/projects`],
     enabled: !!expandedContactId,
   });
 

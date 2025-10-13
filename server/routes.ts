@@ -2568,6 +2568,16 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
 
+  app.get("/api/contacts/:contactId/projects", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
+    try {
+      const projects = await storage.getProjectsByContact(req.params.contactId, req.tenantId);
+      res.json(projects);
+    } catch (error) {
+      console.error('Error fetching projects for contact:', error);
+      res.status(500).json({ message: "Failed to fetch projects" });
+    }
+  });
+
   app.get("/api/contacts/:id", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
     try {
       const contact = await storage.getContact(req.params.id, req.tenantId);

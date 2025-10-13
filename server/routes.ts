@@ -2436,12 +2436,17 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
       }
 
       // Don't filter by userId - all contacts in tenant should be visible to authenticated users
-      // Join with venues table to get venue name
+      // Join with venues table to get venue name and count projects
       const contactsRaw = await neonClient(`
-        SELECT c.*, v.name as venue_name
+        SELECT 
+          c.*, 
+          v.name as venue_name,
+          COUNT(DISTINCT p.id) as projects_count
         FROM contacts c
         LEFT JOIN venues v ON c.venue_id = v.id AND v.tenant_id = c.tenant_id
+        LEFT JOIN projects p ON c.id = p.contact_id AND p.tenant_id = c.tenant_id
         WHERE c.tenant_id = $1
+        GROUP BY c.id, v.name
         ORDER BY c.created_at DESC
         LIMIT ${limit} OFFSET ${offset}
       `, [req.tenantId]);
@@ -2477,7 +2482,8 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
         leadSource: contact.lead_source,
         notes: contact.notes,
         createdAt: contact.created_at,
-        updatedAt: contact.updated_at
+        updatedAt: contact.updated_at,
+        projectsCount: parseInt(contact.projects_count) || 0
       }));
       
       // Get total count for pagination info

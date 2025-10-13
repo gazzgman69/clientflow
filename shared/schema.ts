@@ -87,6 +87,43 @@ export const contacts = pgTable("contacts", {
   };
 });
 
+// Custom Contact Fields - Field Definitions (global per tenant)
+export const contactFieldDefinitions = pgTable("contact_field_definitions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").references(() => tenants.id).notNull(),
+  name: text("name").notNull(), // Internal field name (e.g., 'wedding_date', 'dietary_requirements')
+  label: text("label").notNull(), // Display label for the field
+  fieldType: text("field_type").notNull(), // 'text', 'number', 'date', 'dropdown', 'checkbox', 'textarea'
+  options: text("options").array(), // For dropdown fields: array of options
+  required: boolean("required").default(false),
+  displayOrder: integer("display_order").default(0), // Order in which fields appear
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => {
+  return {
+    tenantIdIdx: index("contact_field_defs_tenant_id_idx").on(table.tenantId),
+    tenantNameUnique: unique("contact_field_defs_tenant_name_unique").on(table.tenantId, table.name),
+  };
+});
+
+// Custom Contact Fields - Values (per contact)
+export const contactFieldValues = pgTable("contact_field_values", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").references(() => tenants.id).notNull(),
+  contactId: varchar("contact_id").notNull().references(() => contacts.id, { onDelete: 'cascade' }),
+  fieldDefinitionId: varchar("field_definition_id").notNull().references(() => contactFieldDefinitions.id, { onDelete: 'cascade' }),
+  value: text("value"), // Stored as text, parsed based on field type
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => {
+  return {
+    tenantIdIdx: index("contact_field_values_tenant_id_idx").on(table.tenantId),
+    contactFieldUnique: unique("contact_field_values_contact_field_unique").on(table.contactId, table.fieldDefinitionId),
+    tenantContactIdx: index("contact_field_values_tenant_contact_idx").on(table.tenantId, table.contactId),
+  };
+});
+
 export const projects = pgTable("projects", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   tenantId: varchar("tenant_id").references(() => tenants.id).notNull(), // SECURITY FIX: Made NOT NULL for tenant isolation
@@ -1853,4 +1890,24 @@ export const insertAutoResponderLogSchema = createInsertSchema(autoResponderLogs
 
 export type AutoResponderLog = typeof autoResponderLogs.$inferSelect;
 export type InsertAutoResponderLog = z.infer<typeof insertAutoResponderLogSchema>;
+
+// Insert schemas and types for contact field definitions
+export const insertContactFieldDefinitionSchema = createInsertSchema(contactFieldDefinitions).omit({ 
+  id: true, 
+  createdAt: true, 
+  updatedAt: true 
+});
+
+export type ContactFieldDefinition = typeof contactFieldDefinitions.$inferSelect;
+export type InsertContactFieldDefinition = z.infer<typeof insertContactFieldDefinitionSchema>;
+
+// Insert schemas and types for contact field values
+export const insertContactFieldValueSchema = createInsertSchema(contactFieldValues).omit({ 
+  id: true, 
+  createdAt: true, 
+  updatedAt: true 
+});
+
+export type ContactFieldValue = typeof contactFieldValues.$inferSelect;
+export type InsertContactFieldValue = z.infer<typeof insertContactFieldValueSchema>;
 

@@ -1738,7 +1738,7 @@ export default function ProjectDetail() {
       <Dialog open={showContactEditModal} onOpenChange={setShowContactEditModal}>
         <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Edit Contact</DialogTitle>
+            <DialogTitle>Contact Details</DialogTitle>
             <DialogDescription>
               Update contact information. Required fields are marked with an asterisk (*).
             </DialogDescription>
@@ -1749,18 +1749,48 @@ export default function ProjectDetail() {
               
               {/* Basic Info Section */}
               <div className="space-y-4">
-                <div className="flex items-center gap-2">
-                  <User className="h-4 w-4" />
-                  <h3 className="text-lg font-semibold">Basic Info</h3>
-                </div>
                 <FormField
                   control={contactEditForm.control}
                   name="fullName"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Full Name *</FormLabel>
+                      <FormLabel>Name *</FormLabel>
                       <FormControl>
                         <Input {...field} value={field.value || ""} data-testid="input-edit-contact-name" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                <FormField
+                  control={contactEditForm.control}
+                  name="jobTitle"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Title</FormLabel>
+                      <FormControl>
+                        <Input {...field} value={field.value || ""} data-testid="input-edit-contact-title" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={contactEditForm.control}
+                  name="tags"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Tags</FormLabel>
+                      <FormControl>
+                        <Input 
+                          {...field} 
+                          value={Array.isArray(field.value) ? field.value.join(', ') : ''} 
+                          onChange={(e) => field.onChange(e.target.value.split(',').map(t => t.trim()).filter(Boolean))}
+                          placeholder="Enter tags separated by commas"
+                          data-testid="input-edit-contact-tags" 
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -1796,16 +1826,43 @@ export default function ProjectDetail() {
                     )}
                   />
                 </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <FormField
+                    control={contactEditForm.control}
+                    name="company"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Company</FormLabel>
+                        <FormControl>
+                          <Input {...field} value={field.value || ""} data-testid="input-edit-contact-company" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={contactEditForm.control}
+                    name="website"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Website</FormLabel>
+                        <FormControl>
+                          <Input type="url" {...field} value={field.value || ""} placeholder="https://" data-testid="input-edit-contact-website" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
               </div>
 
               <Separator />
 
               {/* Address Section */}
               <div className="space-y-4">
-                <div className="flex items-center gap-2">
-                  <Home className="h-4 w-4" />
-                  <h3 className="text-lg font-semibold">Address</h3>
-                </div>
+                <h3 className="text-base font-semibold">Address</h3>
                 
                 <AddressFields
                   control={contactEditForm.control}
@@ -1821,6 +1878,41 @@ export default function ProjectDetail() {
                     country: 'country'
                   }}
                 />
+              </div>
+
+              <Separator />
+
+              {/* Notes Section */}
+              <div className="space-y-4">
+                <h3 className="text-base font-semibold">Notes</h3>
+                <FormField
+                  control={contactEditForm.control}
+                  name="notes"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormControl>
+                        <Textarea 
+                          {...field} 
+                          value={field.value || ""} 
+                          rows={4}
+                          placeholder="Add any notes about this contact..."
+                          data-testid="input-edit-contact-notes" 
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <Separator />
+
+              {/* Custom Fields Section - Placeholder for now */}
+              <div className="space-y-4">
+                <h3 className="text-base font-semibold">Contact Custom Fields</h3>
+                <p className="text-sm text-muted-foreground">
+                  Custom fields can be configured in your tenant settings.
+                </p>
               </div>
 
               <Separator />

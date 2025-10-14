@@ -17,7 +17,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { 
   ArrowLeft, Mail, Phone, Calendar, Briefcase, MessageSquare, ExternalLink, Shield, Info,
   Users, FileText, Upload, Download, Trash, Clock, DollarSign, MapPin,
-  Receipt, File, Send, Check, Edit, Trash2, Plus
+  Receipt, File, Send, Check, Edit, Trash2, Plus, MoreVertical, User, Home
 } from "lucide-react";
 import {
   Select,
@@ -26,6 +26,20 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   Table,
   TableBody,
@@ -53,10 +67,12 @@ import type {
   Project, Client, Member, Venue, ProjectFile, 
   ProjectNote, ProjectMember, Quote, Contract, Invoice, Contact
 } from "@shared/schema";
+import { insertContactSchema } from "@shared/schema";
 import ProjectEmailPanel from "@/components/email/ProjectEmailPanel";
 import ContactPicker from "@/components/quote/ContactPicker";
 import QuoteEditor from "@/components/quote/QuoteEditor";
 import CreateContractDialog from "@/components/contracts/create-contract-dialog";
+import { AddressFields } from "@/components/shared/AddressFields";
 
 const noteSchema = z.object({
   note: z.string().min(1, "Note is required"),
@@ -116,6 +132,9 @@ export default function ProjectDetail() {
   
   // State for editing quotes
   const [editingQuote, setEditingQuote] = useState<Quote | null>(null);
+  
+  // Contact editing state
+  const [showContactEditModal, setShowContactEditModal] = useState(false);
   
   // Get portal status for this project (tenant setting + project override)
   const { data: portalStatus } = useQuery({
@@ -253,6 +272,10 @@ export default function ProjectDetail() {
   const invoiceEditForm = useForm<InvoiceEditData>({
     resolver: zodResolver(invoiceEditSchema),
   });
+  
+  const contactEditForm = useForm<z.infer<typeof insertContactSchema>>({
+    resolver: zodResolver(insertContactSchema),
+  });
 
   // Handle editContract query parameter
   useEffect(() => {
@@ -365,6 +388,32 @@ export default function ProjectDetail() {
       toast({
         title: "Success",
         description: "Member removed successfully",
+      });
+    },
+  });
+  
+  // Contact update mutation
+  const updateContactMutation = useMutation({
+    mutationFn: async (data: z.infer<typeof insertContactSchema>) => {
+      if (!client?.id) throw new Error("No contact to update");
+      const response = await apiRequest("PUT", `/api/contacts/${client.id}`, data);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/projects", projectId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/contacts"] });
+      toast({
+        title: "Success",
+        description: "Contact updated successfully!",
+      });
+      contactEditForm.reset();
+      setShowContactEditModal(false);
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to update contact. Please try again.",
+        variant: "destructive",
       });
     },
   });
@@ -636,6 +685,32 @@ export default function ProjectDetail() {
     setSelectedContactId("");
     setSelectedContactName("");
   };
+  
+  // Handler for contact editing
+  const handleEditContact = () => {
+    if (!client) return;
+    
+    // Populate the form with current contact data
+    const displayName = client.firstName && client.lastName 
+      ? `${client.firstName} ${client.lastName}` 
+      : client.firstName || client.lastName || client.email;
+    
+    contactEditForm.reset({
+      ...client,
+      fullName: displayName,
+      tags: client.tags || [],
+      jobTitle: client.jobTitle || "",
+      website: client.website || "",
+      leadSource: client.leadSource || "",
+      notes: client.notes || "",
+      venueAddress: client.venueAddress || "",
+      venueCity: client.venueCity || "",
+      venueState: client.venueState || "",
+      venueZipCode: client.venueZipCode || "",
+    });
+    
+    setShowContactEditModal(true);
+  };
 
   // Handle edit operations
   const handleEditQuote = (quote: Quote) => {
@@ -848,7 +923,22 @@ export default function ProjectDetail() {
               {client && (
                 <Card>
                   <CardHeader>
-                    <CardTitle>Client Information</CardTitle>
+                    <div className="flex items-center justify-between">
+                      <CardTitle>Client Information</CardTitle>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="outline" size="sm" data-testid="button-contact-menu">
+                            <MoreVertical className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={handleEditContact} data-testid="menu-edit-contact">
+                            <Edit className="h-4 w-4 mr-2" />
+                            Edit Contact
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-3">
@@ -1652,6 +1742,120 @@ export default function ProjectDetail() {
           contract={editingContract}
         />
       )}
+      
+      {/* Contact Edit Modal */}
+      <Dialog open={showContactEditModal} onOpenChange={setShowContactEditModal}>
+        <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Edit Contact</DialogTitle>
+            <DialogDescription>
+              Update contact information. Required fields are marked with an asterisk (*).
+            </DialogDescription>
+          </DialogHeader>
+          
+          <Form {...contactEditForm}>
+            <form onSubmit={contactEditForm.handleSubmit((data) => updateContactMutation.mutate(data))} className="space-y-6">
+              
+              {/* Basic Info Section */}
+              <div className="space-y-4">
+                <div className="flex items-center gap-2">
+                  <User className="h-4 w-4" />
+                  <h3 className="text-lg font-semibold">Basic Info</h3>
+                </div>
+                <FormField
+                  control={contactEditForm.control}
+                  name="fullName"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Full Name *</FormLabel>
+                      <FormControl>
+                        <Input {...field} value={field.value || ""} data-testid="input-edit-contact-name" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <FormField
+                    control={contactEditForm.control}
+                    name="email"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Email *</FormLabel>
+                        <FormControl>
+                          <Input type="email" {...field} data-testid="input-edit-contact-email" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={contactEditForm.control}
+                    name="phone"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Phone</FormLabel>
+                        <FormControl>
+                          <Input type="tel" {...field} value={field.value || ""} data-testid="input-edit-contact-phone" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              </div>
+
+              <Separator />
+
+              {/* Address Section */}
+              <div className="space-y-4">
+                <div className="flex items-center gap-2">
+                  <Home className="h-4 w-4" />
+                  <h3 className="text-lg font-semibold">Address</h3>
+                </div>
+                
+                <AddressFields
+                  control={contactEditForm.control}
+                  countryCode={contactEditForm.watch('country') || undefined}
+                  onCountryChange={(countryCode) =>
+                    contactEditForm.setValue('country', countryCode, { shouldDirty: true, shouldValidate: true })
+                  }
+                  fieldNames={{
+                    address1: 'address',
+                    city: 'city',
+                    state: 'state',
+                    postalCode: 'zipCode',
+                    country: 'country'
+                  }}
+                />
+              </div>
+
+              <Separator />
+
+              {/* Action Buttons */}
+              <div className="flex justify-end gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setShowContactEditModal(false)}
+                  data-testid="button-cancel-contact-edit"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={updateContactMutation.isPending}
+                  data-testid="button-save-contact"
+                >
+                  {updateContactMutation.isPending ? "Saving..." : "Save Changes"}
+                </Button>
+              </div>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

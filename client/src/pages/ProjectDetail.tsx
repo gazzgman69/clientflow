@@ -14,6 +14,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { TagInput } from "@/components/ui/tag-input";
 import { 
   ArrowLeft, Mail, Phone, Calendar, Briefcase, MessageSquare, ExternalLink, Shield, Info,
   Users, FileText, Upload, Download, Trash, Clock, DollarSign, MapPin,
@@ -1784,12 +1785,10 @@ export default function ProjectDetail() {
                     <FormItem>
                       <FormLabel>Tags</FormLabel>
                       <FormControl>
-                        <Input 
-                          {...field} 
-                          value={Array.isArray(field.value) ? field.value.join(', ') : ''} 
-                          onChange={(e) => field.onChange(e.target.value.split(',').map(t => t.trim()).filter(Boolean))}
-                          placeholder="Enter tags separated by commas"
-                          data-testid="input-edit-contact-tags" 
+                        <TagInput
+                          value={Array.isArray(field.value) ? field.value : []}
+                          onChange={field.onChange}
+                          placeholder="Type to add tags..."
                         />
                       </FormControl>
                       <FormMessage />

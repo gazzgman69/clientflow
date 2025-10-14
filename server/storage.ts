@@ -4304,12 +4304,11 @@ export class DrizzleStorage implements IStorage {
   }
 
   async incrementTagUsage(id: string, tenantId: string): Promise<void> {
-    await this.db.update(tags)
-      .set({
-        usageCount: sql`usage_count + 1`,
-        updatedAt: new Date(),
-      })
-      .where(and(eq(tags.id, id), eq(tags.tenantId, tenantId)));
+    const neonClient = neon(process.env.DATABASE_URL!);
+    await neonClient(
+      'UPDATE tags SET usage_count = usage_count + 1, updated_at = NOW() WHERE id = $1 AND tenant_id = $2',
+      [id, tenantId]
+    );
   }
   
   // Projects - Using PostgreSQL

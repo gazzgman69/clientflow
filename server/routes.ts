@@ -2478,7 +2478,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
         venueId: contact.venue_id,
         venueName: contact.venue_name,
         leadId: contact.lead_id,
-        tags: contact.tags ? contact.tags.split(',').map((tag: string) => tag.trim()).filter(Boolean) : [],
+        tags: Array.isArray(contact.tags) ? contact.tags : [],
         leadSource: contact.lead_source,
         notes: contact.notes,
         createdAt: contact.created_at,

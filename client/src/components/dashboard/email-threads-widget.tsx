@@ -53,6 +53,13 @@ interface EmailThreadDetails {
   };
 }
 
+// Helper function to decode HTML entities
+function decodeHtmlEntities(text: string): string {
+  const textArea = document.createElement('textarea');
+  textArea.innerHTML = text;
+  return textArea.value;
+}
+
 export default function EmailThreadsWidget() {
   const [, setLocation] = useLocation();
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
@@ -359,10 +366,10 @@ export default function EmailThreadsWidget() {
                   data-testid={`email-content-${thread.threadId}`}
                 >
                   <div className="text-sm font-medium truncate group-hover:text-primary transition-colors">
-                    {thread.latest.subject}
+                    {decodeHtmlEntities(thread.latest.subject)}
                   </div>
                   <div className="text-xs text-muted-foreground truncate group-hover:text-primary transition-colors">
-                    {thread.latest.snippet}
+                    {decodeHtmlEntities(thread.latest.snippet)}
                   </div>
                 </div>
               </div>

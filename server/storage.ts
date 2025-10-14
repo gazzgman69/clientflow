@@ -4306,7 +4306,7 @@ export class DrizzleStorage implements IStorage {
   async incrementTagUsage(id: string, tenantId: string): Promise<void> {
     await this.db.update(tags)
       .set({
-        usageCount: sql`${tags.usageCount} + 1`,
+        usageCount: sql`usage_count + 1`,
         updatedAt: new Date(),
       })
       .where(and(eq(tags.id, id), eq(tags.tenantId, tenantId)));

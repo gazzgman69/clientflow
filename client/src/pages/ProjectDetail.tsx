@@ -911,12 +911,12 @@ export default function ProjectDetail() {
                 </CardContent>
               </Card>
 
-              {/* Client Information */}
+              {/* Contact Information */}
               {projectContact && (
                 <Card>
                   <CardHeader>
                     <div className="flex items-center justify-between">
-                      <CardTitle>Client Information</CardTitle>
+                      <CardTitle>Contact Information</CardTitle>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <Button variant="outline" size="sm" data-testid="button-contact-menu">

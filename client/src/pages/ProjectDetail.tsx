@@ -388,7 +388,7 @@ export default function ProjectDetail() {
   const updateContactMutation = useMutation({
     mutationFn: async (data: z.infer<typeof insertContactSchema>) => {
       if (!projectContact?.id) throw new Error("No contact to update");
-      const response = await apiRequest("PUT", `/api/contacts/${projectContact.id}`, data);
+      const response = await apiRequest("PATCH", `/api/contacts/${projectContact.id}`, data);
       return response.json();
     },
     onSuccess: () => {

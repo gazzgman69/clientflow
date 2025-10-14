@@ -124,6 +124,24 @@ export const contactFieldValues = pgTable("contact_field_values", {
   };
 });
 
+// Tags - Reusable tags for contacts with color coding and categories
+export const tags = pgTable("tags", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").references(() => tenants.id).notNull(),
+  name: text("name").notNull(), // Tag name (e.g., "Wedding", "VIP", "Follow-up")
+  color: text("color").notNull().default('#3b82f6'), // Hex color code for visual distinction
+  category: text("category"), // Optional category (e.g., "Lead Source", "Event Type", "Status")
+  usageCount: integer("usage_count").default(0), // Track how often this tag is used
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => {
+  return {
+    tenantIdIdx: index("tags_tenant_id_idx").on(table.tenantId),
+    tenantNameUnique: unique("tags_tenant_name_unique").on(table.tenantId, table.name),
+    tenantCategoryIdx: index("tags_tenant_category_idx").on(table.tenantId, table.category),
+  };
+});
+
 export const projects = pgTable("projects", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   tenantId: varchar("tenant_id").references(() => tenants.id).notNull(), // SECURITY FIX: Made NOT NULL for tenant isolation
@@ -1910,4 +1928,15 @@ export const insertContactFieldValueSchema = createInsertSchema(contactFieldValu
 
 export type ContactFieldValue = typeof contactFieldValues.$inferSelect;
 export type InsertContactFieldValue = z.infer<typeof insertContactFieldValueSchema>;
+
+// Insert schemas and types for tags
+export const insertTagSchema = createInsertSchema(tags).omit({ 
+  id: true, 
+  createdAt: true, 
+  updatedAt: true,
+  usageCount: true 
+});
+
+export type Tag = typeof tags.$inferSelect;
+export type InsertTag = z.infer<typeof insertTagSchema>;
 

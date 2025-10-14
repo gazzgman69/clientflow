@@ -61,6 +61,8 @@ import {
   // Custom Contact Fields types
   type ContactFieldDefinition, type InsertContactFieldDefinition,
   type ContactFieldValue, type InsertContactFieldValue,
+  // Tags types
+  type Tag, type InsertTag,
   users, leads, contacts, projects, quotes, contracts, contractTemplates, invoices, tasks, emails, emailThreads, activities, automations, 
   members, venues, projectMembers, memberAvailability, projectFiles, projectNotes, smsMessages, 
   messageTemplates, messageThreads, calendars, events, calendarIntegrations, calendarSyncLog, templates, leadCaptureForms,
@@ -80,7 +82,9 @@ import {
   // Document views
   documentViews,
   // Custom Contact Fields tables
-  contactFieldDefinitions, contactFieldValues
+  contactFieldDefinitions, contactFieldValues,
+  // Tags table
+  tags
 } from "@shared/schema";
 import crypto from "crypto";
 import { TenantScopedStorage } from './utils/tenantScopedStorage';
@@ -144,6 +148,15 @@ export interface IStorage {
   getContactFieldValue(contactId: string, fieldDefinitionId: string, tenantId: string): Promise<ContactFieldValue | undefined>;
   setContactFieldValue(value: InsertContactFieldValue, tenantId: string): Promise<ContactFieldValue>;
   deleteContactFieldValue(contactId: string, fieldDefinitionId: string, tenantId: string): Promise<boolean>;
+  
+  // Tags
+  getTags(tenantId: string, category?: string): Promise<Tag[]>;
+  getTag(id: string, tenantId: string): Promise<Tag | undefined>;
+  getTagByName(name: string, tenantId: string): Promise<Tag | undefined>;
+  createTag(tag: InsertTag, tenantId: string): Promise<Tag>;
+  updateTag(id: string, tag: Partial<InsertTag>, tenantId: string): Promise<Tag | undefined>;
+  deleteTag(id: string, tenantId: string): Promise<boolean>;
+  incrementTagUsage(id: string, tenantId: string): Promise<void>;
   
   // Projects
   getProjects(tenantId: string, userId?: string, limit?: number, offset?: number): Promise<Project[]>;
@@ -4239,6 +4252,64 @@ export class DrizzleStorage implements IStorage {
       )
     );
     return result.rowCount > 0;
+  }
+
+  // Tags
+  async getTags(tenantId: string, category?: string): Promise<Tag[]> {
+    const conditions = [eq(tags.tenantId, tenantId)];
+    if (category) {
+      conditions.push(eq(tags.category, category));
+    }
+    return await this.db.select().from(tags).where(and(...conditions)).orderBy(desc(tags.usageCount), tags.name);
+  }
+
+  async getTag(id: string, tenantId: string): Promise<Tag | undefined> {
+    const result = await this.db.select().from(tags).where(
+      and(eq(tags.id, id), eq(tags.tenantId, tenantId))
+    );
+    return result[0];
+  }
+
+  async getTagByName(name: string, tenantId: string): Promise<Tag | undefined> {
+    const result = await this.db.select().from(tags).where(
+      and(eq(tags.name, name), eq(tags.tenantId, tenantId))
+    );
+    return result[0];
+  }
+
+  async createTag(tag: InsertTag, tenantId: string): Promise<Tag> {
+    const result = await this.db.insert(tags).values({
+      ...tag,
+      tenantId,
+    }).returning();
+    return result[0];
+  }
+
+  async updateTag(id: string, tag: Partial<InsertTag>, tenantId: string): Promise<Tag | undefined> {
+    const result = await this.db.update(tags)
+      .set({
+        ...omitUndefined(tag),
+        updatedAt: new Date(),
+      })
+      .where(and(eq(tags.id, id), eq(tags.tenantId, tenantId)))
+      .returning();
+    return result[0];
+  }
+
+  async deleteTag(id: string, tenantId: string): Promise<boolean> {
+    const result = await this.db.delete(tags).where(
+      and(eq(tags.id, id), eq(tags.tenantId, tenantId))
+    );
+    return result.rowCount > 0;
+  }
+
+  async incrementTagUsage(id: string, tenantId: string): Promise<void> {
+    await this.db.update(tags)
+      .set({
+        usageCount: sql`${tags.usageCount} + 1`,
+        updatedAt: new Date(),
+      })
+      .where(and(eq(tags.id, id), eq(tags.tenantId, tenantId)));
   }
   
   // Projects - Using PostgreSQL

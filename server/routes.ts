@@ -2742,6 +2742,88 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
 
+  // Tags
+  app.get("/api/tags", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
+    try {
+      const category = req.query.category as string | undefined;
+      const tags = await storage.getTags(req.tenantId, category);
+      res.json(tags);
+    } catch (error) {
+      console.error('Error fetching tags:', error);
+      res.status(500).json({ message: "Failed to fetch tags" });
+    }
+  });
+
+  app.get("/api/tags/:id", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
+    try {
+      const tag = await storage.getTag(req.params.id, req.tenantId);
+      if (!tag) {
+        return res.status(404).json({ message: "Tag not found" });
+      }
+      res.json(tag);
+    } catch (error) {
+      console.error('Error fetching tag:', error);
+      res.status(500).json({ message: "Failed to fetch tag" });
+    }
+  });
+
+  app.post("/api/tags", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
+    try {
+      const { name, color, category } = req.body;
+      
+      // Check if tag already exists
+      const existingTag = await storage.getTagByName(name, req.tenantId);
+      if (existingTag) {
+        // Increment usage and return existing tag
+        await storage.incrementTagUsage(existingTag.id, req.tenantId);
+        return res.json(existingTag);
+      }
+
+      // Create new tag
+      const tag = await storage.createTag({
+        name,
+        color: color || '#3b82f6',
+        category: category || null,
+        tenantId: req.tenantId
+      }, req.tenantId);
+      res.status(201).json(tag);
+    } catch (error) {
+      console.error('Error creating tag:', error);
+      res.status(400).json({ message: "Failed to create tag" });
+    }
+  });
+
+  app.patch("/api/tags/:id", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
+    try {
+      const { name, color, category } = req.body;
+      const tag = await storage.updateTag(req.params.id, {
+        name,
+        color,
+        category
+      }, req.tenantId);
+      if (!tag) {
+        return res.status(404).json({ message: "Tag not found" });
+      }
+      res.json(tag);
+    } catch (error) {
+      console.error('Error updating tag:', error);
+      res.status(400).json({ message: "Failed to update tag" });
+    }
+  });
+
+  app.delete("/api/tags/:id", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
+    try {
+      const deleted = await storage.deleteTag(req.params.id, req.tenantId);
+      if (!deleted) {
+        return res.status(404).json({ message: "Tag not found" });
+      }
+      res.json({ message: "Tag deleted successfully" });
+    } catch (error) {
+      console.error('Error deleting tag:', error);
+      res.status(500).json({ message: "Failed to delete tag" });
+    }
+  });
+
   // Stub endpoints for missing admin features (to prevent 404 errors in console)
   app.get("/api/clients", ensureUserAuth, tenantResolver, requireTenant, async (req: any, res) => {
     // This endpoint is deprecated - redirecting to contacts

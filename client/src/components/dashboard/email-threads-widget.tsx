@@ -328,44 +328,42 @@ export default function EmailThreadsWidget() {
             {threads.map((thread: EmailThread) => (
               <div 
                 key={thread.threadId}
-                className="border rounded-lg p-3 hover:bg-muted/50 cursor-pointer transition-colors"
+                className="border rounded-lg p-4 hover:bg-muted/50 cursor-pointer transition-colors space-y-2"
                 data-testid={`thread-${thread.threadId}`}
               >
-                <div className="flex items-start justify-between">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span 
-                        className="text-sm font-medium truncate hover:text-primary cursor-pointer transition-colors"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleContactClick(thread.latest.from);
-                        }}
-                        data-testid={`contact-${thread.threadId}`}
-                      >
-                        {thread.latest.from}
-                      </span>
-                      <span className="text-xs text-muted-foreground">
-                        {formatDate(thread.latest.dateISO)}
-                      </span>
-                    </div>
-                    <div 
-                      className="group cursor-pointer hover:bg-muted/30 rounded px-1 py-0.5 -mx-1 transition-colors"
-                      onClick={() => handleEmailClick(thread.threadId)}
-                      data-testid={`email-content-${thread.threadId}`}
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3 min-w-0 flex-1">
+                    <span 
+                      className="text-sm font-medium truncate hover:text-primary cursor-pointer transition-colors"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleContactClick(thread.latest.from);
+                      }}
+                      data-testid={`contact-${thread.threadId}`}
                     >
-                      <p className="text-sm font-medium mb-1 truncate group-hover:text-primary transition-colors">
-                        {thread.latest.subject}
-                      </p>
-                      <p className="text-xs text-muted-foreground truncate group-hover:text-primary transition-colors">
-                        {thread.latest.snippet}
-                      </p>
-                    </div>
+                      {thread.latest.from}
+                    </span>
+                    <span className="text-xs text-muted-foreground whitespace-nowrap flex-shrink-0">
+                      {formatDate(thread.latest.dateISO)}
+                    </span>
                   </div>
                   {thread.count > 1 && (
-                    <span className="text-xs bg-muted px-2 py-1 rounded-full ml-2 flex-shrink-0">
+                    <span className="text-xs bg-muted px-2 py-1 rounded-full flex-shrink-0">
                       {thread.count}
                     </span>
                   )}
+                </div>
+                <div 
+                  className="group cursor-pointer hover:bg-muted/30 rounded p-2 -mx-2 transition-colors space-y-1"
+                  onClick={() => handleEmailClick(thread.threadId)}
+                  data-testid={`email-content-${thread.threadId}`}
+                >
+                  <div className="text-sm font-medium truncate group-hover:text-primary transition-colors">
+                    {thread.latest.subject}
+                  </div>
+                  <div className="text-xs text-muted-foreground truncate group-hover:text-primary transition-colors">
+                    {thread.latest.snippet}
+                  </div>
                 </div>
               </div>
             ))}

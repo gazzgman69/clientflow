@@ -54,11 +54,7 @@ export function TagInput({ value = [], onChange, placeholder = "Add tags...", cl
 
     // Create tag in backend (or get existing)
     try {
-      await apiRequest('/api/tags', {
-        method: 'POST',
-        body: JSON.stringify({ name: trimmedTag }),
-        headers: { 'Content-Type': 'application/json' }
-      });
+      await apiRequest('POST', '/api/tags', { name: trimmedTag });
       
       // Invalidate tags query to refresh the list
       queryClient.invalidateQueries({ queryKey: ['/api/tags'] });

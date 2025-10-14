@@ -640,25 +640,33 @@ export class GmailService {
         const headers = detailResponse.data.payload?.headers || [];
         const getHeader = (name: string) => headers.find(h => h.name === name)?.value || '';
 
-        // Extract message body
-        let body = '';
+        // Extract message body - prefer HTML for rich formatting
+        let htmlBody = '';
+        let textBody = '';
         const payload = detailResponse.data.payload;
         if (payload) {
           if (payload.parts) {
-            // Multipart message
+            // Multipart message - extract both HTML and plain text
             for (const part of payload.parts) {
-              if (part.mimeType === 'text/plain' && part.body?.data) {
-                body += Buffer.from(part.body.data, 'base64').toString();
-              } else if (part.mimeType === 'text/html' && part.body?.data && !body) {
-                // Fallback to HTML if no plain text
-                body += Buffer.from(part.body.data, 'base64').toString();
+              if (part.mimeType === 'text/html' && part.body?.data) {
+                htmlBody += Buffer.from(part.body.data, 'base64').toString();
+              } else if (part.mimeType === 'text/plain' && part.body?.data) {
+                textBody += Buffer.from(part.body.data, 'base64').toString();
               }
             }
           } else if (payload.body?.data) {
             // Single part message
-            body = Buffer.from(payload.body.data, 'base64').toString();
+            const bodyContent = Buffer.from(payload.body.data, 'base64').toString();
+            if (payload.mimeType === 'text/html') {
+              htmlBody = bodyContent;
+            } else {
+              textBody = bodyContent;
+            }
           }
         }
+        
+        // Prefer HTML for better formatting with links and buttons, fallback to plain text
+        const body = htmlBody || textBody;
 
         threadMessages.push({
           id: message.id,

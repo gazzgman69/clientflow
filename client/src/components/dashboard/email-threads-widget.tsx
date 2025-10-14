@@ -432,11 +432,11 @@ export default function EmailThreadsWidget() {
                   </div>
                 </div>
                 
-                <div className="prose max-w-none text-sm">
+                <div className="prose prose-sm max-w-none dark:prose-invert">
                   <div 
-                    className="whitespace-pre-wrap break-words"
+                    className="email-content break-words"
                     dangerouslySetInnerHTML={{ 
-                      __html: (message.body || message.snippet).replace(/\n/g, '<br>') 
+                      __html: message.body || message.snippet
                     }}
                   />
                 </div>

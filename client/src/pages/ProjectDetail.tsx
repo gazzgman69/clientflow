@@ -64,7 +64,7 @@ import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { formatDistanceToNow } from "date-fns";
 import type { 
-  Project, Client, Member, Venue, ProjectFile, 
+  Project, Member, Venue, ProjectFile, 
   ProjectNote, ProjectMember, Quote, Contract, Invoice, Contact
 } from "@shared/schema";
 import { insertContactSchema } from "@shared/schema";
@@ -189,15 +189,6 @@ export default function ProjectDetail() {
       return response.json();
     },
     enabled: !!projectId,
-  });
-
-  const { data: client } = useQuery<Client>({
-    queryKey: ["/api/clients", project?.clientId],
-    queryFn: async () => {
-      const response = await apiRequest("GET", `/api/clients/${project?.clientId}`);
-      return response.json();
-    },
-    enabled: !!project?.clientId,
   });
 
   // Additional queries from modal
@@ -395,8 +386,8 @@ export default function ProjectDetail() {
   // Contact update mutation
   const updateContactMutation = useMutation({
     mutationFn: async (data: z.infer<typeof insertContactSchema>) => {
-      if (!client?.id) throw new Error("No contact to update");
-      const response = await apiRequest("PUT", `/api/contacts/${client.id}`, data);
+      if (!projectContact?.id) throw new Error("No contact to update");
+      const response = await apiRequest("PUT", `/api/contacts/${projectContact.id}`, data);
       return response.json();
     },
     onSuccess: () => {
@@ -688,25 +679,25 @@ export default function ProjectDetail() {
   
   // Handler for contact editing
   const handleEditContact = () => {
-    if (!client) return;
+    if (!projectContact) return;
     
     // Populate the form with current contact data
-    const displayName = client.firstName && client.lastName 
-      ? `${client.firstName} ${client.lastName}` 
-      : client.firstName || client.lastName || client.email;
+    const displayName = projectContact.firstName && projectContact.lastName 
+      ? `${projectContact.firstName} ${projectContact.lastName}` 
+      : projectContact.firstName || projectContact.lastName || projectContact.email;
     
     contactEditForm.reset({
-      ...client,
+      ...projectContact,
       fullName: displayName,
-      tags: client.tags || [],
-      jobTitle: client.jobTitle || "",
-      website: client.website || "",
-      leadSource: client.leadSource || "",
-      notes: client.notes || "",
-      venueAddress: client.venueAddress || "",
-      venueCity: client.venueCity || "",
-      venueState: client.venueState || "",
-      venueZipCode: client.venueZipCode || "",
+      tags: projectContact.tags || [],
+      jobTitle: projectContact.jobTitle || "",
+      website: projectContact.website || "",
+      leadSource: projectContact.leadSource || "",
+      notes: projectContact.notes || "",
+      venueAddress: projectContact.venueAddress || "",
+      venueCity: projectContact.venueCity || "",
+      venueState: projectContact.venueState || "",
+      venueZipCode: projectContact.venueZipCode || "",
     });
     
     setShowContactEditModal(true);
@@ -920,7 +911,7 @@ export default function ProjectDetail() {
               </Card>
 
               {/* Client Information */}
-              {client && (
+              {projectContact && (
                 <Card>
                   <CardHeader>
                     <div className="flex items-center justify-between">
@@ -943,33 +934,33 @@ export default function ProjectDetail() {
                   <CardContent>
                     <div className="space-y-3">
                       <div>
-                        <span className="font-medium">{client.firstName} {client.lastName}</span>
+                        <span className="font-medium">{projectContact.firstName} {projectContact.lastName}</span>
                       </div>
-                      {client.email && (
+                      {projectContact.email && (
                         <div className="flex items-center gap-2">
                           <Mail className="h-4 w-4 text-muted-foreground" />
                           <a 
-                            href={`mailto:${client.email}`} 
+                            href={`mailto:${projectContact.email}`} 
                             className="text-primary hover:underline"
                           >
-                            {client.email}
+                            {projectContact.email}
                           </a>
                         </div>
                       )}
-                      {client.phone && (
+                      {projectContact.phone && (
                         <div className="flex items-center gap-2">
                           <Phone className="h-4 w-4 text-muted-foreground" />
                           <a 
-                            href={`tel:${client.phone}`} 
+                            href={`tel:${projectContact.phone}`} 
                             className="text-primary hover:underline"
                           >
-                            {client.phone}
+                            {projectContact.phone}
                           </a>
                         </div>
                       )}
-                      {client.address && (
+                      {projectContact.address && (
                         <div>
-                          <span className="text-muted-foreground">Address:</span> {client.address}
+                          <span className="text-muted-foreground">Address:</span> {projectContact.address}
                         </div>
                       )}
                     </div>

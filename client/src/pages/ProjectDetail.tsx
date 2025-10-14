@@ -912,7 +912,7 @@ export default function ProjectDetail() {
               </Card>
 
               {/* Contact Information */}
-              {projectContact && (
+              {project?.contactId && (
                 <Card>
                   <CardHeader>
                     <div className="flex items-center justify-between">
@@ -924,7 +924,7 @@ export default function ProjectDetail() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={handleEditContact} data-testid="menu-edit-contact">
+                          <DropdownMenuItem onClick={handleEditContact} data-testid="menu-edit-contact" disabled={!projectContact}>
                             <Edit className="h-4 w-4 mr-2" />
                             Edit Contact
                           </DropdownMenuItem>
@@ -935,20 +935,22 @@ export default function ProjectDetail() {
                   <CardContent>
                     <div className="space-y-3">
                       <div>
-                        <span className="font-medium">{projectContact.firstName} {projectContact.lastName}</span>
+                        <span className="font-medium">
+                          {(project as any).contact_first_name || projectContact?.firstName} {(project as any).contact_last_name || projectContact?.lastName}
+                        </span>
                       </div>
-                      {projectContact.email && (
+                      {((project as any).contact_email || projectContact?.email) && (
                         <div className="flex items-center gap-2">
                           <Mail className="h-4 w-4 text-muted-foreground" />
                           <a 
-                            href={`mailto:${projectContact.email}`} 
+                            href={`mailto:${(project as any).contact_email || projectContact?.email}`} 
                             className="text-primary hover:underline"
                           >
-                            {projectContact.email}
+                            {(project as any).contact_email || projectContact?.email}
                           </a>
                         </div>
                       )}
-                      {projectContact.phone && (
+                      {projectContact?.phone && (
                         <div className="flex items-center gap-2">
                           <Phone className="h-4 w-4 text-muted-foreground" />
                           <a 
@@ -959,7 +961,7 @@ export default function ProjectDetail() {
                           </a>
                         </div>
                       )}
-                      {projectContact.address && (
+                      {projectContact?.address && (
                         <div>
                           <span className="text-muted-foreground">Address:</span> {projectContact.address}
                         </div>

@@ -2602,11 +2602,24 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
 
   app.patch("/api/contacts/:id", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
     try {
+      console.log('🏷️ CONTACT UPDATE DEBUG:', {
+        contactId: req.params.id,
+        receivedTags: req.body.tags,
+        fullBody: req.body
+      });
       const contactData = insertContactSchema.partial().parse(req.body);
+      console.log('🏷️ PARSED CONTACT DATA:', {
+        tags: contactData.tags,
+        hasTags: 'tags' in contactData
+      });
       const contact = await storage.updateContact(req.params.id, contactData, req.tenantId);
       if (!contact) {
         return res.status(404).json({ message: "Contact not found" });
       }
+      console.log('🏷️ UPDATED CONTACT RESULT:', {
+        id: contact.id,
+        tags: contact.tags
+      });
       res.json(contact);
     } catch (error) {
       res.status(400).json({ message: "Invalid contact data" });

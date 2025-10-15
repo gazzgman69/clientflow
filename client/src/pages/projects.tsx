@@ -78,7 +78,20 @@ export default function Projects() {
   const queryClient = useQueryClient();
   const [, setLocation] = useLocation();
 
-  const { data: projectsData, isLoading } = useQuery<{projects: Project[], pagination: any}>({
+  const { data: projectsData, isLoading } = useQuery<{
+    projects: Project[], 
+    pagination: any,
+    documentStatuses?: Record<string, {
+      contracts: Array<{
+        status: string;
+        clientSignedAt: string | null;
+        businessSignedAt: string | null;
+        signatureWorkflow: string;
+      }>;
+      invoices: Record<string, number>;
+      quotes: Record<string, number>;
+    }>
+  }>({
     queryKey: ["/api/projects"],
     refetchInterval: 10000, // Refresh every 10 seconds for better responsiveness
     refetchIntervalInBackground: false, // Don't poll when tab is inactive
@@ -89,6 +102,7 @@ export default function Projects() {
   });
 
   const projects = projectsData?.projects || [];
+  const documentStatuses = projectsData?.documentStatuses || {};
 
   const { data: contactsData } = useQuery<{ contacts: Contact[] }>({
     queryKey: ["/api/contacts"],
@@ -102,26 +116,6 @@ export default function Projects() {
 
   const { data: venuesData } = useQuery<{ venues: Venue[] }>({
     queryKey: ["/api/venues"],
-    refetchInterval: 10000,
-    refetchIntervalInBackground: false,
-    refetchOnWindowFocus: true,
-    refetchOnMount: true,
-    refetchOnReconnect: true,
-    staleTime: 5000,
-  });
-
-  // Fetch document statuses for all projects
-  const { data: documentStatuses } = useQuery<Record<string, {
-    contracts: Array<{
-      status: string;
-      clientSignedAt: string | null;
-      businessSignedAt: string | null;
-      signatureWorkflow: string;
-    }>;
-    invoices: Record<string, number>;
-    quotes: Record<string, number>;
-  }>>({
-    queryKey: ["/api/projects/document-statuses"],
     refetchInterval: 10000,
     refetchIntervalInBackground: false,
     refetchOnWindowFocus: true,

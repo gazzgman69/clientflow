@@ -20,8 +20,10 @@ The system includes scaffolding for multitenancy, allowing multiple organization
 ## Data Storage
 PostgreSQL is the primary database, utilizing Drizzle ORM for type-safe operations and migrations. Neon Database provides serverless PostgreSQL hosting. The schema, defined in `/shared/schema.ts`, includes tables for users, leads, clients, projects, quotes, contracts, invoices, tasks, emails, activities, and automations.
 
-## Email Provider OAuth Integration
+## Email Provider OAuth Integration & Performance
 The system incorporates a comprehensive email provider integration system. This includes a database-backed provider catalog supporting Gmail and Microsoft 365/Outlook, secure OAuth 2.0 flows with PKCE, encrypted token storage, and multi-tenant support with one-active-provider-per-tenant enforcement. It features an outgoing email service with provider fallback and a background worker for contacts-only email synchronization. Automatic calendar event creation for leads with Google Calendar sync conflict resolution is also implemented, ensuring CRM-created events are protected from overwrites and support cascade deletion with projects.
+
+**Email Loading Performance**: Emails are fetched from Gmail API and stored in PostgreSQL with composite indexes (`projectId`, `sentAt`) for instant retrieval. TanStack Query caches email data with a 5-minute staleTime for instant loading on subsequent visits, matching 17hats performance standards. Manual refresh available via UI when needed.
 
 ## Authentication & Session Management
 The architecture includes preparations for session-based authentication using `connect-pg-simple` for PostgreSQL session storage, user management schema with secure password handling, and a structure for protected routes.

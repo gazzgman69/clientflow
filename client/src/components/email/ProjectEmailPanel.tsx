@@ -246,22 +246,20 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
 
   // Fetch individual email messages for the project
   const { data: messagesResponse, isLoading: messagesLoading, error: messagesError } = useQuery({
-    queryKey: [`/api/email/projects/${projectId}/email-messages`, contact?.email, emails],
+    queryKey: [`/api/email/projects/${projectId}/email-messages`],
     queryFn: async () => {
-      console.log(`🔍 Fetching emails for project: ${projectId}`);
       const response = await fetch(`/api/email/projects/${projectId}/email-messages`, {
         credentials: 'include'
       });
       const data = await response.json();
-      console.log(`📧 Email response:`, data);
       if (!response.ok) {
         console.error(`❌ Email fetch failed:`, response.status, data);
       }
       return data;
     },
     enabled: !!projectId && !!currentUser,
-    staleTime: 30000,
-    refetchInterval: forceRefresh ? 5000 : 60000,
+    staleTime: 5 * 60 * 1000, // 5 minutes - emails are cached and load instantly
+    refetchInterval: forceRefresh ? 5000 : false, // Only refetch when manually refreshing
   });
 
   // Update template mutation

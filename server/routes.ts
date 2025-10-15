@@ -3153,12 +3153,36 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   // Generic :id route comes AFTER specific routes
   app.get("/api/projects/:id", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
     try {
-      const project = await storage.getProject(req.params.id, (req as any).tenantId);
-      if (!project) {
+      const neonClient = neon(process.env.DATABASE_URL!);
+      
+      // Fetch project with contact information in a single query for instant loading
+      const result = await neonClient(`
+        SELECT 
+          p.*,
+          c.first_name as contact_first_name,
+          c.last_name as contact_last_name,
+          c.email as contact_email,
+          c.phone as contact_phone,
+          c.address as contact_address,
+          c.job_title as contact_job_title,
+          c.website as contact_website,
+          v.name as venue_name,
+          v.address as venue_address,
+          v.city as venue_city,
+          v.state as venue_state
+        FROM projects p
+        LEFT JOIN contacts c ON p.contact_id = c.id AND p.tenant_id = c.tenant_id
+        LEFT JOIN venues v ON p.venue_id = v.id AND p.tenant_id = v.tenant_id
+        WHERE p.id = $1 AND p.tenant_id = $2
+      `, [req.params.id, req.tenantId]);
+      
+      if (!result || result.length === 0) {
         return res.status(404).json({ message: "Project not found" });
       }
-      res.json(project);
+      
+      res.json(result[0]);
     } catch (error) {
+      console.error('Error fetching project:', error);
       res.status(500).json({ message: "Failed to fetch project" });
     }
   });

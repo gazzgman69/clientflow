@@ -240,11 +240,17 @@ export default function ProjectDetail() {
     enabled: !!project && !!project.venueId,
   });
 
-  // Fetch contact information for the project
-  const { data: projectContact } = useQuery<Contact>({
-    queryKey: ["/api/contacts", project?.contactId],
-    enabled: !!project && !!project.contactId,
-  });
+  // Contact information is now embedded in the project response for instant loading
+  const projectContact = project?.contactId ? {
+    id: project.contactId,
+    firstName: (project as any).contact_first_name,
+    lastName: (project as any).contact_last_name,
+    email: (project as any).contact_email,
+    phone: (project as any).contact_phone,
+    address: (project as any).contact_address,
+    jobTitle: (project as any).contact_job_title,
+    website: (project as any).contact_website,
+  } : null;
 
   // Forms
   const noteForm = useForm<NoteFormData>({

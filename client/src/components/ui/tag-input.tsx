@@ -18,7 +18,7 @@ interface TagData extends Tag {}
 export function TagInput({ value = [], onChange, placeholder = "Add tags...", className }: TagInputProps) {
   const [inputValue, setInputValue] = useState("");
   const [showSuggestions, setShowSuggestions] = useState(false);
-  const [selectedIndex, setSelectedIndex] = useState(0);
+  const [selectedIndex, setSelectedIndex] = useState(-1); // -1 means no selection
   const [isCreating, setIsCreating] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
@@ -65,7 +65,7 @@ export function TagInput({ value = [], onChange, placeholder = "Add tags...", cl
       onChange([...value, trimmedTag]);
       setInputValue("");
       setShowSuggestions(false);
-      setSelectedIndex(0);
+      setSelectedIndex(-1);
     } catch (error) {
       console.error('Error creating tag:', error);
     } finally {
@@ -80,9 +80,11 @@ export function TagInput({ value = [], onChange, placeholder = "Add tags...", cl
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
       e.preventDefault();
-      if (showSuggestions && suggestions.length > 0 && selectedIndex < suggestions.length) {
+      // Only use suggestion if user navigated to it with arrow keys (selectedIndex >= 0)
+      if (showSuggestions && suggestions.length > 0 && selectedIndex >= 0 && selectedIndex < suggestions.length) {
         addTag(suggestions[selectedIndex].name);
       } else if (inputValue.trim()) {
+        // Create new tag with typed value
         addTag(inputValue);
       }
     } else if (e.key === ',') {
@@ -94,19 +96,26 @@ export function TagInput({ value = [], onChange, placeholder = "Add tags...", cl
       removeTag(value[value.length - 1]);
     } else if (e.key === 'ArrowDown' && showSuggestions) {
       e.preventDefault();
-      setSelectedIndex(prev => (prev + 1) % suggestions.length);
+      setSelectedIndex(prev => {
+        if (prev === -1) return 0; // Start from first item
+        return (prev + 1) % suggestions.length;
+      });
     } else if (e.key === 'ArrowUp' && showSuggestions) {
       e.preventDefault();
-      setSelectedIndex(prev => (prev - 1 + suggestions.length) % suggestions.length);
+      setSelectedIndex(prev => {
+        if (prev === -1) return suggestions.length - 1; // Start from last item
+        return (prev - 1 + suggestions.length) % suggestions.length;
+      });
     } else if (e.key === 'Escape') {
       setShowSuggestions(false);
+      setSelectedIndex(-1);
     }
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setInputValue(e.target.value);
     setShowSuggestions(true);
-    setSelectedIndex(0);
+    setSelectedIndex(-1); // Reset selection when typing
   };
 
   // Get tag color from backend or use default

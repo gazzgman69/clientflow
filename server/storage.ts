@@ -1357,9 +1357,29 @@ export class MemStorage implements IStorage {
 
   // Income Categories
   async getIncomeCategories(tenantId: string): Promise<IncomeCategory[]> {
-    return Array.from(this.incomeCategories.values())
+    const categories = Array.from(this.incomeCategories.values())
       .filter(category => category.tenantId === tenantId)
       .sort((a, b) => new Date(b.createdAt!).getTime() - new Date(a.createdAt!).getTime());
+    
+    // Auto-seed predefined categories if none exist for this tenant
+    if (categories.length === 0) {
+      const predefinedCategories = [
+        { name: 'Sales', isSystem: true },
+        { name: 'Services', isSystem: true },
+        { name: 'Rentals', isSystem: true },
+        { name: 'Other', isSystem: true },
+      ];
+      
+      const seededCategories = await Promise.all(
+        predefinedCategories.map(cat => 
+          this.createIncomeCategory(cat, tenantId)
+        )
+      );
+      
+      return seededCategories;
+    }
+    
+    return categories;
   }
 
   async getIncomeCategory(id: string, tenantId: string): Promise<IncomeCategory | undefined> {
@@ -4835,9 +4855,29 @@ export class DrizzleStorage implements IStorage {
   
   // Income Categories - Drizzle implementation
   async getIncomeCategories(tenantId: string): Promise<IncomeCategory[]> {
-    return await this.db.select().from(incomeCategories)
+    const categories = await this.db.select().from(incomeCategories)
       .where(eq(incomeCategories.tenantId, tenantId))
       .orderBy(desc(incomeCategories.createdAt));
+    
+    // Auto-seed predefined categories if none exist for this tenant
+    if (categories.length === 0) {
+      const predefinedCategories = [
+        { name: 'Sales', isSystem: true },
+        { name: 'Services', isSystem: true },
+        { name: 'Rentals', isSystem: true },
+        { name: 'Other', isSystem: true },
+      ];
+      
+      const seededCategories = await Promise.all(
+        predefinedCategories.map(cat => 
+          this.createIncomeCategory(cat, tenantId)
+        )
+      );
+      
+      return seededCategories;
+    }
+    
+    return categories;
   }
 
   async getIncomeCategory(id: string, tenantId: string): Promise<IncomeCategory | undefined> {

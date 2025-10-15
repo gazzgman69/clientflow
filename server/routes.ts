@@ -3003,15 +3003,17 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
       const neonClient = neon(process.env.DATABASE_URL!);
       
       // Get quote statuses for all projects in this tenant
+      // Note: Quotes are linked to contacts, not projects, so we join through contacts
       const quoteStatuses = await neonClient(`
         SELECT 
-          q.project_id,
+          p.id as project_id,
           q.status,
           COUNT(*) as count
         FROM quotes q
+        JOIN projects p ON q.contact_id = p.contact_id AND q.tenant_id = p.tenant_id
         WHERE q.tenant_id = $1
-          AND q.project_id IS NOT NULL
-        GROUP BY q.project_id, q.status
+          AND p.id IS NOT NULL
+        GROUP BY p.id, q.status
       `, [req.tenantId]);
 
       // Get contract statuses for all projects in this tenant

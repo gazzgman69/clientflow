@@ -515,7 +515,12 @@ export default function ContractPreview() {
                 {contract.status}
               </Badge>
               {contract.status === 'awaiting_counter_signature' && (
-                <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-300 dark:bg-amber-950 dark:text-amber-300 dark:border-amber-800" data-testid="badge-counter-signature-required">
+                <Badge 
+                  variant="outline" 
+                  className="bg-amber-50 text-amber-700 border-amber-300 dark:bg-amber-950 dark:text-amber-300 dark:border-amber-800 cursor-pointer hover:bg-amber-100 dark:hover:bg-amber-900 transition-colors" 
+                  data-testid="badge-counter-signature-required"
+                  onClick={handleBusinessSign}
+                >
                   Requires Counter-Signature
                 </Badge>
               )}
@@ -716,16 +721,6 @@ export default function ContractPreview() {
                             </div>
                           )}
                         </div>
-                        {!contract.businessSignature && contract.clientSignature && (
-                          <Button 
-                            onClick={handleBusinessSign}
-                            disabled={businessSignMutation.isPending}
-                            className="bg-amber-600 hover:bg-amber-700 text-white"
-                            data-testid="button-sign-business"
-                          >
-                            {businessSignMutation.isPending ? 'Signing...' : 'Counter-Sign'}
-                          </Button>
-                        )}
                       </div>
                     </div>
                   )}

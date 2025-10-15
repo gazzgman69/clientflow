@@ -322,6 +322,64 @@ export const invoices = pgTable("invoices", {
   createdBy: varchar("created_by").references(() => users.id).notNull(),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => {
+  return {
+    tenantIdIdx: index("invoices_tenant_id_idx").on(table.tenantId),
+  };
+});
+
+// Income Categories - for categorizing invoice items
+export const incomeCategories = pgTable("income_categories", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").references(() => tenants.id).notNull(),
+  name: text("name").notNull(),
+  isSystem: boolean("is_system").default(false), // Predefined categories: Sales, Services, Rentals, Other
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => {
+  return {
+    tenantIdIdx: index("income_categories_tenant_id_idx").on(table.tenantId),
+    tenantNameUnique: unique("income_categories_tenant_name_unique").on(table.tenantId, table.name),
+  };
+});
+
+// Invoice Items (Products & Services)
+export const invoiceItems = pgTable("invoice_items", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").references(() => tenants.id).notNull(),
+  internalName: text("internal_name").notNull(),
+  displayName: text("display_name").notNull(),
+  description: text("description"), // HTML content with token support
+  price: decimal("price", { precision: 10, scale: 2 }).notNull(),
+  isTaxable: boolean("is_taxable").default(true),
+  incomeCategoryId: varchar("income_category_id").references(() => incomeCategories.id),
+  workflowId: varchar("workflow_id"), // Placeholder for future workflow integration
+  photoUrl: text("photo_url"),
+  isActive: boolean("is_active").default(true),
+  createdBy: varchar("created_by").references(() => users.id).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => {
+  return {
+    tenantIdIdx: index("invoice_items_tenant_id_idx").on(table.tenantId),
+    tenantInternalNameUnique: unique("invoice_items_tenant_internal_name_unique").on(table.tenantId, table.internalName),
+  };
+});
+
+// Tax Settings - per tenant tax configuration
+export const taxSettings = pgTable("tax_settings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").references(() => tenants.id).notNull().unique(), // One tax setting per tenant
+  taxName: text("tax_name").notNull().default('VAT'), // VAT, GST, Sales Tax, etc.
+  taxRate: decimal("tax_rate", { precision: 5, scale: 2 }).notNull().default('20.00'), // Default 20% for UK VAT
+  isEnabled: boolean("is_enabled").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => {
+  return {
+    tenantIdIdx: index("tax_settings_tenant_id_idx").on(table.tenantId),
+  };
 });
 
 export const tasks = pgTable("tasks", {
@@ -1055,6 +1113,9 @@ export const insertQuoteSchema = createInsertSchema(quotes).omit({ id: true, cre
 export const insertContractSchema = createInsertSchema(contracts).omit({ id: true, createdAt: true, updatedAt: true, tenantId: true, contractNumber: true, createdBy: true });
 export const insertContractTemplateSchema = createInsertSchema(contractTemplates).omit({ id: true, createdAt: true, updatedAt: true, tenantId: true, createdBy: true });
 export const insertInvoiceSchema = createInsertSchema(invoices).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertIncomeCategorySchema = createInsertSchema(incomeCategories).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertInvoiceItemSchema = createInsertSchema(invoiceItems).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertTaxSettingsSchema = createInsertSchema(taxSettings).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertTaskSchema = createInsertSchema(tasks).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertEmailThreadSchema = createInsertSchema(emailThreads).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertEmailSchema = createInsertSchema(emails).omit({ id: true, createdAt: true, updatedAt: true });
@@ -1297,6 +1358,12 @@ export type ContractTemplate = typeof contractTemplates.$inferSelect;
 export type InsertContractTemplate = z.infer<typeof insertContractTemplateSchema>;
 export type Invoice = typeof invoices.$inferSelect;
 export type InsertInvoice = z.infer<typeof insertInvoiceSchema>;
+export type IncomeCategory = typeof incomeCategories.$inferSelect;
+export type InsertIncomeCategory = z.infer<typeof insertIncomeCategorySchema>;
+export type InvoiceItem = typeof invoiceItems.$inferSelect;
+export type InsertInvoiceItem = z.infer<typeof insertInvoiceItemSchema>;
+export type TaxSettings = typeof taxSettings.$inferSelect;
+export type InsertTaxSettings = z.infer<typeof insertTaxSettingsSchema>;
 export type Task = typeof tasks.$inferSelect;
 export type InsertTask = z.infer<typeof insertTaskSchema>;
 export type EmailThread = typeof emailThreads.$inferSelect;

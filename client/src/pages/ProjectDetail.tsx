@@ -243,13 +243,13 @@ export default function ProjectDetail() {
   // Contact information is now embedded in the project response for instant loading
   const projectContact = project?.contactId ? {
     id: project.contactId,
-    firstName: (project as any).contact_first_name,
-    lastName: (project as any).contact_last_name,
-    email: (project as any).contact_email,
-    phone: (project as any).contact_phone,
-    address: (project as any).contact_address,
-    jobTitle: (project as any).contact_job_title,
-    website: (project as any).contact_website,
+    firstName: (project as any).contactFirstName,
+    lastName: (project as any).contactLastName,
+    email: (project as any).contactEmail,
+    phone: (project as any).contactPhone,
+    address: (project as any).contactAddress,
+    jobTitle: (project as any).contactJobTitle,
+    website: (project as any).contactWebsite,
   } : null;
 
   // Forms

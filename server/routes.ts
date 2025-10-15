@@ -3157,7 +3157,6 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
       if (!project) {
         return res.status(404).json({ message: "Project not found" });
       }
-      console.log('Sending project to frontend - contactId:', project.contactId, 'has contact data:', !!project.contact_first_name);
       res.json(project);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch project" });

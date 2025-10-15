@@ -63,7 +63,7 @@ export default function ContactDetail() {
     return null;
   }
 
-  const displayName = getDisplayName(contact);
+  const displayName = contact ? getDisplayName(contact) : '';
   const contactAddress = [contact?.address, contact?.city, contact?.state, contact?.zipCode]
     .filter(Boolean)
     .join(', ');

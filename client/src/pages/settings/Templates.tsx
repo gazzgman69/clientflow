@@ -134,6 +134,8 @@ export default function TemplatesPage() {
       return data;
     },
     enabled: !!currentUser,
+    staleTime: 0, // Always fetch fresh data
+    refetchOnMount: true, // Refetch when component mounts
   });
 
   // Fetch contract templates

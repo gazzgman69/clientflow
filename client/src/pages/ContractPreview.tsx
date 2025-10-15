@@ -604,14 +604,16 @@ export default function ContractPreview() {
               Back to Project
             </Button>
             <div className="flex items-center gap-2">
-              <Button
-                variant="default"
-                onClick={handleSend}
-                data-testid="button-send-contract"
-              >
-                <Send className="h-4 w-4 mr-2" />
-                Send Contract
-              </Button>
+              {contract.status !== 'signed' && (
+                <Button
+                  variant="default"
+                  onClick={handleSend}
+                  data-testid="button-send-contract"
+                >
+                  <Send className="h-4 w-4 mr-2" />
+                  Send Contract
+                </Button>
+              )}
               <Button
                 variant="outline"
                 onClick={handleLiveView}

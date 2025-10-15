@@ -50,6 +50,8 @@ const hashToken = (token: string): string => {
 import { googleCalendarService } from "./src/services/google-calendar";
 import { googleOAuthService } from "./src/services/google-oauth";
 import { icalService } from "./src/services/ical";
+import { emailDispatcher } from "./src/services/email-dispatcher";
+import { emailRenderer } from "./src/services/emailRenderer";
 import oauthRoutes from "./src/routes/oauth";
 import emailOAuthRoutes from "./src/routes/email-oauth";
 import emailRoutes from "./src/routes/email";
@@ -4509,6 +4511,59 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
 
         if (!updatedContract) {
           return res.status(404).json({ message: "Failed to update contract" });
+        }
+
+        // Send confirmation email to contact after counter-signing
+        try {
+          const contact = await storage.getContact(contract.contactId);
+          
+          if (contact && contact.email) {
+            // Get contract confirmation email template
+            const templates = await storage.getEmailTemplates(tenantId);
+            const confirmationTemplate = templates.find(t => t.category === 'contract_confirmation');
+            
+            if (confirmationTemplate) {
+              // Get contract URL for the email
+              const contractUrl = `${process.env.REPLIT_DEV_DOMAIN || 'http://localhost:5000'}/contracts/${contractId}/view`;
+              
+              // Render template with tokens
+              const renderedSubject = await emailRenderer.renderTemplate(confirmationTemplate.subject, {
+                contractId: updatedContract.id,
+                contactId: contract.contactId,
+                tenantId
+              });
+              
+              const renderedBody = await emailRenderer.renderTemplate(confirmationTemplate.body, {
+                contractId: updatedContract.id,
+                contactId: contract.contactId,
+                tenantId
+              });
+              
+              // Add contract view button to the email body
+              const emailBody = `
+                ${renderedBody}
+                <div style="margin-top: 24px; text-align: center;">
+                  <a href="${contractUrl}" 
+                     style="display: inline-block; background-color: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 500;">
+                    View Fully Signed Contract
+                  </a>
+                </div>
+              `;
+              
+              // Send the email
+              const emailResult = await emailDispatcher.sendEmail({
+                tenantId,
+                to: contact.email,
+                subject: renderedSubject,
+                html: emailBody
+              });
+              
+              console.log('[CONTRACT SIGN] Email confirmation sent:', emailResult);
+            }
+          }
+        } catch (emailError) {
+          console.error('[CONTRACT SIGN] Failed to send confirmation email:', emailError);
+          // Don't fail the request if email fails
         }
 
         res.json({ 

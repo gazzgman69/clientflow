@@ -2771,6 +2771,10 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     try {
       const { name, color, category } = req.body;
       
+      if (!name || typeof name !== 'string') {
+        return res.status(400).json({ message: "Tag name is required" });
+      }
+      
       // Check if tag already exists
       const existingTag = await storage.getTagByName(name, req.tenantId);
       if (existingTag) {
@@ -2784,7 +2788,6 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
         name,
         color: color || '#3b82f6',
         category: category || null,
-        tenantId: req.tenantId
       }, req.tenantId);
       res.status(201).json(tag);
     } catch (error: any) {

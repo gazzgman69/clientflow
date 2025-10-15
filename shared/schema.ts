@@ -1934,7 +1934,8 @@ export const insertTagSchema = createInsertSchema(tags).omit({
   id: true, 
   createdAt: true, 
   updatedAt: true,
-  usageCount: true 
+  usageCount: true,
+  tenantId: true 
 });
 
 export type Tag = typeof tags.$inferSelect;

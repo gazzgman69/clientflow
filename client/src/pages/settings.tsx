@@ -33,6 +33,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { useUserPrefs } from "@/hooks/useUserPrefs";
 import EmailSettings from "@/pages/settings/EmailSettings";
 import TemplatesPage from "@/pages/settings/Templates";
+import ProductsServicesPage from "@/pages/settings/ProductsServices";
 import PortalSettingsComponent from "@/components/settings/PortalSettings";
 import { GoogleOAuthModal } from '@/components/google-oauth-modal';
 
@@ -49,7 +50,7 @@ export default function Settings() {
   useEffect(() => {
     const searchParams = new URLSearchParams(window.location.search);
     const tabParam = searchParams.get('tab');
-    if (tabParam && ['profile', 'notifications', 'security', 'portal', 'integrations', 'email', 'calendar', 'templates', 'appearance', 'data'].includes(tabParam)) {
+    if (tabParam && ['profile', 'notifications', 'security', 'portal', 'integrations', 'email', 'calendar', 'templates', 'products-services', 'appearance', 'data'].includes(tabParam)) {
       setActiveTab(tabParam);
     }
   }, [location]);
@@ -229,7 +230,7 @@ export default function Settings() {
       
       <main className="flex-1 overflow-auto p-6">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-9" data-testid="settings-tabs">
+          <TabsList className="grid w-full grid-cols-11" data-testid="settings-tabs">
             <TabsTrigger value="profile" data-testid="tab-profile">
               Profile
             </TabsTrigger>
@@ -253,6 +254,9 @@ export default function Settings() {
             </TabsTrigger>
             <TabsTrigger value="templates" data-testid="tab-templates">
               Templates
+            </TabsTrigger>
+            <TabsTrigger value="products-services" data-testid="tab-products-services">
+              Products & Services
             </TabsTrigger>
             <TabsTrigger value="appearance" data-testid="tab-appearance">
               Appearance
@@ -1014,6 +1018,11 @@ export default function Settings() {
           {/* Templates */}
           <TabsContent value="templates">
             <TemplatesPage />
+          </TabsContent>
+
+          {/* Products & Services */}
+          <TabsContent value="products-services">
+            <ProductsServicesPage />
           </TabsContent>
 
           {/* Appearance */}

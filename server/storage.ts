@@ -90,7 +90,7 @@ import crypto from "crypto";
 import { TenantScopedStorage } from './utils/tenantScopedStorage';
 import { drizzle } from 'drizzle-orm/neon-http';
 import { neon } from '@neondatabase/serverless';
-import { eq, and, desc, or, isNull, isNotNull, leftJoin, sql, lte, ilike } from 'drizzle-orm';
+import { eq, and, desc, or, isNull, isNotNull, leftJoin, sql, lte } from 'drizzle-orm';
 import { secureStore } from './src/services/secureStore';
 import { validateAndCleanVenueAddress } from '@shared/addressUtils';
 import { IStorage } from './types/storage';
@@ -4271,10 +4271,12 @@ export class DrizzleStorage implements IStorage {
   }
 
   async getTagByName(name: string, tenantId: string): Promise<Tag | undefined> {
-    const result = await this.db.select().from(tags).where(
-      and(ilike(tags.name, name), eq(tags.tenantId, tenantId))
+    const neonClient = neon(process.env.DATABASE_URL!);
+    const result = await neonClient(
+      'SELECT * FROM tags WHERE LOWER(name) = LOWER($1) AND tenant_id = $2 LIMIT 1',
+      [name, tenantId]
     );
-    return result[0];
+    return result[0] as Tag | undefined;
   }
 
   async createTag(tag: InsertTag, tenantId: string): Promise<Tag> {

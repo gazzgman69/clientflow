@@ -24,6 +24,7 @@ import type { Project, Contact, Venue } from "@shared/schema";
 import { z } from "zod";
 import ProjectDetailModal from "@/components/modals/project-detail-modal";
 import { VenueSelector } from "@/components/venues";
+import { DocumentStatusIndicators } from "@/components/DocumentStatusIndicators";
 
 // Type for project deletion preview response
 interface ProjectDeletionPreview {
@@ -532,7 +533,10 @@ export default function Projects() {
                         </Badge>
                       </TableCell>
                       <TableCell data-testid={`project-documents-${project.id}`}>
-                        <span className="text-sm text-muted-foreground">-</span>
+                        <DocumentStatusIndicators 
+                          projectId={project.id} 
+                          documentStatuses={documentStatuses?.[project.id]}
+                        />
                       </TableCell>
                       <TableCell data-testid={`project-progress-${project.id}`}>
                         <div className="flex items-center space-x-2">

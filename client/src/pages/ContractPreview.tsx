@@ -494,6 +494,13 @@ export default function ContractPreview() {
     cancelled: "bg-red-500",
   };
 
+  const formatStatus = (status: string): string => {
+    return status
+      .split('_')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
+  };
+
   return (
     <div className="h-full flex flex-col bg-gray-50 dark:bg-gray-900 overflow-hidden print:h-auto print:overflow-visible print:block">
       {/* Header */}
@@ -512,7 +519,7 @@ export default function ContractPreview() {
             </div>
             <div className="flex items-center gap-2">
               <Badge className={statusColors[contract.status]} data-testid="badge-status">
-                {contract.status}
+                {formatStatus(contract.status)}
               </Badge>
               {contract.status === 'awaiting_counter_signature' && (
                 <Badge 

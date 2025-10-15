@@ -3508,6 +3508,166 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
 
+  // Income Categories
+  app.get("/api/income-categories", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
+    try {
+      const tenantId = req.session.tenantId!;
+      const categories = await storage.getIncomeCategories(tenantId);
+      res.json(categories);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch income categories" });
+    }
+  });
+
+  app.get("/api/income-categories/:id", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
+    try {
+      const tenantId = req.session.tenantId!;
+      const category = await storage.getIncomeCategory(req.params.id, tenantId);
+      if (!category) {
+        return res.status(404).json({ message: "Income category not found" });
+      }
+      res.json(category);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch income category" });
+    }
+  });
+
+  app.post("/api/income-categories", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
+    try {
+      const tenantId = req.session.tenantId!;
+      const categoryData = insertIncomeCategorySchema.parse(req.body);
+      const category = await storage.createIncomeCategory(categoryData, tenantId);
+      res.status(201).json(category);
+    } catch (error) {
+      res.status(400).json({ message: "Invalid income category data" });
+    }
+  });
+
+  app.patch("/api/income-categories/:id", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
+    try {
+      const tenantId = req.session.tenantId!;
+      const categoryData = insertIncomeCategorySchema.partial().parse(req.body);
+      const category = await storage.updateIncomeCategory(req.params.id, categoryData, tenantId);
+      if (!category) {
+        return res.status(404).json({ message: "Income category not found" });
+      }
+      res.json(category);
+    } catch (error) {
+      res.status(400).json({ message: "Failed to update income category" });
+    }
+  });
+
+  app.delete("/api/income-categories/:id", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
+    try {
+      const tenantId = req.session.tenantId!;
+      const deleted = await storage.deleteIncomeCategory(req.params.id, tenantId);
+      if (!deleted) {
+        return res.status(404).json({ message: "Income category not found" });
+      }
+      res.json({ message: "Income category deleted successfully" });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to delete income category" });
+    }
+  });
+
+  // Invoice Items (Products & Services)
+  app.get("/api/invoice-items", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
+    try {
+      const tenantId = req.session.tenantId!;
+      const items = await storage.getInvoiceItems(tenantId);
+      res.json(items);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch invoice items" });
+    }
+  });
+
+  app.get("/api/invoice-items/:id", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
+    try {
+      const tenantId = req.session.tenantId!;
+      const item = await storage.getInvoiceItem(req.params.id, tenantId);
+      if (!item) {
+        return res.status(404).json({ message: "Invoice item not found" });
+      }
+      res.json(item);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch invoice item" });
+    }
+  });
+
+  app.post("/api/invoice-items", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
+    try {
+      const tenantId = req.session.tenantId!;
+      const itemData = insertInvoiceItemSchema.parse(req.body);
+      const item = await storage.createInvoiceItem(itemData, tenantId);
+      res.status(201).json(item);
+    } catch (error) {
+      res.status(400).json({ message: "Invalid invoice item data" });
+    }
+  });
+
+  app.patch("/api/invoice-items/:id", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
+    try {
+      const tenantId = req.session.tenantId!;
+      const itemData = insertInvoiceItemSchema.partial().parse(req.body);
+      const item = await storage.updateInvoiceItem(req.params.id, itemData, tenantId);
+      if (!item) {
+        return res.status(404).json({ message: "Invoice item not found" });
+      }
+      res.json(item);
+    } catch (error) {
+      res.status(400).json({ message: "Failed to update invoice item" });
+    }
+  });
+
+  app.delete("/api/invoice-items/:id", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
+    try {
+      const tenantId = req.session.tenantId!;
+      const deleted = await storage.deleteInvoiceItem(req.params.id, tenantId);
+      if (!deleted) {
+        return res.status(404).json({ message: "Invoice item not found" });
+      }
+      res.json({ message: "Invoice item deleted successfully" });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to delete invoice item" });
+    }
+  });
+
+  // Tax Settings
+  app.get("/api/tax-settings", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
+    try {
+      const tenantId = req.session.tenantId!;
+      const settings = await storage.getTaxSettings(tenantId);
+      res.json(settings || null);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch tax settings" });
+    }
+  });
+
+  app.post("/api/tax-settings", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
+    try {
+      const tenantId = req.session.tenantId!;
+      const settingsData = insertTaxSettingsSchema.parse(req.body);
+      const settings = await storage.createTaxSettings(settingsData, tenantId);
+      res.status(201).json(settings);
+    } catch (error) {
+      res.status(400).json({ message: "Invalid tax settings data" });
+    }
+  });
+
+  app.patch("/api/tax-settings", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
+    try {
+      const tenantId = req.session.tenantId!;
+      const settingsData = insertTaxSettingsSchema.partial().parse(req.body);
+      const settings = await storage.updateTaxSettings(tenantId, settingsData);
+      if (!settings) {
+        return res.status(404).json({ message: "Tax settings not found" });
+      }
+      res.json(settings);
+    } catch (error) {
+      res.status(400).json({ message: "Failed to update tax settings" });
+    }
+  });
+
   // Documents by client/project
   app.get("/api/clients/:clientId/quotes", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
     try {

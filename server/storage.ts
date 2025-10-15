@@ -170,6 +170,11 @@ export interface IStorage {
   updateProject(id: string, project: Partial<InsertProject>, tenantId: string): Promise<Project | undefined>;
   deleteProject(id: string, tenantId: string): Promise<boolean>;
   canUserAccessProject(userId: string, tenantId: string, projectId: string): Promise<boolean>;
+  getProjectDocumentStatus(projectId: string, tenantId: string): Promise<{
+    quotes: { total: number; draft: number; sent: number; approved: number; rejected: number; expired: number };
+    contracts: { total: number; draft: number; sent: number; awaitingCounterSignature: number; signed: number; cancelled: number };
+    invoices: { total: number; draft: number; sent: number; paid: number; overdue: number; cancelled: number };
+  }>;
   
   // Quotes
   getQuotes(tenantId: string): Promise<Quote[]>;
@@ -1136,6 +1141,50 @@ export class MemStorage implements IStorage {
     }
     // For development, allow all authenticated users in the same tenant
     return true;
+  }
+
+  async getProjectDocumentStatus(projectId: string, tenantId: string) {
+    // Get all quotes for the project
+    const projectQuotes = Array.from(this.quotes.values()).filter(
+      q => q.tenantId === tenantId && (q as any).projectId === projectId
+    );
+    
+    // Get all contracts for the project
+    const projectContracts = Array.from(this.contracts.values()).filter(
+      c => c.tenantId === tenantId && c.projectId === projectId
+    );
+    
+    // Get all invoices for the project
+    const projectInvoices = Array.from(this.invoices.values()).filter(
+      i => i.tenantId === tenantId && i.projectId === projectId
+    );
+    
+    return {
+      quotes: {
+        total: projectQuotes.length,
+        draft: projectQuotes.filter(q => q.status === 'draft').length,
+        sent: projectQuotes.filter(q => q.status === 'sent').length,
+        approved: projectQuotes.filter(q => q.status === 'approved').length,
+        rejected: projectQuotes.filter(q => q.status === 'rejected').length,
+        expired: projectQuotes.filter(q => q.status === 'expired').length,
+      },
+      contracts: {
+        total: projectContracts.length,
+        draft: projectContracts.filter(c => c.status === 'draft').length,
+        sent: projectContracts.filter(c => c.status === 'sent').length,
+        awaitingCounterSignature: projectContracts.filter(c => c.status === 'awaiting_counter_signature').length,
+        signed: projectContracts.filter(c => c.status === 'signed').length,
+        cancelled: projectContracts.filter(c => c.status === 'cancelled').length,
+      },
+      invoices: {
+        total: projectInvoices.length,
+        draft: projectInvoices.filter(i => i.status === 'draft').length,
+        sent: projectInvoices.filter(i => i.status === 'sent').length,
+        paid: projectInvoices.filter(i => i.status === 'paid').length,
+        overdue: projectInvoices.filter(i => i.status === 'overdue').length,
+        cancelled: projectInvoices.filter(i => i.status === 'cancelled').length,
+      },
+    };
   }
 
   // Quotes
@@ -4681,6 +4730,83 @@ export class DrizzleStorage implements IStorage {
     
     // No access found
     return false;
+  }
+
+  async getProjectDocumentStatus(projectId: string, tenantId: string) {
+    if (!tenantId) {
+      throw new Error("SECURITY: tenantId is required to prevent cross-tenant data access");
+    }
+
+    // Get quote counts by status
+    const quoteCounts = await this.db
+      .select({
+        status: quotes.status,
+        count: sql<number>`cast(count(*) as int)`,
+      })
+      .from(quotes)
+      .where(and(
+        eq(quotes.tenantId, tenantId),
+        eq(quotes.projectId, projectId)
+      ))
+      .groupBy(quotes.status);
+
+    // Get contract counts by status
+    const contractCounts = await this.db
+      .select({
+        status: contracts.status,
+        count: sql<number>`cast(count(*) as int)`,
+      })
+      .from(contracts)
+      .where(and(
+        eq(contracts.tenantId, tenantId),
+        eq(contracts.projectId, projectId)
+      ))
+      .groupBy(contracts.status);
+
+    // Get invoice counts by status
+    const invoiceCounts = await this.db
+      .select({
+        status: invoices.status,
+        count: sql<number>`cast(count(*) as int)`,
+      })
+      .from(invoices)
+      .where(and(
+        eq(invoices.tenantId, tenantId),
+        eq(invoices.projectId, projectId)
+      ))
+      .groupBy(invoices.status);
+
+    // Build the response
+    const quoteStatusMap = new Map(quoteCounts.map(q => [q.status, q.count]));
+    const contractStatusMap = new Map(contractCounts.map(c => [c.status, c.count]));
+    const invoiceStatusMap = new Map(invoiceCounts.map(i => [i.status, i.count]));
+
+    return {
+      quotes: {
+        total: quoteCounts.reduce((sum, q) => sum + q.count, 0),
+        draft: quoteStatusMap.get('draft') || 0,
+        sent: quoteStatusMap.get('sent') || 0,
+        approved: quoteStatusMap.get('approved') || 0,
+        rejected: quoteStatusMap.get('rejected') || 0,
+        expired: quoteStatusMap.get('expired') || 0,
+      },
+      contracts: {
+        total: contractCounts.reduce((sum, c) => sum + c.count, 0),
+        draft: contractStatusMap.get('draft') || 0,
+        sent: contractStatusMap.get('sent') || 0,
+        awaitingCounterSignature: contractStatusMap.get('awaiting_counter_signature') || 0,
+        signed: contractStatusMap.get('signed') || 0,
+        cancelled: contractStatusMap.get('cancelled') || 0,
+      },
+      invoices: {
+        total: invoiceCounts.reduce((sum, i) => sum + i.count, 0),
+        draft: invoiceStatusMap.get('draft') || 0,
+        sent: invoiceStatusMap.get('sent') || 0,
+        paid: invoiceStatusMap.get('paid') || 0,
+        overdue: invoiceStatusMap.get('overdue') || 0,
+        cancelled: invoiceStatusMap.get('cancelled') || 0,
+      },
+    };
   }
   
   // Quotes - PostgreSQL implementation

@@ -53,21 +53,23 @@ export function TagInput({ value = [], onChange, placeholder = "Add tags...", cl
     const trimmedTag = tagName.trim();
     if (!trimmedTag || value.includes(trimmedTag) || isCreating) return;
 
-    // Create tag in backend (or get existing)
+    // Optimistic update - add to UI immediately
+    onChange([...value, trimmedTag]);
+    setInputValue("");
+    setShowSuggestions(false);
+    setSelectedIndex(-1);
+
+    // Create tag in backend in the background
     try {
       setIsCreating(true);
       await apiRequest('POST', '/api/tags', { name: trimmedTag });
       
       // Invalidate tags query to refresh the list
       queryClient.invalidateQueries({ queryKey: ['/api/tags'] });
-      
-      // Add to local state
-      onChange([...value, trimmedTag]);
-      setInputValue("");
-      setShowSuggestions(false);
-      setSelectedIndex(-1);
     } catch (error) {
       console.error('Error creating tag:', error);
+      // On error, remove the tag from the list
+      onChange(value.filter(tag => tag !== trimmedTag));
     } finally {
       setIsCreating(false);
     }

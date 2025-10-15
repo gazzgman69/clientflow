@@ -19,6 +19,7 @@ export function TagInput({ value = [], onChange, placeholder = "Add tags...", cl
   const [inputValue, setInputValue] = useState("");
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const [isCreating, setIsCreating] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
 
@@ -50,10 +51,11 @@ export function TagInput({ value = [], onChange, placeholder = "Add tags...", cl
 
   const addTag = async (tagName: string) => {
     const trimmedTag = tagName.trim();
-    if (!trimmedTag || value.includes(trimmedTag)) return;
+    if (!trimmedTag || value.includes(trimmedTag) || isCreating) return;
 
     // Create tag in backend (or get existing)
     try {
+      setIsCreating(true);
       await apiRequest('POST', '/api/tags', { name: trimmedTag });
       
       // Invalidate tags query to refresh the list
@@ -66,6 +68,8 @@ export function TagInput({ value = [], onChange, placeholder = "Add tags...", cl
       setSelectedIndex(0);
     } catch (error) {
       console.error('Error creating tag:', error);
+    } finally {
+      setIsCreating(false);
     }
   };
 

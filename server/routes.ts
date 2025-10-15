@@ -2787,7 +2787,16 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
         tenantId: req.tenantId
       }, req.tenantId);
       res.status(201).json(tag);
-    } catch (error) {
+    } catch (error: any) {
+      // Handle duplicate key constraint violation (race condition)
+      if (error.code === '23505' && error.constraint === 'tags_tenant_name_unique') {
+        // Tag was created by another request, fetch and return it
+        const existingTag = await storage.getTagByName(req.body.name, req.tenantId);
+        if (existingTag) {
+          await storage.incrementTagUsage(existingTag.id, req.tenantId);
+          return res.json(existingTag);
+        }
+      }
       console.error('Error creating tag:', error);
       res.status(400).json({ message: "Failed to create tag" });
     }

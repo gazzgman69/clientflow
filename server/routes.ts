@@ -3002,6 +3002,18 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     try {
       const neonClient = neon(process.env.DATABASE_URL!);
       
+      // Get quote statuses for all projects in this tenant
+      const quoteStatuses = await neonClient(`
+        SELECT 
+          q.project_id,
+          q.status,
+          COUNT(*) as count
+        FROM quotes q
+        WHERE q.tenant_id = $1
+          AND q.project_id IS NOT NULL
+        GROUP BY q.project_id, q.status
+      `, [req.tenantId]);
+
       // Get contract statuses for all projects in this tenant
       const contractStatuses = await neonClient(`
         SELECT 
@@ -3031,10 +3043,18 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
       // Organize by project
       const projectStatuses: Record<string, any> = {};
       
+      // Process quotes
+      for (const quote of quoteStatuses as any[]) {
+        if (!projectStatuses[quote.project_id]) {
+          projectStatuses[quote.project_id] = { quotes: {}, contracts: [], invoices: {} };
+        }
+        projectStatuses[quote.project_id].quotes[quote.status] = parseInt(quote.count);
+      }
+
       // Process contracts
       for (const contract of contractStatuses as any[]) {
         if (!projectStatuses[contract.project_id]) {
-          projectStatuses[contract.project_id] = { contracts: [], invoices: {} };
+          projectStatuses[contract.project_id] = { quotes: {}, contracts: [], invoices: {} };
         }
         projectStatuses[contract.project_id].contracts.push({
           status: contract.status,
@@ -3047,7 +3067,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
       // Process invoices
       for (const invoice of invoiceStatuses as any[]) {
         if (!projectStatuses[invoice.project_id]) {
-          projectStatuses[invoice.project_id] = { contracts: [], invoices: {} };
+          projectStatuses[invoice.project_id] = { quotes: {}, contracts: [], invoices: {} };
         }
         projectStatuses[invoice.project_id].invoices[invoice.status] = parseInt(invoice.count);
       }

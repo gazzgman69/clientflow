@@ -518,19 +518,13 @@ export default function ContractPreview() {
               </p>
             </div>
             <div className="flex items-center gap-2">
-              <Badge className={statusColors[contract.status]} data-testid="badge-status">
+              <Badge 
+                className={`${statusColors[contract.status]} ${contract.status === 'awaiting_counter_signature' ? 'cursor-pointer hover:opacity-80 transition-opacity' : ''}`}
+                data-testid="badge-status"
+                onClick={contract.status === 'awaiting_counter_signature' ? handleBusinessSign : undefined}
+              >
                 {formatStatus(contract.status)}
               </Badge>
-              {contract.status === 'awaiting_counter_signature' && (
-                <Badge 
-                  variant="outline" 
-                  className="bg-amber-50 text-amber-700 border-amber-300 dark:bg-amber-950 dark:text-amber-300 dark:border-amber-800 cursor-pointer hover:bg-amber-100 dark:hover:bg-amber-900 transition-colors" 
-                  data-testid="badge-counter-signature-required"
-                  onClick={handleBusinessSign}
-                >
-                  Requires Counter-Signature
-                </Badge>
-              )}
               
               {/* Timeline Dropdown */}
               <DropdownMenu onOpenChange={(open) => { if (open) refetchViews(); }}>

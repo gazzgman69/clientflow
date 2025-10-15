@@ -7,6 +7,9 @@ import {
   type Contract, type InsertContract,
   type ContractTemplate, type InsertContractTemplate,
   type Invoice, type InsertInvoice,
+  type IncomeCategory, type InsertIncomeCategory,
+  type InvoiceItem, type InsertInvoiceItem,
+  type TaxSettings, type InsertTaxSettings,
   type Task, type InsertTask,
   type Email, type InsertEmail,
   type Activity, type InsertActivity,
@@ -63,7 +66,7 @@ import {
   type ContactFieldValue, type InsertContactFieldValue,
   // Tags types
   type Tag, type InsertTag,
-  users, leads, contacts, projects, quotes, contracts, contractTemplates, invoices, tasks, emails, emailThreads, activities, automations, 
+  users, leads, contacts, projects, quotes, contracts, contractTemplates, invoices, incomeCategories, invoiceItems, taxSettings, tasks, emails, emailThreads, activities, automations, 
   members, venues, projectMembers, memberAvailability, projectFiles, projectNotes, smsMessages, 
   messageTemplates, messageThreads, calendars, events, calendarIntegrations, calendarSyncLog, templates, leadCaptureForms,
   leadStatusHistory, emailSignatures, emailProviderCatalog, emailProviderConfigs, emailAccounts, emailProviderIntegrations, tenantEmailPrefs, portalForms, paymentSessions, webhookEvents, tenants,
@@ -275,6 +278,25 @@ export interface IStorage {
   createInvoice(invoice: InsertInvoice, tenantId: string): Promise<Invoice>;
   updateInvoice(id: string, invoice: Partial<InsertInvoice>, tenantId: string): Promise<Invoice | undefined>;
   deleteInvoice(id: string, tenantId: string): Promise<boolean>;
+  
+  // Income Categories
+  getIncomeCategories(tenantId: string): Promise<IncomeCategory[]>;
+  getIncomeCategory(id: string, tenantId: string): Promise<IncomeCategory | undefined>;
+  createIncomeCategory(category: InsertIncomeCategory, tenantId: string): Promise<IncomeCategory>;
+  updateIncomeCategory(id: string, category: Partial<InsertIncomeCategory>, tenantId: string): Promise<IncomeCategory | undefined>;
+  deleteIncomeCategory(id: string, tenantId: string): Promise<boolean>;
+  
+  // Invoice Items (Products & Services)
+  getInvoiceItems(tenantId: string): Promise<InvoiceItem[]>;
+  getInvoiceItem(id: string, tenantId: string): Promise<InvoiceItem | undefined>;
+  createInvoiceItem(item: InsertInvoiceItem, tenantId: string): Promise<InvoiceItem>;
+  updateInvoiceItem(id: string, item: Partial<InsertInvoiceItem>, tenantId: string): Promise<InvoiceItem | undefined>;
+  deleteInvoiceItem(id: string, tenantId: string): Promise<boolean>;
+  
+  // Tax Settings
+  getTaxSettings(tenantId: string): Promise<TaxSettings | undefined>;
+  createTaxSettings(settings: InsertTaxSettings, tenantId: string): Promise<TaxSettings>;
+  updateTaxSettings(tenantId: string, settings: Partial<InsertTaxSettings>): Promise<TaxSettings | undefined>;
   
   // Tasks  
   getTasks(tenantId: string, userId?: string): Promise<Task[]>;
@@ -569,6 +591,9 @@ export class MemStorage implements IStorage {
   private contracts: Map<string, Contract> = new Map();
   private inMemoryContractTemplates: Map<string, ContractTemplate> = new Map();
   private invoices: Map<string, Invoice> = new Map();
+  private incomeCategories: Map<string, IncomeCategory> = new Map();
+  private invoiceItems: Map<string, InvoiceItem> = new Map();
+  private taxSettingsMap: Map<string, TaxSettings> = new Map();
   private tasks: Map<string, Task> = new Map();
   private emails: Map<string, Email> = new Map();
   private activities: Map<string, Activity> = new Map();
@@ -1328,6 +1353,143 @@ export class MemStorage implements IStorage {
 
   async deleteInvoice(id: string): Promise<boolean> {
     return this.invoices.delete(id);
+  }
+
+  // Income Categories
+  async getIncomeCategories(tenantId: string): Promise<IncomeCategory[]> {
+    return Array.from(this.incomeCategories.values())
+      .filter(category => category.tenantId === tenantId)
+      .sort((a, b) => new Date(b.createdAt!).getTime() - new Date(a.createdAt!).getTime());
+  }
+
+  async getIncomeCategory(id: string, tenantId: string): Promise<IncomeCategory | undefined> {
+    const category = this.incomeCategories.get(id);
+    if (category && category.tenantId === tenantId) {
+      return category;
+    }
+    return undefined;
+  }
+
+  async createIncomeCategory(insertCategory: InsertIncomeCategory, tenantId: string): Promise<IncomeCategory> {
+    const id = randomUUID();
+    const category: IncomeCategory = {
+      ...insertCategory,
+      id,
+      tenantId,
+      isSystem: insertCategory.isSystem ?? false,
+      isActive: insertCategory.isActive ?? true,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    this.incomeCategories.set(id, category);
+    return category;
+  }
+
+  async updateIncomeCategory(id: string, categoryUpdate: Partial<InsertIncomeCategory>, tenantId: string): Promise<IncomeCategory | undefined> {
+    const category = this.incomeCategories.get(id);
+    if (!category || category.tenantId !== tenantId) return undefined;
+    
+    const updatedCategory: IncomeCategory = {
+      ...category,
+      ...omitUndefined(categoryUpdate),
+      updatedAt: new Date(),
+    };
+    this.incomeCategories.set(id, updatedCategory);
+    return updatedCategory;
+  }
+
+  async deleteIncomeCategory(id: string, tenantId: string): Promise<boolean> {
+    const category = this.incomeCategories.get(id);
+    if (!category || category.tenantId !== tenantId) return false;
+    return this.incomeCategories.delete(id);
+  }
+
+  // Invoice Items (Products & Services)
+  async getInvoiceItems(tenantId: string): Promise<InvoiceItem[]> {
+    return Array.from(this.invoiceItems.values())
+      .filter(item => item.tenantId === tenantId)
+      .sort((a, b) => new Date(b.createdAt!).getTime() - new Date(a.createdAt!).getTime());
+  }
+
+  async getInvoiceItem(id: string, tenantId: string): Promise<InvoiceItem | undefined> {
+    const item = this.invoiceItems.get(id);
+    if (item && item.tenantId === tenantId) {
+      return item;
+    }
+    return undefined;
+  }
+
+  async createInvoiceItem(insertItem: InsertInvoiceItem, tenantId: string): Promise<InvoiceItem> {
+    const id = randomUUID();
+    const item: InvoiceItem = {
+      ...insertItem,
+      id,
+      tenantId,
+      description: insertItem.description ?? null,
+      isTaxable: insertItem.isTaxable ?? true,
+      incomeCategoryId: insertItem.incomeCategoryId ?? null,
+      workflowId: insertItem.workflowId ?? null,
+      photoUrl: insertItem.photoUrl ?? null,
+      isActive: insertItem.isActive ?? true,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    this.invoiceItems.set(id, item);
+    return item;
+  }
+
+  async updateInvoiceItem(id: string, itemUpdate: Partial<InsertInvoiceItem>, tenantId: string): Promise<InvoiceItem | undefined> {
+    const item = this.invoiceItems.get(id);
+    if (!item || item.tenantId !== tenantId) return undefined;
+    
+    const updatedItem: InvoiceItem = {
+      ...item,
+      ...omitUndefined(itemUpdate),
+      updatedAt: new Date(),
+    };
+    this.invoiceItems.set(id, updatedItem);
+    return updatedItem;
+  }
+
+  async deleteInvoiceItem(id: string, tenantId: string): Promise<boolean> {
+    const item = this.invoiceItems.get(id);
+    if (!item || item.tenantId !== tenantId) return false;
+    return this.invoiceItems.delete(id);
+  }
+
+  // Tax Settings
+  async getTaxSettings(tenantId: string): Promise<TaxSettings | undefined> {
+    return Array.from(this.taxSettingsMap.values())
+      .find(settings => settings.tenantId === tenantId);
+  }
+
+  async createTaxSettings(insertSettings: InsertTaxSettings, tenantId: string): Promise<TaxSettings> {
+    const id = randomUUID();
+    const settings: TaxSettings = {
+      ...insertSettings,
+      id,
+      tenantId,
+      taxName: insertSettings.taxName ?? 'VAT',
+      taxRate: insertSettings.taxRate ?? '20.00',
+      isEnabled: insertSettings.isEnabled ?? true,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    this.taxSettingsMap.set(id, settings);
+    return settings;
+  }
+
+  async updateTaxSettings(tenantId: string, settingsUpdate: Partial<InsertTaxSettings>): Promise<TaxSettings | undefined> {
+    const existing = await this.getTaxSettings(tenantId);
+    if (!existing) return undefined;
+    
+    const updatedSettings: TaxSettings = {
+      ...existing,
+      ...omitUndefined(settingsUpdate),
+      updatedAt: new Date(),
+    };
+    this.taxSettingsMap.set(existing.id, updatedSettings);
+    return updatedSettings;
   }
 
   // Tasks
@@ -4669,6 +4831,121 @@ export class DrizzleStorage implements IStorage {
   }
   async getInvoicesByContactId(contactId: string): Promise<Invoice[]> {
     return await this.db.select().from(invoices).where(eq(invoices.contactId, contactId));
+  }
+  
+  // Income Categories - Drizzle implementation
+  async getIncomeCategories(tenantId: string): Promise<IncomeCategory[]> {
+    return await this.db.select().from(incomeCategories)
+      .where(eq(incomeCategories.tenantId, tenantId))
+      .orderBy(desc(incomeCategories.createdAt));
+  }
+
+  async getIncomeCategory(id: string, tenantId: string): Promise<IncomeCategory | undefined> {
+    const result = await this.db.select().from(incomeCategories)
+      .where(and(
+        eq(incomeCategories.id, id),
+        eq(incomeCategories.tenantId, tenantId)
+      ));
+    return result[0];
+  }
+
+  async createIncomeCategory(insertCategory: InsertIncomeCategory, tenantId: string): Promise<IncomeCategory> {
+    const result = await this.db.insert(incomeCategories).values({
+      ...insertCategory,
+      tenantId,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    }).returning();
+    return result[0];
+  }
+
+  async updateIncomeCategory(id: string, categoryUpdate: Partial<InsertIncomeCategory>, tenantId: string): Promise<IncomeCategory | undefined> {
+    const result = await this.db.update(incomeCategories).set({
+      ...categoryUpdate,
+      updatedAt: new Date(),
+    }).where(and(
+      eq(incomeCategories.id, id),
+      eq(incomeCategories.tenantId, tenantId)
+    )).returning();
+    return result[0];
+  }
+
+  async deleteIncomeCategory(id: string, tenantId: string): Promise<boolean> {
+    const result = await this.db.delete(incomeCategories).where(and(
+      eq(incomeCategories.id, id),
+      eq(incomeCategories.tenantId, tenantId)
+    ));
+    return result.rowCount > 0;
+  }
+
+  // Invoice Items (Products & Services) - Drizzle implementation
+  async getInvoiceItems(tenantId: string): Promise<InvoiceItem[]> {
+    return await this.db.select().from(invoiceItems)
+      .where(eq(invoiceItems.tenantId, tenantId))
+      .orderBy(desc(invoiceItems.createdAt));
+  }
+
+  async getInvoiceItem(id: string, tenantId: string): Promise<InvoiceItem | undefined> {
+    const result = await this.db.select().from(invoiceItems)
+      .where(and(
+        eq(invoiceItems.id, id),
+        eq(invoiceItems.tenantId, tenantId)
+      ));
+    return result[0];
+  }
+
+  async createInvoiceItem(insertItem: InsertInvoiceItem, tenantId: string): Promise<InvoiceItem> {
+    const result = await this.db.insert(invoiceItems).values({
+      ...insertItem,
+      tenantId,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    }).returning();
+    return result[0];
+  }
+
+  async updateInvoiceItem(id: string, itemUpdate: Partial<InsertInvoiceItem>, tenantId: string): Promise<InvoiceItem | undefined> {
+    const result = await this.db.update(invoiceItems).set({
+      ...itemUpdate,
+      updatedAt: new Date(),
+    }).where(and(
+      eq(invoiceItems.id, id),
+      eq(invoiceItems.tenantId, tenantId)
+    )).returning();
+    return result[0];
+  }
+
+  async deleteInvoiceItem(id: string, tenantId: string): Promise<boolean> {
+    const result = await this.db.delete(invoiceItems).where(and(
+      eq(invoiceItems.id, id),
+      eq(invoiceItems.tenantId, tenantId)
+    ));
+    return result.rowCount > 0;
+  }
+
+  // Tax Settings - Drizzle implementation
+  async getTaxSettings(tenantId: string): Promise<TaxSettings | undefined> {
+    const result = await this.db.select().from(taxSettings)
+      .where(eq(taxSettings.tenantId, tenantId));
+    return result[0];
+  }
+
+  async createTaxSettings(insertSettings: InsertTaxSettings, tenantId: string): Promise<TaxSettings> {
+    const result = await this.db.insert(taxSettings).values({
+      ...insertSettings,
+      tenantId,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    }).returning();
+    return result[0];
+  }
+
+  async updateTaxSettings(tenantId: string, settingsUpdate: Partial<InsertTaxSettings>): Promise<TaxSettings | undefined> {
+    const result = await this.db.update(taxSettings).set({
+      ...settingsUpdate,
+      updatedAt: new Date(),
+    }).where(eq(taxSettings.tenantId, tenantId)).returning();
+    return result[0];
   }
   
   // Tasks - PostgreSQL implementation

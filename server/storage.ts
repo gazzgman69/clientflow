@@ -4707,8 +4707,15 @@ export class DrizzleStorage implements IStorage {
       ))
       .limit(1);
     
-    console.log('getProjectWithDetails result:', JSON.stringify(result[0], null, 2));
-    return result[0];
+    const projectWithDetails = result[0];
+    console.log('getProjectWithDetails full result:', {
+      hasContactId: !!projectWithDetails?.contactId,
+      contactId: projectWithDetails?.contactId,
+      hasContactFirstName: !!(projectWithDetails as any)?.contactFirstName,
+      hasContactFirstNameSnake: !!(projectWithDetails as any)?.contact_first_name,
+      allKeys: projectWithDetails ? Object.keys(projectWithDetails) : []
+    });
+    return projectWithDetails;
   }
 
   async getProjectsByContact(contactId: string, tenantId: string): Promise<Project[]> {

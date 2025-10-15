@@ -819,8 +819,7 @@ export default function ProjectDetail() {
   return (
     <>
       <Header 
-        title={project.name} 
-        subtitle={`Project #${project.id}`}
+        title={project.name}
       />
       
       <main className="flex-1 overflow-auto p-6" data-testid="project-detail">

@@ -941,17 +941,17 @@ export default function ProjectDetail() {
                     <div className="space-y-3">
                       <div>
                         <span className="font-medium">
-                          {(project as any).contact_first_name || projectContact?.firstName} {(project as any).contact_last_name || projectContact?.lastName}
+                          {projectContact?.firstName} {projectContact?.lastName}
                         </span>
                       </div>
-                      {((project as any).contact_email || projectContact?.email) && (
+                      {projectContact?.email && (
                         <div className="flex items-center gap-2">
                           <Mail className="h-4 w-4 text-muted-foreground" />
                           <a 
-                            href={`mailto:${(project as any).contact_email || projectContact?.email}`} 
+                            href={`mailto:${projectContact.email}`} 
                             className="text-primary hover:underline"
                           >
-                            {(project as any).contact_email || projectContact?.email}
+                            {projectContact.email}
                           </a>
                         </div>
                       )}

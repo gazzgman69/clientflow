@@ -165,6 +165,7 @@ export interface IStorage {
   getProjects(tenantId: string, userId?: string, limit?: number, offset?: number): Promise<Project[]>;
   getProjectsCount(tenantId: string, userId?: string): Promise<number>;
   getProject(id: string, tenantId: string): Promise<Project | undefined>;
+  getProjectWithDetails(id: string, tenantId: string): Promise<any>; // Returns project with embedded contact & venue data
   getProjectsByContact(contactId: string, tenantId: string): Promise<Project[]>;
   createProject(project: InsertProject, tenantId: string): Promise<Project>;
   updateProject(id: string, project: Partial<InsertProject>, tenantId: string): Promise<Project | undefined>;
@@ -1073,6 +1074,29 @@ export class MemStorage implements IStorage {
   async getProject(id: string, tenantId: string): Promise<Project | undefined> {
     const project = this.projects.get(id);
     return (project && project.tenantId === tenantId) ? project : undefined;
+  }
+
+  async getProjectWithDetails(id: string, tenantId: string): Promise<any> {
+    const project = await this.getProject(id, tenantId);
+    if (!project) return undefined;
+    
+    const contact = project.contactId ? await this.getContact(project.contactId, tenantId) : null;
+    const venue = project.venueId ? this.venues.get(project.venueId) : null;
+    
+    return {
+      ...project,
+      contactFirstName: contact?.firstName,
+      contactLastName: contact?.lastName,
+      contactEmail: contact?.email,
+      contactPhone: contact?.phone,
+      contactAddress: contact?.address,
+      contactJobTitle: contact?.jobTitle,
+      contactWebsite: contact?.website,
+      venueName: venue?.name,
+      venueAddress: venue?.address,
+      venueCity: venue?.city,
+      venueState: venue?.state,
+    };
   }
 
   async getProjectsByContact(contactId: string, tenantId: string): Promise<Project[]> {
@@ -4631,6 +4655,61 @@ export class DrizzleStorage implements IStorage {
     const result = await this.db.select().from(projects).where(and(eq(projects.id, id), eq(projects.tenantId, tenantId)));
     return result[0];
   }
+
+  async getProjectWithDetails(id: string, tenantId: string): Promise<any> {
+    const result = await this.db
+      .select({
+        // All project fields
+        id: projects.id,
+        name: projects.name,
+        description: projects.description,
+        contactId: projects.contactId,
+        status: projects.status,
+        progress: projects.progress,
+        startDate: projects.startDate,
+        endDate: projects.endDate,
+        estimatedValue: projects.estimatedValue,
+        actualValue: projects.actualValue,
+        assignedTo: projects.assignedTo,
+        createdAt: projects.createdAt,
+        updatedAt: projects.updatedAt,
+        venueId: projects.venueId,
+        portalEnabledOverride: projects.portalEnabledOverride,
+        userId: projects.userId,
+        tenantId: projects.tenantId,
+        primaryEventId: projects.primaryEventId,
+        // Contact fields
+        contactFirstName: contacts.firstName,
+        contactLastName: contacts.lastName,
+        contactEmail: contacts.email,
+        contactPhone: contacts.phone,
+        contactAddress: contacts.address,
+        contactJobTitle: contacts.jobTitle,
+        contactWebsite: contacts.website,
+        // Venue fields
+        venueName: venues.name,
+        venueAddress: venues.address,
+        venueCity: venues.city,
+        venueState: venues.state,
+      })
+      .from(projects)
+      .leftJoin(contacts, and(
+        eq(projects.contactId, contacts.id),
+        eq(projects.tenantId, contacts.tenantId)
+      ))
+      .leftJoin(venues, and(
+        eq(projects.venueId, venues.id),
+        eq(projects.tenantId, venues.tenantId)
+      ))
+      .where(and(
+        eq(projects.id, id),
+        eq(projects.tenantId, tenantId)
+      ))
+      .limit(1);
+    
+    return result[0];
+  }
+
   async getProjectsByContact(contactId: string, tenantId: string): Promise<Project[]> {
     return await this.db.select().from(projects).where(and(eq(projects.contactId, contactId), eq(projects.tenantId, tenantId))).orderBy(desc(projects.createdAt));
   }

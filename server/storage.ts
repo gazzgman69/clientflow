@@ -4272,7 +4272,7 @@ export class DrizzleStorage implements IStorage {
 
   async getTagByName(name: string, tenantId: string): Promise<Tag | undefined> {
     const result = await this.db.select().from(tags).where(
-      and(sql`LOWER(${tags.name}) = LOWER(${name})`, eq(tags.tenantId, tenantId))
+      and(sql`LOWER(name) = LOWER(${name})`, eq(tags.tenantId, tenantId))
     );
     return result[0];
   }

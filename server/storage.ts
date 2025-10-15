@@ -4707,6 +4707,7 @@ export class DrizzleStorage implements IStorage {
       ))
       .limit(1);
     
+    console.log('getProjectWithDetails result:', JSON.stringify(result[0], null, 2));
     return result[0];
   }
 

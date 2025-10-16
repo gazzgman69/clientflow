@@ -70,6 +70,7 @@ import {
   type EmailSummary, type InsertEmailSummary,
   type EmailDraft, type InsertEmailDraft,
   type EmailActionItem, type InsertEmailActionItem,
+  type UserStyleSample, type InsertUserStyleSample,
   users, leads, contacts, projects, quotes, contracts, contractTemplates, invoices, incomeCategories, invoiceItems, taxSettings, tasks, emails, emailThreads, activities, automations, 
   members, venues, projectMembers, memberAvailability, projectFiles, projectNotes, smsMessages, 
   messageTemplates, messageThreads, calendars, events, calendarIntegrations, calendarSyncLog, templates, leadCaptureForms,
@@ -93,7 +94,7 @@ import {
   // Tags table
   tags,
   // AI-Generated Content tables
-  emailSummaries, emailDrafts, emailActionItems
+  emailSummaries, emailDrafts, emailActionItems, userStyleSamples
 } from "@shared/schema";
 import crypto from "crypto";
 import { TenantScopedStorage } from './utils/tenantScopedStorage';
@@ -582,6 +583,12 @@ export interface IStorage {
   getEmailActionItems(emailId: string, tenantId: string): Promise<EmailActionItem[]>;
   getThreadActionItems(threadId: string, tenantId: string): Promise<EmailActionItem[]>;
   updateActionItemStatus(id: string, status: string, tenantId: string): Promise<void>;
+
+  // User Style Samples for AI personalization
+  createUserStyleSample(sample: InsertUserStyleSample, tenantId: string): Promise<UserStyleSample>;
+  getUserStyleSamples(userId: string, tenantId: string): Promise<UserStyleSample[]>;
+  deleteUserStyleSample(id: string, tenantId: string): Promise<boolean>;
+  deleteAllUserStyleSamples(userId: string, tenantId: string): Promise<void>;
 
   // Tenant-scoped storage wrapper
   withTenant(tenantId: string): TenantScopedStorage;
@@ -7417,6 +7424,49 @@ export class DrizzleStorage implements IStorage {
       .where(and(
         eq(emailActionItems.id, id),
         eq(emailActionItems.tenantId, tenantId)
+      ));
+  }
+
+  async createUserStyleSample(sample: InsertUserStyleSample, tenantId: string): Promise<UserStyleSample> {
+    const result = await this.db
+      .insert(userStyleSamples)
+      .values({
+        ...sample,
+        tenantId,
+        createdAt: new Date()
+      })
+      .returning();
+    return result[0];
+  }
+
+  async getUserStyleSamples(userId: string, tenantId: string): Promise<UserStyleSample[]> {
+    return await this.db
+      .select()
+      .from(userStyleSamples)
+      .where(and(
+        eq(userStyleSamples.userId, userId),
+        eq(userStyleSamples.tenantId, tenantId)
+      ))
+      .orderBy(desc(userStyleSamples.createdAt));
+  }
+
+  async deleteUserStyleSample(id: string, tenantId: string): Promise<boolean> {
+    const result = await this.db
+      .delete(userStyleSamples)
+      .where(and(
+        eq(userStyleSamples.id, id),
+        eq(userStyleSamples.tenantId, tenantId)
+      ))
+      .returning();
+    return result.length > 0;
+  }
+
+  async deleteAllUserStyleSamples(userId: string, tenantId: string): Promise<void> {
+    await this.db
+      .delete(userStyleSamples)
+      .where(and(
+        eq(userStyleSamples.userId, userId),
+        eq(userStyleSamples.tenantId, tenantId)
       ));
   }
 

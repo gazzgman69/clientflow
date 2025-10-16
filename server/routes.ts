@@ -6915,6 +6915,92 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
 
+  // User style samples for AI personalization
+  app.post('/api/ai/style-samples', ensureUserAuth, tenantResolver, requireTenant, csrf, async (req: TenantRequest, res) => {
+    try {
+      const { samples } = req.body;
+      const userId = req.session?.userId;
+      
+      if (!userId) {
+        return res.status(401).json({ error: 'User not authenticated' });
+      }
+      
+      if (!Array.isArray(samples) || samples.length === 0) {
+        return res.status(400).json({ error: 'At least one sample required' });
+      }
+      
+      // Delete existing samples and add new ones
+      await storage.deleteAllUserStyleSamples(userId, req.tenantId!);
+      
+      const createdSamples = [];
+      for (const sampleText of samples) {
+        if (sampleText && sampleText.trim()) {
+          const sample = await storage.createUserStyleSample({
+            userId,
+            sampleText: sampleText.trim(),
+            tenantId: req.tenantId!
+          }, req.tenantId!);
+          createdSamples.push(sample);
+        }
+      }
+      
+      res.json({ success: true, count: createdSamples.length });
+    } catch (error: any) {
+      console.error('Error saving style samples:', error);
+      res.status(500).json({ error: error.message || 'Failed to save style samples' });
+    }
+  });
+
+  app.get('/api/ai/style-samples', ensureUserAuth, tenantResolver, requireTenant, async (req: TenantRequest, res) => {
+    try {
+      const userId = req.session?.userId;
+      
+      if (!userId) {
+        return res.status(401).json({ error: 'User not authenticated' });
+      }
+      
+      const samples = await storage.getUserStyleSamples(userId, req.tenantId!);
+      res.json({ samples });
+    } catch (error: any) {
+      console.error('Error getting style samples:', error);
+      res.status(500).json({ error: error.message || 'Failed to get style samples' });
+    }
+  });
+
+  // Check if user has seen style onboarding
+  app.get('/api/ai/style-onboarding-status', ensureUserAuth, tenantResolver, requireTenant, async (req: TenantRequest, res) => {
+    try {
+      const userId = req.session?.userId;
+      
+      if (!userId) {
+        return res.status(401).json({ error: 'User not authenticated' });
+      }
+      
+      const pref = await storage.getUserPref(userId, 'has_seen_style_onboarding', req.tenantId!);
+      res.json({ hasSeenOnboarding: pref?.value === 'true' });
+    } catch (error: any) {
+      console.error('Error checking onboarding status:', error);
+      res.status(500).json({ error: error.message || 'Failed to check onboarding status' });
+    }
+  });
+
+  // Mark style onboarding as seen
+  app.post('/api/ai/style-onboarding-complete', ensureUserAuth, tenantResolver, requireTenant, csrf, async (req: TenantRequest, res) => {
+    try {
+      const userId = req.session?.userId;
+      
+      if (!userId) {
+        return res.status(401).json({ error: 'User not authenticated' });
+      }
+      
+      await storage.setUserPref(userId, 'has_seen_style_onboarding', 'true', req.tenantId!);
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error('Error marking onboarding complete:', error);
+      res.status(500).json({ error: error.message || 'Failed to mark onboarding complete' });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

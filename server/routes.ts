@@ -6781,7 +6781,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
       }
       
       // Get user information for placeholder replacement
-      const user = await storage.getUserById(userId, req.tenantId!);
+      const user = await storage.getUser(userId, req.tenantId!);
       if (!user) {
         return res.status(404).json({ error: 'User not found' });
       }
@@ -6953,7 +6953,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
       }
       
       // Get user information for placeholder replacement
-      const user = await storage.getUserById(userId, req.tenantId!);
+      const user = await storage.getUser(userId, req.tenantId!);
       if (!user) {
         return res.status(404).json({ error: 'User not found' });
       }

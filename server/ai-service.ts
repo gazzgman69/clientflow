@@ -385,18 +385,20 @@ ${instructions}
 Generate a naturally flowing business email that:
 - Follows the user's instructions precisely
 ${stylePersonalized ? '- Matches the writing style from the examples above' : '- Uses professional, warm business tone'}
-- Has a natural structure: greeting, body paragraphs, closing
-- Signs off professionally with the sender's actual name${userInfo.position ? ' and position' : ''}${userInfo.company ? ' and company' : ''} 
-- NO placeholders or bracketed text like [YOUR NAME] - use actual information provided
-- Flows like a real email you would send to a colleague or client
+- Has clear paragraph structure with double line breaks (\\n\\n) between paragraphs
+- Signs off professionally with the sender's actual name${userInfo.position ? ' and position' : ''}${userInfo.company ? ' and company' : ''}
+- NEVER use placeholders or bracketed text - use the actual sender information provided above
+- Be specific and actionable - no vague [DETAILS] or [INFORMATION] placeholders
 
-Email signature format:
-${userInfo.name ? `${userInfo.name}` : ''}${userInfo.position ? `\n${userInfo.position}` : ''}${userInfo.company ? `\n${userInfo.company}` : ''}
+Formatting requirements:
+- Use \\n\\n (double newline) between paragraphs
+- Email signature should be separated from body with \\n\\n
+${userInfo.name ? `- Sign with: ${userInfo.name}` : ''}${userInfo.position ? `\\n${userInfo.position}` : ''}${userInfo.company ? `\\n${userInfo.company}` : ''}
 
 Respond with a JSON object containing:
 {
   "subject": "suggested subject line",
-  "draft": "complete email body with natural greeting, message, and professional sign-off"
+  "draft": "complete email body with greeting, paragraphs separated by \\n\\n, and signature"
 }`;
 
   try {

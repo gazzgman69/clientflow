@@ -6839,10 +6839,10 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
         processedDraft = processedDraft.replace(/(^Hi [^,]+,|^Hello [^,]+,|^Dear [^,]+,)/i, '$1\n\n');
         
         // Add breaks before common sign-offs (but keep them with the signature)
-        processedDraft = processedDraft.replace(/\s+(Best regards,|Kind regards,|Sincerely,|Thank you,|Thanks,|Cheers,)/gi, '\n\n$1 ');
+        processedDraft = processedDraft.replace(/\s+(Best regards,|Kind regards,|Warm regards,|Warmest regards,|Best wishes,|Sincerely,|Thank you,|Thanks,|Cheers,)/gi, '\n\n$1 ');
         
         // Add signature on same line as sign-off (replace multiple spaces with newline if needed)
-        const namePattern = new RegExp(`(Best regards,|Kind regards,|Sincerely,|Thank you,|Thanks,|Cheers,)\\s+(Gareth Gwyn|${fullName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+        const namePattern = new RegExp(`(Best regards,|Kind regards,|Warm regards,|Warmest regards,|Best wishes,|Sincerely,|Thank you,|Thanks,|Cheers,)\\s+(Gareth Gwyn|${fullName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
         processedDraft = processedDraft.replace(namePattern, '$1\n$2');
         
         // Split long blocks into paragraphs (every 3-4 sentences)
@@ -7017,10 +7017,10 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
         processedDraft = processedDraft.replace(/(^Hi [^,]+,|^Hello [^,]+,|^Dear [^,]+,)/i, '$1\n\n');
         
         // Add breaks before common sign-offs (but keep them with the signature)
-        processedDraft = processedDraft.replace(/\s+(Best regards,|Kind regards,|Sincerely,|Thank you,|Thanks,|Cheers,)/gi, '\n\n$1 ');
+        processedDraft = processedDraft.replace(/\s+(Best regards,|Kind regards,|Warm regards,|Warmest regards,|Best wishes,|Sincerely,|Thank you,|Thanks,|Cheers,)/gi, '\n\n$1 ');
         
         // Add signature on same line as sign-off (replace multiple spaces with newline if needed)
-        const namePattern = new RegExp(`(Best regards,|Kind regards,|Sincerely,|Thank you,|Thanks,|Cheers,)\\s+(Gareth Gwyn|${fullName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+        const namePattern = new RegExp(`(Best regards,|Kind regards,|Warm regards,|Warmest regards,|Best wishes,|Sincerely,|Thank you,|Thanks,|Cheers,)\\s+(Gareth Gwyn|${fullName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
         processedDraft = processedDraft.replace(namePattern, '$1\n$2');
         
         // Split long blocks into paragraphs (every 3-4 sentences)

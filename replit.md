@@ -35,7 +35,10 @@ The system includes an AI-powered email assistant using Replit AI Integrations (
 - **Email Summarization**: AI generates concise summaries of email threads, focusing on main topics, decisions, and action items
 - **Smart Reply Drafts**: AI creates professional email reply drafts based on thread context
 - **Action Item Extraction**: AI automatically identifies tasks, deadlines, and priorities from email content
-- **AI Compose Assistant**: AI generates complete email drafts (subject + body) from brief user instructions when composing new emails
+- **AI Compose Assistant with Style Learning**: AI generates complete email drafts (subject + body) from brief user instructions
+  - **Context-Based Style Learning**: Analyzes user's recent sent emails to match their personal writing style, tone, and structure
+  - **Adaptive Personalization**: <3 emails = standard professional style, 3-5 emails = blended style, 6+ emails = fully personalized to user's voice
+  - **User Feedback**: Toast notifications indicate whether draft uses personalized style or standard style with guidance to send more emails
 
 **Multi-Tenant Safety:**
 - All AI operations scope data by `tenant_id` in database queries and AI prompts
@@ -51,8 +54,10 @@ The system includes an AI-powered email assistant using Replit AI Integrations (
 **AI Service:**
 - Located in `server/ai-service.ts`
 - Uses GPT-4o-mini model for cost-effective performance
-- All functions accept `tenantId` parameter for safety
+- All functions accept `tenantId` parameter for safety (composeEmail also accepts `userId` for style learning)
 - Returns token usage for tracking and cost management
+- Style learning queries user's email address from users table, then fetches recent sent emails (direction='outbound') matching that email
+- Returns `stylePersonalized: boolean` flag to inform frontend about personalization level
 
 # External Dependencies
 

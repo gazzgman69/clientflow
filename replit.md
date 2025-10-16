@@ -35,6 +35,7 @@ The system includes an AI-powered email assistant using Replit AI Integrations (
 - **Email Summarization**: AI generates concise summaries of email threads, focusing on main topics, decisions, and action items
 - **Smart Reply Drafts**: AI creates professional email reply drafts based on thread context
 - **Action Item Extraction**: AI automatically identifies tasks, deadlines, and priorities from email content
+- **AI Compose Assistant**: AI generates complete email drafts (subject + body) from brief user instructions when composing new emails
 
 **Multi-Tenant Safety:**
 - All AI operations scope data by `tenant_id` in database queries and AI prompts

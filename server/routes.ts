@@ -6833,6 +6833,29 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
       processedDraft = processedDraft.replace(/\[\s*\]/g, '');
       processedDraft = processedDraft.replace(/\s{2,}/g, ' ').trim();
       
+      // Intelligently add paragraph breaks if they don't exist
+      if (!processedDraft.includes('\n\n')) {
+        // Add breaks after greetings (Hi Name, Hello Name,)
+        processedDraft = processedDraft.replace(/(^Hi [^,]+,|^Hello [^,]+,|^Dear [^,]+,)/i, '$1\n\n');
+        
+        // Add breaks before common sign-offs
+        processedDraft = processedDraft.replace(/\s+(Best regards,|Kind regards,|Sincerely,|Thank you,|Thanks,|Cheers,)/gi, '\n\n$1');
+        
+        // Add breaks before signatures (Name + Company/Email pattern)
+        const namePattern = new RegExp(`\\s+(Gareth Gwyn|${fullName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'g');
+        processedDraft = processedDraft.replace(namePattern, '\n\n$1');
+        
+        // Split long blocks into paragraphs (every 3-4 sentences)
+        const sentences = processedDraft.split(/(?<=[.!?])\s+/);
+        if (sentences.length > 4) {
+          const paragraphs = [];
+          for (let i = 0; i < sentences.length; i += 3) {
+            paragraphs.push(sentences.slice(i, i + 3).join(' '));
+          }
+          processedDraft = paragraphs.join('\n\n');
+        }
+      }
+      
       // Save processed draft to database
       const savedDraft = await storage.createEmailDraft({
         threadId: email.threadId || '',
@@ -6987,6 +7010,29 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
       // Clean up any leftover empty brackets and extra spaces
       processedDraft = processedDraft.replace(/\[\s*\]/g, '');
       processedDraft = processedDraft.replace(/\s{2,}/g, ' ').trim();
+      
+      // Intelligently add paragraph breaks if they don't exist
+      if (!processedDraft.includes('\n\n')) {
+        // Add breaks after greetings (Hi Name, Hello Name,)
+        processedDraft = processedDraft.replace(/(^Hi [^,]+,|^Hello [^,]+,|^Dear [^,]+,)/i, '$1\n\n');
+        
+        // Add breaks before common sign-offs
+        processedDraft = processedDraft.replace(/\s+(Best regards,|Kind regards,|Sincerely,|Thank you,|Thanks,|Cheers,)/gi, '\n\n$1');
+        
+        // Add breaks before signatures (Name + Company/Email pattern)
+        const namePattern = new RegExp(`\\s+(Gareth Gwyn|${fullName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'g');
+        processedDraft = processedDraft.replace(namePattern, '\n\n$1');
+        
+        // Split long blocks into paragraphs (every 3-4 sentences)
+        const sentences = processedDraft.split(/(?<=[.!?])\s+/);
+        if (sentences.length > 4) {
+          const paragraphs = [];
+          for (let i = 0; i < sentences.length; i += 3) {
+            paragraphs.push(sentences.slice(i, i + 3).join(' '));
+          }
+          processedDraft = paragraphs.join('\n\n');
+        }
+      }
       
       res.json({ draft: processedDraft, subject, model: 'gpt-4o-mini', tokensUsed, stylePersonalized });
     } catch (error: any) {

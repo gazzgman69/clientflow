@@ -48,7 +48,7 @@ export function SummarizeThreadButton({ threadId }: SummarizeThreadButtonProps) 
 
   const summarizeMutation = useMutation({
     mutationFn: async () => {
-      const response = await apiRequest('POST', `/api/ai/email-threads/${threadId}/summarize`);
+      const response = await apiRequest('POST', `/api/ai/threads/${threadId}/summarize`);
       return response as EmailSummary;
     },
     onSuccess: () => {
@@ -64,7 +64,7 @@ export function SummarizeThreadButton({ threadId }: SummarizeThreadButtonProps) 
   });
 
   const { data: summary } = useQuery<EmailSummary>({
-    queryKey: [`/api/ai/email-threads/${threadId}/summarize`],
+    queryKey: [`/api/ai/threads/${threadId}/summarize`],
     enabled: showSummary,
   });
 

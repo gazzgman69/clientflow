@@ -48,6 +48,11 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
   const [isComposing, setIsComposing] = useState(false);
   const [selectedThreadId, setSelectedThreadId] = useState<string | null>(null);
   const [selectedEmail, setSelectedEmail] = useState<any>(null);
+  
+  // Mark email as read when opened
+  const handleEmailOpen = (email: any) => {
+    setSelectedEmail({ ...email, isRead: true });
+  };
   const [showReplyDialog, setShowReplyDialog] = useState(false);
   const [replyTo, setReplyTo] = useState('');
   const [replySubject, setReplySubject] = useState('');
@@ -1126,7 +1131,7 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
                   <div 
                     key={message.id}
                     className="flex items-start gap-4 p-3 rounded-lg hover:bg-muted/50 cursor-pointer transition-colors border border-transparent hover:border-border"
-                    onClick={() => setSelectedEmail(message)}
+                    onClick={() => handleEmailOpen(message)}
                     data-testid={`row-message-${message.id}`}
                   >
                     {/* Date Badge */}
@@ -1144,7 +1149,7 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
                         className="text-left w-full"
                         onClick={(e) => {
                           e.stopPropagation();
-                          setSelectedEmail(message);
+                          handleEmailOpen(message);
                         }}
                         data-testid={`button-open-email-${message.id}`}
                       >
@@ -1320,11 +1325,15 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
                         variant="outline" 
                         className={`shrink-0 uppercase ${
                           selectedEmail.direction === 'inbound'
-                            ? 'border-orange-200 bg-orange-50 text-orange-700 dark:border-orange-800 dark:bg-orange-950 dark:text-orange-300'
+                            ? selectedEmail.isRead
+                              ? 'border-gray-200 bg-gray-50 text-gray-600 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400'
+                              : 'border-orange-200 bg-orange-50 text-orange-700 dark:border-orange-800 dark:bg-orange-950 dark:text-orange-300'
                             : 'border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-800 dark:bg-blue-950 dark:text-blue-300'
                         }`}
                       >
-                        {selectedEmail.direction === 'inbound' ? 'UNREAD' : 'SENT'}
+                        {selectedEmail.direction === 'inbound' 
+                          ? (selectedEmail.isRead ? 'READ' : 'UNREAD')
+                          : 'SENT'}
                       </Badge>
                     </div>
                   </div>

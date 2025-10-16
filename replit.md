@@ -28,6 +28,31 @@ The system incorporates a comprehensive email provider integration system. This 
 ## Authentication & Session Management
 The architecture includes preparations for session-based authentication using `connect-pg-simple` for PostgreSQL session storage, user management schema with secure password handling, and a structure for protected routes.
 
+## AI Assistant (Phase 1)
+The system includes an AI-powered email assistant using Replit AI Integrations (OpenAI). All AI operations are multi-tenant safe with proper data isolation.
+
+**Features:**
+- **Email Summarization**: AI generates concise summaries of email threads, focusing on main topics, decisions, and action items
+- **Smart Reply Drafts**: AI creates professional email reply drafts based on thread context
+- **Action Item Extraction**: AI automatically identifies tasks, deadlines, and priorities from email content
+
+**Multi-Tenant Safety:**
+- All AI operations scope data by `tenant_id` in database queries and AI prompts
+- Database tables (`email_summaries`, `email_drafts`, `email_action_items`) have NOT NULL tenant_id constraints
+- Backend routes protected with authentication, tenant resolution, and tenant validation middleware
+- Storage methods enforce tenant isolation using `AND tenant_id = ?` in all queries
+
+**Caching Strategy:**
+- Email summaries cached in database with unique constraint on (tenant_id, thread_id)
+- Backend checks for existing summaries before generating new ones
+- Prevents redundant API calls and reduces costs
+
+**AI Service:**
+- Located in `server/ai-service.ts`
+- Uses GPT-4o-mini model for cost-effective performance
+- All functions accept `tenantId` parameter for safety
+- Returns token usage for tracking and cost management
+
 # External Dependencies
 
 ## Core Framework Dependencies
@@ -59,3 +84,7 @@ The architecture includes preparations for session-based authentication using `c
 - **cmdk**: Command palette functionality
 - **embla-carousel-react**: Carousel component
 - **wouter**: Routing library
+
+## AI & Machine Learning
+- **Replit AI Integrations**: OpenAI-compatible API access (GPT-4o-mini/GPT-5)
+- **OpenAI SDK**: Client library for AI operations

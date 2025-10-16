@@ -6920,6 +6920,12 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
         return res.status(401).json({ error: 'User not authenticated' });
       }
       
+      // Get user information for placeholder replacement
+      const user = await storage.getUserById(userId, req.tenantId!);
+      if (!user) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+      
       // Import AI service
       const { composeEmail } = await import('./ai-service');
       
@@ -6932,7 +6938,29 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
         contactName
       );
       
-      res.json({ draft, subject, model: 'gpt-4o-mini', tokensUsed, stylePersonalized });
+      // Post-process draft to replace any placeholders with actual user data
+      let processedDraft = draft;
+      
+      // Replace common placeholder patterns (case-insensitive)
+      if (user.name) {
+        processedDraft = processedDraft.replace(/\[YOUR NAME\]/gi, user.name);
+      }
+      if (user.position) {
+        processedDraft = processedDraft.replace(/\[YOUR POSITION\]/gi, user.position);
+      }
+      if (user.company) {
+        processedDraft = processedDraft.replace(/\[YOUR COMPANY\]/gi, user.company);
+      }
+      
+      // Remove generic placeholder instructions
+      processedDraft = processedDraft.replace(/\[SPECIFIC DETAILS[^\]]*\]/gi, '');
+      processedDraft = processedDraft.replace(/\[YOUR CONTACT INFORMATION\]/gi, user.email || '');
+      processedDraft = processedDraft.replace(/\[(YOUR |THE )?DETAILS[^\]]*\]/gi, '');
+      
+      // Clean up any extra spaces from removed placeholders
+      processedDraft = processedDraft.replace(/\s{2,}/g, ' ').trim();
+      
+      res.json({ draft: processedDraft, subject, model: 'gpt-4o-mini', tokensUsed, stylePersonalized });
     } catch (error: any) {
       console.error('Error composing email:', error);
       res.status(500).json({ error: error.message || 'Failed to compose email' });

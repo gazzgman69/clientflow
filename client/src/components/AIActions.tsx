@@ -49,11 +49,10 @@ export function SummarizeThreadButton({ threadId }: SummarizeThreadButtonProps) 
   const summarizeMutation = useMutation({
     mutationFn: async () => {
       const response = await apiRequest('POST', `/api/ai/threads/${threadId}/summarize`);
-      console.log('📧 Summary API response:', response);
-      return response as EmailSummary;
+      const data = await response.json();
+      return data as EmailSummary;
     },
-    onSuccess: (data) => {
-      console.log('✅ Summary mutation success:', data);
+    onSuccess: () => {
       setShowSummary(true);
     },
     onError: (error: Error) => {

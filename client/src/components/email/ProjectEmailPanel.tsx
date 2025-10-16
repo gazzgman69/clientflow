@@ -71,7 +71,7 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
 
   // Style onboarding state
   const [showStyleOnboarding, setShowStyleOnboarding] = useState(false);
-  const [hasCheckedOnboarding, setHasCheckedOnboarding] = useState(false);
+  const [pendingAICompose, setPendingAICompose] = useState<(() => void) | null>(null);
 
   // Get current authenticated user
   const { data: currentUser } = useQuery({
@@ -80,18 +80,33 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
   });
 
   // Check if user has seen style onboarding
-  const { data: onboardingStatus } = useQuery({
+  const { data: onboardingStatus, refetch: refetchOnboardingStatus } = useQuery({
     queryKey: ['/api/ai/style-onboarding-status'],
-    enabled: !!currentUser && !hasCheckedOnboarding,
+    enabled: !!currentUser,
   });
 
-  // Show onboarding modal if user hasn't seen it
-  useEffect(() => {
-    if (onboardingStatus && !onboardingStatus.hasSeenOnboarding && !hasCheckedOnboarding) {
+  // Handle AI compose click - check onboarding first
+  const handleAIComposeClick = (composeFn: () => void) => {
+    if (onboardingStatus && !onboardingStatus.hasSeenOnboarding) {
+      // Show onboarding modal first
+      setPendingAICompose(() => composeFn);
       setShowStyleOnboarding(true);
-      setHasCheckedOnboarding(true);
+    } else {
+      // User has seen onboarding, proceed directly
+      composeFn();
     }
-  }, [onboardingStatus, hasCheckedOnboarding]);
+  };
+
+  // After onboarding completes, execute pending compose
+  const handleOnboardingComplete = () => {
+    queryClient.invalidateQueries({ queryKey: ['/api/ai/style-onboarding-status'] });
+    refetchOnboardingStatus();
+    
+    if (pendingAICompose) {
+      pendingAICompose();
+      setPendingAICompose(null);
+    }
+  };
   
   // Always use unified view (individual emails, not threaded)
   const emailViewMode = 'unified';
@@ -841,6 +856,7 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
                     }}
                     projectContext={project?.name}
                     contactName={contact?.name}
+                    onBeforeCompose={handleAIComposeClick}
                   />
                   
                   {selectedTemplate && (
@@ -1673,10 +1689,11 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
 
       <StyleOnboardingModal
         open={showStyleOnboarding}
-        onClose={() => setShowStyleOnboarding(false)}
-        onComplete={() => {
-          queryClient.invalidateQueries({ queryKey: ['/api/ai/style-onboarding-status'] });
+        onClose={() => {
+          setShowStyleOnboarding(false);
+          setPendingAICompose(null);
         }}
+        onComplete={handleOnboardingComplete}
       />
     </div>
   );

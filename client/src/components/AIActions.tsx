@@ -343,12 +343,21 @@ interface AIComposeButtonProps {
   onDraftGenerated: (draft: string, subject?: string) => void;
   projectContext?: string;
   contactName?: string;
+  onBeforeCompose?: (proceedFn: () => void) => void;
 }
 
-export function AIComposeButton({ onDraftGenerated, projectContext, contactName }: AIComposeButtonProps) {
+export function AIComposeButton({ onDraftGenerated, projectContext, contactName, onBeforeCompose }: AIComposeButtonProps) {
   const [showDialog, setShowDialog] = useState(false);
   const [instructions, setInstructions] = useState('');
   const { toast } = useToast();
+
+  const handleClick = () => {
+    if (onBeforeCompose) {
+      onBeforeCompose(() => setShowDialog(true));
+    } else {
+      setShowDialog(true);
+    }
+  };
 
   const composeMutation = useMutation({
     mutationFn: async () => {
@@ -385,7 +394,7 @@ export function AIComposeButton({ onDraftGenerated, projectContext, contactName 
       <Button
         variant="outline"
         size="sm"
-        onClick={() => setShowDialog(true)}
+        onClick={handleClick}
         data-testid="button-ai-compose"
       >
         <Sparkles className="h-4 w-4 mr-2" />

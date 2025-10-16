@@ -1361,33 +1361,7 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
                   
                   {selectedEmail.direction === 'inbound' && (
                     <DraftReplyButton 
-                      emailId={selectedEmail.id} 
-                      onDraftGenerated={(draft) => {
-                        console.log('Draft received from backend:', draft);
-                        console.log('Has \\n\\n:', draft.includes('\n\n'));
-                        
-                        // Convert plain text with \n\n to proper HTML paragraphs
-                        const htmlContent = draft
-                          .split('\n\n')
-                          .filter(para => para.trim())
-                          .map(para => `<p>${para.trim().replace(/\n/g, '<br>')}</p>`)
-                          .join('');
-                        
-                        console.log('Converted to HTML:', htmlContent);
-                        
-                        setReplyMessage(htmlContent);
-                        setReplyTo(selectedEmail.fromEmail);
-                        setReplySubject(`Re: ${selectedEmail.subject || ''}`);
-                        setShowReplyDialog(true);
-                        setSelectedEmail(null);
-                        
-                        // Update editor content after dialog opens
-                        setTimeout(() => {
-                          if (replyEditorRef.current) {
-                            replyEditorRef.current.setContent(htmlContent);
-                          }
-                        }, 0);
-                      }}
+                      emailId={selectedEmail.id}
                     />
                   )}
                   

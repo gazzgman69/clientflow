@@ -6708,7 +6708,9 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
       }
       
       // Get emails in thread (tenant-scoped)
+      console.log('🔍 Querying emails for thread:', { threadId, tenantId: req.tenantId });
       const threadEmails = await storage.getEmailsByThread(threadId, req.tenantId!);
+      console.log('📧 Query result:', { count: threadEmails.length, emails: threadEmails.map(e => ({ id: e.id, threadId: e.threadId, subject: e.subject })) });
       if (threadEmails.length === 0) {
         return res.status(404).json({ error: 'No emails found in thread' });
       }

@@ -807,12 +807,17 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
 
                   <AIComposeButton
                     onDraftGenerated={(draft, suggestedSubject) => {
-                      setMessage(draft);
+                      const htmlContent = draft
+                        .split('\n\n')
+                        .map(para => `<p>${para.replace(/\n/g, '<br>')}</p>`)
+                        .join('');
+                      
+                      setMessage(htmlContent);
                       if (suggestedSubject && !subject) {
                         setSubject(suggestedSubject);
                       }
                       if (messageEditorRef.current) {
-                        messageEditorRef.current.setContent(draft);
+                        messageEditorRef.current.setContent(htmlContent);
                       }
                     }}
                     projectContext={project?.name}

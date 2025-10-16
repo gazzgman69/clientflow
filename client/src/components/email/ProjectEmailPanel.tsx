@@ -17,6 +17,7 @@ import { apiRequest } from '@/lib/queryClient';
 import { TokenDropdown } from '@/components/ui/token-dropdown';
 import { insertTokenIntoValue } from '@/utils/cursor-utils';
 import { RichTextEditor, RichTextEditorRef } from '@/components/ui/rich-text-editor';
+import { SummarizeThreadButton, DraftReplyButton, ExtractActionsButton } from '@/components/AIActions';
 
 interface ProjectEmailPanelProps {
   projectId: string;
@@ -1281,9 +1282,9 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
                   </div>
                 )}
 
-                {/* Action Buttons - Only show Reply for inbound emails */}
-                {selectedEmail.direction === 'inbound' && (
-                  <div className="flex gap-2 pt-4 border-t">
+                {/* Action Buttons - Show Reply and AI Actions */}
+                <div className="flex flex-wrap gap-2 pt-4 border-t">
+                  {selectedEmail.direction === 'inbound' && (
                     <Button 
                       variant="outline" 
                       onClick={() => handleReply(selectedEmail)}
@@ -1292,8 +1293,28 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
                       <Reply className="h-4 w-4 mr-2" />
                       Reply
                     </Button>
-                  </div>
-                )}
+                  )}
+                  
+                  {/* AI-Powered Actions */}
+                  {selectedEmail.threadId && (
+                    <SummarizeThreadButton threadId={selectedEmail.threadId} />
+                  )}
+                  
+                  {selectedEmail.direction === 'inbound' && (
+                    <DraftReplyButton 
+                      emailId={selectedEmail.id} 
+                      onDraftGenerated={(draft) => {
+                        setReplyMessage(draft);
+                        setReplyTo(selectedEmail.fromEmail);
+                        setReplySubject(`Re: ${selectedEmail.subject || ''}`);
+                        setShowReplyDialog(true);
+                        setSelectedEmail(null);
+                      }}
+                    />
+                  )}
+                  
+                  <ExtractActionsButton emailId={selectedEmail.id} />
+                </div>
               </>
             )}
           </div>

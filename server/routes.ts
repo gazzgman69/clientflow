@@ -6746,6 +6746,24 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
 
+  // Get existing email summary
+  app.get('/api/ai/threads/:threadId/summarize', ensureUserAuth, tenantResolver, requireTenant, async (req: TenantRequest, res) => {
+    try {
+      const { threadId } = req.params;
+      
+      // Get existing summary (tenant-scoped)
+      const summary = await storage.getEmailSummary(threadId, req.tenantId!);
+      if (!summary) {
+        return res.status(404).json({ error: 'Summary not found' });
+      }
+      
+      res.json(summary);
+    } catch (error: any) {
+      console.error('Error fetching email summary:', error);
+      res.status(500).json({ error: error.message || 'Failed to fetch summary' });
+    }
+  });
+
   // Email draft generation - generate AI draft reply
   app.post('/api/ai/emails/:emailId/draft-reply', ensureUserAuth, tenantResolver, requireTenant, csrf, async (req: TenantRequest, res) => {
     try {

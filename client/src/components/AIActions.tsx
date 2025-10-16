@@ -63,10 +63,7 @@ export function SummarizeThreadButton({ threadId }: SummarizeThreadButtonProps) 
     },
   });
 
-  const { data: summary } = useQuery<EmailSummary>({
-    queryKey: [`/api/ai/threads/${threadId}/summarize`],
-    enabled: showSummary,
-  });
+  const summary = summarizeMutation.data;
 
   return (
     <>

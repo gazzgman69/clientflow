@@ -94,7 +94,9 @@ import {
   // Tags table
   tags,
   // AI-Generated Content tables
-  emailSummaries, emailDrafts, emailActionItems, userStyleSamples
+  emailSummaries, emailDrafts, emailActionItems, userStyleSamples,
+  // User Preferences table
+  userPrefs
 } from "@shared/schema";
 import crypto from "crypto";
 import { TenantScopedStorage } from './utils/tenantScopedStorage';
@@ -589,6 +591,10 @@ export interface IStorage {
   getUserStyleSamples(userId: string, tenantId: string): Promise<UserStyleSample[]>;
   deleteUserStyleSample(id: string, tenantId: string): Promise<boolean>;
   deleteAllUserStyleSamples(userId: string, tenantId: string): Promise<void>;
+
+  // User Preferences
+  getUserPref(userId: string, key: string, tenantId: string): Promise<{ key: string; value: string } | undefined>;
+  setUserPref(userId: string, key: string, value: string, tenantId: string): Promise<void>;
 
   // Tenant-scoped storage wrapper
   withTenant(tenantId: string): TenantScopedStorage;
@@ -7468,6 +7474,45 @@ export class DrizzleStorage implements IStorage {
         eq(userStyleSamples.userId, userId),
         eq(userStyleSamples.tenantId, tenantId)
       ));
+  }
+
+  async getUserPref(userId: string, key: string, tenantId: string): Promise<{ key: string; value: string } | undefined> {
+    const prefs = await this.db
+      .select()
+      .from(userPrefs)
+      .where(and(
+        eq(userPrefs.userId, userId),
+        eq(userPrefs.key, key),
+        eq(userPrefs.tenantId, tenantId)
+      ))
+      .limit(1);
+    
+    return prefs[0] ? { key: prefs[0].key, value: prefs[0].value } : undefined;
+  }
+
+  async setUserPref(userId: string, key: string, value: string, tenantId: string): Promise<void> {
+    const existing = await this.getUserPref(userId, key, tenantId);
+    
+    if (existing) {
+      await this.db
+        .update(userPrefs)
+        .set({ value, updatedAt: new Date() })
+        .where(and(
+          eq(userPrefs.userId, userId),
+          eq(userPrefs.key, key),
+          eq(userPrefs.tenantId, tenantId)
+        ));
+    } else {
+      await this.db
+        .insert(userPrefs)
+        .values({
+          userId,
+          key,
+          value,
+          tenantId,
+          updatedAt: new Date()
+        });
+    }
   }
 
   // Tenant-scoped storage wrapper

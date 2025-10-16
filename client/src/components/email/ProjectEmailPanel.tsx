@@ -18,6 +18,7 @@ import { TokenDropdown } from '@/components/ui/token-dropdown';
 import { insertTokenIntoValue } from '@/utils/cursor-utils';
 import { RichTextEditor, RichTextEditorRef } from '@/components/ui/rich-text-editor';
 import { SummarizeThreadButton, DraftReplyButton, ExtractActionsButton, AIComposeButton } from '@/components/AIActions';
+import { StyleOnboardingModal } from '@/components/StyleOnboardingModal';
 
 interface ProjectEmailPanelProps {
   projectId: string;
@@ -68,11 +69,29 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
   const [templateName, setTemplateName] = useState('');
   const [isUpdatingTemplate, setIsUpdatingTemplate] = useState(false);
 
+  // Style onboarding state
+  const [showStyleOnboarding, setShowStyleOnboarding] = useState(false);
+  const [hasCheckedOnboarding, setHasCheckedOnboarding] = useState(false);
+
   // Get current authenticated user
   const { data: currentUser } = useQuery({
     queryKey: ['/api/auth/me'],
     retry: false,
   });
+
+  // Check if user has seen style onboarding
+  const { data: onboardingStatus } = useQuery({
+    queryKey: ['/api/ai/style-onboarding-status'],
+    enabled: !!currentUser && !hasCheckedOnboarding,
+  });
+
+  // Show onboarding modal if user hasn't seen it
+  useEffect(() => {
+    if (onboardingStatus && !onboardingStatus.hasSeenOnboarding && !hasCheckedOnboarding) {
+      setShowStyleOnboarding(true);
+      setHasCheckedOnboarding(true);
+    }
+  }, [onboardingStatus, hasCheckedOnboarding]);
   
   // Always use unified view (individual emails, not threaded)
   const emailViewMode = 'unified';
@@ -1651,6 +1670,14 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
           </div>
         </DialogContent>
       </Dialog>
+
+      <StyleOnboardingModal
+        open={showStyleOnboarding}
+        onClose={() => setShowStyleOnboarding(false)}
+        onComplete={() => {
+          queryClient.invalidateQueries({ queryKey: ['/api/ai/style-onboarding-status'] });
+        }}
+      />
     </div>
   );
 }

@@ -66,6 +66,10 @@ import {
   type ContactFieldValue, type InsertContactFieldValue,
   // Tags types
   type Tag, type InsertTag,
+  // AI-Generated Content types
+  type EmailSummary, type InsertEmailSummary,
+  type EmailDraft, type InsertEmailDraft,
+  type EmailActionItem, type InsertEmailActionItem,
   users, leads, contacts, projects, quotes, contracts, contractTemplates, invoices, incomeCategories, invoiceItems, taxSettings, tasks, emails, emailThreads, activities, automations, 
   members, venues, projectMembers, memberAvailability, projectFiles, projectNotes, smsMessages, 
   messageTemplates, messageThreads, calendars, events, calendarIntegrations, calendarSyncLog, templates, leadCaptureForms,
@@ -87,7 +91,9 @@ import {
   // Custom Contact Fields tables
   contactFieldDefinitions, contactFieldValues,
   // Tags table
-  tags
+  tags,
+  // AI-Generated Content tables
+  emailSummaries, emailDrafts, emailActionItems
 } from "@shared/schema";
 import crypto from "crypto";
 import { TenantScopedStorage } from './utils/tenantScopedStorage';
@@ -565,6 +571,17 @@ export interface IStorage {
   // Audit Logs
   createAuditLog(auditLog: InsertAuditLog, tenantId: string): Promise<AuditLog>;
   getAuditLogs(tenantId: string, userId?: string, action?: string): Promise<AuditLog[]>;
+
+  // AI-Generated Content
+  createEmailSummary(summary: InsertEmailSummary, tenantId: string): Promise<EmailSummary>;
+  getEmailSummary(threadId: string, tenantId: string): Promise<EmailSummary | undefined>;
+  createEmailDraft(draft: InsertEmailDraft, tenantId: string): Promise<EmailDraft>;
+  getEmailDrafts(threadId: string, tenantId: string): Promise<EmailDraft[]>;
+  markDraftAsUsed(id: string, tenantId: string): Promise<void>;
+  createEmailActionItems(actionItems: InsertEmailActionItem[], tenantId: string): Promise<EmailActionItem[]>;
+  getEmailActionItems(emailId: string, tenantId: string): Promise<EmailActionItem[]>;
+  getThreadActionItems(threadId: string, tenantId: string): Promise<EmailActionItem[]>;
+  updateActionItemStatus(id: string, status: string, tenantId: string): Promise<void>;
 
   // Tenant-scoped storage wrapper
   withTenant(tenantId: string): TenantScopedStorage;
@@ -7299,6 +7316,108 @@ export class DrizzleStorage implements IStorage {
       .from(auditLogs)
       .where(and(...conditions))
       .orderBy(desc(auditLogs.timestamp));
+  }
+
+  // AI-Generated Content methods
+  async createEmailSummary(summary: InsertEmailSummary, tenantId: string): Promise<EmailSummary> {
+    const result = await this.db.insert(emailSummaries).values({
+      ...summary,
+      tenantId,
+      createdAt: new Date()
+    }).returning();
+    return result[0];
+  }
+
+  async getEmailSummary(threadId: string, tenantId: string): Promise<EmailSummary | undefined> {
+    const result = await this.db
+      .select()
+      .from(emailSummaries)
+      .where(and(
+        eq(emailSummaries.threadId, threadId),
+        eq(emailSummaries.tenantId, tenantId)
+      ))
+      .limit(1);
+    return result[0];
+  }
+
+  async createEmailDraft(draft: InsertEmailDraft, tenantId: string): Promise<EmailDraft> {
+    const result = await this.db.insert(emailDrafts).values({
+      ...draft,
+      tenantId,
+      createdAt: new Date()
+    }).returning();
+    return result[0];
+  }
+
+  async getEmailDrafts(threadId: string, tenantId: string): Promise<EmailDraft[]> {
+    return await this.db
+      .select()
+      .from(emailDrafts)
+      .where(and(
+        eq(emailDrafts.threadId, threadId),
+        eq(emailDrafts.tenantId, tenantId)
+      ))
+      .orderBy(desc(emailDrafts.createdAt));
+  }
+
+  async markDraftAsUsed(id: string, tenantId: string): Promise<void> {
+    await this.db
+      .update(emailDrafts)
+      .set({ used: true })
+      .where(and(
+        eq(emailDrafts.id, id),
+        eq(emailDrafts.tenantId, tenantId)
+      ));
+  }
+
+  async createEmailActionItems(actionItems: InsertEmailActionItem[], tenantId: string): Promise<EmailActionItem[]> {
+    if (actionItems.length === 0) return [];
+    
+    const result = await this.db.insert(emailActionItems).values(
+      actionItems.map(item => ({
+        ...item,
+        tenantId,
+        createdAt: new Date()
+      }))
+    ).returning();
+    return result;
+  }
+
+  async getEmailActionItems(emailId: string, tenantId: string): Promise<EmailActionItem[]> {
+    return await this.db
+      .select()
+      .from(emailActionItems)
+      .where(and(
+        eq(emailActionItems.emailId, emailId),
+        eq(emailActionItems.tenantId, tenantId)
+      ))
+      .orderBy(desc(emailActionItems.createdAt));
+  }
+
+  async getThreadActionItems(threadId: string, tenantId: string): Promise<EmailActionItem[]> {
+    return await this.db
+      .select()
+      .from(emailActionItems)
+      .where(and(
+        eq(emailActionItems.threadId, threadId),
+        eq(emailActionItems.tenantId, tenantId)
+      ))
+      .orderBy(desc(emailActionItems.createdAt));
+  }
+
+  async updateActionItemStatus(id: string, status: string, tenantId: string): Promise<void> {
+    const updates: any = { status };
+    if (status === 'completed') {
+      updates.completedAt = new Date();
+    }
+    
+    await this.db
+      .update(emailActionItems)
+      .set(updates)
+      .where(and(
+        eq(emailActionItems.id, id),
+        eq(emailActionItems.tenantId, tenantId)
+      ));
   }
 
   // Tenant-scoped storage wrapper

@@ -262,6 +262,23 @@ export async function composeEmail(
     throw new Error('Instructions required for email composition');
   }
 
+  // Get user information for personalization
+  const userData = await db
+    .select({ 
+      email: users.email,
+      name: users.name,
+      company: users.company,
+      position: users.position
+    })
+    .from(users)
+    .where(and(eq(users.id, userId), eq(users.tenantId, tenantId)))
+    .limit(1);
+  
+  const userInfo = userData[0];
+  if (!userInfo) {
+    throw new Error('User not found');
+  }
+
   // First, check for user's style samples (onboarding samples)
   // MULTI-TENANT SAFE: Only gets samples from this specific user in this tenant
   const styleSamples = await db
@@ -287,17 +304,6 @@ export async function composeEmail(
     styleSource = 'samples';
   } else {
     // Fall back to sent emails for style learning
-    const user = await db
-      .select({ email: users.email })
-      .from(users)
-      .where(and(eq(users.id, userId), eq(users.tenantId, tenantId)))
-      .limit(1);
-    
-    const userEmail = user[0]?.email;
-    if (!userEmail) {
-      throw new Error('User not found');
-    }
-
     const recentSentEmails = await db
       .select({
         bodyText: emails.bodyText,
@@ -308,7 +314,7 @@ export async function composeEmail(
         and(
           eq(emails.tenantId, tenantId),
           eq(emails.direction, 'outbound'),
-          eq(emails.fromEmail, userEmail)
+          eq(emails.fromEmail, userInfo.email)
         )
       )
       .orderBy(desc(emails.sentAt))
@@ -318,6 +324,21 @@ export async function composeEmail(
       styleExamples = recentSentEmails;
       styleSource = 'emails';
     }
+  }
+
+  // Build sender information
+  let senderInfo = '';
+  if (userInfo.name) {
+    senderInfo += `Sender name: ${userInfo.name}\n`;
+  }
+  if (userInfo.position) {
+    senderInfo += `Position: ${userInfo.position}\n`;
+  }
+  if (userInfo.company) {
+    senderInfo += `Company: ${userInfo.company}\n`;
+  }
+  if (userInfo.email) {
+    senderInfo += `Email: ${userInfo.email}\n`;
   }
 
   let contextInfo = '';
@@ -356,7 +377,7 @@ Match the user's writing style from these examples:
 
   const prompt = `You are helping compose a professional business email for a CRM user.
 
-${contextInfo ? `Context:\n${contextInfo}\n` : ''}${styleGuidance}
+${senderInfo ? `Sender Information:\n${senderInfo}\n` : ''}${contextInfo ? `Context:\n${contextInfo}\n` : ''}${styleGuidance}
 
 User instructions:
 ${instructions}
@@ -365,7 +386,8 @@ Generate an email that:
 - Follows the user's instructions precisely
 ${stylePersonalized ? '- Matches the writing style from the examples above' : '- Uses professional, warm business tone'}
 - Uses proper email etiquette
-- Leaves placeholders [YOUR NAME], [SPECIFIC DETAILS] where personalization is needed
+- Uses the ACTUAL sender information provided above (name, position, company, email) - DO NOT use placeholders like [YOUR NAME]
+- Sign off with the sender's actual name if provided
 
 Respond with a JSON object containing:
 {

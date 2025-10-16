@@ -6882,27 +6882,33 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
 
-  // AI compose email from instructions
+  // AI compose email from instructions with style learning
   app.post('/api/ai/compose-email', ensureUserAuth, tenantResolver, requireTenant, csrf, async (req: TenantRequest, res) => {
     try {
       const { instructions, projectContext, contactName } = req.body;
+      const userId = req.session?.userId;
       
       if (!instructions || !instructions.trim()) {
         return res.status(400).json({ error: 'Instructions required' });
       }
       
+      if (!userId) {
+        return res.status(401).json({ error: 'User not authenticated' });
+      }
+      
       // Import AI service
       const { composeEmail } = await import('./ai-service');
       
-      // Generate email draft
-      const { draft, subject, tokensUsed } = await composeEmail(
+      // Generate email draft with style learning
+      const { draft, subject, tokensUsed, stylePersonalized } = await composeEmail(
         instructions,
         req.tenantId!,
+        userId,
         projectContext,
         contactName
       );
       
-      res.json({ draft, subject, model: 'gpt-4o-mini', tokensUsed });
+      res.json({ draft, subject, model: 'gpt-4o-mini', tokensUsed, stylePersonalized });
     } catch (error: any) {
       console.error('Error composing email:', error);
       res.status(500).json({ error: error.message || 'Failed to compose email' });

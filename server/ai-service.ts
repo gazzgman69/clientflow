@@ -1,4 +1,7 @@
 import OpenAI from "openai";
+import { db } from "@db";
+import { emails, users } from "@shared/schema";
+import { eq, and, desc } from "drizzle-orm";
 
 /*
 Using Replit AI Integrations:
@@ -241,17 +244,48 @@ If no action items are found, return: {"actionItems": []}`;
 
 /**
  * Generate a new email draft from user instructions
- * MULTI-TENANT SAFE: Only uses tenant-specific context
+ * MULTI-TENANT SAFE: Only uses tenant-specific context and user's own emails for style learning
  */
 export async function composeEmail(
   instructions: string,
   tenantId: string,
+  userId: string,
   projectContext?: string,
   contactName?: string
-): Promise<{ draft: string; subject?: string; tokensUsed: number }> {
+): Promise<{ draft: string; subject?: string; tokensUsed: number; stylePersonalized: boolean }> {
   if (!instructions || !instructions.trim()) {
     throw new Error('Instructions required for email composition');
   }
+
+  // Get user's email address
+  const user = await db
+    .select({ email: users.email })
+    .from(users)
+    .where(and(eq(users.id, userId), eq(users.tenantId, tenantId)))
+    .limit(1);
+  
+  const userEmail = user[0]?.email;
+  if (!userEmail) {
+    throw new Error('User not found');
+  }
+
+  // Fetch recent sent emails from this user for style learning
+  // MULTI-TENANT SAFE: Only gets emails from this specific user in this tenant
+  const recentSentEmails = await db
+    .select({
+      bodyText: emails.bodyText,
+      subject: emails.subject
+    })
+    .from(emails)
+    .where(
+      and(
+        eq(emails.tenantId, tenantId),
+        eq(emails.direction, 'outbound'),
+        eq(emails.fromEmail, userEmail) // Only this user's sent emails
+      )
+    )
+    .orderBy(desc(emails.sentAt))
+    .limit(5);
 
   let contextInfo = '';
   if (projectContext) {
@@ -261,14 +295,38 @@ export async function composeEmail(
     contextInfo += `Recipient: ${contactName}\n`;
   }
 
+  // Build style examples from user's recent emails
+  let styleGuidance = '';
+  const stylePersonalized = recentSentEmails.length >= 3;
+  
+  if (stylePersonalized) {
+    const emailExamples = recentSentEmails
+      .slice(0, 3)
+      .map((email, idx) => `Example ${idx + 1}:\nSubject: ${email.subject}\n${email.bodyText?.substring(0, 300) || ''}...`)
+      .join('\n\n');
+    
+    styleGuidance = `\nWriting Style Reference (learn from these examples of how this user writes):
+${emailExamples}
+
+Match the user's writing style from these examples:
+- Mirror their tone (formal/casual/friendly)
+- Match their greeting and sign-off style
+- Use similar sentence structure and length
+- Reflect their level of detail`;
+  } else {
+    styleGuidance = `\nWriting Style: Use standard professional business email style.`;
+  }
+
   const prompt = `You are helping compose a professional business email for a CRM user.
 
-${contextInfo ? `Context:\n${contextInfo}\n` : ''}User instructions:
+${contextInfo ? `Context:\n${contextInfo}\n` : ''}${styleGuidance}
+
+User instructions:
 ${instructions}
 
-Generate a professional, friendly email that:
+Generate an email that:
 - Follows the user's instructions precisely
-- Is warm but businesslike
+${stylePersonalized ? '- Matches the writing style from the examples above' : '- Uses professional, warm business tone'}
 - Uses proper email etiquette
 - Leaves placeholders [YOUR NAME], [SPECIFIC DETAILS] where personalization is needed
 
@@ -304,11 +362,12 @@ Respond with a JSON object containing:
       return { 
         draft: parsed.draft || 'Unable to generate draft', 
         subject: parsed.subject,
-        tokensUsed 
+        tokensUsed,
+        stylePersonalized
       };
     } catch (parseError) {
       console.error('Error parsing compose response JSON:', parseError);
-      return { draft: 'Unable to generate draft', tokensUsed };
+      return { draft: 'Unable to generate draft', tokensUsed, stylePersonalized };
     }
   } catch (error) {
     console.error('Error composing email:', error);

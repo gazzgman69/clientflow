@@ -358,15 +358,17 @@ export function AIComposeButton({ onDraftGenerated, projectContext, contactName 
         contactName
       });
       const data = await response.json();
-      return data as { draft: string; subject?: string; model: string };
+      return data as { draft: string; subject?: string; model: string; stylePersonalized: boolean };
     },
     onSuccess: (data) => {
       onDraftGenerated(data.draft, data.subject);
       setShowDialog(false);
       setInstructions('');
       toast({
-        title: "Draft generated!",
-        description: "AI has created your email draft",
+        title: data.stylePersonalized ? "✨ Draft using your writing style!" : "Draft generated!",
+        description: data.stylePersonalized 
+          ? "AI learned from your sent emails to match your tone" 
+          : "Send a few emails to teach AI your writing style",
       });
     },
     onError: (error: Error) => {

@@ -357,7 +357,8 @@ export function AIComposeButton({ onDraftGenerated, projectContext, contactName 
         projectContext,
         contactName
       });
-      return response as { draft: string; subject?: string; model: string };
+      const data = await response.json();
+      return data as { draft: string; subject?: string; model: string };
     },
     onSuccess: (data) => {
       onDraftGenerated(data.draft, data.subject);

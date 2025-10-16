@@ -6873,6 +6873,111 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
 
+  // Adjust tone of existing draft
+  app.post('/api/ai/emails/:emailId/adjust-tone', ensureUserAuth, tenantResolver, requireTenant, csrf, async (req: TenantRequest, res) => {
+    try {
+      const { emailId } = req.params;
+      const { tone } = req.body;
+      const userId = (req as any).session?.userId;
+      
+      if (!userId) {
+        return res.status(401).json({ error: 'User not authenticated' });
+      }
+      
+      if (!tone) {
+        return res.status(400).json({ error: 'Tone is required' });
+      }
+      
+      // Get the email to reply to (tenant-scoped)
+      const email = await storage.getEmail(emailId, req.tenantId!);
+      if (!email) {
+        return res.status(404).json({ error: 'Email not found' });
+      }
+      
+      // Get user information
+      const user = await storage.getUser(userId, req.tenantId!);
+      if (!user) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+      
+      // Get thread context
+      const threadEmails = email.threadId 
+        ? await storage.getEmailsByThread(email.threadId, req.tenantId!)
+        : [email];
+      
+      // Import AI service
+      const { generateEmailReply } = await import('./ai-service');
+      
+      // Generate draft with specific tone
+      const { draft, tokensUsed } = await generateEmailReply(
+        {
+          id: email.id,
+          fromEmail: email.fromEmail,
+          subject: email.subject || '',
+          bodyText: email.bodyText || '',
+          sentAt: email.sentAt || new Date()
+        },
+        threadEmails.map(e => ({
+          id: e.id,
+          fromEmail: e.fromEmail,
+          subject: e.subject || '',
+          bodyText: e.bodyText || '',
+          sentAt: e.sentAt || new Date()
+        })),
+        req.tenantId!,
+        tone // Pass the tone parameter
+      );
+      
+      // Post-process draft to replace placeholders with actual user data
+      let processedDraft = draft;
+      
+      // Build full name from first_name and last_name
+      const fullName = [user.firstName, user.lastName].filter(Boolean).join(' ') || 'Gareth Gwyn';
+      
+      // Replace common placeholder patterns (case-insensitive)
+      processedDraft = processedDraft.replace(/\[YOUR NAME\]/gi, fullName);
+      processedDraft = processedDraft.replace(/\[YOUR POSITION\]/gi, '');
+      processedDraft = processedDraft.replace(/\[YOUR COMPANY\]/gi, 'Club Kudo');
+      
+      // Remove generic placeholder instructions and clean up
+      processedDraft = processedDraft.replace(/\[SPECIFIC DETAILS[^\]]*\]/gi, '');
+      processedDraft = processedDraft.replace(/\[YOUR CONTACT INFORMATION\]/gi, user.email || '');
+      processedDraft = processedDraft.replace(/\[(YOUR |THE )?DETAILS[^\]]*\]/gi, '');
+      
+      // Clean up any leftover empty brackets and extra spaces
+      processedDraft = processedDraft.replace(/\[\s*\]/g, '');
+      processedDraft = processedDraft.replace(/\s{2,}/g, ' ').trim();
+      
+      // Intelligently add paragraph breaks if they don't exist
+      if (!processedDraft.includes('\n\n')) {
+        // Add breaks after greetings (Hi Name, Hello Name,)
+        processedDraft = processedDraft.replace(/(^Hi [^,]+,|^Hello [^,]+,|^Dear [^,]+,)/i, '$1\n\n');
+        
+        // Add breaks before common sign-offs
+        processedDraft = processedDraft.replace(/\s+(Best regards,|Kind regards,|Warm regards,|Warmest regards,|Best wishes,|Sincerely,|Thank you,|Thanks,|Cheers,)/gi, '\n\n$1 ');
+        
+        // Add blank line after sign-off before signature
+        const namePattern = new RegExp(`(Best regards,|Kind regards,|Warm regards,|Warmest regards,|Best wishes,|Sincerely,|Thank you,|Thanks,|Cheers,)\\s+(Gareth Gwyn|${fullName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+        processedDraft = processedDraft.replace(namePattern, '$1\n\n$2');
+        
+        // Split long blocks into paragraphs (every 3-4 sentences)
+        const sentences = processedDraft.split(/(?<=[.!?])\s+/);
+        if (sentences.length > 4) {
+          const paragraphs = [];
+          for (let i = 0; i < sentences.length; i += 3) {
+            paragraphs.push(sentences.slice(i, i + 3).join(' '));
+          }
+          processedDraft = paragraphs.join('\n\n');
+        }
+      }
+      
+      res.json({ draftContent: processedDraft, model: 'gpt-4o-mini', tokensUsed });
+    } catch (error: any) {
+      console.error('Error adjusting tone:', error);
+      res.status(500).json({ error: error.message || 'Failed to adjust tone' });
+    }
+  });
+
   // Action item extraction - extract tasks from email
   app.post('/api/ai/emails/:emailId/extract-actions', ensureUserAuth, tenantResolver, requireTenant, csrf, async (req: TenantRequest, res) => {
     try {

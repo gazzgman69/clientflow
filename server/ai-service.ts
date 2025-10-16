@@ -107,10 +107,24 @@ Provide your summary:`;
  * Generate an AI draft reply to an email
  * MULTI-TENANT SAFE: Only processes emails that belong to the tenant
  */
+// Helper function to get tone-specific instructions
+function getToneInstructions(tone: string): string {
+  const toneMap: { [key: string]: string } = {
+    professional: '- Use formal, business-appropriate language\n- Be precise and to-the-point\n- Maintain professional distance',
+    friendly: '- Use warm, conversational language\n- Be approachable and personable\n- Include friendly expressions',
+    casual: '- Use relaxed, informal language\n- Be conversational and laid-back\n- Keep it brief and easy-going',
+    concise: '- Be brief and direct\n- Get straight to the point\n- Avoid unnecessary details',
+    enthusiastic: '- Show excitement and energy\n- Use positive, upbeat language\n- Express genuine interest'
+  };
+  
+  return toneMap[tone] || '';
+}
+
 export async function generateEmailReply(
   originalEmail: EmailForSummary,
   threadContext: EmailForSummary[],
-  tenantId: string
+  tenantId: string,
+  tone?: string
 ): Promise<{ draft: string; tokensUsed: number }> {
   if (!originalEmail) {
     throw new Error('Original email required for reply generation');
@@ -126,6 +140,9 @@ Subject: ${email.subject}
 ${email.bodyText?.substring(0, 500) || '(No content)'}`;
     })
     .join('\n\n');
+
+  // Tone-specific instructions
+  const toneInstructions = tone ? `\nTone adjustment:\n${getToneInstructions(tone)}` : '';
 
   const prompt = `You are helping draft a professional email reply for a business CRM user.
 
@@ -143,7 +160,7 @@ Generate a professional, friendly reply that:
 - Is warm but businesslike
 - Leaves placeholders [YOUR NAME], [SPECIFIC DETAILS] where personalization is needed
 - IMPORTANT: Format with proper paragraphs separated by TWO newlines (\\n\\n)
-- Each paragraph should be a distinct thought or topic
+- Each paragraph should be a distinct thought or topic${toneInstructions}
 
 Draft reply (body text only, no subject):`;
 

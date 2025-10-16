@@ -6816,23 +6816,21 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
       // Post-process draft to replace placeholders with actual user data
       let processedDraft = draft;
       
-      // Replace common placeholder patterns (case-insensitive)
-      if (user.name) {
-        processedDraft = processedDraft.replace(/\[YOUR NAME\]/gi, user.name);
-      }
-      if (user.position) {
-        processedDraft = processedDraft.replace(/\[YOUR POSITION\]/gi, user.position);
-      }
-      if (user.company) {
-        processedDraft = processedDraft.replace(/\[YOUR COMPANY\]/gi, user.company);
-      }
+      // Build full name from first_name and last_name
+      const fullName = [user.firstName, user.lastName].filter(Boolean).join(' ') || 'Gareth Gwyn';
       
-      // Remove generic placeholder instructions
+      // Replace common placeholder patterns (case-insensitive)
+      processedDraft = processedDraft.replace(/\[YOUR NAME\]/gi, fullName);
+      processedDraft = processedDraft.replace(/\[YOUR POSITION\]/gi, '');
+      processedDraft = processedDraft.replace(/\[YOUR COMPANY\]/gi, 'Club Kudo');
+      
+      // Remove generic placeholder instructions and clean up
       processedDraft = processedDraft.replace(/\[SPECIFIC DETAILS[^\]]*\]/gi, '');
       processedDraft = processedDraft.replace(/\[YOUR CONTACT INFORMATION\]/gi, user.email || '');
       processedDraft = processedDraft.replace(/\[(YOUR |THE )?DETAILS[^\]]*\]/gi, '');
       
-      // Clean up any extra spaces from removed placeholders
+      // Clean up any leftover empty brackets and extra spaces
+      processedDraft = processedDraft.replace(/\[\s*\]/g, '');
       processedDraft = processedDraft.replace(/\s{2,}/g, ' ').trim();
       
       // Save processed draft to database
@@ -6973,23 +6971,21 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
       // Post-process draft to replace any placeholders with actual user data
       let processedDraft = draft;
       
-      // Replace common placeholder patterns (case-insensitive)
-      if (user.name) {
-        processedDraft = processedDraft.replace(/\[YOUR NAME\]/gi, user.name);
-      }
-      if (user.position) {
-        processedDraft = processedDraft.replace(/\[YOUR POSITION\]/gi, user.position);
-      }
-      if (user.company) {
-        processedDraft = processedDraft.replace(/\[YOUR COMPANY\]/gi, user.company);
-      }
+      // Build full name from first_name and last_name
+      const fullName = [user.firstName, user.lastName].filter(Boolean).join(' ') || 'Gareth Gwyn';
       
-      // Remove generic placeholder instructions
+      // Replace common placeholder patterns (case-insensitive)
+      processedDraft = processedDraft.replace(/\[YOUR NAME\]/gi, fullName);
+      processedDraft = processedDraft.replace(/\[YOUR POSITION\]/gi, '');
+      processedDraft = processedDraft.replace(/\[YOUR COMPANY\]/gi, 'Club Kudo');
+      
+      // Remove generic placeholder instructions and clean up
       processedDraft = processedDraft.replace(/\[SPECIFIC DETAILS[^\]]*\]/gi, '');
       processedDraft = processedDraft.replace(/\[YOUR CONTACT INFORMATION\]/gi, user.email || '');
       processedDraft = processedDraft.replace(/\[(YOUR |THE )?DETAILS[^\]]*\]/gi, '');
       
-      // Clean up any extra spaces from removed placeholders
+      // Clean up any leftover empty brackets and extra spaces
+      processedDraft = processedDraft.replace(/\[\s*\]/g, '');
       processedDraft = processedDraft.replace(/\s{2,}/g, ' ').trim();
       
       res.json({ draft: processedDraft, subject, model: 'gpt-4o-mini', tokensUsed, stylePersonalized });

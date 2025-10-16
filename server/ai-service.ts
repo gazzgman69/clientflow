@@ -142,6 +142,8 @@ Generate a professional, friendly reply that:
 - Addresses their key points
 - Is warm but businesslike
 - Leaves placeholders [YOUR NAME], [SPECIFIC DETAILS] where personalization is needed
+- IMPORTANT: Format with proper paragraphs separated by TWO newlines (\\n\\n)
+- Each paragraph should be a distinct thought or topic
 
 Draft reply (body text only, no subject):`;
 
@@ -266,9 +268,8 @@ export async function composeEmail(
   const userData = await db
     .select({ 
       email: users.email,
-      name: users.name,
-      company: users.company,
-      position: users.position
+      firstName: users.firstName,
+      lastName: users.lastName
     })
     .from(users)
     .where(and(eq(users.id, userId), eq(users.tenantId, tenantId)))
@@ -278,6 +279,9 @@ export async function composeEmail(
   if (!userInfo) {
     throw new Error('User not found');
   }
+  
+  // Build full name
+  const fullName = [userInfo.firstName, userInfo.lastName].filter(Boolean).join(' ') || 'Gareth Gwyn';
 
   // First, check for user's style samples (onboarding samples)
   // MULTI-TENANT SAFE: Only gets samples from this specific user in this tenant
@@ -328,15 +332,10 @@ export async function composeEmail(
 
   // Build sender information
   let senderInfo = '';
-  if (userInfo.name) {
-    senderInfo += `Sender name: ${userInfo.name}\n`;
+  if (fullName) {
+    senderInfo += `Sender name: ${fullName}\n`;
   }
-  if (userInfo.position) {
-    senderInfo += `Position: ${userInfo.position}\n`;
-  }
-  if (userInfo.company) {
-    senderInfo += `Company: ${userInfo.company}\n`;
-  }
+  senderInfo += `Company: Club Kudo\n`;
   if (userInfo.email) {
     senderInfo += `Email: ${userInfo.email}\n`;
   }
@@ -386,14 +385,15 @@ Generate a naturally flowing business email that:
 - Follows the user's instructions precisely
 ${stylePersonalized ? '- Matches the writing style from the examples above' : '- Uses professional, warm business tone'}
 - Has clear paragraph structure with double line breaks (\\n\\n) between paragraphs
-- Signs off professionally with the sender's actual name${userInfo.position ? ' and position' : ''}${userInfo.company ? ' and company' : ''}
+- Signs off professionally with the sender's actual name and company
 - NEVER use placeholders or bracketed text - use the actual sender information provided above
 - Be specific and actionable - no vague [DETAILS] or [INFORMATION] placeholders
 
 Formatting requirements:
 - Use \\n\\n (double newline) between paragraphs
 - Email signature should be separated from body with \\n\\n
-${userInfo.name ? `- Sign with: ${userInfo.name}` : ''}${userInfo.position ? `\\n${userInfo.position}` : ''}${userInfo.company ? `\\n${userInfo.company}` : ''}
+- Sign with: ${fullName}
+Club Kudo
 
 Respond with a JSON object containing:
 {

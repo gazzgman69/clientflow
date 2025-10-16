@@ -52,6 +52,7 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
   const [replyTo, setReplyTo] = useState('');
   const [replySubject, setReplySubject] = useState('');
   const [replyMessage, setReplyMessage] = useState('');
+  const [replyingToEmailId, setReplyingToEmailId] = useState<string | null>(null);
   const [forceRefresh, setForceRefresh] = useState(false);
   const [showTemplateModal, setShowTemplateModal] = useState(false);
   const [showSignatureDropdown, setShowSignatureDropdown] = useState(false);
@@ -526,6 +527,43 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
     },
   });
 
+  // Tone adjustment mutation
+  const adjustToneMutation = useMutation({
+    mutationFn: async (tone: string) => {
+      if (!replyingToEmailId) throw new Error('No email selected');
+      const response = await apiRequest('POST', `/api/ai/emails/${replyingToEmailId}/adjust-tone`, { tone });
+      const data = await response.json();
+      return data;
+    },
+    onSuccess: (data) => {
+      // Convert plain text with \n\n to proper HTML paragraphs
+      const htmlContent = data.draftContent
+        .split('\n\n')
+        .filter((para: string) => para.trim())
+        .map((para: string) => `<p>${para.trim().replace(/\n/g, '<br>')}</p>`)
+        .join('');
+      
+      setReplyMessage(htmlContent);
+      
+      // Update editor content
+      if (replyEditorRef.current) {
+        replyEditorRef.current.setContent(htmlContent);
+      }
+      
+      toast({
+        title: "Tone adjusted",
+        description: `Draft regenerated with ${data.tone || 'new'} tone`,
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to adjust tone",
+        variant: "destructive",
+      });
+    },
+  });
+
   const handleReply = (originalMessage: any) => {
     // Set reply details based on the original message
     const replyToEmail = originalMessage.fromEmail.includes('<') 
@@ -538,6 +576,7 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
       ? subject 
       : `Re: ${subject}`);
     setReplyMessage(''); // Clear previous message
+    setReplyingToEmailId(originalMessage.id); // Store email ID for tone adjustment
     setShowReplyDialog(true);
     setSelectedEmail(null); // Close the email detail dialog
   };
@@ -1581,7 +1620,40 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
             </div>
           </div>
           
-          <div className="border-t pt-4">
+          <div className="border-t pt-4 space-y-4">
+            {/* Tone Adjustment Buttons */}
+            {replyingToEmailId && replyMessage && (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-medium">Adjust Tone:</p>
+                  {adjustToneMutation.isPending && (
+                    <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                  )}
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {[
+                    { value: 'professional', label: 'Professional' },
+                    { value: 'friendly', label: 'Friendly' },
+                    { value: 'casual', label: 'Casual' },
+                    { value: 'concise', label: 'Concise' },
+                    { value: 'enthusiastic', label: 'Enthusiastic' }
+                  ].map((tone) => (
+                    <Button
+                      key={tone.value}
+                      variant="outline"
+                      size="sm"
+                      onClick={() => adjustToneMutation.mutate(tone.value)}
+                      disabled={adjustToneMutation.isPending}
+                      data-testid={`button-tone-${tone.value}`}
+                    >
+                      {tone.label}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Send/Cancel Buttons */}
             <div className="flex gap-2 justify-end">
               <Button 
                 variant="outline" 

@@ -1,6 +1,6 @@
 import OpenAI from "openai";
 import { db } from "@db";
-import { emails, users } from "@shared/schema";
+import { emails, users, userStyleSamples } from "@shared/schema";
 import { eq, and, desc } from "drizzle-orm";
 
 /*
@@ -257,35 +257,63 @@ export async function composeEmail(
     throw new Error('Instructions required for email composition');
   }
 
-  // Get user's email address
-  const user = await db
-    .select({ email: users.email })
-    .from(users)
-    .where(and(eq(users.id, userId), eq(users.tenantId, tenantId)))
-    .limit(1);
-  
-  const userEmail = user[0]?.email;
-  if (!userEmail) {
-    throw new Error('User not found');
-  }
-
-  // Fetch recent sent emails from this user for style learning
-  // MULTI-TENANT SAFE: Only gets emails from this specific user in this tenant
-  const recentSentEmails = await db
+  // First, check for user's style samples (onboarding samples)
+  // MULTI-TENANT SAFE: Only gets samples from this specific user in this tenant
+  const styleSamples = await db
     .select({
-      bodyText: emails.bodyText,
-      subject: emails.subject
+      sampleText: userStyleSamples.sampleText
     })
-    .from(emails)
+    .from(userStyleSamples)
     .where(
       and(
-        eq(emails.tenantId, tenantId),
-        eq(emails.direction, 'outbound'),
-        eq(emails.fromEmail, userEmail) // Only this user's sent emails
+        eq(userStyleSamples.userId, userId),
+        eq(userStyleSamples.tenantId, tenantId)
       )
     )
-    .orderBy(desc(emails.sentAt))
+    .orderBy(desc(userStyleSamples.createdAt))
     .limit(5);
+
+  let styleExamples: { bodyText: string | null; subject: string | null }[] = [];
+  let styleSource = 'none';
+
+  if (styleSamples.length > 0) {
+    // Use onboarding samples if available
+    styleExamples = styleSamples.map(s => ({ bodyText: s.sampleText, subject: null }));
+    styleSource = 'samples';
+  } else {
+    // Fall back to sent emails for style learning
+    const user = await db
+      .select({ email: users.email })
+      .from(users)
+      .where(and(eq(users.id, userId), eq(users.tenantId, tenantId)))
+      .limit(1);
+    
+    const userEmail = user[0]?.email;
+    if (!userEmail) {
+      throw new Error('User not found');
+    }
+
+    const recentSentEmails = await db
+      .select({
+        bodyText: emails.bodyText,
+        subject: emails.subject
+      })
+      .from(emails)
+      .where(
+        and(
+          eq(emails.tenantId, tenantId),
+          eq(emails.direction, 'outbound'),
+          eq(emails.fromEmail, userEmail)
+        )
+      )
+      .orderBy(desc(emails.sentAt))
+      .limit(5);
+
+    if (recentSentEmails.length > 0) {
+      styleExamples = recentSentEmails;
+      styleSource = 'emails';
+    }
+  }
 
   let contextInfo = '';
   if (projectContext) {
@@ -295,17 +323,21 @@ export async function composeEmail(
     contextInfo += `Recipient: ${contactName}\n`;
   }
 
-  // Build style examples from user's recent emails
+  // Build style examples from samples or sent emails
   let styleGuidance = '';
-  const stylePersonalized = recentSentEmails.length >= 3;
+  const stylePersonalized = styleExamples.length >= 3;
   
   if (stylePersonalized) {
-    const emailExamples = recentSentEmails
+    const emailExamples = styleExamples
       .slice(0, 3)
-      .map((email, idx) => `Example ${idx + 1}:\nSubject: ${email.subject}\n${email.bodyText?.substring(0, 300) || ''}...`)
+      .map((example, idx) => {
+        const text = example.bodyText?.substring(0, 300) || '';
+        const subject = example.subject ? `Subject: ${example.subject}\n` : '';
+        return `Example ${idx + 1}:\n${subject}${text}${text.length >= 300 ? '...' : ''}`;
+      })
       .join('\n\n');
     
-    styleGuidance = `\nWriting Style Reference (learn from these examples of how this user writes):
+    styleGuidance = `\nWriting Style Reference (${styleSource === 'samples' ? 'from your saved writing samples' : 'from your recent emails'}):
 ${emailExamples}
 
 Match the user's writing style from these examples:

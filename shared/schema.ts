@@ -2008,3 +2008,86 @@ export const insertTagSchema = createInsertSchema(tags).omit({
 export type Tag = typeof tags.$inferSelect;
 export type InsertTag = z.infer<typeof insertTagSchema>;
 
+// AI-Generated Content Tables
+
+// Email Summaries - AI-generated summaries of email threads
+export const emailSummaries = pgTable("email_summaries", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").references(() => tenants.id).notNull(),
+  threadId: varchar("thread_id").references(() => emailThreads.id, { onDelete: 'cascade' }).notNull(),
+  summary: text("summary").notNull(),
+  model: text("model").notNull(), // AI model used (e.g., 'gpt-5')
+  tokensUsed: integer("tokens_used"), // For usage tracking
+  createdBy: varchar("created_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  tenantIdIdx: index("email_summaries_tenant_id_idx").on(table.tenantId),
+  threadIdIdx: index("email_summaries_thread_id_idx").on(table.threadId),
+  tenantThreadUnique: unique("email_summaries_tenant_thread_unique").on(table.tenantId, table.threadId),
+}));
+
+// Email Drafts - AI-generated draft replies
+export const emailDrafts = pgTable("email_drafts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").references(() => tenants.id).notNull(),
+  threadId: varchar("thread_id").references(() => emailThreads.id, { onDelete: 'cascade' }).notNull(),
+  inReplyToEmailId: varchar("in_reply_to_email_id").references(() => emails.id, { onDelete: 'cascade' }),
+  draftContent: text("draft_content").notNull(),
+  model: text("model").notNull(),
+  tokensUsed: integer("tokens_used"),
+  createdBy: varchar("created_by").references(() => users.id),
+  used: boolean("used").default(false), // Track if user actually sent this draft
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  tenantIdIdx: index("email_drafts_tenant_id_idx").on(table.tenantId),
+  threadIdIdx: index("email_drafts_thread_id_idx").on(table.threadId),
+}));
+
+// Email Action Items - AI-extracted tasks and action items
+export const emailActionItems = pgTable("email_action_items", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").references(() => tenants.id).notNull(),
+  emailId: varchar("email_id").references(() => emails.id, { onDelete: 'cascade' }).notNull(),
+  threadId: varchar("thread_id").references(() => emailThreads.id, { onDelete: 'cascade' }),
+  actionText: text("action_text").notNull(),
+  dueDate: timestamp("due_date"),
+  priority: text("priority"), // 'high', 'medium', 'low'
+  status: text("status").default('pending'), // 'pending', 'completed', 'dismissed'
+  model: text("model").notNull(),
+  tokensUsed: integer("tokens_used"),
+  createdBy: varchar("created_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  completedAt: timestamp("completed_at"),
+}, (table) => ({
+  tenantIdIdx: index("email_action_items_tenant_id_idx").on(table.tenantId),
+  emailIdIdx: index("email_action_items_email_id_idx").on(table.emailId),
+  threadIdIdx: index("email_action_items_thread_id_idx").on(table.threadId),
+  statusIdx: index("email_action_items_status_idx").on(table.status),
+}));
+
+// Insert schemas and types for AI tables
+export const insertEmailSummarySchema = createInsertSchema(emailSummaries).omit({ 
+  id: true, 
+  createdAt: true 
+});
+
+export type EmailSummary = typeof emailSummaries.$inferSelect;
+export type InsertEmailSummary = z.infer<typeof insertEmailSummarySchema>;
+
+export const insertEmailDraftSchema = createInsertSchema(emailDrafts).omit({ 
+  id: true, 
+  createdAt: true 
+});
+
+export type EmailDraft = typeof emailDrafts.$inferSelect;
+export type InsertEmailDraft = z.infer<typeof insertEmailDraftSchema>;
+
+export const insertEmailActionItemSchema = createInsertSchema(emailActionItems).omit({ 
+  id: true, 
+  createdAt: true,
+  completedAt: true 
+});
+
+export type EmailActionItem = typeof emailActionItems.$inferSelect;
+export type InsertEmailActionItem = z.infer<typeof insertEmailActionItemSchema>;
+

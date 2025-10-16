@@ -239,7 +239,15 @@ const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(
       },
       getHTML: () => editor?.getHTML() || '',
       focus: () => editor?.commands.focus(),
-      setContent: (content: string) => editor?.commands.setContent(content),
+      setContent: (content: string) => {
+        if (editor) {
+          editor.chain()
+            .focus()
+            .clearContent()
+            .insertContent(content)
+            .run();
+        }
+      },
       insertToken: (token: string) => {
         if (editor) {
           // Insert token at current cursor position

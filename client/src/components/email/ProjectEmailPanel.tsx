@@ -841,15 +841,20 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
 
                   <AIComposeButton
                     onDraftGenerated={(draft, suggestedSubject) => {
+                      // Convert plain text with \n\n to proper HTML paragraphs
                       const htmlContent = draft
                         .split('\n\n')
-                        .map(para => `<p>${para.replace(/\n/g, '<br>')}</p>`)
+                        .filter(para => para.trim())
+                        .map(para => `<p>${para.trim().replace(/\n/g, '<br>')}</p>`)
                         .join('');
                       
+                      // Set both the state and editor content
                       setMessage(htmlContent);
                       if (suggestedSubject && !subject) {
                         setSubject(suggestedSubject);
                       }
+                      
+                      // Update editor - now properly clears and inserts HTML
                       if (messageEditorRef.current) {
                         messageEditorRef.current.setContent(htmlContent);
                       }

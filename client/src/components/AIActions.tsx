@@ -248,7 +248,8 @@ export function ExtractActionsButton({ emailId }: ExtractActionsButtonProps) {
       await apiRequest('PATCH', `/api/ai/actions/${id}/status`, { status });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/ai/emails/${emailId}/extract-actions`] });
+      // Refetch the action items to show the updated status
+      extractMutation.mutate();
     },
   });
 

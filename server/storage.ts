@@ -5835,7 +5835,9 @@ export class DrizzleStorage implements IStorage {
     
     return await this.db.select().from(tasks).where(whereCondition);
   }
-  async getEmailsByThread(threadId: string, tenantId: string) { return []; }
+  async getEmailsByThread(threadId: string, tenantId: string): Promise<Email[]> {
+    return await this.db.select().from(emails).where(and(eq(emails.threadId, threadId), eq(emails.tenantId, tenantId)));
+  }
   async getSmsMessagesByThread(threadId: string) { return []; }
   async getSmsMessagesByClient(clientId: string) { return []; }
   async getSmsMessagesByPhone(phone: string) { return []; }

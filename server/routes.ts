@@ -6770,10 +6770,20 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
       const { emailId } = req.params;
       const userId = (req as any).session?.userId;
       
+      if (!userId) {
+        return res.status(401).json({ error: 'User not authenticated' });
+      }
+      
       // Get the email to reply to (tenant-scoped)
       const email = await storage.getEmail(emailId, req.tenantId!);
       if (!email) {
         return res.status(404).json({ error: 'Email not found' });
+      }
+      
+      // Get user information for placeholder replacement
+      const user = await storage.getUserById(userId, req.tenantId!);
+      if (!user) {
+        return res.status(404).json({ error: 'User not found' });
       }
       
       // Get thread context (tenant-scoped)
@@ -6803,11 +6813,33 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
         req.tenantId!
       );
       
-      // Save draft to database
+      // Post-process draft to replace placeholders with actual user data
+      let processedDraft = draft;
+      
+      // Replace common placeholder patterns (case-insensitive)
+      if (user.name) {
+        processedDraft = processedDraft.replace(/\[YOUR NAME\]/gi, user.name);
+      }
+      if (user.position) {
+        processedDraft = processedDraft.replace(/\[YOUR POSITION\]/gi, user.position);
+      }
+      if (user.company) {
+        processedDraft = processedDraft.replace(/\[YOUR COMPANY\]/gi, user.company);
+      }
+      
+      // Remove generic placeholder instructions
+      processedDraft = processedDraft.replace(/\[SPECIFIC DETAILS[^\]]*\]/gi, '');
+      processedDraft = processedDraft.replace(/\[YOUR CONTACT INFORMATION\]/gi, user.email || '');
+      processedDraft = processedDraft.replace(/\[(YOUR |THE )?DETAILS[^\]]*\]/gi, '');
+      
+      // Clean up any extra spaces from removed placeholders
+      processedDraft = processedDraft.replace(/\s{2,}/g, ' ').trim();
+      
+      // Save processed draft to database
       const savedDraft = await storage.createEmailDraft({
         threadId: email.threadId || '',
         inReplyToEmailId: emailId,
-        draftContent: draft,
+        draftContent: processedDraft,
         model: 'gpt-4o-mini',
         tokensUsed,
         createdBy: userId

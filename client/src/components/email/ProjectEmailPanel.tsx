@@ -1363,11 +1363,25 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
                     <DraftReplyButton 
                       emailId={selectedEmail.id} 
                       onDraftGenerated={(draft) => {
-                        setReplyMessage(draft);
+                        // Convert plain text with \n\n to proper HTML paragraphs
+                        const htmlContent = draft
+                          .split('\n\n')
+                          .filter(para => para.trim())
+                          .map(para => `<p>${para.trim().replace(/\n/g, '<br>')}</p>`)
+                          .join('');
+                        
+                        setReplyMessage(htmlContent);
                         setReplyTo(selectedEmail.fromEmail);
                         setReplySubject(`Re: ${selectedEmail.subject || ''}`);
                         setShowReplyDialog(true);
                         setSelectedEmail(null);
+                        
+                        // Update editor content after dialog opens
+                        setTimeout(() => {
+                          if (replyEditorRef.current) {
+                            replyEditorRef.current.setContent(htmlContent);
+                          }
+                        }, 0);
                       }}
                     />
                   )}

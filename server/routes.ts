@@ -6690,6 +6690,198 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
 
+  // AI-Powered Features Routes
+  // Email summarization - generate AI summary of email thread
+  app.post('/api/ai/email-threads/:threadId/summarize', ensureUserAuth, tenantResolver, requireTenant, csrf, async (req: TenantRequest, res) => {
+    try {
+      const { threadId } = req.params;
+      const userId = (req as any).session?.userId;
+      
+      // Check if summary already exists (caching)
+      const existingSummary = await storage.getEmailSummary(threadId, req.tenantId!);
+      if (existingSummary) {
+        return res.json(existingSummary);
+      }
+      
+      // Get emails in thread (tenant-scoped)
+      const threadEmails = await storage.getEmailsByThread(threadId, req.tenantId!);
+      if (threadEmails.length === 0) {
+        return res.status(404).json({ error: 'No emails found in thread' });
+      }
+      
+      // Import AI service
+      const { summarizeEmailThread } = await import('./ai-service');
+      
+      // Generate summary
+      const { summary, tokensUsed } = await summarizeEmailThread(
+        threadEmails.map(e => ({
+          id: e.id,
+          fromEmail: e.fromEmail,
+          subject: e.subject || '',
+          bodyText: e.bodyText || '',
+          sentAt: e.sentAt || new Date()
+        })),
+        req.tenantId!
+      );
+      
+      // Save summary to database
+      const savedSummary = await storage.createEmailSummary({
+        threadId,
+        summary,
+        model: 'gpt-4o-mini',
+        tokensUsed,
+        createdBy: userId
+      }, req.tenantId!);
+      
+      res.json(savedSummary);
+    } catch (error: any) {
+      console.error('Error generating email summary:', error);
+      res.status(500).json({ error: error.message || 'Failed to generate summary' });
+    }
+  });
+
+  // Email draft generation - generate AI draft reply
+  app.post('/api/ai/emails/:emailId/draft-reply', ensureUserAuth, tenantResolver, requireTenant, csrf, async (req: TenantRequest, res) => {
+    try {
+      const { emailId } = req.params;
+      const userId = (req as any).session?.userId;
+      
+      // Get the email to reply to (tenant-scoped)
+      const email = await storage.getEmail(emailId, req.tenantId!);
+      if (!email) {
+        return res.status(404).json({ error: 'Email not found' });
+      }
+      
+      // Get thread context (tenant-scoped)
+      const threadEmails = email.threadId 
+        ? await storage.getEmailsByThread(email.threadId, req.tenantId!)
+        : [email];
+      
+      // Import AI service
+      const { generateEmailReply } = await import('./ai-service');
+      
+      // Generate draft
+      const { draft, tokensUsed } = await generateEmailReply(
+        {
+          id: email.id,
+          fromEmail: email.fromEmail,
+          subject: email.subject || '',
+          bodyText: email.bodyText || '',
+          sentAt: email.sentAt || new Date()
+        },
+        threadEmails.map(e => ({
+          id: e.id,
+          fromEmail: e.fromEmail,
+          subject: e.subject || '',
+          bodyText: e.bodyText || '',
+          sentAt: e.sentAt || new Date()
+        })),
+        req.tenantId!
+      );
+      
+      // Save draft to database
+      const savedDraft = await storage.createEmailDraft({
+        threadId: email.threadId || '',
+        inReplyToEmailId: emailId,
+        draftContent: draft,
+        model: 'gpt-4o-mini',
+        tokensUsed,
+        createdBy: userId
+      }, req.tenantId!);
+      
+      res.json(savedDraft);
+    } catch (error: any) {
+      console.error('Error generating email draft:', error);
+      res.status(500).json({ error: error.message || 'Failed to generate draft' });
+    }
+  });
+
+  // Action item extraction - extract tasks from email
+  app.post('/api/ai/emails/:emailId/extract-actions', ensureUserAuth, tenantResolver, requireTenant, csrf, async (req: TenantRequest, res) => {
+    try {
+      const { emailId } = req.params;
+      const userId = (req as any).session?.userId;
+      
+      // Get the email (tenant-scoped)
+      const email = await storage.getEmail(emailId, req.tenantId!);
+      if (!email) {
+        return res.status(404).json({ error: 'Email not found' });
+      }
+      
+      // Check if action items already extracted
+      const existingActions = await storage.getEmailActionItems(emailId, req.tenantId!);
+      if (existingActions.length > 0) {
+        return res.json(existingActions);
+      }
+      
+      // Import AI service
+      const { extractActionItems } = await import('./ai-service');
+      
+      // Extract action items
+      const { actionItems, tokensUsed } = await extractActionItems(
+        {
+          id: email.id,
+          fromEmail: email.fromEmail,
+          subject: email.subject || '',
+          bodyText: email.bodyText || '',
+          sentAt: email.sentAt || new Date()
+        },
+        req.tenantId!
+      );
+      
+      // Save action items to database
+      if (actionItems.length > 0) {
+        const savedActions = await storage.createEmailActionItems(
+          actionItems.map(item => ({
+            emailId,
+            threadId: email.threadId,
+            actionText: item.actionText,
+            dueDate: item.dueDate ? new Date(item.dueDate) : undefined,
+            priority: item.priority,
+            model: 'gpt-4o-mini',
+            tokensUsed: Math.floor(tokensUsed / actionItems.length),
+            createdBy: userId
+          })),
+          req.tenantId!
+        );
+        res.json(savedActions);
+      } else {
+        res.json([]);
+      }
+    } catch (error: any) {
+      console.error('Error extracting action items:', error);
+      res.status(500).json({ error: error.message || 'Failed to extract action items' });
+    }
+  });
+
+  // Get action items for a thread
+  app.get('/api/ai/email-threads/:threadId/actions', ensureUserAuth, tenantResolver, requireTenant, async (req: TenantRequest, res) => {
+    try {
+      const { threadId } = req.params;
+      const actions = await storage.getThreadActionItems(threadId, req.tenantId!);
+      res.json(actions);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Update action item status
+  app.patch('/api/ai/actions/:id/status', ensureUserAuth, tenantResolver, requireTenant, csrf, async (req: TenantRequest, res) => {
+    try {
+      const { id } = req.params;
+      const { status } = req.body;
+      
+      if (!['pending', 'completed', 'dismissed'].includes(status)) {
+        return res.status(400).json({ error: 'Invalid status' });
+      }
+      
+      await storage.updateActionItemStatus(id, status, req.tenantId!);
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

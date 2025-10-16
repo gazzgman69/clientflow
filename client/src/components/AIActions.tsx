@@ -125,7 +125,8 @@ export function DraftReplyButton({ emailId, onDraftGenerated }: DraftReplyButton
   const draftMutation = useMutation({
     mutationFn: async () => {
       const response = await apiRequest('POST', `/api/ai/emails/${emailId}/draft-reply`);
-      return response as EmailDraft;
+      const data = await response.json();
+      return data as EmailDraft;
     },
     onSuccess: (data) => {
       setShowDraft(true);
@@ -221,7 +222,8 @@ export function ExtractActionsButton({ emailId }: ExtractActionsButtonProps) {
   const extractMutation = useMutation({
     mutationFn: async () => {
       const response = await apiRequest('POST', `/api/ai/emails/${emailId}/extract-actions`);
-      return response as ActionItem[];
+      const data = await response.json();
+      return data as ActionItem[];
     },
     onSuccess: (data) => {
       setShowActions(true);

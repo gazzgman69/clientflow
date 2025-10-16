@@ -1730,8 +1730,8 @@ export class MemStorage implements IStorage {
     return email;
   }
 
-  async getEmailsByThread(threadId: string): Promise<Email[]> {
-    return Array.from(this.emails.values()).filter(email => email.threadId === threadId);
+  async getEmailsByThread(threadId: string, tenantId: string): Promise<Email[]> {
+    return Array.from(this.emails.values()).filter(email => email.threadId === threadId && email.tenantId === tenantId);
   }
 
   async getEmailsByClient(clientId: string): Promise<Email[]> {
@@ -5835,7 +5835,7 @@ export class DrizzleStorage implements IStorage {
     
     return await this.db.select().from(tasks).where(whereCondition);
   }
-  async getEmailsByThread(threadId: string) { return []; }
+  async getEmailsByThread(threadId: string, tenantId: string) { return []; }
   async getSmsMessagesByThread(threadId: string) { return []; }
   async getSmsMessagesByClient(clientId: string) { return []; }
   async getSmsMessagesByPhone(phone: string) { return []; }

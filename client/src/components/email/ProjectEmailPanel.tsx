@@ -1380,19 +1380,8 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
                   </div>
                 )}
 
-                {/* Action Buttons - Show Reply and AI Actions */}
+                {/* Action Buttons - AI Actions Only */}
                 <div className="flex flex-wrap gap-2 pt-4 border-t">
-                  {selectedEmail.direction === 'inbound' && (
-                    <Button 
-                      variant="outline" 
-                      onClick={() => handleReply(selectedEmail)}
-                      data-testid="button-reply-email"
-                    >
-                      <Reply className="h-4 w-4 mr-2" />
-                      Reply
-                    </Button>
-                  )}
-                  
                   {/* AI-Powered Actions */}
                   {selectedEmail.threadId && (
                     <SummarizeThreadButton threadId={selectedEmail.threadId} />
@@ -1401,6 +1390,28 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
                   {selectedEmail.direction === 'inbound' && (
                     <DraftReplyButton 
                       emailId={selectedEmail.id}
+                      onDraftGenerated={(draft) => {
+                        // Convert plain text with \n\n to proper HTML paragraphs
+                        const htmlContent = draft
+                          .split('\n\n')
+                          .filter(para => para.trim())
+                          .map(para => `<p>${para.trim().replace(/\n/g, '<br>')}</p>`)
+                          .join('');
+                        
+                        setReplyMessage(htmlContent);
+                        setReplyTo(selectedEmail.fromEmail);
+                        setReplySubject(`Re: ${selectedEmail.subject || ''}`);
+                        setReplyingToEmailId(selectedEmail.id);
+                        setShowReplyDialog(true);
+                        setSelectedEmail(null);
+                        
+                        // Update editor content after dialog opens
+                        setTimeout(() => {
+                          if (replyEditorRef.current) {
+                            replyEditorRef.current.setContent(htmlContent);
+                          }
+                        }, 0);
+                      }}
                     />
                   )}
                   

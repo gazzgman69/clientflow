@@ -6834,40 +6834,27 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
       processedDraft = processedDraft.replace(/\s{2,}/g, ' ').trim();
       
       // Intelligently add paragraph breaks if they don't exist
-      console.log('🔍 DRAFT REPLY - BEFORE paragraph formatting:', processedDraft);
-      console.log('🔍 DRAFT REPLY - Has \\n\\n before:', processedDraft.includes('\n\n'));
-      
       if (!processedDraft.includes('\n\n')) {
-        const before = processedDraft;
-        
         // Add breaks after greetings (Hi Name, Hello Name,)
         processedDraft = processedDraft.replace(/(^Hi [^,]+,|^Hello [^,]+,|^Dear [^,]+,)/i, '$1\n\n');
-        console.log('🔍 DRAFT REPLY - After greeting regex:', processedDraft.substring(0, 100), 'Changed:', before !== processedDraft);
         
-        // Add breaks before common sign-offs
-        processedDraft = processedDraft.replace(/\s+(Best regards,|Kind regards,|Sincerely,|Thank you,|Thanks,|Cheers,)/gi, '\n\n$1');
-        console.log('🔍 DRAFT REPLY - After sign-off regex, has \\n\\n:', processedDraft.includes('\n\n'));
+        // Add breaks before common sign-offs (but keep them with the signature)
+        processedDraft = processedDraft.replace(/\s+(Best regards,|Kind regards,|Sincerely,|Thank you,|Thanks,|Cheers,)/gi, '\n\n$1 ');
         
-        // Add breaks before signatures (Name + Company/Email pattern)
-        const namePattern = new RegExp(`\\s+(Gareth Gwyn|${fullName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'g');
-        processedDraft = processedDraft.replace(namePattern, '\n\n$1');
-        console.log('🔍 DRAFT REPLY - After name regex, has \\n\\n:', processedDraft.includes('\n\n'));
+        // Add signature on same line as sign-off (replace multiple spaces with newline if needed)
+        const namePattern = new RegExp(`(Best regards,|Kind regards,|Sincerely,|Thank you,|Thanks,|Cheers,)\\s+(Gareth Gwyn|${fullName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+        processedDraft = processedDraft.replace(namePattern, '$1\n$2');
         
         // Split long blocks into paragraphs (every 3-4 sentences)
         const sentences = processedDraft.split(/(?<=[.!?])\s+/);
-        console.log('🔍 DRAFT REPLY - Sentences count:', sentences.length);
         if (sentences.length > 4) {
           const paragraphs = [];
           for (let i = 0; i < sentences.length; i += 3) {
             paragraphs.push(sentences.slice(i, i + 3).join(' '));
           }
           processedDraft = paragraphs.join('\n\n');
-          console.log('🔍 DRAFT REPLY - After sentence split, has \\n\\n:', processedDraft.includes('\n\n'));
         }
       }
-      
-      console.log('🔍 DRAFT REPLY - FINAL draft with \\n\\n:', processedDraft.includes('\n\n'));
-      console.log('🔍 DRAFT REPLY - FINAL draft:', processedDraft);
       
       // Save processed draft to database
       const savedDraft = await storage.createEmailDraft({

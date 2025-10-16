@@ -38,13 +38,27 @@ export const userPrefs = pgTable("user_prefs", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   tenantId: varchar("tenant_id").references(() => tenants.id).notNull(),
   userId: varchar("user_id").references(() => users.id), // Made nullable initially for safe migration
-  key: text("key").notNull(), // e.g., "emailViewMode"
-  value: text("value").notNull(), // "unified" | "rfc"
+  key: text("key").notNull(), // e.g., "emailViewMode", "has_seen_style_onboarding"
+  value: text("value").notNull(), // "unified" | "rfc" | "true" | "false"
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => {
   return {
     tenantIdIdx: index("user_prefs_tenant_id_idx").on(table.tenantId),
     userKeyUnique: unique().on(table.userId, table.key)
+  };
+});
+
+// User AI Style Samples - For learning writing style from pasted examples
+export const userStyleSamples = pgTable("user_style_samples", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").references(() => tenants.id).notNull(),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  sampleText: text("sample_text").notNull(), // The email text pasted by user
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => {
+  return {
+    tenantIdIdx: index("user_style_samples_tenant_id_idx").on(table.tenantId),
+    userIdIdx: index("user_style_samples_user_id_idx").on(table.userId),
   };
 });
 
@@ -1766,6 +1780,13 @@ export const insertUserPrefSchema = createInsertSchema(userPrefs).omit({
 });
 export type InsertUserPref = z.infer<typeof insertUserPrefSchema>;
 export type UserPref = typeof userPrefs.$inferSelect;
+
+export const insertUserStyleSampleSchema = createInsertSchema(userStyleSamples).omit({ 
+  id: true, 
+  createdAt: true 
+});
+export type InsertUserStyleSample = z.infer<typeof insertUserStyleSampleSchema>;
+export type UserStyleSample = typeof userStyleSamples.$inferSelect;
 
 // Portal Forms - Project-specific questionnaires for clients
 export const portalForms = pgTable("portal_forms", {

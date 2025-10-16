@@ -197,7 +197,7 @@ export function DraftReplyButton({ emailId, onDraftGenerated }: DraftReplyButton
         ) : (
           <MessageSquare className="h-4 w-4 mr-2" />
         )}
-        Draft Reply
+        AI Draft Reply
       </Button>
 
       <Dialog open={showDraft} onOpenChange={setShowDraft}>

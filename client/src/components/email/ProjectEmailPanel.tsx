@@ -1389,8 +1389,20 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
                   </div>
                 )}
 
-                {/* Action Buttons - AI Actions Only */}
+                {/* Action Buttons */}
                 <div className="flex flex-wrap gap-2 pt-4 border-t">
+                  {/* Regular Reply Button */}
+                  {selectedEmail.direction === 'inbound' && (
+                    <Button 
+                      variant="default" 
+                      onClick={() => handleReply(selectedEmail)}
+                      data-testid="button-reply-email"
+                    >
+                      <Reply className="h-4 w-4 mr-2" />
+                      Reply
+                    </Button>
+                  )}
+                  
                   {/* AI-Powered Actions */}
                   {selectedEmail.threadId && (
                     <SummarizeThreadButton threadId={selectedEmail.threadId} />

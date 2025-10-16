@@ -338,3 +338,105 @@ export function ExtractActionsButton({ emailId }: ExtractActionsButtonProps) {
     </>
   );
 }
+
+interface AIComposeButtonProps {
+  onDraftGenerated: (draft: string, subject?: string) => void;
+  projectContext?: string;
+  contactName?: string;
+}
+
+export function AIComposeButton({ onDraftGenerated, projectContext, contactName }: AIComposeButtonProps) {
+  const [showDialog, setShowDialog] = useState(false);
+  const [instructions, setInstructions] = useState('');
+  const { toast } = useToast();
+
+  const composeMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest('POST', '/api/ai/compose-email', {
+        instructions,
+        projectContext,
+        contactName
+      });
+      return response as { draft: string; subject?: string; model: string };
+    },
+    onSuccess: (data) => {
+      onDraftGenerated(data.draft, data.subject);
+      setShowDialog(false);
+      setInstructions('');
+      toast({
+        title: "Draft generated!",
+        description: "AI has created your email draft",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to generate draft",
+        variant: "destructive",
+      });
+    },
+  });
+
+  return (
+    <>
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={() => setShowDialog(true)}
+        data-testid="button-ai-compose"
+      >
+        <Sparkles className="h-4 w-4 mr-2" />
+        AI Compose
+      </Button>
+
+      <Dialog open={showDialog} onOpenChange={setShowDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>AI Email Assistant</DialogTitle>
+            <DialogDescription>
+              Tell the AI what you want to write, and it will create a draft for you
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">What would you like to write?</label>
+              <Textarea
+                value={instructions}
+                onChange={(e) => setInstructions(e.target.value)}
+                placeholder="E.g., 'Write a follow-up email thanking them for the meeting and confirming next steps' or 'Ask about project timeline and budget'"
+                className="min-h-[120px]"
+                data-testid="textarea-ai-instructions"
+              />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setShowDialog(false)}
+                data-testid="button-cancel-ai-compose"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={() => composeMutation.mutate()}
+                disabled={!instructions.trim() || composeMutation.isPending}
+                data-testid="button-generate-ai-compose"
+              >
+                {composeMutation.isPending ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Generating...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="h-4 w-4 mr-2" />
+                    Generate Draft
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}

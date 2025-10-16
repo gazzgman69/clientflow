@@ -17,7 +17,7 @@ import { apiRequest } from '@/lib/queryClient';
 import { TokenDropdown } from '@/components/ui/token-dropdown';
 import { insertTokenIntoValue } from '@/utils/cursor-utils';
 import { RichTextEditor, RichTextEditorRef } from '@/components/ui/rich-text-editor';
-import { SummarizeThreadButton, DraftReplyButton, ExtractActionsButton } from '@/components/AIActions';
+import { SummarizeThreadButton, DraftReplyButton, ExtractActionsButton, AIComposeButton } from '@/components/AIActions';
 
 interface ProjectEmailPanelProps {
   projectId: string;
@@ -804,6 +804,20 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
                     )}
                     Send Now
                   </Button>
+
+                  <AIComposeButton
+                    onDraftGenerated={(draft, suggestedSubject) => {
+                      setMessage(draft);
+                      if (suggestedSubject && !subject) {
+                        setSubject(suggestedSubject);
+                      }
+                      if (messageEditorRef.current) {
+                        messageEditorRef.current.setContent(draft);
+                      }
+                    }}
+                    projectContext={project?.name}
+                    contactName={contact?.name}
+                  />
                   
                   {selectedTemplate && (
                     <Button 

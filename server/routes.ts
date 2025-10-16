@@ -6882,6 +6882,33 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
 
+  // AI compose email from instructions
+  app.post('/api/ai/compose-email', ensureUserAuth, tenantResolver, requireTenant, csrf, async (req: TenantRequest, res) => {
+    try {
+      const { instructions, projectContext, contactName } = req.body;
+      
+      if (!instructions || !instructions.trim()) {
+        return res.status(400).json({ error: 'Instructions required' });
+      }
+      
+      // Import AI service
+      const { composeEmail } = await import('./ai-service');
+      
+      // Generate email draft
+      const { draft, subject, tokensUsed } = await composeEmail(
+        instructions,
+        req.tenantId!,
+        projectContext,
+        contactName
+      );
+      
+      res.json({ draft, subject, model: 'gpt-4o-mini', tokensUsed });
+    } catch (error: any) {
+      console.error('Error composing email:', error);
+      res.status(500).json({ error: error.message || 'Failed to compose email' });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

@@ -238,3 +238,80 @@ If no action items are found, return: {"actionItems": []}`;
     throw new Error('Failed to extract action items');
   }
 }
+
+/**
+ * Generate a new email draft from user instructions
+ * MULTI-TENANT SAFE: Only uses tenant-specific context
+ */
+export async function composeEmail(
+  instructions: string,
+  tenantId: string,
+  projectContext?: string,
+  contactName?: string
+): Promise<{ draft: string; subject?: string; tokensUsed: number }> {
+  if (!instructions || !instructions.trim()) {
+    throw new Error('Instructions required for email composition');
+  }
+
+  let contextInfo = '';
+  if (projectContext) {
+    contextInfo += `Project context: ${projectContext}\n`;
+  }
+  if (contactName) {
+    contextInfo += `Recipient: ${contactName}\n`;
+  }
+
+  const prompt = `You are helping compose a professional business email for a CRM user.
+
+${contextInfo ? `Context:\n${contextInfo}\n` : ''}User instructions:
+${instructions}
+
+Generate a professional, friendly email that:
+- Follows the user's instructions precisely
+- Is warm but businesslike
+- Uses proper email etiquette
+- Leaves placeholders [YOUR NAME], [SPECIFIC DETAILS] where personalization is needed
+
+Respond with a JSON object containing:
+{
+  "subject": "suggested subject line",
+  "draft": "email body text"
+}`;
+
+  try {
+    const response = await openai.chat.completions.create({
+      model: DEFAULT_MODEL,
+      messages: [
+        {
+          role: 'system',
+          content: 'You are a helpful assistant that writes professional business emails. Always return valid JSON.'
+        },
+        {
+          role: 'user',
+          content: prompt
+        }
+      ],
+      max_completion_tokens: 600,
+      temperature: 0.8,
+      response_format: { type: "json_object" }
+    });
+
+    const content = response.choices[0]?.message?.content?.trim() || '{"draft": "", "subject": ""}';
+    const tokensUsed = response.usage?.total_tokens || 0;
+
+    try {
+      const parsed = JSON.parse(content);
+      return { 
+        draft: parsed.draft || 'Unable to generate draft', 
+        subject: parsed.subject,
+        tokensUsed 
+      };
+    } catch (parseError) {
+      console.error('Error parsing compose response JSON:', parseError);
+      return { draft: 'Unable to generate draft', tokensUsed };
+    }
+  } catch (error) {
+    console.error('Error composing email:', error);
+    throw new Error('Failed to compose email');
+  }
+}

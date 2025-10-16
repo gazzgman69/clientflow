@@ -6692,7 +6692,11 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
 
   // AI-Powered Features Routes
   // Email summarization - generate AI summary of email thread
-  app.post('/api/ai/threads/:threadId/summarize', ensureUserAuth, tenantResolver, requireTenant, csrf, async (req: TenantRequest, res) => {
+  app.post('/api/ai/threads/:threadId/summarize', (req, res, next) => {
+    console.log('🚨 AI ROUTE REACHED - BEFORE MIDDLEWARE:', { path: req.path, method: req.method, params: req.params });
+    next();
+  }, ensureUserAuth, tenantResolver, requireTenant, csrf, async (req: TenantRequest, res) => {
+    console.log('🤖 AI SUMMARIZE ROUTE HIT:', { threadId: req.params.threadId, tenantId: req.tenantId, userId: (req as any).session?.userId });
     try {
       const { threadId } = req.params;
       const userId = (req as any).session?.userId;

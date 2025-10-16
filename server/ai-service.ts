@@ -1,7 +1,12 @@
 import OpenAI from "openai";
-import { db } from "@db";
+import { drizzle } from 'drizzle-orm/neon-http';
+import { neon } from '@neondatabase/serverless';
 import { emails, users, userStyleSamples } from "@shared/schema";
 import { eq, and, desc } from "drizzle-orm";
+
+// Initialize database connection
+const sql = neon(process.env.DATABASE_URL!);
+const db = drizzle(sql);
 
 /*
 Using Replit AI Integrations:

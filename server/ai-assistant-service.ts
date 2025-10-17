@@ -834,7 +834,8 @@ async function executeFunction(
           to: e.to,
           direction: e.direction,
           sentAt: e.sentAt,
-          snippet: e.snippet || (e.bodyText?.substring(0, 150) + '...'),
+          // Include more content for AI to analyze - up to 1000 chars or full text if shorter
+          body: e.bodyText ? (e.bodyText.length > 1000 ? e.bodyText.substring(0, 1000) + '...' : e.bodyText) : (e.snippet || 'No content'),
           hasAttachments: e.hasAttachments
         }))
       };
@@ -882,7 +883,8 @@ async function executeFunction(
           to: e.to,
           direction: e.direction,
           sentAt: e.sentAt,
-          snippet: e.snippet || (e.bodyText?.substring(0, 150) + '...'),
+          // Include more content for AI to analyze - up to 1000 chars or full text if shorter
+          body: e.bodyText ? (e.bodyText.length > 1000 ? e.bodyText.substring(0, 1000) + '...' : e.bodyText) : (e.snippet || 'No content'),
           contactId: e.contactId,
           projectId: e.projectId
         }))

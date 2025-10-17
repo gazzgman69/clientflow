@@ -35,6 +35,7 @@ import EmailSettings from "@/pages/settings/EmailSettings";
 import TemplatesPage from "@/pages/settings/Templates";
 import ProductsServicesPage from "@/pages/settings/ProductsServices";
 import PortalSettingsComponent from "@/components/settings/PortalSettings";
+import AISettings from "@/pages/settings/AISettings";
 import { GoogleOAuthModal } from '@/components/google-oauth-modal';
 
 export default function Settings() {
@@ -50,7 +51,7 @@ export default function Settings() {
   useEffect(() => {
     const searchParams = new URLSearchParams(window.location.search);
     const tabParam = searchParams.get('tab');
-    if (tabParam && ['profile', 'notifications', 'security', 'portal', 'integrations', 'email', 'calendar', 'templates', 'products-services', 'appearance', 'data'].includes(tabParam)) {
+    if (tabParam && ['profile', 'notifications', 'security', 'portal', 'integrations', 'email', 'ai', 'calendar', 'templates', 'products-services', 'appearance', 'data'].includes(tabParam)) {
       setActiveTab(tabParam);
     }
   }, [location]);
@@ -248,6 +249,9 @@ export default function Settings() {
             </TabsTrigger>
             <TabsTrigger value="email" data-testid="tab-email">
               Email
+            </TabsTrigger>
+            <TabsTrigger value="ai" data-testid="tab-ai">
+              AI Assistant
             </TabsTrigger>
             <TabsTrigger value="calendar" data-testid="tab-calendar">
               Calendar
@@ -704,6 +708,11 @@ export default function Settings() {
 
             {/* Email Settings */}
             <EmailSettings />
+          </TabsContent>
+
+          {/* AI Assistant Settings */}
+          <TabsContent value="ai" className="space-y-6">
+            <AISettings />
           </TabsContent>
 
           {/* Calendar Settings */}

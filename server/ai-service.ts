@@ -22,7 +22,7 @@ const openai = new OpenAI({
 });
 
 // Default model to use for AI operations
-const DEFAULT_MODEL = "gpt-5"; // Latest model with enhanced capabilities
+const DEFAULT_MODEL = "gpt-4o-mini"; // Fast and cost-effective for CRM tasks
 
 export interface EmailForSummary {
   id: string;

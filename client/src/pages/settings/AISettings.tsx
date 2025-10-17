@@ -256,10 +256,7 @@ export default function AISettings() {
 
     const createKBMutation = useMutation({
       mutationFn: async (data: any) => {
-        return await apiRequest('/api/ai/knowledge-base', {
-          method: 'POST',
-          body: JSON.stringify(data),
-        });
+        return await apiRequest('POST', '/api/ai/knowledge-base', data);
       },
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: ['/api/ai/knowledge-base'] });
@@ -274,10 +271,7 @@ export default function AISettings() {
 
     const updateKBMutation = useMutation({
       mutationFn: async ({ id, data }: { id: string; data: any }) => {
-        return await apiRequest(`/api/ai/knowledge-base/${id}`, {
-          method: 'PATCH',
-          body: JSON.stringify(data),
-        });
+        return await apiRequest('PATCH', `/api/ai/knowledge-base/${id}`, data);
       },
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: ['/api/ai/knowledge-base'] });
@@ -291,9 +285,7 @@ export default function AISettings() {
 
     const deleteKBMutation = useMutation({
       mutationFn: async (id: string) => {
-        return await apiRequest(`/api/ai/knowledge-base/${id}`, {
-          method: 'DELETE',
-        });
+        return await apiRequest('DELETE', `/api/ai/knowledge-base/${id}`);
       },
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: ['/api/ai/knowledge-base'] });
@@ -487,10 +479,7 @@ export default function AISettings() {
 
     const createInstructionMutation = useMutation({
       mutationFn: async (data: any) => {
-        return await apiRequest('/api/ai/custom-instructions', {
-          method: 'POST',
-          body: JSON.stringify(data),
-        });
+        return await apiRequest('POST', '/api/ai/custom-instructions', data);
       },
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: ['/api/ai/custom-instructions'] });
@@ -505,10 +494,7 @@ export default function AISettings() {
 
     const updateInstructionMutation = useMutation({
       mutationFn: async ({ id, data }: { id: string; data: any }) => {
-        return await apiRequest(`/api/ai/custom-instructions/${id}`, {
-          method: 'PATCH',
-          body: JSON.stringify(data),
-        });
+        return await apiRequest('PATCH', `/api/ai/custom-instructions/${id}`, data);
       },
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: ['/api/ai/custom-instructions'] });
@@ -522,9 +508,7 @@ export default function AISettings() {
 
     const deleteInstructionMutation = useMutation({
       mutationFn: async (id: string) => {
-        return await apiRequest(`/api/ai/custom-instructions/${id}`, {
-          method: 'DELETE',
-        });
+        return await apiRequest('DELETE', `/api/ai/custom-instructions/${id}`);
       },
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: ['/api/ai/custom-instructions'] });

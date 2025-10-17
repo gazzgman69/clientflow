@@ -493,10 +493,14 @@ async function executeFunction(
       let sorted = [...clients];
 
       if (args.sortBy === 'name') {
-        sorted.sort((a, b) => (a.fullName || a.lastName || '').localeCompare(b.fullName || b.lastName || ''));
+        sorted.sort((a: any, b: any) => {
+          const aName = a.fullName || a.full_name || a.lastName || a.last_name || '';
+          const bName = b.fullName || b.full_name || b.lastName || b.last_name || '';
+          return aName.localeCompare(bName);
+        });
       } else if (args.sortBy === 'recent') {
-        sorted.sort((a, b) => 
-          new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
+        sorted.sort((a: any, b: any) => 
+          new Date(b.createdAt || b.created_at || 0).getTime() - new Date(a.createdAt || a.created_at || 0).getTime()
         );
       }
       // Note: revenue sorting would require joining with invoices
@@ -507,8 +511,8 @@ async function executeFunction(
 
       return {
         count: sorted.length,
-        clients: sorted.map(c => ({
-          name: c.fullName || `${c.firstName} ${c.lastName}`.trim(),
+        clients: sorted.map((c: any) => ({
+          name: c.fullName || c.full_name || `${c.firstName || c.first_name || ''} ${c.lastName || c.last_name || ''}`.trim(),
           email: c.email,
           phone: c.phone
         }))
@@ -780,8 +784,9 @@ async function executeFunction(
       // If contact name provided, look up the contact
       if (!contactId && args.contactName) {
         const contacts = await storage.getContacts(tenantId);
-        const contact = contacts.find(c => {
-          const fullName = c.fullName || `${c.firstName || ''} ${c.lastName || ''}`.trim();
+        const contact = contacts.find((c: any) => {
+          // Handle both camelCase and snake_case (database returns snake_case)
+          const fullName = c.fullName || c.full_name || `${c.firstName || c.first_name || ''} ${c.lastName || c.last_name || ''}`.trim();
           return fullName.toLowerCase().includes(args.contactName.toLowerCase()) ||
                  (c.email && c.email.toLowerCase().includes(args.contactName.toLowerCase()));
         });

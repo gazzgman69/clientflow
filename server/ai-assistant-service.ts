@@ -258,6 +258,28 @@ const FUNCTIONS = [
         }
       }
     }
+  },
+  {
+    name: "get_activities_summary",
+    description: "Get recent business activities and timeline events",
+    parameters: {
+      type: "object",
+      properties: {
+        limit: {
+          type: "number",
+          description: "Maximum number of activities to return (default 20)"
+        },
+        type: {
+          type: "string",
+          enum: ["email", "note", "task", "call", "meeting"],
+          description: "Filter by activity type"
+        },
+        startDate: {
+          type: "string",
+          description: "Start date for filtering (ISO format)"
+        }
+      }
+    }
   }
 ];
 
@@ -658,6 +680,44 @@ async function executeFunction(
       };
     }
 
+    case "get_activities_summary": {
+      const activities = await storage.getActivities(tenantId);
+      let filtered = activities;
+
+      if (args.type) {
+        filtered = filtered.filter(a => a.type === args.type);
+      }
+
+      if (args.startDate) {
+        filtered = filtered.filter(a => {
+          if (!a.createdAt) return false;
+          return new Date(a.createdAt) >= new Date(args.startDate);
+        });
+      }
+
+      // Sort by most recent
+      filtered.sort((a, b) => 
+        new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
+      );
+
+      if (args.limit) {
+        filtered = filtered.slice(0, args.limit);
+      } else {
+        filtered = filtered.slice(0, 20); // Default to 20
+      }
+
+      return {
+        count: filtered.length,
+        activities: filtered.map(a => ({
+          type: a.type,
+          description: a.description,
+          createdAt: a.createdAt,
+          contactId: a.contactId,
+          projectId: a.projectId
+        }))
+      };
+    }
+
     default:
       throw new Error(`Unknown function: ${functionName}`);
   }
@@ -683,6 +743,7 @@ export async function processAssistantQuery(
 - Calendar Events (upcoming events)
 - Team Members (musicians, roles)
 - Venues (locations, capacity)
+- Activities (recent business timeline, emails, notes, calls)
 
 Be concise and friendly. Always format numbers nicely (add commas, currency symbols). When showing dates, use readable formats. If you use a function to get data, summarize it in a natural, conversational way. Focus on actionable insights.`
       },

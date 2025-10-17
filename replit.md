@@ -87,7 +87,7 @@ Phase 2 introduces a conversational AI assistant that can query and analyze busi
 
 **Technical Details:**
 - Uses OpenAI function calling pattern for structured data access
-- 14 specialized functions: get_projects_count, get_revenue_stats, get_upcoming_events, get_unpaid_invoices, get_clients_list, get_project_details, get_leads_summary, get_quotes_summary, get_contracts_summary, get_tasks_summary, get_calendar_events, get_members_list, get_venues_list
+- 14 specialized functions: get_projects_count, get_revenue_stats, get_upcoming_events, get_unpaid_invoices, get_clients_list, get_project_details, get_leads_summary, get_quotes_summary, get_contracts_summary, get_tasks_summary, get_calendar_events, get_members_list, get_venues_list, get_activities_summary
 - All functions enforce tenant isolation
 - Returns natural language responses with embedded data insights
 

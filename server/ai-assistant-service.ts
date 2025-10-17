@@ -920,6 +920,10 @@ You have access to email history for all contacts within the tenant's CRM. You c
 
 Be concise and friendly. Always format numbers nicely (add commas, currency symbols). When showing dates, use readable formats. If you use a function to get data, summarize it in a natural, conversational way. Focus on actionable insights.`;
 
+    // Log system message length for debugging
+    console.log(`🤖 AI Assistant Query: "${query.substring(0, 100)}${query.length > 100 ? '...' : ''}"`);
+    console.log(`📝 System message length: ${systemMessage.length} characters`);
+
     const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [
       {
         role: "system",
@@ -948,16 +952,23 @@ Be concise and friendly. Always format numbers nicely (add commas, currency symb
       const functionName = message.function_call.name;
       const functionArgs = JSON.parse(message.function_call.arguments || '{}');
 
+      console.log(`🔧 Calling function: ${functionName} with args:`, functionArgs);
+
       // Execute the function
       functionData = await executeFunction(functionName, functionArgs, context);
 
+      console.log(`📊 Function ${functionName} returned ${JSON.stringify(functionData).length} characters of data`);
+
       // Add function result to conversation and get final response
       messages.push(message as any);
+      const functionResultContent = JSON.stringify(functionData);
       messages.push({
         role: "function",
         name: functionName,
-        content: JSON.stringify(functionData)
+        content: functionResultContent
       } as any);
+
+      console.log(`🤖 Sending ${messages.length} messages to AI (${messages.reduce((acc, m: any) => acc + (m.content?.length || 0), 0)} total chars)`);
 
       const finalCompletion = await openai.chat.completions.create({
         model: MODEL,

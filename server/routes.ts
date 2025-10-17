@@ -7258,7 +7258,15 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
       
       res.json(result);
     } catch (error: any) {
-      console.error('Error processing AI assistant query:', error);
+      console.error('❌ AI Assistant Error:', error);
+      
+      // Handle Azure OpenAI content filter errors
+      if (error.message && error.message.includes('content management policy')) {
+        return res.status(400).json({ 
+          error: 'The AI response was blocked by content filtering. This can happen when queries involve sensitive data. Please try rephrasing your question or asking about different information.' 
+        });
+      }
+      
       res.status(500).json({ error: error.message || 'Failed to process query' });
     }
   });

@@ -237,11 +237,30 @@ function renderData(data: any): React.ReactNode {
   if (typeof data === 'object' && data !== null) {
     return (
       <div className="space-y-1">
-        {Object.entries(data).map(([key, value]) => (
-          <div key={key} className="text-xs">
-            <span className="font-medium">{key}:</span> {String(value)}
-          </div>
-        ))}
+        {Object.entries(data).map(([key, value]) => {
+          // Handle array values
+          if (Array.isArray(value)) {
+            return (
+              <div key={key} className="text-xs">
+                <span className="font-medium">{key}:</span> {value.length} items
+              </div>
+            );
+          }
+          // Handle object values
+          if (typeof value === 'object' && value !== null) {
+            return (
+              <div key={key} className="text-xs">
+                <span className="font-medium">{key}:</span> {JSON.stringify(value)}
+              </div>
+            );
+          }
+          // Handle primitive values
+          return (
+            <div key={key} className="text-xs">
+              <span className="font-medium">{key}:</span> {String(value)}
+            </div>
+          );
+        })}
       </div>
     );
   }

@@ -280,6 +280,59 @@ const FUNCTIONS = [
         }
       }
     }
+  },
+  {
+    name: "get_emails_by_contact",
+    description: "Get email history (incoming and outgoing) for a specific contact/client",
+    parameters: {
+      type: "object",
+      properties: {
+        contactId: {
+          type: "string",
+          description: "The contact/client ID to get emails for"
+        },
+        limit: {
+          type: "number",
+          description: "Maximum number of emails to return (default 20)"
+        },
+        direction: {
+          type: "string",
+          enum: ["inbound", "outbound", "all"],
+          description: "Filter by email direction (default 'all')"
+        }
+      },
+      required: ["contactId"]
+    }
+  },
+  {
+    name: "get_recent_emails",
+    description: "Get recent emails from the CRM, optionally filtered by contact, project, or date",
+    parameters: {
+      type: "object",
+      properties: {
+        limit: {
+          type: "number",
+          description: "Maximum number of emails to return (default 10)"
+        },
+        contactId: {
+          type: "string",
+          description: "Filter by specific contact ID"
+        },
+        projectId: {
+          type: "string",
+          description: "Filter by specific project ID"
+        },
+        startDate: {
+          type: "string",
+          description: "Start date for filtering (ISO format)"
+        },
+        direction: {
+          type: "string",
+          enum: ["inbound", "outbound", "all"],
+          description: "Filter by email direction (default 'all')"
+        }
+      }
+    }
   }
 ];
 
@@ -718,6 +771,86 @@ async function executeFunction(
       };
     }
 
+    case "get_emails_by_contact": {
+      let emails = await storage.getEmailsByClient(args.contactId, tenantId);
+
+      // Filter by direction if specified
+      if (args.direction && args.direction !== 'all') {
+        emails = emails.filter(e => e.direction === args.direction);
+      }
+
+      // Sort by most recent
+      emails.sort((a, b) => 
+        new Date(b.sentAt || b.createdAt || 0).getTime() - new Date(a.sentAt || a.createdAt || 0).getTime()
+      );
+
+      // Apply limit
+      const limit = args.limit || 20;
+      emails = emails.slice(0, limit);
+
+      return {
+        count: emails.length,
+        emails: emails.map(e => ({
+          subject: e.subject,
+          from: e.from,
+          to: e.to,
+          direction: e.direction,
+          sentAt: e.sentAt,
+          snippet: e.snippet || (e.bodyText?.substring(0, 150) + '...'),
+          hasAttachments: e.hasAttachments
+        }))
+      };
+    }
+
+    case "get_recent_emails": {
+      let emails: any[] = [];
+
+      // Get emails based on filters
+      if (args.contactId) {
+        emails = await storage.getEmailsByClient(args.contactId, tenantId);
+      } else if (args.projectId) {
+        emails = await storage.getEmailsByProject(args.projectId, tenantId);
+      } else {
+        emails = await storage.getEmails(tenantId);
+      }
+
+      // Filter by direction if specified
+      if (args.direction && args.direction !== 'all') {
+        emails = emails.filter(e => e.direction === args.direction);
+      }
+
+      // Filter by date if specified
+      if (args.startDate) {
+        emails = emails.filter(e => {
+          const emailDate = new Date(e.sentAt || e.createdAt);
+          return emailDate >= new Date(args.startDate);
+        });
+      }
+
+      // Sort by most recent
+      emails.sort((a, b) => 
+        new Date(b.sentAt || b.createdAt || 0).getTime() - new Date(a.sentAt || a.createdAt || 0).getTime()
+      );
+
+      // Apply limit
+      const limit = args.limit || 10;
+      emails = emails.slice(0, limit);
+
+      return {
+        count: emails.length,
+        emails: emails.map(e => ({
+          subject: e.subject,
+          from: e.from,
+          to: e.to,
+          direction: e.direction,
+          sentAt: e.sentAt,
+          snippet: e.snippet || (e.bodyText?.substring(0, 150) + '...'),
+          contactId: e.contactId,
+          projectId: e.projectId
+        }))
+      };
+    }
+
     default:
       throw new Error(`Unknown function: ${functionName}`);
   }
@@ -744,6 +877,9 @@ export async function processAssistantQuery(
 - Team Members (musicians, roles)
 - Venues (locations, capacity)
 - Activities (recent business timeline, emails, notes, calls)
+- Emails (incoming/outgoing correspondence with contacts)
+
+You have access to email history for all contacts within the tenant's CRM. You can retrieve emails by contact, project, or date range, and filter by direction (inbound/outbound).
 
 Be concise and friendly. Always format numbers nicely (add commas, currency symbols). When showing dates, use readable formats. If you use a function to get data, summarize it in a natural, conversational way. Focus on actionable insights.`
       },

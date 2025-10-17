@@ -63,7 +63,7 @@ The system includes an AI-powered email assistant using Replit AI Integrations (
 Phase 2 introduces a conversational AI assistant that can query and analyze business data through natural language. The assistant uses OpenAI function calling to access comprehensive database information.
 
 **Features:**
-- **Natural Language Queries**: Ask questions in plain language about your business (e.g., "How many gigs next month?", "What's my total revenue?")
+- **Natural Language Queries**: Ask questions in plain language about your business (e.g., "How many gigs next month?", "What's my total revenue?", "Show me recent emails from Sarah")
 - **Comprehensive Data Access**: AI can query all major database tables including:
   - Projects & Gigs (count, details, upcoming events)
   - Leads (status, conversion metrics)
@@ -75,8 +75,10 @@ Phase 2 introduces a conversational AI assistant that can query and analyze busi
   - Calendar Events (upcoming events)
   - Team Members (musicians, roles)
   - Venues (locations, capacity)
+  - Activities (recent business timeline)
+  - **Emails** (incoming/outgoing correspondence with contacts)
 - **Smart Insights**: AI provides actionable insights and formatted responses with proper date/number formatting
-- **Function Calling**: 14 specialized database query functions for accurate data retrieval
+- **Function Calling**: 16 specialized database query functions for accurate data retrieval
 
 **Implementation:**
 - Service location: `server/ai-assistant-service.ts`
@@ -87,8 +89,9 @@ Phase 2 introduces a conversational AI assistant that can query and analyze busi
 
 **Technical Details:**
 - Uses OpenAI function calling pattern for structured data access
-- 14 specialized functions: get_projects_count, get_revenue_stats, get_upcoming_events, get_unpaid_invoices, get_clients_list, get_project_details, get_leads_summary, get_quotes_summary, get_contracts_summary, get_tasks_summary, get_calendar_events, get_members_list, get_venues_list, get_activities_summary
-- All functions enforce tenant isolation
+- 16 specialized functions: get_projects_count, get_revenue_stats, get_upcoming_events, get_unpaid_invoices, get_clients_list, get_project_details, get_leads_summary, get_quotes_summary, get_contracts_summary, get_tasks_summary, get_calendar_events, get_members_list, get_venues_list, get_activities_summary, get_emails_by_contact, get_recent_emails
+- All functions enforce tenant isolation with proper data scoping
+- Email access is restricted to contacts within the tenant's CRM only
 - Returns natural language responses with embedded data insights
 
 # External Dependencies

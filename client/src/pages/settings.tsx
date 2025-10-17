@@ -231,41 +231,41 @@ export default function Settings() {
       
       <main className="flex-1 overflow-auto p-6">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-11" data-testid="settings-tabs">
-            <TabsTrigger value="profile" data-testid="tab-profile">
+          <TabsList className="inline-flex h-10 items-center justify-start rounded-md bg-muted p-1 text-muted-foreground w-full overflow-x-auto scrollbar-thin" data-testid="settings-tabs">
+            <TabsTrigger value="profile" data-testid="tab-profile" className="flex-shrink-0">
               Profile
             </TabsTrigger>
-            <TabsTrigger value="notifications" data-testid="tab-notifications">
+            <TabsTrigger value="notifications" data-testid="tab-notifications" className="flex-shrink-0">
               Notifications
             </TabsTrigger>
-            <TabsTrigger value="security" data-testid="tab-security">
+            <TabsTrigger value="security" data-testid="tab-security" className="flex-shrink-0">
               Security
             </TabsTrigger>
-            <TabsTrigger value="portal" data-testid="tab-portal">
+            <TabsTrigger value="portal" data-testid="tab-portal" className="flex-shrink-0">
               Client Portal
             </TabsTrigger>
-            <TabsTrigger value="integrations" data-testid="tab-integrations">
+            <TabsTrigger value="integrations" data-testid="tab-integrations" className="flex-shrink-0">
               Integrations
             </TabsTrigger>
-            <TabsTrigger value="email" data-testid="tab-email">
+            <TabsTrigger value="email" data-testid="tab-email" className="flex-shrink-0">
               Email
             </TabsTrigger>
-            <TabsTrigger value="ai" data-testid="tab-ai">
+            <TabsTrigger value="ai" data-testid="tab-ai" className="flex-shrink-0">
               AI Assistant
             </TabsTrigger>
-            <TabsTrigger value="calendar" data-testid="tab-calendar">
+            <TabsTrigger value="calendar" data-testid="tab-calendar" className="flex-shrink-0">
               Calendar
             </TabsTrigger>
-            <TabsTrigger value="templates" data-testid="tab-templates">
+            <TabsTrigger value="templates" data-testid="tab-templates" className="flex-shrink-0">
               Templates
             </TabsTrigger>
-            <TabsTrigger value="products-services" data-testid="tab-products-services">
+            <TabsTrigger value="products-services" data-testid="tab-products-services" className="flex-shrink-0">
               Products & Services
             </TabsTrigger>
-            <TabsTrigger value="appearance" data-testid="tab-appearance">
+            <TabsTrigger value="appearance" data-testid="tab-appearance" className="flex-shrink-0">
               Appearance
             </TabsTrigger>
-            <TabsTrigger value="data" data-testid="tab-data">
+            <TabsTrigger value="data" data-testid="tab-data" className="flex-shrink-0">
               Data
             </TabsTrigger>
           </TabsList>

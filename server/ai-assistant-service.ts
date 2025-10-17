@@ -127,6 +127,137 @@ const FUNCTIONS = [
         }
       }
     }
+  },
+  {
+    name: "get_leads_summary",
+    description: "Get summary of leads including count by status and conversion metrics",
+    parameters: {
+      type: "object",
+      properties: {
+        status: {
+          type: "string",
+          enum: ["new", "contacted", "qualified", "proposal", "negotiation", "won", "lost"],
+          description: "Filter by lead status"
+        },
+        startDate: {
+          type: "string",
+          description: "Start date for filtering (ISO format)"
+        },
+        endDate: {
+          type: "string",
+          description: "End date for filtering (ISO format)"
+        }
+      }
+    }
+  },
+  {
+    name: "get_quotes_summary",
+    description: "Get quotes information including total value and status breakdown",
+    parameters: {
+      type: "object",
+      properties: {
+        status: {
+          type: "string",
+          enum: ["draft", "sent", "viewed", "accepted", "declined", "expired"],
+          description: "Filter by quote status"
+        },
+        startDate: {
+          type: "string",
+          description: "Start date for filtering (ISO format)"
+        },
+        endDate: {
+          type: "string",
+          description: "End date for filtering (ISO format)"
+        }
+      }
+    }
+  },
+  {
+    name: "get_contracts_summary",
+    description: "Get contracts information including count by status",
+    parameters: {
+      type: "object",
+      properties: {
+        status: {
+          type: "string",
+          enum: ["draft", "sent", "signed", "expired", "cancelled"],
+          description: "Filter by contract status"
+        }
+      }
+    }
+  },
+  {
+    name: "get_tasks_summary",
+    description: "Get tasks information including pending, completed, and overdue tasks",
+    parameters: {
+      type: "object",
+      properties: {
+        status: {
+          type: "string",
+          enum: ["pending", "completed"],
+          description: "Filter by task status"
+        },
+        dueDate: {
+          type: "string",
+          description: "Filter tasks by due date (ISO format)"
+        },
+        includeOverdue: {
+          type: "boolean",
+          description: "Include overdue tasks"
+        }
+      }
+    }
+  },
+  {
+    name: "get_calendar_events",
+    description: "Get calendar events within a date range",
+    parameters: {
+      type: "object",
+      properties: {
+        startDate: {
+          type: "string",
+          description: "Start date (ISO format)"
+        },
+        endDate: {
+          type: "string",
+          description: "End date (ISO format)"
+        },
+        days: {
+          type: "number",
+          description: "Number of days ahead to look (default 30)"
+        }
+      }
+    }
+  },
+  {
+    name: "get_members_list",
+    description: "Get list of team members/musicians",
+    parameters: {
+      type: "object",
+      properties: {
+        role: {
+          type: "string",
+          description: "Filter by member role"
+        },
+        availability: {
+          type: "string",
+          description: "Check availability on specific date (ISO format)"
+        }
+      }
+    }
+  },
+  {
+    name: "get_venues_list",
+    description: "Get list of venues",
+    parameters: {
+      type: "object",
+      properties: {
+        limit: {
+          type: "number",
+          description: "Maximum number of venues to return"
+        }
+      }
+    }
   }
 ];
 
@@ -329,6 +460,204 @@ async function executeFunction(
       };
     }
 
+    case "get_leads_summary": {
+      const leads = await storage.getLeads(tenantId);
+      let filtered = leads;
+
+      if (args.status) {
+        filtered = filtered.filter(l => l.status === args.status);
+      }
+
+      if (args.startDate || args.endDate) {
+        filtered = filtered.filter(l => {
+          if (!l.createdAt) return false;
+          const createdAt = new Date(l.createdAt);
+          if (args.startDate && createdAt < new Date(args.startDate)) return false;
+          if (args.endDate && createdAt > new Date(args.endDate)) return false;
+          return true;
+        });
+      }
+
+      const statusBreakdown = {
+        new: leads.filter(l => l.status === 'new').length,
+        contacted: leads.filter(l => l.status === 'contacted').length,
+        qualified: leads.filter(l => l.status === 'qualified').length,
+        proposal: leads.filter(l => l.status === 'proposal').length,
+        negotiation: leads.filter(l => l.status === 'negotiation').length,
+        won: leads.filter(l => l.status === 'won').length,
+        lost: leads.filter(l => l.status === 'lost').length
+      };
+
+      return {
+        total: filtered.length,
+        statusBreakdown
+      };
+    }
+
+    case "get_quotes_summary": {
+      const quotes = await storage.getQuotes(tenantId);
+      let filtered = quotes;
+
+      if (args.status) {
+        filtered = filtered.filter(q => q.status === args.status);
+      }
+
+      if (args.startDate || args.endDate) {
+        filtered = filtered.filter(q => {
+          if (!q.createdAt) return false;
+          const createdAt = new Date(q.createdAt);
+          if (args.startDate && createdAt < new Date(args.startDate)) return false;
+          if (args.endDate && createdAt > new Date(args.endDate)) return false;
+          return true;
+        });
+      }
+
+      const totalValue = filtered.reduce((sum, q) => sum + Number(q.total || 0), 0);
+      const statusBreakdown = {
+        draft: quotes.filter(q => q.status === 'draft').length,
+        sent: quotes.filter(q => q.status === 'sent').length,
+        viewed: quotes.filter(q => q.status === 'viewed').length,
+        accepted: quotes.filter(q => q.status === 'accepted').length,
+        declined: quotes.filter(q => q.status === 'declined').length,
+        expired: quotes.filter(q => q.status === 'expired').length
+      };
+
+      return {
+        count: filtered.length,
+        totalValue: totalValue.toFixed(2),
+        statusBreakdown
+      };
+    }
+
+    case "get_contracts_summary": {
+      const contracts = await storage.getContracts(tenantId);
+      let filtered = contracts;
+
+      if (args.status) {
+        filtered = filtered.filter(c => c.status === args.status);
+      }
+
+      const statusBreakdown = {
+        draft: contracts.filter(c => c.status === 'draft').length,
+        sent: contracts.filter(c => c.status === 'sent').length,
+        signed: contracts.filter(c => c.status === 'signed').length,
+        expired: contracts.filter(c => c.status === 'expired').length,
+        cancelled: contracts.filter(c => c.status === 'cancelled').length
+      };
+
+      return {
+        total: filtered.length,
+        statusBreakdown
+      };
+    }
+
+    case "get_tasks_summary": {
+      const tasks = await storage.getTasks(tenantId);
+      let filtered = tasks;
+      const now = new Date();
+
+      if (args.status) {
+        filtered = filtered.filter(t => t.status === args.status);
+      }
+
+      if (args.dueDate) {
+        filtered = filtered.filter(t => {
+          if (!t.dueDate) return false;
+          return new Date(t.dueDate).toDateString() === new Date(args.dueDate).toDateString();
+        });
+      }
+
+      const overdue = tasks.filter(t => 
+        t.status !== 'completed' && t.dueDate && new Date(t.dueDate) < now
+      );
+
+      return {
+        total: filtered.length,
+        pending: tasks.filter(t => t.status === 'pending').length,
+        completed: tasks.filter(t => t.status === 'completed').length,
+        overdue: overdue.length,
+        overdueList: args.includeOverdue ? overdue.map(t => ({
+          title: t.title,
+          dueDate: t.dueDate,
+          projectId: t.projectId
+        })) : undefined
+      };
+    }
+
+    case "get_calendar_events": {
+      const events = await storage.getEvents(tenantId);
+      const now = new Date();
+      
+      let startDate = args.startDate ? new Date(args.startDate) : now;
+      let endDate: Date;
+      
+      if (args.endDate) {
+        endDate = new Date(args.endDate);
+      } else {
+        const days = args.days || 30;
+        endDate = new Date(now.getTime() + days * 24 * 60 * 60 * 1000);
+      }
+
+      const upcoming = events
+        .filter(e => {
+          if (!e.startTime) return false;
+          const eventStart = new Date(e.startTime);
+          return eventStart >= startDate && eventStart <= endDate;
+        })
+        .sort((a, b) => new Date(a.startTime!).getTime() - new Date(b.startTime!).getTime())
+        .map(e => ({
+          title: e.title,
+          startTime: e.startTime,
+          endTime: e.endTime,
+          location: e.location
+        }));
+
+      return {
+        count: upcoming.length,
+        events: upcoming
+      };
+    }
+
+    case "get_members_list": {
+      const members = await storage.getMembers(tenantId);
+      let filtered = members;
+
+      if (args.role) {
+        filtered = filtered.filter(m => m.role?.toLowerCase().includes(args.role.toLowerCase()));
+      }
+
+      // Note: Availability filtering would require checking member_availability table
+      // which isn't directly accessible through current storage interface
+
+      return {
+        count: filtered.length,
+        members: filtered.map(m => ({
+          firstName: m.firstName,
+          lastName: m.lastName,
+          role: m.role,
+          email: m.email
+        }))
+      };
+    }
+
+    case "get_venues_list": {
+      const venues = await storage.getVenues(tenantId);
+      let filtered = venues;
+
+      if (args.limit) {
+        filtered = filtered.slice(0, args.limit);
+      }
+
+      return {
+        count: filtered.length,
+        venues: filtered.map(v => ({
+          name: v.name,
+          address: v.address,
+          capacity: v.capacity
+        }))
+      };
+    }
+
     default:
       throw new Error(`Unknown function: ${functionName}`);
   }
@@ -343,7 +672,19 @@ export async function processAssistantQuery(
     const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [
       {
         role: "system",
-        content: `You are a helpful CRM assistant. You can answer questions about projects, clients, invoices, revenue, and upcoming events. Be concise and friendly. Always format numbers nicely (add commas, currency symbols). When showing dates, use readable formats. If you use a function to get data, summarize it in a natural, conversational way.`
+        content: `You are a helpful CRM assistant for a business management system. You can answer questions about:
+- Projects & Gigs (count, details, upcoming events)
+- Leads (status, conversion metrics)
+- Clients/Contacts (lists, information)
+- Quotes (value, status breakdown)
+- Contracts (status summary)
+- Invoices & Revenue (stats, unpaid, overdue)
+- Tasks (pending, completed, overdue)
+- Calendar Events (upcoming events)
+- Team Members (musicians, roles)
+- Venues (locations, capacity)
+
+Be concise and friendly. Always format numbers nicely (add commas, currency symbols). When showing dates, use readable formats. If you use a function to get data, summarize it in a natural, conversational way. Focus on actionable insights.`
       },
       {
         role: "user",

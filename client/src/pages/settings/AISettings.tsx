@@ -424,15 +424,6 @@ export default function AISettings() {
                   placeholder="Enter the information you want the AI to know..."
                 />
               </div>
-              <div className="flex items-center space-x-2">
-                <Switch
-                  id="kb-active"
-                  data-testid="switch-kb-active"
-                  checked={formData.isActive}
-                  onCheckedChange={(checked) => setFormData({ ...formData, isActive: checked })}
-                />
-                <Label htmlFor="kb-active" data-testid="label-kb-active">Active</Label>
-              </div>
             </div>
             <DialogFooter>
               <Button

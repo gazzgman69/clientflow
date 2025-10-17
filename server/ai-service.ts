@@ -21,8 +21,8 @@ const openai = new OpenAI({
   apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY
 });
 
-// Default model to use for AI operations  
-const DEFAULT_MODEL = "gpt-4-turbo"; // More powerful model with better quality
+// Default model to use for AI operations
+const DEFAULT_MODEL = "gpt-4o-mini"; // Fast and cost-effective for CRM tasks
 
 export interface EmailForSummary {
   id: string;

@@ -167,13 +167,6 @@ export function AIAssistant({ isOpen, onClose }: AIAssistantProps) {
                   }`}
                 >
                   <p className="text-sm whitespace-pre-wrap">{message.content}</p>
-                  {message.data && (
-                    <div className="mt-2 pt-2 border-t border-border/50">
-                      <div className="text-xs opacity-80">
-                        {renderData(message.data)}
-                      </div>
-                    </div>
-                  )}
                   <p className="text-xs opacity-70 mt-1">
                     {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   </p>

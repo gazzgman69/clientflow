@@ -283,13 +283,17 @@ const FUNCTIONS = [
   },
   {
     name: "get_emails_by_contact",
-    description: "Get email history (incoming and outgoing) for a specific contact/client",
+    description: "Get email history (incoming and outgoing) for a specific contact/client. You can search by contact name or ID.",
     parameters: {
       type: "object",
       properties: {
+        contactName: {
+          type: "string",
+          description: "The contact/client name to search for (e.g., 'Gareth Gwyn', 'John Smith')"
+        },
         contactId: {
           type: "string",
-          description: "The contact/client ID to get emails for"
+          description: "The contact/client ID if you already have it"
         },
         limit: {
           type: "number",
@@ -300,8 +304,7 @@ const FUNCTIONS = [
           enum: ["inbound", "outbound", "all"],
           description: "Filter by email direction (default 'all')"
         }
-      },
-      required: ["contactId"]
+      }
     }
   },
   {
@@ -772,7 +775,37 @@ async function executeFunction(
     }
 
     case "get_emails_by_contact": {
-      let emails = await storage.getEmailsByClient(args.contactId, tenantId);
+      let contactId = args.contactId;
+
+      // If contact name provided, look up the contact
+      if (!contactId && args.contactName) {
+        const contacts = await storage.getContacts(tenantId);
+        const contact = contacts.find(c => {
+          const fullName = c.fullName || `${c.firstName || ''} ${c.lastName || ''}`.trim();
+          return fullName.toLowerCase().includes(args.contactName.toLowerCase()) ||
+                 (c.email && c.email.toLowerCase().includes(args.contactName.toLowerCase()));
+        });
+        
+        if (contact) {
+          contactId = contact.id;
+        } else {
+          return {
+            count: 0,
+            emails: [],
+            error: `No contact found matching "${args.contactName}"`
+          };
+        }
+      }
+
+      if (!contactId) {
+        return {
+          count: 0,
+          emails: [],
+          error: "Please provide either contactName or contactId"
+        };
+      }
+
+      let emails = await storage.getEmailsByClient(contactId, tenantId);
 
       // Filter by direction if specified
       if (args.direction && args.direction !== 'all') {

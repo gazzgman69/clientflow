@@ -892,7 +892,8 @@ async function executeFunction(
 // Main AI assistant query handler
 export async function processAssistantQuery(
   query: string,
-  context: AssistantContext
+  context: AssistantContext,
+  conversationHistory?: Array<{ role: 'user' | 'assistant'; content: string }>
 ): Promise<{ response: string; data?: any; tokensUsed?: number }> {
   try {
     // Fetch AI training data
@@ -968,17 +969,25 @@ Be concise and friendly. Always format numbers nicely (add commas, currency symb
     // Log system message length for debugging
     console.log(`🤖 AI Assistant Query: "${query.substring(0, 100)}${query.length > 100 ? '...' : ''}"`);
     console.log(`📝 System message length: ${systemMessage.length} characters`);
+    console.log(`💬 Conversation history: ${conversationHistory?.length || 0} messages`);
 
     const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [
       {
         role: "system",
         content: systemMessage
-      },
-      {
-        role: "user",
-        content: query
       }
     ];
+
+    // Add conversation history if provided
+    if (conversationHistory && conversationHistory.length > 0) {
+      messages.push(...conversationHistory);
+    }
+
+    // Add current user query
+    messages.push({
+      role: "user",
+      content: query
+    });
 
     // First completion - AI decides which function to call
     const response = await openai.chat.completions.create({

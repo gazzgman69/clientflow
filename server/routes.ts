@@ -7235,7 +7235,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   // AI Assistant Query
   app.post('/api/ai/assistant/query', ensureUserAuth, tenantResolver, requireTenant, csrf, async (req: TenantRequest, res) => {
     try {
-      const { query } = req.body;
+      const { query, conversationHistory } = req.body;
       const userId = req.session?.userId;
       
       if (!userId) {
@@ -7249,12 +7249,12 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
       // Import AI assistant service
       const { processAssistantQuery } = await import('./ai-assistant-service');
       
-      // Process the query with AI
+      // Process the query with AI (with conversation history)
       const result = await processAssistantQuery(query, {
         storage,
         tenantId: req.tenantId!,
         userId
-      });
+      }, conversationHistory);
       
       res.json(result);
     } catch (error: any) {

@@ -44,8 +44,11 @@ export function AIAssistant({ isOpen, onClose }: AIAssistantProps) {
   }, [isOpen]);
 
   const queryMutation = useMutation({
-    mutationFn: async (query: string) => {
-      const response = await apiRequest('POST', '/api/ai/assistant/query', { query });
+    mutationFn: async ({ query, history }: { query: string; history: Array<{ role: 'user' | 'assistant'; content: string }> }) => {
+      const response = await apiRequest('POST', '/api/ai/assistant/query', { 
+        query,
+        conversationHistory: history
+      });
       const data = await response.json();
       return data;
     },
@@ -78,8 +81,17 @@ export function AIAssistant({ isOpen, onClose }: AIAssistantProps) {
       timestamp: new Date()
     };
 
+    // Build conversation history from existing messages (exclude data field, just role and content)
+    const conversationHistory = messages.map(msg => ({
+      role: msg.role,
+      content: msg.content
+    }));
+
     setMessages(prev => [...prev, userMessage]);
-    queryMutation.mutate(input);
+    queryMutation.mutate({ 
+      query: input,
+      history: conversationHistory
+    });
     setInput('');
   };
 

@@ -878,11 +878,12 @@ export async function processAssistantQuery(
       if (businessContext.industry) systemMessage += `- Industry: ${businessContext.industry}\n`;
       if (businessContext.targetAudience) systemMessage += `- Target Audience: ${businessContext.targetAudience}\n`;
       if (businessContext.services) systemMessage += `- Services Offered: ${businessContext.services}\n`;
-      if (businessContext.uniqueValue) systemMessage += `- Unique Value: ${businessContext.uniqueValue}\n`;
-      if (businessContext.tone) systemMessage += `- Communication Tone: ${businessContext.tone}\n`;
-      if (businessContext.communicationStyle) systemMessage += `- Communication Style: ${businessContext.communicationStyle}\n`;
-      if (businessContext.commonScenarios) systemMessage += `- Common Scenarios: ${businessContext.commonScenarios}\n`;
-      if (businessContext.keyTerms) systemMessage += `- Industry Terms: ${businessContext.keyTerms}\n`;
+      if (businessContext.pricingInfo) systemMessage += `- Pricing: ${businessContext.pricingInfo}\n`;
+      if (businessContext.businessHours) systemMessage += `- Business Hours: ${businessContext.businessHours}\n`;
+      if (businessContext.brandVoice) systemMessage += `- Brand Voice: ${businessContext.brandVoice}\n`;
+      if (businessContext.terminology) systemMessage += `- Industry Terms: ${businessContext.terminology}\n`;
+      if (businessContext.standardResponses) systemMessage += `- Standard Responses: ${businessContext.standardResponses}\n`;
+      if (businessContext.policies) systemMessage += `- Business Policies: ${businessContext.policies}\n`;
     }
 
     // Add knowledge base if available

@@ -70,11 +70,12 @@ export default function AISettings() {
       industry: businessContext?.industry || "",
       targetAudience: businessContext?.targetAudience || "",
       services: businessContext?.services || "",
-      uniqueValue: businessContext?.uniqueValue || "",
-      tone: businessContext?.tone || "",
-      communicationStyle: businessContext?.communicationStyle || "",
-      commonScenarios: businessContext?.commonScenarios || "",
-      keyTerms: businessContext?.keyTerms || "",
+      pricingInfo: businessContext?.pricingInfo || "",
+      businessHours: businessContext?.businessHours || "",
+      brandVoice: businessContext?.brandVoice || "",
+      terminology: businessContext?.terminology || "",
+      standardResponses: businessContext?.standardResponses || "",
+      policies: businessContext?.policies || "",
     });
 
     const handleSave = () => {
@@ -153,60 +154,72 @@ export default function AISettings() {
               </div>
 
               <div>
-                <Label htmlFor="uniqueValue" data-testid="label-unique-value">What makes your business unique?</Label>
+                <Label htmlFor="pricingInfo" data-testid="label-pricing-info">Pricing Information</Label>
                 <Textarea
-                  id="uniqueValue"
-                  data-testid="textarea-unique-value"
-                  placeholder="e.g., 20 years experience, premium sound equipment, customized playlists"
-                  value={formData.uniqueValue}
-                  onChange={(e) => setFormData({ ...formData, uniqueValue: e.target.value })}
+                  id="pricingInfo"
+                  data-testid="textarea-pricing-info"
+                  placeholder="e.g., Wedding packages start at $800, Hourly rate $150, Custom quotes available"
+                  value={formData.pricingInfo}
+                  onChange={(e) => setFormData({ ...formData, pricingInfo: e.target.value })}
                   rows={3}
                 />
               </div>
 
               <div>
-                <Label htmlFor="tone" data-testid="label-tone">Communication Tone</Label>
+                <Label htmlFor="businessHours" data-testid="label-business-hours">Business Hours</Label>
+                <Textarea
+                  id="businessHours"
+                  data-testid="textarea-business-hours"
+                  placeholder="e.g., Mon-Fri 9am-6pm, Available weekends for events"
+                  value={formData.businessHours}
+                  onChange={(e) => setFormData({ ...formData, businessHours: e.target.value })}
+                  rows={2}
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="brandVoice" data-testid="label-brand-voice">Brand Voice & Communication Tone</Label>
                 <Input
-                  id="tone"
-                  data-testid="input-tone"
+                  id="brandVoice"
+                  data-testid="input-brand-voice"
                   placeholder="e.g., Professional yet friendly, Casual, Formal"
-                  value={formData.tone}
-                  onChange={(e) => setFormData({ ...formData, tone: e.target.value })}
+                  value={formData.brandVoice}
+                  onChange={(e) => setFormData({ ...formData, brandVoice: e.target.value })}
                 />
               </div>
 
               <div>
-                <Label htmlFor="communicationStyle" data-testid="label-communication-style">How do you communicate with clients?</Label>
+                <Label htmlFor="terminology" data-testid="label-terminology">Industry-specific terms or jargon</Label>
                 <Textarea
-                  id="communicationStyle"
-                  data-testid="textarea-communication-style"
-                  placeholder="e.g., I keep things simple and clear, I use lots of examples, I'm very responsive"
-                  value={formData.communicationStyle}
-                  onChange={(e) => setFormData({ ...formData, communicationStyle: e.target.value })}
+                  id="terminology"
+                  data-testid="textarea-terminology"
+                  placeholder="e.g., Setup/teardown, sound check, playlist curation, MC duties"
+                  value={formData.terminology}
+                  onChange={(e) => setFormData({ ...formData, terminology: e.target.value })}
                   rows={3}
                 />
               </div>
 
               <div>
-                <Label htmlFor="commonScenarios" data-testid="label-common-scenarios">Common client scenarios or questions</Label>
+                <Label htmlFor="standardResponses" data-testid="label-standard-responses">Standard responses or FAQs</Label>
                 <Textarea
-                  id="commonScenarios"
-                  data-testid="textarea-common-scenarios"
-                  placeholder="e.g., Clients often ask about music selection, equipment setup time, backup plans"
-                  value={formData.commonScenarios}
-                  onChange={(e) => setFormData({ ...formData, commonScenarios: e.target.value })}
+                  id="standardResponses"
+                  data-testid="textarea-standard-responses"
+                  placeholder="e.g., Common answers to frequently asked questions"
+                  value={formData.standardResponses}
+                  onChange={(e) => setFormData({ ...formData, standardResponses: e.target.value })}
                   rows={4}
                 />
               </div>
 
               <div>
-                <Label htmlFor="keyTerms" data-testid="label-key-terms">Industry-specific terms or jargon</Label>
+                <Label htmlFor="policies" data-testid="label-policies">Business Policies</Label>
                 <Textarea
-                  id="keyTerms"
-                  data-testid="textarea-key-terms"
-                  placeholder="e.g., Setup/teardown, sound check, playlist curation, MC duties"
-                  value={formData.keyTerms}
-                  onChange={(e) => setFormData({ ...formData, keyTerms: e.target.value })}
+                  id="policies"
+                  data-testid="textarea-policies"
+                  placeholder="e.g., 50% deposit required, Cancellation policy, Equipment setup requirements"
+                  value={formData.policies}
+                  onChange={(e) => setFormData({ ...formData, policies: e.target.value })}
                   rows={3}
                 />
               </div>

@@ -59,6 +59,38 @@ The system includes an AI-powered email assistant using Replit AI Integrations (
 - Style learning queries user's email address from users table, then fetches recent sent emails (direction='outbound') matching that email
 - Returns `stylePersonalized: boolean` flag to inform frontend about personalization level
 
+## AI Assistant (Phase 2) - Conversational CRM Assistant
+Phase 2 introduces a conversational AI assistant that can query and analyze business data through natural language. The assistant uses OpenAI function calling to access comprehensive database information.
+
+**Features:**
+- **Natural Language Queries**: Ask questions in plain language about your business (e.g., "How many gigs next month?", "What's my total revenue?")
+- **Comprehensive Data Access**: AI can query all major database tables including:
+  - Projects & Gigs (count, details, upcoming events)
+  - Leads (status, conversion metrics)
+  - Clients/Contacts (lists, information)
+  - Quotes (value, status breakdown)
+  - Contracts (status summary)
+  - Invoices & Revenue (stats, unpaid, overdue)
+  - Tasks (pending, completed, overdue)
+  - Calendar Events (upcoming events)
+  - Team Members (musicians, roles)
+  - Venues (locations, capacity)
+- **Smart Insights**: AI provides actionable insights and formatted responses with proper date/number formatting
+- **Function Calling**: 14 specialized database query functions for accurate data retrieval
+
+**Implementation:**
+- Service location: `server/ai-assistant-service.ts`
+- API endpoint: `POST /api/ai/assistant/query`
+- Model: GPT-4o-mini (only reliable model through Replit AI Integrations)
+- UI: Floating chat button in bottom-right corner
+- Multi-tenant safe: All queries scoped by `tenant_id`
+
+**Technical Details:**
+- Uses OpenAI function calling pattern for structured data access
+- 14 specialized functions: get_projects_count, get_revenue_stats, get_upcoming_events, get_unpaid_invoices, get_clients_list, get_project_details, get_leads_summary, get_quotes_summary, get_contracts_summary, get_tasks_summary, get_calendar_events, get_members_list, get_venues_list
+- All functions enforce tenant isolation
+- Returns natural language responses with embedded data insights
+
 # External Dependencies
 
 ## Core Framework Dependencies

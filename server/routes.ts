@@ -7232,6 +7232,37 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
 
+  // AI Assistant Query
+  app.post('/api/ai/assistant/query', ensureUserAuth, tenantResolver, requireTenant, csrf, async (req: TenantRequest, res) => {
+    try {
+      const { query } = req.body;
+      const userId = req.session?.userId;
+      
+      if (!userId) {
+        return res.status(401).json({ error: 'User not authenticated' });
+      }
+      
+      if (!query || typeof query !== 'string') {
+        return res.status(400).json({ error: 'Query is required' });
+      }
+      
+      // Import AI assistant service
+      const { processAssistantQuery } = await import('./ai-assistant-service');
+      
+      // Process the query with AI
+      const result = await processAssistantQuery(query, {
+        storage,
+        tenantId: req.tenantId!,
+        userId
+      });
+      
+      res.json(result);
+    } catch (error: any) {
+      console.error('Error processing AI assistant query:', error);
+      res.status(500).json({ error: error.message || 'Failed to process query' });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

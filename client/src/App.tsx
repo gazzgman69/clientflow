@@ -34,6 +34,7 @@ import ClientPortal from "@/pages/portal/client-portal";
 import LoginPage from "@/pages/login";
 import Sidebar from "@/components/layout/sidebar";
 import { ImpersonationBanner } from "@/components/impersonation-banner";
+import { AIAssistantButton } from "@/components/AIAssistant";
 
 // Authentication wrapper component  
 function AuthWrapper({ children }: { children: React.ReactNode }) {
@@ -144,6 +145,7 @@ function Router() {
                   <Route component={NotFound} />
                 </Switch>
               </div>
+              <AIAssistantButton />
             </div>
           </AuthWrapper>
         )}

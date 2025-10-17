@@ -1941,6 +1941,80 @@ export const adminAuditLogs = pgTable("admin_audit_logs", {
   createdAtIdx: index("admin_audit_logs_created_at_idx").on(table.createdAt),
 }));
 
+// AI Business Context - Structured business information for AI personalization
+export const aiBusinessContext = pgTable("ai_business_context", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").references(() => tenants.id).notNull(),
+  businessName: text("business_name"),
+  businessType: text("business_type"), // e.g., "DJ Service", "Wedding Photography", etc.
+  industry: text("industry"),
+  services: text("services"), // JSON array of services offered
+  pricingInfo: text("pricing_info"), // JSON object with pricing details
+  businessHours: text("business_hours"), // JSON object
+  targetAudience: text("target_audience"),
+  brandVoice: text("brand_voice"), // e.g., "professional", "casual", "friendly"
+  terminology: text("terminology"), // JSON object of custom terms (e.g., {"projects": "gigs", "clients": "customers"})
+  standardResponses: text("standard_responses"), // JSON object of canned responses
+  policies: text("policies"), // JSON object of business policies
+  updatedAt: timestamp("updated_at").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  tenantIdIdx: index("ai_business_context_tenant_id_idx").on(table.tenantId),
+}));
+
+// AI Knowledge Base - Custom knowledge articles and documents
+export const aiKnowledgeBase = pgTable("ai_knowledge_base", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").references(() => tenants.id).notNull(),
+  title: text("title").notNull(),
+  category: text("category"), // e.g., "services", "pricing", "policies", "procedures"
+  content: text("content").notNull(), // The actual knowledge content
+  tags: text("tags"), // JSON array of tags for better search
+  isActive: boolean("is_active").default(true),
+  priority: integer("priority").default(0), // Higher priority = more important
+  createdBy: varchar("created_by").references(() => users.id),
+  updatedAt: timestamp("updated_at").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  tenantIdIdx: index("ai_knowledge_base_tenant_id_idx").on(table.tenantId),
+  categoryIdx: index("ai_knowledge_base_category_idx").on(table.category),
+  isActiveIdx: index("ai_knowledge_base_is_active_idx").on(table.isActive),
+}));
+
+// AI Custom Instructions - Specific instructions for AI behavior
+export const aiCustomInstructions = pgTable("ai_custom_instructions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").references(() => tenants.id).notNull(),
+  instruction: text("instruction").notNull(),
+  category: text("category"), // e.g., "communication_style", "data_handling", "responses"
+  isActive: boolean("is_active").default(true),
+  priority: integer("priority").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  tenantIdIdx: index("ai_custom_instructions_tenant_id_idx").on(table.tenantId),
+  categoryIdx: index("ai_custom_instructions_category_idx").on(table.category),
+  isActiveIdx: index("ai_custom_instructions_is_active_idx").on(table.isActive),
+}));
+
+// AI Training Documents - Uploaded documents for AI to learn from
+export const aiTrainingDocuments = pgTable("ai_training_documents", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").references(() => tenants.id).notNull(),
+  fileName: text("file_name").notNull(),
+  fileType: text("file_type"), // pdf, docx, txt, etc.
+  fileSize: integer("file_size"),
+  filePath: text("file_path").notNull(), // Path to stored file
+  extractedText: text("extracted_text"), // Text extracted from document
+  category: text("category"), // e.g., "contracts", "manuals", "catalogs"
+  isProcessed: boolean("is_processed").default(false),
+  uploadedBy: varchar("uploaded_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  tenantIdIdx: index("ai_training_documents_tenant_id_idx").on(table.tenantId),
+  categoryIdx: index("ai_training_documents_category_idx").on(table.category),
+  isProcessedIdx: index("ai_training_documents_is_processed_idx").on(table.isProcessed),
+}));
+
 // Insert schemas and types for jobs
 export const insertJobSchema = createInsertSchema(jobs).omit({ 
   id: true, 
@@ -2111,4 +2185,42 @@ export const insertEmailActionItemSchema = createInsertSchema(emailActionItems).
 
 export type EmailActionItem = typeof emailActionItems.$inferSelect;
 export type InsertEmailActionItem = z.infer<typeof insertEmailActionItemSchema>;
+
+// AI Business Context insert schema and types
+export const insertAiBusinessContextSchema = createInsertSchema(aiBusinessContext).omit({ 
+  id: true, 
+  createdAt: true, 
+  updatedAt: true 
+});
+
+export type AiBusinessContext = typeof aiBusinessContext.$inferSelect;
+export type InsertAiBusinessContext = z.infer<typeof insertAiBusinessContextSchema>;
+
+// AI Knowledge Base insert schema and types
+export const insertAiKnowledgeBaseSchema = createInsertSchema(aiKnowledgeBase).omit({ 
+  id: true, 
+  createdAt: true, 
+  updatedAt: true 
+});
+
+export type AiKnowledgeBase = typeof aiKnowledgeBase.$inferSelect;
+export type InsertAiKnowledgeBase = z.infer<typeof insertAiKnowledgeBaseSchema>;
+
+// AI Custom Instructions insert schema and types
+export const insertAiCustomInstructionSchema = createInsertSchema(aiCustomInstructions).omit({ 
+  id: true, 
+  createdAt: true 
+});
+
+export type AiCustomInstruction = typeof aiCustomInstructions.$inferSelect;
+export type InsertAiCustomInstruction = z.infer<typeof insertAiCustomInstructionSchema>;
+
+// AI Training Documents insert schema and types
+export const insertAiTrainingDocumentSchema = createInsertSchema(aiTrainingDocuments).omit({ 
+  id: true, 
+  createdAt: true 
+});
+
+export type AiTrainingDocument = typeof aiTrainingDocuments.$inferSelect;
+export type InsertAiTrainingDocument = z.infer<typeof insertAiTrainingDocumentSchema>;
 

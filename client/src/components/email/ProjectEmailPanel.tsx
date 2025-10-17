@@ -86,7 +86,7 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
   });
 
   // Check if user has seen style onboarding
-  const { data: onboardingStatus, refetch: refetchOnboardingStatus } = useQuery({
+  const { data: onboardingStatus, refetch: refetchOnboardingStatus } = useQuery<{ hasSeenOnboarding: boolean }>({
     queryKey: ['/api/ai/style-onboarding-status'],
     enabled: !!currentUser,
   });
@@ -1653,34 +1653,49 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
           </div>
           
           <div className="border-t pt-4">
-            {/* Combined Bottom Row: Tone Adjustment + Action Buttons */}
-            <div className="flex items-center justify-between gap-4 flex-wrap">
-              {/* Left: Tone Adjustment */}
+            {/* Bottom Row: Action Buttons */}
+            <div className="flex items-center justify-between gap-2">
+              {/* Left: Tone Adjustment Dropdown */}
               {replyingToEmailId && replyMessage && (
-                <div className="flex items-center gap-2 flex-wrap">
-                  <p className="text-sm font-medium whitespace-nowrap">Adjust Tone:</p>
-                  {adjustToneMutation.isPending && (
-                    <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                  )}
-                  {[
-                    { value: 'professional', label: 'Professional' },
-                    { value: 'friendly', label: 'Friendly' },
-                    { value: 'casual', label: 'Casual' },
-                    { value: 'concise', label: 'Concise' },
-                    { value: 'enthusiastic', label: 'Enthusiastic' }
-                  ].map((tone) => (
-                    <Button
-                      key={tone.value}
-                      variant="outline"
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button 
+                      variant="outline" 
                       size="sm"
-                      onClick={() => adjustToneMutation.mutate(tone.value)}
                       disabled={adjustToneMutation.isPending}
-                      data-testid={`button-tone-${tone.value}`}
+                      data-testid="button-adjust-tone"
                     >
-                      {tone.label}
+                      {adjustToneMutation.isPending ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Adjusting...
+                        </>
+                      ) : (
+                        <>
+                          Adjust Tone
+                          <ChevronDown className="h-4 w-4 ml-2" />
+                        </>
+                      )}
                     </Button>
-                  ))}
-                </div>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start">
+                    {[
+                      { value: 'professional', label: 'Professional' },
+                      { value: 'friendly', label: 'Friendly' },
+                      { value: 'casual', label: 'Casual' },
+                      { value: 'concise', label: 'Concise' },
+                      { value: 'enthusiastic', label: 'Enthusiastic' }
+                    ].map((tone) => (
+                      <DropdownMenuItem
+                        key={tone.value}
+                        onClick={() => adjustToneMutation.mutate(tone.value)}
+                        data-testid={`dropdown-tone-${tone.value}`}
+                      >
+                        {tone.label}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
               )}
 
               {/* Right: Send/Cancel Buttons */}

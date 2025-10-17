@@ -71,6 +71,11 @@ import {
   type EmailDraft, type InsertEmailDraft,
   type EmailActionItem, type InsertEmailActionItem,
   type UserStyleSample, type InsertUserStyleSample,
+  // AI Training & Knowledge Base types
+  type AiBusinessContext, type InsertAiBusinessContext,
+  type AiKnowledgeBase, type InsertAiKnowledgeBase,
+  type AiCustomInstruction, type InsertAiCustomInstruction,
+  type AiTrainingDocument, type InsertAiTrainingDocument,
   users, leads, contacts, projects, quotes, contracts, contractTemplates, invoices, incomeCategories, invoiceItems, taxSettings, tasks, emails, emailThreads, activities, automations, 
   members, venues, projectMembers, memberAvailability, projectFiles, projectNotes, smsMessages, 
   messageTemplates, messageThreads, calendars, events, calendarIntegrations, calendarSyncLog, templates, leadCaptureForms,
@@ -95,6 +100,8 @@ import {
   tags,
   // AI-Generated Content tables
   emailSummaries, emailDrafts, emailActionItems, userStyleSamples,
+  // AI Training & Knowledge Base tables
+  aiBusinessContext, aiKnowledgeBase, aiCustomInstructions, aiTrainingDocuments,
   // User Preferences table
   userPrefs
 } from "@shared/schema";
@@ -591,6 +598,29 @@ export interface IStorage {
   getUserStyleSamples(userId: string, tenantId: string): Promise<UserStyleSample[]>;
   deleteUserStyleSample(id: string, tenantId: string): Promise<boolean>;
   deleteAllUserStyleSamples(userId: string, tenantId: string): Promise<void>;
+
+  // AI Business Context - Guided questionnaire data
+  getAiBusinessContext(tenantId: string): Promise<AiBusinessContext | undefined>;
+  upsertAiBusinessContext(context: InsertAiBusinessContext, tenantId: string): Promise<AiBusinessContext>;
+
+  // AI Knowledge Base
+  getAiKnowledgeBase(tenantId: string, isActive?: boolean): Promise<AiKnowledgeBase[]>;
+  getAiKnowledgeBaseItem(id: string, tenantId: string): Promise<AiKnowledgeBase | undefined>;
+  createAiKnowledgeBaseItem(item: InsertAiKnowledgeBase, tenantId: string): Promise<AiKnowledgeBase>;
+  updateAiKnowledgeBaseItem(id: string, item: Partial<InsertAiKnowledgeBase>, tenantId: string): Promise<AiKnowledgeBase | undefined>;
+  deleteAiKnowledgeBaseItem(id: string, tenantId: string): Promise<boolean>;
+
+  // AI Custom Instructions
+  getAiCustomInstructions(tenantId: string, isActive?: boolean): Promise<AiCustomInstruction[]>;
+  createAiCustomInstruction(instruction: InsertAiCustomInstruction, tenantId: string): Promise<AiCustomInstruction>;
+  updateAiCustomInstruction(id: string, instruction: Partial<InsertAiCustomInstruction>, tenantId: string): Promise<AiCustomInstruction | undefined>;
+  deleteAiCustomInstruction(id: string, tenantId: string): Promise<boolean>;
+
+  // AI Training Documents
+  getAiTrainingDocuments(tenantId: string): Promise<AiTrainingDocument[]>;
+  createAiTrainingDocument(doc: InsertAiTrainingDocument, tenantId: string): Promise<AiTrainingDocument>;
+  updateAiTrainingDocument(id: string, doc: Partial<InsertAiTrainingDocument>, tenantId: string): Promise<AiTrainingDocument | undefined>;
+  deleteAiTrainingDocument(id: string, tenantId: string): Promise<boolean>;
 
   // User Preferences
   getUserPref(userId: string, key: string, tenantId: string): Promise<{ key: string; value: string } | undefined>;

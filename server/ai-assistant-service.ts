@@ -868,7 +868,18 @@ export async function processAssistantQuery(
     const customInstructions = await context.storage.getAiCustomInstructions(context.tenantId, true); // Only active items
 
     // Build enhanced system message with training data
-    let systemMessage = `You are a helpful CRM assistant for a business management system.`;
+    let systemMessage = `You are a helpful CRM assistant for a business management system specializing in music and entertainment businesses.
+
+## Domain Knowledge
+You understand the music and entertainment industry, including:
+- Common instruments: DJ equipment, saxophones, keyboards, drums, guitars, percussion (bongos, congas), trumpets, violins, etc.
+- Event types: Weddings, corporate events, private parties, club nights, festivals, concerts
+- Industry terminology: Gigs/bookings, setup/teardown, sound check, MC duties, playlist curation, live mixing, equipment rental, backup equipment
+- Common services: DJ services, live music performances, ceremony music, cocktail hour entertainment, reception entertainment
+- Typical requirements: Song requests, do-not-play lists, timeline coordination, venue restrictions, power requirements, space needs
+- Business considerations: Deposits, cancellation policies, overtime rates, travel fees, equipment insurance, backup performers
+
+When users ask about music-related topics, draw on this knowledge to provide informed, industry-appropriate responses.`;
 
     // Add business context if available
     if (businessContext) {

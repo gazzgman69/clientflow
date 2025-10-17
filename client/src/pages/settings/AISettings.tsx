@@ -41,10 +41,7 @@ export default function AISettings() {
   // Save business context mutation
   const saveContextMutation = useMutation({
     mutationFn: async (data: any) => {
-      return await apiRequest('/api/ai/business-context', {
-        method: 'POST',
-        body: JSON.stringify(data),
-      });
+      return await apiRequest('POST', '/api/ai/business-context', data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/ai/business-context'] });

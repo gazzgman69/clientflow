@@ -94,6 +94,62 @@ Phase 2 introduces a conversational AI assistant that can query and analyze busi
 - Email access is restricted to contacts within the tenant's CRM only
 - Returns natural language responses with embedded data insights
 
+## AI Assistant (Phase 3) - AI Training & Personalization System
+Phase 3 introduces a comprehensive AI training system that allows users to teach the AI assistant about their specific business through a guided questionnaire, knowledge base, and custom instructions.
+
+**Features:**
+- **Business Profile Questionnaire**: Guided form capturing essential business information
+  - Business name, type, and industry
+  - Target audience and services offered
+  - Unique value proposition
+  - Communication tone and style preferences
+  - Common client scenarios and industry terminology
+- **Knowledge Base**: Article/documentation management system
+  - Create, edit, and organize business-specific knowledge articles
+  - Category tagging for better organization
+  - Active/inactive toggle for content management
+  - Full CRUD interface with search and filtering
+- **Custom Instructions**: Define specific AI behavior rules
+  - Create behavioral guidelines for the AI assistant
+  - Category-based organization
+  - Active/inactive toggle for instruction management
+  - Real-time application to AI responses
+- **Document Upload** (Phase 4): Future capability to upload training documents
+
+**Database Schema:**
+- `ai_business_context` - Stores questionnaire responses (one per tenant)
+- `ai_knowledge_base` - Stores articles and documentation
+- `ai_custom_instructions` - Stores behavioral rules and guidelines
+- `ai_training_documents` - Prepared for future document uploads
+- All tables are tenant-scoped with proper indexes
+
+**Implementation:**
+- Settings page: `/settings?tab=ai` with three-tab interface
+- Storage layer: 12 new methods for AI knowledge management
+- API routes: RESTful endpoints for all CRUD operations
+- AI integration: System message enhancement with training data
+- Service location: Enhanced `server/ai-assistant-service.ts`
+
+**Multi-Tenant Safety:**
+- All AI training data scoped by `tenant_id`
+- Proper data isolation in all queries
+- Active/inactive filtering for knowledge base and instructions
+- Tenant-specific customization without cross-contamination
+
+**User Experience:**
+- Tab 1: Business Profile - guided questionnaire for business context
+- Tab 2: Knowledge Base - article management interface
+- Tab 3: Custom Instructions - behavioral rule management
+- Real-time AI personalization based on saved training data
+- Toast notifications for all CRUD operations
+
+**Technical Integration:**
+- AI assistant fetches training data on each query
+- System message dynamically built with business context, knowledge base, and custom instructions
+- Only active items included in AI context
+- Maintains original CRM capabilities alongside custom training
+- Structured sections in system message: Business Information, Knowledge Base, Custom Instructions, CRM Capabilities
+
 # External Dependencies
 
 ## Core Framework Dependencies

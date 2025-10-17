@@ -862,10 +862,47 @@ export async function processAssistantQuery(
   context: AssistantContext
 ): Promise<{ response: string; data?: any; tokensUsed?: number }> {
   try {
-    const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [
-      {
-        role: "system",
-        content: `You are a helpful CRM assistant for a business management system. You can answer questions about:
+    // Fetch AI training data
+    const businessContext = await context.storage.getAiBusinessContext(context.tenantId);
+    const knowledgeBase = await context.storage.getAiKnowledgeBase(context.tenantId, true); // Only active items
+    const customInstructions = await context.storage.getAiCustomInstructions(context.tenantId, true); // Only active items
+
+    // Build enhanced system message with training data
+    let systemMessage = `You are a helpful CRM assistant for a business management system.`;
+
+    // Add business context if available
+    if (businessContext) {
+      systemMessage += `\n\n## Business Information\n`;
+      if (businessContext.businessName) systemMessage += `- Business Name: ${businessContext.businessName}\n`;
+      if (businessContext.businessType) systemMessage += `- Business Type: ${businessContext.businessType}\n`;
+      if (businessContext.industry) systemMessage += `- Industry: ${businessContext.industry}\n`;
+      if (businessContext.targetAudience) systemMessage += `- Target Audience: ${businessContext.targetAudience}\n`;
+      if (businessContext.services) systemMessage += `- Services Offered: ${businessContext.services}\n`;
+      if (businessContext.uniqueValue) systemMessage += `- Unique Value: ${businessContext.uniqueValue}\n`;
+      if (businessContext.tone) systemMessage += `- Communication Tone: ${businessContext.tone}\n`;
+      if (businessContext.communicationStyle) systemMessage += `- Communication Style: ${businessContext.communicationStyle}\n`;
+      if (businessContext.commonScenarios) systemMessage += `- Common Scenarios: ${businessContext.commonScenarios}\n`;
+      if (businessContext.keyTerms) systemMessage += `- Industry Terms: ${businessContext.keyTerms}\n`;
+    }
+
+    // Add knowledge base if available
+    if (knowledgeBase.length > 0) {
+      systemMessage += `\n\n## Knowledge Base\n`;
+      knowledgeBase.forEach((item: any) => {
+        systemMessage += `\n### ${item.title}${item.category ? ` (${item.category})` : ''}\n${item.content}\n`;
+      });
+    }
+
+    // Add custom instructions if available
+    if (customInstructions.length > 0) {
+      systemMessage += `\n\n## Custom Instructions\n`;
+      customInstructions.forEach((instruction: any, index: number) => {
+        systemMessage += `${index + 1}. ${instruction.instruction}${instruction.category ? ` [${instruction.category}]` : ''}\n`;
+      });
+    }
+
+    // Add standard capabilities
+    systemMessage += `\n\n## CRM Capabilities\nYou can answer questions about:
 - Projects & Gigs (count, details, upcoming events)
 - Leads (status, conversion metrics)
 - Clients/Contacts (lists, information)
@@ -881,7 +918,12 @@ export async function processAssistantQuery(
 
 You have access to email history for all contacts within the tenant's CRM. You can retrieve emails by contact, project, or date range, and filter by direction (inbound/outbound).
 
-Be concise and friendly. Always format numbers nicely (add commas, currency symbols). When showing dates, use readable formats. If you use a function to get data, summarize it in a natural, conversational way. Focus on actionable insights.`
+Be concise and friendly. Always format numbers nicely (add commas, currency symbols). When showing dates, use readable formats. If you use a function to get data, summarize it in a natural, conversational way. Focus on actionable insights.`;
+
+    const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [
+      {
+        role: "system",
+        content: systemMessage
       },
       {
         role: "user",

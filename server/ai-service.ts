@@ -158,11 +158,12 @@ Generate a professional, friendly reply that:
 - Acknowledges their message
 - Addresses their key points
 - Is warm but businesslike
-- Leaves placeholders [YOUR NAME], [SPECIFIC DETAILS] where personalization is needed
 - IMPORTANT: Format with proper paragraphs separated by TWO newlines (\\n\\n)
-- Each paragraph should be a distinct thought or topic${toneInstructions}
+- Each paragraph should be a distinct thought or topic
+- DO NOT include a signature or sign-off - the user will add their own
+- End with the main message content only${toneInstructions}
 
-Draft reply (body text only, no subject):`;
+Draft reply (body text only, no subject, no signature):`;
 
   try {
     const response = await openai.chat.completions.create({
@@ -395,16 +396,16 @@ ${stylePersonalized ? '- Matches the writing style from the examples above' : '-
 - Has clear paragraph structure with double line breaks (\\n\\n) between paragraphs
 - Be specific and actionable - no vague [DETAILS] or [INFORMATION] placeholders
 - NEVER include placeholder text in brackets like [NAME] or [COMPANY]
+- DO NOT include a signature or sign-off - the user will add their own
 
 Formatting requirements:
 - Use \\n\\n (double newline) between paragraphs
-- Keep signature simple and professional
-- Sign with: ${fullName}
+- End with the main message content - NO signature, NO name, NO closing
 
 Respond with a JSON object containing:
 {
   "subject": "suggested subject line",
-  "draft": "complete email body with greeting, paragraphs separated by \\n\\n, and signature"
+  "draft": "complete email body with greeting and paragraphs separated by \\n\\n (NO signature)"
 }`;
 
   try {

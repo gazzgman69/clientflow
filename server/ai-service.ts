@@ -89,8 +89,7 @@ Provide your summary:`;
           content: prompt
         }
       ],
-      max_completion_tokens: 300,
-      temperature: 0.7
+      max_completion_tokens: 300
     });
 
     const summary = response.choices[0]?.message?.content?.trim() || 'Unable to generate summary';
@@ -178,8 +177,7 @@ Draft reply (body text only, no subject, no signature):`;
           content: prompt
         }
       ],
-      max_completion_tokens: 500,
-      temperature: 0.8
+      max_completion_tokens: 500
     });
 
     const draft = response.choices[0]?.message?.content?.trim() || 'Unable to generate draft';
@@ -246,7 +244,6 @@ If no action items are found, return: {"actionItems": []}`;
         }
       ],
       max_completion_tokens: 500,
-      temperature: 0.3,
       response_format: { type: "json_object" }
     });
 
@@ -422,7 +419,6 @@ Respond with a JSON object containing:
         }
       ],
       max_completion_tokens: 600,
-      temperature: 0.8,
       response_format: { type: "json_object" }
     });
 

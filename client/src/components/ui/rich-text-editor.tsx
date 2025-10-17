@@ -308,7 +308,7 @@ const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(
         <div className={cn('w-full', className)}>
           {/* Toolbar */}
           <div 
-            className="flex flex-wrap items-center gap-1 p-2 border border-input rounded-t-md bg-muted/30 dark:bg-muted/20 max-w-full overflow-hidden sm:flex-row" 
+            className="sticky top-0 z-10 flex flex-wrap items-center gap-1 p-2 border border-input rounded-t-md bg-muted/30 dark:bg-muted/20 backdrop-blur-sm max-w-full overflow-hidden sm:flex-row" 
             role="toolbar" 
             aria-label="Text formatting toolbar"
             aria-controls={contentId}

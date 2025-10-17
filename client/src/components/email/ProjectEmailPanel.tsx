@@ -1652,17 +1652,16 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
             </div>
           </div>
           
-          <div className="border-t pt-4 space-y-4">
-            {/* Tone Adjustment Buttons */}
-            {replyingToEmailId && replyMessage && (
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <p className="text-sm font-medium">Adjust Tone:</p>
+          <div className="border-t pt-4">
+            {/* Combined Bottom Row: Tone Adjustment + Action Buttons */}
+            <div className="flex items-center justify-between gap-4 flex-wrap">
+              {/* Left: Tone Adjustment */}
+              {replyingToEmailId && replyMessage && (
+                <div className="flex items-center gap-2 flex-wrap">
+                  <p className="text-sm font-medium whitespace-nowrap">Adjust Tone:</p>
                   {adjustToneMutation.isPending && (
                     <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
                   )}
-                </div>
-                <div className="flex flex-wrap gap-2">
                   {[
                     { value: 'professional', label: 'Professional' },
                     { value: 'friendly', label: 'Friendly' },
@@ -1682,35 +1681,35 @@ export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPan
                     </Button>
                   ))}
                 </div>
-              </div>
-            )}
+              )}
 
-            {/* Send/Cancel Buttons */}
-            <div className="flex gap-2 justify-end">
-              <Button 
-                variant="outline" 
-                onClick={() => setShowReplyDialog(false)}
-                data-testid="button-cancel-reply"
-              >
-                Cancel
-              </Button>
-              <Button 
-                onClick={handleSendReply}
-                disabled={replyEmailMutation.isPending}
-                data-testid="button-send-reply"
-              >
-                {replyEmailMutation.isPending ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                    Sending...
-                  </>
-                ) : (
-                  <>
-                    <Send className="h-4 w-4 mr-2" />
-                    Send Reply
-                  </>
-                )}
-              </Button>
+              {/* Right: Send/Cancel Buttons */}
+              <div className="flex gap-2 ml-auto">
+                <Button 
+                  variant="outline" 
+                  onClick={() => setShowReplyDialog(false)}
+                  data-testid="button-cancel-reply"
+                >
+                  Cancel
+                </Button>
+                <Button 
+                  onClick={handleSendReply}
+                  disabled={replyEmailMutation.isPending}
+                  data-testid="button-send-reply"
+                >
+                  {replyEmailMutation.isPending ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                      Sending...
+                    </>
+                  ) : (
+                    <>
+                      <Send className="h-4 w-4 mr-2" />
+                      Send Reply
+                    </>
+                  )}
+                </Button>
+              </div>
             </div>
           </div>
         </DialogContent>

@@ -112,10 +112,18 @@ const FUNCTIONS = [
   },
   {
     name: "get_project_details",
-    description: "Get detailed information about specific projects",
+    description: "Get detailed information about specific projects, optionally filtered by contact name",
     parameters: {
       type: "object",
       properties: {
+        contactName: {
+          type: "string",
+          description: "Filter projects by contact name (e.g., 'John Smith')"
+        },
+        contactId: {
+          type: "string",
+          description: "Filter projects by contact ID"
+        },
         status: {
           type: "string",
           enum: ["active", "completed", "cancelled", "pending"],
@@ -523,6 +531,27 @@ async function executeFunction(
       const projects = await storage.getProjects(tenantId);
       let filtered = projects;
 
+      // Filter by contact if provided
+      if (args.contactName || args.contactId) {
+        let targetContactId = args.contactId;
+
+        // Look up contact by name if contactName provided
+        if (args.contactName && !targetContactId) {
+          const contacts = await storage.getContacts(tenantId);
+          const contact = contacts.find((c: any) => {
+            const fullName = c.fullName || c.full_name || `${c.firstName || c.first_name || ''} ${c.lastName || c.last_name || ''}`.trim();
+            return fullName.toLowerCase().includes(args.contactName.toLowerCase());
+          });
+          if (contact) {
+            targetContactId = contact.id;
+          }
+        }
+
+        if (targetContactId) {
+          filtered = filtered.filter(p => p.contactId === targetContactId);
+        }
+      }
+
       if (args.status) {
         filtered = filtered.filter(p => p.status === args.status);
       }
@@ -533,11 +562,16 @@ async function executeFunction(
 
       return {
         count: filtered.length,
-        projects: filtered.map(p => ({
+        projects: filtered.map((p: any) => ({
           name: p.name,
           status: p.status,
-          startDate: p.startDate,
-          contactId: p.contactId
+          startDate: p.startDate || p.start_date,
+          endDate: p.endDate || p.end_date,
+          eventDate: p.eventDate || p.event_date,
+          eventTime: p.eventTime || p.event_time,
+          venue: p.venue,
+          budget: p.budget,
+          contactId: p.contactId || p.contact_id
         }))
       };
     }

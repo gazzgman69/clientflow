@@ -347,16 +347,7 @@ export async function composeEmail(
     }
   }
 
-  // Build sender information
-  let senderInfo = '';
-  if (fullName) {
-    senderInfo += `Sender name: ${fullName}\n`;
-  }
-  senderInfo += `Company: Club Kudo\n`;
-  if (userInfo.email) {
-    senderInfo += `Email: ${userInfo.email}\n`;
-  }
-
+  // Build context information
   let contextInfo = '';
   if (projectContext) {
     contextInfo += `Project context: ${projectContext}\n`;
@@ -393,7 +384,7 @@ Match the user's writing style from these examples:
 
   const prompt = `You are helping compose a professional business email for a CRM user.
 
-${senderInfo ? `Sender Information:\n${senderInfo}\n` : ''}${contextInfo ? `Context:\n${contextInfo}\n` : ''}${styleGuidance}
+${contextInfo ? `Context:\n${contextInfo}\n` : ''}${styleGuidance}
 
 User instructions:
 ${instructions}
@@ -402,15 +393,13 @@ Generate a naturally flowing business email that:
 - Follows the user's instructions precisely
 ${stylePersonalized ? '- Matches the writing style from the examples above' : '- Uses professional, warm business tone'}
 - Has clear paragraph structure with double line breaks (\\n\\n) between paragraphs
-- Signs off professionally with the sender's actual name and company
-- NEVER use placeholders or bracketed text - use the actual sender information provided above
 - Be specific and actionable - no vague [DETAILS] or [INFORMATION] placeholders
+- NEVER include placeholder text in brackets like [NAME] or [COMPANY]
 
 Formatting requirements:
 - Use \\n\\n (double newline) between paragraphs
-- Email signature should be separated from body with \\n\\n
+- Keep signature simple and professional
 - Sign with: ${fullName}
-Club Kudo
 
 Respond with a JSON object containing:
 {

@@ -7547,6 +7547,209 @@ export class DrizzleStorage implements IStorage {
     }
   }
 
+  // AI Business Context
+  async getAiBusinessContext(tenantId: string): Promise<AiBusinessContext | undefined> {
+    const result = await this.db
+      .select()
+      .from(aiBusinessContext)
+      .where(eq(aiBusinessContext.tenantId, tenantId))
+      .limit(1);
+    
+    return result[0];
+  }
+
+  async upsertAiBusinessContext(context: InsertAiBusinessContext, tenantId: string): Promise<AiBusinessContext> {
+    const existing = await this.getAiBusinessContext(tenantId);
+    
+    if (existing) {
+      const [updated] = await this.db
+        .update(aiBusinessContext)
+        .set({ 
+          ...context,
+          updatedAt: new Date() 
+        })
+        .where(eq(aiBusinessContext.tenantId, tenantId))
+        .returning();
+      return updated;
+    } else {
+      const [created] = await this.db
+        .insert(aiBusinessContext)
+        .values({ 
+          ...context, 
+          tenantId,
+          updatedAt: new Date()
+        })
+        .returning();
+      return created;
+    }
+  }
+
+  // AI Knowledge Base
+  async getAiKnowledgeBase(tenantId: string, isActive?: boolean): Promise<AiKnowledgeBase[]> {
+    const conditions = [eq(aiKnowledgeBase.tenantId, tenantId)];
+    
+    if (isActive !== undefined) {
+      conditions.push(eq(aiKnowledgeBase.isActive, isActive));
+    }
+    
+    return await this.db
+      .select()
+      .from(aiKnowledgeBase)
+      .where(and(...conditions))
+      .orderBy(desc(aiKnowledgeBase.createdAt));
+  }
+
+  async getAiKnowledgeBaseItem(id: string, tenantId: string): Promise<AiKnowledgeBase | undefined> {
+    const result = await this.db
+      .select()
+      .from(aiKnowledgeBase)
+      .where(and(
+        eq(aiKnowledgeBase.id, id),
+        eq(aiKnowledgeBase.tenantId, tenantId)
+      ))
+      .limit(1);
+    
+    return result[0];
+  }
+
+  async createAiKnowledgeBaseItem(item: InsertAiKnowledgeBase, tenantId: string): Promise<AiKnowledgeBase> {
+    const [created] = await this.db
+      .insert(aiKnowledgeBase)
+      .values({ 
+        ...item, 
+        tenantId,
+        updatedAt: new Date()
+      })
+      .returning();
+    return created;
+  }
+
+  async updateAiKnowledgeBaseItem(id: string, item: Partial<InsertAiKnowledgeBase>, tenantId: string): Promise<AiKnowledgeBase | undefined> {
+    const [updated] = await this.db
+      .update(aiKnowledgeBase)
+      .set({ 
+        ...omitUndefined(item),
+        updatedAt: new Date() 
+      })
+      .where(and(
+        eq(aiKnowledgeBase.id, id),
+        eq(aiKnowledgeBase.tenantId, tenantId)
+      ))
+      .returning();
+    
+    return updated;
+  }
+
+  async deleteAiKnowledgeBaseItem(id: string, tenantId: string): Promise<boolean> {
+    const result = await this.db
+      .delete(aiKnowledgeBase)
+      .where(and(
+        eq(aiKnowledgeBase.id, id),
+        eq(aiKnowledgeBase.tenantId, tenantId)
+      ));
+    
+    return result.rowCount !== null && result.rowCount > 0;
+  }
+
+  // AI Custom Instructions
+  async getAiCustomInstructions(tenantId: string, isActive?: boolean): Promise<AiCustomInstruction[]> {
+    const conditions = [eq(aiCustomInstructions.tenantId, tenantId)];
+    
+    if (isActive !== undefined) {
+      conditions.push(eq(aiCustomInstructions.isActive, isActive));
+    }
+    
+    return await this.db
+      .select()
+      .from(aiCustomInstructions)
+      .where(and(...conditions))
+      .orderBy(desc(aiCustomInstructions.createdAt));
+  }
+
+  async createAiCustomInstruction(instruction: InsertAiCustomInstruction, tenantId: string): Promise<AiCustomInstruction> {
+    const [created] = await this.db
+      .insert(aiCustomInstructions)
+      .values({ 
+        ...instruction, 
+        tenantId,
+        updatedAt: new Date()
+      })
+      .returning();
+    return created;
+  }
+
+  async updateAiCustomInstruction(id: string, instruction: Partial<InsertAiCustomInstruction>, tenantId: string): Promise<AiCustomInstruction | undefined> {
+    const [updated] = await this.db
+      .update(aiCustomInstructions)
+      .set({ 
+        ...omitUndefined(instruction),
+        updatedAt: new Date() 
+      })
+      .where(and(
+        eq(aiCustomInstructions.id, id),
+        eq(aiCustomInstructions.tenantId, tenantId)
+      ))
+      .returning();
+    
+    return updated;
+  }
+
+  async deleteAiCustomInstruction(id: string, tenantId: string): Promise<boolean> {
+    const result = await this.db
+      .delete(aiCustomInstructions)
+      .where(and(
+        eq(aiCustomInstructions.id, id),
+        eq(aiCustomInstructions.tenantId, tenantId)
+      ));
+    
+    return result.rowCount !== null && result.rowCount > 0;
+  }
+
+  // AI Training Documents
+  async getAiTrainingDocuments(tenantId: string): Promise<AiTrainingDocument[]> {
+    return await this.db
+      .select()
+      .from(aiTrainingDocuments)
+      .where(eq(aiTrainingDocuments.tenantId, tenantId))
+      .orderBy(desc(aiTrainingDocuments.uploadedAt));
+  }
+
+  async createAiTrainingDocument(doc: InsertAiTrainingDocument, tenantId: string): Promise<AiTrainingDocument> {
+    const [created] = await this.db
+      .insert(aiTrainingDocuments)
+      .values({ 
+        ...doc, 
+        tenantId,
+        uploadedAt: new Date()
+      })
+      .returning();
+    return created;
+  }
+
+  async updateAiTrainingDocument(id: string, doc: Partial<InsertAiTrainingDocument>, tenantId: string): Promise<AiTrainingDocument | undefined> {
+    const [updated] = await this.db
+      .update(aiTrainingDocuments)
+      .set(omitUndefined(doc))
+      .where(and(
+        eq(aiTrainingDocuments.id, id),
+        eq(aiTrainingDocuments.tenantId, tenantId)
+      ))
+      .returning();
+    
+    return updated;
+  }
+
+  async deleteAiTrainingDocument(id: string, tenantId: string): Promise<boolean> {
+    const result = await this.db
+      .delete(aiTrainingDocuments)
+      .where(and(
+        eq(aiTrainingDocuments.id, id),
+        eq(aiTrainingDocuments.tenantId, tenantId)
+      ));
+    
+    return result.rowCount !== null && result.rowCount > 0;
+  }
+
   // Tenant-scoped storage wrapper
   withTenant(tenantId: string): TenantScopedStorage {
     return new TenantScopedStorage(this, tenantId);

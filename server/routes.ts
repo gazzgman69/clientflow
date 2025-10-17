@@ -7263,6 +7263,170 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
 
+  // AI Business Context routes
+  app.get('/api/ai/business-context', ensureUserAuth, tenantResolver, requireTenant, async (req: TenantRequest, res) => {
+    try {
+      const context = await storage.getAiBusinessContext(req.tenantId!);
+      res.json(context || {});
+    } catch (error: any) {
+      console.error('Error fetching AI business context:', error);
+      res.status(500).json({ error: 'Failed to fetch business context' });
+    }
+  });
+
+  app.post('/api/ai/business-context', ensureUserAuth, tenantResolver, requireTenant, csrf, async (req: TenantRequest, res) => {
+    try {
+      const context = await storage.upsertAiBusinessContext(req.body, req.tenantId!);
+      res.json(context);
+    } catch (error: any) {
+      console.error('Error saving AI business context:', error);
+      res.status(500).json({ error: 'Failed to save business context' });
+    }
+  });
+
+  // AI Knowledge Base routes
+  app.get('/api/ai/knowledge-base', ensureUserAuth, tenantResolver, requireTenant, async (req: TenantRequest, res) => {
+    try {
+      const isActive = req.query.isActive === 'true' ? true : req.query.isActive === 'false' ? false : undefined;
+      const items = await storage.getAiKnowledgeBase(req.tenantId!, isActive);
+      res.json(items);
+    } catch (error: any) {
+      console.error('Error fetching AI knowledge base:', error);
+      res.status(500).json({ error: 'Failed to fetch knowledge base' });
+    }
+  });
+
+  app.post('/api/ai/knowledge-base', ensureUserAuth, tenantResolver, requireTenant, csrf, async (req: TenantRequest, res) => {
+    try {
+      const item = await storage.createAiKnowledgeBaseItem(req.body, req.tenantId!);
+      res.json(item);
+    } catch (error: any) {
+      console.error('Error creating AI knowledge base item:', error);
+      res.status(500).json({ error: 'Failed to create knowledge base item' });
+    }
+  });
+
+  app.patch('/api/ai/knowledge-base/:id', ensureUserAuth, tenantResolver, requireTenant, csrf, async (req: TenantRequest, res) => {
+    try {
+      const item = await storage.updateAiKnowledgeBaseItem(req.params.id, req.body, req.tenantId!);
+      if (!item) {
+        return res.status(404).json({ error: 'Knowledge base item not found' });
+      }
+      res.json(item);
+    } catch (error: any) {
+      console.error('Error updating AI knowledge base item:', error);
+      res.status(500).json({ error: 'Failed to update knowledge base item' });
+    }
+  });
+
+  app.delete('/api/ai/knowledge-base/:id', ensureUserAuth, tenantResolver, requireTenant, csrf, async (req: TenantRequest, res) => {
+    try {
+      const success = await storage.deleteAiKnowledgeBaseItem(req.params.id, req.tenantId!);
+      if (!success) {
+        return res.status(404).json({ error: 'Knowledge base item not found' });
+      }
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error('Error deleting AI knowledge base item:', error);
+      res.status(500).json({ error: 'Failed to delete knowledge base item' });
+    }
+  });
+
+  // AI Custom Instructions routes
+  app.get('/api/ai/custom-instructions', ensureUserAuth, tenantResolver, requireTenant, async (req: TenantRequest, res) => {
+    try {
+      const isActive = req.query.isActive === 'true' ? true : req.query.isActive === 'false' ? false : undefined;
+      const instructions = await storage.getAiCustomInstructions(req.tenantId!, isActive);
+      res.json(instructions);
+    } catch (error: any) {
+      console.error('Error fetching AI custom instructions:', error);
+      res.status(500).json({ error: 'Failed to fetch custom instructions' });
+    }
+  });
+
+  app.post('/api/ai/custom-instructions', ensureUserAuth, tenantResolver, requireTenant, csrf, async (req: TenantRequest, res) => {
+    try {
+      const instruction = await storage.createAiCustomInstruction(req.body, req.tenantId!);
+      res.json(instruction);
+    } catch (error: any) {
+      console.error('Error creating AI custom instruction:', error);
+      res.status(500).json({ error: 'Failed to create custom instruction' });
+    }
+  });
+
+  app.patch('/api/ai/custom-instructions/:id', ensureUserAuth, tenantResolver, requireTenant, csrf, async (req: TenantRequest, res) => {
+    try {
+      const instruction = await storage.updateAiCustomInstruction(req.params.id, req.body, req.tenantId!);
+      if (!instruction) {
+        return res.status(404).json({ error: 'Custom instruction not found' });
+      }
+      res.json(instruction);
+    } catch (error: any) {
+      console.error('Error updating AI custom instruction:', error);
+      res.status(500).json({ error: 'Failed to update custom instruction' });
+    }
+  });
+
+  app.delete('/api/ai/custom-instructions/:id', ensureUserAuth, tenantResolver, requireTenant, csrf, async (req: TenantRequest, res) => {
+    try {
+      const success = await storage.deleteAiCustomInstruction(req.params.id, req.tenantId!);
+      if (!success) {
+        return res.status(404).json({ error: 'Custom instruction not found' });
+      }
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error('Error deleting AI custom instruction:', error);
+      res.status(500).json({ error: 'Failed to delete custom instruction' });
+    }
+  });
+
+  // AI Training Documents routes
+  app.get('/api/ai/training-documents', ensureUserAuth, tenantResolver, requireTenant, async (req: TenantRequest, res) => {
+    try {
+      const documents = await storage.getAiTrainingDocuments(req.tenantId!);
+      res.json(documents);
+    } catch (error: any) {
+      console.error('Error fetching AI training documents:', error);
+      res.status(500).json({ error: 'Failed to fetch training documents' });
+    }
+  });
+
+  app.post('/api/ai/training-documents', ensureUserAuth, tenantResolver, requireTenant, csrf, async (req: TenantRequest, res) => {
+    try {
+      const document = await storage.createAiTrainingDocument(req.body, req.tenantId!);
+      res.json(document);
+    } catch (error: any) {
+      console.error('Error creating AI training document:', error);
+      res.status(500).json({ error: 'Failed to create training document' });
+    }
+  });
+
+  app.patch('/api/ai/training-documents/:id', ensureUserAuth, tenantResolver, requireTenant, csrf, async (req: TenantRequest, res) => {
+    try {
+      const document = await storage.updateAiTrainingDocument(req.params.id, req.body, req.tenantId!);
+      if (!document) {
+        return res.status(404).json({ error: 'Training document not found' });
+      }
+      res.json(document);
+    } catch (error: any) {
+      console.error('Error updating AI training document:', error);
+      res.status(500).json({ error: 'Failed to update training document' });
+    }
+  });
+
+  app.delete('/api/ai/training-documents/:id', ensureUserAuth, tenantResolver, requireTenant, csrf, async (req: TenantRequest, res) => {
+    try {
+      const success = await storage.deleteAiTrainingDocument(req.params.id, req.tenantId!);
+      if (!success) {
+        return res.status(404).json({ error: 'Training document not found' });
+      }
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error('Error deleting AI training document:', error);
+      res.status(500).json({ error: 'Failed to delete training document' });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

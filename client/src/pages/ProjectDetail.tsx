@@ -113,6 +113,12 @@ export default function ProjectDetail() {
   const projectId = params?.id;
   const { toast } = useToast();
   
+  // Check URL parameters for auto-actions
+  const urlParams = new URLSearchParams(window.location.search);
+  const action = urlParams.get('action');
+  const [activeTab, setActiveTab] = useState(action === 'compose_email' ? 'email' : 'overview');
+  const [autoOpenComposer, setAutoOpenComposer] = useState(action === 'compose_email');
+  
   // State variables
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [selectedDocument, setSelectedDocument] = useState<{
@@ -841,7 +847,7 @@ export default function ProjectDetail() {
           </div>
 
           {/* Project Tabs */}
-          <Tabs defaultValue="overview" className="w-full">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <TabsList className="grid w-full grid-cols-5">
               <TabsTrigger value="overview" className="flex items-center gap-2">
                 <Briefcase className="h-4 w-4" />
@@ -1702,7 +1708,7 @@ export default function ProjectDetail() {
             </TabsContent>
 
             <TabsContent value="email" className="space-y-6">
-              <ProjectEmailPanel projectId={projectId!} />
+              <ProjectEmailPanel projectId={projectId!} autoOpenComposer={autoOpenComposer} />
             </TabsContent>
           </Tabs>
         </div>

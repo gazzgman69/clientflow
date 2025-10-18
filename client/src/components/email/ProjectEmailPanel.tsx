@@ -23,6 +23,7 @@ import { StyleOnboardingModal } from '@/components/StyleOnboardingModal';
 interface ProjectEmailPanelProps {
   projectId: string;
   emails?: string[];
+  autoOpenComposer?: boolean;
 }
 
 interface EmailThread {
@@ -41,11 +42,11 @@ interface EmailThread {
   };
 }
 
-export default function ProjectEmailPanel({ projectId, emails }: ProjectEmailPanelProps) {
+export default function ProjectEmailPanel({ projectId, emails, autoOpenComposer }: ProjectEmailPanelProps) {
   const [to, setTo] = useState('');
   const [subject, setSubject] = useState('');
   const [message, setMessage] = useState('');
-  const [isComposing, setIsComposing] = useState(false);
+  const [isComposing, setIsComposing] = useState(autoOpenComposer || false);
   const [selectedThreadId, setSelectedThreadId] = useState<string | null>(null);
   const [selectedEmail, setSelectedEmail] = useState<any>(null);
   

@@ -28,7 +28,11 @@ const quoteFormSchema = insertQuoteSchema.extend({
 });
 
 export default function Quotes() {
-  const [showQuoteModal, setShowQuoteModal] = useState(false);
+  // Check URL parameters for auto-actions
+  const urlParams = new URLSearchParams(window.location.search);
+  const action = urlParams.get('action');
+  
+  const [showQuoteModal, setShowQuoteModal] = useState(action === 'create');
   const [editingQuote, setEditingQuote] = useState<Quote | null>(null);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [quoteToDelete, setQuoteToDelete] = useState<Quote | null>(null);

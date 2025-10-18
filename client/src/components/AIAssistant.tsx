@@ -115,12 +115,14 @@ export function AIAssistant({ isOpen, onClose }: AIAssistantProps) {
   const handleAction = (action: { type: string; label: string; data?: any }) => {
     switch (action.type) {
       case 'compose_email':
-        // Navigate to project page with email tab if projectId is available
+        // Navigate to project page and auto-open email composer
         if (action.data?.projectId) {
-          window.location.href = `/projects/${action.data.projectId}#email`;
+          const params = new URLSearchParams({ action: 'compose_email' });
+          if (action.data.contactId) params.set('contactId', action.data.contactId);
+          window.location.href = `/projects/${action.data.projectId}?${params.toString()}`;
         } else if (action.data?.contactId) {
-          // Navigate to contact detail page if only contactId
-          window.location.href = `/contacts/${action.data.contactId}`;
+          // Navigate to contact detail page with auto-open email
+          window.location.href = `/contacts/${action.data.contactId}?action=compose_email`;
         } else {
           toast({
             title: "No project or contact",
@@ -137,19 +139,24 @@ export function AIAssistant({ isOpen, onClose }: AIAssistantProps) {
         break;
       
       case 'create_quote':
-        // Navigate to quotes page - user can click "+" to create new quote
-        window.location.href = '/quotes';
+        // Navigate to quotes page and auto-open create dialog
+        const quoteParams = new URLSearchParams({ action: 'create' });
+        if (action.data?.contactId) quoteParams.set('contactId', action.data.contactId);
+        window.location.href = `/quotes?${quoteParams.toString()}`;
         break;
       
       case 'create_invoice':
-        // Navigate to invoices page - user can click "+" to create new invoice
-        window.location.href = '/invoices';
+        // Navigate to invoices page and auto-open create dialog
+        const invoiceParams = new URLSearchParams({ action: 'create' });
+        if (action.data?.projectId) invoiceParams.set('projectId', action.data.projectId);
+        if (action.data?.contactId) invoiceParams.set('contactId', action.data.contactId);
+        window.location.href = `/invoices?${invoiceParams.toString()}`;
         break;
       
       case 'create_task':
-        // Navigate to project page if projectId available, otherwise just notify
+        // Navigate to project page and auto-open task creation
         if (action.data?.projectId) {
-          window.location.href = `/projects/${action.data.projectId}#tasks`;
+          window.location.href = `/projects/${action.data.projectId}?action=create_task`;
         } else {
           toast({
             title: "Task creation",

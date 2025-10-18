@@ -27,7 +27,11 @@ const invoiceFormSchema = insertInvoiceSchema.extend({
 });
 
 export default function Invoices() {
-  const [showInvoiceModal, setShowInvoiceModal] = useState(false);
+  // Check URL parameters for auto-actions
+  const urlParams = new URLSearchParams(window.location.search);
+  const action = urlParams.get('action');
+  
+  const [showInvoiceModal, setShowInvoiceModal] = useState(action === 'create');
   const [editingInvoice, setEditingInvoice] = useState<Invoice | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();

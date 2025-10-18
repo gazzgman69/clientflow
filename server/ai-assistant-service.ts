@@ -960,12 +960,117 @@ async function executeFunction(
   }
 }
 
+// Generate suggested actions based on query context
+function generateSuggestedActions(query: string, functionName?: string, functionData?: any): Array<{
+  type: string;
+  label: string;
+  data?: any;
+}> {
+  const actions: Array<{ type: string; label: string; data?: any }> = [];
+  const queryLower = query.toLowerCase();
+
+  // Analyze function results to suggest context-aware actions
+  if (functionName === 'get_project_details' && functionData?.projects?.length > 0) {
+    const project = functionData.projects[0];
+    if (project.contactId) {
+      actions.push({
+        type: 'compose_email',
+        label: 'Send Email to Client',
+        data: { 
+          contactId: project.contactId, 
+          projectId: project.id,
+          contactName: project.contactName 
+        }
+      });
+    }
+    if (project.id) {
+      actions.push({
+        type: 'view_project',
+        label: 'View Project Details',
+        data: { projectId: project.id }
+      });
+    }
+  }
+
+  if (functionName === 'get_emails_by_contact' && functionData?.contactId) {
+    actions.push({
+      type: 'compose_email',
+      label: 'Send Reply',
+      data: { contactId: functionData.contactId }
+    });
+  }
+
+  if (functionName === 'get_unpaid_invoices' && functionData?.invoices?.length > 0) {
+    const invoice = functionData.invoices[0];
+    if (invoice.contactId) {
+      actions.push({
+        type: 'compose_email',
+        label: 'Send Payment Reminder',
+        data: { 
+          contactId: invoice.contactId,
+          invoiceId: invoice.id 
+        }
+      });
+    }
+  }
+
+  if (functionName === 'get_clients_list' && functionData?.clients?.length > 0) {
+    const client = functionData.clients[0];
+    if (client.id) {
+      actions.push({
+        type: 'create_quote',
+        label: 'Create Quote',
+        data: { contactId: client.id }
+      });
+    }
+  }
+
+  // Query-based action suggestions
+  if (queryLower.includes('email') || queryLower.includes('contact') || queryLower.includes('reach out')) {
+    if (!actions.some(a => a.type === 'compose_email')) {
+      actions.push({
+        type: 'compose_email',
+        label: 'Compose Email',
+        data: {}
+      });
+    }
+  }
+
+  if (queryLower.includes('task') || queryLower.includes('todo') || queryLower.includes('to do')) {
+    actions.push({
+      type: 'create_task',
+      label: 'Create Task',
+      data: {}
+    });
+  }
+
+  if (queryLower.includes('quote') || queryLower.includes('proposal')) {
+    if (!actions.some(a => a.type === 'create_quote')) {
+      actions.push({
+        type: 'create_quote',
+        label: 'Create Quote',
+        data: {}
+      });
+    }
+  }
+
+  if (queryLower.includes('invoice') || queryLower.includes('bill')) {
+    actions.push({
+      type: 'create_invoice',
+      label: 'Create Invoice',
+      data: {}
+    });
+  }
+
+  return actions;
+}
+
 // Main AI assistant query handler
 export async function processAssistantQuery(
   query: string,
   context: AssistantContext,
   conversationHistory?: Array<{ role: 'user' | 'assistant'; content: string }>
-): Promise<{ response: string; data?: any; tokensUsed?: number }> {
+): Promise<{ response: string; data?: any; actions?: Array<{ type: string; label: string; data?: any }>; tokensUsed?: number }> {
   try {
     // Fetch AI training data
     const businessContext = await context.storage.getAiBusinessContext(context.tenantId);
@@ -1103,9 +1208,13 @@ Be concise and friendly. Always format numbers nicely (add commas, currency symb
       finalResponse = finalCompletion.choices[0].message.content || finalResponse;
     }
 
+    // Generate suggested actions based on query context and function results
+    const suggestedActions = generateSuggestedActions(query, message.function_call?.name, functionData);
+
     return {
       response: finalResponse,
       data: functionData,
+      actions: suggestedActions,
       tokensUsed: response.usage?.total_tokens
     };
 

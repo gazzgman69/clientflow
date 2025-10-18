@@ -1153,7 +1153,7 @@ When users ask about music-related topics, draw on this knowledge to provide inf
 When users ask questions mentioning a contact/client name (e.g., "where is John getting married?", "when is Sarah's wedding?", "what venue for the Smith event?"):
 
 **REQUIRED FIRST STEP:**
-1. Call `get_project_details` with `contactName` parameter
+1. Call get_project_details with contactName parameter
 2. This ONE function returns EVERYTHING: contact info, project details, venue, dates, budget, status, notes
 3. Parse ALL this data before formulating your response
 4. Answer questions using the project database as the primary source

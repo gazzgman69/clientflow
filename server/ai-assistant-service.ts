@@ -567,10 +567,9 @@ async function executeFunction(
           status: p.status,
           startDate: p.startDate || p.start_date,
           endDate: p.endDate || p.end_date,
-          eventDate: p.eventDate || p.event_date,
-          eventTime: p.eventTime || p.event_time,
-          venue: p.venue,
-          budget: p.budget,
+          estimatedValue: p.estimatedValue || p.estimated_value,
+          actualValue: p.actualValue || p.actual_value,
+          venueId: p.venueId || p.venue_id,
           contactId: p.contactId || p.contact_id
         }))
       };
@@ -715,16 +714,21 @@ async function executeFunction(
       }
 
       const upcoming = events
-        .filter(e => {
-          if (!e.startTime) return false;
-          const eventStart = new Date(e.startTime);
+        .filter((e: any) => {
+          const startTime = e.startTime || e.start_time || e.eventDate || e.event_date;
+          if (!startTime) return false;
+          const eventStart = new Date(startTime);
           return eventStart >= startDate && eventStart <= endDate;
         })
-        .sort((a, b) => new Date(a.startTime!).getTime() - new Date(b.startTime!).getTime())
-        .map(e => ({
+        .sort((a: any, b: any) => {
+          const aStart = new Date(a.startTime || a.start_time || a.eventDate || a.event_date || 0);
+          const bStart = new Date(b.startTime || b.start_time || b.eventDate || b.event_date || 0);
+          return aStart.getTime() - bStart.getTime();
+        })
+        .map((e: any) => ({
           title: e.title,
-          startTime: e.startTime,
-          endTime: e.endTime,
+          startTime: e.startTime || e.start_time || e.eventDate || e.event_date,
+          endTime: e.endTime || e.end_time,
           location: e.location
         }));
 
@@ -739,7 +743,10 @@ async function executeFunction(
       let filtered = members;
 
       if (args.role) {
-        filtered = filtered.filter(m => m.role?.toLowerCase().includes(args.role.toLowerCase()));
+        filtered = filtered.filter((m: any) => {
+          const instruments = m.instruments || [];
+          return instruments.some((i: string) => i.toLowerCase().includes(args.role.toLowerCase()));
+        });
       }
 
       // Note: Availability filtering would require checking member_availability table
@@ -747,11 +754,13 @@ async function executeFunction(
 
       return {
         count: filtered.length,
-        members: filtered.map(m => ({
-          firstName: m.firstName,
-          lastName: m.lastName,
-          role: m.role,
-          email: m.email
+        members: filtered.map((m: any) => ({
+          firstName: m.firstName || m.first_name,
+          lastName: m.lastName || m.last_name,
+          instruments: m.instruments || [],
+          email: m.email,
+          phone: m.phone,
+          hourlyRate: m.hourlyRate || m.hourly_rate
         }))
       };
     }
@@ -766,10 +775,16 @@ async function executeFunction(
 
       return {
         count: filtered.length,
-        venues: filtered.map(v => ({
+        venues: filtered.map((v: any) => ({
           name: v.name,
           address: v.address,
-          capacity: v.capacity
+          city: v.city,
+          state: v.state,
+          zipCode: v.zipCode || v.zip_code,
+          capacity: v.capacity,
+          contactName: v.contactName || v.contact_name,
+          contactPhone: v.contactPhone || v.contact_phone,
+          contactEmail: v.contactEmail || v.contact_email
         }))
       };
     }
@@ -802,12 +817,12 @@ async function executeFunction(
 
       return {
         count: filtered.length,
-        activities: filtered.map(a => ({
+        activities: filtered.map((a: any) => ({
           type: a.type,
           description: a.description,
-          createdAt: a.createdAt,
-          contactId: a.contactId,
-          projectId: a.projectId
+          createdAt: a.createdAt || a.created_at,
+          contactId: a.contactId || a.contact_id,
+          projectId: a.projectId || a.project_id
         }))
       };
     }
@@ -852,8 +867,9 @@ async function executeFunction(
       }
 
       // Sort by most recent
-      emails.sort((a, b) => 
-        new Date(b.sentAt || b.createdAt || 0).getTime() - new Date(a.sentAt || a.createdAt || 0).getTime()
+      emails.sort((a: any, b: any) => 
+        new Date(b.sentAt || b.sent_at || b.createdAt || b.created_at || 0).getTime() - 
+        new Date(a.sentAt || a.sent_at || a.createdAt || a.created_at || 0).getTime()
       );
 
       // Apply limit
@@ -862,15 +878,15 @@ async function executeFunction(
 
       return {
         count: emails.length,
-        emails: emails.map(e => ({
+        emails: emails.map((e: any) => ({
           subject: e.subject,
-          from: e.from,
-          to: e.to,
+          from: e.fromEmail || e.from_email || e.from,
+          to: e.toEmails || e.to_emails || e.to,
           direction: e.direction,
-          sentAt: e.sentAt,
+          sentAt: e.sentAt || e.sent_at,
           // Include more content for AI to analyze - up to 1000 chars or full text if shorter
-          body: e.bodyText ? (e.bodyText.length > 1000 ? e.bodyText.substring(0, 1000) + '...' : e.bodyText) : (e.snippet || 'No content'),
-          hasAttachments: e.hasAttachments
+          body: e.bodyText || e.body_text ? ((e.bodyText || e.body_text).length > 1000 ? (e.bodyText || e.body_text).substring(0, 1000) + '...' : (e.bodyText || e.body_text)) : (e.snippet || 'No content'),
+          hasAttachments: e.hasAttachments || e.has_attachments
         }))
       };
     }
@@ -882,27 +898,31 @@ async function executeFunction(
       if (args.contactId) {
         emails = await storage.getEmailsByClient(args.contactId, tenantId);
       } else if (args.projectId) {
-        emails = await storage.getEmailsByProject(args.projectId, tenantId);
+        // Note: getEmailsByProject doesn't exist in IStorage yet
+        // For now, get all emails and filter client-side
+        const allEmails = await storage.getEmails(tenantId);
+        emails = allEmails.filter((e: any) => (e.projectId || e.project_id) === args.projectId);
       } else {
         emails = await storage.getEmails(tenantId);
       }
 
       // Filter by direction if specified
       if (args.direction && args.direction !== 'all') {
-        emails = emails.filter(e => e.direction === args.direction);
+        emails = emails.filter((e: any) => e.direction === args.direction);
       }
 
       // Filter by date if specified
       if (args.startDate) {
-        emails = emails.filter(e => {
-          const emailDate = new Date(e.sentAt || e.createdAt);
+        emails = emails.filter((e: any) => {
+          const emailDate = new Date(e.sentAt || e.sent_at || e.createdAt || e.created_at);
           return emailDate >= new Date(args.startDate);
         });
       }
 
       // Sort by most recent
-      emails.sort((a, b) => 
-        new Date(b.sentAt || b.createdAt || 0).getTime() - new Date(a.sentAt || a.createdAt || 0).getTime()
+      emails.sort((a: any, b: any) => 
+        new Date(b.sentAt || b.sent_at || b.createdAt || b.created_at || 0).getTime() - 
+        new Date(a.sentAt || a.sent_at || a.createdAt || a.created_at || 0).getTime()
       );
 
       // Apply limit
@@ -911,16 +931,16 @@ async function executeFunction(
 
       return {
         count: emails.length,
-        emails: emails.map(e => ({
+        emails: emails.map((e: any) => ({
           subject: e.subject,
-          from: e.from,
-          to: e.to,
+          from: e.fromEmail || e.from_email || e.from,
+          to: e.toEmails || e.to_emails || e.to,
           direction: e.direction,
-          sentAt: e.sentAt,
+          sentAt: e.sentAt || e.sent_at,
           // Include more content for AI to analyze - up to 1000 chars or full text if shorter
-          body: e.bodyText ? (e.bodyText.length > 1000 ? e.bodyText.substring(0, 1000) + '...' : e.bodyText) : (e.snippet || 'No content'),
-          contactId: e.contactId,
-          projectId: e.projectId
+          body: e.bodyText || e.body_text ? ((e.bodyText || e.body_text).length > 1000 ? (e.bodyText || e.body_text).substring(0, 1000) + '...' : (e.bodyText || e.body_text)) : (e.snippet || 'No content'),
+          contactId: e.contactId || e.contact_id,
+          projectId: e.projectId || e.project_id
         }))
       };
     }

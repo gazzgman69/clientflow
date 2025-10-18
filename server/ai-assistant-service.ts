@@ -561,20 +561,29 @@ async function executeFunction(
         filtered = filtered.slice(0, args.limit);
       }
 
+      // Get contacts to include contact names
+      const contacts = await storage.getContacts(tenantId);
+      
       return {
         count: filtered.length,
         projects: filtered.map((p: any) => {
           const venueId = p.venueId || p.venue_id;
           const venue = venueId ? venues.find((v: any) => v.id === venueId) : null;
           
+          const contactId = p.contactId || p.contact_id;
+          const contact = contactId ? contacts.find((c: any) => c.id === contactId) : null;
+          const contactName = contact ? (contact.fullName || contact.full_name || `${contact.firstName || contact.first_name || ''} ${contact.lastName || contact.last_name || ''}`.trim()) : null;
+          
           return {
+            id: p.id,
             name: p.name,
             status: p.status,
             startDate: p.startDate || p.start_date,
             endDate: p.endDate || p.end_date,
             estimatedValue: p.estimatedValue || p.estimated_value,
             actualValue: p.actualValue || p.actual_value,
-            contactId: p.contactId || p.contact_id,
+            contactId,
+            contactName,
             venue: venue ? {
               name: venue.name,
               address: venue.address,
@@ -1125,9 +1134,11 @@ When users ask about music-related topics, draw on this knowledge to provide inf
 
     // Add standard capabilities
     systemMessage += `\n\n## CRM Capabilities\nYou can answer questions about:
-- Projects & Gigs (count, details, upcoming events)
+- Projects & Gigs (count, details, upcoming events, **venue information**)
+  - **Project details always include venue information** (name, address, city, location)
+  - When users ask about venues or event locations, use get_project_details first
 - Leads (status, conversion metrics)
-- Clients/Contacts (lists, information)
+- Clients/Contacts (lists, information, contact details)
 - Quotes (value, status breakdown)
 - Contracts (status summary)
 - Invoices & Revenue (stats, unpaid, overdue)
@@ -1137,6 +1148,11 @@ When users ask about music-related topics, draw on this knowledge to provide inf
 - Venues (locations, capacity)
 - Activities (recent business timeline, emails, notes, calls)
 - Emails (incoming/outgoing correspondence with contacts)
+
+**Important Decision Guide:**
+- Questions about venue, dates, budget, lineup, or booking details → Use get_project_details to check CRM database first
+- Questions about "has [person] told me" or "did they mention" → Check project details first, then emails only if needed
+- Questions specifically about communication/messages → Use get_emails_by_contact
 
 You have access to email history for all contacts within the tenant's CRM. You can retrieve emails by contact, project, or date range, and filter by direction (inbound/outbound).
 

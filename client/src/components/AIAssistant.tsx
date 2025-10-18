@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
+import { useLocation } from 'wouter';
 import { Send, Loader2, Sparkles, X, MessageSquare } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -30,6 +31,7 @@ interface AIAssistantProps {
 export function AIAssistant({ isOpen, onClose }: AIAssistantProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
+  const [, setLocation] = useLocation();
   const { toast } = useToast();
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -119,10 +121,12 @@ export function AIAssistant({ isOpen, onClose }: AIAssistantProps) {
         if (action.data?.projectId) {
           const params = new URLSearchParams({ action: 'compose_email' });
           if (action.data.contactId) params.set('contactId', action.data.contactId);
-          window.location.href = `/projects/${action.data.projectId}?${params.toString()}`;
+          setLocation(`/projects/${action.data.projectId}?${params.toString()}`);
+          onClose(); // Close the assistant
         } else if (action.data?.contactId) {
           // Navigate to contact detail page with auto-open email
-          window.location.href = `/contacts/${action.data.contactId}?action=compose_email`;
+          setLocation(`/contacts/${action.data.contactId}?action=compose_email`);
+          onClose();
         } else {
           toast({
             title: "No project or contact",
@@ -134,7 +138,8 @@ export function AIAssistant({ isOpen, onClose }: AIAssistantProps) {
       
       case 'view_project':
         if (action.data?.projectId) {
-          window.location.href = `/projects/${action.data.projectId}`;
+          setLocation(`/projects/${action.data.projectId}`);
+          onClose();
         }
         break;
       
@@ -142,7 +147,8 @@ export function AIAssistant({ isOpen, onClose }: AIAssistantProps) {
         // Navigate to quotes page and auto-open create dialog
         const quoteParams = new URLSearchParams({ action: 'create' });
         if (action.data?.contactId) quoteParams.set('contactId', action.data.contactId);
-        window.location.href = `/quotes?${quoteParams.toString()}`;
+        setLocation(`/quotes?${quoteParams.toString()}`);
+        onClose();
         break;
       
       case 'create_invoice':
@@ -150,13 +156,15 @@ export function AIAssistant({ isOpen, onClose }: AIAssistantProps) {
         const invoiceParams = new URLSearchParams({ action: 'create' });
         if (action.data?.projectId) invoiceParams.set('projectId', action.data.projectId);
         if (action.data?.contactId) invoiceParams.set('contactId', action.data.contactId);
-        window.location.href = `/invoices?${invoiceParams.toString()}`;
+        setLocation(`/invoices?${invoiceParams.toString()}`);
+        onClose();
         break;
       
       case 'create_task':
         // Navigate to project page and auto-open task creation
         if (action.data?.projectId) {
-          window.location.href = `/projects/${action.data.projectId}?action=create_task`;
+          setLocation(`/projects/${action.data.projectId}?action=create_task`);
+          onClose();
         } else {
           toast({
             title: "Task creation",

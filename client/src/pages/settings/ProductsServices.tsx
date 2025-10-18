@@ -629,7 +629,9 @@ export default function ProductsServicesPage() {
                       <FormLabel>Unit Price *</FormLabel>
                       <FormControl>
                         <div className="relative">
-                          <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                          <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-sm font-medium text-muted-foreground">
+                            {currencySymbol}
+                          </span>
                           <Input {...field} type="number" step="0.01" className="pl-9" placeholder="0.00" data-testid="input-unit-price" />
                         </div>
                       </FormControl>

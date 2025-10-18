@@ -139,15 +139,24 @@ export class EmailSyncService {
       // Get contact email addresses to search for
       const contactEmails = Array.from(emailToProjectMap.keys());
       
-      // Search for emails between user's business email AND contact emails (both directions)
-      // SECURITY FIX: Get user's actual business email, not hardcoded
+      // PRIVACY FIX: Only sync if there are known CRM contact emails
+      // Don't sync if no contacts - prevents syncing ALL personal emails
       const userBusinessEmail = await this.getUserBusinessEmail(userId);
-      const allEmailsToSearch = [userBusinessEmail, ...contactEmails];
-      console.log('🔍 Searching for emails involving addresses:', allEmailsToSearch);
       
-      const gmailThreads = await this.gmailService.listThreadsForAddresses(userId, { 
+      if (contactEmails.length === 0) {
+        console.log('📭 No CRM contacts with email addresses found - skipping email sync to protect privacy');
+        return { synced: 0, skipped: 0, errors: [] };
+      }
+      
+      console.log('🔍 Searching for emails from/to CRM contacts only:', {
+        businessEmail: userBusinessEmail,
+        contactCount: contactEmails.length,
+        contacts: contactEmails
+      });
+      
+      const gmailThreads = await this.gmailService.listThreadsForAddresses(userId, {
         limit: 100,
-        addresses: allEmailsToSearch // Business email + contact emails
+        addresses: contactEmails // Only contact emails, NOT business email
       });
       
       if (!gmailThreads.ok || !gmailThreads.threads) {

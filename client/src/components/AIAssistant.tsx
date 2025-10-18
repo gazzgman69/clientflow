@@ -29,17 +29,6 @@ export function AIAssistant({ isOpen, onClose }: AIAssistantProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Auto-scroll to bottom when new messages arrive
-  useEffect(() => {
-    if (scrollRef.current) {
-      // ScrollArea wraps the viewport, need to find the actual scrollable element
-      const viewport = scrollRef.current.querySelector('[data-radix-scroll-area-viewport]') as HTMLElement;
-      if (viewport) {
-        viewport.scrollTop = viewport.scrollHeight;
-      }
-    }
-  }, [messages, queryMutation.isPending]);
-
   // Focus input when opened
   useEffect(() => {
     if (isOpen && inputRef.current) {
@@ -74,6 +63,17 @@ export function AIAssistant({ isOpen, onClose }: AIAssistantProps) {
       });
     },
   });
+
+  // Auto-scroll to bottom when new messages arrive
+  useEffect(() => {
+    if (scrollRef.current) {
+      // ScrollArea wraps the viewport, need to find the actual scrollable element
+      const viewport = scrollRef.current.querySelector('[data-radix-scroll-area-viewport]') as HTMLElement;
+      if (viewport) {
+        viewport.scrollTop = viewport.scrollHeight;
+      }
+    }
+  }, [messages, queryMutation.isPending]);
 
   const handleSend = () => {
     if (!input.trim() || queryMutation.isPending) return;

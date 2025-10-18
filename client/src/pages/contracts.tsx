@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import Header from "@/components/layout/header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,9 +9,26 @@ import { Plus, Edit, Trash2, File, Send } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import type { Contract, Contact } from "@shared/schema";
 import CreateContractDialog from "@/components/contracts/create-contract-dialog";
+import { useLocation } from "wouter";
 
 export default function Contracts() {
   const [showContractModal, setShowContractModal] = useState(false);
+  const [editingTemplateId, setEditingTemplateId] = useState<string | null>(null);
+  const [, setLocation] = useLocation();
+
+  // Check for URL parameters to edit a template
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const action = params.get('action');
+    const templateId = params.get('templateId');
+    
+    if (action === 'edit' && templateId) {
+      setEditingTemplateId(templateId);
+      setShowContractModal(true);
+      // Clear the URL parameters
+      window.history.replaceState({}, '', '/contracts');
+    }
+  }, []);
 
   const { data: contracts, isLoading } = useQuery<Contract[]>({
     queryKey: ["/api/contracts"],
@@ -130,7 +147,16 @@ export default function Contracts() {
         </Card>
       </main>
 
-      <CreateContractDialog open={showContractModal} onOpenChange={setShowContractModal} />
+      <CreateContractDialog 
+        open={showContractModal} 
+        onOpenChange={(open) => {
+          setShowContractModal(open);
+          if (!open) {
+            setEditingTemplateId(null);
+          }
+        }}
+        templateId={editingTemplateId}
+      />
     </>
   );
 }

@@ -60,6 +60,7 @@ interface CreateContractDialogProps {
   initialProjectId?: string;
   contract?: any;
   skipNavigationOnSave?: boolean;
+  templateId?: string | null;
 }
 
 export default function CreateContractDialog({ 
@@ -68,7 +69,8 @@ export default function CreateContractDialog({
   initialContactId,
   initialProjectId,
   contract,
-  skipNavigationOnSave = false
+  skipNavigationOnSave = false,
+  templateId
 }: CreateContractDialogProps) {
   const [bodyHtml, setBodyHtml] = useState(contract?.bodyHtml || '');
   const [formFields, setFormFields] = useState<FormField[]>(
@@ -93,11 +95,26 @@ export default function CreateContractDialog({
     enabled: open,
   });
 
+  // Fetch specific template when editing from templates page
+  const { data: editingTemplate } = useQuery<ContractTemplate>({
+    queryKey: ['/api/contract-templates', templateId],
+    queryFn: async () => {
+      const response = await fetch(`/api/contract-templates/${templateId}`, {
+        credentials: 'include'
+      });
+      if (!response.ok) throw new Error('Failed to load template');
+      return response.json();
+    },
+    enabled: !!templateId && open,
+  });
+
   console.log('Templates query state:', { 
     templates, 
     isLoadingTemplates, 
     templatesError, 
     open,
+    templateId,
+    editingTemplate,
     hasTemplates: templates && templates.length > 0,
     errorMessage: templatesError?.message || 'No error message'
   });
@@ -240,6 +257,36 @@ export default function CreateContractDialog({
     }
   }, [selectedTemplateId, templates, form]);
 
+  // Load template for editing when templateId is provided
+  useEffect(() => {
+    if (editingTemplate && templateId) {
+      // Populate form with template data
+      form.reset({
+        title: editingTemplate.name || '',
+        displayTitle: editingTemplate.displayTitle || '',
+        contactId: '',
+        projectId: '',
+        bodyHtml: editingTemplate.bodyHtml || '',
+        signatureWorkflow: editingTemplate.signatureWorkflow || 'counter_sign_after_client',
+        status: 'draft',
+        dueDate: undefined,
+      });
+      setBodyHtml(editingTemplate.bodyHtml || '');
+      setSelectedTemplateId(templateId);
+      setTemplateName(editingTemplate.name);
+      setSaveAsTemplate(true);
+      setUpdateExistingTemplate(true);
+      
+      try {
+        const fields = editingTemplate.formFields ? JSON.parse(editingTemplate.formFields) : [];
+        setFormFields(fields);
+      } catch (error) {
+        console.error('Failed to parse editing template form fields:', error);
+        setFormFields([]);
+      }
+    }
+  }, [editingTemplate, templateId, form]);
+
   const onSubmit = (data: z.infer<typeof createContractFormSchema>) => {
     createContractMutation.mutate(data);
   };
@@ -248,7 +295,9 @@ export default function CreateContractDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-5xl max-h-[90vh] overflow-hidden flex flex-col">
         <DialogHeader>
-          <DialogTitle>{contract ? 'Edit Contract' : 'Create Contract'}</DialogTitle>
+          <DialogTitle>
+            {templateId ? 'Edit Contract Template' : contract ? 'Edit Contract' : 'Create Contract'}
+          </DialogTitle>
         </DialogHeader>
 
         <div className="flex-1 overflow-y-auto">

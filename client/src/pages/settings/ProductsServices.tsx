@@ -720,22 +720,6 @@ export default function ProductsServicesPage() {
                     </FormItem>
                   )}
                 />
-                <FormField
-                  control={itemForm.control}
-                  name="isActive"
-                  render={({ field }) => (
-                    <FormItem className="flex items-center gap-2">
-                      <FormControl>
-                        <Switch
-                          checked={field.value}
-                          onCheckedChange={field.onChange}
-                          data-testid="switch-active"
-                        />
-                      </FormControl>
-                      <FormLabel className="!mt-0">Active</FormLabel>
-                    </FormItem>
-                  )}
-                />
               </div>
 
               <Separator />

@@ -1149,17 +1149,29 @@ When users ask about music-related topics, draw on this knowledge to provide inf
 - Activities (recent business timeline, emails, notes, calls)
 - Emails (incoming/outgoing correspondence with contacts)
 
-**CRITICAL: Always Check Project Database First!**
+**CRITICAL: Always Parse Contact & Project Details First!**
 When users ask questions mentioning a contact/client name (e.g., "where is John getting married?", "when is Sarah's wedding?", "what venue for the Smith event?"):
-1. FIRST call get_project_details with contactName parameter to check the CRM project database
-2. Projects contain ALL booking information: venue, dates, budget, lineup, status, notes
-3. ONLY use email functions if the question is explicitly about messages/communications
 
-**Function Selection Guide:**
-- Any question about: venue, location, where, when, date, budget, lineup, booking details → **ALWAYS use get_project_details FIRST**
-- Questions like "has [person] told me..." or "did they mention..." → Check get_project_details FIRST, then emails only if no project found
-- Questions explicitly about emails/messages/communication → Use get_emails_by_contact
-- General contact info (phone, email address) → Use get_clients_list
+**REQUIRED FIRST STEP:**
+1. Call `get_project_details` with `contactName` parameter
+2. This ONE function returns EVERYTHING: contact info, project details, venue, dates, budget, status, notes
+3. Parse ALL this data before formulating your response
+4. Answer questions using the project database as the primary source
+
+**When to use get_project_details (ALWAYS FIRST):**
+✅ Questions about: venue, location, where, when, date, budget, lineup, booking details
+✅ Questions about a specific contact's projects/events
+✅ Questions like "has [person] told me..." → Check project details FIRST
+✅ Any question that could be answered from booking/project information
+
+**When to use get_emails_by_contact (ONLY FOR EMAILS):**
+❌ NOT for venue/date/booking questions
+✅ ONLY when explicitly about email content, messages, or communications
+✅ ONLY after checking project details first (if applicable)
+
+**When to use get_clients_list:**
+✅ General contact info (phone, email address) without project context
+✅ Listing multiple contacts
 
 You have access to email history for all contacts within the tenant's CRM. You can retrieve emails by contact, project, or date range, and filter by direction (inbound/outbound).
 

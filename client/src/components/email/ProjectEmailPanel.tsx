@@ -300,7 +300,7 @@ export default function ProjectEmailPanel({ projectId, emails, autoOpenComposer 
       return data;
     },
     enabled: !!projectId && !!currentUser,
-    staleTime: 5 * 60 * 1000, // 5 minutes - emails are cached and load instantly
+    staleTime: 5 * 60 * 1000, // Cache for 5 minutes - instant loading on subsequent visits
     refetchInterval: forceRefresh ? 5000 : false, // Only refetch when manually refreshing
   });
 

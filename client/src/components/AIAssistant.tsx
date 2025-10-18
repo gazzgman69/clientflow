@@ -32,9 +32,13 @@ export function AIAssistant({ isOpen, onClose }: AIAssistantProps) {
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
     if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+      // ScrollArea wraps the viewport, need to find the actual scrollable element
+      const viewport = scrollRef.current.querySelector('[data-radix-scroll-area-viewport]') as HTMLElement;
+      if (viewport) {
+        viewport.scrollTop = viewport.scrollHeight;
+      }
     }
-  }, [messages]);
+  }, [messages, queryMutation.isPending]);
 
   // Focus input when opened
   useEffect(() => {

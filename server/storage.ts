@@ -131,6 +131,8 @@ export interface IStorage {
   getTenantBySlug(slug: string): Promise<Tenant | undefined>;
   getTenantByDomain(domain: string): Promise<Tenant | undefined>;
   getTenant(id: string): Promise<Tenant | undefined>;
+  getTenantById(id: string): Promise<Tenant | undefined>;
+  updateTenantSettings(id: string, settings: string): Promise<Tenant | undefined>;
   
   // Users
   getUsers(tenantId: string): Promise<User[]>;
@@ -884,6 +886,19 @@ export class MemStorage implements IStorage {
 
   async getTenant(id: string): Promise<import('@shared/schema').Tenant | undefined> {
     return this.tenants.get(id);
+  }
+
+  async getTenantById(id: string): Promise<import('@shared/schema').Tenant | undefined> {
+    return this.tenants.get(id);
+  }
+
+  async updateTenantSettings(id: string, settings: string): Promise<import('@shared/schema').Tenant | undefined> {
+    const tenant = this.tenants.get(id);
+    if (!tenant) return undefined;
+    
+    const updated = { ...tenant, settings, updatedAt: new Date() };
+    this.tenants.set(id, updated);
+    return updated;
   }
 
   // Users
@@ -3526,6 +3541,25 @@ export class DrizzleStorage implements IStorage {
       .from(tenants)
       .where(eq(tenants.id, id))
       .limit(1);
+      
+    return result[0];
+  }
+
+  async getTenantById(id: string): Promise<Tenant | undefined> {
+    return this.getTenant(id);
+  }
+
+  async updateTenantSettings(id: string, settings: string): Promise<Tenant | undefined> {
+    const { tenants } = await import('@shared/schema');
+    const { eq, sql } = await import('drizzle-orm');
+    
+    const result = await this.db.update(tenants)
+      .set({ 
+        settings,
+        updatedAt: new Date()
+      })
+      .where(eq(tenants.id, id))
+      .returning();
       
     return result[0];
   }

@@ -3759,6 +3759,58 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
 
+  // Tenant Settings (currency, locale, etc.)
+  app.get("/api/tenant-settings", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
+    try {
+      const tenantId = req.session.tenantId!;
+      const tenant = await storage.getTenantById(tenantId);
+      
+      if (!tenant) {
+        return res.status(404).json({ message: "Tenant not found" });
+      }
+      
+      // Parse settings JSON or return defaults
+      const settings = tenant.settings ? JSON.parse(tenant.settings) : {};
+      res.json(settings);
+    } catch (error) {
+      console.error("Error fetching tenant settings:", error);
+      res.status(500).json({ message: "Failed to fetch tenant settings" });
+    }
+  });
+
+  app.patch("/api/tenant-settings", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
+    try {
+      const tenantId = req.session.tenantId!;
+      const settingsSchema = z.object({
+        currency: z.string().optional(),
+        locale: z.string().optional(),
+        dateFormat: z.string().optional(),
+        timeFormat: z.string().optional(),
+        timezone: z.string().optional(),
+      });
+      
+      const newSettings = settingsSchema.parse(req.body);
+      
+      // Get current tenant
+      const tenant = await storage.getTenantById(tenantId);
+      if (!tenant) {
+        return res.status(404).json({ message: "Tenant not found" });
+      }
+      
+      // Merge new settings with existing
+      const currentSettings = tenant.settings ? JSON.parse(tenant.settings) : {};
+      const updatedSettings = { ...currentSettings, ...newSettings };
+      
+      // Update tenant settings
+      await storage.updateTenantSettings(tenantId, JSON.stringify(updatedSettings));
+      
+      res.json(updatedSettings);
+    } catch (error) {
+      console.error("Error updating tenant settings:", error);
+      res.status(400).json({ message: "Failed to update tenant settings" });
+    }
+  });
+
   // Documents by client/project
   app.get("/api/clients/:clientId/quotes", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
     try {

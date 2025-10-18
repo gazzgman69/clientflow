@@ -15,6 +15,11 @@ interface Message {
   content: string;
   timestamp: Date;
   data?: any; // Structured data from AI (like query results)
+  actions?: Array<{
+    type: string;
+    label: string;
+    data?: any;
+  }>;
 }
 
 interface AIAssistantProps {
@@ -52,7 +57,8 @@ export function AIAssistant({ isOpen, onClose }: AIAssistantProps) {
         role: 'assistant',
         content: data.response,
         timestamp: new Date(),
-        data: data.data
+        data: data.data,
+        actions: data.actions
       }]);
     },
     onError: (error: Error) => {
@@ -103,6 +109,47 @@ export function AIAssistant({ isOpen, onClose }: AIAssistantProps) {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSend();
+    }
+  };
+
+  const handleAction = (action: { type: string; label: string; data?: any }) => {
+    switch (action.type) {
+      case 'compose_email':
+        // Navigate to email page with pre-filled data
+        const emailParams = new URLSearchParams();
+        if (action.data?.contactId) {
+          emailParams.set('contactId', action.data.contactId);
+        }
+        if (action.data?.projectId) {
+          emailParams.set('projectId', action.data.projectId);
+        }
+        window.location.href = `/emails?${emailParams.toString()}`;
+        break;
+      
+      case 'view_project':
+        if (action.data?.projectId) {
+          window.location.href = `/projects/${action.data.projectId}`;
+        }
+        break;
+      
+      case 'create_quote':
+        window.location.href = '/quotes/new' + (action.data?.contactId ? `?contactId=${action.data.contactId}` : '');
+        break;
+      
+      case 'create_invoice':
+        window.location.href = '/invoices/new' + (action.data?.projectId ? `?projectId=${action.data.projectId}` : '');
+        break;
+      
+      case 'create_task':
+        window.location.href = '/tasks/new' + (action.data?.projectId ? `?projectId=${action.data.projectId}` : '');
+        break;
+      
+      default:
+        toast({
+          title: "Action not supported",
+          description: `The action "${action.type}" is not yet implemented`,
+          variant: "destructive"
+        });
     }
   };
 
@@ -160,7 +207,7 @@ export function AIAssistant({ isOpen, onClose }: AIAssistantProps) {
             messages.map((message) => (
               <div
                 key={message.id}
-                className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                className={`flex flex-col ${message.role === 'user' ? 'items-end' : 'items-start'}`}
                 data-testid={`message-${message.role}`}
               >
                 <div
@@ -175,6 +222,24 @@ export function AIAssistant({ isOpen, onClose }: AIAssistantProps) {
                     {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   </p>
                 </div>
+                
+                {/* Action buttons for assistant messages */}
+                {message.role === 'assistant' && message.actions && message.actions.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mt-2 max-w-[80%]">
+                    {message.actions.map((action, idx) => (
+                      <Button
+                        key={idx}
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleAction(action)}
+                        className="text-xs"
+                        data-testid={`button-action-${action.type}`}
+                      >
+                        {action.label}
+                      </Button>
+                    ))}
+                  </div>
+                )}
               </div>
             ))
           )}

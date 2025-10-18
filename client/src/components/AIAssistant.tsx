@@ -115,15 +115,19 @@ export function AIAssistant({ isOpen, onClose }: AIAssistantProps) {
   const handleAction = (action: { type: string; label: string; data?: any }) => {
     switch (action.type) {
       case 'compose_email':
-        // Navigate to email page with pre-filled data
-        const emailParams = new URLSearchParams();
-        if (action.data?.contactId) {
-          emailParams.set('contactId', action.data.contactId);
-        }
+        // Navigate to project page with email tab if projectId is available
         if (action.data?.projectId) {
-          emailParams.set('projectId', action.data.projectId);
+          window.location.href = `/projects/${action.data.projectId}#email`;
+        } else if (action.data?.contactId) {
+          // Navigate to contact detail page if only contactId
+          window.location.href = `/contacts/${action.data.contactId}`;
+        } else {
+          toast({
+            title: "No project or contact",
+            description: "Please specify which project or contact to email",
+            variant: "destructive"
+          });
         }
-        window.location.href = `/emails?${emailParams.toString()}`;
         break;
       
       case 'view_project':
@@ -133,15 +137,25 @@ export function AIAssistant({ isOpen, onClose }: AIAssistantProps) {
         break;
       
       case 'create_quote':
-        window.location.href = '/quotes/new' + (action.data?.contactId ? `?contactId=${action.data.contactId}` : '');
+        // Navigate to quotes page - user can click "+" to create new quote
+        window.location.href = '/quotes';
         break;
       
       case 'create_invoice':
-        window.location.href = '/invoices/new' + (action.data?.projectId ? `?projectId=${action.data.projectId}` : '');
+        // Navigate to invoices page - user can click "+" to create new invoice
+        window.location.href = '/invoices';
         break;
       
       case 'create_task':
-        window.location.href = '/tasks/new' + (action.data?.projectId ? `?projectId=${action.data.projectId}` : '');
+        // Navigate to project page if projectId available, otherwise just notify
+        if (action.data?.projectId) {
+          window.location.href = `/projects/${action.data.projectId}#tasks`;
+        } else {
+          toast({
+            title: "Task creation",
+            description: "Tasks are created within projects. Please open a project to add tasks.",
+          });
+        }
         break;
       
       default:

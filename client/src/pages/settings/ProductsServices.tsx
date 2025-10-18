@@ -18,6 +18,7 @@ import { RichTextEditor, RichTextEditorRef } from '@/components/ui/rich-text-edi
 import { TokenDropdown } from '@/components/ui/token-dropdown';
 import { Separator } from '@/components/ui/separator';
 import { z } from 'zod';
+import { useCurrency } from '@/hooks/useCurrency';
 
 interface InvoiceItem {
   id: string;
@@ -92,6 +93,7 @@ export default function ProductsServicesPage() {
   const descriptionEditorRef = useRef<RichTextEditorRef>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { format: formatCurrency, currencySymbol } = useCurrency();
 
   // Fetch invoice items (products & services)
   const { data: items = [], isLoading: itemsLoading } = useQuery<InvoiceItem[]>({
@@ -388,7 +390,7 @@ export default function ProductsServicesPage() {
                           <tr key={item.id} className="border-t" data-testid={`row-item-${item.id}`}>
                             <td className="p-3" data-testid={`text-internal-name-${item.id}`}>{item.internalName}</td>
                             <td className="p-3" data-testid={`text-display-name-${item.id}`}>{item.displayName}</td>
-                            <td className="p-3" data-testid={`text-price-${item.id}`}>${parseFloat(item.unitPrice).toFixed(2)}</td>
+                            <td className="p-3" data-testid={`text-price-${item.id}`}>{formatCurrency(item.unitPrice)}</td>
                             <td className="p-3" data-testid={`text-category-${item.id}`}>{category?.name || '-'}</td>
                             <td className="p-3" data-testid={`text-taxable-${item.id}`}>{item.isTaxable ? 'Yes' : 'No'}</td>
                             <td className="p-3">

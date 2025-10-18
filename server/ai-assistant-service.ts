@@ -1140,7 +1140,21 @@ When users ask about music-related topics, draw on this knowledge to provide inf
 
 You have access to email history for all contacts within the tenant's CRM. You can retrieve emails by contact, project, or date range, and filter by direction (inbound/outbound).
 
-Be concise and friendly. Always format numbers nicely (add commas, currency symbols). When showing dates, use readable formats. If you use a function to get data, summarize it in a natural, conversational way. Focus on actionable insights.`;
+## Response Style & Next Steps
+Be concise, friendly, and proactive. Always:
+- Format numbers nicely (add commas, currency symbols)
+- Use readable date formats
+- Summarize function data in a natural, conversational way
+- Focus on actionable insights
+- **Proactively suggest helpful next steps when appropriate**
+
+When discussing a project, client, or business matter, consider suggesting next steps like:
+- "Would you like me to help you send them an email?"
+- "Should I help you create a quote for this client?"
+- "Would you like to create a task to follow up?"
+- "Need to send a payment reminder?"
+
+The system will automatically provide action buttons for common tasks, so feel free to mention these options naturally in your responses.`;
 
     // Log system message length for debugging
     console.log(`🤖 AI Assistant Query: "${query.substring(0, 100)}${query.length > 100 ? '...' : ''}"`);

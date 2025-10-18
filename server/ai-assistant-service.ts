@@ -896,8 +896,7 @@ async function executeFunction(
           to: e.toEmails || e.to_emails || e.to,
           direction: e.direction,
           sentAt: e.sentAt || e.sent_at,
-          // Include more content for AI to analyze - up to 1000 chars or full text if shorter
-          body: e.bodyText || e.body_text ? ((e.bodyText || e.body_text).length > 1000 ? (e.bodyText || e.body_text).substring(0, 1000) + '...' : (e.bodyText || e.body_text)) : (e.snippet || 'No content'),
+          // Privacy: Body content removed to prevent AI from reading personal information from emails
           hasAttachments: e.hasAttachments || e.has_attachments
         }))
       };
@@ -949,8 +948,7 @@ async function executeFunction(
           to: e.toEmails || e.to_emails || e.to,
           direction: e.direction,
           sentAt: e.sentAt || e.sent_at,
-          // Include more content for AI to analyze - up to 1000 chars or full text if shorter
-          body: e.bodyText || e.body_text ? ((e.bodyText || e.body_text).length > 1000 ? (e.bodyText || e.body_text).substring(0, 1000) + '...' : (e.bodyText || e.body_text)) : (e.snippet || 'No content'),
+          // Privacy: Body content removed to prevent AI from reading personal information from emails
           contactId: e.contactId || e.contact_id,
           projectId: e.projectId || e.project_id
         }))

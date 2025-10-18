@@ -21,6 +21,7 @@ import { TokenDropdown } from '@/components/ui/token-dropdown';
 import { RichTextEditor, RichTextEditorRef } from '@/components/ui/rich-text-editor';
 import { z } from 'zod';
 import { useLocation } from 'wouter';
+import CreateContractDialog from '@/components/contracts/create-contract-dialog';
 
 interface Template {
   id: string;
@@ -88,6 +89,8 @@ export default function TemplatesPage() {
   const [selectedContactId, setSelectedContactId] = useState<string>('');
   const [selectedProjectId, setSelectedProjectId] = useState<string>('');
   const [livePreviewData, setLivePreviewData] = useState<TokenPreviewResult | null>(null);
+  const [showContractDialog, setShowContractDialog] = useState(false);
+  const [editingContractTemplateId, setEditingContractTemplateId] = useState<string | null>(null);
   const bodyEditorRef = useRef<RichTextEditorRef>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -558,7 +561,8 @@ export default function TemplatesPage() {
                             variant="outline"
                             size="sm"
                             onClick={() => {
-                              setLocation(`/contracts?action=edit&templateId=${template.id}`);
+                              setEditingContractTemplateId(template.id);
+                              setShowContractDialog(true);
                             }}
                             data-testid={`button-edit-contract-${template.id}`}
                           >
@@ -946,6 +950,19 @@ export default function TemplatesPage() {
             )}
           </DialogContent>
         </Dialog>
+
+        {/* Contract Template Editor Dialog */}
+        <CreateContractDialog 
+          open={showContractDialog} 
+          onOpenChange={(open) => {
+            setShowContractDialog(open);
+            if (!open) {
+              setEditingContractTemplateId(null);
+            }
+          }}
+          skipNavigationOnSave={true}
+          templateId={editingContractTemplateId}
+        />
       </main>
     </>
   );

@@ -529,6 +529,7 @@ async function executeFunction(
 
     case "get_project_details": {
       const projects = await storage.getProjects(tenantId);
+      const venues = await storage.getVenues(tenantId);
       let filtered = projects;
 
       // Filter by contact if provided
@@ -562,16 +563,27 @@ async function executeFunction(
 
       return {
         count: filtered.length,
-        projects: filtered.map((p: any) => ({
-          name: p.name,
-          status: p.status,
-          startDate: p.startDate || p.start_date,
-          endDate: p.endDate || p.end_date,
-          estimatedValue: p.estimatedValue || p.estimated_value,
-          actualValue: p.actualValue || p.actual_value,
-          venueId: p.venueId || p.venue_id,
-          contactId: p.contactId || p.contact_id
-        }))
+        projects: filtered.map((p: any) => {
+          const venueId = p.venueId || p.venue_id;
+          const venue = venueId ? venues.find((v: any) => v.id === venueId) : null;
+          
+          return {
+            name: p.name,
+            status: p.status,
+            startDate: p.startDate || p.start_date,
+            endDate: p.endDate || p.end_date,
+            estimatedValue: p.estimatedValue || p.estimated_value,
+            actualValue: p.actualValue || p.actual_value,
+            contactId: p.contactId || p.contact_id,
+            venue: venue ? {
+              name: venue.name,
+              address: venue.address,
+              city: venue.city,
+              state: venue.state,
+              zipCode: venue.zipCode || venue.zip_code
+            } : null
+          };
+        })
       };
     }
 

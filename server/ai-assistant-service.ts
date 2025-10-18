@@ -112,13 +112,13 @@ const FUNCTIONS = [
   },
   {
     name: "get_project_details",
-    description: "Get detailed information about specific projects, optionally filtered by contact name",
+    description: "Get detailed information about projects including dates, venue location, budget, and status. Use this to find where events are happening, event dates, and project details for specific contacts.",
     parameters: {
       type: "object",
       properties: {
         contactName: {
           type: "string",
-          description: "Filter projects by contact name (e.g., 'John Smith')"
+          description: "Filter projects by contact name (e.g., 'John Smith', 'Gareth Gwyn')"
         },
         contactId: {
           type: "string",

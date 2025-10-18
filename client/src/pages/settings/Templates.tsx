@@ -261,21 +261,6 @@ export default function TemplatesPage() {
     },
   });
 
-  // Toggle template active status
-  const toggleActiveMutation = useMutation({
-    mutationFn: async ({ id, isActive }: { id: string; isActive: boolean }) => {
-      const response = await apiRequest('PATCH', `/api/templates/admin/templates/${id}`, { isActive });
-      return response.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/templates'] });
-      toast({ title: 'Template status updated' });
-    },
-    onError: () => {
-      toast({ title: 'Failed to update template status', variant: 'destructive' });
-    },
-  });
-
   // Check for URL parameters to auto-open template creation
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -442,29 +427,12 @@ export default function TemplatesPage() {
                       {filteredTemplates.map((template) => (
                         <div key={template.id} className="flex items-center justify-between p-4 border rounded-lg" data-testid={`template-${template.id}`}>
                           <div className="flex-1">
-                            <div className="flex items-center gap-3 mb-2">
-                              <h3 className="font-medium">{template.title}</h3>
-                              {type !== 'auto_responder' && (
-                                <Badge variant={template.isActive ? "default" : "secondary"} data-testid={`badge-status-${template.id}`}>
-                                  {template.isActive ? 'Active' : 'Inactive'}
-                                </Badge>
-                              )}
-                            </div>
+                            <h3 className="font-medium mb-2">{template.title}</h3>
                             <p className="text-sm text-muted-foreground">
                               Updated {formatDate(template.updatedAt)}
                             </p>
                           </div>
                           <div className="flex items-center gap-2">
-                            {type !== 'auto_responder' && (
-                              <Switch
-                                checked={template.isActive}
-                                onCheckedChange={(checked) => 
-                                  toggleActiveMutation.mutate({ id: template.id, isActive: checked })
-                                }
-                                disabled={toggleActiveMutation.isPending}
-                                data-testid={`switch-active-${template.id}`}
-                              />
-                            )}
                             <Button
                               variant="outline"
                               size="sm"

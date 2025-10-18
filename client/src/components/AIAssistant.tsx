@@ -53,6 +53,7 @@ export function AIAssistant({ isOpen, onClose }: AIAssistantProps) {
       return data;
     },
     onSuccess: (data) => {
+      console.log('[AI Assistant] Response received:', { response: data.response, actions: data.actions, data: data.data });
       // Add assistant's response
       setMessages(prev => [...prev, {
         id: crypto.randomUUID(),
@@ -115,17 +116,23 @@ export function AIAssistant({ isOpen, onClose }: AIAssistantProps) {
   };
 
   const handleAction = (action: { type: string; label: string; data?: any }) => {
+    console.log('[AI Assistant] Action clicked:', action);
+    
     switch (action.type) {
       case 'compose_email':
         // Navigate to project page and auto-open email composer
         if (action.data?.projectId) {
           const params = new URLSearchParams({ action: 'compose_email' });
           if (action.data.contactId) params.set('contactId', action.data.contactId);
-          setLocation(`/projects/${action.data.projectId}?${params.toString()}`);
+          const url = `/projects/${action.data.projectId}?${params.toString()}`;
+          console.log('[AI Assistant] Navigating to:', url);
+          setLocation(url);
           onClose(); // Close the assistant
         } else if (action.data?.contactId) {
           // Navigate to contact detail page with auto-open email
-          setLocation(`/contacts/${action.data.contactId}?action=compose_email`);
+          const url = `/contacts/${action.data.contactId}?action=compose_email`;
+          console.log('[AI Assistant] Navigating to:', url);
+          setLocation(url);
           onClose();
         } else {
           toast({
@@ -138,8 +145,17 @@ export function AIAssistant({ isOpen, onClose }: AIAssistantProps) {
       
       case 'view_project':
         if (action.data?.projectId) {
-          setLocation(`/projects/${action.data.projectId}`);
+          const url = `/projects/${action.data.projectId}`;
+          console.log('[AI Assistant] Navigating to:', url);
+          setLocation(url);
           onClose();
+        } else {
+          console.error('[AI Assistant] No projectId in action data:', action);
+          toast({
+            title: "Missing project information",
+            description: "Cannot navigate - no project ID provided",
+            variant: "destructive"
+          });
         }
         break;
       
@@ -147,7 +163,9 @@ export function AIAssistant({ isOpen, onClose }: AIAssistantProps) {
         // Navigate to quotes page and auto-open create dialog
         const quoteParams = new URLSearchParams({ action: 'create' });
         if (action.data?.contactId) quoteParams.set('contactId', action.data.contactId);
-        setLocation(`/quotes?${quoteParams.toString()}`);
+        const quoteUrl = `/quotes?${quoteParams.toString()}`;
+        console.log('[AI Assistant] Navigating to:', quoteUrl);
+        setLocation(quoteUrl);
         onClose();
         break;
       
@@ -156,14 +174,18 @@ export function AIAssistant({ isOpen, onClose }: AIAssistantProps) {
         const invoiceParams = new URLSearchParams({ action: 'create' });
         if (action.data?.projectId) invoiceParams.set('projectId', action.data.projectId);
         if (action.data?.contactId) invoiceParams.set('contactId', action.data.contactId);
-        setLocation(`/invoices?${invoiceParams.toString()}`);
+        const invoiceUrl = `/invoices?${invoiceParams.toString()}`;
+        console.log('[AI Assistant] Navigating to:', invoiceUrl);
+        setLocation(invoiceUrl);
         onClose();
         break;
       
       case 'create_task':
         // Navigate to project page and auto-open task creation
         if (action.data?.projectId) {
-          setLocation(`/projects/${action.data.projectId}?action=create_task`);
+          const taskUrl = `/projects/${action.data.projectId}?action=create_task`;
+          console.log('[AI Assistant] Navigating to:', taskUrl);
+          setLocation(taskUrl);
           onClose();
         } else {
           toast({

@@ -291,6 +291,20 @@ export default function TemplatesPage() {
     },
   });
 
+  // Delete contract template mutation
+  const deleteContractTemplateMutation = useMutation({
+    mutationFn: async (id: string) => {
+      await apiRequest('DELETE', `/api/contract-templates/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/contract-templates'] });
+      toast({ title: 'Contract template deleted successfully' });
+    },
+    onError: () => {
+      toast({ title: 'Failed to delete contract template', variant: 'destructive' });
+    },
+  });
+
   // Check for URL parameters to auto-open template creation
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -544,16 +558,24 @@ export default function TemplatesPage() {
                             variant="outline"
                             size="sm"
                             onClick={() => {
-                              toast({
-                                title: "Navigate to Contracts",
-                                description: "Use 'Create Contract' and select this template to edit it",
-                              });
-                              setLocation('/contracts');
+                              setLocation(`/contracts?action=edit&templateId=${template.id}`);
                             }}
-                            data-testid={`button-view-contract-${template.id}`}
+                            data-testid={`button-edit-contract-${template.id}`}
                           >
-                            <Edit2 className="h-4 w-4 mr-1" />
-                            Edit
+                            <Edit2 className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              if (confirm(`Are you sure you want to delete "${template.name}"? This cannot be undone.`)) {
+                                deleteContractTemplateMutation.mutate(template.id);
+                              }
+                            }}
+                            disabled={deleteContractTemplateMutation.isPending}
+                            data-testid={`button-delete-contract-${template.id}`}
+                          >
+                            <Trash2 className="h-4 w-4" />
                           </Button>
                         </div>
                       </div>

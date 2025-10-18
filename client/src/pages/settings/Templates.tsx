@@ -21,7 +21,6 @@ import { TokenDropdown } from '@/components/ui/token-dropdown';
 import { RichTextEditor, RichTextEditorRef } from '@/components/ui/rich-text-editor';
 import { z } from 'zod';
 import { useLocation } from 'wouter';
-import CreateContractDialog from '@/components/contracts/create-contract-dialog';
 
 interface Template {
   id: string;
@@ -89,8 +88,6 @@ export default function TemplatesPage() {
   const [selectedContactId, setSelectedContactId] = useState<string>('');
   const [selectedProjectId, setSelectedProjectId] = useState<string>('');
   const [livePreviewData, setLivePreviewData] = useState<TokenPreviewResult | null>(null);
-  const [showContractDialog, setShowContractDialog] = useState(false);
-  const [editingContractTemplateId, setEditingContractTemplateId] = useState<string | null>(null);
   const bodyEditorRef = useRef<RichTextEditorRef>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -139,21 +136,6 @@ export default function TemplatesPage() {
     enabled: !!currentUser,
     staleTime: 0, // Always fetch fresh data
     refetchOnMount: true, // Refetch when component mounts
-  });
-
-  // Fetch contract templates
-  const { data: contractTemplates = [], isLoading: contractTemplatesLoading } = useQuery({
-    queryKey: ['/api/contract-templates'],
-    queryFn: async () => {
-      const response = await fetch('/api/contract-templates', {
-        credentials: 'include'
-      });
-      if (!response.ok) {
-        return []; 
-      }
-      return response.json();
-    },
-    enabled: !!currentUser && activeType === 'contract',
   });
 
   // Fetch available tokens (old system)
@@ -291,20 +273,6 @@ export default function TemplatesPage() {
     },
     onError: () => {
       toast({ title: 'Failed to update template status', variant: 'destructive' });
-    },
-  });
-
-  // Delete contract template mutation
-  const deleteContractTemplateMutation = useMutation({
-    mutationFn: async (id: string) => {
-      await apiRequest('DELETE', `/api/contract-templates/${id}`);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/contract-templates'] });
-      toast({ title: 'Contract template deleted successfully' });
-    },
-    onError: () => {
-      toast({ title: 'Failed to delete contract template', variant: 'destructive' });
     },
   });
 
@@ -453,7 +421,7 @@ export default function TemplatesPage() {
                 <TabsTrigger value="contract" data-testid="tab-contracts">Contracts</TabsTrigger>
               </TabsList>
 
-              {(['auto_responder', 'email', 'invoice'] as const).map((type) => (
+              {(['auto_responder', 'email', 'invoice', 'contract'] as const).map((type) => (
                 <TabsContent key={type} value={type} className="space-y-4">
                   {isLoading ? (
                     <div className="space-y-4">
@@ -521,72 +489,6 @@ export default function TemplatesPage() {
                   )}
                 </TabsContent>
               ))}
-
-              {/* Contract Templates Tab - Special handling */}
-              <TabsContent value="contract" className="space-y-4">
-                {contractTemplatesLoading ? (
-                  <div className="space-y-4">
-                    {[...Array(3)].map((_, i) => (
-                      <div key={i} className="h-16 bg-muted rounded animate-pulse" />
-                    ))}
-                  </div>
-                ) : contractTemplates.length === 0 ? (
-                  <div className="text-center py-12" data-testid="empty-contract-templates">
-                    <FileText className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                    <p className="text-muted-foreground mb-4">No contract templates found</p>
-                    <p className="text-sm text-muted-foreground mb-4">Create contract templates from the Contracts section</p>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    {contractTemplates.map((template: any) => (
-                      <div key={template.id} className="flex items-center justify-between p-4 border rounded-lg" data-testid={`contract-template-${template.id}`}>
-                        <div className="flex-1">
-                          <div className="flex items-center gap-3 mb-2">
-                            <h3 className="font-medium">{template.name}</h3>
-                            {template.isDefault && (
-                              <Badge variant="default" data-testid={`badge-default-${template.id}`}>
-                                Default
-                              </Badge>
-                            )}
-                          </div>
-                          <p className="text-sm text-muted-foreground">
-                            {template.displayTitle || 'No display title'}
-                          </p>
-                          <p className="text-xs text-muted-foreground mt-1">
-                            Updated {formatDate(template.updatedAt)}
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => {
-                              setEditingContractTemplateId(template.id);
-                              setShowContractDialog(true);
-                            }}
-                            data-testid={`button-edit-contract-${template.id}`}
-                          >
-                            <Edit2 className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => {
-                              if (confirm(`Are you sure you want to delete "${template.name}"? This cannot be undone.`)) {
-                                deleteContractTemplateMutation.mutate(template.id);
-                              }
-                            }}
-                            disabled={deleteContractTemplateMutation.isPending}
-                            data-testid={`button-delete-contract-${template.id}`}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </TabsContent>
             </Tabs>
           </CardContent>
         </Card>
@@ -950,19 +852,6 @@ export default function TemplatesPage() {
             )}
           </DialogContent>
         </Dialog>
-
-        {/* Contract Template Editor Dialog */}
-        <CreateContractDialog 
-          open={showContractDialog} 
-          onOpenChange={(open) => {
-            setShowContractDialog(open);
-            if (!open) {
-              setEditingContractTemplateId(null);
-            }
-          }}
-          skipNavigationOnSave={true}
-          templateId={editingContractTemplateId}
-        />
       </main>
     </>
   );

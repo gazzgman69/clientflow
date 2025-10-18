@@ -17,7 +17,7 @@ export default function Contracts() {
     queryKey: ["/api/contracts"],
   });
 
-  const { data: contacts } = useQuery<Contact[]>({
+  const { data: contacts = [] } = useQuery<Contact[]>({
     queryKey: ["/api/contacts?simple=1&limit=100"],
   });
 
@@ -33,7 +33,8 @@ export default function Contracts() {
   };
 
   const getContactName = (contactId: string) => {
-    const contact = contacts?.find(c => c.id === contactId);
+    if (!Array.isArray(contacts)) return 'Unknown Contact';
+    const contact = contacts.find(c => c.id === contactId);
     return contact ? `${contact.firstName} ${contact.lastName}` : 'Unknown Contact';
   };
 

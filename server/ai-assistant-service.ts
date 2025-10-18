@@ -112,7 +112,7 @@ const FUNCTIONS = [
   },
   {
     name: "get_project_details",
-    description: "Get detailed information about projects including dates, venue location, budget, and status. Use this to find where events are happening, event dates, and project details for specific contacts.",
+    description: "PRIMARY source for ALL project/booking information. Returns complete event details including: venue (name, address, city), event dates, budget, lineup, status, contact info, notes. ALWAYS use this function FIRST when questions mention a contact name and ask about venue/location/date/booking details.",
     parameters: {
       type: "object",
       properties: {
@@ -291,7 +291,7 @@ const FUNCTIONS = [
   },
   {
     name: "get_emails_by_contact",
-    description: "Get email history (incoming and outgoing) for a specific contact/client. You can search by contact name or ID.",
+    description: "Get email history (incoming/outgoing messages) for a contact. ONLY use this when the question is specifically about EMAIL CONTENT, messages, or communications. DO NOT use this for venue/date/booking questions - use get_project_details instead.",
     parameters: {
       type: "object",
       properties: {
@@ -1149,10 +1149,17 @@ When users ask about music-related topics, draw on this knowledge to provide inf
 - Activities (recent business timeline, emails, notes, calls)
 - Emails (incoming/outgoing correspondence with contacts)
 
-**Important Decision Guide:**
-- Questions about venue, dates, budget, lineup, or booking details → Use get_project_details to check CRM database first
-- Questions about "has [person] told me" or "did they mention" → Check project details first, then emails only if needed
-- Questions specifically about communication/messages → Use get_emails_by_contact
+**CRITICAL: Always Check Project Database First!**
+When users ask questions mentioning a contact/client name (e.g., "where is John getting married?", "when is Sarah's wedding?", "what venue for the Smith event?"):
+1. FIRST call get_project_details with contactName parameter to check the CRM project database
+2. Projects contain ALL booking information: venue, dates, budget, lineup, status, notes
+3. ONLY use email functions if the question is explicitly about messages/communications
+
+**Function Selection Guide:**
+- Any question about: venue, location, where, when, date, budget, lineup, booking details → **ALWAYS use get_project_details FIRST**
+- Questions like "has [person] told me..." or "did they mention..." → Check get_project_details FIRST, then emails only if no project found
+- Questions explicitly about emails/messages/communication → Use get_emails_by_contact
+- General contact info (phone, email address) → Use get_clients_list
 
 You have access to email history for all contacts within the tenant's CRM. You can retrieve emails by contact, project, or date range, and filter by direction (inbound/outbound).
 

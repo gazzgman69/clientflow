@@ -37,6 +37,8 @@ import ProductsServicesPage from "@/pages/settings/ProductsServices";
 import PortalSettingsComponent from "@/components/settings/PortalSettings";
 import AISettings from "@/pages/settings/AISettings";
 import { GoogleOAuthModal } from '@/components/google-oauth-modal';
+import { SUPPORTED_CURRENCIES, detectCurrencyFromLocale, type CurrencyCode } from '@/lib/currency';
+import { queryClient } from "@/lib/queryClient";
 
 export default function Settings() {
   const [location] = useLocation();
@@ -104,6 +106,39 @@ export default function Settings() {
 
   // Combined loading state for compatibility
   const statusLoading = gmailStatusLoading || calendarStatusLoading;
+
+  // Tenant settings query
+  const { data: tenantSettings, isLoading: tenantSettingsLoading } = useQuery({
+    queryKey: ['/api/tenant-settings'],
+    queryFn: async () => {
+      const response = await fetch('/api/tenant-settings', {
+        credentials: 'include'
+      });
+      return response.json();
+    },
+  });
+
+  // Default currency from browser if not set
+  const defaultCurrency = tenantSettings?.currency || detectCurrencyFromLocale();
+
+  // Update tenant settings mutation
+  const updateTenantSettingsMutation = useMutation({
+    mutationFn: async (settings: { currency?: string; locale?: string; dateFormat?: string; timeFormat?: string }) => {
+      const response = await apiRequest('PATCH', '/api/tenant-settings', settings);
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({ title: 'Settings updated successfully' });
+      queryClient.invalidateQueries({ queryKey: ['/api/tenant-settings'] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Failed to update settings',
+        description: error.message,
+        variant: 'destructive'
+      });
+    },
+  });
 
   // Disconnect Gmail mutation
   const disconnectGmailMutation = useMutation({
@@ -1047,6 +1082,29 @@ export default function Settings() {
               <CardContent className="space-y-6">
                 <div className="space-y-4">
                   <div className="space-y-2">
+                    <Label>Currency</Label>
+                    <Select 
+                      value={defaultCurrency} 
+                      onValueChange={(value) => updateTenantSettingsMutation.mutate({ currency: value })}
+                      disabled={tenantSettingsLoading || updateTenantSettingsMutation.isPending}
+                    >
+                      <SelectTrigger data-testid="select-currency">
+                        <SelectValue placeholder="Select currency" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {Object.entries(SUPPORTED_CURRENCIES).map(([code, currency]) => (
+                          <SelectItem key={code} value={code}>
+                            {currency.symbol} {currency.name} ({code})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-sm text-muted-foreground">
+                      All prices throughout the app will be displayed in this currency
+                    </p>
+                  </div>
+
+                  <div className="space-y-2">
                     <Label>Language</Label>
                     <Select defaultValue="en">
                       <SelectTrigger data-testid="select-language">
@@ -1063,7 +1121,11 @@ export default function Settings() {
 
                   <div className="space-y-2">
                     <Label>Date Format</Label>
-                    <Select defaultValue="mm/dd/yyyy">
+                    <Select 
+                      value={tenantSettings?.dateFormat || "mm/dd/yyyy"}
+                      onValueChange={(value) => updateTenantSettingsMutation.mutate({ dateFormat: value })}
+                      disabled={tenantSettingsLoading || updateTenantSettingsMutation.isPending}
+                    >
                       <SelectTrigger data-testid="select-date-format">
                         <SelectValue />
                       </SelectTrigger>
@@ -1077,7 +1139,11 @@ export default function Settings() {
 
                   <div className="space-y-2">
                     <Label>Time Format</Label>
-                    <Select defaultValue="12h">
+                    <Select 
+                      value={tenantSettings?.timeFormat || "12h"}
+                      onValueChange={(value) => updateTenantSettingsMutation.mutate({ timeFormat: value })}
+                      disabled={tenantSettingsLoading || updateTenantSettingsMutation.isPending}
+                    >
                       <SelectTrigger data-testid="select-time-format">
                         <SelectValue />
                       </SelectTrigger>
@@ -1088,15 +1154,6 @@ export default function Settings() {
                     </Select>
                   </div>
                 </div>
-
-                <Button 
-                  onClick={() => handleSaveSettings("Appearance")}
-                  disabled={isLoading}
-                  data-testid="button-save-appearance"
-                >
-                  <Save className="h-4 w-4 mr-2" />
-                  {isLoading ? "Saving..." : "Save Changes"}
-                </Button>
               </CardContent>
             </Card>
           </TabsContent>

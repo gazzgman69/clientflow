@@ -932,6 +932,8 @@ export default function Settings() {
                                   // Refresh Calendar status
                                   refetchCalendarStatus();
                                   toast({ title: 'Google Calendar connected successfully' });
+                                  // Trigger instant sync after reconnection
+                                  setTimeout(() => requestSyncMutation.mutate(), 500);
                                 } else if (event.data.type === 'oauth:error') {
                                   window.removeEventListener('message', handleMessage);
                                   if (popup && !popup.closed) popup.close();
@@ -996,6 +998,8 @@ export default function Settings() {
                                 // Refresh Calendar status
                                 refetchCalendarStatus();
                                 toast({ title: 'Google Calendar connected successfully' });
+                                // Trigger instant sync after initial connection
+                                setTimeout(() => requestSyncMutation.mutate(), 500);
                               } else if (event.data.type === 'oauth:error') {
                                 window.removeEventListener('message', handleMessage);
                                 if (popup && !popup.closed) popup.close();

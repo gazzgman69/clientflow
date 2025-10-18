@@ -548,7 +548,7 @@ async function executeFunction(
         }
 
         if (targetContactId) {
-          filtered = filtered.filter(p => p.contactId === targetContactId);
+          filtered = filtered.filter((p: any) => (p.contactId || p.contact_id) === targetContactId);
         }
       }
 

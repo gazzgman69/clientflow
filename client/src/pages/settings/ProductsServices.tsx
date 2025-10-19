@@ -165,7 +165,17 @@ export default function ProductsServicesPage() {
       queryClient.invalidateQueries({ queryKey: ['/api/invoice-items'] });
       setShowItemDialog(false);
       setEditingItem(null);
-      itemForm.reset();
+      itemForm.reset({
+        internalName: '',
+        displayName: '',
+        description: '',
+        price: '',
+        isTaxable: true,
+        incomeCategoryId: '',
+        workflowId: '',
+        photoUrl: '',
+        isActive: true,
+      });
       toast({
         title: editingItem ? 'Item updated' : 'Item created',
         description: editingItem ? 'The item has been updated successfully.' : 'The item has been created successfully.',
@@ -340,7 +350,17 @@ export default function ProductsServicesPage() {
               </div>
               <Button onClick={() => {
                 setEditingItem(null);
-                itemForm.reset();
+                itemForm.reset({
+                  internalName: '',
+                  displayName: '',
+                  description: '',
+                  price: '',
+                  isTaxable: true,
+                  incomeCategoryId: '',
+                  workflowId: '',
+                  photoUrl: '',
+                  isActive: true,
+                });
                 setShowItemDialog(true);
               }} data-testid="button-add-item">
                 <Plus className="h-4 w-4 mr-2" />

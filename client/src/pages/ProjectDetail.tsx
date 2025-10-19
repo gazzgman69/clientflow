@@ -516,12 +516,13 @@ export default function ProjectDetail() {
       const response = await apiRequest("POST", "/api/invoices", invoiceData);
       return response.json();
     },
-    onSuccess: () => {
+    onSuccess: (newInvoice) => {
       queryClient.invalidateQueries({ queryKey: ["/api/contacts", project?.contactId, "invoices"] });
       toast({
         title: "Success",
-        description: "Invoice created successfully!",
+        description: "Invoice created successfully! Click to edit the invoice.",
       });
+      handleEditInvoice(newInvoice);
     },
     onError: () => {
       toast({

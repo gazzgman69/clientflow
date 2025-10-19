@@ -3689,12 +3689,18 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     try {
       const tenantId = req.session.tenantId!;
       const userId = req.session.userId!;
+      console.log('📝 Creating invoice item - Request body:', JSON.stringify(req.body, null, 2));
       const itemData = insertInvoiceItemSchema.parse(req.body);
+      console.log('✅ Validation passed - Item data:', JSON.stringify(itemData, null, 2));
       const item = await storage.createInvoiceItem({ ...itemData, tenantId, createdBy: userId }, tenantId);
       res.status(201).json(item);
     } catch (error) {
-      console.error('Failed to create invoice item:', error);
-      res.status(400).json({ message: "Invalid invoice item data" });
+      console.error('❌ Failed to create invoice item:', error);
+      if (error instanceof Error) {
+        console.error('Error message:', error.message);
+        console.error('Error stack:', error.stack);
+      }
+      res.status(400).json({ message: "Invalid invoice item data", error: error instanceof Error ? error.message : String(error) });
     }
   });
 

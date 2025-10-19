@@ -111,6 +111,7 @@ export default function InvoiceEditor({
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [selectedItemsForAdding, setSelectedItemsForAdding] = useState<Set<string>>(new Set());
   const [showItemsDialog, setShowItemsDialog] = useState(false);
+  const [isInitialized, setIsInitialized] = useState(false);
 
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -246,8 +247,10 @@ export default function InvoiceEditor({
       if (contact) {
         setContactInfo({ id: contact.id, name: contact.fullName || contact.email });
       }
-    } else if (isOpen && !editingInvoice) {
+      setIsInitialized(true);
+    } else if (isOpen && !editingInvoice && !isInitialized) {
       // Reset form for new invoice - auto-detect currency from contact or tenant settings
+      // Only reset on first open, not when dependencies change
       const defaultCurrency = getDefaultCurrency(contactInfo.id);
       form.reset({
         contactId: contactInfo.id,
@@ -262,8 +265,16 @@ export default function InvoiceEditor({
         terms: "",
       });
       setLineItems([]);
+      setIsInitialized(true);
     }
   }, [editingInvoice, isOpen, contacts, projectId, tenantSettings]);
+
+  // Reset initialization flag when dialog closes
+  useEffect(() => {
+    if (!isOpen) {
+      setIsInitialized(false);
+    }
+  }, [isOpen]);
 
   // Add selected items to line items
   const handleAddItems = () => {
@@ -281,9 +292,6 @@ export default function InvoiceEditor({
       }
     });
 
-    console.log('Adding items:', newItems);
-    console.log('Current lineItems:', lineItems);
-    
     setLineItems([...lineItems, ...newItems]);
     setSelectedItemsForAdding(new Set());
     setShowItemsDialog(false);

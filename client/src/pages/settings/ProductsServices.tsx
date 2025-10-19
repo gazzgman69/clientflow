@@ -405,7 +405,6 @@ export default function ProductsServicesPage() {
                         <th className="text-left p-3 font-medium">Unit Price</th>
                         <th className="text-left p-3 font-medium">Category</th>
                         <th className="text-left p-3 font-medium">Taxable</th>
-                        <th className="text-left p-3 font-medium">Status</th>
                         <th className="text-right p-3 font-medium">Actions</th>
                       </tr>
                     </thead>
@@ -419,11 +418,6 @@ export default function ProductsServicesPage() {
                             <td className="p-3" data-testid={`text-price-${item.id}`}>{formatCurrency(item.price)}</td>
                             <td className="p-3" data-testid={`text-category-${item.id}`}>{category?.name || '-'}</td>
                             <td className="p-3" data-testid={`text-taxable-${item.id}`}>{item.isTaxable ? 'Yes' : 'No'}</td>
-                            <td className="p-3">
-                              <span className={`px-2 py-1 rounded text-xs ${item.isActive ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100' : 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-100'}`} data-testid={`status-item-${item.id}`}>
-                                {item.isActive ? 'Active' : 'Inactive'}
-                              </span>
-                            </td>
                             <td className="p-3 text-right space-x-2">
                               <Button variant="ghost" size="sm" onClick={() => handleEditItem(item)} data-testid={`button-edit-${item.id}`}>
                                 <Edit2 className="h-4 w-4" />

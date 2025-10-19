@@ -351,44 +351,54 @@ export default function InvoiceEditor({
                   <CardTitle className="text-base">Contact Information</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <FormField
-                    control={form.control}
-                    name="contactId"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Contact *</FormLabel>
-                        <Select
-                          value={field.value}
-                          onValueChange={(value) => {
-                            field.onChange(value);
-                            const contact = contacts.find(c => c.id === value);
-                            if (contact) {
-                              updateContactInfo(value, contact.name || contact.email);
-                            }
-                          }}
-                        >
-                          <FormControl>
-                            <SelectTrigger data-testid="select-contact">
-                              <SelectValue placeholder="Select a contact" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {contacts.map((contact) => (
-                              <SelectItem key={contact.id} value={contact.id}>
-                                {contact.name || contact.email}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  {contactInfo.name && (
-                    <div className="text-sm text-muted-foreground">
-                      Invoice will be sent to: <strong>{contactInfo.name}</strong>
+                  {initialContactId ? (
+                    // Contact is pre-selected (e.g., from project page) - show as read-only
+                    <div className="space-y-2">
+                      <FormLabel>Contact</FormLabel>
+                      <div className="flex items-center justify-between p-3 border rounded-lg bg-muted/50">
+                        <div>
+                          <div className="font-medium">{contactInfo.name || "Loading..."}</div>
+                          <div className="text-sm text-muted-foreground">
+                            Invoice will be sent to this contact
+                          </div>
+                        </div>
+                      </div>
                     </div>
+                  ) : (
+                    // No pre-selected contact - show dropdown
+                    <FormField
+                      control={form.control}
+                      name="contactId"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Contact *</FormLabel>
+                          <Select
+                            value={field.value}
+                            onValueChange={(value) => {
+                              field.onChange(value);
+                              const contact = contacts.find(c => c.id === value);
+                              if (contact) {
+                                updateContactInfo(value, contact.name || contact.email);
+                              }
+                            }}
+                          >
+                            <FormControl>
+                              <SelectTrigger data-testid="select-contact">
+                                <SelectValue placeholder="Select a contact" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {contacts.map((contact) => (
+                                <SelectItem key={contact.id} value={contact.id}>
+                                  {contact.name || contact.email}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
                   )}
                 </CardContent>
               </Card>

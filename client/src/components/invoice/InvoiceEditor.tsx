@@ -273,7 +273,7 @@ export default function InvoiceEditor({
       if (item) {
         newItems.push({
           invoiceItemId: item.id,
-          description: item.description || item.displayName,
+          description: item.displayName, // Use display name instead of HTML description
           quantity: 1,
           unitPrice: parseFloat(item.price),
           displayOrder: lineItems.length + newItems.length,
@@ -281,6 +281,9 @@ export default function InvoiceEditor({
       }
     });
 
+    console.log('Adding items:', newItems);
+    console.log('Current lineItems:', lineItems);
+    
     setLineItems([...lineItems, ...newItems]);
     setSelectedItemsForAdding(new Set());
     setShowItemsDialog(false);

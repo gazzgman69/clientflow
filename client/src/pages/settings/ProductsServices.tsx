@@ -110,6 +110,12 @@ export default function ProductsServicesPage() {
     queryKey: ['/api/tax-settings'],
   });
 
+  // Helper to get default category ID (Sales)
+  const getDefaultCategoryId = () => {
+    const salesCategory = categories.find(cat => cat.name === 'Sales');
+    return salesCategory?.id || '';
+  };
+
   // Invoice item form
   const itemForm = useForm<InvoiceItemFormData>({
     resolver: zodResolver(invoiceItemFormSchema),
@@ -171,7 +177,7 @@ export default function ProductsServicesPage() {
         description: '',
         price: '',
         isTaxable: true,
-        incomeCategoryId: '',
+        incomeCategoryId: getDefaultCategoryId(),
         workflowId: '',
         photoUrl: '',
         isActive: true,
@@ -356,7 +362,7 @@ export default function ProductsServicesPage() {
                   description: '',
                   price: '',
                   isTaxable: true,
-                  incomeCategoryId: '',
+                  incomeCategoryId: getDefaultCategoryId(),
                   workflowId: '',
                   photoUrl: '',
                   isActive: true,

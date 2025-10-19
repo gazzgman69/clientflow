@@ -73,6 +73,7 @@ import ProjectEmailPanel from "@/components/email/ProjectEmailPanel";
 import ContactPicker from "@/components/quote/ContactPicker";
 import QuoteEditor from "@/components/quote/QuoteEditor";
 import CreateContractDialog from "@/components/contracts/create-contract-dialog";
+import InvoiceEditor from "@/components/invoice/InvoiceEditor";
 import { AddressFields } from "@/components/shared/AddressFields";
 
 const noteSchema = z.object({
@@ -139,6 +140,10 @@ export default function ProjectDetail() {
   
   // State for editing quotes
   const [editingQuote, setEditingQuote] = useState<Quote | null>(null);
+  
+  // Invoice creation flow state
+  const [showInvoiceEditor, setShowInvoiceEditor] = useState(false);
+  const [editingInvoice, setEditingInvoice] = useState<Invoice | null>(null);
   
   // Contact editing state
   const [showContactEditModal, setShowContactEditModal] = useState(false);
@@ -733,15 +738,19 @@ export default function ProjectDetail() {
     setShowContractEditor(true);
   };
 
-  const handleEditInvoice = (invoice: any) => {
-    invoiceEditForm.reset({
-      title: invoice.title,
-      description: invoice.description || '',
-      subtotal: invoice.subtotal.toString(),
-      taxAmount: invoice.taxAmount ? invoice.taxAmount.toString() : '0',
-      total: invoice.total.toString(),
-    });
-    setSelectedDocument({ type: 'invoice', data: invoice, mode: 'edit' });
+  const handleEditInvoice = (invoice: Invoice) => {
+    setEditingInvoice(invoice);
+    setSelectedContactId(invoice.contactId);
+    const contactName = projectContact 
+      ? `${projectContact.firstName} ${projectContact.lastName}`
+      : "Loading contact...";
+    setSelectedContactName(contactName);
+    setShowInvoiceEditor(true);
+  };
+
+  const handleInvoiceEditorClose = () => {
+    setShowInvoiceEditor(false);
+    setEditingInvoice(null);
   };
 
   // Handle delete operations with confirmation
@@ -1746,6 +1755,18 @@ export default function ProjectDetail() {
           initialContactId={selectedContactId}
           initialProjectId={project?.id}
           contract={editingContract}
+        />
+      )}
+
+      {/* Invoice Editor Modal */}
+      {showInvoiceEditor && (
+        <InvoiceEditor
+          isOpen={showInvoiceEditor}
+          onClose={handleInvoiceEditorClose}
+          contactId={selectedContactId}
+          contactName={selectedContactName}
+          projectId={project?.id}
+          editingInvoice={editingInvoice}
         />
       )}
       

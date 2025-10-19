@@ -126,9 +126,10 @@ export default function InvoiceEditor({
   });
 
   // Fetch contacts for the contact picker
-  const { data: contacts = [] } = useQuery<Contact[]>({
+  const { data: contactsData } = useQuery<Contact[]>({
     queryKey: ["/api/contacts"],
   });
+  const contacts = Array.isArray(contactsData) ? contactsData : [];
 
   // Load existing invoice data when editing
   useEffect(() => {

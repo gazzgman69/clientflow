@@ -9,6 +9,11 @@ import {
   type Invoice, type InsertInvoice,
   type IncomeCategory, type InsertIncomeCategory,
   type InvoiceItem, type InsertInvoiceItem,
+  type InvoiceLineItem, type InsertInvoiceLineItem,
+  type PaymentSchedule, type InsertPaymentSchedule,
+  type PaymentInstallment, type InsertPaymentInstallment,
+  type RecurringInvoiceSettings, type InsertRecurringInvoiceSettings,
+  type PaymentTransaction, type InsertPaymentTransaction,
   type TaxSettings, type InsertTaxSettings,
   type Task, type InsertTask,
   type Email, type InsertEmail,
@@ -76,7 +81,7 @@ import {
   type AiKnowledgeBase, type InsertAiKnowledgeBase,
   type AiCustomInstruction, type InsertAiCustomInstruction,
   type AiTrainingDocument, type InsertAiTrainingDocument,
-  users, leads, contacts, projects, quotes, contracts, contractTemplates, invoices, incomeCategories, invoiceItems, taxSettings, tasks, emails, emailThreads, activities, automations, 
+  users, leads, contacts, projects, quotes, contracts, contractTemplates, invoices, incomeCategories, invoiceItems, invoiceLineItems, paymentSchedules, paymentInstallments, recurringInvoiceSettings, paymentTransactions, taxSettings, tasks, emails, emailThreads, activities, automations, 
   members, venues, projectMembers, memberAvailability, projectFiles, projectNotes, smsMessages, 
   messageTemplates, messageThreads, calendars, events, calendarIntegrations, calendarSyncLog, templates, leadCaptureForms,
   leadStatusHistory, emailSignatures, emailProviderCatalog, emailProviderConfigs, emailAccounts, emailProviderIntegrations, tenantEmailPrefs, portalForms, paymentSessions, webhookEvents, tenants,
@@ -321,6 +326,34 @@ export interface IStorage {
   getTaxSettings(tenantId: string): Promise<TaxSettings | undefined>;
   createTaxSettings(settings: InsertTaxSettings, tenantId: string): Promise<TaxSettings>;
   updateTaxSettings(tenantId: string, settings: Partial<InsertTaxSettings>): Promise<TaxSettings | undefined>;
+  
+  // Invoice Line Items
+  getInvoiceLineItems(invoiceId: string, tenantId: string): Promise<InvoiceLineItem[]>;
+  createInvoiceLineItem(item: InsertInvoiceLineItem, tenantId: string): Promise<InvoiceLineItem>;
+  deleteInvoiceLineItems(invoiceId: string, tenantId: string): Promise<boolean>;
+  
+  // Payment Schedules
+  getPaymentSchedule(invoiceId: string, tenantId: string): Promise<PaymentSchedule | undefined>;
+  createPaymentSchedule(schedule: InsertPaymentSchedule, tenantId: string): Promise<PaymentSchedule>;
+  updatePaymentSchedule(id: string, schedule: Partial<InsertPaymentSchedule>, tenantId: string): Promise<PaymentSchedule | undefined>;
+  deletePaymentSchedule(id: string, tenantId: string): Promise<boolean>;
+  
+  // Payment Installments
+  getPaymentInstallments(scheduleId: string, tenantId: string): Promise<PaymentInstallment[]>;
+  createPaymentInstallment(installment: InsertPaymentInstallment, tenantId: string): Promise<PaymentInstallment>;
+  updatePaymentInstallment(id: string, installment: Partial<InsertPaymentInstallment>, tenantId: string): Promise<PaymentInstallment | undefined>;
+  deletePaymentInstallments(scheduleId: string, tenantId: string): Promise<boolean>;
+  
+  // Recurring Invoice Settings
+  getRecurringInvoiceSettings(invoiceId: string, tenantId: string): Promise<RecurringInvoiceSettings | undefined>;
+  createRecurringInvoiceSettings(settings: InsertRecurringInvoiceSettings, tenantId: string): Promise<RecurringInvoiceSettings>;
+  updateRecurringInvoiceSettings(id: string, settings: Partial<InsertRecurringInvoiceSettings>, tenantId: string): Promise<RecurringInvoiceSettings | undefined>;
+  deleteRecurringInvoiceSettings(id: string, tenantId: string): Promise<boolean>;
+  
+  // Payment Transactions
+  getPaymentTransactions(invoiceId: string, tenantId: string): Promise<PaymentTransaction[]>;
+  createPaymentTransaction(transaction: InsertPaymentTransaction, tenantId: string): Promise<PaymentTransaction>;
+  updatePaymentTransaction(id: string, transaction: Partial<InsertPaymentTransaction>, tenantId: string): Promise<PaymentTransaction | undefined>;
   
   // Tasks  
   getTasks(tenantId: string, userId?: string): Promise<Task[]>;
@@ -5284,6 +5317,178 @@ export class DrizzleStorage implements IStorage {
       ...settingsUpdate,
       updatedAt: new Date(),
     }).where(eq(taxSettings.tenantId, tenantId)).returning();
+    return result[0];
+  }
+  
+  // Invoice Line Items - Drizzle implementation
+  async getInvoiceLineItems(invoiceId: string, tenantId: string): Promise<InvoiceLineItem[]> {
+    return await this.db.select().from(invoiceLineItems)
+      .where(and(
+        eq(invoiceLineItems.invoiceId, invoiceId),
+        eq(invoiceLineItems.tenantId, tenantId)
+      ))
+      .orderBy(invoiceLineItems.displayOrder);
+  }
+
+  async createInvoiceLineItem(item: InsertInvoiceLineItem, tenantId: string): Promise<InvoiceLineItem> {
+    const result = await this.db.insert(invoiceLineItems).values({
+      ...item,
+      tenantId,
+      createdAt: new Date(),
+    }).returning();
+    return result[0];
+  }
+
+  async deleteInvoiceLineItems(invoiceId: string, tenantId: string): Promise<boolean> {
+    const result = await this.db.delete(invoiceLineItems).where(and(
+      eq(invoiceLineItems.invoiceId, invoiceId),
+      eq(invoiceLineItems.tenantId, tenantId)
+    ));
+    return result.rowCount > 0;
+  }
+
+  // Payment Schedules - Drizzle implementation
+  async getPaymentSchedule(invoiceId: string, tenantId: string): Promise<PaymentSchedule | undefined> {
+    const result = await this.db.select().from(paymentSchedules)
+      .where(and(
+        eq(paymentSchedules.invoiceId, invoiceId),
+        eq(paymentSchedules.tenantId, tenantId)
+      ));
+    return result[0];
+  }
+
+  async createPaymentSchedule(schedule: InsertPaymentSchedule, tenantId: string): Promise<PaymentSchedule> {
+    const result = await this.db.insert(paymentSchedules).values({
+      ...schedule,
+      tenantId,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    }).returning();
+    return result[0];
+  }
+
+  async updatePaymentSchedule(id: string, schedule: Partial<InsertPaymentSchedule>, tenantId: string): Promise<PaymentSchedule | undefined> {
+    const result = await this.db.update(paymentSchedules).set({
+      ...schedule,
+      updatedAt: new Date(),
+    }).where(and(
+      eq(paymentSchedules.id, id),
+      eq(paymentSchedules.tenantId, tenantId)
+    )).returning();
+    return result[0];
+  }
+
+  async deletePaymentSchedule(id: string, tenantId: string): Promise<boolean> {
+    const result = await this.db.delete(paymentSchedules).where(and(
+      eq(paymentSchedules.id, id),
+      eq(paymentSchedules.tenantId, tenantId)
+    ));
+    return result.rowCount > 0;
+  }
+
+  // Payment Installments - Drizzle implementation
+  async getPaymentInstallments(scheduleId: string, tenantId: string): Promise<PaymentInstallment[]> {
+    return await this.db.select().from(paymentInstallments)
+      .where(and(
+        eq(paymentInstallments.paymentScheduleId, scheduleId),
+        eq(paymentInstallments.tenantId, tenantId)
+      ))
+      .orderBy(paymentInstallments.installmentNumber);
+  }
+
+  async createPaymentInstallment(installment: InsertPaymentInstallment, tenantId: string): Promise<PaymentInstallment> {
+    const result = await this.db.insert(paymentInstallments).values({
+      ...installment,
+      tenantId,
+      createdAt: new Date(),
+    }).returning();
+    return result[0];
+  }
+
+  async updatePaymentInstallment(id: string, installment: Partial<InsertPaymentInstallment>, tenantId: string): Promise<PaymentInstallment | undefined> {
+    const result = await this.db.update(paymentInstallments).set(installment)
+      .where(and(
+        eq(paymentInstallments.id, id),
+        eq(paymentInstallments.tenantId, tenantId)
+      )).returning();
+    return result[0];
+  }
+
+  async deletePaymentInstallments(scheduleId: string, tenantId: string): Promise<boolean> {
+    const result = await this.db.delete(paymentInstallments).where(and(
+      eq(paymentInstallments.paymentScheduleId, scheduleId),
+      eq(paymentInstallments.tenantId, tenantId)
+    ));
+    return result.rowCount > 0;
+  }
+
+  // Recurring Invoice Settings - Drizzle implementation
+  async getRecurringInvoiceSettings(invoiceId: string, tenantId: string): Promise<RecurringInvoiceSettings | undefined> {
+    const result = await this.db.select().from(recurringInvoiceSettings)
+      .where(and(
+        eq(recurringInvoiceSettings.invoiceId, invoiceId),
+        eq(recurringInvoiceSettings.tenantId, tenantId)
+      ));
+    return result[0];
+  }
+
+  async createRecurringInvoiceSettings(settings: InsertRecurringInvoiceSettings, tenantId: string): Promise<RecurringInvoiceSettings> {
+    const result = await this.db.insert(recurringInvoiceSettings).values({
+      ...settings,
+      tenantId,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    }).returning();
+    return result[0];
+  }
+
+  async updateRecurringInvoiceSettings(id: string, settings: Partial<InsertRecurringInvoiceSettings>, tenantId: string): Promise<RecurringInvoiceSettings | undefined> {
+    const result = await this.db.update(recurringInvoiceSettings).set({
+      ...settings,
+      updatedAt: new Date(),
+    }).where(and(
+      eq(recurringInvoiceSettings.id, id),
+      eq(recurringInvoiceSettings.tenantId, tenantId)
+    )).returning();
+    return result[0];
+  }
+
+  async deleteRecurringInvoiceSettings(id: string, tenantId: string): Promise<boolean> {
+    const result = await this.db.delete(recurringInvoiceSettings).where(and(
+      eq(recurringInvoiceSettings.id, id),
+      eq(recurringInvoiceSettings.tenantId, tenantId)
+    ));
+    return result.rowCount > 0;
+  }
+
+  // Payment Transactions - Drizzle implementation
+  async getPaymentTransactions(invoiceId: string, tenantId: string): Promise<PaymentTransaction[]> {
+    return await this.db.select().from(paymentTransactions)
+      .where(and(
+        eq(paymentTransactions.invoiceId, invoiceId),
+        eq(paymentTransactions.tenantId, tenantId)
+      ))
+      .orderBy(desc(paymentTransactions.createdAt));
+  }
+
+  async createPaymentTransaction(transaction: InsertPaymentTransaction, tenantId: string): Promise<PaymentTransaction> {
+    const result = await this.db.insert(paymentTransactions).values({
+      ...transaction,
+      tenantId,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    }).returning();
+    return result[0];
+  }
+
+  async updatePaymentTransaction(id: string, transaction: Partial<InsertPaymentTransaction>, tenantId: string): Promise<PaymentTransaction | undefined> {
+    const result = await this.db.update(paymentTransactions).set({
+      ...transaction,
+      updatedAt: new Date(),
+    }).where(and(
+      eq(paymentTransactions.id, id),
+      eq(paymentTransactions.tenantId, tenantId)
+    )).returning();
     return result[0];
   }
   

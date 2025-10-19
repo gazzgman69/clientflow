@@ -92,6 +92,11 @@ import {
   insertInvoiceSchema,
   insertIncomeCategorySchema,
   insertInvoiceItemSchema,
+  insertInvoiceLineItemSchema,
+  insertPaymentScheduleSchema,
+  insertPaymentInstallmentSchema,
+  insertRecurringInvoiceSettingsSchema,
+  insertPaymentTransactionSchema,
   insertTaxSettingsSchema,
   insertTaskSchema, 
   insertEmailThreadSchema,
@@ -3599,6 +3604,262 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
       res.json({ message: "Invoice deleted successfully" });
     } catch (error) {
       res.status(500).json({ message: "Failed to delete invoice" });
+    }
+  });
+
+  // Invoice Line Items
+  app.get("/api/invoices/:invoiceId/line-items", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
+    try {
+      const tenantId = req.session.tenantId!;
+      const lineItems = await storage.getInvoiceLineItems(req.params.invoiceId, tenantId);
+      res.json(lineItems);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch invoice line items" });
+    }
+  });
+
+  app.post("/api/invoices/:invoiceId/line-items", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
+    try {
+      const tenantId = req.session.tenantId!;
+      const lineItemsData = z.array(insertInvoiceLineItemSchema).parse(req.body);
+      
+      await storage.deleteInvoiceLineItems(req.params.invoiceId, tenantId);
+      
+      const createdItems = await Promise.all(
+        lineItemsData.map(item => storage.createInvoiceLineItem({
+          ...item,
+          invoiceId: req.params.invoiceId
+        }, tenantId))
+      );
+      
+      res.status(201).json(createdItems);
+    } catch (error) {
+      res.status(400).json({ message: "Invalid line item data" });
+    }
+  });
+
+  // Payment Schedules
+  app.get("/api/invoices/:invoiceId/payment-schedule", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
+    try {
+      const tenantId = req.session.tenantId!;
+      const schedule = await storage.getPaymentSchedule(req.params.invoiceId, tenantId);
+      res.json(schedule || null);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch payment schedule" });
+    }
+  });
+
+  app.post("/api/invoices/:invoiceId/payment-schedule", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
+    try {
+      const tenantId = req.session.tenantId!;
+      const scheduleData = insertPaymentScheduleSchema.parse(req.body);
+      const schedule = await storage.createPaymentSchedule({
+        ...scheduleData,
+        invoiceId: req.params.invoiceId
+      }, tenantId);
+      res.status(201).json(schedule);
+    } catch (error) {
+      res.status(400).json({ message: "Invalid payment schedule data" });
+    }
+  });
+
+  app.patch("/api/payment-schedules/:id", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
+    try {
+      const tenantId = req.session.tenantId!;
+      const scheduleData = insertPaymentScheduleSchema.partial().parse(req.body);
+      const schedule = await storage.updatePaymentSchedule(req.params.id, scheduleData, tenantId);
+      if (!schedule) {
+        return res.status(404).json({ message: "Payment schedule not found" });
+      }
+      res.json(schedule);
+    } catch (error) {
+      res.status(400).json({ message: "Failed to update payment schedule" });
+    }
+  });
+
+  app.delete("/api/payment-schedules/:id", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
+    try {
+      const tenantId = req.session.tenantId!;
+      const deleted = await storage.deletePaymentSchedule(req.params.id, tenantId);
+      if (!deleted) {
+        return res.status(404).json({ message: "Payment schedule not found" });
+      }
+      res.json({ message: "Payment schedule deleted successfully" });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to delete payment schedule" });
+    }
+  });
+
+  // Payment Installments
+  app.get("/api/payment-schedules/:scheduleId/installments", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
+    try {
+      const tenantId = req.session.tenantId!;
+      const installments = await storage.getPaymentInstallments(req.params.scheduleId, tenantId);
+      res.json(installments);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch payment installments" });
+    }
+  });
+
+  app.post("/api/payment-schedules/:scheduleId/installments", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
+    try {
+      const tenantId = req.session.tenantId!;
+      const installmentsData = z.array(insertPaymentInstallmentSchema).parse(req.body);
+      
+      await storage.deletePaymentInstallments(req.params.scheduleId, tenantId);
+      
+      const createdInstallments = await Promise.all(
+        installmentsData.map(installment => storage.createPaymentInstallment({
+          ...installment,
+          paymentScheduleId: req.params.scheduleId
+        }, tenantId))
+      );
+      
+      res.status(201).json(createdInstallments);
+    } catch (error) {
+      res.status(400).json({ message: "Invalid installment data" });
+    }
+  });
+
+  app.patch("/api/payment-installments/:id", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
+    try {
+      const tenantId = req.session.tenantId!;
+      const installmentData = insertPaymentInstallmentSchema.partial().parse(req.body);
+      const installment = await storage.updatePaymentInstallment(req.params.id, installmentData, tenantId);
+      if (!installment) {
+        return res.status(404).json({ message: "Payment installment not found" });
+      }
+      res.json(installment);
+    } catch (error) {
+      res.status(400).json({ message: "Failed to update installment" });
+    }
+  });
+
+  // Recurring Invoice Settings
+  app.get("/api/invoices/:invoiceId/recurring-settings", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
+    try {
+      const tenantId = req.session.tenantId!;
+      const settings = await storage.getRecurringInvoiceSettings(req.params.invoiceId, tenantId);
+      res.json(settings || null);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch recurring settings" });
+    }
+  });
+
+  app.post("/api/invoices/:invoiceId/recurring-settings", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
+    try {
+      const tenantId = req.session.tenantId!;
+      const settingsData = insertRecurringInvoiceSettingsSchema.parse(req.body);
+      const settings = await storage.createRecurringInvoiceSettings({
+        ...settingsData,
+        invoiceId: req.params.invoiceId
+      }, tenantId);
+      res.status(201).json(settings);
+    } catch (error) {
+      res.status(400).json({ message: "Invalid recurring settings data" });
+    }
+  });
+
+  app.patch("/api/recurring-invoice-settings/:id", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
+    try {
+      const tenantId = req.session.tenantId!;
+      const settingsData = insertRecurringInvoiceSettingsSchema.partial().parse(req.body);
+      const settings = await storage.updateRecurringInvoiceSettings(req.params.id, settingsData, tenantId);
+      if (!settings) {
+        return res.status(404).json({ message: "Recurring settings not found" });
+      }
+      res.json(settings);
+    } catch (error) {
+      res.status(400).json({ message: "Failed to update recurring settings" });
+    }
+  });
+
+  app.delete("/api/recurring-invoice-settings/:id", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
+    try {
+      const tenantId = req.session.tenantId!;
+      const deleted = await storage.deleteRecurringInvoiceSettings(req.params.id, tenantId);
+      if (!deleted) {
+        return res.status(404).json({ message: "Recurring settings not found" });
+      }
+      res.json({ message: "Recurring settings deleted successfully" });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to delete recurring settings" });
+    }
+  });
+
+  // Payment Transactions
+  app.get("/api/invoices/:invoiceId/payment-transactions", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
+    try {
+      const tenantId = req.session.tenantId!;
+      const transactions = await storage.getPaymentTransactions(req.params.invoiceId, tenantId);
+      res.json(transactions);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch payment transactions" });
+    }
+  });
+
+  app.post("/api/invoices/:invoiceId/payment-transactions", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
+    try {
+      const tenantId = req.session.tenantId!;
+      const transactionData = insertPaymentTransactionSchema.parse(req.body);
+      const transaction = await storage.createPaymentTransaction({
+        ...transactionData,
+        invoiceId: req.params.invoiceId
+      }, tenantId);
+      res.status(201).json(transaction);
+    } catch (error) {
+      res.status(400).json({ message: "Invalid payment transaction data" });
+    }
+  });
+
+  app.patch("/api/payment-transactions/:id", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
+    try {
+      const tenantId = req.session.tenantId!;
+      const transactionData = insertPaymentTransactionSchema.partial().parse(req.body);
+      const transaction = await storage.updatePaymentTransaction(req.params.id, transactionData, tenantId);
+      if (!transaction) {
+        return res.status(404).json({ message: "Payment transaction not found" });
+      }
+      res.json(transaction);
+    } catch (error) {
+      res.status(400).json({ message: "Failed to update payment transaction" });
+    }
+  });
+
+  // Stripe Payment Intent Creation
+  app.post("/api/invoices/:invoiceId/create-payment-intent", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
+    try {
+      const tenantId = req.session.tenantId!;
+      const invoice = await storage.getInvoice(req.params.invoiceId);
+      
+      if (!invoice || invoice.tenantId !== tenantId) {
+        return res.status(404).json({ message: "Invoice not found" });
+      }
+      
+      const amount = Math.round((invoice.total || 0) * 100);
+      
+      const stripe = (await import('stripe')).default;
+      const stripeClient = new stripe(process.env.STRIPE_SECRET_KEY || '', {
+        apiVersion: '2024-12-18.acacia'
+      });
+      
+      const paymentIntent = await stripeClient.paymentIntents.create({
+        amount,
+        currency: invoice.currency?.toLowerCase() || 'usd',
+        metadata: {
+          invoiceId: invoice.id,
+          tenantId: tenantId,
+          invoiceNumber: invoice.invoiceNumber || ''
+        }
+      });
+      
+      res.json({ 
+        clientSecret: paymentIntent.client_secret,
+        paymentIntentId: paymentIntent.id
+      });
+    } catch (error: any) {
+      console.error('Failed to create payment intent:', error);
+      res.status(500).json({ message: error.message || "Failed to create payment intent" });
     }
   });
 

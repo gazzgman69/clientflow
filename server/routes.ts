@@ -3688,10 +3688,12 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   app.post("/api/invoice-items", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
     try {
       const tenantId = req.session.tenantId!;
+      const userId = req.session.userId!;
       const itemData = insertInvoiceItemSchema.parse(req.body);
-      const item = await storage.createInvoiceItem(itemData, tenantId);
+      const item = await storage.createInvoiceItem({ ...itemData, tenantId, createdBy: userId }, tenantId);
       res.status(201).json(item);
     } catch (error) {
+      console.error('Failed to create invoice item:', error);
       res.status(400).json({ message: "Invalid invoice item data" });
     }
   });

@@ -882,7 +882,10 @@ export default function InvoiceEditor({
                       <div className="flex-1">
                         <div className="font-medium">{item.name}</div>
                         {item.description && (
-                          <div className="text-sm text-muted-foreground">{item.description}</div>
+                          <div 
+                            className="text-sm text-muted-foreground prose prose-sm max-w-none"
+                            dangerouslySetInnerHTML={{ __html: item.description }}
+                          />
                         )}
                       </div>
                       <div className="text-right">

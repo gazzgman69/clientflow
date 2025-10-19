@@ -22,7 +22,39 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import type { Invoice, InvoiceItem, Contact, TaxSettings } from "@shared/schema";
 import { z } from "zod";
-import { formatCurrency } from "@/lib/currency";
+import { formatCurrency, detectCurrencyFromLocale, type CurrencyCode, SUPPORTED_CURRENCIES } from "@/lib/currency";
+
+// Map country codes to currency codes
+function getCurrencyFromCountry(countryCode?: string | null): CurrencyCode {
+  if (!countryCode) return detectCurrencyFromLocale();
+  
+  const countryToCurrency: Record<string, CurrencyCode> = {
+    US: 'USD', USA: 'USD',
+    GB: 'GBP', UK: 'GBP', 'United Kingdom': 'GBP',
+    DE: 'EUR', FR: 'EUR', IT: 'EUR', ES: 'EUR', NL: 'EUR', BE: 'EUR',
+    AT: 'EUR', IE: 'EUR', PT: 'EUR', Greece: 'EUR', GR: 'EUR',
+    CA: 'CAD', Canada: 'CAD',
+    AU: 'AUD', Australia: 'AUD',
+    NZ: 'NZD', 'New Zealand': 'NZD',
+    JP: 'JPY', Japan: 'JPY',
+    CN: 'CNY', China: 'CNY',
+    IN: 'INR', India: 'INR',
+    MX: 'MXN', Mexico: 'MXN',
+    BR: 'BRL', Brazil: 'BRL',
+    ZA: 'ZAR', 'South Africa': 'ZAR',
+    CH: 'CHF', Switzerland: 'CHF',
+    SE: 'SEK', Sweden: 'SEK',
+    NO: 'NOK', Norway: 'NOK',
+    DK: 'DKK', Denmark: 'DKK',
+    SG: 'SGD', Singapore: 'SGD',
+    HK: 'HKD', 'Hong Kong': 'HKD',
+    KR: 'KRW', 'South Korea': 'KRW',
+    PL: 'PLN', Poland: 'PLN',
+  };
+  
+  const normalized = countryCode.toUpperCase().trim();
+  return countryToCurrency[normalized] || countryToCurrency[countryCode] || detectCurrencyFromLocale();
+}
 
 const invoiceEditorSchema = z.object({
   contactId: z.string().min(1, "Contact is required"),
@@ -57,11 +89,13 @@ interface LineItem {
   displayOrder: number;
 }
 
-const CURRENCY_OPTIONS = [
-  { value: "GBP", label: "£ GBP", symbol: "£" },
-  { value: "USD", label: "$ USD", symbol: "$" },
-  { value: "EUR", label: "€ EUR", symbol: "€" },
-];
+// Generate currency options from supported currencies
+const CURRENCY_OPTIONS = Object.entries(SUPPORTED_CURRENCIES).map(([code, info]) => ({
+  value: code,
+  label: `${info.symbol} ${code}`,
+  symbol: info.symbol,
+  name: info.name,
+}));
 
 export default function InvoiceEditor({ 
   isOpen, 
@@ -108,7 +142,7 @@ export default function InvoiceEditor({
       description: "",
       issueDate: new Date(),
       dueDate: addDays(new Date(), 30),
-      currency: "GBP",
+      currency: detectCurrencyFromLocale(), // Will be updated when contact/tenant settings load
       status: "draft",
       notes: "",
       terms: "",
@@ -130,6 +164,49 @@ export default function InvoiceEditor({
     queryKey: ["/api/contacts"],
   });
   const contacts = Array.isArray(contactsData) ? contactsData : [];
+
+  // Fetch tenant settings for default currency
+  const { data: tenantSettings } = useQuery({
+    queryKey: ['/api/tenant-settings'],
+    queryFn: async () => {
+      const response = await fetch('/api/tenant-settings', {
+        credentials: 'include'
+      });
+      return response.json();
+    },
+  });
+
+  // Function to determine default currency
+  const getDefaultCurrency = (contactId?: string): CurrencyCode => {
+    // 1. If contact is selected, use their country
+    if (contactId) {
+      const contact = contacts.find(c => c.id === contactId);
+      if (contact?.country) {
+        return getCurrencyFromCountry(contact.country);
+      }
+    }
+    
+    // 2. Fall back to tenant default currency
+    if (tenantSettings?.currency) {
+      return tenantSettings.currency as CurrencyCode;
+    }
+    
+    // 3. Fall back to browser locale
+    return detectCurrencyFromLocale();
+  };
+
+  // Auto-update currency when contact is selected (only for new invoices)
+  useEffect(() => {
+    if (!editingInvoice && contactInfo.id && contacts.length > 0) {
+      const defaultCurrency = getDefaultCurrency(contactInfo.id);
+      const currentCurrency = form.getValues('currency');
+      
+      // Only update if currency hasn't been manually changed
+      if (currentCurrency === detectCurrencyFromLocale() || !currentCurrency) {
+        form.setValue('currency', defaultCurrency);
+      }
+    }
+  }, [contactInfo.id, contacts, tenantSettings, editingInvoice]);
 
   // Load existing invoice data when editing
   useEffect(() => {
@@ -170,7 +247,8 @@ export default function InvoiceEditor({
         setContactInfo({ id: contact.id, name: contact.name || contact.email });
       }
     } else if (isOpen && !editingInvoice) {
-      // Reset form for new invoice
+      // Reset form for new invoice - auto-detect currency from contact or tenant settings
+      const defaultCurrency = getDefaultCurrency(contactInfo.id);
       form.reset({
         contactId: contactInfo.id,
         projectId: projectId,
@@ -178,14 +256,14 @@ export default function InvoiceEditor({
         description: "",
         issueDate: new Date(),
         dueDate: addDays(new Date(), 30),
-        currency: "GBP",
+        currency: defaultCurrency,
         status: "draft",
         notes: "",
         terms: "",
       });
       setLineItems([]);
     }
-  }, [editingInvoice, isOpen, contacts, projectId]);
+  }, [editingInvoice, isOpen, contacts, projectId, tenantSettings]);
 
   // Add selected items to line items
   const handleAddItems = () => {

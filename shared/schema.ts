@@ -318,27 +318,159 @@ export const contractTemplates = pgTable("contract_templates", {
 
 export const invoices = pgTable("invoices", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  tenantId: varchar("tenant_id").references(() => tenants.id).notNull(), // SECURITY FIX: Made NOT NULL for tenant isolation
-  userId: varchar("user_id").references(() => users.id), // Made nullable initially for safe migration
+  tenantId: varchar("tenant_id").references(() => tenants.id).notNull(),
+  userId: varchar("user_id").references(() => users.id),
   invoiceNumber: text("invoice_number").notNull().unique(),
   contactId: varchar("contact_id").notNull().references(() => contacts.id, { onDelete: 'cascade' }),
   projectId: varchar("project_id").references(() => projects.id, { onDelete: 'cascade' }),
   contractId: varchar("contract_id").references(() => contracts.id, { onDelete: 'cascade' }),
   title: text("title").notNull(),
+  displayName: text("display_name"), // Optional display name for invoice
+  poNumber: text("po_number"), // Purchase order number
   description: text("description"),
+  notes: text("notes"), // Additional notes for the invoice
+  currency: text("currency").default('GBP'),
   subtotal: decimal("subtotal", { precision: 10, scale: 2 }).notNull(),
+  discount: decimal("discount", { precision: 10, scale: 2 }).default('0'), // Discount amount
+  discountType: text("discount_type").default('percent'), // 'percent' or 'fixed'
   taxAmount: decimal("tax_amount", { precision: 10, scale: 2 }).default('0'),
   total: decimal("total", { precision: 10, scale: 2 }).notNull(),
-  status: text("status").notNull().default('draft'), // draft, sent, paid, overdue, cancelled
+  amountPaid: decimal("amount_paid", { precision: 10, scale: 2 }).default('0'), // Track partial payments
+  status: text("status").notNull().default('draft'), // draft, sent, partially_paid, paid, overdue, cancelled
   dueDate: timestamp("due_date"),
   sentAt: timestamp("sent_at"),
   paidAt: timestamp("paid_at"),
+  // Payment options
+  onlinePaymentsEnabled: boolean("online_payments_enabled").default(true),
+  partialPaymentsDisabled: boolean("partial_payments_disabled").default(false),
+  hasPaymentSchedule: boolean("has_payment_schedule").default(false),
+  isRecurring: boolean("is_recurring").default(false),
+  // Stripe integration
+  stripePaymentIntentId: text("stripe_payment_intent_id"), // Track Stripe payment intent
+  stripeCustomerId: text("stripe_customer_id"), // Link to Stripe customer
   createdBy: varchar("created_by").references(() => users.id).notNull(),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => {
   return {
     tenantIdIdx: index("invoices_tenant_id_idx").on(table.tenantId),
+    tenantStatusIdx: index("invoices_tenant_status_idx").on(table.tenantId, table.status),
+  };
+});
+
+// Invoice Line Items - items added to an invoice
+export const invoiceLineItems = pgTable("invoice_line_items", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").references(() => tenants.id).notNull(),
+  invoiceId: varchar("invoice_id").references(() => invoices.id, { onDelete: 'cascade' }).notNull(),
+  invoiceItemId: varchar("invoice_item_id").references(() => invoiceItems.id), // Link to products/services
+  description: text("description").notNull(),
+  quantity: decimal("quantity", { precision: 10, scale: 2 }).notNull().default('1'),
+  unitPrice: decimal("unit_price", { precision: 10, scale: 2 }).notNull(),
+  isTaxable: boolean("is_taxable").default(true),
+  lineTotal: decimal("line_total", { precision: 10, scale: 2 }).notNull(),
+  displayOrder: integer("display_order").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => {
+  return {
+    tenantIdIdx: index("invoice_line_items_tenant_id_idx").on(table.tenantId),
+    invoiceIdIdx: index("invoice_line_items_invoice_id_idx").on(table.invoiceId),
+  };
+});
+
+// Payment Schedules - for installment payments
+export const paymentSchedules = pgTable("payment_schedules", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").references(() => tenants.id).notNull(),
+  invoiceId: varchar("invoice_id").references(() => invoices.id, { onDelete: 'cascade' }).notNull(),
+  scheduleType: text("schedule_type").notNull(), // 'custom' or 'equal'
+  numberOfPayments: integer("number_of_payments"), // For equal payments
+  // Equal payment settings
+  startDate: timestamp("start_date"),
+  frequency: text("frequency"), // 'days', 'weeks', 'months'
+  frequencyInterval: integer("frequency_interval"), // e.g., 1 for every month, 2 for every 2 months
+  // Custom payment message
+  customMessage: text("custom_message"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => {
+  return {
+    tenantIdIdx: index("payment_schedules_tenant_id_idx").on(table.tenantId),
+    invoiceIdIdx: index("payment_schedules_invoice_id_idx").on(table.invoiceId),
+  };
+});
+
+// Payment Schedule Installments - individual payments in a schedule
+export const paymentInstallments = pgTable("payment_installments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").references(() => tenants.id).notNull(),
+  paymentScheduleId: varchar("payment_schedule_id").references(() => paymentSchedules.id, { onDelete: 'cascade' }).notNull(),
+  installmentNumber: integer("installment_number").notNull(), // 1st, 2nd, 3rd, etc.
+  amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
+  amountType: text("amount_type").notNull(), // 'percent' or 'fixed'
+  dueDate: timestamp("due_date"),
+  dueDateTrigger: text("due_date_trigger"), // 'on_receipt', 'after_receipt', 'on_project_date', 'after_project_date', 'before_project_date', 'on_due_date', 'after_due_date', 'before_due_date', 'custom_date'
+  dueDateOffset: integer("due_date_offset"), // Number of days/months/weeks offset
+  dueDateOffsetUnit: text("due_date_offset_unit"), // 'days', 'weeks', 'months'
+  status: text("status").default('pending'), // 'pending', 'paid', 'overdue'
+  paidAt: timestamp("paid_at"),
+  paidAmount: decimal("paid_amount", { precision: 10, scale: 2 }).default('0'),
+  stripePaymentIntentId: text("stripe_payment_intent_id"),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => {
+  return {
+    tenantIdIdx: index("payment_installments_tenant_id_idx").on(table.tenantId),
+    scheduleIdIdx: index("payment_installments_schedule_id_idx").on(table.paymentScheduleId),
+  };
+});
+
+// Recurring Invoice Settings
+export const recurringInvoiceSettings = pgTable("recurring_invoice_settings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").references(() => tenants.id).notNull(),
+  invoiceId: varchar("invoice_id").references(() => invoices.id, { onDelete: 'cascade' }).notNull(),
+  frequency: text("frequency").notNull(), // 'days', 'weeks', 'months'
+  frequencyInterval: integer("frequency_interval").notNull(), // e.g., 1 for monthly, 2 for bi-monthly
+  emailTemplateId: text("email_template_id"), // Future: link to email template
+  endDate: timestamp("end_date"), // When to stop recurring (null = never)
+  endAfterOccurrences: integer("end_after_occurrences"), // Alternative: stop after X occurrences
+  nextSendDate: timestamp("next_send_date"), // When to send next invoice
+  occurrenceCount: integer("occurrence_count").default(0), // How many times it has recurred
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => {
+  return {
+    tenantIdIdx: index("recurring_invoice_settings_tenant_id_idx").on(table.tenantId),
+    invoiceIdIdx: index("recurring_invoice_settings_invoice_id_idx").on(table.invoiceId),
+    nextSendDateIdx: index("recurring_invoice_settings_next_send_date_idx").on(table.nextSendDate),
+  };
+});
+
+// Payment Transactions - track all payment attempts and successes
+export const paymentTransactions = pgTable("payment_transactions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").references(() => tenants.id).notNull(),
+  invoiceId: varchar("invoice_id").references(() => invoices.id, { onDelete: 'cascade' }).notNull(),
+  installmentId: varchar("installment_id").references(() => paymentInstallments.id, { onDelete: 'set null' }), // Optional: link to installment
+  amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
+  currency: text("currency").default('GBP'),
+  paymentMethod: text("payment_method").notNull(), // 'stripe', 'manual', 'check', 'bank_transfer'
+  stripePaymentIntentId: text("stripe_payment_intent_id"),
+  stripeChargeId: text("stripe_charge_id"),
+  status: text("status").notNull(), // 'pending', 'succeeded', 'failed', 'refunded'
+  failureReason: text("failure_reason"),
+  paidAt: timestamp("paid_at"),
+  refundedAt: timestamp("refunded_at"),
+  refundAmount: decimal("refund_amount", { precision: 10, scale: 2 }),
+  metadata: text("metadata"), // JSON for additional data
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => {
+  return {
+    tenantIdIdx: index("payment_transactions_tenant_id_idx").on(table.tenantId),
+    invoiceIdIdx: index("payment_transactions_invoice_id_idx").on(table.invoiceId),
+    stripePaymentIntentIdx: index("payment_transactions_stripe_intent_idx").on(table.stripePaymentIntentId),
   };
 });
 
@@ -1130,6 +1262,11 @@ export const insertInvoiceSchema = createInsertSchema(invoices).omit({ id: true,
 export const insertIncomeCategorySchema = createInsertSchema(incomeCategories).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertInvoiceItemSchema = createInsertSchema(invoiceItems).omit({ id: true, createdAt: true, updatedAt: true, tenantId: true, createdBy: true });
 export const insertTaxSettingsSchema = createInsertSchema(taxSettings).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertInvoiceLineItemSchema = createInsertSchema(invoiceLineItems).omit({ id: true, createdAt: true, tenantId: true });
+export const insertPaymentScheduleSchema = createInsertSchema(paymentSchedules).omit({ id: true, createdAt: true, updatedAt: true, tenantId: true });
+export const insertPaymentInstallmentSchema = createInsertSchema(paymentInstallments).omit({ id: true, createdAt: true, tenantId: true });
+export const insertRecurringInvoiceSettingsSchema = createInsertSchema(recurringInvoiceSettings).omit({ id: true, createdAt: true, updatedAt: true, tenantId: true });
+export const insertPaymentTransactionSchema = createInsertSchema(paymentTransactions).omit({ id: true, createdAt: true, updatedAt: true, tenantId: true });
 export const insertTaskSchema = createInsertSchema(tasks).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertEmailThreadSchema = createInsertSchema(emailThreads).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertEmailSchema = createInsertSchema(emails).omit({ id: true, createdAt: true, updatedAt: true });
@@ -1378,6 +1515,16 @@ export type InvoiceItem = typeof invoiceItems.$inferSelect;
 export type InsertInvoiceItem = z.infer<typeof insertInvoiceItemSchema>;
 export type TaxSettings = typeof taxSettings.$inferSelect;
 export type InsertTaxSettings = z.infer<typeof insertTaxSettingsSchema>;
+export type InvoiceLineItem = typeof invoiceLineItems.$inferSelect;
+export type InsertInvoiceLineItem = z.infer<typeof insertInvoiceLineItemSchema>;
+export type PaymentSchedule = typeof paymentSchedules.$inferSelect;
+export type InsertPaymentSchedule = z.infer<typeof insertPaymentScheduleSchema>;
+export type PaymentInstallment = typeof paymentInstallments.$inferSelect;
+export type InsertPaymentInstallment = z.infer<typeof insertPaymentInstallmentSchema>;
+export type RecurringInvoiceSettings = typeof recurringInvoiceSettings.$inferSelect;
+export type InsertRecurringInvoiceSettings = z.infer<typeof insertRecurringInvoiceSettingsSchema>;
+export type PaymentTransaction = typeof paymentTransactions.$inferSelect;
+export type InsertPaymentTransaction = z.infer<typeof insertPaymentTransactionSchema>;
 export type Task = typeof tasks.$inferSelect;
 export type InsertTask = z.infer<typeof insertTaskSchema>;
 export type EmailThread = typeof emailThreads.$inferSelect;

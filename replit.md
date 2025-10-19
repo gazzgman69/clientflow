@@ -123,6 +123,28 @@ Phase 3 introduces a comprehensive AI training system that allows users to teach
 - `ai_training_documents` - Prepared for future document uploads
 - All tables are tenant-scoped with proper indexes
 
+## Invoice System (In Progress)
+The system includes a comprehensive invoicing system with payment schedules, recurring invoices, and Stripe integration.
+
+**Completed:**
+- **Database Schema**: Full invoice tables including `invoice_line_items`, `payment_schedules`, `payment_installments`, `recurring_invoice_settings`, `payment_transactions`
+- **Storage Layer**: Complete CRUD operations for all invoice-related tables with proper tenant isolation
+- **API Routes**: RESTful endpoints for invoices, line items, payment schedules, installments, recurring settings, transactions, and Stripe payment intent creation
+
+**In Progress:**
+- **InvoiceEditor Component**: Full-featured invoice editor similar to QuoteEditor with item selection from Products & Services
+- **Payment Schedule Modals**: Custom and Equal payment schedule configuration dialogs
+- **Recurring Invoice Settings**: Modal for configuring recurring invoice automation
+- **Stripe Integration**: Frontend payment processing and webhook handling
+
+**Features:**
+- **Payment Schedules**: Support for both Custom (define exact amounts/percentages per installment) and Equal (auto-split evenly) payment plans
+- **Flexible Due Dates**: Options include On Receipt, After Receipt, On/After/Before Project Date, On/After/Before Due Date, On Custom Date with time offsets
+- **Recurring Invoices**: Automated recurring invoice generation with configurable frequency
+- **Multi-Currency Support**: Invoice creation and payment processing in multiple currencies
+- **Stripe Payments**: Online payment processing with secure payment intents
+- **Global Tax Settings**: Single tax configuration for the business (can expand for multiple jurisdictions later)
+
 **Implementation:**
 - Settings page: `/settings?tab=ai` with three-tab interface
 - Storage layer: 12 new methods for AI knowledge management

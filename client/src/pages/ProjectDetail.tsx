@@ -695,6 +695,25 @@ export default function ProjectDetail() {
     setSelectedContactId("");
     setSelectedContactName("");
   };
+
+  // Handler functions for new invoice creation flow
+  const handleCreateInvoice = () => {
+    if (project?.contactId) {
+      setSelectedContactId(project.contactId);
+      const contactName = projectContact 
+        ? `${projectContact.firstName} ${projectContact.lastName}`
+        : "Loading contact...";
+      setSelectedContactName(contactName);
+      setEditingInvoice(null);
+      setShowInvoiceEditor(true);
+    } else {
+      toast({
+        title: "Contact Required",
+        description: "Please assign a contact to this project before creating an invoice.",
+        variant: "destructive",
+      });
+    }
+  };
   
   // Handler for contact editing
   const handleEditContact = () => {
@@ -1370,12 +1389,11 @@ export default function ProjectDetail() {
                     <Button 
                       variant="outline" 
                       className="flex-1"
-                      onClick={() => createInvoiceMutation.mutate()}
-                      disabled={createInvoiceMutation.isPending}
+                      onClick={handleCreateInvoice}
                       data-testid="button-create-invoice"
                     >
                       <Receipt className="h-4 w-4 mr-2" />
-                      {createInvoiceMutation.isPending ? "Creating..." : "Create Invoice"}
+                      Create Invoice
                     </Button>
                   </div>
 

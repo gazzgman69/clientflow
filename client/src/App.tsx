@@ -33,6 +33,7 @@ import MusicianPortal from "@/pages/portal/musician-portal";
 import ClientPortal from "@/pages/portal/client-portal";
 import LoginPage from "@/pages/login";
 import Sidebar from "@/components/layout/sidebar";
+import TopNav from "@/components/layout/top-nav";
 import { ImpersonationBanner } from "@/components/impersonation-banner";
 import { AIAssistantButton } from "@/components/AIAssistant";
 
@@ -113,6 +114,7 @@ function Router() {
               <div className="flex-1 flex flex-col overflow-hidden print:overflow-visible print:block">
                 <div className="print:hidden">
                   <ImpersonationBanner />
+                  <TopNav />
                 </div>
                 <Switch>
                   <Route path="/" component={Dashboard} />

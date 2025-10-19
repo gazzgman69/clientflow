@@ -5,7 +5,6 @@ interface HeaderProps {
 }
 
 export default function Header({ title, subtitle, actions }: HeaderProps) {
-
   return (
     <header className="bg-card border-b border-border px-6 py-4 flex items-center justify-between text-[12px] pt-[5px] pb-[5px]">
       <div>

@@ -345,27 +345,13 @@ export default function InvoiceEditor({
 
           <Form {...form}>
             <form onSubmit={form.handleSubmit((data) => onSubmit(data, false))} className="space-y-6">
-              {/* Contact Selection */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-base">Contact Information</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {initialContactId ? (
-                    // Contact is pre-selected (e.g., from project page) - show as read-only
-                    <div className="space-y-2">
-                      <FormLabel>Contact</FormLabel>
-                      <div className="flex items-center justify-between p-3 border rounded-lg bg-muted/50">
-                        <div>
-                          <div className="font-medium">{contactInfo.name || "Loading..."}</div>
-                          <div className="text-sm text-muted-foreground">
-                            Invoice will be sent to this contact
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  ) : (
-                    // No pre-selected contact - show dropdown
+              {/* Contact Selection - only show when no pre-selected contact */}
+              {!initialContactId && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base">Contact Information</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
                     <FormField
                       control={form.control}
                       name="contactId"
@@ -399,9 +385,9 @@ export default function InvoiceEditor({
                         </FormItem>
                       )}
                     />
-                  )}
-                </CardContent>
-              </Card>
+                  </CardContent>
+                </Card>
+              )}
 
               {/* Invoice Details */}
               <Card>

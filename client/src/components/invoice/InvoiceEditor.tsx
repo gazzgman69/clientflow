@@ -244,7 +244,7 @@ export default function InvoiceEditor({
       // Find and set contact name
       const contact = contacts.find(c => c.id === editingInvoice.contactId);
       if (contact) {
-        setContactInfo({ id: contact.id, name: contact.name || contact.email });
+        setContactInfo({ id: contact.id, name: contact.fullName || contact.email });
       }
     } else if (isOpen && !editingInvoice) {
       // Reset form for new invoice - auto-detect currency from contact or tenant settings
@@ -273,9 +273,9 @@ export default function InvoiceEditor({
       if (item) {
         newItems.push({
           invoiceItemId: item.id,
-          description: item.description || item.name,
+          description: item.description || item.displayName,
           quantity: 1,
-          unitPrice: item.unitPrice,
+          unitPrice: parseFloat(item.price),
           displayOrder: lineItems.length + newItems.length,
         });
       }
@@ -442,7 +442,7 @@ export default function InvoiceEditor({
                               field.onChange(value);
                               const contact = contacts.find(c => c.id === value);
                               if (contact) {
-                                updateContactInfo(value, contact.name || contact.email);
+                                updateContactInfo(value, contact.fullName || contact.email);
                               }
                             }}
                           >
@@ -454,7 +454,7 @@ export default function InvoiceEditor({
                             <SelectContent>
                               {contacts.map((contact) => (
                                 <SelectItem key={contact.id} value={contact.id}>
-                                  {contact.name || contact.email}
+                                  {contact.fullName || contact.email}
                                 </SelectItem>
                               ))}
                             </SelectContent>
@@ -880,7 +880,7 @@ export default function InvoiceEditor({
                         data-testid={`checkbox-item-${item.id}`}
                       />
                       <div className="flex-1">
-                        <div className="font-medium">{item.name}</div>
+                        <div className="font-medium">{item.displayName}</div>
                         {item.description && (
                           <div 
                             className="text-sm text-muted-foreground prose prose-sm max-w-none"
@@ -890,9 +890,8 @@ export default function InvoiceEditor({
                       </div>
                       <div className="text-right">
                         <div className="font-medium">
-                          {formatCurrency(item.unitPrice, form.watch("currency"))}
+                          {formatCurrency(parseFloat(item.price), form.watch("currency"))}
                         </div>
-                        <div className="text-sm text-muted-foreground">{item.category}</div>
                       </div>
                     </div>
                   </div>

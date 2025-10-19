@@ -26,7 +26,7 @@ interface InvoiceItem {
   internalName: string;
   displayName: string;
   description: string | null;
-  unitPrice: string;
+  price: string;
   isTaxable: boolean;
   incomeCategoryId: string | null;
   workflowId: string | null;
@@ -60,7 +60,7 @@ const invoiceItemFormSchema = z.object({
   internalName: z.string().min(1, 'Internal name is required'),
   displayName: z.string().min(1, 'Display name is required'),
   description: z.string().optional(),
-  unitPrice: z.string().min(1, 'Unit price is required').refine((val) => !isNaN(parseFloat(val)), 'Must be a valid number'),
+  price: z.string().min(1, 'Unit price is required').refine((val) => !isNaN(parseFloat(val)), 'Must be a valid number'),
   isTaxable: z.boolean().default(true),
   incomeCategoryId: z.string().optional(),
   workflowId: z.string().optional(),
@@ -117,7 +117,7 @@ export default function ProductsServicesPage() {
       internalName: '',
       displayName: '',
       description: '',
-      unitPrice: '',
+      price: '',
       isTaxable: true,
       incomeCategoryId: '',
       workflowId: '',
@@ -275,7 +275,7 @@ export default function ProductsServicesPage() {
       internalName: item.internalName,
       displayName: item.displayName,
       description: item.description || '',
-      unitPrice: item.unitPrice,
+      price: item.price,
       isTaxable: item.isTaxable,
       incomeCategoryId: item.incomeCategoryId || '',
       workflowId: item.workflowId || '',
@@ -390,7 +390,7 @@ export default function ProductsServicesPage() {
                           <tr key={item.id} className="border-t" data-testid={`row-item-${item.id}`}>
                             <td className="p-3" data-testid={`text-internal-name-${item.id}`}>{item.internalName}</td>
                             <td className="p-3" data-testid={`text-display-name-${item.id}`}>{item.displayName}</td>
-                            <td className="p-3" data-testid={`text-price-${item.id}`}>{formatCurrency(item.unitPrice)}</td>
+                            <td className="p-3" data-testid={`text-price-${item.id}`}>{formatCurrency(item.price)}</td>
                             <td className="p-3" data-testid={`text-category-${item.id}`}>{category?.name || '-'}</td>
                             <td className="p-3" data-testid={`text-taxable-${item.id}`}>{item.isTaxable ? 'Yes' : 'No'}</td>
                             <td className="p-3">
@@ -623,7 +623,7 @@ export default function ProductsServicesPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <FormField
                   control={itemForm.control}
-                  name="unitPrice"
+                  name="price"
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Unit Price *</FormLabel>

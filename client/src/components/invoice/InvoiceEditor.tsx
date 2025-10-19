@@ -109,9 +109,10 @@ export default function InvoiceEditor({
   const [lineItems, setLineItems] = useState<LineItem[]>([]);
   const [contactInfo, setContactInfo] = useState({ id: initialContactId || "", name: initialContactName || "" });
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-  const [selectedItemsForAdding, setSelectedItemsForAdding] = useState<Set<string>>(new Set());
   const [showItemsDialog, setShowItemsDialog] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [editingItem, setEditingItem] = useState<LineItem | null>(null);
 
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -276,31 +277,37 @@ export default function InvoiceEditor({
     }
   }, [isOpen]);
 
-  // Add selected items to line items
-  const handleAddItems = () => {
-    const newItems: LineItem[] = [];
-    selectedItemsForAdding.forEach(itemId => {
-      const item = invoiceItems.find(i => i.id === itemId);
-      if (item) {
-        newItems.push({
-          invoiceItemId: item.id,
-          description: item.displayName, // Use display name instead of HTML description
-          quantity: 1,
-          unitPrice: parseFloat(item.price),
-          displayOrder: lineItems.length + newItems.length,
-        });
-      }
+  // Select an item to edit/add
+  const handleSelectItem = (item: InvoiceItem) => {
+    setEditingItem({
+      invoiceItemId: item.id,
+      description: item.displayName,
+      quantity: 1,
+      unitPrice: parseFloat(item.price),
+      displayOrder: lineItems.length,
     });
+  };
 
-    setLineItems([...lineItems, ...newItems]);
-    setSelectedItemsForAdding(new Set());
+  // Add the edited item to line items
+  const handleAddItem = () => {
+    if (!editingItem) return;
+
+    setLineItems([...lineItems, editingItem]);
+    setEditingItem(null);
+    setSearchQuery("");
     setShowItemsDialog(false);
     
     toast({
-      title: "Items added",
-      description: `${newItems.length} item${newItems.length !== 1 ? 's' : ''} added to invoice`,
+      title: "Item added",
+      description: "Item added to invoice",
     });
   };
+
+  // Filter items based on search query
+  const filteredItems = invoiceItems.filter(item =>
+    item.displayName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    item.internalName.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   // Remove line item
   const handleRemoveItem = (index: number) => {
@@ -857,84 +864,138 @@ export default function InvoiceEditor({
       </Dialog>
 
       {/* Add Items Dialog */}
-      <Dialog open={showItemsDialog} onOpenChange={setShowItemsDialog}>
-        <DialogContent className="max-w-2xl">
+      <Dialog open={showItemsDialog} onOpenChange={(open) => {
+        setShowItemsDialog(open);
+        if (!open) {
+          setEditingItem(null);
+          setSearchQuery("");
+        }
+      }}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
           <DialogHeader>
-            <DialogTitle>Add Items from Products & Services</DialogTitle>
+            <DialogTitle>Add Item</DialogTitle>
           </DialogHeader>
           
-          <div className="space-y-4">
-            {invoiceItems.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">
-                <p>No products or services available</p>
-                <p className="text-sm">Go to Settings → Products & Services to add items</p>
-              </div>
-            ) : (
-              <div className="space-y-2 max-h-96 overflow-y-auto">
-                {invoiceItems.map((item) => (
-                  <div 
-                    key={item.id} 
-                    className="flex items-center justify-between p-3 border rounded-lg hover:bg-accent/50"
-                  >
-                    <div className="flex items-center gap-3 flex-1">
-                      <Checkbox
-                        checked={selectedItemsForAdding.has(item.id)}
-                        onCheckedChange={(checked) => {
-                          const newSet = new Set(selectedItemsForAdding);
-                          if (checked) {
-                            newSet.add(item.id);
-                          } else {
-                            newSet.delete(item.id);
-                          }
-                          setSelectedItemsForAdding(newSet);
-                        }}
-                        data-testid={`checkbox-item-${item.id}`}
-                      />
-                      <div className="flex-1">
-                        <div className="font-medium">{item.displayName}</div>
-                        {item.description && (
-                          <div 
-                            className="text-sm text-muted-foreground prose prose-sm max-w-none"
-                            dangerouslySetInnerHTML={{ __html: item.description }}
-                          />
+          {invoiceItems.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              <p>No products or services available</p>
+              <p className="text-sm">Go to Settings → Products & Services to add items</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-6 flex-1 overflow-hidden">
+              {/* Left: Search & Item List */}
+              <div className="flex flex-col gap-4 overflow-hidden">
+                <Input
+                  placeholder="Search items..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  data-testid="input-search-items"
+                />
+                
+                <div className="flex-1 overflow-y-auto space-y-2 pr-2">
+                  {filteredItems.length === 0 ? (
+                    <div className="text-center py-8 text-muted-foreground text-sm">
+                      No items found
+                    </div>
+                  ) : (
+                    filteredItems.map((item) => (
+                      <div 
+                        key={item.id}
+                        onClick={() => handleSelectItem(item)}
+                        className={cn(
+                          "p-3 border rounded-lg cursor-pointer transition-colors",
+                          editingItem?.invoiceItemId === item.id
+                            ? "bg-primary/10 border-primary"
+                            : "hover:bg-accent/50"
                         )}
-                      </div>
-                      <div className="text-right">
-                        <div className="font-medium">
+                        data-testid={`item-option-${item.id}`}
+                      >
+                        <div className="font-medium">{item.displayName}</div>
+                        <div className="text-sm text-muted-foreground mt-1">
                           {formatCurrency(parseFloat(item.price), form.watch("currency"))}
                         </div>
                       </div>
-                    </div>
-                  </div>
-                ))}
+                    ))
+                  )}
+                </div>
               </div>
-            )}
 
-            <div className="flex justify-between items-center pt-4 border-t">
-              <div className="text-sm text-muted-foreground">
-                {selectedItemsForAdding.size} item{selectedItemsForAdding.size !== 1 ? 's' : ''} selected
-              </div>
-              <div className="flex gap-2">
-                <Button 
-                  variant="outline" 
-                  onClick={() => {
-                    setShowItemsDialog(false);
-                    setSelectedItemsForAdding(new Set());
-                  }}
-                  data-testid="button-cancel-add-items"
-                >
-                  Cancel
-                </Button>
-                <Button 
-                  onClick={handleAddItems}
-                  disabled={selectedItemsForAdding.size === 0}
-                  data-testid="button-confirm-add-items"
-                >
-                  Add {selectedItemsForAdding.size > 0 ? `(${selectedItemsForAdding.size})` : ''} Items
-                </Button>
+              {/* Right: Item Details Form */}
+              <div className="flex flex-col gap-4">
+                {editingItem ? (
+                  <>
+                    <div className="space-y-4 flex-1 overflow-y-auto">
+                      <div>
+                        <Label>Description</Label>
+                        <Textarea
+                          value={editingItem.description}
+                          onChange={(e) => setEditingItem({ ...editingItem, description: e.target.value })}
+                          rows={3}
+                          data-testid="input-item-description"
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <Label>Quantity</Label>
+                          <Input
+                            type="number"
+                            min="1"
+                            step="1"
+                            value={editingItem.quantity}
+                            onChange={(e) => setEditingItem({ ...editingItem, quantity: parseFloat(e.target.value) || 1 })}
+                            data-testid="input-item-quantity"
+                          />
+                        </div>
+                        <div>
+                          <Label>Price</Label>
+                          <Input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={editingItem.unitPrice}
+                            onChange={(e) => setEditingItem({ ...editingItem, unitPrice: parseFloat(e.target.value) || 0 })}
+                            data-testid="input-item-price"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="pt-2 border-t">
+                        <div className="flex justify-between text-lg font-semibold">
+                          <span>Total:</span>
+                          <span>{formatCurrency(editingItem.quantity * editingItem.unitPrice, form.watch("currency"))}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex gap-2 justify-end border-t pt-4">
+                      <Button 
+                        variant="outline" 
+                        onClick={() => {
+                          setShowItemsDialog(false);
+                          setEditingItem(null);
+                          setSearchQuery("");
+                        }}
+                        data-testid="button-cancel-add-item"
+                      >
+                        Cancel
+                      </Button>
+                      <Button 
+                        onClick={handleAddItem}
+                        data-testid="button-save-add-item"
+                      >
+                        Add to Invoice
+                      </Button>
+                    </div>
+                  </>
+                ) : (
+                  <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
+                    Select an item from the list to add it to the invoice
+                  </div>
+                )}
               </div>
             </div>
-          </div>
+          )}
         </DialogContent>
       </Dialog>
 

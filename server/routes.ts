@@ -7924,8 +7924,8 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
           email_notifications_enabled: true,
           in_app_notifications_enabled: true,
           email_frequency: 'daily',
-          autoreply_enabled: false,
-          autoreply_message: 'Thank you for your inquiry! We will get back to you within 24 hours.'
+          auto_reply_enabled: false,
+          auto_reply_message: 'Thank you for your inquiry! We will get back to you within 24 hours.'
         });
       }
       
@@ -7940,13 +7940,23 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   app.post('/api/notification-settings', ensureUserAuth, tenantResolver, requireTenant, csrf, async (req: TenantRequest, res) => {
     try {
       const userId = req.authenticatedUserId!;
+      console.log('📝 Saving notification settings:', { 
+        userId, 
+        tenantId: req.tenantId,
+        body: req.body 
+      });
       const settings = await storage.upsertNotificationSettings(
         { ...req.body, userId },
         req.tenantId!
       );
+      console.log('✅ Settings saved successfully:', settings);
       res.json(settings);
     } catch (error: any) {
-      console.error('Error saving notification settings:', error);
+      console.error('❌ Error saving notification settings:', {
+        message: error.message,
+        stack: error.stack,
+        error
+      });
       res.status(500).json({ error: 'Failed to save notification settings' });
     }
   });

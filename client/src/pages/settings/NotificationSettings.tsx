@@ -120,8 +120,8 @@ export default function NotificationSettingsTab() {
             </div>
             <Switch
               id="inapp-enabled"
-              checked={localSettings.inapp_enabled}
-              onCheckedChange={(checked) => updateLocalSetting('inapp_enabled', checked)}
+              checked={localSettings.in_app_notifications_enabled}
+              onCheckedChange={(checked) => updateLocalSetting('in_app_notifications_enabled', checked)}
               data-testid="switch-inapp-enabled"
             />
           </div>
@@ -195,13 +195,13 @@ export default function NotificationSettingsTab() {
             </div>
             <Switch
               id="email-enabled"
-              checked={localSettings.email_enabled}
-              onCheckedChange={(checked) => updateLocalSetting('email_enabled', checked)}
+              checked={localSettings.email_notifications_enabled}
+              onCheckedChange={(checked) => updateLocalSetting('email_notifications_enabled', checked)}
               data-testid="switch-email-enabled"
             />
           </div>
 
-          {localSettings.email_enabled && (
+          {localSettings.email_notifications_enabled && (
             <>
               <Separator />
 
@@ -267,13 +267,13 @@ export default function NotificationSettingsTab() {
             </div>
             <Switch
               id="autoreply-enabled"
-              checked={localSettings.autoreply_enabled}
-              onCheckedChange={(checked) => updateLocalSetting('autoreply_enabled', checked)}
+              checked={localSettings.auto_reply_enabled}
+              onCheckedChange={(checked) => updateLocalSetting('auto_reply_enabled', checked)}
               data-testid="switch-autoreply-enabled"
             />
           </div>
 
-          {localSettings.autoreply_enabled && (
+          {localSettings.auto_reply_enabled && (
             <>
               <Separator />
 
@@ -287,8 +287,8 @@ export default function NotificationSettingsTab() {
                   id="autoreply-message"
                   rows={6}
                   placeholder="Thank you for your inquiry! We've received your message and will get back to you within 24 hours..."
-                  value={localSettings.autoreply_message || ''}
-                  onChange={(e) => updateLocalSetting('autoreply_message', e.target.value)}
+                  value={localSettings.auto_reply_message || ''}
+                  onChange={(e) => updateLocalSetting('auto_reply_message', e.target.value)}
                   data-testid="textarea-autoreply-message"
                 />
               </div>

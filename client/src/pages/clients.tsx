@@ -50,6 +50,8 @@ interface ContactDeletionPreview {
   };
 }
 
+const ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
+
 export default function Contacts() {
   const [, setLocation] = useLocation();
   const [showContactModal, setShowContactModal] = useState(false);
@@ -58,6 +60,9 @@ export default function Contacts() {
   const [deletionPreview, setDeletionPreview] = useState<ContactDeletionPreview | null>(null);
   const [previewContactId, setPreviewContactId] = useState<string | null>(null);
   const [expandedContactId, setExpandedContactId] = useState<string | null>(null);
+  const [letterFilter, setLetterFilter] = useState<string | null>(null);
+  const [tagFilter, setTagFilter] = useState<string[]>([]);
+  const [recentContacts, setRecentContacts] = useState<Contact[]>([]);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -72,6 +77,79 @@ export default function Contacts() {
   });
 
   const contacts = contactsData?.contacts || [];
+
+  // Load recent contacts from localStorage
+  useEffect(() => {
+    const stored = localStorage.getItem('recentContacts');
+    if (stored) {
+      try {
+        const contactIds: string[] = JSON.parse(stored);
+        // Filter to only contacts that still exist
+        const recent = contactIds
+          .map(id => contacts.find(c => c.id === id))
+          .filter((c): c is Contact => c !== undefined)
+          .slice(0, 10);
+        setRecentContacts(recent);
+      } catch (e) {
+        // Invalid data, ignore
+      }
+    }
+  }, [contacts]);
+
+  // Track contact view
+  const trackContactView = (contact: Contact) => {
+    const stored = localStorage.getItem('recentContacts');
+    let contactIds: string[] = [];
+    if (stored) {
+      try {
+        contactIds = JSON.parse(stored);
+      } catch (e) {
+        contactIds = [];
+      }
+    }
+    // Remove contact if already in list, then add to front
+    contactIds = contactIds.filter(id => id !== contact.id);
+    contactIds.unshift(contact.id);
+    // Keep only last 10
+    contactIds = contactIds.slice(0, 10);
+    localStorage.setItem('recentContacts', JSON.stringify(contactIds));
+    
+    // Update state
+    const recent = contactIds
+      .map(id => contacts.find(c => c.id === id))
+      .filter((c): c is Contact => c !== undefined);
+    setRecentContacts(recent);
+  };
+
+  // Filter contacts by letter and tags
+  const filteredContacts = contacts.filter(contact => {
+    const displayName = getDisplayName(contact);
+    
+    // Letter filter
+    if (letterFilter) {
+      const firstChar = displayName.charAt(0).toUpperCase();
+      if (letterFilter === '#') {
+        // Show non-alphabetic characters
+        if (/[A-Z]/.test(firstChar)) return false;
+      } else {
+        if (firstChar !== letterFilter) return false;
+      }
+    }
+    
+    // Tag filter
+    if (tagFilter.length > 0) {
+      if (!contact.tags || contact.tags.length === 0) return false;
+      const hasAnyTag = tagFilter.some(tag => contact.tags?.includes(tag));
+      if (!hasAnyTag) return false;
+    }
+    
+    return true;
+  });
+
+  // Get all unique tags from contacts
+  const allTags = Array.from(
+    new Set(contacts.flatMap(c => c.tags || []))
+  ).sort();
 
   // Fetch projects for expanded contact
   const { data: expandedContactProjects = [] } = useQuery({
@@ -231,17 +309,123 @@ export default function Contacts() {
       />
       
       <main className="flex-1 overflow-auto p-6">
-        <Card data-testid="contacts-table-card">
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle>All Contacts</CardTitle>
-              <Button onClick={handleAddContact} data-testid="button-add-contact">
-                <Plus className="h-4 w-4 mr-2" />
-                Add Contact
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent>
+        <div className="flex gap-6">
+          {/* Recent Contacts Sidebar */}
+          {recentContacts.length > 0 && (
+            <Card className="w-64 flex-shrink-0">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-medium">Recent Contacts</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-1">
+                {recentContacts.map(contact => (
+                  <div
+                    key={contact.id}
+                    onClick={() => setLocation(`/contacts/${contact.id}`)}
+                    className="flex items-center gap-3 p-2 rounded-lg hover:bg-accent cursor-pointer transition-colors"
+                    data-testid={`recent-contact-${contact.id}`}
+                  >
+                    <div className="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center text-sm font-medium">
+                      {getDisplayName(contact).charAt(0).toUpperCase()}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-medium truncate">{getDisplayName(contact)}</div>
+                      {contact.company && (
+                        <div className="text-xs text-muted-foreground truncate">{contact.company}</div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Main Content */}
+          <Card className="flex-1" data-testid="contacts-table-card">
+            <CardHeader>
+              <div className="flex items-center justify-between mb-4">
+                <CardTitle>All Contacts</CardTitle>
+                <Button onClick={handleAddContact} data-testid="button-add-contact">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Contact
+                </Button>
+              </div>
+
+              {/* Alphabetical Filter */}
+              <div className="flex flex-wrap gap-1 mb-4">
+                <Button
+                  variant={letterFilter === null ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setLetterFilter(null)}
+                  className="h-8 px-3"
+                  data-testid="letter-filter-all"
+                >
+                  ALL
+                </Button>
+                {ALPHABET.map(letter => (
+                  <Button
+                    key={letter}
+                    variant={letterFilter === letter ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setLetterFilter(letter)}
+                    className="h-8 w-8 p-0"
+                    data-testid={`letter-filter-${letter}`}
+                  >
+                    {letter}
+                  </Button>
+                ))}
+                <Button
+                  variant={letterFilter === '#' ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setLetterFilter('#')}
+                  className="h-8 w-8 p-0"
+                  data-testid="letter-filter-#"
+                >
+                  #
+                </Button>
+              </div>
+
+              {/* Tag Filter */}
+              {allTags.length > 0 && (
+                <div className="space-y-2">
+                  <div className="text-sm font-medium">Filter by tags:</div>
+                  <div className="flex flex-wrap gap-2">
+                    {allTags.map(tag => (
+                      <button
+                        key={tag}
+                        onClick={() => {
+                          if (tagFilter.includes(tag)) {
+                            setTagFilter(tagFilter.filter(t => t !== tag));
+                          } else {
+                            setTagFilter([...tagFilter, tag]);
+                          }
+                        }}
+                        className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm transition-colors ${
+                          tagFilter.includes(tag)
+                            ? 'bg-primary text-primary-foreground'
+                            : 'bg-muted hover:bg-muted/80'
+                        }`}
+                        data-testid={`tag-filter-${tag}`}
+                      >
+                        <Tag className="h-3 w-3" />
+                        {tag}
+                      </button>
+                    ))}
+                    {tagFilter.length > 0 && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setTagFilter([])}
+                        className="h-auto py-1"
+                        data-testid="button-clear-tag-filters"
+                      >
+                        Clear filters
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              )}
+            </CardHeader>
+            <CardContent>
             {isLoading ? (
               <div className="animate-pulse">
                 <div className="space-y-4">
@@ -257,6 +441,21 @@ export default function Contacts() {
                 <Button onClick={handleAddContact} data-testid="button-add-first-contact">
                   <Plus className="h-4 w-4 mr-2" />
                   Add Your First Contact
+                </Button>
+              </div>
+            ) : filteredContacts.length === 0 ? (
+              <div className="text-center py-12" data-testid="no-filtered-contacts">
+                <User className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                <p className="text-muted-foreground mb-4">No contacts match the current filters</p>
+                <Button 
+                  variant="outline"
+                  onClick={() => {
+                    setLetterFilter(null);
+                    setTagFilter([]);
+                  }}
+                  data-testid="button-clear-all-filters"
+                >
+                  Clear All Filters
                 </Button>
               </div>
             ) : (
@@ -275,7 +474,7 @@ export default function Contacts() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {contacts.map((contact) => {
+                  {filteredContacts.map((contact) => {
                     const isExpanded = expandedContactId === contact.id;
                     // Client's personal address
                     const contactAddress = [contact.address, contact.city, contact.state, contact.zipCode]
@@ -292,7 +491,14 @@ export default function Contacts() {
                         <TableRow 
                           data-testid={`contact-row-${contact.id}`}
                           className="cursor-pointer hover:bg-accent"
-                          onClick={() => setExpandedContactId(expandedContactId === contact.id ? null : contact.id)}
+                          onClick={() => {
+                            if (isExpanded) {
+                              setExpandedContactId(null);
+                            } else {
+                              setExpandedContactId(contact.id);
+                              trackContactView(contact);
+                            }
+                          }}
                         >
                           <TableCell className="font-medium" data-testid={`contact-name-${contact.id}`}>
                             {getDisplayName(contact)}
@@ -474,6 +680,7 @@ export default function Contacts() {
             )}
           </CardContent>
         </Card>
+        </div>
       </main>
 
       {/* Add/Edit Contact Modal */}

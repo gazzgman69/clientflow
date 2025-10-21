@@ -36,6 +36,7 @@ import TemplatesPage from "@/pages/settings/Templates";
 import ProductsServicesPage from "@/pages/settings/ProductsServices";
 import PortalSettingsComponent from "@/components/settings/PortalSettings";
 import AISettings from "@/pages/settings/AISettings";
+import NotificationSettingsTab from "@/pages/settings/NotificationSettings";
 import { GoogleOAuthModal } from '@/components/google-oauth-modal';
 import { SUPPORTED_CURRENCIES, detectCurrencyFromLocale, type CurrencyCode } from '@/lib/currency';
 import { queryClient } from "@/lib/queryClient";
@@ -381,90 +382,7 @@ export default function Settings() {
 
           {/* Notification Settings */}
           <TabsContent value="notifications" className="space-y-6">
-            <Card data-testid="notification-settings-card">
-              <CardHeader>
-                <CardTitle>Notification Preferences</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div className="space-y-0.5">
-                      <Label>Email Notifications</Label>
-                      <p className="text-sm text-muted-foreground">
-                        Receive notifications via email
-                      </p>
-                    </div>
-                    <Switch defaultChecked data-testid="switch-email-notifications" />
-                  </div>
-
-                  <div className="flex items-center justify-between">
-                    <div className="space-y-0.5">
-                      <Label>New Lead Alerts</Label>
-                      <p className="text-sm text-muted-foreground">
-                        Get notified when new leads are added
-                      </p>
-                    </div>
-                    <Switch defaultChecked data-testid="switch-lead-alerts" />
-                  </div>
-
-                  <div className="flex items-center justify-between">
-                    <div className="space-y-0.5">
-                      <Label>Quote Reminders</Label>
-                      <p className="text-sm text-muted-foreground">
-                        Reminders for pending quotes
-                      </p>
-                    </div>
-                    <Switch defaultChecked data-testid="switch-quote-reminders" />
-                  </div>
-
-                  <div className="flex items-center justify-between">
-                    <div className="space-y-0.5">
-                      <Label>Invoice Overdue Alerts</Label>
-                      <p className="text-sm text-muted-foreground">
-                        Get notified when invoices are overdue
-                      </p>
-                    </div>
-                    <Switch defaultChecked data-testid="switch-invoice-alerts" />
-                  </div>
-
-                  <div className="flex items-center justify-between">
-                    <div className="space-y-0.5">
-                      <Label>Weekly Summary</Label>
-                      <p className="text-sm text-muted-foreground">
-                        Receive weekly performance summaries
-                      </p>
-                    </div>
-                    <Switch data-testid="switch-weekly-summary" />
-                  </div>
-                </div>
-
-                <Separator />
-
-                <div className="space-y-4">
-                  <Label>Notification Frequency</Label>
-                  <Select defaultValue="immediate">
-                    <SelectTrigger data-testid="select-notification-frequency">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="immediate">Immediate</SelectItem>
-                      <SelectItem value="hourly">Hourly digest</SelectItem>
-                      <SelectItem value="daily">Daily digest</SelectItem>
-                      <SelectItem value="weekly">Weekly digest</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <Button 
-                  onClick={() => handleSaveSettings("Notification")}
-                  disabled={isLoading}
-                  data-testid="button-save-notifications"
-                >
-                  <Save className="h-4 w-4 mr-2" />
-                  {isLoading ? "Saving..." : "Save Changes"}
-                </Button>
-              </CardContent>
-            </Card>
+            <NotificationSettingsTab />
           </TabsContent>
 
           {/* Security Settings */}

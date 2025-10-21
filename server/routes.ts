@@ -7945,8 +7945,19 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
         tenantId: req.tenantId,
         body: req.body 
       });
+      
+      // Extract only the settings fields, excluding id, timestamps, and tenant info
+      const { 
+        id, 
+        createdAt, 
+        updatedAt, 
+        tenantId, 
+        userId: bodyUserId,
+        ...settingsData 
+      } = req.body;
+      
       const settings = await storage.upsertNotificationSettings(
-        { ...req.body, userId },
+        { ...settingsData, userId },
         req.tenantId!
       );
       console.log('✅ Settings saved successfully:', settings);

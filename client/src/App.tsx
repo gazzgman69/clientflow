@@ -20,7 +20,6 @@ import EmailSettings from "@/pages/settings/EmailSettings";
 import Templates from "@/pages/settings/Templates";
 import LeadAutomations from "@/pages/settings/Automations";
 import LeadCaptureBuilder from "@/pages/leads/LeadCaptureBuilder";
-import LeadsKanban from "@/pages/leads/LeadsKanban";
 import LeadsUrgencyList from "@/pages/leads/LeadsUrgencyList";
 import LeadsInbox from "@/pages/leads/LeadsInbox";
 import LeadFormHosted from "@/pages/public/LeadFormHosted";
@@ -120,7 +119,6 @@ function Router() {
                 <Switch>
                   <Route path="/" component={Dashboard} />
                   <Route path="/leads/capture" component={LeadCaptureBuilder} />
-                  <Route path="/leads/board" component={LeadsKanban} />
                   <Route path="/leads/urgency" component={LeadsUrgencyList} />
                   <Route path="/leads/inbox" component={LeadsInbox} />
                   <Route path="/leads">

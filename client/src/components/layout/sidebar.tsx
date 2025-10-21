@@ -18,7 +18,7 @@ import { useToast } from "@/hooks/use-toast";
 const staticNavigationItems = [
   { href: "/", icon: BarChart3, label: "Dashboard", badge: null },
   { 
-    href: "/leads/board", 
+    href: "/leads/urgency", 
     icon: UserPlus, 
     label: "Leads", 
     badge: null // Will be populated dynamically

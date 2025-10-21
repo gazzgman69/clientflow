@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Kanban, Search, Mail, ExternalLink, Trash2, RefreshCw, AlertCircle, CheckCircle, Clock } from "lucide-react";
+import { Search, Mail, ExternalLink, Trash2, RefreshCw, AlertCircle, CheckCircle, Clock } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -250,14 +250,6 @@ export default function LeadsInbox() {
       <Header 
         title="Leads" 
         subtitle="Inbox view for lead triage"
-        actions={
-          <Button variant="outline" asChild data-testid="button-board-view">
-            <Link href="/leads/board">
-              <Kanban className="h-4 w-4 mr-2" />
-              Board View
-            </Link>
-          </Button>
-        }
       />
       
       <main className="flex-1 overflow-auto p-6">

@@ -76,17 +76,9 @@ class NotificationWorker {
         }
       }
 
-      // BATCH FETCH 3: Auto-reply logs for ALL leads
-      // TODO: Add true batch method storage.getAutoReplyLogsByLeads(leadIds, tenantId) to eliminate N queries
-      // Current implementation: Parallelized per-lead fetches (not ideal but better than sequential)
-      // Limitation: Still issues N database queries, just in parallel
-      const autoReplyLogsByLead = new Map<string, AutoReplyLog[]>();
-      await Promise.all(activeLeads.map(async (lead) => {
-        const logs = await storage.getAutoReplyLogs(lead.id, tenantId);
-        if (logs.length > 0) {
-          autoReplyLogsByLead.set(lead.id, logs);
-        }
-      }));
+      // BATCH FETCH 3: Auto-reply logs for ALL leads in a single query
+      const leadIds = activeLeads.map(l => l.id);
+      const autoReplyLogsByLead = await storage.getAutoReplyLogsByLeads(leadIds, tenantId);
 
       // BATCH FETCH 4: Existing notifications to avoid duplicates
       const existingNotifications = userId 
@@ -109,143 +101,41 @@ class NotificationWorker {
         errors: []
       };
 
-      // Track leads needing notifications for email digest
-      const leadsNeedingNotification: Array<{ lead: Contact; urgency: any; message: string }> = [];
+      // Analyze leads for urgent follow-ups
+      const urgentLeads = await this.analyzeUrgentLeads({
+        activeLeads,
+        projectsMap,
+        emailsByContact,
+        autoReplyLogsByLead,
+        notificationsByLead,
+        settings,
+        tenantId,
+        userId
+      });
 
-      // Check each lead for urgency
-      for (const lead of activeLeads) {
-        try {
-          results.leadsAnalyzed++;
-
-          // Get pre-fetched data for this lead
-          const projects = projectsMap.get(lead.id) || [];
-          const emails = emailsByContact.get(lead.id) || [];
-          const autoReplyLogs = autoReplyLogsByLead.get(lead.id) || [];
-          
-          // Calculate urgency score using pre-fetched data
-          const sortedEmails = emails.sort((a, b) => 
-            new Date(b.createdAt!).getTime() - new Date(a.createdAt!).getTime()
-          );
-          
-          const hasAutoReply = autoReplyLogs.length > 0;
-          const latestAutoReply = autoReplyLogs[0];
-          const hasPersonalReply = sortedEmails.some(email => 
-            email.direction === 'outbound' && 
-            (!latestAutoReply || new Date(email.createdAt!) > new Date(latestAutoReply.sentAt!))
-          );
-          
-          // Calculate urgency
-          const urgency = await urgencyService.calculateLeadUrgency(
-            lead,
-            tenantId,
-            userId || lead.userId || '',
-            projects
-          );
-
-          // Check if urgency score is high enough
-          if (urgency.score < 50) {
-            continue; // Not urgent enough to notify
-          }
-
-          // Check if we already have a recent notification for this lead
-          const leadNotifications = notificationsByLead.get(lead.id) || [];
-          const recentNotification = leadNotifications.find((n: LeadFollowUpNotification) => {
-            const createdAt = new Date(n.createdAt!);
-            const hoursSince = (Date.now() - createdAt.getTime()) / (1000 * 60 * 60);
-            const threshold = settings.followUpThresholdHours || 24;
-            return hoursSince < threshold;
-          });
-
-          if (recentNotification) {
-            console.log(`⏩ Skipping lead ${lead.id} - recent notification exists`);
-            continue;
-          }
-
-          // Generate notification message
-          const message = urgencyService.generateNotificationMessage(lead, urgency);
-
-          // Add to notification queue
-          leadsNeedingNotification.push({ lead, urgency, message });
-
-        } catch (error) {
-          console.error(`❌ Error processing lead ${lead.id}:`, error);
-          results.errors.push({
-            leadId: lead.id,
-            error: error instanceof Error ? error.message : String(error)
-          });
-        }
-      }
+      results.leadsAnalyzed = urgentLeads.analyzed;
+      results.errors = urgentLeads.errors;
 
       // Create in-app notifications ONLY if enabled
-      if (settings.inAppNotificationsEnabled && leadsNeedingNotification.length > 0) {
-        console.log(`📱 Creating ${leadsNeedingNotification.length} in-app notifications`);
-        
-        for (const { lead, urgency, message } of leadsNeedingNotification) {
-          try {
-            await storage.createLeadNotification({
-              tenantId,
-              userId: userId || lead.userId,
-              leadId: lead.id,
-              type: 'follow_up_reminder',
-              title: `Follow up needed: ${lead.firstName} ${lead.lastName}`,
-              message,
-              urgencyScore: urgency.score,
-              priority: urgency.priority,
-              actionUrl: `/contacts?selected=${lead.id}`,
-              metadata: JSON.stringify({
-                leadName: `${lead.firstName} ${lead.lastName}`,
-                leadEmail: lead.email,
-                urgencyReasons: urgency.reasons,
-                daysSinceContact: urgency.daysSinceContact,
-                daysUntilEvent: urgency.daysUntilEvent,
-                needsReply: urgency.needsReply
-              })
-            }, tenantId);
-
-            results.notificationsCreated++;
-            console.log(`✅ Created in-app notification for lead ${lead.id} (urgency: ${urgency.score})`);
-          } catch (error) {
-            console.error(`❌ Failed to create notification for lead ${lead.id}:`, error);
-          }
-        }
+      if (settings.inAppNotificationsEnabled && urgentLeads.leads.length > 0) {
+        results.notificationsCreated = await this.createInAppNotifications({
+          urgentLeads: urgentLeads.leads,
+          tenantId,
+          userId
+        });
       }
 
-      // Send email digest ONLY if email notifications are enabled
-      // This works independently of in-app notifications
-      if (settings.emailNotificationsEnabled && leadsNeedingNotification.length > 0 && userId) {
-        console.log(`📧 Sending email digest with ${leadsNeedingNotification.length} notifications`);
-        
-        try {
-          const user = await storage.getUser(userId, tenantId);
-          if (user?.email) {
-            const subject = `You have ${leadsNeedingNotification.length} lead follow-up reminder${leadsNeedingNotification.length > 1 ? 's' : ''}`;
-            
-            let emailBody = `<h2>Lead Follow-Up Reminders</h2>`;
-            emailBody += `<p>You have ${leadsNeedingNotification.length} lead${leadsNeedingNotification.length > 1 ? 's' : ''} that need your attention:</p>`;
-            emailBody += `<ul>`;
-            
-            for (const { lead, urgency, message } of leadsNeedingNotification) {
-              emailBody += `<li><strong>${lead.firstName} ${lead.lastName}</strong> (Urgency: ${urgency.score}/100)<br>${message}</li>`;
-            }
-            
-            emailBody += `</ul>`;
-            emailBody += `<p><a href="${process.env.REPLIT_DEV_DOMAIN || ''}/contacts">View all leads</a></p>`;
-
-            await emailDispatcher.send({
-              tenantId,
-              to: user.email,
-              subject,
-              html: emailBody,
-              tags: ['notification-digest']
-            });
-
-            results.emailsQueued = leadsNeedingNotification.length;
-            console.log(`✅ Sent email digest to ${user.email}`);
-          } else {
-            console.warn('⚠️ Cannot send email - user email not found');
-          }
-        } catch (error) {
-          console.error('❌ Failed to send email digest:', error);
+      // Queue email digest ONLY if email notifications are enabled
+      // Email digest works independently of in-app notifications
+      if (settings.emailNotificationsEnabled && urgentLeads.leads.length > 0 && userId) {
+        const emailSent = await this.queueEmailDigest({
+          urgentLeads: urgentLeads.leads,
+          tenantId,
+          userId,
+          settings
+        });
+        if (emailSent) {
+          results.emailsQueued = urgentLeads.leads.length;
         }
       }
 
@@ -269,66 +159,176 @@ class NotificationWorker {
   }
 
   /**
-   * Send email digest of notifications based on user preferences
+   * Analyze leads and identify those needing urgent follow-up
    */
-  async sendEmailDigest(options: NotificationWorkerOptions): Promise<void> {
-    const { tenantId, userId } = options;
+  private async analyzeUrgentLeads(params: {
+    activeLeads: Contact[];
+    projectsMap: Map<string, any[]>;
+    emailsByContact: Map<string, Email[]>;
+    autoReplyLogsByLead: Map<string, AutoReplyLog[]>;
+    notificationsByLead: Map<string, LeadFollowUpNotification[]>;
+    settings: any;
+    tenantId: string;
+    userId?: string;
+  }): Promise<{
+    leads: Array<{ lead: Contact; urgency: any; message: string }>;
+    analyzed: number;
+    errors: Array<{ leadId: string; error: string }>;
+  }> {
+    const { activeLeads, projectsMap, emailsByContact, autoReplyLogsByLead, notificationsByLead, settings, tenantId, userId } = params;
+    
+    const urgentLeads: Array<{ lead: Contact; urgency: any; message: string }> = [];
+    const errors: Array<{ leadId: string; error: string }> = [];
+    let analyzed = 0;
+
+    for (const lead of activeLeads) {
+      try {
+        analyzed++;
+
+        // Get pre-fetched data for this lead
+        const projects = projectsMap.get(lead.id) || [];
+        const emails = emailsByContact.get(lead.id) || [];
+        const autoReplyLogs = autoReplyLogsByLead.get(lead.id) || [];
+        
+        // Calculate urgency
+        const urgency = await urgencyService.calculateLeadUrgency(
+          lead,
+          tenantId,
+          userId || lead.userId || '',
+          projects
+        );
+
+        // Check if urgency score is high enough
+        if (urgency.score < 50) {
+          continue; // Not urgent enough to notify
+        }
+
+        // Check if we already have a recent notification for this lead
+        const leadNotifications = notificationsByLead.get(lead.id) || [];
+        const recentNotification = leadNotifications.find((n: LeadFollowUpNotification) => {
+          const createdAt = new Date(n.createdAt!);
+          const hoursSince = (Date.now() - createdAt.getTime()) / (1000 * 60 * 60);
+          const threshold = settings.followUpThresholdHours || 24;
+          return hoursSince < threshold;
+        });
+
+        if (recentNotification) {
+          console.log(`⏩ Skipping lead ${lead.id} - recent notification exists`);
+          continue;
+        }
+
+        // Generate notification message
+        const message = urgencyService.generateNotificationMessage(lead, urgency);
+
+        urgentLeads.push({ lead, urgency, message });
+
+      } catch (error) {
+        console.error(`❌ Error processing lead ${lead.id}:`, error);
+        errors.push({
+          leadId: lead.id,
+          error: error instanceof Error ? error.message : String(error)
+        });
+      }
+    }
+
+    return { leads: urgentLeads, analyzed, errors };
+  }
+
+  /**
+   * Create in-app notifications for urgent leads
+   */
+  private async createInAppNotifications(params: {
+    urgentLeads: Array<{ lead: Contact; urgency: any; message: string }>;
+    tenantId: string;
+    userId?: string;
+  }): Promise<number> {
+    const { urgentLeads, tenantId, userId } = params;
+    let created = 0;
+
+    console.log(`📱 Creating ${urgentLeads.length} in-app notifications`);
+
+    for (const { lead, urgency, message } of urgentLeads) {
+      try {
+        await storage.createLeadNotification({
+          tenantId,
+          userId: userId || lead.userId,
+          leadId: lead.id,
+          type: 'follow_up_reminder',
+          title: `Follow up needed: ${lead.firstName} ${lead.lastName}`,
+          message,
+          urgencyScore: urgency.score,
+          priority: urgency.priority,
+          actionUrl: `/contacts?selected=${lead.id}`,
+          metadata: JSON.stringify({
+            leadName: `${lead.firstName} ${lead.lastName}`,
+            leadEmail: lead.email,
+            urgencyReasons: urgency.reasons,
+            daysSinceContact: urgency.daysSinceContact,
+            daysUntilEvent: urgency.daysUntilEvent,
+            needsReply: urgency.needsReply
+          })
+        }, tenantId);
+
+        created++;
+        console.log(`✅ Created in-app notification for lead ${lead.id} (urgency: ${urgency.score})`);
+      } catch (error) {
+        console.error(`❌ Failed to create notification for lead ${lead.id}:`, error);
+      }
+    }
+
+    return created;
+  }
+
+  /**
+   * Queue email digest based on frequency settings
+   * Works independently from in-app notifications
+   */
+  private async queueEmailDigest(params: {
+    urgentLeads: Array<{ lead: Contact; urgency: any; message: string }>;
+    tenantId: string;
+    userId: string;
+    settings: any;
+  }): Promise<boolean> {
+    const { urgentLeads, tenantId, userId, settings } = params;
 
     try {
-      console.log('📧 Checking for email digest notifications', { tenantId, userId });
-
-      // Get notification settings
-      const settings = await storage.getNotificationSettings(tenantId, userId);
-      
-      if (!settings?.emailNotificationsEnabled) {
-        console.log('⏩ Email notifications disabled, skipping digest');
-        return;
-      }
-
-      // Must have userId to send emails
-      if (!userId) {
-        console.warn('⚠️ Cannot send digest - no userId provided');
-        return;
-      }
-
-      // Check email frequency setting
-      const frequency = settings.emailFrequency || 'daily_digest';
-      
-      if (frequency === 'disabled') {
-        console.log('⏩ Email notifications are disabled');
-        return;
-      }
-
-      // Get unread notifications (these are the in-app ones if enabled, or we use urgent leads)
-      const notifications = await storage.getLeadNotifications(userId, tenantId, true);
-      
-      if (notifications.length === 0) {
-        console.log('⏩ No unread notifications to send');
-        return;
-      }
+      console.log(`📧 Queueing email digest with ${urgentLeads.length} urgent leads`);
 
       // Get user email
       const user = await storage.getUser(userId, tenantId);
       if (!user?.email) {
-        console.warn('⚠️ Cannot send digest - user email not found');
-        return;
+        console.warn('⚠️ Cannot send email - user email not found');
+        return false;
       }
 
+      // Check email frequency and last digest time
+      const frequency = settings.emailFrequency || 'daily_digest';
+      
+      if (frequency === 'disabled') {
+        console.log('⏩ Email notifications are disabled');
+        return false;
+      }
+
+      // TODO: Add frequency checking logic here
+      // - For 'real_time': send immediately
+      // - For 'daily_digest': check if we already sent today
+      // - For 'weekly_digest': check if we already sent this week
+      // For now, send immediately regardless of frequency
+
       // Build email content
-      const subject = `You have ${notifications.length} lead follow-up reminder${notifications.length > 1 ? 's' : ''}`;
+      const subject = `You have ${urgentLeads.length} lead follow-up reminder${urgentLeads.length > 1 ? 's' : ''}`;
       
       let emailBody = `<h2>Lead Follow-Up Reminders</h2>`;
-      emailBody += `<p>You have ${notifications.length} lead${notifications.length > 1 ? 's' : ''} that need your attention:</p>`;
+      emailBody += `<p>You have ${urgentLeads.length} lead${urgentLeads.length > 1 ? 's' : ''} that need your attention:</p>`;
       emailBody += `<ul>`;
       
-      for (const notification of notifications) {
-        emailBody += `<li><strong>${notification.title}</strong><br>${notification.message}</li>`;
+      for (const { lead, urgency, message } of urgentLeads) {
+        emailBody += `<li><strong>${lead.firstName} ${lead.lastName}</strong> (Urgency: ${urgency.score}/100)<br>${message}</li>`;
       }
       
       emailBody += `</ul>`;
       emailBody += `<p><a href="${process.env.REPLIT_DEV_DOMAIN || ''}/contacts">View all leads</a></p>`;
 
-      // Send email via EmailDispatcher
       await emailDispatcher.send({
         tenantId,
         to: user.email,
@@ -337,11 +337,12 @@ class NotificationWorker {
         tags: ['notification-digest']
       });
 
-      console.log(`✅ Sent email digest to ${user.email} with ${notifications.length} notifications`);
+      console.log(`✅ Sent email digest to ${user.email}`);
+      return true;
 
     } catch (error) {
-      console.error('❌ Error sending email digest:', error);
-      throw error;
+      console.error('❌ Failed to send email digest:', error);
+      return false;
     }
   }
 

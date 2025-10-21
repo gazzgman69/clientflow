@@ -682,6 +682,7 @@ export interface IStorage {
   getUnreadNotificationCount(userId: string, tenantId: string): Promise<number>;
   
   getAutoReplyLogs(leadId: string, tenantId: string): Promise<AutoReplyLog[]>;
+  getAutoReplyLogsByLeads(leadIds: string[], tenantId: string): Promise<Map<string, AutoReplyLog[]>>;
   createAutoReplyLog(log: InsertAutoReplyLog, tenantId: string): Promise<AutoReplyLog>;
 
   // Tenant-scoped storage wrapper
@@ -8293,6 +8294,33 @@ export class DrizzleStorage implements IStorage {
         eq(autoReplyLog.tenantId, tenantId)
       ))
       .orderBy(desc(autoReplyLog.sentAt));
+  }
+
+  async getAutoReplyLogsByLeads(leadIds: string[], tenantId: string): Promise<Map<string, AutoReplyLog[]>> {
+    if (leadIds.length === 0) {
+      return new Map();
+    }
+
+    // Fetch all auto-reply logs for the given leads in a single query
+    const logs = await this.db
+      .select()
+      .from(autoReplyLog)
+      .where(and(
+        sql`${autoReplyLog.leadId} = ANY(${leadIds})`,
+        eq(autoReplyLog.tenantId, tenantId)
+      ))
+      .orderBy(desc(autoReplyLog.sentAt));
+
+    // Group logs by leadId
+    const logsByLead = new Map<string, AutoReplyLog[]>();
+    for (const log of logs) {
+      if (!logsByLead.has(log.leadId)) {
+        logsByLead.set(log.leadId, []);
+      }
+      logsByLead.get(log.leadId)!.push(log);
+    }
+
+    return logsByLead;
   }
 
   async createAutoReplyLog(log: InsertAutoReplyLog, tenantId: string): Promise<AutoReplyLog> {

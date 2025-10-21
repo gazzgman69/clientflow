@@ -7829,11 +7829,11 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   // NOTIFICATION ROUTES
   // ============================================================================
   
-  // Get all notifications for the current user
+  // Get all notifications for the current user (both read and unread)
   app.get('/api/notifications', ensureUserAuth, tenantResolver, requireTenant, async (req: TenantRequest, res) => {
     try {
-      const userId = req.user!.id;
-      const notifications = await storage.getLeadNotifications(userId, req.tenantId!, true); // unreadOnly=true
+      const userId = req.authenticatedUserId!;
+      const notifications = await storage.getLeadNotifications(userId, req.tenantId!, false);
       res.json(notifications);
     } catch (error: any) {
       console.error('Error fetching notifications:', error);
@@ -7844,6 +7844,13 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   // Mark notification as read
   app.post('/api/notifications/:id/read', ensureUserAuth, tenantResolver, requireTenant, csrf, async (req: TenantRequest, res) => {
     try {
+      const notification = await storage.getLeadNotification(req.params.id, req.tenantId!);
+      if (!notification) {
+        return res.status(404).json({ error: 'Notification not found' });
+      }
+      if (notification.userId !== req.authenticatedUserId!) {
+        return res.status(403).json({ error: 'Unauthorized' });
+      }
       await storage.markNotificationAsRead(req.params.id, req.tenantId!);
       res.json({ success: true });
     } catch (error: any) {
@@ -7855,6 +7862,13 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   // Dismiss notification
   app.post('/api/notifications/:id/dismiss', ensureUserAuth, tenantResolver, requireTenant, csrf, async (req: TenantRequest, res) => {
     try {
+      const notification = await storage.getLeadNotification(req.params.id, req.tenantId!);
+      if (!notification) {
+        return res.status(404).json({ error: 'Notification not found' });
+      }
+      if (notification.userId !== req.authenticatedUserId!) {
+        return res.status(403).json({ error: 'Unauthorized' });
+      }
       await storage.markNotificationAsDismissed(req.params.id, req.tenantId!);
       res.json({ success: true });
     } catch (error: any) {
@@ -7866,7 +7880,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   // Get unread notification count
   app.get('/api/notifications/count', ensureUserAuth, tenantResolver, requireTenant, async (req: TenantRequest, res) => {
     try {
-      const userId = req.user!.id;
+      const userId = req.authenticatedUserId!;
       const count = await storage.getUnreadNotificationCount(userId, req.tenantId!);
       res.json({ count });
     } catch (error: any) {
@@ -7879,7 +7893,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   app.post('/api/notifications/run-worker', ensureUserAuth, tenantResolver, requireTenant, csrf, async (req: TenantRequest, res) => {
     try {
       const { notificationWorker } = await import('./notification-worker');
-      const userId = req.user!.id;
+      const userId = req.authenticatedUserId!;
       const result = await notificationWorker.run({
         tenantId: req.tenantId!,
         userId,
@@ -7889,6 +7903,96 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     } catch (error: any) {
       console.error('Error running notification worker:', error);
       res.status(500).json({ error: 'Failed to run notification worker' });
+    }
+  });
+
+  // ============================================================================
+  // NOTIFICATION SETTINGS ROUTES
+  // ============================================================================
+  
+  // Get notification settings for current user
+  app.get('/api/notification-settings', ensureUserAuth, tenantResolver, requireTenant, async (req: TenantRequest, res) => {
+    try {
+      const userId = req.authenticatedUserId!;
+      const settings = await storage.getNotificationSettings(userId, req.tenantId!);
+      res.json(settings);
+    } catch (error: any) {
+      console.error('Error fetching notification settings:', error);
+      res.status(500).json({ error: 'Failed to fetch notification settings' });
+    }
+  });
+
+  // Create or update notification settings
+  app.post('/api/notification-settings', ensureUserAuth, tenantResolver, requireTenant, csrf, async (req: TenantRequest, res) => {
+    try {
+      const userId = req.authenticatedUserId!;
+      const settings = await storage.createOrUpdateNotificationSettings(
+        { ...req.body, userId },
+        req.tenantId!
+      );
+      res.json(settings);
+    } catch (error: any) {
+      console.error('Error saving notification settings:', error);
+      res.status(500).json({ error: 'Failed to save notification settings' });
+    }
+  });
+
+  // Update specific notification settings
+  app.patch('/api/notification-settings/:id', ensureUserAuth, tenantResolver, requireTenant, csrf, async (req: TenantRequest, res) => {
+    try {
+      const settings = await storage.updateNotificationSettings(req.params.id, req.body, req.tenantId!);
+      if (!settings) {
+        return res.status(404).json({ error: 'Settings not found' });
+      }
+      res.json(settings);
+    } catch (error: any) {
+      console.error('Error updating notification settings:', error);
+      res.status(500).json({ error: 'Failed to update settings' });
+    }
+  });
+
+  // ============================================================================
+  // AUTO-REPLY SETTINGS ROUTES
+  // ============================================================================
+  
+  // Get auto-reply settings for current user
+  app.get('/api/auto-reply-settings', ensureUserAuth, tenantResolver, requireTenant, async (req: TenantRequest, res) => {
+    try {
+      const userId = req.authenticatedUserId!;
+      const settings = await storage.getAutoReplySettings(userId, req.tenantId!);
+      res.json(settings);
+    } catch (error: any) {
+      console.error('Error fetching auto-reply settings:', error);
+      res.status(500).json({ error: 'Failed to fetch auto-reply settings' });
+    }
+  });
+
+  // Create or update auto-reply settings
+  app.post('/api/auto-reply-settings', ensureUserAuth, tenantResolver, requireTenant, csrf, async (req: TenantRequest, res) => {
+    try {
+      const userId = req.authenticatedUserId!;
+      const settings = await storage.createOrUpdateAutoReplySettings(
+        { ...req.body, userId },
+        req.tenantId!
+      );
+      res.json(settings);
+    } catch (error: any) {
+      console.error('Error saving auto-reply settings:', error);
+      res.status(500).json({ error: 'Failed to save auto-reply settings' });
+    }
+  });
+
+  // Update specific auto-reply settings
+  app.patch('/api/auto-reply-settings/:id', ensureUserAuth, tenantResolver, requireTenant, csrf, async (req: TenantRequest, res) => {
+    try {
+      const settings = await storage.updateAutoReplySettings(req.params.id, req.body, req.tenantId!);
+      if (!settings) {
+        return res.status(404).json({ error: 'Settings not found' });
+      }
+      res.json(settings);
+    } catch (error: any) {
+      console.error('Error updating auto-reply settings:', error);
+      res.status(500).json({ error: 'Failed to update settings' });
     }
   });
 

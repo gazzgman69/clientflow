@@ -11,34 +11,21 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { formatDistanceToNow } from "date-fns";
-
-interface Notification {
-  id: string;
-  type: string;
-  title: string;
-  message: string;
-  urgencyScore: number;
-  priority: 'low' | 'medium' | 'high' | 'urgent';
-  actionUrl: string | null;
-  readAt: string | null;
-  dismissedAt: string | null;
-  createdAt: string;
-  leadId: string | null;
-}
+import type { LeadFollowUpNotification } from "@shared/schema";
 
 export default function NotificationCenter() {
   const [isOpen, setIsOpen] = useState(false);
   const { toast } = useToast();
 
-  // Fetch unread notifications
-  const { data: notifications = [] } = useQuery<Notification[]>({
+  // Fetch all notifications (read and unread)
+  const { data: notifications = [] } = useQuery<LeadFollowUpNotification[]>({
     queryKey: ['/api/notifications'],
     refetchInterval: 30000, // Poll every 30 seconds
     refetchOnWindowFocus: true,
   });
 
   // Get unread count
-  const unreadCount = notifications.filter(n => !n.readAt && !n.dismissedAt).length;
+  const unreadCount = notifications.filter(n => !n.read && !n.dismissed).length;
 
   // Mark notification as read
   const markAsReadMutation = useMutation({
@@ -79,9 +66,9 @@ export default function NotificationCenter() {
   });
 
   // Handle notification click
-  const handleNotificationClick = (notification: Notification) => {
+  const handleNotificationClick = (notification: LeadFollowUpNotification) => {
     // Mark as read
-    if (!notification.readAt) {
+    if (!notification.read) {
       markAsReadMutation.mutate(notification.id);
     }
 
@@ -149,7 +136,7 @@ export default function NotificationCenter() {
                 <div
                   key={notification.id}
                   className={`p-4 hover:bg-accent/50 cursor-pointer transition-colors ${
-                    !notification.readAt && !notification.dismissedAt ? 'bg-accent/20' : ''
+                    !notification.read && !notification.dismissed ? 'bg-accent/20' : ''
                   }`}
                   onClick={() => handleNotificationClick(notification)}
                   data-testid={`notification-${notification.id}`}
@@ -180,7 +167,7 @@ export default function NotificationCenter() {
                         )}
                       </div>
                     </div>
-                    {!notification.dismissedAt && (
+                    {!notification.dismissed && (
                       <Button
                         variant="ghost"
                         size="sm"
@@ -210,7 +197,7 @@ export default function NotificationCenter() {
               onClick={() => {
                 // Mark all as read
                 notifications
-                  .filter(n => !n.readAt)
+                  .filter(n => !n.read)
                   .forEach(n => markAsReadMutation.mutate(n.id));
               }}
               data-testid="mark-all-read-button"

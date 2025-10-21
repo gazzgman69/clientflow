@@ -4868,6 +4868,14 @@ export class DrizzleStorage implements IStorage {
     }).where(and(eq(projects.id, id), eq(projects.tenantId, tenantId))).returning();
     return result[0];
   }
+  async touchProject(projectId: string, tenantId: string): Promise<void> {
+    if (projectId && tenantId) {
+      await this.db.update(projects).set({
+        updatedAt: new Date(),
+      }).where(and(eq(projects.id, projectId), eq(projects.tenantId, tenantId)));
+    }
+  }
+  
   async deleteProject(id: string, tenantId: string): Promise<boolean> {
     try {
       // First, remove project references from related tables to avoid foreign key constraint violations
@@ -5032,6 +5040,12 @@ export class DrizzleStorage implements IStorage {
       createdAt: new Date(),
       updatedAt: new Date(),
     }).returning();
+    
+    // Update project timestamp
+    if (result[0].projectId && result[0].tenantId) {
+      await this.touchProject(result[0].projectId, result[0].tenantId);
+    }
+    
     return result[0];
   }
   async updateQuote(id: string, quote: Partial<InsertQuote>) { 
@@ -5039,6 +5053,12 @@ export class DrizzleStorage implements IStorage {
       ...quote,
       updatedAt: new Date(),
     }).where(eq(quotes.id, id)).returning();
+    
+    // Update project timestamp
+    if (result[0]?.projectId && result[0]?.tenantId) {
+      await this.touchProject(result[0].projectId, result[0].tenantId);
+    }
+    
     return result[0];
   }
   async deleteQuote(id: string) { 
@@ -5072,6 +5092,12 @@ export class DrizzleStorage implements IStorage {
       createdAt: new Date(),
       updatedAt: new Date(),
     }).returning();
+    
+    // Update project timestamp
+    if (result[0].projectId && result[0].tenantId) {
+      await this.touchProject(result[0].projectId, result[0].tenantId);
+    }
+    
     return result[0];
   }
   async updateContract(id: string, contract: Partial<InsertContract>) { 
@@ -5079,6 +5105,12 @@ export class DrizzleStorage implements IStorage {
       ...contract,
       updatedAt: new Date(),
     }).where(eq(contracts.id, id)).returning();
+    
+    // Update project timestamp
+    if (result[0]?.projectId && result[0]?.tenantId) {
+      await this.touchProject(result[0].projectId, result[0].tenantId);
+    }
+    
     return result[0];
   }
   async deleteContract(id: string) { 
@@ -5161,6 +5193,12 @@ export class DrizzleStorage implements IStorage {
       createdAt: new Date(),
       updatedAt: new Date(),
     }).returning();
+    
+    // Update project timestamp
+    if (result[0].projectId && result[0].tenantId) {
+      await this.touchProject(result[0].projectId, result[0].tenantId);
+    }
+    
     return result[0];
   }
   async updateInvoice(id: string, invoice: Partial<InsertInvoice>) { 
@@ -5168,6 +5206,12 @@ export class DrizzleStorage implements IStorage {
       ...invoice,
       updatedAt: new Date(),
     }).where(eq(invoices.id, id)).returning();
+    
+    // Update project timestamp
+    if (result[0]?.projectId && result[0]?.tenantId) {
+      await this.touchProject(result[0].projectId, result[0].tenantId);
+    }
+    
     return result[0];
   }
   async deleteInvoice(id: string) { 
@@ -5560,6 +5604,12 @@ export class DrizzleStorage implements IStorage {
       createdAt: new Date(),
       updatedAt: new Date(),
     }).returning();
+    
+    // Update project timestamp
+    if (result[0].projectId && result[0].tenantId) {
+      await this.touchProject(result[0].projectId, result[0].tenantId);
+    }
+    
     return result[0];
   }
   async updateTask(id: string, task: Partial<InsertTask>, tenantId?: string) { 
@@ -5574,6 +5624,11 @@ export class DrizzleStorage implements IStorage {
       ...task,
       updatedAt: new Date(),
     }).where(whereCondition).returning();
+    
+    // Update project timestamp
+    if (result[0]?.projectId && result[0]?.tenantId) {
+      await this.touchProject(result[0].projectId, result[0].tenantId);
+    }
     
     // Return undefined if no rows were updated (task not found or wrong tenant)
     return result[0] || undefined;
@@ -5631,6 +5686,12 @@ export class DrizzleStorage implements IStorage {
       ...email,
       createdAt: new Date(),
     }).returning();
+    
+    // Update project timestamp
+    if (result[0].projectId && result[0].tenantId) {
+      await this.touchProject(result[0].projectId, result[0].tenantId);
+    }
+    
     return result[0];
   }
   async updateEmail(id: string, email: Partial<InsertEmail>) { 
@@ -5658,6 +5719,12 @@ export class DrizzleStorage implements IStorage {
   }
   async createActivity(activity: InsertActivity) { 
     const result = await this.db.insert(activities).values(activity).returning();
+    
+    // Update project timestamp
+    if (result[0].projectId && result[0].tenantId) {
+      await this.touchProject(result[0].projectId, result[0].tenantId);
+    }
+    
     return result[0];
   }
   async updateActivity(id: string, activity: Partial<InsertActivity>) { 

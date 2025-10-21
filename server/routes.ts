@@ -2385,6 +2385,58 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
 
+  // GET /api/leads/urgency - Leads with AI-calculated urgency scores
+  app.get("/api/leads/urgency", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
+    try {
+      const tenantId = (req as TenantRequest).tenantId;
+      const userId = req.session.userId!;
+      const { urgencyService } = await import("./urgency-service");
+      
+      const leads = await storage.getLeads(tenantId);
+      
+      // Batch fetch all projects for all leads in ONE query
+      const contactIds = leads.map(lead => lead.id);
+      const projectsByContact = await storage.getProjectsByContacts(contactIds, tenantId);
+      
+      // Calculate urgency for each lead
+      const leadsWithUrgency = await Promise.all(leads.map(async (lead) => {
+        // Pass projects to the urgency service to avoid duplicate lookup
+        const projects = projectsByContact.get(lead.id) || [];
+        const urgencyAnalysis = await urgencyService.calculateLeadUrgency(
+          lead, 
+          tenantId, 
+          userId,
+          projects // Pass pre-fetched projects
+        );
+        
+        const primaryProject = projects.find(p => p.id === lead.projectId) || projects[0];
+        
+        return {
+          id: lead.id,
+          firstName: lead.firstName,
+          lastName: lead.lastName,
+          email: lead.email,
+          phone: lead.phone,
+          eventDate: primaryProject?.eventDate,
+          venue: primaryProject?.eventLocation || lead.venueAddress,
+          projectId: lead.projectId,
+          urgencyScore: urgencyAnalysis.score,
+          urgencyPriority: urgencyAnalysis.priority,
+          needsReply: urgencyAnalysis.needsReply,
+          daysSinceContact: urgencyAnalysis.daysSinceContact,
+          daysUntilEvent: urgencyAnalysis.daysUntilEvent,
+          hasAutoReply: urgencyAnalysis.hasAutoReply,
+          hasPersonalReply: urgencyAnalysis.hasPersonalReply,
+        };
+      }));
+
+      res.json(leadsWithUrgency);
+    } catch (error) {
+      console.error('Error calculating lead urgency:', error);
+      res.status(500).json({ message: "Failed to calculate lead urgency" });
+    }
+  });
+
   // Clients
   app.get("/api/contacts", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
     try {

@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, integer, boolean, timestamp, decimal, index, unique } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, integer, boolean, timestamp, decimal, index, unique, uniqueIndex } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -2370,4 +2370,97 @@ export const insertAiTrainingDocumentSchema = createInsertSchema(aiTrainingDocum
 
 export type AiTrainingDocument = typeof aiTrainingDocuments.$inferSelect;
 export type InsertAiTrainingDocument = z.infer<typeof insertAiTrainingDocumentSchema>;
+
+// Notification System Tables
+
+// Notification Settings - User/tenant preferences for notifications and auto-replies
+export const notificationSettings = pgTable("notification_settings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").references(() => tenants.id).notNull(),
+  userId: varchar("user_id").references(() => users.id), // Nullable - can be tenant-wide or user-specific
+  emailNotificationsEnabled: boolean("email_notifications_enabled").default(true),
+  emailFrequency: text("email_frequency").default('daily_digest'), // 'realtime', 'daily_digest', 'weekly_digest', 'disabled'
+  inAppNotificationsEnabled: boolean("in_app_notifications_enabled").default(true),
+  autoReplyEnabled: boolean("auto_reply_enabled").default(false),
+  autoReplyMessage: text("auto_reply_message"),
+  followUpThresholdHours: integer("follow_up_threshold_hours").default(24), // Hours before notifying about unanswered leads
+  eventDateUrgencyDays: integer("event_date_urgency_days").default(30), // Days before event to mark as urgent
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  tenantIdIdx: index("notification_settings_tenant_id_idx").on(table.tenantId),
+  userIdIdx: index("notification_settings_user_id_idx").on(table.userId),
+  // Partial unique index for tenant-wide settings (user_id IS NULL)
+  tenantWideUnique: uniqueIndex("notification_settings_tenant_wide_unique")
+    .on(table.tenantId)
+    .where(sql`${table.userId} IS NULL`),
+  // Unique index for user-specific settings
+  userSpecificUnique: uniqueIndex("notification_settings_user_specific_unique")
+    .on(table.tenantId, table.userId)
+    .where(sql`${table.userId} IS NOT NULL`),
+}));
+
+// Lead Follow-Up Notifications - AI-generated notifications for leads that need attention
+export const leadFollowUpNotifications = pgTable("lead_follow_up_notifications", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").references(() => tenants.id).notNull(),
+  userId: varchar("user_id").references(() => users.id).notNull(), // Who should be notified
+  leadId: varchar("lead_id").references(() => contacts.id, { onDelete: 'cascade' }).notNull(), // Which lead needs attention
+  notificationType: text("notification_type").notNull(), // 'needs_reply', 'overdue_response', 'event_approaching', 'going_cold', 'auto_reply_sent'
+  priority: text("priority").notNull().default('medium'), // 'low', 'medium', 'high', 'urgent'
+  message: text("message").notNull(), // Notification message
+  urgencyScore: integer("urgency_score"), // 0-100 score calculated by AI
+  read: boolean("read").default(false),
+  readAt: timestamp("read_at"),
+  dismissed: boolean("dismissed").default(false),
+  dismissedAt: timestamp("dismissed_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  tenantIdIdx: index("lead_notifications_tenant_id_idx").on(table.tenantId),
+  userIdIdx: index("lead_notifications_user_id_idx").on(table.userId),
+  leadIdIdx: index("lead_notifications_lead_id_idx").on(table.leadId),
+  readIdx: index("lead_notifications_read_idx").on(table.read),
+  priorityIdx: index("lead_notifications_priority_idx").on(table.priority),
+}));
+
+// Auto-Reply Log - Track auto-replies sent to leads
+export const autoReplyLog = pgTable("auto_reply_log", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").references(() => tenants.id).notNull(),
+  leadId: varchar("lead_id").references(() => contacts.id, { onDelete: 'cascade' }).notNull(),
+  emailId: varchar("email_id").references(() => emails.id, { onDelete: 'set null' }), // The email that was sent
+  message: text("message").notNull(), // The auto-reply that was sent
+  sentAt: timestamp("sent_at").defaultNow(),
+}, (table) => ({
+  tenantIdIdx: index("auto_reply_log_tenant_id_idx").on(table.tenantId),
+  leadIdIdx: index("auto_reply_log_lead_id_idx").on(table.leadId),
+}));
+
+// Insert schemas and types for notification tables
+export const insertNotificationSettingsSchema = createInsertSchema(notificationSettings).omit({ 
+  id: true, 
+  createdAt: true, 
+  updatedAt: true 
+});
+
+export type NotificationSettings = typeof notificationSettings.$inferSelect;
+export type InsertNotificationSettings = z.infer<typeof insertNotificationSettingsSchema>;
+
+export const insertLeadFollowUpNotificationSchema = createInsertSchema(leadFollowUpNotifications).omit({ 
+  id: true, 
+  createdAt: true,
+  readAt: true,
+  dismissedAt: true
+});
+
+export type LeadFollowUpNotification = typeof leadFollowUpNotifications.$inferSelect;
+export type InsertLeadFollowUpNotification = z.infer<typeof insertLeadFollowUpNotificationSchema>;
+
+export const insertAutoReplyLogSchema = createInsertSchema(autoReplyLog).omit({ 
+  id: true, 
+  sentAt: true 
+});
+
+export type AutoReplyLog = typeof autoReplyLog.$inferSelect;
+export type InsertAutoReplyLog = z.infer<typeof insertAutoReplyLogSchema>;
 

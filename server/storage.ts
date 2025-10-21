@@ -81,6 +81,10 @@ import {
   type AiKnowledgeBase, type InsertAiKnowledgeBase,
   type AiCustomInstruction, type InsertAiCustomInstruction,
   type AiTrainingDocument, type InsertAiTrainingDocument,
+  // Notification System types
+  type NotificationSettings, type InsertNotificationSettings,
+  type LeadFollowUpNotification, type InsertLeadFollowUpNotification,
+  type AutoReplyLog, type InsertAutoReplyLog,
   users, leads, contacts, projects, quotes, contracts, contractTemplates, invoices, incomeCategories, invoiceItems, invoiceLineItems, paymentSchedules, paymentInstallments, recurringInvoiceSettings, paymentTransactions, taxSettings, tasks, emails, emailThreads, activities, automations, 
   members, venues, projectMembers, memberAvailability, projectFiles, projectNotes, smsMessages, 
   messageTemplates, messageThreads, calendars, events, calendarIntegrations, calendarSyncLog, templates, leadCaptureForms,
@@ -108,7 +112,9 @@ import {
   // AI Training & Knowledge Base tables
   aiBusinessContext, aiKnowledgeBase, aiCustomInstructions, aiTrainingDocuments,
   // User Preferences table
-  userPrefs
+  userPrefs,
+  // Notification System tables
+  notificationSettings, leadFollowUpNotifications, autoReplyLog
 } from "@shared/schema";
 import crypto from "crypto";
 import { TenantScopedStorage } from './utils/tenantScopedStorage';
@@ -190,6 +196,7 @@ export interface IStorage {
   getProject(id: string, tenantId: string): Promise<Project | undefined>;
   getProjectWithDetails(id: string, tenantId: string): Promise<any>; // Returns project with embedded contact & venue data
   getProjectsByContact(contactId: string, tenantId: string): Promise<Project[]>;
+  getProjectsByContacts(contactIds: string[], tenantId: string): Promise<Map<string, Project[]>>; // Batch fetch for multiple contacts
   createProject(project: InsertProject, tenantId: string): Promise<Project>;
   updateProject(id: string, project: Partial<InsertProject>, tenantId: string): Promise<Project | undefined>;
   deleteProject(id: string, tenantId: string): Promise<boolean>;
@@ -660,6 +667,22 @@ export interface IStorage {
   // User Preferences
   getUserPref(userId: string, key: string, tenantId: string): Promise<{ key: string; value: string } | undefined>;
   setUserPref(userId: string, key: string, value: string, tenantId: string): Promise<void>;
+
+  // Notification System
+  getNotificationSettings(tenantId: string, userId?: string): Promise<NotificationSettings | undefined>;
+  upsertNotificationSettings(settings: InsertNotificationSettings, tenantId: string): Promise<NotificationSettings>;
+  updateNotificationSettings(id: string, settings: Partial<InsertNotificationSettings>, tenantId: string): Promise<NotificationSettings | undefined>;
+  
+  getLeadNotifications(userId: string, tenantId: string, unreadOnly?: boolean): Promise<LeadFollowUpNotification[]>;
+  getLeadNotification(id: string, tenantId: string): Promise<LeadFollowUpNotification | undefined>;
+  createLeadNotification(notification: InsertLeadFollowUpNotification, tenantId: string): Promise<LeadFollowUpNotification>;
+  markNotificationAsRead(id: string, tenantId: string): Promise<void>;
+  markNotificationAsDismissed(id: string, tenantId: string): Promise<void>;
+  deleteLeadNotification(id: string, tenantId: string): Promise<boolean>;
+  getUnreadNotificationCount(userId: string, tenantId: string): Promise<number>;
+  
+  getAutoReplyLogs(leadId: string, tenantId: string): Promise<AutoReplyLog[]>;
+  createAutoReplyLog(log: InsertAutoReplyLog, tenantId: string): Promise<AutoReplyLog>;
 
   // Tenant-scoped storage wrapper
   withTenant(tenantId: string): TenantScopedStorage;
@@ -1211,6 +1234,24 @@ export class MemStorage implements IStorage {
     return Array.from(this.projects.values()).filter(project => 
       project.contactId === contactId && project.tenantId === tenantId
     );
+  }
+
+  async getProjectsByContacts(contactIds: string[], tenantId: string): Promise<Map<string, Project[]>> {
+    const result = new Map<string, Project[]>();
+    
+    // Initialize empty arrays for all contact IDs
+    contactIds.forEach(id => result.set(id, []));
+    
+    // Group projects by contact ID
+    Array.from(this.projects.values()).forEach(project => {
+      if (project.tenantId === tenantId && contactIds.includes(project.contactId)) {
+        const existing = result.get(project.contactId) || [];
+        existing.push(project);
+        result.set(project.contactId, existing);
+      }
+    });
+    
+    return result;
   }
 
   async getActiveProjectsByContact(contactId: string, tenantId: string): Promise<Project[]> {
@@ -4841,6 +4882,36 @@ export class DrizzleStorage implements IStorage {
     return await this.db.select().from(projects).where(and(eq(projects.contactId, contactId), eq(projects.tenantId, tenantId))).orderBy(desc(projects.createdAt));
   }
 
+  async getProjectsByContacts(contactIds: string[], tenantId: string): Promise<Map<string, Project[]>> {
+    if (contactIds.length === 0) {
+      return new Map();
+    }
+    
+    // Fetch all projects for the given contact IDs in one query
+    const allProjects = await this.db.select()
+      .from(projects)
+      .where(and(
+        inArray(projects.contactId, contactIds),
+        eq(projects.tenantId, tenantId)
+      ))
+      .orderBy(desc(projects.createdAt));
+    
+    // Group by contact ID
+    const result = new Map<string, Project[]>();
+    
+    // Initialize empty arrays for all contact IDs
+    contactIds.forEach(id => result.set(id, []));
+    
+    // Group projects by contact ID
+    allProjects.forEach(project => {
+      const existing = result.get(project.contactId) || [];
+      existing.push(project);
+      result.set(project.contactId, existing);
+    });
+    
+    return result;
+  }
+
   async getActiveProjectsByContact(contactId: string, tenantId: string): Promise<Project[]> {
     return await this.db.select().from(projects).where(and(
       eq(projects.contactId, contactId), 
@@ -8054,6 +8125,187 @@ export class DrizzleStorage implements IStorage {
       ));
     
     return result.rowCount !== null && result.rowCount > 0;
+  }
+
+  // Notification System
+  async getNotificationSettings(tenantId: string, userId?: string): Promise<NotificationSettings | undefined> {
+    const conditions = [eq(notificationSettings.tenantId, tenantId)];
+    
+    if (userId) {
+      conditions.push(eq(notificationSettings.userId, userId));
+    } else {
+      conditions.push(isNull(notificationSettings.userId));
+    }
+    
+    const [settings] = await this.db
+      .select()
+      .from(notificationSettings)
+      .where(and(...conditions));
+    
+    return settings;
+  }
+
+  async upsertNotificationSettings(settings: InsertNotificationSettings, tenantId: string): Promise<NotificationSettings> {
+    const existing = await this.getNotificationSettings(tenantId, settings.userId || undefined);
+    
+    if (existing) {
+      const [updated] = await this.db
+        .update(notificationSettings)
+        .set({ 
+          ...omitUndefined(settings),
+          updatedAt: new Date() 
+        })
+        .where(eq(notificationSettings.id, existing.id))
+        .returning();
+      
+      return updated;
+    } else {
+      const [created] = await this.db
+        .insert(notificationSettings)
+        .values({ 
+          ...settings, 
+          tenantId,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        })
+        .returning();
+      
+      return created;
+    }
+  }
+
+  async updateNotificationSettings(id: string, settings: Partial<InsertNotificationSettings>, tenantId: string): Promise<NotificationSettings | undefined> {
+    const [updated] = await this.db
+      .update(notificationSettings)
+      .set({ 
+        ...omitUndefined(settings),
+        updatedAt: new Date() 
+      })
+      .where(and(
+        eq(notificationSettings.id, id),
+        eq(notificationSettings.tenantId, tenantId)
+      ))
+      .returning();
+    
+    return updated;
+  }
+
+  async getLeadNotifications(userId: string, tenantId: string, unreadOnly?: boolean): Promise<LeadFollowUpNotification[]> {
+    const conditions = [
+      eq(leadFollowUpNotifications.tenantId, tenantId),
+      eq(leadFollowUpNotifications.userId, userId),
+      eq(leadFollowUpNotifications.dismissed, false)
+    ];
+    
+    if (unreadOnly) {
+      conditions.push(eq(leadFollowUpNotifications.read, false));
+    }
+    
+    return await this.db
+      .select()
+      .from(leadFollowUpNotifications)
+      .where(and(...conditions))
+      .orderBy(desc(leadFollowUpNotifications.createdAt));
+  }
+
+  async getLeadNotification(id: string, tenantId: string): Promise<LeadFollowUpNotification | undefined> {
+    const [notification] = await this.db
+      .select()
+      .from(leadFollowUpNotifications)
+      .where(and(
+        eq(leadFollowUpNotifications.id, id),
+        eq(leadFollowUpNotifications.tenantId, tenantId)
+      ));
+    
+    return notification;
+  }
+
+  async createLeadNotification(notification: InsertLeadFollowUpNotification, tenantId: string): Promise<LeadFollowUpNotification> {
+    const [created] = await this.db
+      .insert(leadFollowUpNotifications)
+      .values({ 
+        ...notification, 
+        tenantId,
+        createdAt: new Date()
+      })
+      .returning();
+    
+    return created;
+  }
+
+  async markNotificationAsRead(id: string, tenantId: string): Promise<void> {
+    await this.db
+      .update(leadFollowUpNotifications)
+      .set({ 
+        read: true,
+        readAt: new Date()
+      })
+      .where(and(
+        eq(leadFollowUpNotifications.id, id),
+        eq(leadFollowUpNotifications.tenantId, tenantId)
+      ));
+  }
+
+  async markNotificationAsDismissed(id: string, tenantId: string): Promise<void> {
+    await this.db
+      .update(leadFollowUpNotifications)
+      .set({ 
+        dismissed: true,
+        dismissedAt: new Date()
+      })
+      .where(and(
+        eq(leadFollowUpNotifications.id, id),
+        eq(leadFollowUpNotifications.tenantId, tenantId)
+      ));
+  }
+
+  async deleteLeadNotification(id: string, tenantId: string): Promise<boolean> {
+    const result = await this.db
+      .delete(leadFollowUpNotifications)
+      .where(and(
+        eq(leadFollowUpNotifications.id, id),
+        eq(leadFollowUpNotifications.tenantId, tenantId)
+      ));
+    
+    return result.rowCount !== null && result.rowCount > 0;
+  }
+
+  async getUnreadNotificationCount(userId: string, tenantId: string): Promise<number> {
+    const result = await this.db
+      .select({ count: sql<number>`count(*)` })
+      .from(leadFollowUpNotifications)
+      .where(and(
+        eq(leadFollowUpNotifications.tenantId, tenantId),
+        eq(leadFollowUpNotifications.userId, userId),
+        eq(leadFollowUpNotifications.read, false),
+        eq(leadFollowUpNotifications.dismissed, false)
+      ));
+    
+    return Number(result[0]?.count || 0);
+  }
+
+  async getAutoReplyLogs(leadId: string, tenantId: string): Promise<AutoReplyLog[]> {
+    return await this.db
+      .select()
+      .from(autoReplyLog)
+      .where(and(
+        eq(autoReplyLog.leadId, leadId),
+        eq(autoReplyLog.tenantId, tenantId)
+      ))
+      .orderBy(desc(autoReplyLog.sentAt));
+  }
+
+  async createAutoReplyLog(log: InsertAutoReplyLog, tenantId: string): Promise<AutoReplyLog> {
+    const [created] = await this.db
+      .insert(autoReplyLog)
+      .values({ 
+        ...log, 
+        tenantId,
+        sentAt: new Date()
+      })
+      .returning();
+    
+    return created;
   }
 
   // Tenant-scoped storage wrapper

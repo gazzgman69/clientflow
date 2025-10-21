@@ -18,6 +18,7 @@ import { useToast } from "@/hooks/use-toast";
 import { formatDistanceToNow } from "date-fns";
 import type { Email, Client, Lead, Project } from "@shared/schema";
 import { z } from "zod";
+import { SummarizeThreadButton, DraftReplyButton, ExtractActionsButton, AIComposeButton } from "@/components/AIActions";
 
 export default function EmailPage() {
   const [showComposeModal, setShowComposeModal] = useState(false);
@@ -274,25 +275,33 @@ export default function EmailPage() {
           <Card className="lg:col-span-2" data-testid="email-content">
             <CardHeader>
               {selectedEmail ? (
-                <div className="flex items-center justify-between">
-                  <div>
-                    <CardTitle className="text-lg" data-testid="selected-email-subject">
-                      {selectedEmail.subject}
-                    </CardTitle>
-                    <p className="text-sm text-muted-foreground" data-testid="selected-email-from">
-                      From: {selectedEmail.fromEmail}
-                    </p>
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle className="text-lg" data-testid="selected-email-subject">
+                        {selectedEmail.subject}
+                      </CardTitle>
+                      <p className="text-sm text-muted-foreground" data-testid="selected-email-from">
+                        From: {selectedEmail.fromEmail}
+                      </p>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Button variant="ghost" size="sm" data-testid="button-reply">
+                        <Reply className="h-4 w-4" />
+                      </Button>
+                      <Button variant="ghost" size="sm" data-testid="button-forward">
+                        <Forward className="h-4 w-4" />
+                      </Button>
+                      <Button variant="ghost" size="sm" data-testid="button-delete">
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
-                  <div className="flex items-center space-x-2">
-                    <Button variant="ghost" size="sm" data-testid="button-reply">
-                      <Reply className="h-4 w-4" />
-                    </Button>
-                    <Button variant="ghost" size="sm" data-testid="button-forward">
-                      <Forward className="h-4 w-4" />
-                    </Button>
-                    <Button variant="ghost" size="sm" data-testid="button-delete">
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                  {/* AI Actions for Email */}
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {selectedEmail.threadId && <SummarizeThreadButton threadId={selectedEmail.threadId} />}
+                    <DraftReplyButton emailId={selectedEmail.id} />
+                    <ExtractActionsButton emailId={selectedEmail.id} />
                   </div>
                 </div>
               ) : (
@@ -366,6 +375,18 @@ export default function EmailPage() {
                   </FormItem>
                 )}
               />
+              
+              {/* AI Compose Button */}
+              <div className="flex justify-center">
+                <AIComposeButton 
+                  onDraftGenerated={(draft, subject) => {
+                    form.setValue('body', draft);
+                    if (subject) {
+                      form.setValue('subject', subject);
+                    }
+                  }} 
+                />
+              </div>
               
               <FormField
                 control={form.control}

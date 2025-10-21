@@ -309,11 +309,46 @@ class NotificationWorker {
         return false;
       }
 
-      // TODO: Add frequency checking logic here
-      // - For 'real_time': send immediately
-      // - For 'daily_digest': check if we already sent today
-      // - For 'weekly_digest': check if we already sent this week
-      // For now, send immediately regardless of frequency
+      // Email frequency scheduling logic
+      const now = new Date();
+      const nextEmailAt = settings.nextEmailAt ? new Date(settings.nextEmailAt) : null;
+      
+      // Determine if we should send based on frequency settings
+      let shouldSend = false;
+      let nextEmailTime: Date | null = null;
+      
+      if (frequency === 'real_time') {
+        // Real-time: always send immediately
+        shouldSend = true;
+        console.log('📧 Real-time mode: sending digest immediately');
+      } else if (frequency === 'daily_digest') {
+        // Daily: only send if 24 hours have passed since last email
+        if (!nextEmailAt || now >= nextEmailAt) {
+          shouldSend = true;
+          // Schedule next email for 24 hours from now
+          nextEmailTime = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+          console.log(`📧 Daily digest: sending now (last sent: ${nextEmailAt?.toISOString() || 'never'})`);
+        } else {
+          const hoursUntilNext = Math.round((nextEmailAt.getTime() - now.getTime()) / (1000 * 60 * 60));
+          console.log(`⏩ Daily digest: skipping (next email in ${hoursUntilNext} hours at ${nextEmailAt.toISOString()})`);
+        }
+      } else if (frequency === 'weekly_digest') {
+        // Weekly: only send if 7 days have passed since last email
+        if (!nextEmailAt || now >= nextEmailAt) {
+          shouldSend = true;
+          // Schedule next email for 7 days from now
+          nextEmailTime = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+          console.log(`📧 Weekly digest: sending now (last sent: ${nextEmailAt?.toISOString() || 'never'})`);
+        } else {
+          const daysUntilNext = Math.round((nextEmailAt.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+          console.log(`⏩ Weekly digest: skipping (next email in ${daysUntilNext} days at ${nextEmailAt.toISOString()})`);
+        }
+      }
+      
+      // If frequency check says not to send, return early
+      if (!shouldSend) {
+        return false;
+      }
 
       // Build email content
       const subject = `You have ${urgentLeads.length} lead follow-up reminder${urgentLeads.length > 1 ? 's' : ''}`;
@@ -338,6 +373,21 @@ class NotificationWorker {
       });
 
       console.log(`✅ Sent email digest to ${user.email}`);
+
+      // Update next_email_at timestamp for daily/weekly frequency
+      if (nextEmailTime) {
+        try {
+          await storage.updateNotificationSettings(
+            settings.id,
+            { nextEmailAt: nextEmailTime.toISOString() },
+            tenantId
+          );
+          console.log(`📅 Next email scheduled for: ${nextEmailTime.toISOString()}`);
+        } catch (error) {
+          console.error('❌ Failed to update next_email_at:', error);
+        }
+      }
+
       return true;
 
     } catch (error) {

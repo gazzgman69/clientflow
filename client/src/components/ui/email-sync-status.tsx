@@ -123,16 +123,18 @@ export function EmailSyncStatus() {
     };
 
     return (
-      <div 
-        className="flex items-center space-x-1" 
-        data-testid="email-sync-status"
-        title={`Email sync: ${getStatusText()} | ${settings.quotaUsed}/${settings.quotaLimit} quota used`}
-      >
-        {getStatusIcon()}
-        <span className={cn("text-xs", getStatusColor())}>
-          {getStatusText()}
-        </span>
-      </div>
+      <Link href="/settings?tab=email">
+        <div 
+          className="flex items-center space-x-1 hover:opacity-80 cursor-pointer transition-opacity" 
+          data-testid="email-sync-status"
+          title={`Email sync: ${getStatusText()} | ${settings.quotaUsed}/${settings.quotaLimit} quota used. Click to manage.`}
+        >
+          {getStatusIcon()}
+          <span className={cn("text-xs", getStatusColor())}>
+            {getStatusText()}
+          </span>
+        </div>
+      </Link>
     );
   }
 

@@ -308,8 +308,8 @@ export default function Contacts() {
         subtitle="Manage your contact relationships and information"
       />
       
-      <main className="flex-1 overflow-auto p-6">
-        <div className="flex gap-6">
+      <main className="flex-1 overflow-auto p-4">
+        <div className="flex gap-4">
           {/* Recent Contacts Sidebar */}
           {recentContacts.length > 0 && (
             <Card className="w-64 flex-shrink-0">
@@ -341,8 +341,8 @@ export default function Contacts() {
 
           {/* Main Content */}
           <Card className="flex-1" data-testid="contacts-table-card">
-            <CardHeader>
-              <div className="flex items-center justify-between mb-4">
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between mb-3">
                 <CardTitle>All Contacts</CardTitle>
                 <Button onClick={handleAddContact} data-testid="button-add-contact">
                   <Plus className="h-4 w-4 mr-2" />
@@ -351,12 +351,12 @@ export default function Contacts() {
               </div>
 
               {/* Alphabetical Filter */}
-              <div className="flex flex-wrap gap-1 mb-4">
+              <div className="flex flex-wrap gap-1 mb-3">
                 <Button
                   variant={letterFilter === null ? "default" : "outline"}
                   size="sm"
                   onClick={() => setLetterFilter(null)}
-                  className="h-8 px-3"
+                  className="h-7 px-2 text-xs"
                   data-testid="letter-filter-all"
                 >
                   ALL
@@ -367,7 +367,7 @@ export default function Contacts() {
                     variant={letterFilter === letter ? "default" : "outline"}
                     size="sm"
                     onClick={() => setLetterFilter(letter)}
-                    className="h-8 w-8 p-0"
+                    className="h-7 w-7 p-0 text-xs"
                     data-testid={`letter-filter-${letter}`}
                   >
                     {letter}
@@ -377,7 +377,7 @@ export default function Contacts() {
                   variant={letterFilter === '#' ? "default" : "outline"}
                   size="sm"
                   onClick={() => setLetterFilter('#')}
-                  className="h-8 w-8 p-0"
+                  className="h-7 w-7 p-0 text-xs"
                   data-testid="letter-filter-#"
                 >
                   #
@@ -386,9 +386,9 @@ export default function Contacts() {
 
               {/* Tag Filter */}
               {allTags.length > 0 && (
-                <div className="space-y-2">
-                  <div className="text-sm font-medium">Filter by tags:</div>
-                  <div className="flex flex-wrap gap-2">
+                <div className="space-y-1.5">
+                  <div className="text-xs font-medium text-muted-foreground">Filter by tags:</div>
+                  <div className="flex flex-wrap gap-1.5">
                     {allTags.map(tag => (
                       <button
                         key={tag}
@@ -399,7 +399,7 @@ export default function Contacts() {
                             setTagFilter([...tagFilter, tag]);
                           }
                         }}
-                        className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm transition-colors ${
+                        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs transition-colors ${
                           tagFilter.includes(tag)
                             ? 'bg-primary text-primary-foreground'
                             : 'bg-muted hover:bg-muted/80'
@@ -415,7 +415,7 @@ export default function Contacts() {
                         variant="ghost"
                         size="sm"
                         onClick={() => setTagFilter([])}
-                        className="h-auto py-1"
+                        className="h-auto py-0.5 text-xs"
                         data-testid="button-clear-tag-filters"
                       >
                         Clear filters

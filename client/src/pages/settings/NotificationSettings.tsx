@@ -39,7 +39,8 @@ export default function NotificationSettingsTab() {
   // Update notification settings mutation
   const updateSettingsMutation = useMutation({
     mutationFn: async (updatedSettings: any) => {
-      const response = await apiRequest('PATCH', '/api/notification-settings', updatedSettings);
+      // Use POST to create or update (the backend handles both)
+      const response = await apiRequest('POST', '/api/notification-settings', updatedSettings);
       return response.json();
     },
     onSuccess: () => {

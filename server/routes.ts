@@ -7914,7 +7914,21 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   app.get('/api/notification-settings', ensureUserAuth, tenantResolver, requireTenant, async (req: TenantRequest, res) => {
     try {
       const userId = req.authenticatedUserId!;
-      const settings = await storage.getNotificationSettings(userId, req.tenantId!);
+      const settings = await storage.getNotificationSettings(req.tenantId!, userId);
+      
+      // Return default settings if none exist
+      if (!settings) {
+        return res.json({
+          days_without_reply: 3,
+          days_since_inquiry: 7,
+          email_notifications_enabled: true,
+          in_app_notifications_enabled: true,
+          email_frequency: 'daily',
+          autoreply_enabled: false,
+          autoreply_message: 'Thank you for your inquiry! We will get back to you within 24 hours.'
+        });
+      }
+      
       res.json(settings);
     } catch (error: any) {
       console.error('Error fetching notification settings:', error);
@@ -7926,7 +7940,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   app.post('/api/notification-settings', ensureUserAuth, tenantResolver, requireTenant, csrf, async (req: TenantRequest, res) => {
     try {
       const userId = req.authenticatedUserId!;
-      const settings = await storage.createOrUpdateNotificationSettings(
+      const settings = await storage.upsertNotificationSettings(
         { ...req.body, userId },
         req.tenantId!
       );

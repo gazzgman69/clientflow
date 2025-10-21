@@ -2379,10 +2379,12 @@ export const notificationSettings = pgTable("notification_settings", {
   tenantId: varchar("tenant_id").references(() => tenants.id).notNull(),
   userId: varchar("user_id").references(() => users.id), // Nullable - can be tenant-wide or user-specific
   emailNotificationsEnabled: boolean("email_notifications_enabled").default(true),
-  emailFrequency: text("email_frequency").default('daily_digest'), // 'realtime', 'daily_digest', 'weekly_digest', 'disabled'
+  emailFrequency: text("email_frequency").default('daily'), // 'realtime', 'daily', 'weekly'
   inAppNotificationsEnabled: boolean("in_app_notifications_enabled").default(true),
   autoReplyEnabled: boolean("auto_reply_enabled").default(false),
   autoReplyMessage: text("auto_reply_message"),
+  daysWithoutReply: integer("days_without_reply").default(3), // Days without reply threshold for urgency
+  daysSinceInquiry: integer("days_since_inquiry").default(7), // Days since inquiry threshold for urgency
   followUpThresholdHours: integer("follow_up_threshold_hours").default(24), // Hours before notifying about unanswered leads
   eventDateUrgencyDays: integer("event_date_urgency_days").default(30), // Days before event to mark as urgent
   createdAt: timestamp("created_at").defaultNow(),

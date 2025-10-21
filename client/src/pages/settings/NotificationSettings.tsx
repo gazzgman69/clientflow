@@ -6,7 +6,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Save, Loader2, Bell, Mail, AlertCircle, Info } from "lucide-react";
@@ -238,66 +237,6 @@ export default function NotificationSettingsTab() {
                   {localSettings.email_frequency === 'weekly' && 
                     'You\'ll receive one email per week summarizing all urgent leads.'
                   }
-                </AlertDescription>
-              </Alert>
-            </>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Auto-Reply Settings */}
-      <Card data-testid="auto-reply-settings-card">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Mail className="h-5 w-5" />
-            Auto-Reply Settings
-          </CardTitle>
-          <CardDescription>
-            Automatically send acknowledgment emails to new leads
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          {/* Enable/Disable Auto-Reply */}
-          <div className="flex items-center justify-between">
-            <div className="space-y-0.5">
-              <Label htmlFor="autoreply-enabled">Enable Auto-Reply</Label>
-              <p className="text-sm text-muted-foreground">
-                Automatically respond to new lead inquiries
-              </p>
-            </div>
-            <Switch
-              id="autoreply-enabled"
-              checked={localSettings.auto_reply_enabled}
-              onCheckedChange={(checked) => updateLocalSetting('auto_reply_enabled', checked)}
-              data-testid="switch-autoreply-enabled"
-            />
-          </div>
-
-          {localSettings.auto_reply_enabled && (
-            <>
-              <Separator />
-
-              {/* Auto-Reply Message Template */}
-              <div className="space-y-2">
-                <Label htmlFor="autoreply-message">Auto-Reply Message</Label>
-                <p className="text-sm text-muted-foreground mb-2">
-                  This message will be sent automatically to new leads
-                </p>
-                <Textarea
-                  id="autoreply-message"
-                  rows={6}
-                  placeholder="Thank you for your inquiry! We've received your message and will get back to you within 24 hours..."
-                  value={localSettings.auto_reply_message || ''}
-                  onChange={(e) => updateLocalSetting('auto_reply_message', e.target.value)}
-                  data-testid="textarea-autoreply-message"
-                />
-              </div>
-
-              <Alert>
-                <Info className="h-4 w-4" />
-                <AlertDescription>
-                  Auto-replies are sent once per lead to acknowledge their initial inquiry. 
-                  The system tracks sent auto-replies to avoid duplicate messages.
                 </AlertDescription>
               </Alert>
             </>

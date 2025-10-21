@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Bell, Plus, Search, Moon, Sun } from "lucide-react";
+import { Plus, Search, Moon, Sun } from "lucide-react";
 import QuickActionModal from "@/components/modals/quick-action-modal";
 import { EmailSyncStatus } from "@/components/ui/email-sync-status";
+import NotificationCenter from "@/components/notifications/NotificationCenter";
 
 export default function TopNav() {
   const [showQuickActions, setShowQuickActions] = useState(false);
@@ -64,12 +65,7 @@ export default function TopNav() {
         </Button>
         
         {/* Notifications */}
-        <Button variant="ghost" size="icon" className="relative" data-testid="notifications-button">
-          <Bell className="h-4 w-4" />
-          <span className="absolute -top-1 -right-1 w-5 h-5 bg-destructive text-destructive-foreground text-xs rounded-full flex items-center justify-center">
-            3
-          </span>
-        </Button>
+        <NotificationCenter />
         
         {/* Quick Actions */}
         <Button 

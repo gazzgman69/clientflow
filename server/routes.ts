@@ -7825,6 +7825,73 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
 
+  // ============================================================================
+  // NOTIFICATION ROUTES
+  // ============================================================================
+  
+  // Get all notifications for the current user
+  app.get('/api/notifications', ensureUserAuth, tenantResolver, requireTenant, async (req: TenantRequest, res) => {
+    try {
+      const userId = req.user!.id;
+      const notifications = await storage.getLeadNotifications(userId, req.tenantId!, true); // unreadOnly=true
+      res.json(notifications);
+    } catch (error: any) {
+      console.error('Error fetching notifications:', error);
+      res.status(500).json({ error: 'Failed to fetch notifications' });
+    }
+  });
+
+  // Mark notification as read
+  app.post('/api/notifications/:id/read', ensureUserAuth, tenantResolver, requireTenant, csrf, async (req: TenantRequest, res) => {
+    try {
+      await storage.markNotificationAsRead(req.params.id, req.tenantId!);
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error('Error marking notification as read:', error);
+      res.status(500).json({ error: 'Failed to mark notification as read' });
+    }
+  });
+
+  // Dismiss notification
+  app.post('/api/notifications/:id/dismiss', ensureUserAuth, tenantResolver, requireTenant, csrf, async (req: TenantRequest, res) => {
+    try {
+      await storage.markNotificationAsDismissed(req.params.id, req.tenantId!);
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error('Error dismissing notification:', error);
+      res.status(500).json({ error: 'Failed to dismiss notification' });
+    }
+  });
+
+  // Get unread notification count
+  app.get('/api/notifications/count', ensureUserAuth, tenantResolver, requireTenant, async (req: TenantRequest, res) => {
+    try {
+      const userId = req.user!.id;
+      const count = await storage.getUnreadNotificationCount(userId, req.tenantId!);
+      res.json({ count });
+    } catch (error: any) {
+      console.error('Error fetching notification count:', error);
+      res.status(500).json({ error: 'Failed to fetch notification count' });
+    }
+  });
+
+  // Run notification worker manually (for testing/debugging)
+  app.post('/api/notifications/run-worker', ensureUserAuth, tenantResolver, requireTenant, csrf, async (req: TenantRequest, res) => {
+    try {
+      const { notificationWorker } = await import('./notification-worker');
+      const userId = req.user!.id;
+      const result = await notificationWorker.run({
+        tenantId: req.tenantId!,
+        userId,
+        forceRun: true
+      });
+      res.json(result);
+    } catch (error: any) {
+      console.error('Error running notification worker:', error);
+      res.status(500).json({ error: 'Failed to run notification worker' });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

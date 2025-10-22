@@ -522,8 +522,9 @@ export default function VenuesPage() {
                 {/* Enriched Venue Details Display - Only show when editing existing venue */}
                 {selectedVenue && (() => {
                   const enrichment = parseVenueEnrichment(selectedVenue.meta);
+                  const enrichmentKey = enrichment?.lastEnriched || 'no-enrichment';
                   return enrichment && (
-                    <div className="rounded-lg border p-4 bg-muted/30">
+                    <div key={`enrichment-${selectedVenue.id}-${enrichmentKey}`} className="rounded-lg border p-4 bg-muted/30">
                       <h3 className="text-sm font-medium mb-3 flex items-center gap-2">
                         <Star className="h-4 w-4 text-yellow-500" />
                         Google Places Information

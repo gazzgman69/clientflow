@@ -1265,8 +1265,17 @@ router.post('/:slug/submit', formSubmissionLimiter, async (req, res) => {
     if (form.autoResponderTemplateId) {
       try {
         // Calculate send time based on configured delay (default 60 seconds if not set)
+        // Supported delays: 60s (1min), 300s (5min), 600s (10min), 1800s (30min), 3600s (1hr)
         const delaySeconds = form.autoResponderDelaySeconds || 60;
         const scheduledFor = new Date(Date.now() + (delaySeconds * 1000));
+        
+        // Human-readable delay for logging
+        const delayLabel = delaySeconds === 60 ? '1 minute'
+          : delaySeconds === 300 ? '5 minutes'
+          : delaySeconds === 600 ? '10 minutes'
+          : delaySeconds === 1800 ? '30 minutes'
+          : delaySeconds === 3600 ? '1 hour'
+          : `${delaySeconds} seconds`;
         
         await tenantStorage.createAutoResponderLog({
           leadId: lead.id,
@@ -1278,8 +1287,10 @@ router.post('/:slug/submit', formSubmissionLimiter, async (req, res) => {
         });
         console.log('✅ AUTO-RESPONDER QUEUED:', {
           leadId: lead.id,
+          leadEmail: lead.email,
           templateId: form.autoResponderTemplateId,
           formId: form.id,
+          delay: delayLabel,
           delaySeconds,
           scheduledFor: scheduledFor.toISOString(),
           tenantId: form.tenantId

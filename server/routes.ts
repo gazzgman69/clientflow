@@ -478,6 +478,163 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
 
   // General leads routes
   // NOTE: Main GET /api/leads route moved to line ~1946 with proper LeadCardDTO mapping
+  
+  // IMPORTANT: Specific routes MUST come before parameterized routes (:id)
+  // GET /api/leads/urgency - Leads with AI-calculated urgency scores
+  app.get("/api/leads/urgency", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
+    try {
+      const tenantId = (req as TenantRequest).tenantId;
+      const userId = req.session.userId!;
+      const { urgencyService } = await import("./urgency-service");
+      
+      const leads = await storage.getLeads(tenantId);
+      
+      // Batch fetch all projects for all leads in ONE query
+      const contactIds = leads.map(lead => lead.id);
+      const projectsByContact = await storage.getProjectsByContacts(contactIds, tenantId);
+      
+      // Calculate urgency for each lead
+      const leadsWithUrgency = await Promise.all(leads.map(async (lead) => {
+        // Pass projects to the urgency service to avoid duplicate lookup
+        const projects = projectsByContact.get(lead.id) || [];
+        const urgencyAnalysis = await urgencyService.calculateLeadUrgency(
+          lead, 
+          tenantId, 
+          userId,
+          projects // Pass pre-fetched projects
+        );
+        
+        const primaryProject = projects.find(p => p.id === lead.projectId) || projects[0];
+        
+        return {
+          id: lead.id,
+          firstName: lead.firstName,
+          lastName: lead.lastName,
+          email: lead.email,
+          phone: lead.phone,
+          eventDate: primaryProject?.eventDate,
+          venue: primaryProject?.eventLocation || lead.venueAddress,
+          projectId: lead.projectId,
+          urgencyScore: urgencyAnalysis.score,
+          urgencyPriority: urgencyAnalysis.priority,
+          needsReply: urgencyAnalysis.needsReply,
+          daysSinceContact: urgencyAnalysis.daysSinceContact,
+          daysUntilEvent: urgencyAnalysis.daysUntilEvent,
+          hasAutoReply: urgencyAnalysis.hasAutoReply,
+          hasPersonalReply: urgencyAnalysis.hasPersonalReply,
+        };
+      }));
+
+      res.json(leadsWithUrgency);
+    } catch (error) {
+      console.error('Error calculating lead urgency:', error);
+      res.status(500).json({ message: "Failed to calculate lead urgency" });
+    }
+  });
+
+  // GET /api/leads/kanban
+  app.get("/api/leads/kanban", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
+    try {
+      const tenantId = (req as TenantRequest).tenantId;
+      const leads = await storage.getLeads(tenantId);
+      const leadsWithConflicts = await detectConflicts(leads, tenantId);
+      
+      // Group leads by pipeline stage
+      const columns: Record<string, any[]> = {
+        new: [],
+        contacted: [],
+        qualified: [],
+        archived: []
+      };
+
+      const counts = { new: 0 };
+
+      for (const lead of leadsWithConflicts) {
+        const pipelineStatus = mapStatusToPipeline(lead.status);
+        const leadCardData = {
+          id: lead.id,
+          contactName: `${lead.firstName} ${lead.lastName}`.trim() || 'No Name',
+          email: lead.email,
+          phone: lead.phone,
+          projectId: lead.projectId,
+          projectTitle: lead.projectTitle || null,
+          projectDateISO: lead.projectDate || null,
+          source: lead.leadSource || 'Unknown',
+          createdAtISO: lead.createdAt,
+          status: pipelineStatus,
+          hasConflict: lead.hasConflict || false,
+          conflictDetails: lead.conflictDetails
+        };
+
+        columns[pipelineStatus].push(leadCardData);
+        
+        if (pipelineStatus === 'new') {
+          counts.new++;
+        }
+      }
+
+      res.json({ columns, counts });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch kanban data" });
+    }
+  });
+
+  // GET /api/leads/inbox
+  app.get("/api/leads/inbox", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
+    try {
+      const tenantId = (req as TenantRequest).tenantId;
+      const limit = parseInt(req.query.limit as string) || 50;
+      const search = req.query.search as string || '';
+      
+      let leads = await storage.getLeads(tenantId);
+      
+      // Filter by search term
+      if (search) {
+        leads = leads.filter(lead => 
+          lead.firstName?.toLowerCase().includes(search.toLowerCase()) ||
+          lead.lastName?.toLowerCase().includes(search.toLowerCase()) ||
+          lead.email?.toLowerCase().includes(search.toLowerCase()) ||
+          lead.leadSource?.toLowerCase().includes(search.toLowerCase())
+        );
+      }
+
+      // Sort by newest first
+      leads.sort((a, b) => {
+        const aDate = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const bDate = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        return bDate - aDate;
+      });
+      
+      // Apply limit
+      const paginatedLeads = leads.slice(0, limit);
+      const leadsWithConflicts = await detectConflicts(paginatedLeads, req.tenantId);
+      
+      const items = leadsWithConflicts.map(lead => ({
+        id: lead.id,
+        contactName: `${lead.firstName} ${lead.lastName}`.trim() || 'No Name',
+        email: lead.email,
+        phone: lead.phone,
+        projectId: lead.projectId,
+        projectTitle: lead.projectTitle || null,
+        projectDateISO: lead.projectDate || null,
+        source: lead.leadSource || 'Unknown',
+        createdAtISO: lead.createdAt,
+        status: mapStatusToPipeline(lead.status),
+        hasConflict: lead.hasConflict || false,
+        conflictDetails: lead.conflictDetails
+      }));
+
+      const counts = { new: leads.filter(l => l.status === 'new').length };
+
+      res.json({ 
+        items, 
+        nextCursor: items.length === limit ? 'more' : null,
+        counts 
+      });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch inbox data" });
+    }
+  });
 
   app.get("/api/leads/:id", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
     try {
@@ -2249,111 +2406,6 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     return leadsWithProjects;
   };
 
-  // Leads - Specific routes first
-  // GET /api/leads/kanban
-  app.get("/api/leads/kanban", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
-    try {
-      const tenantId = (req as TenantRequest).tenantId;
-      const leads = await storage.getLeads(tenantId);
-      const leadsWithConflicts = await detectConflicts(leads, tenantId);
-      
-      // Group leads by pipeline stage
-      const columns: Record<string, any[]> = {
-        new: [],
-        contacted: [],
-        qualified: [],
-        archived: []
-      };
-
-      const counts = { new: 0 };
-
-      for (const lead of leadsWithConflicts) {
-        const pipelineStatus = mapStatusToPipeline(lead.status);
-        const leadCardData = {
-          id: lead.id,
-          contactName: `${lead.firstName} ${lead.lastName}`.trim() || 'No Name',
-          email: lead.email,
-          phone: lead.phone,
-          projectId: lead.projectId,
-          projectTitle: lead.projectTitle || null,
-          projectDateISO: lead.projectDate || null,
-          source: lead.leadSource || 'Unknown',
-          createdAtISO: lead.createdAt,
-          status: pipelineStatus,
-          hasConflict: lead.hasConflict || false,
-          conflictDetails: lead.conflictDetails
-        };
-
-        columns[pipelineStatus].push(leadCardData);
-        
-        if (pipelineStatus === 'new') {
-          counts.new++;
-        }
-      }
-
-      res.json({ columns, counts });
-    } catch (error) {
-      res.status(500).json({ message: "Failed to fetch kanban data" });
-    }
-  });
-
-  // GET /api/leads/inbox
-  app.get("/api/leads/inbox", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
-    try {
-      const tenantId = (req as TenantRequest).tenantId;
-      const limit = parseInt(req.query.limit as string) || 50;
-      const search = req.query.search as string || '';
-      
-      let leads = await storage.getLeads(tenantId);
-      
-      // Filter by search term
-      if (search) {
-        leads = leads.filter(lead => 
-          lead.firstName?.toLowerCase().includes(search.toLowerCase()) ||
-          lead.lastName?.toLowerCase().includes(search.toLowerCase()) ||
-          lead.email?.toLowerCase().includes(search.toLowerCase()) ||
-          lead.leadSource?.toLowerCase().includes(search.toLowerCase())
-        );
-      }
-
-      // Sort by newest first
-      leads.sort((a, b) => {
-        const aDate = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-        const bDate = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-        return bDate - aDate;
-      });
-      
-      // Apply limit
-      const paginatedLeads = leads.slice(0, limit);
-      const leadsWithConflicts = await detectConflicts(paginatedLeads, req.tenantId);
-      
-      const items = leadsWithConflicts.map(lead => ({
-        id: lead.id,
-        contactName: `${lead.firstName} ${lead.lastName}`.trim() || 'No Name',
-        email: lead.email,
-        phone: lead.phone,
-        projectId: lead.projectId,
-        projectTitle: lead.projectTitle || null,
-        projectDateISO: lead.projectDate || null,
-        source: lead.leadSource || 'Unknown',
-        createdAtISO: lead.createdAt,
-        status: mapStatusToPipeline(lead.status),
-        hasConflict: lead.hasConflict || false,
-        conflictDetails: lead.conflictDetails
-      }));
-
-      const counts = { new: leads.filter(l => l.status === 'new').length };
-
-      res.json({ 
-        items, 
-        nextCursor: items.length === limit ? 'more' : null,
-        counts 
-      });
-    } catch (error) {
-      res.status(500).json({ message: "Failed to fetch inbox data" });
-    }
-  });
-
   // GET /api/leads - Basic leads listing for frontend
   app.get("/api/leads", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
     try {
@@ -2382,58 +2434,6 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     } catch (error) {
       console.error('Error fetching leads:', error);
       res.status(500).json({ message: "Failed to fetch leads" });
-    }
-  });
-
-  // GET /api/leads/urgency - Leads with AI-calculated urgency scores
-  app.get("/api/leads/urgency", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
-    try {
-      const tenantId = (req as TenantRequest).tenantId;
-      const userId = req.session.userId!;
-      const { urgencyService } = await import("./urgency-service");
-      
-      const leads = await storage.getLeads(tenantId);
-      
-      // Batch fetch all projects for all leads in ONE query
-      const contactIds = leads.map(lead => lead.id);
-      const projectsByContact = await storage.getProjectsByContacts(contactIds, tenantId);
-      
-      // Calculate urgency for each lead
-      const leadsWithUrgency = await Promise.all(leads.map(async (lead) => {
-        // Pass projects to the urgency service to avoid duplicate lookup
-        const projects = projectsByContact.get(lead.id) || [];
-        const urgencyAnalysis = await urgencyService.calculateLeadUrgency(
-          lead, 
-          tenantId, 
-          userId,
-          projects // Pass pre-fetched projects
-        );
-        
-        const primaryProject = projects.find(p => p.id === lead.projectId) || projects[0];
-        
-        return {
-          id: lead.id,
-          firstName: lead.firstName,
-          lastName: lead.lastName,
-          email: lead.email,
-          phone: lead.phone,
-          eventDate: primaryProject?.eventDate,
-          venue: primaryProject?.eventLocation || lead.venueAddress,
-          projectId: lead.projectId,
-          urgencyScore: urgencyAnalysis.score,
-          urgencyPriority: urgencyAnalysis.priority,
-          needsReply: urgencyAnalysis.needsReply,
-          daysSinceContact: urgencyAnalysis.daysSinceContact,
-          daysUntilEvent: urgencyAnalysis.daysUntilEvent,
-          hasAutoReply: urgencyAnalysis.hasAutoReply,
-          hasPersonalReply: urgencyAnalysis.hasPersonalReply,
-        };
-      }));
-
-      res.json(leadsWithUrgency);
-    } catch (error) {
-      console.error('Error calculating lead urgency:', error);
-      res.status(500).json({ message: "Failed to calculate lead urgency" });
     }
   });
 

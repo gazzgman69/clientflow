@@ -170,12 +170,6 @@ export function LeadsUrgencyList() {
             >
               <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
             </Button>
-            <Button variant="outline" asChild data-testid="button-lead-forms">
-              <Link href="/leads/capture">
-                <FileText className="h-4 w-4 mr-2" />
-                Lead Forms
-              </Link>
-            </Button>
           </div>
         </div>
         

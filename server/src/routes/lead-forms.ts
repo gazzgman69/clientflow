@@ -1264,11 +1264,15 @@ router.post('/:slug/submit', formSubmissionLimiter, async (req, res) => {
     // Queue auto-responder if template configured
     if (form.autoResponderTemplateId) {
       try {
+        // Calculate send time based on configured delay (default 60 seconds if not set)
+        const delaySeconds = form.autoResponderDelaySeconds || 60;
+        const scheduledFor = new Date(Date.now() + (delaySeconds * 1000));
+        
         await tenantStorage.createAutoResponderLog({
           leadId: lead.id,
           templateId: form.autoResponderTemplateId,
           formId: form.id,
-          scheduledFor: new Date(), // Send immediately
+          scheduledFor,
           status: 'queued' as const,
           retryCount: 0,
         });
@@ -1276,6 +1280,8 @@ router.post('/:slug/submit', formSubmissionLimiter, async (req, res) => {
           leadId: lead.id,
           templateId: form.autoResponderTemplateId,
           formId: form.id,
+          delaySeconds,
+          scheduledFor: scheduledFor.toISOString(),
           tenantId: form.tenantId
         });
       } catch (autoResponderError) {

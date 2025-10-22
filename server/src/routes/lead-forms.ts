@@ -1016,19 +1016,19 @@ router.post('/:slug/submit', formSubmissionLimiter, async (req, res) => {
       timestamp: new Date().toISOString()
     });
 
-    // AUTO-REPLY: Send auto-reply acknowledgment if enabled
-    if (contact.email) {
-      autoReplyService.sendAutoReply({
-        contactId: contact.id,
-        contactEmail: contact.email,
-        contactName: contact.fullName || contact.firstName || 'there',
-        tenantId: form.tenantId,
-        userId
-      }).catch(error => {
-        console.error('❌ Auto-reply failed (non-blocking):', error);
-        // Don't block form submission if auto-reply fails
-      });
-    }
+    // DISABLED: Old immediate auto-reply system (replaced by template-based auto-responder with delays)
+    // if (contact.email) {
+    //   autoReplyService.sendAutoReply({
+    //     contactId: contact.id,
+    //     contactEmail: contact.email,
+    //     contactName: contact.fullName || contact.firstName || 'there',
+    //     tenantId: form.tenantId,
+    //     userId
+    //   }).catch(error => {
+    //     console.error('❌ Auto-reply failed (non-blocking):', error);
+    //     // Don't block form submission if auto-reply fails
+    //   });
+    // }
 
     // Update contact with venue reference if venue was created
     if (createdVenue) {

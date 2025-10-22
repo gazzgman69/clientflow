@@ -1261,7 +1261,34 @@ router.post('/:slug/submit', formSubmissionLimiter, async (req, res) => {
       // Continue even if idempotency recording fails
     }
 
-    // TODO: Send auto-response if template configured
+    // Queue auto-responder if template configured
+    if (form.autoResponderTemplateId) {
+      try {
+        await tenantStorage.createAutoResponderLog({
+          leadId: lead.id,
+          templateId: form.autoResponderTemplateId,
+          formId: form.id,
+          scheduledFor: new Date(), // Send immediately
+          status: 'queued' as const,
+          retryCount: 0,
+        });
+        console.log('✅ AUTO-RESPONDER QUEUED:', {
+          leadId: lead.id,
+          templateId: form.autoResponderTemplateId,
+          formId: form.id,
+          tenantId: form.tenantId
+        });
+      } catch (autoResponderError) {
+        console.error('❌ AUTO-RESPONDER QUEUE FAILED:', {
+          leadId: lead.id,
+          templateId: form.autoResponderTemplateId,
+          error: autoResponderError instanceof Error ? autoResponderError.message : String(autoResponderError),
+          tenantId: form.tenantId
+        });
+        // Don't fail form submission if auto-responder queueing fails
+      }
+    }
+    
     // TODO: Trigger workflows if configured
 
     const totalTime = Date.now() - startTime;

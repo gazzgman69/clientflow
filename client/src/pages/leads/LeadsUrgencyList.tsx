@@ -44,6 +44,7 @@ export function LeadsUrgencyList() {
   // Fetch leads with urgency data
   const { data: leads = [], isLoading, refetch } = useQuery<Lead[]>({
     queryKey: ['/api/leads/urgency'],
+    staleTime: 5000, // Data stays fresh for 5 seconds (same as projects/contacts)
   });
   
   // Apply filters

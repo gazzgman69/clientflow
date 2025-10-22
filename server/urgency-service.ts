@@ -54,7 +54,7 @@ export class UrgencyService {
     const latestEmail = sortedEmails[0];
     const daysSinceContact = latestEmail
       ? (Date.now() - new Date(latestEmail.createdAt!).getTime()) / (1000 * 60 * 60 * 24)
-      : 999;
+      : (Date.now() - new Date(lead.createdAt!).getTime()) / (1000 * 60 * 60 * 24); // Use lead creation date if no emails
     
     if (daysSinceContact < 1) {
       score += 40;

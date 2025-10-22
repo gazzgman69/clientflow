@@ -743,6 +743,47 @@ router.post('/:slug/submit', formSubmissionLimiter, async (req, res) => {
                 tenantId: form.tenantId
               });
               
+              // Queue auto-responder if template configured
+              if (form.autoResponderTemplateId) {
+                try {
+                  const delaySeconds = form.autoResponderDelaySeconds || 60;
+                  const scheduledFor = new Date(Date.now() + (delaySeconds * 1000));
+                  
+                  const delayLabel = delaySeconds === 60 ? '1 minute'
+                    : delaySeconds === 300 ? '5 minutes'
+                    : delaySeconds === 600 ? '10 minutes'
+                    : delaySeconds === 1800 ? '30 minutes'
+                    : delaySeconds === 3600 ? '1 hour'
+                    : `${delaySeconds} seconds`;
+                  
+                  await tenantStorage.createAutoResponderLog({
+                    leadId: lead.id,
+                    templateId: form.autoResponderTemplateId,
+                    formId: form.id,
+                    scheduledFor,
+                    status: 'queued' as const,
+                    retryCount: 0,
+                  });
+                  console.log('✅ AUTO-RESPONDER QUEUED (DUPLICATE PATH):', {
+                    leadId: lead.id,
+                    leadEmail: lead.email,
+                    templateId: form.autoResponderTemplateId,
+                    formId: form.id,
+                    delay: delayLabel,
+                    delaySeconds,
+                    scheduledFor: scheduledFor.toISOString(),
+                    tenantId: form.tenantId
+                  });
+                } catch (autoResponderError) {
+                  console.error('❌ AUTO-RESPONDER QUEUE FAILED (DUPLICATE PATH):', {
+                    leadId: lead.id,
+                    templateId: form.autoResponderTemplateId,
+                    error: autoResponderError instanceof Error ? autoResponderError.message : String(autoResponderError),
+                    tenantId: form.tenantId
+                  });
+                }
+              }
+              
               return res.json({
                 ok: true,
                 leadId: lead.id,

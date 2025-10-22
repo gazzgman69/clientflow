@@ -487,7 +487,10 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
       const userId = req.session.userId!;
       const { urgencyService } = await import("./urgency-service");
       
-      const leads = await storage.getLeads(tenantId);
+      const allLeads = await storage.getLeads(tenantId);
+      
+      // Filter out orphaned leads (leads without projects)
+      const leads = allLeads.filter(lead => lead.projectId !== null && lead.projectId !== undefined);
       
       // Batch fetch all projects for all leads in ONE query
       const contactIds = leads.map(lead => lead.id);

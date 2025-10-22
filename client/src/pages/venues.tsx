@@ -986,8 +986,7 @@ export default function VenuesPage() {
                     <TableCell>
                       <div className="space-y-1">
                         {(venue.address || venue.city || venue.state || venue.zipCode || venue.postalCode) && (
-                          <div className="flex items-center gap-1 text-sm">
-                            <MapPin className="h-3 w-3" />
+                          <div className="text-sm">
                             <span data-testid={`text-location-${venue.id}`}>
 {venue.address || [venue.city, venue.state, venue.zipCode].filter(Boolean).join(", ")}
                             </span>

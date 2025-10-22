@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import Header from "@/components/layout/header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -39,6 +39,7 @@ type FilterType = 'all' | 'needs_reply' | 'urgent' | 'this_week';
 
 export function LeadsUrgencyList() {
   const [filter, setFilter] = useState<FilterType>('all');
+  const [, setLocation] = useLocation();
   
   // Fetch leads with urgency data
   const { data: leads = [], isLoading, refetch } = useQuery<Lead[]>({
@@ -195,7 +196,7 @@ export function LeadsUrgencyList() {
                 className="hover:shadow-md transition-shadow cursor-pointer"
                 onClick={() => {
                   if (lead.projectId) {
-                    window.location.href = `/projects/${lead.projectId}`;
+                    setLocation(`/projects/${lead.projectId}`);
                   }
                 }}
                 data-testid={`lead-card-${lead.id}`}

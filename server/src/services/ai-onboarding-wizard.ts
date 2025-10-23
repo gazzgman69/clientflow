@@ -140,22 +140,30 @@ export class AIOnboardingWizard {
 
       await this.handleFunctionCall(context, functionName, functionArgs);
 
-      // Generate a response after saving data
-      // The newest OpenAI model is "gpt-5" which was released August 7, 2025. Do not change this unless explicitly requested by the user
-      const followUp = await openai.chat.completions.create({
-        model: 'gpt-5-mini',
-        messages: [
-          ...context.conversationHistory,
-          message,
-          {
-            role: 'function',
-            name: functionName,
-            content: JSON.stringify({ success: true })
-          }
-        ],
-      });
-
-      const assistantReply = followUp.choices[0].message.content || "Great! What's next?";
+      // Generate a simple response after saving data
+      let assistantReply = "Great! I've saved that information. ";
+      
+      // Provide contextual follow-up based on what was saved
+      switch (functionName) {
+        case 'save_business_info':
+          assistantReply += "Now, what services do you offer? Tell me about your main offerings.";
+          break;
+        case 'save_services':
+          assistantReply += "Excellent! When are you typically available for bookings? What are your working hours?";
+          break;
+        case 'save_availability':
+          assistantReply += "Perfect! Let's set up your AI chat widget. What welcome message would you like visitors to see?";
+          break;
+        case 'save_widget_config':
+          assistantReply += "Wonderful! Your CRM is almost ready. Is there anything else you'd like to add, like FAQs or business policies?";
+          break;
+        case 'complete_onboarding':
+          assistantReply = "🎉 All done! Your CRM is fully set up and ready to use. You can always update these settings later.";
+          break;
+        default:
+          assistantReply += "What would you like to configure next?";
+      }
+      
       context.conversationHistory.push({
         role: 'assistant',
         content: assistantReply

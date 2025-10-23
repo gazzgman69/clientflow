@@ -1,0 +1,50 @@
+content_script.js:1 The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+showCompletionList @ content_script.js:1
+#U @ content_script.js:1
+#C @ content_script.js:1Understand this error
+content_script.js:1 The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+showCompletionList @ content_script.js:1
+#U @ content_script.js:1
+#C @ content_script.js:1Understand this error
+content_script.js:1 The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+showCompletionList @ content_script.js:1
+#U @ content_script.js:1
+#C @ content_script.js:1Understand this error
+completion_list.html?username=&colorScheme=&screenX=0&screenY=38&effectiveWindowWidth=1513.35000000…:12  GET chrome-extension://pejdijmoenmkgeppbflobdenhhabjlaj/utils.js net::ERR_FILE_NOT_FOUNDUnderstand this error
+completion_list.html?username=&colorScheme=&screenX=0&screenY=38&effectiveWindowWidth=1513.35000000…:13  GET chrome-extension://pejdijmoenmkgeppbflobdenhhabjlaj/extensionState.js net::ERR_FILE_NOT_FOUNDUnderstand this error
+completion_list.html?username=&colorScheme=&screenX=0&screenY=38&effectiveWindowWidth=1513.35000000…:14  GET chrome-extension://pejdijmoenmkgeppbflobdenhhabjlaj/heuristicsRedefinitions.js net::ERR_FILE_NOT_FOUNDUnderstand this error
+8Unchecked runtime.lastError: The message port closed before a response was received.Understand this error
+Unchecked runtime.lastError: Could not establish connection. Receiving end does not exist.Understand this error
+Unchecked runtime.lastError: Could not establish connection. Receiving end does not exist.Understand this error
+Unchecked runtime.lastError: Could not establish connection. Receiving end does not exist.Understand this error
+injected.js:204  POST https://e20756e5-b738-47e1-9332-7541045beaf1-00-2uav2b8bdatus.janeway.replit.dev/api/ai-features/services 400 (Bad Request)
+apply @ injected.js:204
+apiRequest @ queryClient.ts:68
+await in apiRequest
+mutationFn @ scheduler.tsx:182
+fn @ @tanstack_react-query.js?v=f1efaae9:1189
+run @ @tanstack_react-query.js?v=f1efaae9:494
+start @ @tanstack_react-query.js?v=f1efaae9:536
+execute @ @tanstack_react-query.js?v=f1efaae9:1225
+await in execute
+mutate @ @tanstack_react-query.js?v=f1efaae9:2630
+(anonymous) @ @tanstack_react-query.js?v=f1efaae9:3295
+handleSubmit @ scheduler.tsx:201
+callCallback2 @ chunk-RPCDYKBN.js?v=f1efaae9:3674
+invokeGuardedCallbackDev @ chunk-RPCDYKBN.js?v=f1efaae9:3699
+invokeGuardedCallback @ chunk-RPCDYKBN.js?v=f1efaae9:3733
+invokeGuardedCallbackAndCatchFirstError @ chunk-RPCDYKBN.js?v=f1efaae9:3736
+executeDispatch @ chunk-RPCDYKBN.js?v=f1efaae9:7014
+processDispatchQueueItemsInOrder @ chunk-RPCDYKBN.js?v=f1efaae9:7034
+processDispatchQueue @ chunk-RPCDYKBN.js?v=f1efaae9:7043
+dispatchEventsForPlugins @ chunk-RPCDYKBN.js?v=f1efaae9:7051
+(anonymous) @ chunk-RPCDYKBN.js?v=f1efaae9:7174
+batchedUpdates$1 @ chunk-RPCDYKBN.js?v=f1efaae9:18913
+batchedUpdates @ chunk-RPCDYKBN.js?v=f1efaae9:3579
+dispatchEventForPluginEventSystem @ chunk-RPCDYKBN.js?v=f1efaae9:7173
+dispatchEventWithEnableCapturePhaseSelectiveHydrationWithoutDiscreteEventReplay @ chunk-RPCDYKBN.js?v=f1efaae9:5478
+dispatchEvent @ chunk-RPCDYKBN.js?v=f1efaae9:5472
+dispatchDiscreteEvent @ chunk-RPCDYKBN.js?v=f1efaae9:5449Understand this error
+injected.js:27 Service mutation error: Error: 400: {"error":"Invalid data","details":[{"code":"invalid_type","expected":"string","received":"undefined","path":["tenantId"],"message":"Required"}]}
+    at throwIfResNotOk (queryClient.ts:6:11)
+    at async apiRequest (queryClient.ts:104:3)

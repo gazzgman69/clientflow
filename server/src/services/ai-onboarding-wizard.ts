@@ -7,8 +7,10 @@ import type {
   InsertWidgetSettings 
 } from '@shared/schema';
 
+// Using Replit AI Integrations which provides OpenAI-compatible API access without requiring your own API key
 const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
+  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
+  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY
 });
 
 interface OnboardingContext {
@@ -90,6 +92,7 @@ export class AIOnboardingWizard {
       currentStep: 'business_info',
       completedSteps: [],
       collectedData: {
+        userId,  // Persist userId for context restoration after restarts
         conversationHistory: context.conversationHistory,
         extractedData: context.extractedData
       },
@@ -119,12 +122,12 @@ export class AIOnboardingWizard {
     });
 
     // Call OpenAI with function calling to extract structured data
+    // The newest OpenAI model is "gpt-5" which was released August 7, 2025. Do not change this unless explicitly requested by the user
     const response = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
+      model: 'gpt-5-mini',
       messages: context.conversationHistory,
       functions: this.getFunctionDefinitions(),
       function_call: 'auto',
-      temperature: 0.7,
     });
 
     const message = response.choices[0].message;
@@ -137,8 +140,9 @@ export class AIOnboardingWizard {
       await this.handleFunctionCall(context, functionName, functionArgs);
 
       // Generate a response after saving data
+      // The newest OpenAI model is "gpt-5" which was released August 7, 2025. Do not change this unless explicitly requested by the user
       const followUp = await openai.chat.completions.create({
-        model: 'gpt-4o-mini',
+        model: 'gpt-5-mini',
         messages: [
           ...context.conversationHistory,
           message,
@@ -148,7 +152,6 @@ export class AIOnboardingWizard {
             content: JSON.stringify({ success: true })
           }
         ],
-        temperature: 0.7,
       });
 
       const assistantReply = followUp.choices[0].message.content || "Great! What's next?";
@@ -188,12 +191,17 @@ export class AIOnboardingWizard {
     const savedData = progress.collectedData as any;
     const context: OnboardingContext = {
       tenantId,
-      userId: '', // We don't store userId in progress, but it's OK for ongoing conversations
+      userId: savedData.userId || '', // Restore persisted userId
       conversationHistory: savedData.conversationHistory || [
         { role: 'system', content: ONBOARDING_SYSTEM_PROMPT }
       ],
       extractedData: savedData.extractedData || {}
     };
+
+    // Validate userId was persisted - throw early if context is invalid
+    if (!context.userId) {
+      throw new Error('Cannot restore onboarding context: userId was not persisted');
+    }
 
     // Cache in memory for subsequent requests
     this.contexts.set(tenantId, context);
@@ -211,6 +219,7 @@ export class AIOnboardingWizard {
     await storage.updateTenantOnboardingProgress(progress.id, {
       collectedData: {
         ...currentData,
+        userId: context.userId,  // Always persist userId for reliable restoration
         conversationHistory: context.conversationHistory,
         extractedData: context.extractedData
       }

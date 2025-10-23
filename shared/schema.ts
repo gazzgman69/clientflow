@@ -2466,3 +2466,367 @@ export const insertAutoReplyLogSchema = createInsertSchema(autoReplyLog).omit({
 export type AutoReplyLog = typeof autoReplyLog.$inferSelect;
 export type InsertAutoReplyLog = z.infer<typeof insertAutoReplyLogSchema>;
 
+// ============================================================================
+// AI ONBOARDING WIZARD SYSTEM
+// ============================================================================
+
+// Tenant Onboarding Progress - Track AI wizard progress for new tenants
+export const tenantOnboardingProgress = pgTable("tenant_onboarding_progress", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").references(() => tenants.id).notNull().unique(),
+  isCompleted: boolean("is_completed").default(false),
+  isSkipped: boolean("is_skipped").default(false),
+  currentStep: text("current_step"), // 'business_info', 'services', 'scheduler', 'knowledge_base', 'widget', 'complete'
+  conversationHistory: text("conversation_history"), // JSON array of messages
+  extractedData: text("extracted_data"), // JSON object of extracted information
+  completedAt: timestamp("completed_at"),
+  skippedAt: timestamp("skipped_at"),
+  lastInteractionAt: timestamp("last_interaction_at").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  tenantIdIdx: index("tenant_onboarding_progress_tenant_id_idx").on(table.tenantId),
+  isCompletedIdx: index("tenant_onboarding_progress_is_completed_idx").on(table.isCompleted),
+}));
+
+export const insertTenantOnboardingProgressSchema = createInsertSchema(tenantOnboardingProgress).omit({ 
+  id: true, 
+  createdAt: true, 
+  updatedAt: true,
+  lastInteractionAt: true,
+  completedAt: true,
+  skippedAt: true
+});
+
+export type TenantOnboardingProgress = typeof tenantOnboardingProgress.$inferSelect;
+export type InsertTenantOnboardingProgress = z.infer<typeof insertTenantOnboardingProgressSchema>;
+
+// ============================================================================
+// MEDIA LIBRARY SYSTEM
+// ============================================================================
+
+// Media Library - Photos, videos, audio for AI widget to share
+export const mediaLibrary = pgTable("media_library", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").references(() => tenants.id).notNull(),
+  fileName: text("file_name").notNull(),
+  fileType: text("file_type").notNull(), // 'image', 'video', 'audio'
+  mimeType: text("mime_type").notNull(),
+  fileSize: integer("file_size").notNull(),
+  filePath: text("file_path").notNull(), // Path to stored file
+  thumbnailPath: text("thumbnail_path"), // Thumbnail for videos/images
+  title: text("title"), // Optional display title
+  description: text("description"), // Optional description
+  category: text("category"), // e.g., 'weddings', 'corporate', 'setups', 'equipment', 'venues'
+  tags: text("tags").array(), // Array of tags for better search
+  displayOrder: integer("display_order").default(0), // Order for gallery display
+  isActive: boolean("is_active").default(true),
+  uploadedBy: varchar("uploaded_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  tenantIdIdx: index("media_library_tenant_id_idx").on(table.tenantId),
+  categoryIdx: index("media_library_category_idx").on(table.category),
+  isActiveIdx: index("media_library_is_active_idx").on(table.isActive),
+  fileTypeIdx: index("media_library_file_type_idx").on(table.fileType),
+}));
+
+export const insertMediaLibrarySchema = createInsertSchema(mediaLibrary).omit({ 
+  id: true, 
+  createdAt: true, 
+  updatedAt: true 
+});
+
+export type MediaLibrary = typeof mediaLibrary.$inferSelect;
+export type InsertMediaLibrary = z.infer<typeof insertMediaLibrarySchema>;
+
+// ============================================================================
+// PUBLIC AI CHAT WIDGET SYSTEM
+// ============================================================================
+
+// Widget Settings - Configuration for public AI chat widget
+export const widgetSettings = pgTable("widget_settings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").references(() => tenants.id).notNull().unique(),
+  isEnabled: boolean("is_enabled").default(true),
+  welcomeMessage: text("welcome_message").default('Hi! How can I help you today?'),
+  brandColor: text("brand_color").default('#3b82f6'), // Primary brand color
+  position: text("position").default('bottom-right'), // 'bottom-right', 'bottom-left'
+  chatbotName: text("chatbot_name").default('Assistant'),
+  avatarUrl: text("avatar_url"), // Optional custom avatar
+  tone: text("tone").default('professional'), // 'professional', 'friendly', 'casual'
+  bookingPromptAggressiveness: text("booking_prompt_aggressiveness").default('gentle'), // 'none', 'gentle', 'moderate', 'aggressive'
+  collectEmailBefore: boolean("collect_email_before").default(false), // Collect email before chatting
+  enableSoundNotifications: boolean("enable_sound_notifications").default(true),
+  enableTypingIndicator: boolean("enable_typing_indicator").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  tenantIdIdx: index("widget_settings_tenant_id_idx").on(table.tenantId),
+}));
+
+export const insertWidgetSettingsSchema = createInsertSchema(widgetSettings).omit({ 
+  id: true, 
+  createdAt: true, 
+  updatedAt: true 
+});
+
+export type WidgetSettings = typeof widgetSettings.$inferSelect;
+export type InsertWidgetSettings = z.infer<typeof insertWidgetSettingsSchema>;
+
+// Chat Conversations - Track all AI widget conversations
+export const chatConversations = pgTable("chat_conversations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").references(() => tenants.id).notNull(),
+  visitorEmail: text("visitor_email"), // Collected email if available
+  visitorName: text("visitor_name"), // Collected name if available
+  contactId: varchar("contact_id").references(() => contacts.id, { onDelete: 'set null' }), // Linked contact if identified
+  leadId: varchar("lead_id").references(() => leads.id, { onDelete: 'set null' }), // Created lead if conversation converted
+  sessionId: text("session_id").notNull(), // Browser session ID
+  ipAddress: text("ip_address"),
+  userAgent: text("user_agent"),
+  isConverted: boolean("is_converted").default(false), // Did they book or become a lead?
+  conversionType: text("conversion_type"), // 'booking', 'lead', 'contact'
+  leadQualityScore: integer("lead_quality_score"), // 0-100 AI-calculated score
+  lastMessageAt: timestamp("last_message_at").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  tenantIdIdx: index("chat_conversations_tenant_id_idx").on(table.tenantId),
+  sessionIdIdx: index("chat_conversations_session_id_idx").on(table.sessionId),
+  contactIdIdx: index("chat_conversations_contact_id_idx").on(table.contactId),
+  leadIdIdx: index("chat_conversations_lead_id_idx").on(table.leadId),
+  isConvertedIdx: index("chat_conversations_is_converted_idx").on(table.isConverted),
+}));
+
+export const insertChatConversationSchema = createInsertSchema(chatConversations).omit({ 
+  id: true, 
+  createdAt: true,
+  lastMessageAt: true
+});
+
+export type ChatConversation = typeof chatConversations.$inferSelect;
+export type InsertChatConversation = z.infer<typeof insertChatConversationSchema>;
+
+// Chat Messages - Individual messages in conversations
+export const chatMessages = pgTable("chat_messages", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").references(() => tenants.id).notNull(),
+  conversationId: varchar("conversation_id").references(() => chatConversations.id, { onDelete: 'cascade' }).notNull(),
+  role: text("role").notNull(), // 'user', 'assistant', 'system'
+  content: text("content").notNull(),
+  mediaUrls: text("media_urls").array(), // URLs to media shared in message
+  functionCalled: text("function_called"), // Name of function called by AI
+  functionResult: text("function_result"), // JSON result of function call
+  tokensUsed: integer("tokens_used"),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  tenantIdIdx: index("chat_messages_tenant_id_idx").on(table.tenantId),
+  conversationIdIdx: index("chat_messages_conversation_id_idx").on(table.conversationId),
+  roleIdx: index("chat_messages_role_idx").on(table.role),
+}));
+
+export const insertChatMessageSchema = createInsertSchema(chatMessages).omit({ 
+  id: true, 
+  createdAt: true 
+});
+
+export type ChatMessage = typeof chatMessages.$inferSelect;
+export type InsertChatMessage = z.infer<typeof insertChatMessageSchema>;
+
+// ============================================================================
+// ONLINE SCHEDULER SYSTEM
+// ============================================================================
+
+// Bookable Services - Services that can be booked through the scheduler
+export const bookableServices = pgTable("bookable_services", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").references(() => tenants.id).notNull(),
+  name: text("name").notNull(), // e.g., "Call With Club Kudo", "Pre-Event Call"
+  description: text("description"), // Rich text description
+  serviceType: text("service_type").default('individual'), // 'individual', 'group'
+  duration: integer("duration").notNull(), // Duration in minutes
+  bufferBefore: integer("buffer_before").default(0), // Minutes buffer before appointment
+  bufferAfter: integer("buffer_after").default(0), // Minutes buffer after appointment
+  startTimeInterval: integer("start_time_interval").default(30), // Booking intervals (e.g., every 30 minutes)
+  
+  // Service Questions - Always asked
+  serviceQuestions: text("service_questions"), // JSON array of questions always asked
+  
+  // Project Setup Questions - Only for new contacts
+  projectQuestions: text("project_questions"), // JSON array of questions for new contacts
+  
+  // Optional features
+  requirePhone: boolean("require_phone").default(false),
+  enableOnlinePayments: boolean("enable_online_payments").default(false),
+  paymentAmount: decimal("payment_amount", { precision: 10, scale: 2 }),
+  paymentType: text("payment_type"), // 'full', 'deposit'
+  
+  // Location
+  location: text("location"), // e.g., "Consultation Phone Call", "Zoom", "In-person"
+  locationDetails: text("location_details"),
+  
+  // Email templates
+  confirmationMessageTemplateId: varchar("confirmation_message_template_id").references(() => messageTemplates.id),
+  cancellationMessageTemplateId: varchar("cancellation_message_template_id").references(() => messageTemplates.id),
+  reminderMessageTemplateId: varchar("reminder_message_template_id").references(() => messageTemplates.id),
+  reminderDaysBefore: integer("reminder_days_before").default(1),
+  
+  // Project management
+  autoCreateProject: boolean("auto_create_project").default(false),
+  addContactTags: text("add_contact_tags").array(),
+  addProjectTags: text("add_project_tags").array(),
+  removeProjectTags: text("remove_project_tags").array(),
+  updateProjectDateToBooking: boolean("update_project_date_to_booking").default(false),
+  
+  // Approval settings
+  requireApproval: boolean("require_approval").default(false),
+  approvalCalendarId: varchar("approval_calendar_id").references(() => calendarIntegrations.id),
+  approvalWorkflowId: text("approval_workflow_id"),
+  approvalAutoEmail: text("approval_auto_email"), // 'do_not_send', 'waiting_for_approval', custom template
+  
+  isActive: boolean("is_active").default(true),
+  displayOrder: integer("display_order").default(0),
+  createdBy: varchar("created_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  tenantIdIdx: index("bookable_services_tenant_id_idx").on(table.tenantId),
+  isActiveIdx: index("bookable_services_is_active_idx").on(table.isActive),
+}));
+
+export const insertBookableServiceSchema = createInsertSchema(bookableServices).omit({ 
+  id: true, 
+  createdAt: true, 
+  updatedAt: true 
+});
+
+export type BookableService = typeof bookableServices.$inferSelect;
+export type InsertBookableService = z.infer<typeof insertBookableServiceSchema>;
+
+// Availability Schedules - Named schedules with rules
+export const availabilitySchedules = pgTable("availability_schedules", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").references(() => tenants.id).notNull(),
+  name: text("name").notNull(), // e.g., "Consultation Call Availability"
+  publicLink: text("public_link").unique(), // Public URL slug
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  tenantIdIdx: index("availability_schedules_tenant_id_idx").on(table.tenantId),
+  publicLinkIdx: index("availability_schedules_public_link_idx").on(table.publicLink),
+}));
+
+export const insertAvailabilityScheduleSchema = createInsertSchema(availabilitySchedules).omit({ 
+  id: true, 
+  createdAt: true, 
+  updatedAt: true 
+});
+
+export type AvailabilitySchedule = typeof availabilitySchedules.$inferSelect;
+export type InsertAvailabilitySchedule = z.infer<typeof insertAvailabilityScheduleSchema>;
+
+// Schedule Services - Link services to schedules (many-to-many)
+export const scheduleServices = pgTable("schedule_services", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  scheduleId: varchar("schedule_id").references(() => availabilitySchedules.id, { onDelete: 'cascade' }).notNull(),
+  serviceId: varchar("service_id").references(() => bookableServices.id, { onDelete: 'cascade' }).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  scheduleIdIdx: index("schedule_services_schedule_id_idx").on(table.scheduleId),
+  serviceIdIdx: index("schedule_services_service_id_idx").on(table.serviceId),
+  scheduleServiceUnique: unique("schedule_services_schedule_service_unique").on(table.scheduleId, table.serviceId),
+}));
+
+export const insertScheduleServiceSchema = createInsertSchema(scheduleServices).omit({ 
+  id: true, 
+  createdAt: true 
+});
+
+export type ScheduleService = typeof scheduleServices.$inferSelect;
+export type InsertScheduleService = z.infer<typeof insertScheduleServiceSchema>;
+
+// Availability Rules - Define when slots are available
+export const availabilityRules = pgTable("availability_rules", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  scheduleId: varchar("schedule_id").references(() => availabilitySchedules.id, { onDelete: 'cascade' }).notNull(),
+  frequency: text("frequency").notNull(), // 'daily', 'weekly', 'monthly'
+  selectedDays: text("selected_days").array(), // ['MO', 'TU', 'WE', 'TH', 'FR'] for weekly
+  dateStart: timestamp("date_start"), // Start date for this rule
+  dateEnd: timestamp("date_end"), // End date for this rule (null = no end)
+  timeStart: text("time_start").notNull(), // e.g., '10:00'
+  timeEnd: text("time_end").notNull(), // e.g., '16:30'
+  isException: boolean("is_exception").default(false), // True if this blocks out time instead
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  scheduleIdIdx: index("availability_rules_schedule_id_idx").on(table.scheduleId),
+}));
+
+export const insertAvailabilityRuleSchema = createInsertSchema(availabilityRules).omit({ 
+  id: true, 
+  createdAt: true 
+});
+
+export type AvailabilityRule = typeof availabilityRules.$inferSelect;
+export type InsertAvailabilityRule = z.infer<typeof insertAvailabilityRuleSchema>;
+
+// Bookings - Actual booked appointments
+export const bookings = pgTable("bookings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").references(() => tenants.id).notNull(),
+  serviceId: varchar("service_id").references(() => bookableServices.id).notNull(),
+  scheduleId: varchar("schedule_id").references(() => availabilitySchedules.id),
+  contactId: varchar("contact_id").references(() => contacts.id, { onDelete: 'cascade' }),
+  leadId: varchar("lead_id").references(() => leads.id, { onDelete: 'set null' }),
+  projectId: varchar("project_id").references(() => projects.id, { onDelete: 'set null' }),
+  
+  // Booking details
+  bookedBy: text("booked_by").notNull(), // Name of person booking
+  bookedEmail: text("booked_email").notNull(),
+  bookedPhone: text("booked_phone"),
+  startTime: timestamp("start_time").notNull(),
+  endTime: timestamp("end_time").notNull(),
+  timezone: text("timezone").notNull().default('UTC'),
+  
+  // Question responses
+  serviceResponses: text("service_responses"), // JSON of service question answers
+  projectResponses: text("project_responses"), // JSON of project setup question answers
+  
+  // Status
+  status: text("status").notNull().default('pending'), // 'pending', 'confirmed', 'cancelled', 'completed'
+  approvalStatus: text("approval_status"), // 'pending_approval', 'approved', 'rejected' if approval required
+  
+  // Integration
+  googleEventId: text("google_event_id"), // Google Calendar event ID from sync
+  
+  // Notifications
+  confirmationSentAt: timestamp("confirmation_sent_at"),
+  reminderSentAt: timestamp("reminder_sent_at"),
+  cancellationSentAt: timestamp("cancellation_sent_at"),
+  
+  cancelledAt: timestamp("cancelled_at"),
+  cancelledBy: text("cancelled_by"), // 'client', 'admin'
+  cancellationReason: text("cancellation_reason"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  tenantIdIdx: index("bookings_tenant_id_idx").on(table.tenantId),
+  serviceIdIdx: index("bookings_service_id_idx").on(table.serviceId),
+  contactIdIdx: index("bookings_contact_id_idx").on(table.contactId),
+  statusIdx: index("bookings_status_idx").on(table.status),
+  startTimeIdx: index("bookings_start_time_idx").on(table.startTime),
+}));
+
+export const insertBookingSchema = createInsertSchema(bookings).omit({ 
+  id: true, 
+  createdAt: true, 
+  updatedAt: true,
+  confirmationSentAt: true,
+  reminderSentAt: true,
+  cancellationSentAt: true,
+  cancelledAt: true
+});
+
+export type Booking = typeof bookings.$inferSelect;
+export type InsertBooking = z.infer<typeof insertBookingSchema>;

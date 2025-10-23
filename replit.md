@@ -1,6 +1,6 @@
 # Overview
 
-BusinessCRM is a comprehensive customer relationship management system designed to streamline business operations from lead capture through project completion and billing. It offers lead management, client tracking, project management, a quotation system, contract management, invoicing, email integration, calendar functionality, and workflow automation. The project aims to provide a modern, full-stack solution for businesses to manage their customer relationships effectively.
+BusinessCRM is a comprehensive customer relationship management system designed to streamline business operations from lead capture through project completion and billing. It integrates lead management, client tracking, project management, a quotation system, contract management, invoicing, email and calendar functionalities, and workflow automation. Key features include an AI-powered conversational booking widget, a media library, an online scheduler, and an AI onboarding wizard for new tenants. The project aims to deliver a modern, full-stack solution for effective customer relationship management.
 
 # User Preferences
 
@@ -8,202 +8,90 @@ Preferred communication style: Simple, everyday language.
 
 # System Architecture
 
-## Frontend Architecture
-The client-side is built with React 18, TypeScript, and Vite. It utilizes a component-based architecture with `shadcn/ui` (built on Radix UI) for components, Tailwind CSS for styling, Wouter for routing, TanStack Query for server state management, and React Hook Form with Zod for form handling. The layout is responsive with a sidebar navigation.
+## Frontend
+The frontend uses React 18 with TypeScript and Vite. It employs a component-based architecture with `shadcn/ui` (built on Radix UI) for components, Tailwind CSS for styling, Wouter for routing, TanStack Query for server state management, and React Hook Form with Zod for form handling. The design emphasizes responsiveness with sidebar navigation.
 
-## Backend Architecture
-The server is built with Express.js and TypeScript, following a layered architecture. It features RESTful APIs, an abstract storage layer, and middleware for request handling and error management. A service-oriented approach separates HTTP handling from business logic.
+## Backend
+The backend is built with Express.js and TypeScript, featuring a layered, service-oriented architecture with RESTful APIs, an abstract storage layer, and middleware for request and error handling.
 
-## Multitenancy Architecture
-The system includes scaffolding for multitenancy, allowing multiple organizations to use the same infrastructure. Key aspects include a `Tenants` table, middleware for tenant resolution (subdomain, domain, user context), data isolation using `tenant_id` foreign keys across core tables, and helper functions for tenant-aware database operations. Performance indexes are applied to `tenant_id` columns.
+## Multitenancy
+The system supports multitenancy with data isolation using `tenant_id` across core tables, tenant resolution via subdomains, domains, or user context, and performance indexing on `tenant_id` columns.
 
 ## Data Storage
-PostgreSQL is the primary database, utilizing Drizzle ORM for type-safe operations and migrations. Neon Database provides serverless PostgreSQL hosting. The schema, defined in `/shared/schema.ts`, includes tables for users, leads, clients, projects, quotes, contracts, invoices, tasks, emails, activities, and automations.
+PostgreSQL is the primary database, managed by Drizzle ORM for type-safe operations and migrations. Neon Database provides serverless PostgreSQL hosting. The schema includes tables for users, leads, clients, projects, quotes, contracts, invoices, tasks, emails, activities, and automations.
 
-## Email Provider OAuth Integration & Performance
-The system incorporates a comprehensive email provider integration system. This includes a database-backed provider catalog supporting Gmail and Microsoft 365/Outlook, secure OAuth 2.0 flows with PKCE, encrypted token storage, and multi-tenant support with one-active-provider-per-tenant enforcement. It features an outgoing email service with provider fallback and a background worker for contacts-only email synchronization. Automatic calendar event creation for leads with Google Calendar sync conflict resolution is also implemented, ensuring CRM-created events are protected from overwrites and support cascade deletion with projects.
-
-**Email Loading Performance**: Emails are fetched from Gmail API and stored in PostgreSQL with composite indexes (`projectId`, `sentAt`) for instant retrieval. TanStack Query caches email data with a 5-minute staleTime for instant loading on subsequent visits, matching 17hats performance standards. Manual refresh available via UI when needed.
+## Email Provider Integration
+The system integrates with email providers like Gmail and Microsoft 365/Outlook, featuring secure OAuth 2.0 flows, encrypted token storage, multi-tenant support with one active provider per tenant, and an outgoing email service with fallback. It includes background email synchronization for contacts and automatic Google Calendar event creation for leads with conflict resolution. Email data is fetched from the Gmail API, stored in PostgreSQL with composite indexes, and cached by TanStack Query for fast retrieval.
 
 ## Authentication & Session Management
-The architecture includes preparations for session-based authentication using `connect-pg-simple` for PostgreSQL session storage, user management schema with secure password handling, and a structure for protected routes.
+The architecture includes session-based authentication using `connect-pg-simple` for PostgreSQL session storage, secure user management, and protected routes.
 
-## AI Assistant (Phase 1)
-The system includes an AI-powered email assistant using Replit AI Integrations (OpenAI). All AI operations are multi-tenant safe with proper data isolation.
+## AI Assistant
+The system incorporates an AI assistant using Replit AI Integrations (OpenAI) with multi-tenant safety.
 
-**Features:**
-- **Email Summarization**: AI generates concise summaries of email threads, focusing on main topics, decisions, and action items
-- **Smart Reply Drafts**: AI creates professional email reply drafts based on thread context
-- **Action Item Extraction**: AI automatically identifies tasks, deadlines, and priorities from email content
-- **AI Compose Assistant with Style Learning**: AI generates complete email drafts (subject + body) from brief user instructions
-  - **Context-Based Style Learning**: Analyzes user's recent sent emails to match their personal writing style, tone, and structure
-  - **Adaptive Personalization**: <3 emails = standard professional style, 3-5 emails = blended style, 6+ emails = fully personalized to user's voice
-  - **User Feedback**: Toast notifications indicate whether draft uses personalized style or standard style with guidance to send more emails
+### AI Email Assistant
+Provides email summarization, smart reply drafts, action item extraction, and an AI compose assistant with context-based style learning. Personalization adapts to user's past email styles, with a feedback mechanism for personalization level. AI operations are tenant-scoped, and summaries are cached to reduce API calls. The service uses GPT-4o-mini.
 
-**Multi-Tenant Safety:**
-- All AI operations scope data by `tenant_id` in database queries and AI prompts
-- Database tables (`email_summaries`, `email_drafts`, `email_action_items`) have NOT NULL tenant_id constraints
-- Backend routes protected with authentication, tenant resolution, and tenant validation middleware
-- Storage methods enforce tenant isolation using `AND tenant_id = ?` in all queries
+### Conversational CRM Assistant
+Enables natural language queries for business data across projects, leads, clients, quotes, contracts, invoices, tasks, calendar events, team members, venues, activities, and emails. It uses OpenAI function calling with 16 specialized database query functions to provide smart insights and formatted responses. The service is implemented via a floating chat button.
 
-**Caching Strategy:**
-- Email summaries cached in database with unique constraint on (tenant_id, thread_id)
-- Backend checks for existing summaries before generating new ones
-- Prevents redundant API calls and reduces costs
+### AI Training & Personalization System
+Allows users to train the AI assistant through:
+-   **Business Profile Questionnaire**: Captures essential business information, target audience, services, and communication style.
+-   **Knowledge Base**: Manages business-specific articles with category tagging and CRUD operations.
+-   **Custom Instructions**: Defines AI behavioral guidelines.
+All training data is tenant-scoped and dynamically enhances the AI's system message for personalized responses.
 
-**AI Service:**
-- Located in `server/ai-service.ts`
-- Uses GPT-4o-mini model for cost-effective performance
-- All functions accept `tenantId` parameter for safety (composeEmail also accepts `userId` for style learning)
-- Returns token usage for tracking and cost management
-- Style learning queries user's email address from users table, then fetches recent sent emails (direction='outbound') matching that email
-- Returns `stylePersonalized: boolean` flag to inform frontend about personalization level
+### Media Library & Conversational Chat Widget
+Provides a multi-tenant media library for organizing and displaying files (photos, videos, audio) with categories and tags. The AI chat widget offers:
+-   **Deployment**: Embeddable widget or full contact page.
+-   **Lead Capture**: Conversational lead qualification, FAQ handling, media sharing, and conditional booking flows for new and existing contacts.
+-   **CRM Integration**: Auto-creates contacts, leads, or projects.
+-   **Configuration**: Customizable welcome messages, branding, tone, and booking prompt aggressiveness.
 
-## AI Assistant (Phase 2) - Conversational CRM Assistant
-Phase 2 introduces a conversational AI assistant that can query and analyze business data through natural language. The assistant uses OpenAI function calling to access comprehensive database information.
+### Online Scheduler & AI Onboarding Wizard
+**Online Scheduler**: Allows clients to book services with configurable durations, buffer times, and questions. Features include:
+-   **Availability**: Named schedules with daily/weekly/monthly patterns and exception rules.
+-   **Management**: Auto-creates contacts/projects, updates project dates, integrates with Google Calendar (conflict detection), and manages booking statuses.
+-   **Automation**: Customizable email confirmations and reminders.
+-   **Client Experience**: Public booking pages with timezone support and existing contact detection.
+**AI Onboarding Wizard**: Guides new tenants through a conversational setup process for their CRM, configuring business information, services, scheduler, knowledge base, and chat widget. It extracts structured data and auto-populates CRM settings.
 
-**Features:**
-- **Natural Language Queries**: Ask questions in plain language about your business (e.g., "How many gigs next month?", "What's my total revenue?", "Show me recent emails from Sarah")
-- **Comprehensive Data Access**: AI can query all major database tables including:
-  - Projects & Gigs (count, details, upcoming events)
-  - Leads (status, conversion metrics)
-  - Clients/Contacts (lists, information)
-  - Quotes (value, status breakdown)
-  - Contracts (status summary)
-  - Invoices & Revenue (stats, unpaid, overdue)
-  - Tasks (pending, completed, overdue)
-  - Calendar Events (upcoming events)
-  - Team Members (musicians, roles)
-  - Venues (locations, capacity)
-  - Activities (recent business timeline)
-  - **Emails** (incoming/outgoing correspondence with contacts)
-- **Smart Insights**: AI provides actionable insights and formatted responses with proper date/number formatting
-- **Function Calling**: 16 specialized database query functions for accurate data retrieval
-
-**Implementation:**
-- Service location: `server/ai-assistant-service.ts`
-- API endpoint: `POST /api/ai/assistant/query`
-- Model: GPT-4o-mini (only reliable model through Replit AI Integrations)
-- UI: Floating chat button in bottom-right corner
-- Multi-tenant safe: All queries scoped by `tenant_id`
-
-**Technical Details:**
-- Uses OpenAI function calling pattern for structured data access
-- 16 specialized functions: get_projects_count, get_revenue_stats, get_upcoming_events, get_unpaid_invoices, get_clients_list, get_project_details, get_leads_summary, get_quotes_summary, get_contracts_summary, get_tasks_summary, get_calendar_events, get_members_list, get_venues_list, get_activities_summary, get_emails_by_contact, get_recent_emails
-- All functions enforce tenant isolation with proper data scoping
-- Email access is restricted to contacts within the tenant's CRM only
-- Returns natural language responses with embedded data insights
-
-## AI Assistant (Phase 3) - AI Training & Personalization System
-Phase 3 introduces a comprehensive AI training system that allows users to teach the AI assistant about their specific business through a guided questionnaire, knowledge base, and custom instructions.
-
-**Features:**
-- **Business Profile Questionnaire**: Guided form capturing essential business information
-  - Business name, type, and industry
-  - Target audience and services offered
-  - Unique value proposition
-  - Communication tone and style preferences
-  - Common client scenarios and industry terminology
-- **Knowledge Base**: Article/documentation management system
-  - Create, edit, and organize business-specific knowledge articles
-  - Category tagging for better organization
-  - Active/inactive toggle for content management
-  - Full CRUD interface with search and filtering
-- **Custom Instructions**: Define specific AI behavior rules
-  - Create behavioral guidelines for the AI assistant
-  - Category-based organization
-  - Active/inactive toggle for instruction management
-  - Real-time application to AI responses
-- **Document Upload** (Phase 4): Future capability to upload training documents
-
-**Database Schema:**
-- `ai_business_context` - Stores questionnaire responses (one per tenant)
-- `ai_knowledge_base` - Stores articles and documentation
-- `ai_custom_instructions` - Stores behavioral rules and guidelines
-- `ai_training_documents` - Prepared for future document uploads
-- All tables are tenant-scoped with proper indexes
-
-## Invoice System (In Progress)
-The system includes a comprehensive invoicing system with payment schedules, recurring invoices, and Stripe integration.
-
-**Completed:**
-- **Database Schema**: Full invoice tables including `invoice_line_items`, `payment_schedules`, `payment_installments`, `recurring_invoice_settings`, `payment_transactions`
-- **Storage Layer**: Complete CRUD operations for all invoice-related tables with proper tenant isolation
-- **API Routes**: RESTful endpoints for invoices, line items, payment schedules, installments, recurring settings, transactions, and Stripe payment intent creation
-
-**In Progress:**
-- **InvoiceEditor Component**: Full-featured invoice editor similar to QuoteEditor with item selection from Products & Services
-- **Payment Schedule Modals**: Custom and Equal payment schedule configuration dialogs
-- **Recurring Invoice Settings**: Modal for configuring recurring invoice automation
-- **Stripe Integration**: Frontend payment processing and webhook handling
-
-**Features:**
-- **Payment Schedules**: Support for both Custom (define exact amounts/percentages per installment) and Equal (auto-split evenly) payment plans
-- **Flexible Due Dates**: Options include On Receipt, After Receipt, On/After/Before Project Date, On/After/Before Due Date, On Custom Date with time offsets
-- **Recurring Invoices**: Automated recurring invoice generation with configurable frequency
-- **Multi-Currency Support**: Invoice creation and payment processing in multiple currencies
-- **Stripe Payments**: Online payment processing with secure payment intents
-- **Global Tax Settings**: Single tax configuration for the business (can expand for multiple jurisdictions later)
-
-**Implementation:**
-- Settings page: `/settings?tab=ai` with three-tab interface
-- Storage layer: 12 new methods for AI knowledge management
-- API routes: RESTful endpoints for all CRUD operations
-- AI integration: System message enhancement with training data
-- Service location: Enhanced `server/ai-assistant-service.ts`
-
-**Multi-Tenant Safety:**
-- All AI training data scoped by `tenant_id`
-- Proper data isolation in all queries
-- Active/inactive filtering for knowledge base and instructions
-- Tenant-specific customization without cross-contamination
-
-**User Experience:**
-- Tab 1: Business Profile - guided questionnaire for business context
-- Tab 2: Knowledge Base - article management interface
-- Tab 3: Custom Instructions - behavioral rule management
-- Real-time AI personalization based on saved training data
-- Toast notifications for all CRUD operations
-
-**Technical Integration:**
-- AI assistant fetches training data on each query
-- System message dynamically built with business context, knowledge base, and custom instructions
-- Only active items included in AI context
-- Maintains original CRM capabilities alongside custom training
-- Structured sections in system message: Business Information, Knowledge Base, Custom Instructions, CRM Capabilities
+## Invoice System
+Includes a comprehensive invoicing system with payment schedules, recurring invoices, and Stripe integration. It features full database schema, CRUD operations, and API routes for invoices, line items, payment schedules, installments, recurring settings, and transactions. Supports custom/equal payment plans, flexible due dates, automated recurring invoices, multi-currency, and Stripe payments.
 
 # External Dependencies
 
-## Core Framework Dependencies
-- **React 18**: Frontend framework
-- **Express.js**: Backend web framework
-- **TypeScript**: Language
-- **Vite**: Build tool and development server
+## Core Framework
+-   **React 18**
+-   **Express.js**
+-   **TypeScript**
+-   **Vite**
 
 ## Database & ORM
-- **Neon Database**: Serverless PostgreSQL
-- **Drizzle ORM**: Type-safe database toolkit
-- **connect-pg-simple**: PostgreSQL session store
+-   **Neon Database** (Serverless PostgreSQL)
+-   **Drizzle ORM**
+-   **connect-pg-simple** (PostgreSQL session store)
 
 ## UI & Component Libraries
-- **Radix UI**: Accessible component primitives
-- **Tailwind CSS**: Utility-first CSS framework
-- **Lucide React**: Icon library
-- **shadcn/ui**: Pre-built component system
+-   **Radix UI**
+-   **Tailwind CSS**
+-   **Lucide React**
+-   **shadcn/ui**
 
 ## Data Management
-- **TanStack Query**: Server state management
-- **React Hook Form**: Form handling
-- **Zod**: Schema validation
-- **date-fns**: Date manipulation utilities
+-   **TanStack Query**
+-   **React Hook Form**
+-   **Zod**
+-   **date-fns**
 
 ## Additional Utilities
-- **clsx & tailwind-merge**: Conditional CSS class handling
-- **class-variance-authority**: Component variant management
-- **cmdk**: Command palette functionality
-- **embla-carousel-react**: Carousel component
-- **wouter**: Routing library
+-   **clsx & tailwind-merge**
+-   **class-variance-authority**
+-   **cmdk**
+-   **embla-carousel-react**
+-   **wouter**
 
 ## AI & Machine Learning
-- **Replit AI Integrations**: OpenAI-compatible API access (GPT-4o-mini/GPT-5)
-- **OpenAI SDK**: Client library for AI operations
+-   **Replit AI Integrations** (OpenAI-compatible API access)
+-   **OpenAI SDK**

@@ -19,6 +19,7 @@ import Settings from "@/pages/settings";
 import EmailSettings from "@/pages/settings/EmailSettings";
 import Templates from "@/pages/settings/Templates";
 import LeadAutomations from "@/pages/settings/Automations";
+import WidgetSettings from "@/pages/settings/WidgetSettings";
 import LeadCaptureBuilder from "@/pages/leads/LeadCaptureBuilder";
 import LeadsUrgencyList from "@/pages/leads/LeadsUrgencyList";
 import LeadsInbox from "@/pages/leads/LeadsInbox";
@@ -178,6 +179,7 @@ function Router() {
                   <Route path="/settings/email-and-calendar" component={EmailSettings} />
                   <Route path="/settings/templates" component={Templates} />
                   <Route path="/settings/automations" component={LeadAutomations} />
+                  <Route path="/settings/widget" component={WidgetSettings} />
                   <Route path="/settings" component={Settings} />
                   <Route component={NotFound} />
                 </Switch>

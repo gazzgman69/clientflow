@@ -17,6 +17,21 @@ The backend is built with Express.js and TypeScript, featuring a layered, servic
 ## Multitenancy
 The system supports multitenancy with data isolation using `tenant_id` across core tables, tenant resolution via subdomains, domains, or user context, and performance indexing on `tenant_id` columns.
 
+### Tenant-Per-User Architecture (Updated: Oct 23, 2025)
+**Signup Flow**: Each new user automatically gets their own isolated tenant with complete data separation:
+-   **Tenant Creation**: Signup creates a new tenant first with a unique slug (format: sanitized username with numeric suffix if duplicate)
+-   **User Assignment**: First user in tenant automatically gets 'admin' role and is assigned to the new tenant
+-   **Tenant Naming**: Default tenant name is "${firstName} ${lastName}'s Business"
+-   **Slug Generation**: Username is sanitized (lowercase, alphanumeric with hyphens) and uniqueness is ensured
+-   **Global Uniqueness**: Username and email are checked globally across all tenants before signup
+-   **Session Management**: After signup, session is automatically created with user ID and tenant ID
+-   **Onboarding**: New tenants are redirected to AI onboarding wizard at /onboarding route
+
+**Storage Layer Enhancements**:
+-   Added `createTenant()` method to both MemStorage and DrizzleStorage
+-   Added `getUserByUsernameGlobal()` and `getUserByEmailGlobal()` for global uniqueness checks
+-   Updated `createUser()` to accept tenantId parameter and enforce tenant assignment
+
 ## Data Storage
 PostgreSQL is the primary database, managed by Drizzle ORM for type-safe operations and migrations. Neon Database provides serverless PostgreSQL hosting. The schema includes tables for users, leads, clients, projects, quotes, contracts, invoices, tasks, emails, activities, and automations.
 
@@ -25,6 +40,13 @@ The system integrates with email providers like Gmail and Microsoft 365/Outlook,
 
 ## Authentication & Session Management
 The architecture includes session-based authentication using `connect-pg-simple` for PostgreSQL session storage, secure user management, and protected routes.
+
+### Signup Process
+-   **No Middleware Required**: Signup endpoint (`POST /api/auth/signup`) does not use tenantResolver middleware
+-   **Tenant-First Creation**: Creates tenant → creates user → establishes session → redirects to onboarding
+-   **Auto-Login**: Users are automatically logged in after successful signup with session containing userId and tenantId
+-   **Validation**: Zod schema validates all signup fields (username, email, password, firstName, lastName)
+-   **Security**: Passwords are hashed with bcrypt before storage
 
 ## AI Assistant
 The system incorporates an AI assistant using Replit AI Integrations (OpenAI) with multi-tenant safety.

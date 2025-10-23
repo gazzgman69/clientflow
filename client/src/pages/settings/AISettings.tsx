@@ -54,7 +54,7 @@ export default function AISettings() {
 
   // Fetch media library
   const { data: mediaItems = [], isLoading: isLoadingMedia } = useQuery({
-    queryKey: ['/api/media-library'],
+    queryKey: ['/api/ai-features/media'],
   });
 
   // Save business context mutation
@@ -697,7 +697,7 @@ export default function AISettings() {
 
     const uploadMutation = useMutation({
       mutationFn: async (formData: FormData) => {
-        const response = await fetch('/api/media-library', {
+        const response = await fetch('/api/ai-features/media', {
           method: 'POST',
           credentials: 'include',
           body: formData,
@@ -709,7 +709,7 @@ export default function AISettings() {
         return response.json();
       },
       onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: ['/api/media-library'] });
+        queryClient.invalidateQueries({ queryKey: ['/api/ai-features/media'] });
         toast({
           title: 'Success',
           description: 'Media uploaded successfully',
@@ -726,10 +726,10 @@ export default function AISettings() {
 
     const updateMutation = useMutation({
       mutationFn: async ({ id, data }: { id: string; data: any }) => {
-        return await apiRequest('PATCH', `/api/media-library/${id}`, data);
+        return await apiRequest('PATCH', `/api/ai-features/media/${id}`, data);
       },
       onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: ['/api/media-library'] });
+        queryClient.invalidateQueries({ queryKey: ['/api/ai-features/media'] });
         setIsEditDialogOpen(false);
         setEditingItem(null);
         toast({
@@ -741,10 +741,10 @@ export default function AISettings() {
 
     const deleteMutation = useMutation({
       mutationFn: async (id: string) => {
-        return await apiRequest('DELETE', `/api/media-library/${id}`);
+        return await apiRequest('DELETE', `/api/ai-features/media/${id}`);
       },
       onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: ['/api/media-library'] });
+        queryClient.invalidateQueries({ queryKey: ['/api/ai-features/media'] });
         toast({
           title: 'Success',
           description: 'Media deleted successfully',

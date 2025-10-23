@@ -1326,12 +1326,12 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   });
   
   // Main user authentication endpoints  
-  // User signup endpoint
-  app.post('/api/auth/signup', tenantResolver, requireTenant, authLimiter, async (req, res) => {
+  // User signup endpoint - Creates isolated tenant for each new user
+  app.post('/api/auth/signup', authLimiter, async (req, res) => {
     try {
       const { username, email, password, firstName, lastName } = signupSchema.parse(req.body);
       
-      // Check if user already exists
+      // Check if user already exists (global check)
       const existingUser = await storage.getUserByUsername(username);
       if (existingUser) {
         return res.status(409).json({ error: 'Username already taken' });
@@ -1343,21 +1343,43 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
         return res.status(409).json({ error: 'Email already registered' });
       }
       
+      // Generate unique tenant slug from username
+      const baseSlug = username.toLowerCase().replace(/[^a-z0-9]/g, '-');
+      let tenantSlug = baseSlug;
+      let slugAttempt = 1;
+      
+      // Ensure slug is unique
+      while (await storage.getTenantBySlug(tenantSlug)) {
+        tenantSlug = `${baseSlug}-${slugAttempt}`;
+        slugAttempt++;
+      }
+      
+      // Create new tenant for this user
+      const newTenant = await storage.createTenant({
+        name: `${firstName} ${lastName}'s Business`,
+        slug: tenantSlug,
+        plan: 'starter',
+        isActive: true
+      });
+      
+      console.log('✅ Created new tenant:', {
+        id: newTenant.id,
+        slug: newTenant.slug,
+        name: newTenant.name
+      });
+      
       // Hash password with bcrypt
       const hashedPassword = await hashPassword(password);
       
-      // Get tenant context from middleware - tenantResolver ensures this is valid
-      const currentTenantId = (req as any).tenantId;
-      
-      // Create new user with proper tenant assignment
+      // Create new user in the new tenant
       const newUser = await storage.createUser({
         username,
         email,
         password: hashedPassword,
         firstName,
         lastName,
-        role: 'user' // Default role
-      }, currentTenantId);
+        role: 'admin' // First user in tenant is admin
+      }, newTenant.id);
       
       // Regenerate session ID for security
       req.session.regenerate((err: any) => {
@@ -1368,10 +1390,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
         
         // Store user ID and tenant ID in session (auto-login after signup)
         req.session.userId = newUser.id;
-        if (!newUser.tenantId) {
-          return res.status(500).json({ error: 'User tenant context is invalid' });
-        }
-        req.session.tenantId = newUser.tenantId;
+        req.session.tenantId = newTenant.id;
         
         res.json({ 
           success: true, 
@@ -1382,7 +1401,12 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
             firstName: newUser.firstName,
             lastName: newUser.lastName,
             role: newUser.role
-          } 
+          },
+          tenant: {
+            id: newTenant.id,
+            slug: newTenant.slug,
+            name: newTenant.name
+          }
         });
       });
     } catch (error: any) {

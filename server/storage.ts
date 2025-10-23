@@ -157,6 +157,7 @@ export interface IStorage {
   getTenantByDomain(domain: string): Promise<Tenant | undefined>;
   getTenant(id: string): Promise<Tenant | undefined>;
   getTenantById(id: string): Promise<Tenant | undefined>;
+  createTenant(tenant: InsertTenant): Promise<Tenant>;
   updateTenantSettings(id: string, settings: string): Promise<Tenant | undefined>;
   
   // Users
@@ -1021,6 +1022,23 @@ export class MemStorage implements IStorage {
 
   async getTenantById(id: string): Promise<import('@shared/schema').Tenant | undefined> {
     return this.tenants.get(id);
+  }
+
+  async createTenant(tenant: InsertTenant): Promise<Tenant> {
+    const { randomUUID } = await import('crypto');
+    const id = randomUUID();
+    const newTenant: Tenant = {
+      ...tenant,
+      id,
+      isActive: tenant.isActive ?? true,
+      plan: tenant.plan ?? 'starter',
+      domain: tenant.domain ?? null,
+      settings: tenant.settings ?? null,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    this.tenants.set(id, newTenant);
+    return newTenant;
   }
 
   async updateTenantSettings(id: string, settings: string): Promise<import('@shared/schema').Tenant | undefined> {
@@ -3696,6 +3714,17 @@ export class DrizzleStorage implements IStorage {
 
   async getTenantById(id: string): Promise<Tenant | undefined> {
     return this.getTenant(id);
+  }
+
+  async createTenant(tenant: InsertTenant): Promise<Tenant> {
+    const { tenants } = await import('@shared/schema');
+    
+    const [created] = await this.db
+      .insert(tenants)
+      .values(tenant)
+      .returning();
+    
+    return created;
   }
 
   async updateTenantSettings(id: string, settings: string): Promise<Tenant | undefined> {

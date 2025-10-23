@@ -85,6 +85,17 @@ import {
   type NotificationSettings, type InsertNotificationSettings,
   type LeadFollowUpNotification, type InsertLeadFollowUpNotification,
   type AutoReplyLog, type InsertAutoReplyLog,
+  // AI Onboarding, Media Library, Chat Widget, Scheduler types
+  type TenantOnboardingProgress, type InsertTenantOnboardingProgress,
+  type MediaLibrary, type InsertMediaLibrary,
+  type WidgetSettings, type InsertWidgetSettings,
+  type ChatConversation, type InsertChatConversation,
+  type ChatMessage, type InsertChatMessage,
+  type BookableService, type InsertBookableService,
+  type AvailabilitySchedule, type InsertAvailabilitySchedule,
+  type ScheduleService, type InsertScheduleService,
+  type AvailabilityRule, type InsertAvailabilityRule,
+  type Booking, type InsertBooking,
   users, leads, contacts, projects, quotes, contracts, contractTemplates, invoices, incomeCategories, invoiceItems, invoiceLineItems, paymentSchedules, paymentInstallments, recurringInvoiceSettings, paymentTransactions, taxSettings, tasks, emails, emailThreads, activities, automations, 
   members, venues, projectMembers, memberAvailability, projectFiles, projectNotes, smsMessages, 
   messageTemplates, messageThreads, calendars, events, calendarIntegrations, calendarSyncLog, templates, leadCaptureForms,
@@ -114,7 +125,10 @@ import {
   // User Preferences table
   userPrefs,
   // Notification System tables
-  notificationSettings, leadFollowUpNotifications, autoReplyLog
+  notificationSettings, leadFollowUpNotifications, autoReplyLog,
+  // AI Onboarding, Media Library, Chat Widget, Scheduler tables
+  tenantOnboardingProgress, mediaLibrary, widgetSettings, chatConversations, chatMessages,
+  bookableServices, availabilitySchedules, scheduleServices, availabilityRules, bookings
 } from "@shared/schema";
 import crypto from "crypto";
 import { TenantScopedStorage } from './utils/tenantScopedStorage';
@@ -684,6 +698,66 @@ export interface IStorage {
   getAutoReplyLogs(leadId: string, tenantId: string): Promise<AutoReplyLog[]>;
   getAutoReplyLogsByLeads(leadIds: string[], tenantId: string): Promise<Map<string, AutoReplyLog[]>>;
   createAutoReplyLog(log: InsertAutoReplyLog, tenantId: string): Promise<AutoReplyLog>;
+
+  // Tenant Onboarding Progress
+  getTenantOnboardingProgress(tenantId: string): Promise<TenantOnboardingProgress | undefined>;
+  createTenantOnboardingProgress(progress: InsertTenantOnboardingProgress, tenantId: string): Promise<TenantOnboardingProgress>;
+  updateTenantOnboardingProgress(id: string, progress: Partial<InsertTenantOnboardingProgress>, tenantId: string): Promise<TenantOnboardingProgress | undefined>;
+  
+  // Media Library
+  getMediaLibrary(tenantId: string, category?: string, isActive?: boolean): Promise<MediaLibrary[]>;
+  getMediaLibraryItem(id: string, tenantId: string): Promise<MediaLibrary | undefined>;
+  createMediaLibraryItem(item: InsertMediaLibrary, tenantId: string): Promise<MediaLibrary>;
+  updateMediaLibraryItem(id: string, item: Partial<InsertMediaLibrary>, tenantId: string): Promise<MediaLibrary | undefined>;
+  deleteMediaLibraryItem(id: string, tenantId: string): Promise<boolean>;
+  
+  // Widget Settings
+  getWidgetSettings(tenantId: string): Promise<WidgetSettings | undefined>;
+  upsertWidgetSettings(settings: InsertWidgetSettings, tenantId: string): Promise<WidgetSettings>;
+  
+  // Chat Conversations
+  getChatConversations(tenantId: string, limit?: number): Promise<ChatConversation[]>;
+  getChatConversation(id: string, tenantId: string): Promise<ChatConversation | undefined>;
+  getChatConversationBySession(sessionId: string, tenantId: string): Promise<ChatConversation | undefined>;
+  createChatConversation(conversation: InsertChatConversation, tenantId: string): Promise<ChatConversation>;
+  updateChatConversation(id: string, conversation: Partial<InsertChatConversation>, tenantId: string): Promise<ChatConversation | undefined>;
+  
+  // Chat Messages
+  getChatMessages(conversationId: string, tenantId: string): Promise<ChatMessage[]>;
+  createChatMessage(message: InsertChatMessage, tenantId: string): Promise<ChatMessage>;
+  
+  // Bookable Services
+  getBookableServices(tenantId: string, isActive?: boolean): Promise<BookableService[]>;
+  getBookableService(id: string, tenantId: string): Promise<BookableService | undefined>;
+  createBookableService(service: InsertBookableService, tenantId: string): Promise<BookableService>;
+  updateBookableService(id: string, service: Partial<InsertBookableService>, tenantId: string): Promise<BookableService | undefined>;
+  deleteBookableService(id: string, tenantId: string): Promise<boolean>;
+  
+  // Availability Schedules
+  getAvailabilitySchedules(tenantId: string, isActive?: boolean): Promise<AvailabilitySchedule[]>;
+  getAvailabilitySchedule(id: string, tenantId: string): Promise<AvailabilitySchedule | undefined>;
+  getAvailabilityScheduleByPublicLink(publicLink: string): Promise<AvailabilitySchedule | undefined>;
+  createAvailabilitySchedule(schedule: InsertAvailabilitySchedule, tenantId: string): Promise<AvailabilitySchedule>;
+  updateAvailabilitySchedule(id: string, schedule: Partial<InsertAvailabilitySchedule>, tenantId: string): Promise<AvailabilitySchedule | undefined>;
+  deleteAvailabilitySchedule(id: string, tenantId: string): Promise<boolean>;
+  
+  // Schedule Services (many-to-many)
+  getScheduleServices(scheduleId: string): Promise<ScheduleService[]>;
+  addServiceToSchedule(scheduleService: InsertScheduleService): Promise<ScheduleService>;
+  removeServiceFromSchedule(scheduleId: string, serviceId: string): Promise<boolean>;
+  
+  // Availability Rules
+  getAvailabilityRules(scheduleId: string): Promise<AvailabilityRule[]>;
+  createAvailabilityRule(rule: InsertAvailabilityRule): Promise<AvailabilityRule>;
+  updateAvailabilityRule(id: string, rule: Partial<InsertAvailabilityRule>): Promise<AvailabilityRule | undefined>;
+  deleteAvailabilityRule(id: string): Promise<boolean>;
+  
+  // Bookings
+  getBookings(tenantId: string, filters?: { contactId?: string; status?: string; startDate?: Date; endDate?: Date }): Promise<Booking[]>;
+  getBooking(id: string, tenantId: string): Promise<Booking | undefined>;
+  createBooking(booking: InsertBooking, tenantId: string): Promise<Booking>;
+  updateBooking(id: string, booking: Partial<InsertBooking>, tenantId: string): Promise<Booking | undefined>;
+  cancelBooking(id: string, cancelledBy: string, cancellationReason: string, tenantId: string): Promise<Booking | undefined>;
 
   // Tenant-scoped storage wrapper
   withTenant(tenantId: string): TenantScopedStorage;
@@ -8358,6 +8432,517 @@ export class DrizzleStorage implements IStorage {
       .returning();
     
     return created;
+  }
+
+  // ============================================================================
+  // TENANT ONBOARDING PROGRESS
+  // ============================================================================
+
+  async getTenantOnboardingProgress(tenantId: string): Promise<TenantOnboardingProgress | undefined> {
+    const [progress] = await this.db
+      .select()
+      .from(tenantOnboardingProgress)
+      .where(eq(tenantOnboardingProgress.tenantId, tenantId));
+    
+    return progress;
+  }
+
+  async createTenantOnboardingProgress(progress: InsertTenantOnboardingProgress, tenantId: string): Promise<TenantOnboardingProgress> {
+    const [created] = await this.db
+      .insert(tenantOnboardingProgress)
+      .values({ ...progress, tenantId })
+      .returning();
+    
+    return created;
+  }
+
+  async updateTenantOnboardingProgress(id: string, progress: Partial<InsertTenantOnboardingProgress>, tenantId: string): Promise<TenantOnboardingProgress | undefined> {
+    const [updated] = await this.db
+      .update(tenantOnboardingProgress)
+      .set({ ...progress, updatedAt: new Date() })
+      .where(and(
+        eq(tenantOnboardingProgress.id, id),
+        eq(tenantOnboardingProgress.tenantId, tenantId)
+      ))
+      .returning();
+    
+    return updated;
+  }
+
+  // ============================================================================
+  // MEDIA LIBRARY
+  // ============================================================================
+
+  async getMediaLibrary(tenantId: string, category?: string, isActive?: boolean): Promise<MediaLibrary[]> {
+    const conditions = [eq(mediaLibrary.tenantId, tenantId)];
+    
+    if (category) {
+      conditions.push(eq(mediaLibrary.category, category));
+    }
+    
+    if (isActive !== undefined) {
+      conditions.push(eq(mediaLibrary.isActive, isActive));
+    }
+    
+    return await this.db
+      .select()
+      .from(mediaLibrary)
+      .where(and(...conditions))
+      .orderBy(mediaLibrary.displayOrder, mediaLibrary.createdAt);
+  }
+
+  async getMediaLibraryItem(id: string, tenantId: string): Promise<MediaLibrary | undefined> {
+    const [item] = await this.db
+      .select()
+      .from(mediaLibrary)
+      .where(and(
+        eq(mediaLibrary.id, id),
+        eq(mediaLibrary.tenantId, tenantId)
+      ));
+    
+    return item;
+  }
+
+  async createMediaLibraryItem(item: InsertMediaLibrary, tenantId: string): Promise<MediaLibrary> {
+    const [created] = await this.db
+      .insert(mediaLibrary)
+      .values({ ...item, tenantId })
+      .returning();
+    
+    return created;
+  }
+
+  async updateMediaLibraryItem(id: string, item: Partial<InsertMediaLibrary>, tenantId: string): Promise<MediaLibrary | undefined> {
+    const [updated] = await this.db
+      .update(mediaLibrary)
+      .set({ ...item, updatedAt: new Date() })
+      .where(and(
+        eq(mediaLibrary.id, id),
+        eq(mediaLibrary.tenantId, tenantId)
+      ))
+      .returning();
+    
+    return updated;
+  }
+
+  async deleteMediaLibraryItem(id: string, tenantId: string): Promise<boolean> {
+    const result = await this.db
+      .delete(mediaLibrary)
+      .where(and(
+        eq(mediaLibrary.id, id),
+        eq(mediaLibrary.tenantId, tenantId)
+      ));
+    
+    return result.rowCount !== null && result.rowCount > 0;
+  }
+
+  // ============================================================================
+  // WIDGET SETTINGS
+  // ============================================================================
+
+  async getWidgetSettings(tenantId: string): Promise<WidgetSettings | undefined> {
+    const [settings] = await this.db
+      .select()
+      .from(widgetSettings)
+      .where(eq(widgetSettings.tenantId, tenantId));
+    
+    return settings;
+  }
+
+  async upsertWidgetSettings(settings: InsertWidgetSettings, tenantId: string): Promise<WidgetSettings> {
+    const existing = await this.getWidgetSettings(tenantId);
+    
+    if (existing) {
+      const [updated] = await this.db
+        .update(widgetSettings)
+        .set({ ...settings, updatedAt: new Date() })
+        .where(eq(widgetSettings.tenantId, tenantId))
+        .returning();
+      return updated;
+    } else {
+      const [created] = await this.db
+        .insert(widgetSettings)
+        .values({ ...settings, tenantId })
+        .returning();
+      return created;
+    }
+  }
+
+  // ============================================================================
+  // CHAT CONVERSATIONS
+  // ============================================================================
+
+  async getChatConversations(tenantId: string, limit: number = 50): Promise<ChatConversation[]> {
+    return await this.db
+      .select()
+      .from(chatConversations)
+      .where(eq(chatConversations.tenantId, tenantId))
+      .orderBy(desc(chatConversations.lastMessageAt))
+      .limit(limit);
+  }
+
+  async getChatConversation(id: string, tenantId: string): Promise<ChatConversation | undefined> {
+    const [conversation] = await this.db
+      .select()
+      .from(chatConversations)
+      .where(and(
+        eq(chatConversations.id, id),
+        eq(chatConversations.tenantId, tenantId)
+      ));
+    
+    return conversation;
+  }
+
+  async getChatConversationBySession(sessionId: string, tenantId: string): Promise<ChatConversation | undefined> {
+    const [conversation] = await this.db
+      .select()
+      .from(chatConversations)
+      .where(and(
+        eq(chatConversations.sessionId, sessionId),
+        eq(chatConversations.tenantId, tenantId)
+      ));
+    
+    return conversation;
+  }
+
+  async createChatConversation(conversation: InsertChatConversation, tenantId: string): Promise<ChatConversation> {
+    const [created] = await this.db
+      .insert(chatConversations)
+      .values({ ...conversation, tenantId })
+      .returning();
+    
+    return created;
+  }
+
+  async updateChatConversation(id: string, conversation: Partial<InsertChatConversation>, tenantId: string): Promise<ChatConversation | undefined> {
+    const [updated] = await this.db
+      .update(chatConversations)
+      .set(conversation)
+      .where(and(
+        eq(chatConversations.id, id),
+        eq(chatConversations.tenantId, tenantId)
+      ))
+      .returning();
+    
+    return updated;
+  }
+
+  // ============================================================================
+  // CHAT MESSAGES
+  // ============================================================================
+
+  async getChatMessages(conversationId: string, tenantId: string): Promise<ChatMessage[]> {
+    return await this.db
+      .select()
+      .from(chatMessages)
+      .where(and(
+        eq(chatMessages.conversationId, conversationId),
+        eq(chatMessages.tenantId, tenantId)
+      ))
+      .orderBy(chatMessages.createdAt);
+  }
+
+  async createChatMessage(message: InsertChatMessage, tenantId: string): Promise<ChatMessage> {
+    const [created] = await this.db
+      .insert(chatMessages)
+      .values({ ...message, tenantId })
+      .returning();
+    
+    // Update conversation's last message timestamp
+    await this.db
+      .update(chatConversations)
+      .set({ lastMessageAt: new Date() })
+      .where(eq(chatConversations.id, message.conversationId));
+    
+    return created;
+  }
+
+  // ============================================================================
+  // BOOKABLE SERVICES
+  // ============================================================================
+
+  async getBookableServices(tenantId: string, isActive?: boolean): Promise<BookableService[]> {
+    const conditions = [eq(bookableServices.tenantId, tenantId)];
+    
+    if (isActive !== undefined) {
+      conditions.push(eq(bookableServices.isActive, isActive));
+    }
+    
+    return await this.db
+      .select()
+      .from(bookableServices)
+      .where(and(...conditions))
+      .orderBy(bookableServices.displayOrder, bookableServices.name);
+  }
+
+  async getBookableService(id: string, tenantId: string): Promise<BookableService | undefined> {
+    const [service] = await this.db
+      .select()
+      .from(bookableServices)
+      .where(and(
+        eq(bookableServices.id, id),
+        eq(bookableServices.tenantId, tenantId)
+      ));
+    
+    return service;
+  }
+
+  async createBookableService(service: InsertBookableService, tenantId: string): Promise<BookableService> {
+    const [created] = await this.db
+      .insert(bookableServices)
+      .values({ ...service, tenantId })
+      .returning();
+    
+    return created;
+  }
+
+  async updateBookableService(id: string, service: Partial<InsertBookableService>, tenantId: string): Promise<BookableService | undefined> {
+    const [updated] = await this.db
+      .update(bookableServices)
+      .set({ ...service, updatedAt: new Date() })
+      .where(and(
+        eq(bookableServices.id, id),
+        eq(bookableServices.tenantId, tenantId)
+      ))
+      .returning();
+    
+    return updated;
+  }
+
+  async deleteBookableService(id: string, tenantId: string): Promise<boolean> {
+    const result = await this.db
+      .delete(bookableServices)
+      .where(and(
+        eq(bookableServices.id, id),
+        eq(bookableServices.tenantId, tenantId)
+      ));
+    
+    return result.rowCount !== null && result.rowCount > 0;
+  }
+
+  // ============================================================================
+  // AVAILABILITY SCHEDULES
+  // ============================================================================
+
+  async getAvailabilitySchedules(tenantId: string, isActive?: boolean): Promise<AvailabilitySchedule[]> {
+    const conditions = [eq(availabilitySchedules.tenantId, tenantId)];
+    
+    if (isActive !== undefined) {
+      conditions.push(eq(availabilitySchedules.isActive, isActive));
+    }
+    
+    return await this.db
+      .select()
+      .from(availabilitySchedules)
+      .where(and(...conditions))
+      .orderBy(availabilitySchedules.name);
+  }
+
+  async getAvailabilitySchedule(id: string, tenantId: string): Promise<AvailabilitySchedule | undefined> {
+    const [schedule] = await this.db
+      .select()
+      .from(availabilitySchedules)
+      .where(and(
+        eq(availabilitySchedules.id, id),
+        eq(availabilitySchedules.tenantId, tenantId)
+      ));
+    
+    return schedule;
+  }
+
+  async getAvailabilityScheduleByPublicLink(publicLink: string): Promise<AvailabilitySchedule | undefined> {
+    const [schedule] = await this.db
+      .select()
+      .from(availabilitySchedules)
+      .where(eq(availabilitySchedules.publicLink, publicLink));
+    
+    return schedule;
+  }
+
+  async createAvailabilitySchedule(schedule: InsertAvailabilitySchedule, tenantId: string): Promise<AvailabilitySchedule> {
+    const [created] = await this.db
+      .insert(availabilitySchedules)
+      .values({ ...schedule, tenantId })
+      .returning();
+    
+    return created;
+  }
+
+  async updateAvailabilitySchedule(id: string, schedule: Partial<InsertAvailabilitySchedule>, tenantId: string): Promise<AvailabilitySchedule | undefined> {
+    const [updated] = await this.db
+      .update(availabilitySchedules)
+      .set({ ...schedule, updatedAt: new Date() })
+      .where(and(
+        eq(availabilitySchedules.id, id),
+        eq(availabilitySchedules.tenantId, tenantId)
+      ))
+      .returning();
+    
+    return updated;
+  }
+
+  async deleteAvailabilitySchedule(id: string, tenantId: string): Promise<boolean> {
+    const result = await this.db
+      .delete(availabilitySchedules)
+      .where(and(
+        eq(availabilitySchedules.id, id),
+        eq(availabilitySchedules.tenantId, tenantId)
+      ));
+    
+    return result.rowCount !== null && result.rowCount > 0;
+  }
+
+  // ============================================================================
+  // SCHEDULE SERVICES (Many-to-Many)
+  // ============================================================================
+
+  async getScheduleServices(scheduleId: string): Promise<ScheduleService[]> {
+    return await this.db
+      .select()
+      .from(scheduleServices)
+      .where(eq(scheduleServices.scheduleId, scheduleId));
+  }
+
+  async addServiceToSchedule(scheduleService: InsertScheduleService): Promise<ScheduleService> {
+    const [created] = await this.db
+      .insert(scheduleServices)
+      .values(scheduleService)
+      .returning();
+    
+    return created;
+  }
+
+  async removeServiceFromSchedule(scheduleId: string, serviceId: string): Promise<boolean> {
+    const result = await this.db
+      .delete(scheduleServices)
+      .where(and(
+        eq(scheduleServices.scheduleId, scheduleId),
+        eq(scheduleServices.serviceId, serviceId)
+      ));
+    
+    return result.rowCount !== null && result.rowCount > 0;
+  }
+
+  // ============================================================================
+  // AVAILABILITY RULES
+  // ============================================================================
+
+  async getAvailabilityRules(scheduleId: string): Promise<AvailabilityRule[]> {
+    return await this.db
+      .select()
+      .from(availabilityRules)
+      .where(eq(availabilityRules.scheduleId, scheduleId))
+      .orderBy(availabilityRules.createdAt);
+  }
+
+  async createAvailabilityRule(rule: InsertAvailabilityRule): Promise<AvailabilityRule> {
+    const [created] = await this.db
+      .insert(availabilityRules)
+      .values(rule)
+      .returning();
+    
+    return created;
+  }
+
+  async updateAvailabilityRule(id: string, rule: Partial<InsertAvailabilityRule>): Promise<AvailabilityRule | undefined> {
+    const [updated] = await this.db
+      .update(availabilityRules)
+      .set(rule)
+      .where(eq(availabilityRules.id, id))
+      .returning();
+    
+    return updated;
+  }
+
+  async deleteAvailabilityRule(id: string): Promise<boolean> {
+    const result = await this.db
+      .delete(availabilityRules)
+      .where(eq(availabilityRules.id, id));
+    
+    return result.rowCount !== null && result.rowCount > 0;
+  }
+
+  // ============================================================================
+  // BOOKINGS
+  // ============================================================================
+
+  async getBookings(tenantId: string, filters?: { contactId?: string; status?: string; startDate?: Date; endDate?: Date }): Promise<Booking[]> {
+    const conditions = [eq(bookings.tenantId, tenantId)];
+    
+    if (filters?.contactId) {
+      conditions.push(eq(bookings.contactId, filters.contactId));
+    }
+    
+    if (filters?.status) {
+      conditions.push(eq(bookings.status, filters.status));
+    }
+    
+    if (filters?.startDate) {
+      conditions.push(sql`${bookings.startTime} >= ${filters.startDate}`);
+    }
+    
+    if (filters?.endDate) {
+      conditions.push(sql`${bookings.startTime} <= ${filters.endDate}`);
+    }
+    
+    return await this.db
+      .select()
+      .from(bookings)
+      .where(and(...conditions))
+      .orderBy(desc(bookings.startTime));
+  }
+
+  async getBooking(id: string, tenantId: string): Promise<Booking | undefined> {
+    const [booking] = await this.db
+      .select()
+      .from(bookings)
+      .where(and(
+        eq(bookings.id, id),
+        eq(bookings.tenantId, tenantId)
+      ));
+    
+    return booking;
+  }
+
+  async createBooking(booking: InsertBooking, tenantId: string): Promise<Booking> {
+    const [created] = await this.db
+      .insert(bookings)
+      .values({ ...booking, tenantId })
+      .returning();
+    
+    return created;
+  }
+
+  async updateBooking(id: string, booking: Partial<InsertBooking>, tenantId: string): Promise<Booking | undefined> {
+    const [updated] = await this.db
+      .update(bookings)
+      .set({ ...booking, updatedAt: new Date() })
+      .where(and(
+        eq(bookings.id, id),
+        eq(bookings.tenantId, tenantId)
+      ))
+      .returning();
+    
+    return updated;
+  }
+
+  async cancelBooking(id: string, cancelledBy: string, cancellationReason: string, tenantId: string): Promise<Booking | undefined> {
+    const [updated] = await this.db
+      .update(bookings)
+      .set({
+        status: 'cancelled',
+        cancelledAt: new Date(),
+        cancelledBy,
+        cancellationReason,
+        updatedAt: new Date()
+      })
+      .where(and(
+        eq(bookings.id, id),
+        eq(bookings.tenantId, tenantId)
+      ))
+      .returning();
+    
+    return updated;
   }
 
   // Tenant-scoped storage wrapper

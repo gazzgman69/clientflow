@@ -938,23 +938,25 @@ export default function AISettings() {
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
             {filteredItems.map((item: any) => (
               <Card key={item.id} className="overflow-hidden group" data-testid={`media-card-${item.id}`}>
-                <div className="aspect-square relative bg-muted">
-                  {item.mediaType === 'photo' ? (
-                    <img
-                      src={item.fileUrl}
-                      alt={item.title || item.fileName}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <div className="w-full h-full flex flex-col items-center justify-center p-4 text-center">
-                      {getMediaIcon(item.mediaType)}
-                      <span className="text-xs mt-2 truncate w-full">{item.fileName}</span>
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded bg-muted flex items-center justify-center flex-shrink-0">
+                      {item.mediaType === 'photo' ? (
+                        <img
+                          src={item.fileUrl}
+                          alt={item.fileName}
+                          className="w-full h-full object-cover rounded"
+                        />
+                      ) : (
+                        getMediaIcon(item.mediaType)
+                      )}
                     </div>
-                  )}
-                  <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <p className="font-medium text-sm truncate flex-1" data-testid={`media-title-${item.id}`}>
+                      {item.fileName}
+                    </p>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="secondary" size="sm" data-testid={`button-menu-${item.id}`}>
+                        <Button variant="ghost" size="sm" data-testid={`button-menu-${item.id}`}>
                           <MoreVertical className="h-4 w-4" />
                         </Button>
                       </DropdownMenuTrigger>
@@ -978,11 +980,6 @@ export default function AISettings() {
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </div>
-                </div>
-                <CardContent className="p-3">
-                  <p className="font-medium text-sm truncate" data-testid={`media-title-${item.id}`}>
-                    {item.fileName}
-                  </p>
                 </CardContent>
               </Card>
             ))}

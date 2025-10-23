@@ -8,13 +8,16 @@ Preferred communication style: Simple, everyday language.
 
 # Recent Changes
 
-## October 23, 2025 - Public Chat Widget & Routing Updates
+## October 23, 2025 - Scheduler & Public Booking Implementation
 -   **AI Onboarding Fix**: Removed deprecated OpenAI API calls using 'function' role, replaced with contextual responses
 -   **Media Library Route**: Added navigation at /media-library with sidebar link (Image icon)
 -   **Widget Settings Route**: Added direct route at /settings/widget (already integrated as Settings tab)
 -   **Public Chat Widget**: Built complete frontend at /contact/:slug with AI conversation, message persistence, and session management
--   **Public API Routes**: Created public-facing endpoints at /api/public for widget settings, conversations, and chat (no auth required)
--   **Tenant Resolution**: Public routes resolve tenant from slug parameter for multi-tenant support
+-   **Public API Routes**: Created public-facing endpoints at /api/public for widget settings, conversations, chat, schedules, and bookings (no auth required)
+-   **Scheduler Admin Page**: Built complete admin interface at /scheduler with tabs for Services, Availability Schedules, and Bookings management
+-   **Public Booking Page**: Implemented 3-step booking wizard at /book/:slug for public service booking
+-   **Service Filtering**: Public booking endpoints filter services by schedule and validate service-schedule linkage
+-   **Tenant Resolution**: Public routes resolve tenant from slug/publicLink parameter for multi-tenant support
 -   **API Contract Fix**: Frontend uses custom queryFn to properly pass slug parameter to backend
 
 # System Architecture

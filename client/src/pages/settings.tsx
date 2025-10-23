@@ -36,6 +36,7 @@ import TemplatesPage from "@/pages/settings/Templates";
 import ProductsServicesPage from "@/pages/settings/ProductsServices";
 import PortalSettingsComponent from "@/components/settings/PortalSettings";
 import AISettings from "@/pages/settings/AISettings";
+import WidgetSettings from "@/pages/settings/WidgetSettings";
 import NotificationSettingsTab from "@/pages/settings/NotificationSettings";
 import { GoogleOAuthModal } from '@/components/google-oauth-modal';
 import { SUPPORTED_CURRENCIES, detectCurrencyFromLocale, type CurrencyCode } from '@/lib/currency';
@@ -54,7 +55,7 @@ export default function Settings() {
   useEffect(() => {
     const searchParams = new URLSearchParams(window.location.search);
     const tabParam = searchParams.get('tab');
-    if (tabParam && ['profile', 'notifications', 'security', 'portal', 'integrations', 'email', 'ai', 'calendar', 'templates', 'products-services', 'appearance', 'data'].includes(tabParam)) {
+    if (tabParam && ['profile', 'notifications', 'security', 'portal', 'integrations', 'email', 'ai', 'widget', 'calendar', 'templates', 'products-services', 'appearance', 'data'].includes(tabParam)) {
       setActiveTab(tabParam);
     }
   }, [location]);
@@ -288,6 +289,9 @@ export default function Settings() {
             </TabsTrigger>
             <TabsTrigger value="ai" data-testid="tab-ai" className="flex-shrink-0">
               AI Assistant
+            </TabsTrigger>
+            <TabsTrigger value="widget" data-testid="tab-widget" className="flex-shrink-0">
+              Chat Widget
             </TabsTrigger>
             <TabsTrigger value="calendar" data-testid="tab-calendar" className="flex-shrink-0">
               Calendar
@@ -666,6 +670,11 @@ export default function Settings() {
           {/* AI Assistant Settings */}
           <TabsContent value="ai" className="space-y-6">
             <AISettings />
+          </TabsContent>
+
+          {/* Widget Settings */}
+          <TabsContent value="widget" className="space-y-6">
+            <WidgetSettings />
           </TabsContent>
 
           {/* Calendar Settings */}

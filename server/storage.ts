@@ -4057,6 +4057,7 @@ export class DrizzleStorage implements IStorage {
         await db.update(events)
           .set({
             title: newTitle,
+            status: 'cancelled',
             isCancelled: true,
             cancelledAt: new Date(),
             updatedAt: new Date()
@@ -4123,6 +4124,7 @@ export class DrizzleStorage implements IStorage {
         await db.update(events)
           .set({
             title: newTitle,
+            status: 'cancelled',
             isCancelled: true,
             cancelledAt: new Date(),
             updatedAt: new Date()
@@ -4967,6 +4969,7 @@ export class DrizzleStorage implements IStorage {
         if (!event.title.startsWith('(CANCELLED) ')) {
           await this.db.update(events).set({
             title: `(CANCELLED) ${event.title}`,
+            status: 'cancelled',
             isCancelled: true,
             cancelledAt: new Date(),
             updatedAt: new Date()

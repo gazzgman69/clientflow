@@ -1057,7 +1057,7 @@ export const autoResponderLogs = pgTable("auto_responder_logs", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   tenantId: varchar("tenant_id").references(() => tenants.id).notNull(),
   leadId: varchar("lead_id").references(() => leads.id, { onDelete: 'cascade' }).notNull(),
-  templateId: varchar("template_id").references(() => messageTemplates.id).notNull(),
+  templateId: varchar("template_id").references(() => templates.id).notNull(),
   formId: varchar("form_id").references(() => leadCaptureForms.id),
   provider: text("provider"), // google, microsoft - which email provider was used
   status: text("status").notNull().default('queued'), // queued, sent, failed, pending_auth, retrying

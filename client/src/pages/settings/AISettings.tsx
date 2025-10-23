@@ -697,9 +697,18 @@ export default function AISettings() {
 
     const uploadMutation = useMutation({
       mutationFn: async (formData: FormData) => {
+        // Get CSRF token
+        const csrfResponse = await fetch('/api/csrf-token', {
+          credentials: 'include',
+        });
+        const { csrfToken } = await csrfResponse.json();
+
         const response = await fetch('/api/ai-features/media', {
           method: 'POST',
           credentials: 'include',
+          headers: {
+            'X-CSRF-Token': csrfToken,
+          },
           body: formData,
         });
         if (!response.ok) {

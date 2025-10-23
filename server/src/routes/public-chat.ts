@@ -256,6 +256,47 @@ router.get('/schedules/:slug/services', async (req, res) => {
   }
 });
 
+// POST /api/public/contact-check - Check if contact exists by email
+router.post('/contact-check', async (req, res) => {
+  try {
+    const { email, slug } = req.body;
+    
+    if (!email || !slug) {
+      res.status(400).json({ error: 'Email and slug are required' });
+      return;
+    }
+    
+    const tenant = await resolveTenantFromSlug(slug);
+    
+    // Find contact by email in this tenant
+    const contacts = await storage.getContacts(tenant.id);
+    const contact = contacts.find(c => c.email?.toLowerCase() === email.toLowerCase());
+    
+    if (contact) {
+      // Get most recent project for this contact
+      const projects = await storage.getProjects(tenant.id);
+      const contactProjects = projects
+        .filter(p => p.contactId === contact.id)
+        .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+      
+      res.json({
+        exists: true,
+        contactId: contact.id,
+        name: contact.name,
+        phone: contact.phone,
+        mostRecentProjectId: contactProjects[0]?.id || null,
+      });
+    } else {
+      res.json({
+        exists: false,
+      });
+    }
+  } catch (error) {
+    console.error('Error checking contact:', error);
+    res.status(500).json({ error: 'Failed to check contact' });
+  }
+});
+
 // POST /api/public/bookings/:slug - Create a public booking
 router.post('/bookings/:slug', async (req, res) => {
   try {
@@ -296,6 +337,51 @@ router.post('/bookings/:slug', async (req, res) => {
       return;
     }
     
+    // Get or create contact
+    let contactId = bookingData.contactId;
+    let projectId = bookingData.projectId;
+    
+    if (!contactId) {
+      // Check if contact exists by email
+      const contacts = await storage.getContacts(schedule.tenantId);
+      const existingContact = contacts.find(c => c.email?.toLowerCase() === bookingData.clientEmail.toLowerCase());
+      
+      if (existingContact) {
+        contactId = existingContact.id;
+        
+        // Get most recent project
+        const projects = await storage.getProjects(schedule.tenantId);
+        const contactProjects = projects
+          .filter(p => p.contactId === contactId)
+          .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+        
+        projectId = contactProjects[0]?.id || null;
+      } else {
+        // Create new contact
+        const newContact = await storage.createContact({
+          tenantId: schedule.tenantId,
+          name: bookingData.clientName,
+          email: bookingData.clientEmail,
+          phone: bookingData.clientPhone || null,
+          source: 'public_booking',
+        }, schedule.tenantId);
+        contactId = newContact.id;
+      }
+    }
+    
+    // Create project if needed (for new contacts or if no recent project exists)
+    if (!projectId) {
+      const newProject = await storage.createProject({
+        tenantId: schedule.tenantId,
+        contactId,
+        name: `${service.name} - ${bookingData.clientName}`,
+        status: 'lead',
+        eventDate: new Date(bookingData.bookingDate),
+        notes: bookingData.notes || null,
+      }, schedule.tenantId);
+      projectId = newProject.id;
+    }
+    
     // Create the booking
     const booking = await storage.createBooking({
       tenantId: schedule.tenantId,
@@ -308,13 +394,22 @@ router.post('/bookings/:slug', async (req, res) => {
       bookingTime: bookingData.bookingTime,
       status: 'pending',
       notes: bookingData.notes || null,
+      contactId,
+      projectId: projectId || null,
+      leadId: null,
       metadata: {
         source: 'public_booking',
-        publicLink: slug
+        publicLink: slug,
+        contactCreated: !bookingData.contactId,
+        projectCreated: !bookingData.projectId
       }
     }, schedule.tenantId);
     
-    res.json(booking);
+    res.json({
+      ...booking,
+      contactId,
+      projectId,
+    });
   } catch (error) {
     console.error('Error creating public booking:', error);
     res.status(500).json({ error: 'Failed to create booking' });

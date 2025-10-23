@@ -25,6 +25,8 @@ export default function PublicBookingPage({ slug }: PublicBookingPageProps) {
     phone: '',
     notes: ''
   });
+  const [existingContact, setExistingContact] = useState<any>(null);
+  const [isCheckingEmail, setIsCheckingEmail] = useState(false);
   const { toast } = useToast();
 
   // Fetch schedule by public link
@@ -38,13 +40,53 @@ export default function PublicBookingPage({ slug }: PublicBookingPageProps) {
     enabled: !!schedule,
   });
 
+  // Email check function
+  const checkEmail = async (email: string) => {
+    if (!email || !email.includes('@')) return;
+    
+    setIsCheckingEmail(true);
+    try {
+      const response = await fetch('/api/public/contact-check', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, slug }),
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (data.exists) {
+          setExistingContact(data);
+          setClientInfo(prev => ({
+            ...prev,
+            name: data.name || prev.name,
+            phone: data.phone || prev.phone,
+          }));
+          toast({
+            title: 'Welcome back!',
+            description: 'We found your information',
+          });
+        } else {
+          setExistingContact(null);
+        }
+      }
+    } catch (error) {
+      console.error('Error checking email:', error);
+    } finally {
+      setIsCheckingEmail(false);
+    }
+  };
+
   // Create booking mutation
   const createBookingMutation = useMutation({
     mutationFn: async (bookingData: any) => {
       const response = await fetch(`/api/public/bookings/${slug}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(bookingData),
+        body: JSON.stringify({
+          ...bookingData,
+          contactId: existingContact?.contactId || null,
+          projectId: existingContact?.mostRecentProjectId || null,
+        }),
       });
       
       if (!response.ok) {
@@ -279,43 +321,94 @@ export default function PublicBookingPage({ slug }: PublicBookingPageProps) {
             <CardHeader>
               <CardTitle>Your Information</CardTitle>
               <CardDescription>
-                Please provide your contact details to complete the booking
+                {existingContact 
+                  ? 'Welcome back! Please confirm your details.' 
+                  : 'Please provide your contact details to complete the booking'}
               </CardDescription>
             </CardHeader>
             <CardContent>
               <form onSubmit={handleBookingSubmit} className="space-y-4">
-                <div>
-                  <Label htmlFor="name">Full Name *</Label>
-                  <Input
-                    id="name"
-                    value={clientInfo.name}
-                    onChange={(e) => setClientInfo({ ...clientInfo, name: e.target.value })}
-                    required
-                    data-testid="input-client-name"
-                  />
-                </div>
+                {/* Email field - always shown first */}
                 <div>
                   <Label htmlFor="email">Email *</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    value={clientInfo.email}
-                    onChange={(e) => setClientInfo({ ...clientInfo, email: e.target.value })}
-                    required
-                    data-testid="input-client-email"
-                  />
+                  <div className="relative">
+                    <Input
+                      id="email"
+                      type="email"
+                      value={clientInfo.email}
+                      onChange={(e) => setClientInfo({ ...clientInfo, email: e.target.value })}
+                      onBlur={(e) => checkEmail(e.target.value)}
+                      required
+                      data-testid="input-client-email"
+                      disabled={isCheckingEmail}
+                    />
+                    {isCheckingEmail && (
+                      <Loader2 className="w-4 h-4 animate-spin absolute right-3 top-3 text-muted-foreground" />
+                    )}
+                  </div>
+                  {existingContact && (
+                    <p className="text-xs text-green-600 mt-1">
+                      ✓ We found your information
+                    </p>
+                  )}
                 </div>
-                <div>
-                  <Label htmlFor="phone">Phone Number *</Label>
-                  <Input
-                    id="phone"
-                    type="tel"
-                    value={clientInfo.phone}
-                    onChange={(e) => setClientInfo({ ...clientInfo, phone: e.target.value })}
-                    required
-                    data-testid="input-client-phone"
-                  />
-                </div>
+
+                {/* Conditional fields based on whether contact exists */}
+                {existingContact ? (
+                  // Simplified form for existing contacts - pre-filled, read-only
+                  <>
+                    <div>
+                      <Label htmlFor="name">Full Name</Label>
+                      <Input
+                        id="name"
+                        value={clientInfo.name}
+                        readOnly
+                        className="bg-muted"
+                        data-testid="input-client-name"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="phone">Phone Number</Label>
+                      <Input
+                        id="phone"
+                        type="tel"
+                        value={clientInfo.phone}
+                        readOnly
+                        className="bg-muted"
+                        data-testid="input-client-phone"
+                      />
+                    </div>
+                  </>
+                ) : (
+                  // Extended form for new contacts
+                  <>
+                    <div>
+                      <Label htmlFor="name">Full Name *</Label>
+                      <Input
+                        id="name"
+                        value={clientInfo.name}
+                        onChange={(e) => setClientInfo({ ...clientInfo, name: e.target.value })}
+                        required
+                        data-testid="input-client-name"
+                        placeholder="John Doe"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="phone">Phone Number *</Label>
+                      <Input
+                        id="phone"
+                        type="tel"
+                        value={clientInfo.phone}
+                        onChange={(e) => setClientInfo({ ...clientInfo, phone: e.target.value })}
+                        required
+                        data-testid="input-client-phone"
+                        placeholder="(555) 123-4567"
+                      />
+                    </div>
+                  </>
+                )}
+
+                {/* Notes field - always editable */}
                 <div>
                   <Label htmlFor="notes">Additional Notes (optional)</Label>
                   <Textarea
@@ -326,6 +419,7 @@ export default function PublicBookingPage({ slug }: PublicBookingPageProps) {
                     data-testid="input-booking-notes"
                   />
                 </div>
+
                 <div className="flex gap-2 pt-4">
                   <Button
                     type="button"
@@ -337,7 +431,7 @@ export default function PublicBookingPage({ slug }: PublicBookingPageProps) {
                   </Button>
                   <Button
                     type="submit"
-                    disabled={createBookingMutation.isPending}
+                    disabled={createBookingMutation.isPending || isCheckingEmail}
                     className="flex-1"
                     data-testid="button-submit-booking"
                   >

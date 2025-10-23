@@ -946,8 +946,9 @@ export default function AISettings() {
                       className="w-full h-full object-cover"
                     />
                   ) : (
-                    <div className="w-full h-full flex items-center justify-center">
+                    <div className="w-full h-full flex flex-col items-center justify-center p-4 text-center">
                       {getMediaIcon(item.mediaType)}
+                      <span className="text-xs mt-2 truncate w-full">{item.fileName}</span>
                     </div>
                   )}
                   <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -1001,7 +1002,7 @@ export default function AISettings() {
                 <CardContent className="p-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3 flex-1">
-                      <div className="w-12 h-12 rounded bg-muted flex items-center justify-center">
+                      <div className="w-12 h-12 rounded bg-muted flex items-center justify-center flex-shrink-0">
                         {item.mediaType === 'photo' ? (
                           <img src={item.fileUrl} alt={item.title || item.fileName} className="w-full h-full object-cover rounded" />
                         ) : (

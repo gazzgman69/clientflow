@@ -946,6 +946,7 @@ export const events = pgTable("events", {
   contactId: varchar("contact_id").references(() => contacts.id, { onDelete: 'cascade' }),
   projectId: varchar("project_id").references(() => projects.id, { onDelete: 'set null' }),
   assignedTo: varchar("assigned_to").references(() => users.id),
+  status: text("status").notNull().default('confirmed'), // confirmed, cancelled, tentative - event status for Google Calendar sync
   isCancelled: boolean("is_cancelled").default(false), // True when linked project/lead is deleted
   cancelledAt: timestamp("cancelled_at"), // Timestamp when event was marked as cancelled
   createdBy: varchar("created_by").references(() => users.id).notNull(),

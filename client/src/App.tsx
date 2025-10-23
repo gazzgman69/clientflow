@@ -85,9 +85,12 @@ function AuthWrapper({ children, skipOnboardingCheck }: { children: React.ReactN
   }
 
   // Redirect to onboarding if not complete and not skipped
-  if (!skipOnboardingCheck && onboardingStatus?.status) {
+  // Also redirect if no onboarding status exists (first-time user)
+  if (!skipOnboardingCheck && onboardingStatus) {
     const status = onboardingStatus.status;
-    if (!status.isCompleted && !status.isSkipped && typeof window !== 'undefined') {
+    const needsOnboarding = !status || (!status.isCompleted && !status.isSkipped);
+    
+    if (needsOnboarding && typeof window !== 'undefined') {
       window.location.href = '/onboarding';
       return (
         <div className="min-h-screen flex items-center justify-center bg-gray-50">

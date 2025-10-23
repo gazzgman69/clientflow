@@ -331,7 +331,18 @@ export default function LoginPage() {
                           Username
                         </FormLabel>
                         <FormControl>
-                          <Input {...field} autoComplete="username" data-testid="input-signup-username" />
+                          <Input 
+                            {...field} 
+                            onChange={(e) => {
+                              field.onChange(e);
+                              // Force update for Playwright compatibility
+                              const value = e.target.value;
+                              if (value !== field.value) {
+                                signupForm.setValue('username', value, { shouldValidate: true });
+                              }
+                            }}
+                            data-testid="input-signup-username" 
+                          />
                         </FormControl>
                         <FormMessage />
                       </FormItem>

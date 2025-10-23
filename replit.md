@@ -6,6 +6,17 @@ BusinessCRM is a comprehensive customer relationship management system designed 
 
 Preferred communication style: Simple, everyday language.
 
+# Recent Changes
+
+## October 23, 2025 - Public Chat Widget & Routing Updates
+-   **AI Onboarding Fix**: Removed deprecated OpenAI API calls using 'function' role, replaced with contextual responses
+-   **Media Library Route**: Added navigation at /media-library with sidebar link (Image icon)
+-   **Widget Settings Route**: Added direct route at /settings/widget (already integrated as Settings tab)
+-   **Public Chat Widget**: Built complete frontend at /contact/:slug with AI conversation, message persistence, and session management
+-   **Public API Routes**: Created public-facing endpoints at /api/public for widget settings, conversations, and chat (no auth required)
+-   **Tenant Resolution**: Public routes resolve tenant from slug parameter for multi-tenant support
+-   **API Contract Fix**: Frontend uses custom queryFn to properly pass slug parameter to backend
+
 # System Architecture
 
 ## Frontend

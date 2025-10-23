@@ -27,6 +27,7 @@ import LeadFormHosted from "@/pages/public/LeadFormHosted";
 import PublicQuote from "@/pages/public/PublicQuote";
 import PublicContract from "@/pages/public/PublicContract";
 import PublicChatWidget from "@/pages/public/PublicChatWidget";
+import PublicBookingPage from "@/pages/public/PublicBookingPage";
 import ProjectDetail from "@/pages/ProjectDetail";
 import ContactDetail from "@/pages/ContactDetail";
 import Members from "@/pages/members";
@@ -36,6 +37,7 @@ import ClientPortal from "@/pages/portal/client-portal";
 import LoginPage from "@/pages/login";
 import OnboardingPage from "@/pages/onboarding";
 import MediaLibrary from "@/pages/media-library";
+import Scheduler from "@/pages/scheduler";
 import Sidebar from "@/components/layout/sidebar";
 import TopNav from "@/components/layout/top-nav";
 import { ImpersonationBanner } from "@/components/impersonation-banner";
@@ -135,6 +137,11 @@ function Router() {
         {(params) => <PublicChatWidget slug={params.slug} />}
       </Route>
       
+      {/* Public Booking Routes - No Authentication Required */}
+      <Route path="/book/:slug">
+        {(params) => <PublicBookingPage slug={params.slug} />}
+      </Route>
+      
       {/* Onboarding Route - Authenticated but skip onboarding check */}
       <Route path="/onboarding">
         {() => (
@@ -173,6 +180,7 @@ function Router() {
                   <Route path="/venues" component={Venues} />
                   <Route path="/documents" component={Documents} />
                   <Route path="/media-library" component={MediaLibrary} />
+                  <Route path="/scheduler" component={Scheduler} />
                   <Route path="/quotes" component={Quotes} />
                   <Route path="/contracts/:id/preview" component={ContractPreview} />
                   <Route path="/contracts" component={Contracts} />

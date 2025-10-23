@@ -194,4 +194,131 @@ ${settings.enableBookingPrompt ? `gently guide them towards booking with a ${set
   }
 });
 
+// GET /api/public/schedules/:slug - Get schedule by public link
+router.get('/schedules/:slug', async (req, res) => {
+  try {
+    const { slug } = req.params;
+    
+    // Find schedule by public link
+    const schedules = await storage.getAvailabilitySchedules();
+    const schedule = schedules.find(s => s.publicLink === slug);
+    
+    if (!schedule) {
+      res.status(404).json({ error: 'Schedule not found' });
+      return;
+    }
+    
+    res.json(schedule);
+  } catch (error) {
+    console.error('Error fetching public schedule:', error);
+    res.status(500).json({ error: 'Failed to fetch schedule' });
+  }
+});
+
+// GET /api/public/schedules/:slug/services - Get services for a schedule
+router.get('/schedules/:slug/services', async (req, res) => {
+  try {
+    const { slug } = req.params;
+    
+    // Find schedule by public link
+    const schedules = await storage.getAvailabilitySchedules();
+    const schedule = schedules.find(s => s.publicLink === slug);
+    
+    if (!schedule) {
+      res.status(404).json({ error: 'Schedule not found' });
+      return;
+    }
+    
+    // Get services linked to this schedule
+    const scheduleServices = await storage.getScheduleServices(schedule.id);
+    
+    // Fetch full service details for each linked service
+    const servicePromises = scheduleServices.map(ss => 
+      storage.getBookableService(ss.serviceId, schedule.tenantId)
+    );
+    const services = await Promise.all(servicePromises);
+    
+    // Filter out null values and return only public-safe fields
+    const publicServices = services.filter(s => s !== null && s !== undefined).map(service => ({
+      id: service.id,
+      name: service.name,
+      description: service.description,
+      duration: service.duration,
+      bufferBefore: service.bufferBefore,
+      bufferAfter: service.bufferAfter,
+      price: service.price,
+    }));
+    
+    res.json(publicServices);
+  } catch (error) {
+    console.error('Error fetching public services:', error);
+    res.status(500).json({ error: 'Failed to fetch services' });
+  }
+});
+
+// POST /api/public/bookings/:slug - Create a public booking
+router.post('/bookings/:slug', async (req, res) => {
+  try {
+    const { slug } = req.params;
+    const bookingData = req.body;
+    
+    // Validate required fields
+    const requiredFields = ['serviceId', 'clientName', 'clientEmail', 'bookingDate', 'bookingTime'];
+    for (const field of requiredFields) {
+      if (!bookingData[field]) {
+        res.status(400).json({ error: `${field} is required` });
+        return;
+      }
+    }
+    
+    // Find schedule by public link
+    const schedules = await storage.getAvailabilitySchedules();
+    const schedule = schedules.find(s => s.publicLink === slug);
+    
+    if (!schedule) {
+      res.status(404).json({ error: 'Schedule not found' });
+      return;
+    }
+    
+    // Verify service exists and belongs to this tenant
+    const service = await storage.getBookableService(bookingData.serviceId, schedule.tenantId);
+    if (!service) {
+      res.status(404).json({ error: 'Service not found' });
+      return;
+    }
+    
+    // Verify service is actually linked to this schedule
+    const scheduleServices = await storage.getScheduleServices(schedule.id);
+    const isServiceLinked = scheduleServices.some(ss => ss.serviceId === bookingData.serviceId);
+    
+    if (!isServiceLinked) {
+      res.status(400).json({ error: 'Service is not available for this schedule' });
+      return;
+    }
+    
+    // Create the booking
+    const booking = await storage.createBooking({
+      tenantId: schedule.tenantId,
+      serviceId: bookingData.serviceId,
+      scheduleId: schedule.id,
+      clientName: bookingData.clientName,
+      clientEmail: bookingData.clientEmail,
+      clientPhone: bookingData.clientPhone || null,
+      bookingDate: new Date(bookingData.bookingDate),
+      bookingTime: bookingData.bookingTime,
+      status: 'pending',
+      notes: bookingData.notes || null,
+      metadata: {
+        source: 'public_booking',
+        publicLink: slug
+      }
+    }, schedule.tenantId);
+    
+    res.json(booking);
+  } catch (error) {
+    console.error('Error creating public booking:', error);
+    res.status(500).json({ error: 'Failed to create booking' });
+  }
+});
+
 export default router;

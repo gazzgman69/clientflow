@@ -32,13 +32,14 @@ import Venues from "@/pages/venues";
 import MusicianPortal from "@/pages/portal/musician-portal";
 import ClientPortal from "@/pages/portal/client-portal";
 import LoginPage from "@/pages/login";
+import OnboardingPage from "@/pages/onboarding";
 import Sidebar from "@/components/layout/sidebar";
 import TopNav from "@/components/layout/top-nav";
 import { ImpersonationBanner } from "@/components/impersonation-banner";
 import { AIAssistantButton } from "@/components/AIAssistant";
 
 // Authentication wrapper component  
-function AuthWrapper({ children }: { children: React.ReactNode }) {
+function AuthWrapper({ children, skipOnboardingCheck }: { children: React.ReactNode; skipOnboardingCheck?: boolean }) {
   const { data: user, isLoading, error } = useQuery({
     queryKey: ['/api/auth/me'],
     retry: false,
@@ -63,7 +64,14 @@ function AuthWrapper({ children }: { children: React.ReactNode }) {
     }
   });
 
-  if (isLoading) {
+  // Check onboarding status
+  const { data: onboardingStatus, isLoading: isLoadingOnboarding } = useQuery({
+    queryKey: ['/api/ai-onboarding/status'],
+    enabled: !skipOnboardingCheck && !!user?.user,
+    retry: false,
+  });
+
+  if (isLoading || (!skipOnboardingCheck && isLoadingOnboarding)) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
@@ -74,6 +82,19 @@ function AuthWrapper({ children }: { children: React.ReactNode }) {
   // If authentication failed or no user data, show login page
   if (error || !user?.user) {
     return <LoginPage />;
+  }
+
+  // Redirect to onboarding if not complete and not skipped
+  if (!skipOnboardingCheck && onboardingStatus?.status) {
+    const status = onboardingStatus.status;
+    if (!status.isCompleted && !status.isSkipped && typeof window !== 'undefined') {
+      window.location.href = '/onboarding';
+      return (
+        <div className="min-h-screen flex items-center justify-center bg-gray-50">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+        </div>
+      );
+    }
   }
 
   return <>{children}</>;
@@ -101,6 +122,15 @@ function Router() {
       {/* Public Contract Routes - No Authentication Required */}
       <Route path="/c/:id">
         {(params) => <PublicContract id={params.id} />}
+      </Route>
+      
+      {/* Onboarding Route - Authenticated but skip onboarding check */}
+      <Route path="/onboarding">
+        {() => (
+          <AuthWrapper skipOnboardingCheck={true}>
+            <OnboardingPage />
+          </AuthWrapper>
+        )}
       </Route>
       
       {/* Protected Routes - Require Authentication */}

@@ -96,7 +96,8 @@ export class AIOnboardingWizard {
         conversationHistory: context.conversationHistory,
         extractedData: context.extractedData
       },
-      isComplete: false
+      isCompleted: false,
+      isSkipped: false
     }, tenantId);
 
     return initialAssistantMessage;
@@ -391,8 +392,14 @@ export class AIOnboardingWizard {
         const progress = await storage.getTenantOnboardingProgress(tenantId);
         if (progress) {
           await storage.updateTenantOnboardingProgress(progress.id, {
-            isComplete: true,
-            completedSteps: ['business_info', 'services', 'availability', 'widget_config']
+            isCompleted: true,
+            currentStep: 'complete',
+            completedSteps: ['business_info', 'services', 'availability', 'widget_config'],
+            collectedData: {
+              ...progress.collectedData,
+              summary: args.summary
+            },
+            completedAt: new Date()
           }, tenantId);
         }
         this.contexts.delete(tenantId);

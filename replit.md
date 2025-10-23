@@ -1,6 +1,6 @@
 # Overview
 
-BusinessCRM is a comprehensive customer relationship management system designed to streamline business operations from lead capture through project completion and billing. It integrates lead management, client tracking, project management, a quotation system, contract management, invoicing, email and calendar functionalities, and workflow automation. Key features include an AI-powered conversational booking widget, a media library, an online scheduler, and an AI onboarding wizard for new tenants. The project aims to deliver a modern, full-stack solution for effective customer relationship management.
+BusinessCRM is a comprehensive customer relationship management system designed to streamline business operations from lead capture through project completion and billing. It integrates lead management, client tracking, project management, a quotation system, contract management, invoicing, email and calendar functionalities, and workflow automation. Key features include an AI-powered conversational booking widget, a media library, an online scheduler, and an AI onboarding wizard for new tenants that guides them through initial setup via natural conversation. The project aims to deliver a modern, full-stack solution for effective customer relationship management.
 
 # User Preferences
 

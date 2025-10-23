@@ -819,12 +819,12 @@ export default function AISettings() {
               Upload and manage photos, videos, and audio files for your AI assistant
             </p>
           </div>
-          <label htmlFor="file-upload">
+          <div>
             <Button asChild data-testid="button-upload-media">
-              <span>
+              <label htmlFor="file-upload" className="cursor-pointer">
                 <Upload className="mr-2 h-4 w-4" />
                 Upload Media
-              </span>
+              </label>
             </Button>
             <input
               id="file-upload"
@@ -834,7 +834,7 @@ export default function AISettings() {
               onChange={handleFileUpload}
               data-testid="input-file-upload"
             />
-          </label>
+          </div>
         </div>
 
         <div className="flex flex-wrap gap-2 items-center">

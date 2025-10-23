@@ -194,6 +194,14 @@ function ServiceDialog({ service, onClose }: { service?: BookableService; onClos
       toast({ description: service ? 'Service updated successfully' : 'Service created successfully' });
       onClose();
     },
+    onError: (error: any) => {
+      console.error('Service mutation error:', error);
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to save service',
+        variant: 'destructive',
+      });
+    },
   });
 
   const handleSubmit = (e: React.FormEvent) => {

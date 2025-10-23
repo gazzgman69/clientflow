@@ -430,6 +430,7 @@ router.post('/services', async (req, res) => {
     const userId = req.authenticatedUserId;
     const data = insertBookableServiceSchema.parse({
       ...req.body,
+      tenantId,
       createdBy: userId
     });
     const service = await storage.createBookableService(data, tenantId);
@@ -540,7 +541,10 @@ router.get('/schedules/by-link/:publicLink', async (req, res) => {
 router.post('/schedules', async (req, res) => {
   try {
     const tenantId = req.tenantId!;
-    const data = insertAvailabilityScheduleSchema.parse(req.body);
+    const data = insertAvailabilityScheduleSchema.parse({
+      ...req.body,
+      tenantId
+    });
     const schedule = await storage.createAvailabilitySchedule(data, tenantId);
     res.json(schedule);
   } catch (error) {

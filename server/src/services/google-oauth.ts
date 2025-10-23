@@ -373,12 +373,29 @@ export class GoogleOAuthService {
               await storage.deleteEvent(event.id, integration.tenantId);
               skippedCount++;
               continue;
-            } else {
-              // Event exists and is active, skip it
-              skippedCount++;
-              console.log(`✓ Event "${event.title}" exists in Google Calendar at: ${googleEvent.data.start?.dateTime || googleEvent.data.start?.date}`);
-              continue;
+            } 
+            
+            // Check if CRM event status has changed (especially if cancelled)
+            if (event.status === 'cancelled' || event.isCancelled) {
+              // CRM event is cancelled but Google event is not - update Google Calendar
+              if (googleEvent.data.status !== 'cancelled') {
+                console.log(`📅 Updating cancelled event "${event.title}" in Google Calendar...`);
+                try {
+                  await this.syncToGoogle(integration, event.id);
+                  syncedCount++;
+                  console.log(`✅ Successfully updated cancelled event "${event.title}" in Google Calendar`);
+                } catch (syncError) {
+                  console.error(`❌ Failed to update cancelled event "${event.title}":`, syncError);
+                  skippedCount++;
+                }
+                continue;
+              }
             }
+            
+            // Event exists and is in sync, skip it
+            skippedCount++;
+            console.log(`✓ Event "${event.title}" exists in Google Calendar at: ${googleEvent.data.start?.dateTime || googleEvent.data.start?.date}`);
+            continue;
           } catch (error: any) {
             if (error.code === 404 || error.status === 404) {
               // Event doesn't exist in Google Calendar anymore

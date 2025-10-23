@@ -340,6 +340,8 @@ router.post('/bookings/:slug', async (req, res) => {
     // Get or create contact
     let contactId = bookingData.contactId;
     let projectId = bookingData.projectId;
+    let wasContactCreated = false;
+    let wasProjectCreated = false;
     
     if (!contactId) {
       // Check if contact exists by email
@@ -348,6 +350,7 @@ router.post('/bookings/:slug', async (req, res) => {
       
       if (existingContact) {
         contactId = existingContact.id;
+        wasContactCreated = false;
         
         // Get most recent project
         const projects = await storage.getProjects(schedule.tenantId);
@@ -366,6 +369,7 @@ router.post('/bookings/:slug', async (req, res) => {
           source: 'public_booking',
         }, schedule.tenantId);
         contactId = newContact.id;
+        wasContactCreated = true;
       }
     }
     
@@ -380,6 +384,7 @@ router.post('/bookings/:slug', async (req, res) => {
         notes: bookingData.notes || null,
       }, schedule.tenantId);
       projectId = newProject.id;
+      wasProjectCreated = true;
     }
     
     // Create the booking
@@ -400,8 +405,8 @@ router.post('/bookings/:slug', async (req, res) => {
       metadata: {
         source: 'public_booking',
         publicLink: slug,
-        contactCreated: !bookingData.contactId,
-        projectCreated: !bookingData.projectId
+        contactCreated: wasContactCreated,
+        projectCreated: wasProjectCreated
       }
     }, schedule.tenantId);
     

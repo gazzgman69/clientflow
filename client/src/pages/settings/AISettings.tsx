@@ -981,16 +981,8 @@ export default function AISettings() {
                 </div>
                 <CardContent className="p-3">
                   <p className="font-medium text-sm truncate" data-testid={`media-title-${item.id}`}>
-                    {item.title || item.fileName}
+                    {item.fileName}
                   </p>
-                  <div className="flex items-center justify-between mt-1">
-                    <Badge variant="secondary" className="text-xs" data-testid={`media-type-${item.id}`}>
-                      {item.mediaType}
-                    </Badge>
-                    <span className="text-xs text-muted-foreground" data-testid={`media-size-${item.id}`}>
-                      {formatFileSize(item.fileSize)}
-                    </span>
-                  </div>
                 </CardContent>
               </Card>
             ))}

@@ -26,6 +26,7 @@ import LeadsInbox from "@/pages/leads/LeadsInbox";
 import LeadFormHosted from "@/pages/public/LeadFormHosted";
 import PublicQuote from "@/pages/public/PublicQuote";
 import PublicContract from "@/pages/public/PublicContract";
+import PublicChatWidget from "@/pages/public/PublicChatWidget";
 import ProjectDetail from "@/pages/ProjectDetail";
 import ContactDetail from "@/pages/ContactDetail";
 import Members from "@/pages/members";
@@ -127,6 +128,11 @@ function Router() {
       {/* Public Contract Routes - No Authentication Required */}
       <Route path="/c/:id">
         {(params) => <PublicContract id={params.id} />}
+      </Route>
+      
+      {/* Public Chat Widget Routes - No Authentication Required */}
+      <Route path="/contact/:slug">
+        {(params) => <PublicChatWidget slug={params.slug} />}
       </Route>
       
       {/* Onboarding Route - Authenticated but skip onboarding check */}

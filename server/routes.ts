@@ -72,6 +72,7 @@ import stripeWebhooksRoutes from "./src/routes/stripe-webhooks";
 import tenantCleanupRoutes from "./src/routes/tenantCleanup";
 import aiFeaturesRoutes from "./src/routes/ai-features";
 import aiOnboardingRoutes from "./src/routes/ai-onboarding";
+import publicChatRoutes from "./src/routes/public-chat";
 import { userPrefsService } from "./src/services/userPrefs";
 import { calendarAutoSyncService } from "./src/services/calendar-auto-sync";
 import { tenantResolver, requireTenant, type TenantRequest } from "./middleware/tenantResolver";
@@ -1049,6 +1050,9 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   
   // Public form submission: POST /api/leads/public/:slug/submit  
   app.use('/api/leads/public', leadFormsRoutes);
+  
+  // Public chat widget routes - no auth required
+  app.use('/api/public', publicChatRoutes);
   
   // Lead-forms admin routes (with auth)
   app.use('/api/lead-forms', ensureUserAuth, tenantResolver, requireTenant, csrf, leadFormsRoutes);

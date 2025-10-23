@@ -1331,14 +1331,13 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     try {
       const { username, email, password, firstName, lastName } = signupSchema.parse(req.body);
       
-      // Check if user already exists (global check)
-      const existingUser = await storage.getUserByUsername(username);
+      // Check if user already exists (global check across all tenants)
+      const existingUser = await storage.getUserByUsernameGlobal(username);
       if (existingUser) {
         return res.status(409).json({ error: 'Username already taken' });
       }
       
-      const users = await storage.getUsers();
-      const existingEmail = users.find(u => u.email === email);
+      const existingEmail = await storage.getUserByEmailGlobal(email);
       if (existingEmail) {
         return res.status(409).json({ error: 'Email already registered' });
       }

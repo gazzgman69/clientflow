@@ -165,6 +165,8 @@ export interface IStorage {
   getUser(id: string, tenantId: string): Promise<User | undefined>;
   getUserGlobal(id: string): Promise<User | undefined>; // Global lookup across all tenants for SUPERADMIN verification
   getUserByUsername(username: string, tenantId: string): Promise<User | undefined>;
+  getUserByUsernameGlobal(username: string): Promise<User | undefined>; // Global username check for signup
+  getUserByEmailGlobal(email: string): Promise<User | undefined>; // Global email check for signup
   createUser(user: InsertUser, tenantId: string): Promise<User>;
   updateUser(id: string, user: Partial<InsertUser>, tenantId: string): Promise<User | undefined>;
   
@@ -1069,6 +1071,14 @@ export class MemStorage implements IStorage {
     return Array.from(this.users.values()).find(user => 
       user.username === username && (user.tenantId === tenantId || !user.tenantId)
     );
+  }
+
+  async getUserByUsernameGlobal(username: string): Promise<User | undefined> {
+    return Array.from(this.users.values()).find(user => user.username === username);
+  }
+
+  async getUserByEmailGlobal(email: string): Promise<User | undefined> {
+    return Array.from(this.users.values()).find(user => user.email === email);
   }
 
   async createUser(insertUser: InsertUser, tenantId: string): Promise<User> {
@@ -4453,6 +4463,16 @@ export class DrizzleStorage implements IStorage {
         eq(users.tenantId, tenantId)
       )
     );
+    return result[0];
+  }
+
+  async getUserByUsernameGlobal(username: string): Promise<User | undefined> {
+    const result = await this.db.select().from(users).where(eq(users.username, username));
+    return result[0];
+  }
+
+  async getUserByEmailGlobal(email: string): Promise<User | undefined> {
+    const result = await this.db.select().from(users).where(eq(users.email, email));
     return result[0];
   }
   async createUser(user: InsertUser) { 

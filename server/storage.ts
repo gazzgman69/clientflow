@@ -4475,12 +4475,14 @@ export class DrizzleStorage implements IStorage {
     const result = await this.db.select().from(users).where(eq(users.email, email));
     return result[0];
   }
-  async createUser(user: InsertUser) { 
-    const result = await this.db.insert(users).values(user).returning();
+  async createUser(user: InsertUser, tenantId: string): Promise<User> { 
+    const result = await this.db.insert(users).values({ ...user, tenantId }).returning();
     return result[0];
   }
-  async updateUser(id: string, user: Partial<InsertUser>): Promise<User | undefined> {
-    const result = await this.db.update(users).set(user).where(eq(users.id, id)).returning();
+  async updateUser(id: string, user: Partial<InsertUser>, tenantId: string): Promise<User | undefined> {
+    const result = await this.db.update(users).set(user).where(
+      and(eq(users.id, id), eq(users.tenantId, tenantId))
+    ).returning();
     return result[0];
   }
   

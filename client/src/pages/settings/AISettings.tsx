@@ -697,25 +697,40 @@ export default function AISettings() {
 
     const uploadMutation = useMutation({
       mutationFn: async (formData: FormData) => {
-        // Get CSRF token
-        const csrfResponse = await fetch('/api/csrf-token', {
-          credentials: 'include',
-        });
-        const { csrfToken } = await csrfResponse.json();
+        try {
+          console.log('Fetching CSRF token...');
+          // Get CSRF token
+          const csrfResponse = await fetch('/api/csrf-token', {
+            credentials: 'include',
+          });
+          const { csrfToken } = await csrfResponse.json();
+          console.log('CSRF token obtained:', csrfToken ? 'yes' : 'no');
 
-        const response = await fetch('/api/ai-features/media', {
-          method: 'POST',
-          credentials: 'include',
-          headers: {
-            'X-CSRF-Token': csrfToken,
-          },
-          body: formData,
-        });
-        if (!response.ok) {
-          const error = await response.json();
-          throw new Error(error.message || 'Upload failed');
+          console.log('Sending upload request...');
+          const response = await fetch('/api/ai-features/media', {
+            method: 'POST',
+            credentials: 'include',
+            headers: {
+              'X-CSRF-Token': csrfToken,
+            },
+            body: formData,
+          });
+          
+          console.log('Upload response status:', response.status);
+          
+          if (!response.ok) {
+            const error = await response.json();
+            console.error('Upload failed:', error);
+            throw new Error(error.message || 'Upload failed');
+          }
+          
+          const result = await response.json();
+          console.log('Upload successful:', result);
+          return result;
+        } catch (error) {
+          console.error('Upload error:', error);
+          throw error;
         }
-        return response.json();
       },
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: ['/api/ai-features/media'] });
@@ -761,12 +776,19 @@ export default function AISettings() {
       },
     });
 
-    const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
       const files = e.target.files;
-      if (!files || files.length === 0) return;
+      if (!files || files.length === 0) {
+        console.log('No file selected');
+        return;
+      }
 
+      console.log('File selected:', files[0].name, files[0].type, files[0].size);
+      
       const formData = new FormData();
       formData.append('file', files[0]);
+      
+      console.log('Uploading file...');
       uploadMutation.mutate(formData);
       e.target.value = '';
     };

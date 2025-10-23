@@ -245,7 +245,7 @@ function ServiceDialog({ service, onClose }: { service?: BookableService; onClos
                 id="duration"
                 type="number"
                 value={formData.duration}
-                onChange={(e) => setFormData({ ...formData, duration: parseInt(e.target.value) })}
+                onChange={(e) => setFormData({ ...formData, duration: parseInt(e.target.value) || 0 })}
                 required
                 data-testid="input-service-duration"
               />
@@ -256,7 +256,7 @@ function ServiceDialog({ service, onClose }: { service?: BookableService; onClos
                 id="bufferBefore"
                 type="number"
                 value={formData.bufferBefore}
-                onChange={(e) => setFormData({ ...formData, bufferBefore: parseInt(e.target.value) })}
+                onChange={(e) => setFormData({ ...formData, bufferBefore: parseInt(e.target.value) || 0 })}
                 data-testid="input-service-buffer-before"
               />
             </div>
@@ -266,7 +266,7 @@ function ServiceDialog({ service, onClose }: { service?: BookableService; onClos
                 id="bufferAfter"
                 type="number"
                 value={formData.bufferAfter}
-                onChange={(e) => setFormData({ ...formData, bufferAfter: parseInt(e.target.value) })}
+                onChange={(e) => setFormData({ ...formData, bufferAfter: parseInt(e.target.value) || 0 })}
                 data-testid="input-service-buffer-after"
               />
             </div>

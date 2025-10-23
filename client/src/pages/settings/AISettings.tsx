@@ -935,12 +935,12 @@ export default function AISettings() {
             </CardContent>
           </Card>
         ) : viewMode === 'grid' ? (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
             {filteredItems.map((item: any) => (
               <Card key={item.id} className="overflow-hidden group" data-testid={`media-card-${item.id}`}>
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded bg-muted flex items-center justify-center flex-shrink-0">
+                <CardContent className="p-2">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded bg-muted flex items-center justify-center flex-shrink-0">
                       {item.mediaType === 'photo' ? (
                         <img
                           src={item.fileUrl}
@@ -951,13 +951,13 @@ export default function AISettings() {
                         getMediaIcon(item.mediaType)
                       )}
                     </div>
-                    <p className="font-medium text-sm truncate flex-1" data-testid={`media-title-${item.id}`}>
+                    <p className="font-medium text-xs flex-1 break-all" data-testid={`media-title-${item.id}`}>
                       {item.fileName}
                     </p>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="sm" data-testid={`button-menu-${item.id}`}>
-                          <MoreVertical className="h-4 w-4" />
+                        <Button variant="ghost" size="icon" className="h-6 w-6" data-testid={`button-menu-${item.id}`}>
+                          <MoreVertical className="h-3 w-3" />
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent>

@@ -105,9 +105,7 @@ function ServiceCard({ service }: { service: BookableService }) {
   const { toast } = useToast();
 
   const deleteMutation = useMutation({
-    mutationFn: () => apiRequest(`/api/ai-features/services/${service.id}`, {
-      method: 'DELETE',
-    }),
+    mutationFn: () => apiRequest('DELETE', `/api/ai-features/services/${service.id}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/ai-features/services'] });
       toast({ description: 'Service deleted successfully' });
@@ -179,15 +177,9 @@ function ServiceDialog({ service, onClose }: { service?: BookableService; onClos
   const mutation = useMutation({
     mutationFn: (data: any) => {
       if (service) {
-        return apiRequest(`/api/ai-features/services/${service.id}`, {
-          method: 'PATCH',
-          body: JSON.stringify(data),
-        });
+        return apiRequest('PATCH', `/api/ai-features/services/${service.id}`, data);
       }
-      return apiRequest('/api/ai-features/services', {
-        method: 'POST',
-        body: JSON.stringify(data),
-      });
+      return apiRequest('POST', '/api/ai-features/services', data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/ai-features/services'] });
@@ -347,9 +339,7 @@ function ScheduleCard({ schedule }: { schedule: AvailabilitySchedule }) {
   const { toast } = useToast();
 
   const deleteMutation = useMutation({
-    mutationFn: () => apiRequest(`/api/ai-features/schedules/${schedule.id}`, {
-      method: 'DELETE',
-    }),
+    mutationFn: () => apiRequest('DELETE', `/api/ai-features/schedules/${schedule.id}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/ai-features/schedules'] });
       toast({ description: 'Schedule deleted successfully' });
@@ -436,15 +426,9 @@ function ScheduleDialog({ schedule, onClose }: { schedule?: AvailabilitySchedule
   const mutation = useMutation({
     mutationFn: (data: any) => {
       if (schedule) {
-        return apiRequest(`/api/ai-features/schedules/${schedule.id}`, {
-          method: 'PATCH',
-          body: JSON.stringify(data),
-        });
+        return apiRequest('PATCH', `/api/ai-features/schedules/${schedule.id}`, data);
       }
-      return apiRequest('/api/ai-features/schedules', {
-        method: 'POST',
-        body: JSON.stringify(data),
-      });
+      return apiRequest('POST', '/api/ai-features/schedules', data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/ai-features/schedules'] });
@@ -609,10 +593,7 @@ function BookingRow({ booking }: { booking: Booking }) {
 
   const updateStatusMutation = useMutation({
     mutationFn: (status: string) =>
-      apiRequest(`/api/ai-features/bookings/${booking.id}`, {
-        method: 'PATCH',
-        body: JSON.stringify({ status }),
-      }),
+      apiRequest('PATCH', `/api/ai-features/bookings/${booking.id}`, { status }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/ai-features/bookings'] });
       toast({ description: 'Booking status updated' });

@@ -4957,12 +4957,25 @@ export class DrizzleStorage implements IStorage {
       await this.db.update(messageThreads).set({ projectId: null }).where(and(eq(messageThreads.projectId, id), eq(messageThreads.tenantId, tenantId)));
       
       // Mark calendar events as cancelled when project is deleted
-      await this.db.update(events).set({
-        isCancelled: true,
-        cancelledAt: new Date(),
-        title: sql`CASE WHEN title NOT LIKE '(CANCELLED)%' THEN CONCAT('(CANCELLED) ', title) ELSE title END`,
-        updatedAt: new Date()
-      }).where(and(eq(events.projectId, id), eq(events.tenantId, tenantId)));
+      // Get events first to properly update titles
+      const projectEvents = await this.db.select().from(events).where(and(
+        eq(events.projectId, id),
+        eq(events.tenantId, tenantId)
+      ));
+      
+      for (const event of projectEvents) {
+        if (!event.title.startsWith('(CANCELLED) ')) {
+          await this.db.update(events).set({
+            title: `(CANCELLED) ${event.title}`,
+            isCancelled: true,
+            cancelledAt: new Date(),
+            updatedAt: new Date()
+          }).where(and(
+            eq(events.id, event.id),
+            eq(events.tenantId, tenantId)
+          ));
+        }
+      }
       
       // Delete contracts entirely since they're project-specific - with tenant filtering
       await this.db.delete(contracts).where(and(eq(contracts.projectId, id), eq(contracts.tenantId, tenantId)));

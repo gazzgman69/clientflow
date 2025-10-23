@@ -496,17 +496,24 @@ export default function CalendarView({ viewMode = 'month' }: CalendarViewProps) 
                             <div className="space-y-1">
                               {dayEvents.map((event, eventIndex) => {
                                 const isNewLead = event.title.includes('New Lead Project •');
+                                const isCancelled = event.isCancelled;
                                 return (
                                 <div
                                   key={event.id}
-                                  className={`text-xs p-1 rounded cursor-pointer hover:opacity-80 ${isNewLead ? 'bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-300' : 'bg-primary/10 text-primary'}`}
+                                  className={`text-xs p-1 rounded cursor-pointer hover:opacity-80 ${
+                                    isCancelled 
+                                      ? 'bg-muted/50 text-muted-foreground dark:bg-muted/20 dark:text-muted-foreground' 
+                                      : isNewLead 
+                                        ? 'bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-300' 
+                                        : 'bg-primary/10 text-primary'
+                                  }`}
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     handleEditEvent(event);
                                   }}
                                   data-testid={`event-${day}-${eventIndex}`}
                                 >
-                                  <div className={`font-medium text-xs leading-tight break-words ${event.isCancelled ? 'line-through opacity-60' : ''}`}>
+                                  <div className={`font-medium text-xs leading-tight break-words ${isCancelled ? 'line-through opacity-60' : ''}`}>
                                     {event.title}
                                   </div>
                                   <div className="text-xs opacity-80 leading-tight">

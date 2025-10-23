@@ -29,7 +29,6 @@ import ProjectDetail from "@/pages/ProjectDetail";
 import ContactDetail from "@/pages/ContactDetail";
 import Members from "@/pages/members";
 import Venues from "@/pages/venues";
-import MediaLibrary from "@/pages/media-library";
 import MusicianPortal from "@/pages/portal/musician-portal";
 import ClientPortal from "@/pages/portal/client-portal";
 import LoginPage from "@/pages/login";
@@ -132,7 +131,6 @@ function Router() {
                   <Route path="/members" component={Members} />
                   <Route path="/venues" component={Venues} />
                   <Route path="/documents" component={Documents} />
-                  <Route path="/media-library" component={MediaLibrary} />
                   <Route path="/quotes" component={Quotes} />
                   <Route path="/contracts/:id/preview" component={ContractPreview} />
                   <Route path="/contracts" component={Contracts} />

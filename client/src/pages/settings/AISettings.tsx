@@ -6,10 +6,24 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Brain, BookOpen, Settings2, FileText, Plus, Edit, Trash2, Check, X } from "lucide-react";
+import { Loader2, Brain, BookOpen, Settings2, FileText, Plus, Edit, Trash2, Check, X, Image as ImageIcon, Upload, Video, Music, MoreVertical, Grid3x3, List, Search, Filter } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import {
   Dialog,
   DialogContent,
@@ -36,6 +50,11 @@ export default function AISettings() {
   // Fetch custom instructions
   const { data: customInstructions = [], isLoading: isLoadingInstructions } = useQuery({
     queryKey: ['/api/ai/custom-instructions'],
+  });
+
+  // Fetch media library
+  const { data: mediaItems = [], isLoading: isLoadingMedia } = useQuery({
+    queryKey: ['/api/media-library'],
   });
 
   // Save business context mutation
@@ -667,7 +686,419 @@ export default function AISettings() {
     );
   };
 
-  if (isLoadingContext || isLoadingKB || isLoadingInstructions) {
+  // Media Library Manager component
+  const MediaLibraryManager = () => {
+    const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+    const [filterType, setFilterType] = useState<string>('all');
+    const [filterCategory, setFilterCategory] = useState<string>('all');
+    const [searchQuery, setSearchQuery] = useState('');
+    const [editingItem, setEditingItem] = useState<any>(null);
+    const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+
+    const uploadMutation = useMutation({
+      mutationFn: async (formData: FormData) => {
+        const response = await fetch('/api/media-library', {
+          method: 'POST',
+          credentials: 'include',
+          body: formData,
+        });
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.message || 'Upload failed');
+        }
+        return response.json();
+      },
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: ['/api/media-library'] });
+        toast({
+          title: 'Success',
+          description: 'Media uploaded successfully',
+        });
+      },
+      onError: (error: Error) => {
+        toast({
+          title: 'Upload Failed',
+          description: error.message,
+          variant: 'destructive',
+        });
+      },
+    });
+
+    const updateMutation = useMutation({
+      mutationFn: async ({ id, data }: { id: string; data: any }) => {
+        return await apiRequest('PATCH', `/api/media-library/${id}`, data);
+      },
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: ['/api/media-library'] });
+        setIsEditDialogOpen(false);
+        setEditingItem(null);
+        toast({
+          title: 'Success',
+          description: 'Media updated successfully',
+        });
+      },
+    });
+
+    const deleteMutation = useMutation({
+      mutationFn: async (id: string) => {
+        return await apiRequest('DELETE', `/api/media-library/${id}`);
+      },
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: ['/api/media-library'] });
+        toast({
+          title: 'Success',
+          description: 'Media deleted successfully',
+        });
+      },
+    });
+
+    const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+      const files = e.target.files;
+      if (!files || files.length === 0) return;
+
+      const formData = new FormData();
+      formData.append('file', files[0]);
+      uploadMutation.mutate(formData);
+      e.target.value = '';
+    };
+
+    const handleEdit = (item: any) => {
+      setEditingItem(item);
+      setIsEditDialogOpen(true);
+    };
+
+    const handleUpdate = () => {
+      if (!editingItem) return;
+      updateMutation.mutate({
+        id: editingItem.id,
+        data: {
+          title: editingItem.title,
+          description: editingItem.description,
+          category: editingItem.category,
+          tags: editingItem.tags,
+        },
+      });
+    };
+
+    const uniqueCategories = ['all', ...new Set(mediaItems.map((item: any) => item.category).filter(Boolean))];
+
+    const filteredItems = mediaItems.filter((item: any) => {
+      const matchesType = filterType === 'all' || item.mediaType === filterType;
+      const matchesCategory = filterCategory === 'all' || item.category === filterCategory;
+      const matchesSearch = searchQuery === '' || 
+        item.fileName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (item.title && item.title.toLowerCase().includes(searchQuery.toLowerCase()));
+      return matchesType && matchesCategory && matchesSearch;
+    });
+
+    const formatFileSize = (bytes: number) => {
+      if (bytes < 1024) return bytes + ' B';
+      if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+      return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+    };
+
+    const getMediaIcon = (type: string) => {
+      switch (type) {
+        case 'photo':
+          return <ImageIcon className="h-4 w-4" />;
+        case 'video':
+          return <Video className="h-4 w-4" />;
+        case 'audio':
+          return <Music className="h-4 w-4" />;
+        default:
+          return <FileText className="h-4 w-4" />;
+      }
+    };
+
+    return (
+      <div className="space-y-4">
+        <div className="flex justify-between items-center gap-4">
+          <div>
+            <h3 className="text-lg font-medium" data-testid="title-media-library">Media Library</h3>
+            <p className="text-sm text-muted-foreground" data-testid="description-media-library">
+              Upload and manage photos, videos, and audio files for your AI assistant
+            </p>
+          </div>
+          <label htmlFor="file-upload">
+            <Button asChild data-testid="button-upload-media">
+              <span>
+                <Upload className="mr-2 h-4 w-4" />
+                Upload Media
+              </span>
+            </Button>
+            <input
+              id="file-upload"
+              type="file"
+              accept="image/*,video/*,audio/*"
+              className="hidden"
+              onChange={handleFileUpload}
+              data-testid="input-file-upload"
+            />
+          </label>
+        </div>
+
+        <div className="flex flex-wrap gap-2 items-center">
+          <div className="flex-1 min-w-[200px]">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search by filename or title..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10"
+                data-testid="input-search"
+              />
+            </div>
+          </div>
+          
+          <Select value={filterType} onValueChange={setFilterType}>
+            <SelectTrigger className="w-[150px]" data-testid="select-type-filter">
+              <SelectValue placeholder="Type" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Types</SelectItem>
+              <SelectItem value="photo">Photos</SelectItem>
+              <SelectItem value="video">Videos</SelectItem>
+              <SelectItem value="audio">Audio</SelectItem>
+            </SelectContent>
+          </Select>
+
+          <Select value={filterCategory} onValueChange={setFilterCategory}>
+            <SelectTrigger className="w-[150px]" data-testid="select-category-filter">
+              <SelectValue placeholder="Category" />
+            </SelectTrigger>
+            <SelectContent>
+              {uniqueCategories.map((cat) => (
+                <SelectItem key={cat} value={cat}>
+                  {cat === 'all' ? 'All Categories' : cat}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <div className="flex gap-1 border rounded-md p-1">
+            <Button
+              variant={viewMode === 'grid' ? 'secondary' : 'ghost'}
+              size="sm"
+              onClick={() => setViewMode('grid')}
+              data-testid="button-grid-view"
+            >
+              <Grid3x3 className="h-4 w-4" />
+            </Button>
+            <Button
+              variant={viewMode === 'list' ? 'secondary' : 'ghost'}
+              size="sm"
+              onClick={() => setViewMode('list')}
+              data-testid="button-list-view"
+            >
+              <List className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+
+        {filteredItems.length === 0 ? (
+          <Card>
+            <CardContent className="flex flex-col items-center justify-center py-12">
+              <ImageIcon className="h-12 w-12 text-muted-foreground mb-4" />
+              <p className="text-muted-foreground">No media items found</p>
+            </CardContent>
+          </Card>
+        ) : viewMode === 'grid' ? (
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            {filteredItems.map((item: any) => (
+              <Card key={item.id} className="overflow-hidden group" data-testid={`media-card-${item.id}`}>
+                <div className="aspect-square relative bg-muted">
+                  {item.mediaType === 'photo' ? (
+                    <img
+                      src={item.fileUrl}
+                      alt={item.title || item.fileName}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center">
+                      {getMediaIcon(item.mediaType)}
+                    </div>
+                  )}
+                  <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="secondary" size="sm" data-testid={`button-menu-${item.id}`}>
+                          <MoreVertical className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent>
+                        <DropdownMenuItem onClick={() => handleEdit(item)} data-testid={`menu-edit-${item.id}`}>
+                          <Edit className="mr-2 h-4 w-4" />
+                          Edit
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          className="text-destructive"
+                          onClick={() => {
+                            if (confirm('Are you sure you want to delete this media?')) {
+                              deleteMutation.mutate(item.id);
+                            }
+                          }}
+                          data-testid={`menu-delete-${item.id}`}
+                        >
+                          <Trash2 className="mr-2 h-4 w-4" />
+                          Delete
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                </div>
+                <CardContent className="p-3">
+                  <p className="font-medium text-sm truncate" data-testid={`media-title-${item.id}`}>
+                    {item.title || item.fileName}
+                  </p>
+                  <div className="flex items-center justify-between mt-1">
+                    <Badge variant="secondary" className="text-xs" data-testid={`media-type-${item.id}`}>
+                      {item.mediaType}
+                    </Badge>
+                    <span className="text-xs text-muted-foreground" data-testid={`media-size-${item.id}`}>
+                      {formatFileSize(item.fileSize)}
+                    </span>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {filteredItems.map((item: any) => (
+              <Card key={item.id} data-testid={`media-row-${item.id}`}>
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3 flex-1">
+                      <div className="w-12 h-12 rounded bg-muted flex items-center justify-center">
+                        {item.mediaType === 'photo' ? (
+                          <img src={item.fileUrl} alt={item.title || item.fileName} className="w-full h-full object-cover rounded" />
+                        ) : (
+                          getMediaIcon(item.mediaType)
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium truncate" data-testid={`media-row-title-${item.id}`}>
+                          {item.title || item.fileName}
+                        </p>
+                        <div className="flex items-center gap-2 mt-1">
+                          <Badge variant="secondary" className="text-xs" data-testid={`media-row-type-${item.id}`}>
+                            {item.mediaType}
+                          </Badge>
+                          {item.category && (
+                            <Badge variant="outline" className="text-xs" data-testid={`media-row-category-${item.id}`}>
+                              {item.category}
+                            </Badge>
+                          )}
+                          <span className="text-xs text-muted-foreground" data-testid={`media-row-size-${item.id}`}>
+                            {formatFileSize(item.fileSize)}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="sm" data-testid={`button-row-menu-${item.id}`}>
+                          <MoreVertical className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent>
+                        <DropdownMenuItem onClick={() => handleEdit(item)} data-testid={`menu-row-edit-${item.id}`}>
+                          <Edit className="mr-2 h-4 w-4" />
+                          Edit
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          className="text-destructive"
+                          onClick={() => {
+                            if (confirm('Are you sure you want to delete this media?')) {
+                              deleteMutation.mutate(item.id);
+                            }
+                          }}
+                          data-testid={`menu-row-delete-${item.id}`}
+                        >
+                          <Trash2 className="mr-2 h-4 w-4" />
+                          Delete
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+
+        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+          <DialogContent data-testid="dialog-edit-media">
+            <DialogHeader>
+              <DialogTitle data-testid="dialog-title-edit-media">Edit Media</DialogTitle>
+              <DialogDescription data-testid="dialog-description-edit-media">
+                Update the title, description, category, and tags for this media item
+              </DialogDescription>
+            </DialogHeader>
+            {editingItem && (
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="edit-title" data-testid="label-edit-title">Title</Label>
+                  <Input
+                    id="edit-title"
+                    data-testid="input-edit-title"
+                    value={editingItem.title || ''}
+                    onChange={(e) => setEditingItem({ ...editingItem, title: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="edit-description" data-testid="label-edit-description">Description</Label>
+                  <Textarea
+                    id="edit-description"
+                    data-testid="textarea-edit-description"
+                    value={editingItem.description || ''}
+                    onChange={(e) => setEditingItem({ ...editingItem, description: e.target.value })}
+                    rows={3}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="edit-category" data-testid="label-edit-category">Category</Label>
+                  <Input
+                    id="edit-category"
+                    data-testid="input-edit-category"
+                    value={editingItem.category || ''}
+                    onChange={(e) => setEditingItem({ ...editingItem, category: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="edit-tags" data-testid="label-edit-tags">Tags (comma-separated)</Label>
+                  <Input
+                    id="edit-tags"
+                    data-testid="input-edit-tags"
+                    value={editingItem.tags ? editingItem.tags.join(', ') : ''}
+                    onChange={(e) => setEditingItem({ ...editingItem, tags: e.target.value.split(',').map((t: string) => t.trim()) })}
+                  />
+                </div>
+              </div>
+            )}
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setIsEditDialogOpen(false)} data-testid="button-cancel-edit-media">
+                Cancel
+              </Button>
+              <Button onClick={handleUpdate} disabled={updateMutation.isPending} data-testid="button-save-edit-media">
+                {updateMutation.isPending ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  'Save'
+                )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
+    );
+  };
+
+  if (isLoadingContext || isLoadingKB || isLoadingInstructions || isLoadingMedia) {
     return (
       <div className="flex items-center justify-center h-96">
         <Loader2 className="h-8 w-8 animate-spin" data-testid="loader-ai-settings" />
@@ -694,6 +1125,10 @@ export default function AISettings() {
             <BookOpen className="mr-2 h-4 w-4" />
             Knowledge Base
           </TabsTrigger>
+          <TabsTrigger value="media" data-testid="tab-media">
+            <ImageIcon className="mr-2 h-4 w-4" />
+            Media Library
+          </TabsTrigger>
           <TabsTrigger value="instructions" data-testid="tab-instructions">
             <Settings2 className="mr-2 h-4 w-4" />
             Custom Instructions
@@ -706,6 +1141,10 @@ export default function AISettings() {
 
         <TabsContent value="knowledge" data-testid="content-knowledge">
           <KnowledgeBaseManager />
+        </TabsContent>
+
+        <TabsContent value="media" data-testid="content-media">
+          <MediaLibraryManager />
         </TabsContent>
 
         <TabsContent value="instructions" data-testid="content-instructions">

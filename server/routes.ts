@@ -71,6 +71,7 @@ import portalAppointmentsRoutes from "./src/routes/portal-appointments";
 import stripeWebhooksRoutes from "./src/routes/stripe-webhooks";
 import tenantCleanupRoutes from "./src/routes/tenantCleanup";
 import aiFeaturesRoutes from "./src/routes/ai-features";
+import aiOnboardingRoutes from "./src/routes/ai-onboarding";
 import { userPrefsService } from "./src/services/userPrefs";
 import { calendarAutoSyncService } from "./src/services/calendar-auto-sync";
 import { tenantResolver, requireTenant, type TenantRequest } from "./middleware/tenantResolver";
@@ -1074,6 +1075,9 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
 
   // AI Features routes (onboarding, media library, widget settings, chat, scheduler)
   app.use('/api/ai-features', ensureUserAuth, tenantResolver, requireTenant, csrf, aiFeaturesRoutes);
+
+  // AI Onboarding Wizard routes
+  app.use('/api/ai-onboarding', ensureUserAuth, tenantResolver, requireTenant, csrf, aiOnboardingRoutes);
   
   // Security helper functions for portal authentication
   async function verifyProjectAccess(contactId: string, projectId: string): Promise<boolean> {

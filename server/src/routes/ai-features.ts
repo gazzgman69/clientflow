@@ -13,8 +13,33 @@ import {
   insertBookingSchema,
 } from '@shared/schema';
 import { z } from 'zod';
+import multer from 'multer';
+import path from 'path';
+import { mkdir } from 'fs/promises';
 
 const router = Router();
+
+// Configure multer for media uploads with tenant isolation
+const mediaUpload = multer({ 
+  storage: multer.diskStorage({
+    destination: async (req: any, file, cb) => {
+      try {
+        const tenantId = req.tenantId || 'default-tenant';
+        const uploadDir = path.join(process.cwd(), 'media-uploads', tenantId);
+        await mkdir(uploadDir, { recursive: true });
+        cb(null, uploadDir);
+      } catch (error: any) {
+        cb(error, '');
+      }
+    },
+    filename: (req, file, cb) => {
+      const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+      const ext = path.extname(file.originalname);
+      cb(null, 'media-' + uniqueSuffix + ext);
+    }
+  }),
+  limits: { fileSize: 50 * 1024 * 1024 } // 50MB limit
+});
 
 // Define SAFE partial schemas for updates - exclude tenantId and other protected fields
 const updateOnboardingProgressSchema = insertTenantOnboardingProgressSchema.partial().omit({ tenantId: true });
@@ -119,15 +144,44 @@ router.get('/media/:id', async (req, res) => {
   }
 });
 
-// POST /api/ai-features/media - Create media item
-router.post('/media', async (req, res) => {
+// POST /api/ai-features/media - Upload media file
+router.post('/media', mediaUpload.single('file'), async (req, res) => {
   try {
     const tenantId = req.tenantId!;
     const userId = req.authenticatedUserId;
+    const file = req.file;
+
+    if (!file) {
+      res.status(400).json({ error: 'No file uploaded' });
+      return;
+    }
+
+    // Determine media type from MIME type
+    let mediaType: 'photo' | 'video' | 'audio';
+    if (file.mimetype.startsWith('image/')) {
+      mediaType = 'photo';
+    } else if (file.mimetype.startsWith('video/')) {
+      mediaType = 'video';
+    } else if (file.mimetype.startsWith('audio/')) {
+      mediaType = 'audio';
+    } else {
+      res.status(400).json({ error: 'Unsupported file type' });
+      return;
+    }
+
+    // Create media library item
     const data = insertMediaLibrarySchema.parse({
-      ...req.body,
-      uploadedBy: userId
+      tenantId,
+      fileName: file.originalname,
+      fileType: mediaType,
+      mimeType: file.mimetype,
+      fileSize: file.size,
+      filePath: file.path,
+      fileUrl: `/media-uploads/${tenantId}/${file.filename}`,
+      uploadedBy: userId,
+      isActive: true
     });
+
     const item = await storage.createMediaLibraryItem(data, tenantId);
     res.json(item);
   } catch (error) {

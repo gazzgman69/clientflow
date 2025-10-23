@@ -4,11 +4,11 @@ import { icalService } from './ical';
 
 /**
  * Auto-sync service for calendar integrations
- * Runs every 5 minutes to keep calendar data synchronized
+ * Runs every 3 minutes to keep calendar data synchronized
  */
 export class CalendarAutoSyncService {
   private intervalId: NodeJS.Timeout | null = null;
-  private readonly SYNC_INTERVAL = 5 * 60 * 1000; // 5 minutes in milliseconds
+  private readonly SYNC_INTERVAL = 3 * 60 * 1000; // 3 minutes in milliseconds
   private isRunning = false;
 
   /**
@@ -20,16 +20,16 @@ export class CalendarAutoSyncService {
       return;
     }
 
-    console.log('🚀 Starting calendar auto-sync service (every 5 minutes)');
+    console.log('🚀 Starting calendar auto-sync service (every 3 minutes)');
     
     // Run initial sync after 30 seconds to let the server fully initialize
     setTimeout(() => {
-      this.performAutoSync();
+      this.performAutoSync().catch(err => console.error('❌ Initial calendar sync error:', err));
     }, 30000);
 
-    // Set up recurring sync every 5 minutes
+    // Set up recurring sync every 3 minutes
     this.intervalId = setInterval(() => {
-      this.performAutoSync();
+      this.performAutoSync().catch(err => console.error('❌ Scheduled calendar sync error:', err));
     }, this.SYNC_INTERVAL);
 
     console.log('✅ Calendar auto-sync service started successfully');

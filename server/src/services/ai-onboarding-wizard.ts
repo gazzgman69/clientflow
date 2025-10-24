@@ -735,6 +735,18 @@ export class AIOnboardingWizard {
   }
 
   /**
+   * Clear pending OAuth provider (after popup is opened)
+   */
+  async clearPendingOAuth(tenantId: string): Promise<void> {
+    const progress = await storage.getTenantOnboardingProgress(tenantId);
+    if (progress) {
+      await storage.updateTenantOnboardingProgress(progress.id, {
+        pendingOAuthProvider: null
+      }, tenantId);
+    }
+  }
+
+  /**
    * Clean up context (useful for testing or reset)
    */
   clearContext(tenantId: string): void {

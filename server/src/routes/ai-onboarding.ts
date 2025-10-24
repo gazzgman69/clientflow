@@ -66,6 +66,41 @@ router.get('/status', async (req, res) => {
   }
 });
 
+// GET /api/ai-onboarding/oauth-status - Poll for pending OAuth provider
+router.get('/oauth-status', async (req, res) => {
+  try {
+    const tenantId = req.tenantId!;
+    const status = await aiOnboardingWizard.getStatus(tenantId);
+    
+    res.json({
+      success: true,
+      pendingOAuthProvider: status?.pendingOAuthProvider || null
+    });
+  } catch (error) {
+    console.error('Error getting OAuth status:', error);
+    res.status(500).json({ error: 'Failed to get OAuth status' });
+  }
+});
+
+// POST /api/ai-onboarding/clear-oauth - Clear pending OAuth provider (after popup opens)
+router.post('/clear-oauth', async (req, res) => {
+  try {
+    const tenantId = req.tenantId!;
+    const status = await aiOnboardingWizard.getStatus(tenantId);
+    
+    if (status) {
+      await aiOnboardingWizard.clearPendingOAuth(tenantId);
+    }
+    
+    res.json({
+      success: true
+    });
+  } catch (error) {
+    console.error('Error clearing OAuth status:', error);
+    res.status(500).json({ error: 'Failed to clear OAuth status' });
+  }
+});
+
 // POST /api/ai-onboarding/reset - Reset onboarding (useful for testing)
 router.post('/reset', async (req, res) => {
   try {

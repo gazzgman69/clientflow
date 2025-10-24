@@ -337,6 +337,84 @@ router.post('/bookings/:slug', async (req, res) => {
       return;
     }
     
+    // Validate booking limitations
+    const bookingDateTime = new Date(`${bookingData.bookingDate}T${bookingData.bookingTime}`);
+    const now = new Date();
+    
+    // Check minimum advance notice
+    if (schedule.minAdvanceNoticeHours) {
+      const minAdvanceMs = schedule.minAdvanceNoticeHours * 60 * 60 * 1000;
+      const timeDiff = bookingDateTime.getTime() - now.getTime();
+      if (timeDiff < minAdvanceMs) {
+        res.status(400).json({ 
+          error: `Bookings must be made at least ${schedule.minAdvanceNoticeHours} hours in advance` 
+        });
+        return;
+      }
+    }
+    
+    // Check maximum future booking window
+    if (schedule.maxFutureDays) {
+      const maxFutureMs = schedule.maxFutureDays * 24 * 60 * 60 * 1000;
+      const timeDiff = bookingDateTime.getTime() - now.getTime();
+      if (timeDiff > maxFutureMs) {
+        res.status(400).json({ 
+          error: `Bookings cannot be made more than ${schedule.maxFutureDays} days in advance` 
+        });
+        return;
+      }
+    }
+    
+    // Check daily booking limit
+    if (schedule.dailyBookingLimit) {
+      const bookings = await storage.getBookings(schedule.tenantId);
+      const bookingDate = new Date(bookingData.bookingDate);
+      const dailyBookings = bookings.filter(b => {
+        const bDate = new Date(b.bookingDate);
+        return b.scheduleId === schedule.id &&
+               b.status !== 'cancelled' &&
+               bDate.toDateString() === bookingDate.toDateString();
+      });
+      
+      if (dailyBookings.length >= schedule.dailyBookingLimit) {
+        res.status(400).json({ 
+          error: `Daily booking limit of ${schedule.dailyBookingLimit} has been reached for this date` 
+        });
+        return;
+      }
+    }
+    
+    // Check weekly booking limit
+    if (schedule.weeklyBookingLimit) {
+      const bookings = await storage.getBookings(schedule.tenantId);
+      const bookingDate = new Date(bookingData.bookingDate);
+      
+      // Get start of week (Sunday)
+      const weekStart = new Date(bookingDate);
+      weekStart.setDate(bookingDate.getDate() - bookingDate.getDay());
+      weekStart.setHours(0, 0, 0, 0);
+      
+      // Get end of week (Saturday)
+      const weekEnd = new Date(weekStart);
+      weekEnd.setDate(weekStart.getDate() + 6);
+      weekEnd.setHours(23, 59, 59, 999);
+      
+      const weeklyBookings = bookings.filter(b => {
+        const bDate = new Date(b.bookingDate);
+        return b.scheduleId === schedule.id &&
+               b.status !== 'cancelled' &&
+               bDate >= weekStart &&
+               bDate <= weekEnd;
+      });
+      
+      if (weeklyBookings.length >= schedule.weeklyBookingLimit) {
+        res.status(400).json({ 
+          error: `Weekly booking limit of ${schedule.weeklyBookingLimit} has been reached for this week` 
+        });
+        return;
+      }
+    }
+    
     // Get or create contact
     let contactId = bookingData.contactId;
     let projectId = bookingData.projectId;

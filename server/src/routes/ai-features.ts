@@ -961,6 +961,30 @@ router.post('/bookings/:id/cancel', async (req, res) => {
       return;
     }
     
+    // Get the booking to check cancellation policy
+    const existingBooking = await storage.getBooking(id, tenantId);
+    if (!existingBooking) {
+      res.status(404).json({ error: 'Booking not found' });
+      return;
+    }
+    
+    // Check cancellation policy if schedule has one
+    if (existingBooking.scheduleId) {
+      const schedule = await storage.getAvailabilitySchedule(existingBooking.scheduleId, tenantId);
+      if (schedule?.cancellationPolicyHours) {
+        const bookingDateTime = new Date(`${existingBooking.bookingDate.toISOString().split('T')[0]}T${existingBooking.bookingTime}`);
+        const now = new Date();
+        const hoursUntilBooking = (bookingDateTime.getTime() - now.getTime()) / (1000 * 60 * 60);
+        
+        if (hoursUntilBooking < schedule.cancellationPolicyHours) {
+          res.status(400).json({ 
+            error: `Cancellations must be made at least ${schedule.cancellationPolicyHours} hours before the booking time` 
+          });
+          return;
+        }
+      }
+    }
+    
     const booking = await storage.cancelBooking(id, cancelledBy, cancellationReason, tenantId);
     if (!booking) {
       res.status(404).json({ error: 'Booking not found' });

@@ -24,11 +24,17 @@ interface OnboardingStatus {
 }
 
 const STEPS = [
-  { key: 'business_info', label: 'Business Information' },
-  { key: 'services', label: 'Services & Offerings' },
-  { key: 'availability', label: 'Scheduler Setup' },
-  { key: 'email_integration', label: 'Email & Calendar' },
-  { key: 'widget_config', label: 'Chat Widget' },
+  { key: 'business_info', label: 'Business Info' },
+  { key: 'branding', label: 'Branding' },
+  { key: 'contact_details', label: 'Contact' },
+  { key: 'services', label: 'Services' },
+  { key: 'availability', label: 'Availability' },
+  { key: 'email_tone', label: 'Email Tone' },
+  { key: 'email_integration', label: 'Email/Calendar' },
+  { key: 'widget_config', label: 'Widget' },
+  { key: 'invoice_settings', label: 'Invoice' },
+  { key: 'team_members', label: 'Team' },
+  { key: 'knowledge_base', label: 'Knowledge' },
   { key: 'complete', label: 'Complete' }
 ];
 
@@ -46,6 +52,13 @@ export default function OnboardingPage() {
   const { data: statusData } = useQuery({
     queryKey: ['/api/ai-onboarding/status'],
     refetchOnMount: true
+  });
+
+  // Poll for pending OAuth provider
+  const { data: oauthStatusData } = useQuery({
+    queryKey: ['/api/ai-onboarding/oauth-status'],
+    refetchInterval: 2000, // Poll every 2 seconds
+    enabled: !statusData?.status?.isCompleted // Stop polling when onboarding complete
   });
 
   useEffect(() => {
@@ -70,6 +83,42 @@ export default function OnboardingPage() {
       }
     }
   }, [statusData, navigate]);
+
+  // Handle OAuth popup trigger
+  useEffect(() => {
+    const pendingProvider = oauthStatusData?.pendingOAuthProvider;
+    if (pendingProvider) {
+      // Trigger OAuth popup
+      const provider = pendingProvider === 'gmail' ? 'google' : 'microsoft';
+      const width = 600;
+      const height = 700;
+      const left = window.innerWidth / 2 - width / 2;
+      const top = window.innerHeight / 2 - height / 2;
+      
+      const popup = window.open(
+        `/api/auth/${provider}`,
+        'OAuth Login',
+        `width=${width},height=${height},left=${left},top=${top},popup=1`
+      );
+
+      // Clear the pending OAuth status immediately so we don't keep reopening
+      apiRequest('POST', '/api/ai-onboarding/clear-oauth', {}).catch(console.error);
+
+      // Monitor popup closure
+      const checkPopup = setInterval(() => {
+        if (popup?.closed) {
+          clearInterval(checkPopup);
+          // Refresh status to check if OAuth was successful
+          queryClient.invalidateQueries({ queryKey: ['/api/ai-onboarding/status'] });
+          
+          toast({
+            title: 'Login window closed',
+            description: 'Continuing with setup...'
+          });
+        }
+      }, 1000);
+    }
+  }, [oauthStatusData, queryClient, toast]);
 
   // Start onboarding mutation
   const startMutation = useMutation({
@@ -271,6 +320,20 @@ export default function OnboardingPage() {
 
             {/* Input */}
             <div className="border-t p-4 bg-background">
+              <div className="flex gap-2 mb-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setInput('skip this for now');
+                    setTimeout(() => handleSend(), 100);
+                  }}
+                  disabled={chatMutation.isPending}
+                  data-testid="button-skip-question"
+                >
+                  Skip this question
+                </Button>
+              </div>
               <div className="flex gap-2">
                 <Textarea
                   ref={textareaRef}

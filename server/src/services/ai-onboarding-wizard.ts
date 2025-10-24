@@ -110,7 +110,61 @@ export class AIOnboardingWizard {
    * Start a new onboarding conversation for a tenant
    */
   async startOnboarding(tenantId: string, userId: string): Promise<string> {
-    const initialAssistantMessage = "Hi! I'm here to help you set up your new CRM system. Let's start with the basics - what's your business name?";
+    // Check if onboarding progress exists
+    const existingProgress = await storage.getTenantOnboardingProgress(tenantId);
+    
+    let initialAssistantMessage: string;
+    
+    if (existingProgress && !existingProgress.isCompleted) {
+      // Resume existing onboarding
+      const completedSteps = existingProgress.completedSteps || [];
+      const skippedSteps = existingProgress.skippedSteps || [];
+      const currentStep = existingProgress.currentStep;
+      
+      // Build smart resume message
+      if (completedSteps.length > 0 || skippedSteps.length > 0) {
+        initialAssistantMessage = "Welcome back! I see you've already made some progress. ";
+        
+        if (completedSteps.length > 0) {
+          initialAssistantMessage += `You've completed: ${this.formatStepList(completedSteps)}. `;
+        }
+        
+        if (skippedSteps.length > 0) {
+          initialAssistantMessage += `You skipped: ${this.formatStepList(skippedSteps)}. `;
+        }
+        
+        initialAssistantMessage += `Let's continue from where we left off. ${this.getNextQuestionForStep(currentStep)}`;
+      } else {
+        initialAssistantMessage = "Hi! I'm here to help you set up your new CRM system. Let's start with the basics - what's your business name?";
+      }
+      
+      // Try to restore context
+      const restoredContext = await this.restoreContext(tenantId);
+      if (!restoredContext) {
+        // Create fresh context if restoration failed
+        const context: OnboardingContext = {
+          tenantId,
+          userId,
+          conversationHistory: [
+            { role: 'system', content: ONBOARDING_SYSTEM_PROMPT },
+            { role: 'assistant', content: initialAssistantMessage }
+          ],
+          extractedData: {}
+        };
+        this.contexts.set(tenantId, context);
+      } else {
+        // Add resume message to existing conversation
+        restoredContext.conversationHistory.push({
+          role: 'assistant',
+          content: initialAssistantMessage
+        });
+      }
+      
+      return initialAssistantMessage;
+    }
+    
+    // Brand new onboarding
+    initialAssistantMessage = "Hi! I'm here to help you set up your new CRM system. Let's start with the basics - what's your business name?";
     
     const context: OnboardingContext = {
       tenantId,
@@ -129,6 +183,7 @@ export class AIOnboardingWizard {
       tenantId,
       currentStep: 'business_info',
       completedSteps: [],
+      skippedSteps: [],
       collectedData: {
         userId,  // Persist userId for context restoration after restarts
         conversationHistory: context.conversationHistory,
@@ -205,7 +260,7 @@ export class AIOnboardingWizard {
           assistantReply += "Perfect! I've saved your email samples. Now, would you like to connect your email account (Gmail or Outlook)? This will let you manage emails and sync your calendar directly in the CRM.";
           break;
         case 'trigger_oauth_connection':
-          assistantReply = "Great! I'm opening the login window for " + (args.provider === 'gmail' ? 'Gmail' : 'Outlook') + ". Please complete the login there. I'll wait for you to finish...";
+          assistantReply = "Great! I'm opening the login window for " + (functionArgs.provider === 'gmail' ? 'Gmail' : 'Outlook') + ". Please complete the login there. I'll wait for you to finish...";
           break;
         case 'skip_email_integration':
           assistantReply += "No problem! You can connect your email later from settings. Let's set up your AI chat widget. What welcome message would you like visitors to see?";
@@ -751,6 +806,49 @@ export class AIOnboardingWizard {
    */
   clearContext(tenantId: string): void {
     this.contexts.delete(tenantId);
+  }
+
+  /**
+   * Format a list of step keys into human-readable names
+   */
+  private formatStepList(steps: string[]): string {
+    const stepNames: Record<string, string> = {
+      business_info: 'Business Info',
+      branding: 'Branding',
+      contact_details: 'Contact Details',
+      services: 'Services',
+      availability: 'Availability',
+      email_tone: 'Email Tone',
+      email_integration: 'Email/Calendar Integration',
+      widget_config: 'Chat Widget',
+      invoice_settings: 'Invoice Settings',
+      team_members: 'Team Members',
+      knowledge_base: 'Knowledge Base'
+    };
+    
+    return steps.map(s => stepNames[s] || s).join(', ');
+  }
+
+  /**
+   * Get the appropriate next question for a given step
+   */
+  private getNextQuestionForStep(step: string): string {
+    const questions: Record<string, string> = {
+      business_info: "What's your business name?",
+      branding: "Do you have a logo URL and brand colors you'd like to use?",
+      contact_details: "What's your main business contact information - phone, address, and website?",
+      services: "Tell me about the services you offer. What do you provide to your clients?",
+      availability: "When are you typically available for bookings? What are your working hours?",
+      email_tone: "To help the AI write emails in your voice, you can paste 2-3 sample emails you've written before. Would you like to do this?",
+      email_integration: "Would you like to connect your email account (Gmail or Outlook) for email management and calendar sync?",
+      widget_config: "What welcome message would you like visitors to see on your chat widget?",
+      invoice_settings: "What tax rate and payment terms do you typically use for invoices?",
+      team_members: "Would you like to add any team members to your CRM now?",
+      knowledge_base: "Would you like to add any FAQs or business information for the AI to reference?",
+      complete: "You're all set! Let's finalize your setup."
+    };
+    
+    return questions[step] || "Let's continue setting up your CRM.";
   }
 }
 

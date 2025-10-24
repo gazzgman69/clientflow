@@ -103,9 +103,11 @@ const ONBOARDING_SYSTEM_PROMPT = `You are a friendly AI assistant helping a busi
 
 **Critical Instructions:**
 - When you've gathered information for a step, use the appropriate save function.
-- Track progress through the steps systematically.
-- **WHEN THE USER HAS COMPLETED OR SKIPPED ALL 11 STEPS**, you MUST call the complete_onboarding function with a summary. This finalizes their setup and redirects them to the dashboard.
-- After calling complete_onboarding, congratulate them and let them know their CRM is ready to use.`;
+- Track progress through the steps systematically. Count how many steps have been completed or skipped.
+- **IMPORTANT**: There are exactly 11 steps total. Once the user has addressed ALL 11 steps (whether completed OR skipped), you MUST immediately call the complete_onboarding function.
+- The 11 steps are: (1) Business Info, (2) Branding, (3) Contact Details, (4) Services, (5) Availability, (6) Email Tone, (7) Email Integration, (8) Widget Config, (9) Invoice Settings, (10) Team Members, (11) Knowledge Base.
+- Keep mental count: if 11 steps are done (completed + skipped = 11), call complete_onboarding with a summary of what was configured.
+- After calling complete_onboarding, congratulate them and explain their CRM is ready. The system will automatically redirect them to the dashboard.`;
 
 export class AIOnboardingWizard {
   private contexts: Map<string, OnboardingContext> = new Map();

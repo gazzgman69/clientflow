@@ -152,12 +152,18 @@ export class AIOnboardingWizard {
           extractedData: {}
         };
         this.contexts.set(tenantId, context);
+        
+        // CRITICAL FIX: Persist the fresh context to database so it can be restored on next request
+        await this.persistContext(context);
       } else {
         // Add resume message to existing conversation
         restoredContext.conversationHistory.push({
           role: 'assistant',
           content: initialAssistantMessage
         });
+        
+        // Persist updated conversation with resume message
+        await this.persistContext(restoredContext);
       }
       
       return initialAssistantMessage;
@@ -335,9 +341,10 @@ export class AIOnboardingWizard {
       extractedData: savedData.extractedData || {}
     };
 
-    // Validate userId was persisted - throw early if context is invalid
+    // Validate userId was persisted - return null if context is invalid to allow fresh creation
     if (!context.userId) {
-      throw new Error('Cannot restore onboarding context: userId was not persisted');
+      console.warn(`⚠️  Cannot restore onboarding context for tenant ${tenantId}: userId was not persisted. Fresh context will be created.`);
+      return null;
     }
 
     // Cache in memory for subsequent requests
@@ -740,12 +747,26 @@ export class AIOnboardingWizard {
         // Mark onboarding as complete
         const progress = await storage.getTenantOnboardingProgress(tenantId);
         if (progress) {
+          // Preserve actual completed/skipped steps from the conversation, don't overwrite with hardcoded list
+          const currentCompletedSteps = progress.completedSteps || [];
+          const currentSkippedSteps = progress.skippedSteps || [];
+          
+          console.log(`✅ Completing onboarding for tenant ${tenantId}`);
+          console.log(`   Completed steps: ${currentCompletedSteps.join(', ')}`);
+          console.log(`   Skipped steps: ${currentSkippedSteps.join(', ')}`);
+          
+          // Get current collected data to preserve userId and extractedData
+          const currentData = progress.collectedData as any || {};
+          
           await storage.updateTenantOnboardingProgress(progress.id, {
             isCompleted: true,
             currentStep: 'complete',
-            completedSteps: ['business_info', 'services', 'availability', 'email_integration', 'widget_config'],
+            completedSteps: currentCompletedSteps, // Preserve actual progress
+            skippedSteps: currentSkippedSteps, // Preserve skipped steps
             collectedData: {
-              ...progress.collectedData,
+              userId: currentData.userId,
+              conversationHistory: currentData.conversationHistory || [],
+              extractedData: currentData.extractedData || {},
               summary: args.summary
             },
             completedAt: new Date()
@@ -772,7 +793,19 @@ export class AIOnboardingWizard {
       completedSteps.push(step);
     }
 
-    const collectedData = { ...progress.collectedData, [step]: data };
+    // CRITICAL FIX: Don't spread collected data - preserve only the 3 essential fields
+    // and update extractedData with the new step data
+    const currentData = progress.collectedData as any || {};
+    const extractedData = currentData.extractedData || {};
+    
+    const collectedData = {
+      userId: currentData.userId,
+      conversationHistory: currentData.conversationHistory || [],
+      extractedData: {
+        ...extractedData,
+        [step]: data // Add/update this step's data in extractedData
+      }
+    };
 
     await storage.updateTenantOnboardingProgress(progress.id, {
       currentStep: this.getNextStep(step),

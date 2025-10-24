@@ -27,6 +27,7 @@ const STEPS = [
   { key: 'business_info', label: 'Business Information' },
   { key: 'services', label: 'Services & Offerings' },
   { key: 'availability', label: 'Scheduler Setup' },
+  { key: 'email_integration', label: 'Email & Calendar' },
   { key: 'widget_config', label: 'Chat Widget' },
   { key: 'complete', label: 'Complete' }
 ];

@@ -58,10 +58,19 @@ const ONBOARDING_SYSTEM_PROMPT = `You are a friendly AI assistant helping a busi
 1. **Business Information**: Company name, industry, target audience, services offered
 2. **Bookable Services**: What services they offer, pricing, duration
 3. **Availability**: When they're available for bookings, working hours
-4. **AI Chat Widget**: Welcome message, brand color, tone of voice
-5. **Knowledge Base**: FAQs and information about their business
+4. **Email & Calendar Integration**: Connect Gmail/Outlook for email management and calendar sync
+5. **AI Chat Widget**: Welcome message, brand color, tone of voice
+6. **Knowledge Base**: FAQs and information about their business
 
 Be conversational and friendly. Ask one question at a time. Listen carefully to their responses and extract structured information. Don't overwhelm them - make it feel like a natural conversation, not a form.
+
+For email/calendar integration, explain that connecting their email (Gmail or Outlook) will allow them to:
+- Manage emails directly in the CRM
+- Sync calendar events automatically
+- Prevent double-bookings with calendar conflict detection
+- Send professional emails from the platform
+
+Ask if they'd like to connect their email account. If they say yes or show interest, guide them to connect it. If they prefer to skip it for now, that's fine - they can always set it up later.
 
 When you've gathered enough information, use the available functions to save the configuration.`;
 
@@ -152,7 +161,13 @@ export class AIOnboardingWizard {
           assistantReply += "Excellent! When are you typically available for bookings? What are your working hours?";
           break;
         case 'save_availability':
-          assistantReply += "Perfect! Let's set up your AI chat widget. What welcome message would you like visitors to see?";
+          assistantReply += "Perfect! Now, would you like to connect your email account (Gmail or Outlook)? This will let you manage emails and sync your calendar directly in the CRM, preventing double-bookings. It's optional, but really helpful!";
+          break;
+        case 'skip_email_integration':
+          assistantReply += "No problem! You can always connect your email later from settings. Let's move on to setting up your AI chat widget. What welcome message would you like visitors to see?";
+          break;
+        case 'guide_email_integration':
+          assistantReply += "Great! To connect your email, you'll need to go to Settings > Integrations after this setup. For now, let's continue with your chat widget. What welcome message would you like visitors to see?";
           break;
         case 'save_widget_config':
           assistantReply += "Wonderful! Your CRM is almost ready. Is there anything else you'd like to add, like FAQs or business policies?";
@@ -303,6 +318,26 @@ export class AIOnboardingWizard {
         }
       },
       {
+        name: 'skip_email_integration',
+        description: 'User chose to skip email/calendar integration for now',
+        parameters: {
+          type: 'object',
+          properties: {
+            reason: { type: 'string', description: 'Optional reason for skipping' }
+          }
+        }
+      },
+      {
+        name: 'guide_email_integration',
+        description: 'User wants to set up email/calendar integration',
+        parameters: {
+          type: 'object',
+          properties: {
+            provider: { type: 'string', description: 'Preferred email provider (gmail or outlook)', enum: ['gmail', 'outlook', 'unknown'] }
+          }
+        }
+      },
+      {
         name: 'save_widget_config',
         description: 'Save the AI chat widget configuration',
         parameters: {
@@ -379,6 +414,19 @@ export class AIOnboardingWizard {
         await this.updateProgress(tenantId, 'availability', args);
         break;
 
+      case 'skip_email_integration':
+        // User chose to skip email integration
+        await this.updateProgress(tenantId, 'email_integration', { skipped: true, reason: args.reason });
+        break;
+
+      case 'guide_email_integration':
+        // User wants email integration - just note their preference
+        await this.updateProgress(tenantId, 'email_integration', { 
+          interested: true, 
+          provider: args.provider 
+        });
+        break;
+
       case 'save_widget_config':
         context.extractedData.widgetConfig = args;
         // Create widget settings
@@ -402,7 +450,7 @@ export class AIOnboardingWizard {
           await storage.updateTenantOnboardingProgress(progress.id, {
             isCompleted: true,
             currentStep: 'complete',
-            completedSteps: ['business_info', 'services', 'availability', 'widget_config'],
+            completedSteps: ['business_info', 'services', 'availability', 'email_integration', 'widget_config'],
             collectedData: {
               ...progress.collectedData,
               summary: args.summary

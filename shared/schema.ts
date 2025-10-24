@@ -1641,6 +1641,7 @@ export type InsertLeadAutomationRule = z.infer<typeof insertLeadAutomationRuleSc
 // Mail Settings for encrypted IMAP/SMTP credentials
 export const mailSettings = pgTable("mail_settings", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").references(() => tenants.id).notNull(), // Multi-tenant isolation
   name: text("name").notNull(), // "Primary Email", "Support Email", etc
   provider: text("provider"), // "gmail", "outlook", "icloud", "custom"
   
@@ -1684,13 +1685,15 @@ export const mailSettings = pgTable("mail_settings", {
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => ({
+  tenantIdIdx: index("mail_settings_tenant_id_idx").on(table.tenantId),
   // Note: Unique constraint on isDefault will be enforced in application logic
-  // to ensure only one default account exists at a time
+  // to ensure only one default account exists per tenant
 }));
 
 // Mail Settings Audit Log
 export const mailSettingsAudit = pgTable("mail_settings_audit", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").references(() => tenants.id).notNull(), // Multi-tenant isolation
   settingsId: varchar("settings_id").references(() => mailSettings.id).notNull(),
   kind: text("kind").notNull(), // 'imapTest', 'smtpTest', 'sync', 'send', 'quota'
   ok: boolean("ok").notNull(),
@@ -1699,12 +1702,14 @@ export const mailSettingsAudit = pgTable("mail_settings_audit", {
   meta: text("meta"), // JSON text for additional data
   createdAt: timestamp("created_at").defaultNow(),
 }, (table) => ({
+  tenantIdIdx: index("mail_settings_audit_tenant_id_idx").on(table.tenantId),
   settingsIdCreatedAtIdx: index("mail_settings_audit_settings_id_created_at_idx").on(table.settingsId, table.createdAt.desc()),
 }));
 
 // Insert schemas for mail settings
 export const insertMailSettingsSchema = createInsertSchema(mailSettings).omit({ 
   id: true, 
+  tenantId: true, // Provided from session context
   createdAt: true, 
   updatedAt: true,
   lastTestedAt: true,
@@ -1717,6 +1722,7 @@ export const insertMailSettingsSchema = createInsertSchema(mailSettings).omit({
 
 export const insertMailSettingsAuditSchema = createInsertSchema(mailSettingsAudit).omit({ 
   id: true, 
+  tenantId: true, // Provided from session context
   createdAt: true 
 });
 

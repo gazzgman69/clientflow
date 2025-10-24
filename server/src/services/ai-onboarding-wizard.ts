@@ -315,12 +315,23 @@ export class AIOnboardingWizard {
     }
 
     const savedData = progress.collectedData as any;
+    let conversationHistory = savedData.conversationHistory || [
+      { role: 'system', content: ONBOARDING_SYSTEM_PROMPT }
+    ];
+
+    // Trim conversation history on restore to prevent payload size issues
+    // This handles cases where old records have massive history
+    const MAX_MESSAGES = 30;
+    if (conversationHistory.length > MAX_MESSAGES + 1) {
+      const systemMessage = conversationHistory[0];
+      const recentMessages = conversationHistory.slice(-MAX_MESSAGES);
+      conversationHistory = [systemMessage, ...recentMessages];
+    }
+
     const context: OnboardingContext = {
       tenantId,
       userId: savedData.userId || '', // Restore persisted userId
-      conversationHistory: savedData.conversationHistory || [
-        { role: 'system', content: ONBOARDING_SYSTEM_PROMPT }
-      ],
+      conversationHistory,
       extractedData: savedData.extractedData || {}
     };
 
@@ -341,14 +352,38 @@ export class AIOnboardingWizard {
     const progress = await storage.getTenantOnboardingProgress(context.tenantId);
     if (!progress) return;
 
-    const currentData = (progress.collectedData as any) || {};
+    // Limit conversation history to prevent database payload size issues
+    // Keep system prompt + last 30 messages to stay under 64MB limit
+    const MAX_MESSAGES = 30;
+    let trimmedHistory = context.conversationHistory;
+    
+    if (context.conversationHistory.length > MAX_MESSAGES + 1) {
+      // Keep system message (always first) + last N messages
+      const systemMessage = context.conversationHistory[0];
+      const recentMessages = context.conversationHistory.slice(-MAX_MESSAGES);
+      trimmedHistory = [systemMessage, ...recentMessages];
+      console.log(`📏 Trimmed conversation history from ${context.conversationHistory.length} to ${trimmedHistory.length} messages`);
+    }
+
+    // Don't spread currentData - only persist exact fields we need
+    // This prevents carrying forward any bloated data from previous bugs
+    const collectedDataPayload = {
+      userId: context.userId,
+      conversationHistory: trimmedHistory,
+      extractedData: context.extractedData
+    };
+    
+    // Log payload size before persisting
+    const payloadSize = JSON.stringify(collectedDataPayload).length;
+    const payloadSizeMB = (payloadSize / 1024 / 1024).toFixed(2);
+    console.log(`💾 Persisting onboarding data: ${payloadSize} bytes (${payloadSizeMB} MB)`);
+    
+    if (payloadSize > 10000000) { // 10MB warning
+      console.warn(`⚠️  Large payload detected: ${payloadSizeMB} MB - may cause database issues`);
+    }
+
     await storage.updateTenantOnboardingProgress(progress.id, {
-      collectedData: {
-        ...currentData,
-        userId: context.userId,  // Always persist userId for reliable restoration
-        conversationHistory: context.conversationHistory,
-        extractedData: context.extractedData
-      }
+      collectedData: collectedDataPayload
     }, context.tenantId);
   }
 

@@ -8,6 +8,20 @@ Preferred communication style: Simple, everyday language.
 
 # Recent Changes
 
+## October 24, 2025 - Enhanced Scheduler & AI Onboarding Updates
+-   **Advanced Scheduler Features**: Implemented comprehensive booking limitations matching 17hats capabilities
+    - Added booking limitation fields: minimum advance notice, maximum future booking window, daily/weekly booking caps, cancellation policy hours, header image URL
+    - Created junction tables: schedule_calendar_checks (calendar conflict detection), schedule_team_members (team assignment)
+    - Implemented 6 secure API endpoints with full tenant validation for calendar checks and team member management
+    - Built EnhancedScheduleDialog with 5 sections: Basic Info, Booking Limitations, Availability Rules, Team & Calendars, Visuals
+    - Added booking validation logic enforcing all limitations on both public and admin booking endpoints
+    - Implemented cancellation policy enforcement preventing late cancellations
+-   **AI Onboarding Enhancement**: Added email/calendar integration step to onboarding wizard
+    - Updated system prompt to include email & calendar setup as step 4 (between availability and widget config)
+    - Added two new functions: skip_email_integration and guide_email_integration
+    - Frontend now shows 6 steps: Business Info → Services → Availability → Email & Calendar → Chat Widget → Complete
+    - AI explains benefits of email/calendar integration and guides users to connect later if interested
+
 ## October 23, 2025 - Scheduler & Public Booking Implementation
 -   **AI Onboarding Fix**: Removed deprecated OpenAI API calls using 'function' role, replaced with contextual responses
 -   **Media Library Route**: Added navigation at /media-library with sidebar link (Image icon)

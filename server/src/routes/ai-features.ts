@@ -712,6 +712,164 @@ router.delete('/rules/:id', async (req, res) => {
 });
 
 // ============================================================================
+// SCHEDULE CALENDAR CHECKS
+// ============================================================================
+
+// GET /api/ai-features/schedules/:scheduleId/calendar-checks - Get calendar checks for schedule
+router.get('/schedules/:scheduleId/calendar-checks', async (req, res) => {
+  try {
+    const tenantId = req.tenantId!;
+    const { scheduleId } = req.params;
+    
+    // Verify schedule belongs to tenant
+    const schedule = await storage.getAvailabilitySchedule(scheduleId, tenantId);
+    if (!schedule) {
+      res.status(404).json({ error: 'Schedule not found' });
+      return;
+    }
+    
+    const checks = await storage.getScheduleCalendarChecks(scheduleId);
+    res.json(checks);
+  } catch (error) {
+    console.error('Error fetching calendar checks:', error);
+    res.status(500).json({ error: 'Failed to fetch calendar checks' });
+  }
+});
+
+// POST /api/ai-features/schedules/:scheduleId/calendar-checks - Add calendar check
+router.post('/schedules/:scheduleId/calendar-checks', async (req, res) => {
+  try {
+    const tenantId = req.tenantId!;
+    const { scheduleId } = req.params;
+    const { calendarIntegrationId } = req.body;
+    
+    // Verify schedule belongs to tenant
+    const schedule = await storage.getAvailabilitySchedule(scheduleId, tenantId);
+    if (!schedule) {
+      res.status(404).json({ error: 'Schedule not found' });
+      return;
+    }
+    
+    // Verify calendar belongs to tenant
+    const calendar = await storage.getCalendarIntegration(calendarIntegrationId);
+    if (!calendar || calendar.tenantId !== tenantId) {
+      res.status(403).json({ error: 'Calendar not found or access denied' });
+      return;
+    }
+    
+    const check = await storage.addCalendarCheck({ scheduleId, calendarIntegrationId });
+    res.json(check);
+  } catch (error) {
+    console.error('Error adding calendar check:', error);
+    res.status(500).json({ error: 'Failed to add calendar check' });
+  }
+});
+
+// DELETE /api/ai-features/schedules/:scheduleId/calendar-checks/:calendarIntegrationId - Remove calendar check
+router.delete('/schedules/:scheduleId/calendar-checks/:calendarIntegrationId', async (req, res) => {
+  try {
+    const tenantId = req.tenantId!;
+    const { scheduleId, calendarIntegrationId } = req.params;
+    
+    // Verify schedule belongs to tenant
+    const schedule = await storage.getAvailabilitySchedule(scheduleId, tenantId);
+    if (!schedule) {
+      res.status(404).json({ error: 'Schedule not found' });
+      return;
+    }
+    
+    const success = await storage.removeCalendarCheck(scheduleId, calendarIntegrationId);
+    if (!success) {
+      res.status(404).json({ error: 'Calendar check not found' });
+      return;
+    }
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error removing calendar check:', error);
+    res.status(500).json({ error: 'Failed to remove calendar check' });
+  }
+});
+
+// ============================================================================
+// SCHEDULE TEAM MEMBERS
+// ============================================================================
+
+// GET /api/ai-features/schedules/:scheduleId/team-members - Get team members for schedule
+router.get('/schedules/:scheduleId/team-members', async (req, res) => {
+  try {
+    const tenantId = req.tenantId!;
+    const { scheduleId } = req.params;
+    
+    // Verify schedule belongs to tenant
+    const schedule = await storage.getAvailabilitySchedule(scheduleId, tenantId);
+    if (!schedule) {
+      res.status(404).json({ error: 'Schedule not found' });
+      return;
+    }
+    
+    const members = await storage.getScheduleTeamMembers(scheduleId);
+    res.json(members);
+  } catch (error) {
+    console.error('Error fetching team members:', error);
+    res.status(500).json({ error: 'Failed to fetch team members' });
+  }
+});
+
+// POST /api/ai-features/schedules/:scheduleId/team-members - Add team member
+router.post('/schedules/:scheduleId/team-members', async (req, res) => {
+  try {
+    const tenantId = req.tenantId!;
+    const { scheduleId } = req.params;
+    const { memberId } = req.body;
+    
+    // Verify schedule belongs to tenant
+    const schedule = await storage.getAvailabilitySchedule(scheduleId, tenantId);
+    if (!schedule) {
+      res.status(404).json({ error: 'Schedule not found' });
+      return;
+    }
+    
+    // Verify member belongs to tenant
+    const member = await storage.getMember(memberId, tenantId);
+    if (!member) {
+      res.status(403).json({ error: 'Team member not found or access denied' });
+      return;
+    }
+    
+    const teamMember = await storage.addTeamMember({ scheduleId, memberId });
+    res.json(teamMember);
+  } catch (error) {
+    console.error('Error adding team member:', error);
+    res.status(500).json({ error: 'Failed to add team member' });
+  }
+});
+
+// DELETE /api/ai-features/schedules/:scheduleId/team-members/:memberId - Remove team member
+router.delete('/schedules/:scheduleId/team-members/:memberId', async (req, res) => {
+  try {
+    const tenantId = req.tenantId!;
+    const { scheduleId, memberId } = req.params;
+    
+    // Verify schedule belongs to tenant
+    const schedule = await storage.getAvailabilitySchedule(scheduleId, tenantId);
+    if (!schedule) {
+      res.status(404).json({ error: 'Schedule not found' });
+      return;
+    }
+    
+    const success = await storage.removeTeamMember(scheduleId, memberId);
+    if (!success) {
+      res.status(404).json({ error: 'Team member not found' });
+      return;
+    }
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error removing team member:', error);
+    res.status(500).json({ error: 'Failed to remove team member' });
+  }
+});
+
+// ============================================================================
 // BOOKINGS
 // ============================================================================
 

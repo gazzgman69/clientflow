@@ -95,6 +95,8 @@ import {
   type AvailabilitySchedule, type InsertAvailabilitySchedule,
   type ScheduleService, type InsertScheduleService,
   type AvailabilityRule, type InsertAvailabilityRule,
+  type ScheduleCalendarCheck, type InsertScheduleCalendarCheck,
+  type ScheduleTeamMember, type InsertScheduleTeamMember,
   type Booking, type InsertBooking,
   users, leads, contacts, projects, quotes, contracts, contractTemplates, invoices, incomeCategories, invoiceItems, invoiceLineItems, paymentSchedules, paymentInstallments, recurringInvoiceSettings, paymentTransactions, taxSettings, tasks, emails, emailThreads, activities, automations, 
   members, venues, projectMembers, memberAvailability, projectFiles, projectNotes, smsMessages, 
@@ -128,7 +130,8 @@ import {
   notificationSettings, leadFollowUpNotifications, autoReplyLog,
   // AI Onboarding, Media Library, Chat Widget, Scheduler tables
   tenantOnboardingProgress, mediaLibrary, widgetSettings, chatConversations, chatMessages,
-  bookableServices, availabilitySchedules, scheduleServices, availabilityRules, bookings
+  bookableServices, availabilitySchedules, scheduleServices, availabilityRules, bookings,
+  scheduleCalendarChecks, scheduleTeamMembers
 } from "@shared/schema";
 import crypto from "crypto";
 import { TenantScopedStorage } from './utils/tenantScopedStorage';
@@ -754,6 +757,16 @@ export interface IStorage {
   createAvailabilityRule(rule: InsertAvailabilityRule): Promise<AvailabilityRule>;
   updateAvailabilityRule(id: string, rule: Partial<InsertAvailabilityRule>): Promise<AvailabilityRule | undefined>;
   deleteAvailabilityRule(id: string): Promise<boolean>;
+  
+  // Schedule Calendar Checks
+  getScheduleCalendarChecks(scheduleId: string): Promise<ScheduleCalendarCheck[]>;
+  addCalendarCheck(check: InsertScheduleCalendarCheck): Promise<ScheduleCalendarCheck>;
+  removeCalendarCheck(scheduleId: string, calendarIntegrationId: string): Promise<boolean>;
+  
+  // Schedule Team Members
+  getScheduleTeamMembers(scheduleId: string): Promise<ScheduleTeamMember[]>;
+  addTeamMember(member: InsertScheduleTeamMember): Promise<ScheduleTeamMember>;
+  removeTeamMember(scheduleId: string, memberId: string): Promise<boolean>;
   
   // Bookings
   getBookings(tenantId: string, filters?: { contactId?: string; status?: string; startDate?: Date; endDate?: Date }): Promise<Booking[]>;
@@ -8909,6 +8922,68 @@ export class DrizzleStorage implements IStorage {
     const result = await this.db
       .delete(availabilityRules)
       .where(eq(availabilityRules.id, id));
+    
+    return result.rowCount !== null && result.rowCount > 0;
+  }
+
+  // ============================================================================
+  // SCHEDULE CALENDAR CHECKS
+  // ============================================================================
+
+  async getScheduleCalendarChecks(scheduleId: string): Promise<ScheduleCalendarCheck[]> {
+    return await this.db
+      .select()
+      .from(scheduleCalendarChecks)
+      .where(eq(scheduleCalendarChecks.scheduleId, scheduleId));
+  }
+
+  async addCalendarCheck(check: InsertScheduleCalendarCheck): Promise<ScheduleCalendarCheck> {
+    const [created] = await this.db
+      .insert(scheduleCalendarChecks)
+      .values(check)
+      .returning();
+    
+    return created;
+  }
+
+  async removeCalendarCheck(scheduleId: string, calendarIntegrationId: string): Promise<boolean> {
+    const result = await this.db
+      .delete(scheduleCalendarChecks)
+      .where(and(
+        eq(scheduleCalendarChecks.scheduleId, scheduleId),
+        eq(scheduleCalendarChecks.calendarIntegrationId, calendarIntegrationId)
+      ));
+    
+    return result.rowCount !== null && result.rowCount > 0;
+  }
+
+  // ============================================================================
+  // SCHEDULE TEAM MEMBERS
+  // ============================================================================
+
+  async getScheduleTeamMembers(scheduleId: string): Promise<ScheduleTeamMember[]> {
+    return await this.db
+      .select()
+      .from(scheduleTeamMembers)
+      .where(eq(scheduleTeamMembers.scheduleId, scheduleId));
+  }
+
+  async addTeamMember(member: InsertScheduleTeamMember): Promise<ScheduleTeamMember> {
+    const [created] = await this.db
+      .insert(scheduleTeamMembers)
+      .values(member)
+      .returning();
+    
+    return created;
+  }
+
+  async removeTeamMember(scheduleId: string, memberId: string): Promise<boolean> {
+    const result = await this.db
+      .delete(scheduleTeamMembers)
+      .where(and(
+        eq(scheduleTeamMembers.scheduleId, scheduleId),
+        eq(scheduleTeamMembers.memberId, memberId)
+      ));
     
     return result.rowCount !== null && result.rowCount > 0;
   }

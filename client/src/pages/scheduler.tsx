@@ -14,6 +14,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Calendar, Clock, Plus, Pencil, Trash2, Copy, ExternalLink } from 'lucide-react';
 import { apiRequest, queryClient } from '@/lib/queryClient';
 import type { BookableService, AvailabilitySchedule, Booking } from '@shared/schema';
+import { EnhancedScheduleDialog } from './scheduler-enhanced';
 
 export default function Scheduler() {
   const [activeTab, setActiveTab] = useState('services');
@@ -311,7 +312,7 @@ function AvailabilityTab() {
               Add Schedule
             </Button>
           </DialogTrigger>
-          <ScheduleDialog onClose={() => setIsCreateDialogOpen(false)} />
+          <EnhancedScheduleDialog onClose={() => setIsCreateDialogOpen(false)} />
         </Dialog>
       </div>
 
@@ -379,7 +380,7 @@ function ScheduleCard({ schedule }: { schedule: AvailabilitySchedule }) {
                   <Pencil className="w-4 h-4" />
                 </Button>
               </DialogTrigger>
-              <ScheduleDialog
+              <EnhancedScheduleDialog
                 schedule={schedule}
                 onClose={() => setIsEditDialogOpen(false)}
               />
@@ -411,108 +412,6 @@ function ScheduleCard({ schedule }: { schedule: AvailabilitySchedule }) {
         </div>
       </CardContent>
     </Card>
-  );
-}
-
-function ScheduleDialog({ schedule, onClose }: { schedule?: AvailabilitySchedule; onClose: () => void }) {
-  const [formData, setFormData] = useState({
-    name: schedule?.name || '',
-    description: schedule?.description || '',
-    timezone: schedule?.timezone || 'America/New_York',
-    publicLink: schedule?.publicLink || '',
-  });
-  const { toast } = useToast();
-
-  const mutation = useMutation({
-    mutationFn: (data: any) => {
-      if (schedule) {
-        return apiRequest('PATCH', `/api/ai-features/schedules/${schedule.id}`, data);
-      }
-      return apiRequest('POST', '/api/ai-features/schedules', data);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/ai-features/schedules'] });
-      toast({ description: schedule ? 'Schedule updated successfully' : 'Schedule created successfully' });
-      onClose();
-    },
-  });
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    mutation.mutate(formData);
-  };
-
-  return (
-    <DialogContent data-testid="dialog-schedule-form">
-      <DialogHeader>
-        <DialogTitle>{schedule ? 'Edit Schedule' : 'Create Schedule'}</DialogTitle>
-        <DialogDescription>
-          {schedule ? 'Update the schedule details below.' : 'Create a new availability schedule.'}
-        </DialogDescription>
-      </DialogHeader>
-      <form onSubmit={handleSubmit}>
-        <div className="space-y-4">
-          <div>
-            <Label htmlFor="name">Schedule Name</Label>
-            <Input
-              id="name"
-              value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              required
-              data-testid="input-schedule-name"
-            />
-          </div>
-          <div>
-            <Label htmlFor="description">Description</Label>
-            <Textarea
-              id="description"
-              value={formData.description || ''}
-              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              data-testid="input-schedule-description"
-            />
-          </div>
-          <div>
-            <Label htmlFor="timezone">Timezone</Label>
-            <Select
-              value={formData.timezone}
-              onValueChange={(value) => setFormData({ ...formData, timezone: value })}
-            >
-              <SelectTrigger data-testid="select-schedule-timezone">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="America/New_York">Eastern Time</SelectItem>
-                <SelectItem value="America/Chicago">Central Time</SelectItem>
-                <SelectItem value="America/Denver">Mountain Time</SelectItem>
-                <SelectItem value="America/Los_Angeles">Pacific Time</SelectItem>
-                <SelectItem value="UTC">UTC</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <Label htmlFor="publicLink">Public Booking Link (optional)</Label>
-            <Input
-              id="publicLink"
-              value={formData.publicLink}
-              onChange={(e) => setFormData({ ...formData, publicLink: e.target.value })}
-              placeholder="e.g., my-availability"
-              data-testid="input-schedule-public-link"
-            />
-            <p className="text-xs text-muted-foreground mt-1">
-              Creates a booking page at /book/your-link
-            </p>
-          </div>
-        </div>
-        <DialogFooter className="mt-6">
-          <Button type="button" variant="outline" onClick={onClose} data-testid="button-cancel">
-            Cancel
-          </Button>
-          <Button type="submit" disabled={mutation.isPending} data-testid="button-submit-schedule">
-            {mutation.isPending ? 'Saving...' : schedule ? 'Update' : 'Create'}
-          </Button>
-        </DialogFooter>
-      </form>
-    </DialogContent>
   );
 }
 

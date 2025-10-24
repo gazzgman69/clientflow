@@ -2710,6 +2710,17 @@ export const availabilitySchedules = pgTable("availability_schedules", {
   name: text("name").notNull(), // e.g., "Consultation Call Availability"
   publicLink: text("public_link").unique(), // Public URL slug
   isActive: boolean("is_active").default(true),
+  
+  // Booking Limitations
+  minAdvanceNoticeHours: integer("min_advance_notice_hours"), // Must book at least X hours in advance
+  maxFutureDays: integer("max_future_days"), // Can't book more than X days in the future
+  dailyBookingLimit: integer("daily_booking_limit"), // Max bookings per day (0 = unlimited)
+  weeklyBookingLimit: integer("weekly_booking_limit"), // Max bookings per week (0 = unlimited)
+  cancellationPolicyHours: integer("cancellation_policy_hours"), // Can't cancel within X hours of appointment
+  
+  // Visual Customization
+  headerImageUrl: text("header_image_url"), // Public booking page header image
+  
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => ({
@@ -2769,6 +2780,46 @@ export const insertAvailabilityRuleSchema = createInsertSchema(availabilityRules
 
 export type AvailabilityRule = typeof availabilityRules.$inferSelect;
 export type InsertAvailabilityRule = z.infer<typeof insertAvailabilityRuleSchema>;
+
+// Schedule Calendar Checks - Link schedules to calendars for conflict detection
+export const scheduleCalendarChecks = pgTable("schedule_calendar_checks", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  scheduleId: varchar("schedule_id").references(() => availabilitySchedules.id, { onDelete: 'cascade' }).notNull(),
+  calendarIntegrationId: varchar("calendar_integration_id").references(() => calendarIntegrations.id, { onDelete: 'cascade' }).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  scheduleIdIdx: index("schedule_calendar_checks_schedule_id_idx").on(table.scheduleId),
+  calendarIntegrationIdIdx: index("schedule_calendar_checks_calendar_id_idx").on(table.calendarIntegrationId),
+  scheduleCalendarUnique: unique("schedule_calendar_checks_unique").on(table.scheduleId, table.calendarIntegrationId),
+}));
+
+export const insertScheduleCalendarCheckSchema = createInsertSchema(scheduleCalendarChecks).omit({ 
+  id: true, 
+  createdAt: true 
+});
+
+export type ScheduleCalendarCheck = typeof scheduleCalendarChecks.$inferSelect;
+export type InsertScheduleCalendarCheck = z.infer<typeof insertScheduleCalendarCheckSchema>;
+
+// Schedule Team Members - Assign team members to schedules
+export const scheduleTeamMembers = pgTable("schedule_team_members", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  scheduleId: varchar("schedule_id").references(() => availabilitySchedules.id, { onDelete: 'cascade' }).notNull(),
+  memberId: varchar("member_id").references(() => members.id, { onDelete: 'cascade' }).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  scheduleIdIdx: index("schedule_team_members_schedule_id_idx").on(table.scheduleId),
+  memberIdIdx: index("schedule_team_members_member_id_idx").on(table.memberId),
+  scheduleMemberUnique: unique("schedule_team_members_unique").on(table.scheduleId, table.memberId),
+}));
+
+export const insertScheduleTeamMemberSchema = createInsertSchema(scheduleTeamMembers).omit({ 
+  id: true, 
+  createdAt: true 
+});
+
+export type ScheduleTeamMember = typeof scheduleTeamMembers.$inferSelect;
+export type InsertScheduleTeamMember = z.infer<typeof insertScheduleTeamMemberSchema>;
 
 // Bookings - Actual booked appointments
 export const bookings = pgTable("bookings", {

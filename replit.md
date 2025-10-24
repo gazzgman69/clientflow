@@ -8,7 +8,14 @@ Preferred communication style: Simple, everyday language.
 
 # Recent Changes
 
-## October 24, 2025 - Enhanced Scheduler & AI Onboarding Updates
+## October 24, 2025 - Multi-Tenancy Security Fix & Enhanced Scheduler
+-   **SECURITY FIX: Mail Settings Multi-Tenancy**: Fixed critical cross-tenant data leak vulnerability in legacy IMAP/SMTP email system
+    - Added tenant_id column to mail_settings and mail_settings_audit tables with NOT NULL constraint
+    - Updated all MailSettingsService methods to enforce tenant isolation (getCurrentSettings, getDecryptedSettings, saveSettings, testConnection, sendTestEmail, getAuditLogs, incrementQuota)
+    - Modified mail settings routes to extract tenantId from session and pass to service layer
+    - Applied manual SQL migration with proper indexes (mail_settings_tenant_id_idx, mail_settings_audit_tenant_id_idx)
+    - All database queries now scoped by tenant_id to prevent cross-tenant access
+    - Legacy system now matches modern OAuth calendar_integrations table security standards
 -   **Advanced Scheduler Features**: Implemented comprehensive booking limitations matching 17hats capabilities
     - Added booking limitation fields: minimum advance notice, maximum future booking window, daily/weekly booking caps, cancellation policy hours, header image URL
     - Created junction tables: schedule_calendar_checks (calendar conflict detection), schedule_team_members (team assignment)

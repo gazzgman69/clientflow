@@ -24,6 +24,18 @@ interface OnboardingContext {
       targetAudience?: string;
       description?: string;
     };
+    branding?: {
+      logoUrl?: string;
+      primaryColor?: string;
+      secondaryColor?: string;
+      businessTimezone?: string;
+    };
+    contactDetails?: {
+      phone?: string;
+      address?: string;
+      website?: string;
+      defaultTimezone?: string;
+    };
     services?: Array<{
       name: string;
       description?: string;
@@ -40,11 +52,25 @@ interface OnboardingContext {
         endTime: string;
       }>;
     };
+    emailTone?: {
+      sampleEmails?: string[];
+      preferredTone?: string;
+    };
     widgetConfig?: {
       welcomeMessage?: string;
       brandColor?: string;
       tone?: string;
     };
+    invoiceSettings?: {
+      defaultTaxRate?: string;
+      paymentTerms?: string;
+      invoiceLogoUrl?: string;
+    };
+    teamMembers?: Array<{
+      name: string;
+      email: string;
+      role?: string;
+    }>;
     knowledgeBase?: Array<{
       title: string;
       content: string;
@@ -53,26 +79,29 @@ interface OnboardingContext {
   };
 }
 
-const ONBOARDING_SYSTEM_PROMPT = `You are a friendly AI assistant helping a business owner set up their new CRM system. Your goal is to guide them through a conversational onboarding process to configure:
+const ONBOARDING_SYSTEM_PROMPT = `You are a friendly AI assistant helping a business owner set up their new CRM system. Your goal is to guide them through a comprehensive yet conversational onboarding process to configure:
 
-1. **Business Information**: Company name, industry, target audience, services offered
-2. **Bookable Services**: What services they offer, pricing, duration
-3. **Availability**: When they're available for bookings, working hours
-4. **Email & Calendar Integration**: Connect Gmail/Outlook for email management and calendar sync
-5. **AI Chat Widget**: Welcome message, brand color, tone of voice
-6. **Knowledge Base**: FAQs and information about their business
+1. **Business Information**: Company name, industry, target audience, business description
+2. **Branding**: Logo URL, primary/secondary colors, business timezone
+3. **Contact Details**: Phone, address, website, default timezone
+4. **Bookable Services**: Services they offer with pricing and duration
+5. **Availability Schedule**: Working hours and booking availability
+6. **Email Tone Learning**: Sample emails to learn their writing style (helps AI compose emails in their voice)
+7. **Email & Calendar Integration**: Connect Gmail/Outlook for email management and calendar sync
+8. **AI Chat Widget**: Welcome message, brand color, conversational tone
+9. **Invoice Settings**: Default tax rate, payment terms, invoice branding
+10. **Team Members**: Add team members with names, emails, and roles
+11. **Knowledge Base**: FAQs and business information for the AI to reference
 
-Be conversational and friendly. Ask one question at a time. Listen carefully to their responses and extract structured information. Don't overwhelm them - make it feel like a natural conversation, not a form.
+**Important Guidelines:**
+- Be conversational and friendly. Ask one question at a time.
+- Users can skip ANY question by saying "skip this", "I'll do this later", etc. Use the skip_current_step function when they want to skip.
+- Don't overwhelm them - make it feel like a natural conversation, not a form.
+- For email tone learning (step 6), explain: "To help the AI write emails in your style, you can paste 2-3 sample emails you've written before. This is optional but helps the AI match your tone perfectly."
+- For email/calendar integration (step 7), explain the benefits and trigger the OAuth connection if they agree. Use trigger_oauth_connection when they want to connect.
+- Listen for their progress preference - some may want to complete everything, others may prefer to skip certain sections.
 
-For email/calendar integration, explain that connecting their email (Gmail or Outlook) will allow them to:
-- Manage emails directly in the CRM
-- Sync calendar events automatically
-- Prevent double-bookings with calendar conflict detection
-- Send professional emails from the platform
-
-Ask if they'd like to connect their email account. If they say yes or show interest, guide them to connect it. If they prefer to skip it for now, that's fine - they can always set it up later.
-
-When you've gathered enough information, use the available functions to save the configuration.`;
+When you've gathered information for a step, use the appropriate save function. Track progress through the steps systematically.`;
 
 export class AIOnboardingWizard {
   private contexts: Map<string, OnboardingContext> = new Map();
@@ -154,26 +183,44 @@ export class AIOnboardingWizard {
       
       // Provide contextual follow-up based on what was saved
       switch (functionName) {
+        case 'skip_current_step':
+          assistantReply = "No problem! We can skip that for now. Let's move on.";
+          break;
         case 'save_business_info':
-          assistantReply += "Now, what services do you offer? Tell me about your main offerings.";
+          assistantReply += "Perfect! Now let's talk about branding. Do you have a logo URL and brand colors you'd like to use?";
+          break;
+        case 'save_branding':
+          assistantReply += "Great! Now, what's your main business contact information - phone, address, and website?";
+          break;
+        case 'save_contact_details':
+          assistantReply += "Excellent! Now tell me about the services you offer. What do you provide to your clients?";
           break;
         case 'save_services':
-          assistantReply += "Excellent! When are you typically available for bookings? What are your working hours?";
+          assistantReply += "Perfect! When are you typically available for bookings? What are your working hours?";
           break;
         case 'save_availability':
-          assistantReply += "Perfect! Now, would you like to connect your email account (Gmail or Outlook)? This will let you manage emails and sync your calendar directly in the CRM, preventing double-bookings. It's optional, but really helpful!";
+          assistantReply += "Great! To help the AI write emails in your voice, you can optionally paste 2-3 sample emails you've written before. This helps match your writing style perfectly. Would you like to do this, or shall we skip it?";
+          break;
+        case 'save_email_tone':
+          assistantReply += "Perfect! I've saved your email samples. Now, would you like to connect your email account (Gmail or Outlook)? This will let you manage emails and sync your calendar directly in the CRM.";
+          break;
+        case 'trigger_oauth_connection':
+          assistantReply = "Great! I'm opening the login window for " + (args.provider === 'gmail' ? 'Gmail' : 'Outlook') + ". Please complete the login there. I'll wait for you to finish...";
           break;
         case 'skip_email_integration':
-          assistantReply += "No problem! You can always connect your email later from settings. Let's move on to setting up your AI chat widget. What welcome message would you like visitors to see?";
-          break;
-        case 'guide_email_integration':
-          assistantReply += "Great! To connect your email, you'll need to go to Settings > Integrations after this setup. For now, let's continue with your chat widget. What welcome message would you like visitors to see?";
+          assistantReply += "No problem! You can connect your email later from settings. Let's set up your AI chat widget. What welcome message would you like visitors to see?";
           break;
         case 'save_widget_config':
-          assistantReply += "Wonderful! Your CRM is almost ready. Is there anything else you'd like to add, like FAQs or business policies?";
+          assistantReply += "Wonderful! Now let's set up some invoice defaults. What tax rate and payment terms do you typically use?";
+          break;
+        case 'save_invoice_settings':
+          assistantReply += "Great! Would you like to add any team members to your CRM now?";
+          break;
+        case 'save_team_members':
+          assistantReply += "Perfect! Your CRM is almost ready. Would you like to add any FAQs or business information for the AI to reference?";
           break;
         case 'complete_onboarding':
-          assistantReply = "🎉 All done! Your CRM is fully set up and ready to use. You can always update these settings later.";
+          assistantReply = "🎉 All done! Your CRM is fully set up and ready to use. You can always update these settings later from the dashboard.";
           break;
         default:
           assistantReply += "What would you like to configure next?";
@@ -256,6 +303,18 @@ export class AIOnboardingWizard {
   private getFunctionDefinitions(): OpenAI.Chat.ChatCompletionCreateParams.Function[] {
     return [
       {
+        name: 'skip_current_step',
+        description: 'User wants to skip the current onboarding step',
+        parameters: {
+          type: 'object',
+          properties: {
+            stepName: { type: 'string', description: 'Name of the step being skipped' },
+            reason: { type: 'string', description: 'Optional reason for skipping' }
+          },
+          required: ['stepName']
+        }
+      },
+      {
         name: 'save_business_info',
         description: 'Save the business information collected from the conversation',
         parameters: {
@@ -267,6 +326,32 @@ export class AIOnboardingWizard {
             description: { type: 'string', description: 'A brief description of the business' }
           },
           required: ['businessName']
+        }
+      },
+      {
+        name: 'save_branding',
+        description: 'Save the branding and visual identity information',
+        parameters: {
+          type: 'object',
+          properties: {
+            logoUrl: { type: 'string', description: 'URL to business logo' },
+            primaryColor: { type: 'string', description: 'Primary brand color in hex format' },
+            secondaryColor: { type: 'string', description: 'Secondary brand color in hex format' },
+            businessTimezone: { type: 'string', description: 'Business timezone (e.g., America/New_York)' }
+          }
+        }
+      },
+      {
+        name: 'save_contact_details',
+        description: 'Save business contact information',
+        parameters: {
+          type: 'object',
+          properties: {
+            phone: { type: 'string', description: 'Business phone number' },
+            address: { type: 'string', description: 'Business address' },
+            website: { type: 'string', description: 'Business website URL' },
+            defaultTimezone: { type: 'string', description: 'Default timezone for the business' }
+          }
         }
       },
       {
@@ -318,22 +403,43 @@ export class AIOnboardingWizard {
         }
       },
       {
+        name: 'save_email_tone',
+        description: 'Save email writing style samples to help AI match user tone',
+        parameters: {
+          type: 'object',
+          properties: {
+            sampleEmails: {
+              type: 'array',
+              items: { type: 'string', description: 'Sample email text' },
+              description: 'Array of 2-3 sample emails user has written'
+            },
+            preferredTone: { type: 'string', description: 'Preferred email tone (professional, friendly, casual, etc.)' }
+          },
+          required: ['sampleEmails']
+        }
+      },
+      {
+        name: 'trigger_oauth_connection',
+        description: 'Trigger email/calendar OAuth connection flow for Gmail or Outlook',
+        parameters: {
+          type: 'object',
+          properties: {
+            provider: { 
+              type: 'string', 
+              description: 'Email provider to connect (gmail or outlook)', 
+              enum: ['gmail', 'outlook'] 
+            }
+          },
+          required: ['provider']
+        }
+      },
+      {
         name: 'skip_email_integration',
         description: 'User chose to skip email/calendar integration for now',
         parameters: {
           type: 'object',
           properties: {
             reason: { type: 'string', description: 'Optional reason for skipping' }
-          }
-        }
-      },
-      {
-        name: 'guide_email_integration',
-        description: 'User wants to set up email/calendar integration',
-        parameters: {
-          type: 'object',
-          properties: {
-            provider: { type: 'string', description: 'Preferred email provider (gmail or outlook)', enum: ['gmail', 'outlook', 'unknown'] }
           }
         }
       },
@@ -348,6 +454,40 @@ export class AIOnboardingWizard {
             tone: { type: 'string', description: 'Tone of voice for AI responses (friendly, professional, etc.)' }
           },
           required: ['welcomeMessage']
+        }
+      },
+      {
+        name: 'save_invoice_settings',
+        description: 'Save default invoice and payment settings',
+        parameters: {
+          type: 'object',
+          properties: {
+            defaultTaxRate: { type: 'string', description: 'Default tax rate percentage (e.g., "20.00")' },
+            paymentTerms: { type: 'string', description: 'Default payment terms (e.g., "Net 30", "Due on receipt")' },
+            invoiceLogoUrl: { type: 'string', description: 'Logo URL to display on invoices' }
+          }
+        }
+      },
+      {
+        name: 'save_team_members',
+        description: 'Save team members to the CRM',
+        parameters: {
+          type: 'object',
+          properties: {
+            teamMembers: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  name: { type: 'string', description: 'Team member full name' },
+                  email: { type: 'string', description: 'Team member email' },
+                  role: { type: 'string', description: 'Team member role or job title' }
+                },
+                required: ['name', 'email']
+              }
+            }
+          },
+          required: ['teamMembers']
         }
       },
       {
@@ -375,9 +515,34 @@ export class AIOnboardingWizard {
     const { tenantId, userId } = context;
 
     switch (functionName) {
+      case 'skip_current_step':
+        // User wants to skip a step - mark it as skipped
+        const progressSkip = await storage.getTenantOnboardingProgress(tenantId);
+        if (progressSkip) {
+          const skippedSteps = progressSkip.skippedSteps || [];
+          if (!skippedSteps.includes(args.stepName)) {
+            skippedSteps.push(args.stepName);
+          }
+          await storage.updateTenantOnboardingProgress(progressSkip.id, {
+            skippedSteps,
+            currentStep: this.getNextStep(args.stepName)
+          }, tenantId);
+        }
+        break;
+
       case 'save_business_info':
         context.extractedData.businessInfo = args;
         await this.updateProgress(tenantId, 'business_info', args);
+        break;
+
+      case 'save_branding':
+        context.extractedData.branding = args;
+        await this.updateProgress(tenantId, 'branding', args);
+        break;
+
+      case 'save_contact_details':
+        context.extractedData.contactDetails = args;
+        await this.updateProgress(tenantId, 'contact_details', args);
         break;
 
       case 'save_services':
@@ -414,17 +579,41 @@ export class AIOnboardingWizard {
         await this.updateProgress(tenantId, 'availability', args);
         break;
 
+      case 'save_email_tone':
+        context.extractedData.emailTone = args;
+        // Save email style samples to user_style_samples table
+        if (args.sampleEmails && args.sampleEmails.length > 0) {
+          // Delete existing samples first
+          await storage.deleteAllUserStyleSamples(userId, tenantId);
+          // Create new samples
+          for (const sampleText of args.sampleEmails) {
+            await storage.createUserStyleSample({
+              userId,
+              tenantId,
+              sampleText
+            }, tenantId);
+          }
+        }
+        await this.updateProgress(tenantId, 'email_tone', args);
+        break;
+
+      case 'trigger_oauth_connection':
+        // Set pending OAuth provider to trigger frontend popup
+        const progressOAuth = await storage.getTenantOnboardingProgress(tenantId);
+        if (progressOAuth) {
+          await storage.updateTenantOnboardingProgress(progressOAuth.id, {
+            pendingOAuthProvider: args.provider
+          }, tenantId);
+        }
+        await this.updateProgress(tenantId, 'email_integration', { 
+          triggeringOAuth: true, 
+          provider: args.provider 
+        });
+        break;
+
       case 'skip_email_integration':
         // User chose to skip email integration
         await this.updateProgress(tenantId, 'email_integration', { skipped: true, reason: args.reason });
-        break;
-
-      case 'guide_email_integration':
-        // User wants email integration - just note their preference
-        await this.updateProgress(tenantId, 'email_integration', { 
-          interested: true, 
-          provider: args.provider 
-        });
         break;
 
       case 'save_widget_config':
@@ -441,6 +630,20 @@ export class AIOnboardingWizard {
           isActive: true
         }, tenantId);
         await this.updateProgress(tenantId, 'widget_config', args);
+        break;
+
+      case 'save_invoice_settings':
+        context.extractedData.invoiceSettings = args;
+        // Note: Invoice settings would be saved to tenant settings or tax_settings table
+        // For now, just track in progress
+        await this.updateProgress(tenantId, 'invoice_settings', args);
+        break;
+
+      case 'save_team_members':
+        context.extractedData.teamMembers = args.teamMembers;
+        // Note: Team members would be created as users/members in the system
+        // For now, just track in progress
+        await this.updateProgress(tenantId, 'team_members', args);
         break;
 
       case 'complete_onboarding':
@@ -492,7 +695,20 @@ export class AIOnboardingWizard {
    * Determine the next step in the onboarding flow
    */
   private getNextStep(currentStep: string): string {
-    const flow = ['business_info', 'services', 'availability', 'widget_config', 'complete'];
+    const flow = [
+      'business_info',
+      'branding',
+      'contact_details',
+      'services',
+      'availability',
+      'email_tone',
+      'email_integration',
+      'widget_config',
+      'invoice_settings',
+      'team_members',
+      'knowledge_base',
+      'complete'
+    ];
     const currentIndex = flow.indexOf(currentStep);
     return currentIndex >= 0 && currentIndex < flow.length - 1
       ? flow[currentIndex + 1]

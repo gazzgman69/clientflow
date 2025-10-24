@@ -53,12 +53,15 @@ export class MailSettingsService {
   /**
    * Get current mail settings (with redacted passwords)
    */
-  async getCurrentSettings(): Promise<MailSettings | null> {
+  async getCurrentSettings(tenantId: string): Promise<MailSettings | null> {
     try {
       const [settings] = await db
         .select()
         .from(mailSettings)
-        .where(eq(mailSettings.isActive, true))
+        .where(and(
+          eq(mailSettings.tenantId, tenantId),
+          eq(mailSettings.isActive, true)
+        ))
         .orderBy(desc(mailSettings.isDefault), desc(mailSettings.createdAt))
         .limit(1);
 
@@ -78,12 +81,15 @@ export class MailSettingsService {
   /**
    * Get decrypted settings for internal use (never send to client)
    */
-  async getDecryptedSettings(): Promise<MailSettings | null> {
+  async getDecryptedSettings(tenantId: string): Promise<MailSettings | null> {
     try {
       const [settings] = await db
         .select()
         .from(mailSettings)
-        .where(eq(mailSettings.isActive, true))
+        .where(and(
+          eq(mailSettings.tenantId, tenantId),
+          eq(mailSettings.isActive, true)
+        ))
         .orderBy(desc(mailSettings.isDefault), desc(mailSettings.createdAt))
         .limit(1);
 
@@ -103,7 +109,7 @@ export class MailSettingsService {
   /**
    * Save mail settings with encrypted credentials
    */
-  async saveSettings(settingsData: InsertMailSettings & { 
+  async saveSettings(tenantId: string, settingsData: InsertMailSettings & { 
     imapPassword?: string; 
     smtpPassword?: string; 
   }): Promise<{ success: boolean; settings?: MailSettings; error?: string }> {
@@ -115,12 +121,15 @@ export class MailSettingsService {
         return { success: false, error: 'Sync interval must be between 1 and 15 minutes' };
       }
 
-      // If this will be the default, remove default from other settings
+      // If this will be the default, remove default from other settings in this tenant
       if (settingsData.isDefault) {
         await db
           .update(mailSettings)
           .set({ isDefault: false, updatedAt: new Date() })
-          .where(eq(mailSettings.isDefault, true));
+          .where(and(
+            eq(mailSettings.tenantId, tenantId),
+            eq(mailSettings.isDefault, true)
+          ));
       }
 
       // Encrypt sensitive fields
@@ -134,6 +143,7 @@ export class MailSettingsService {
 
       const dataToInsert = {
         ...encryptedData,
+        tenantId, // Add tenant isolation
         quotaResetAt,
         consecutiveFailures: 0,
         updatedAt: new Date()
@@ -145,7 +155,7 @@ export class MailSettingsService {
         .returning();
 
       // Test the connection automatically
-      await this.testConnection(savedSettings.id);
+      await this.testConnection(tenantId, savedSettings.id);
 
       // Return redacted settings
       const redactedSettings = secureStore.redactObject(savedSettings, MAIL_SENSITIVE_FIELDS) as MailSettings;
@@ -165,7 +175,7 @@ export class MailSettingsService {
   /**
    * Test IMAP and SMTP connections
    */
-  async testConnection(settingsId: string): Promise<{ 
+  async testConnection(tenantId: string, settingsId: string): Promise<{ 
     success: boolean; 
     imapResult?: { success: boolean; error?: string }; 
     smtpResult?: { success: boolean; error?: string }; 
@@ -174,11 +184,14 @@ export class MailSettingsService {
     const startTime = Date.now();
     
     try {
-      // Get decrypted settings
+      // Get decrypted settings with tenant verification
       const [settings] = await db
         .select()
         .from(mailSettings)
-        .where(eq(mailSettings.id, settingsId))
+        .where(and(
+          eq(mailSettings.id, settingsId),
+          eq(mailSettings.tenantId, tenantId) // Verify tenant ownership
+        ))
         .limit(1);
 
       if (!settings) {
@@ -277,7 +290,7 @@ export class MailSettingsService {
         .where(eq(mailSettings.id, settingsId));
 
       // Log the test results
-      await this.logAudit(settingsId, overallSuccess ? 'imapTest' : 'testFail', overallSuccess, 
+      await this.logAudit(tenantId, settingsId, overallSuccess ? 'imapTest' : 'testFail', overallSuccess, 
         overallSuccess ? null : `IMAP: ${imapResult.error}, SMTP: ${smtpResult.error}`, durationMs, {
           imapResult,
           smtpResult
@@ -294,7 +307,7 @@ export class MailSettingsService {
       const errorMessage = error instanceof Error ? error.message : 'Connection test failed';
 
       // Log the error
-      await this.logAudit(settingsId, 'testFail', false, errorMessage, durationMs);
+      await this.logAudit(tenantId, settingsId, 'testFail', false, errorMessage, durationMs);
 
       return { success: false, error: errorMessage };
     }
@@ -383,9 +396,9 @@ export class MailSettingsService {
   /**
    * Send test email
    */
-  async sendTestEmail(settingsId: string): Promise<{ success: boolean; error?: string }> {
+  async sendTestEmail(tenantId: string, settingsId: string): Promise<{ success: boolean; error?: string }> {
     try {
-      const settings = await this.getDecryptedSettings();
+      const settings = await this.getDecryptedSettings(tenantId);
       if (!settings || settings.id !== settingsId) {
         return { success: false, error: 'Settings not found or not active' };
       }
@@ -417,21 +430,21 @@ export class MailSettingsService {
       });
 
       // Log the send attempt
-      await this.logAudit(settingsId, 'send', result.success, result.error || null, 0, {
+      await this.logAudit(tenantId, settingsId, 'send', result.success, result.error || null, 0, {
         to: settings.fromEmail,
         messageId: result.messageId
       });
 
       if (result.success) {
         // Increment quota
-        await this.incrementQuota(settingsId);
+        await this.incrementQuota(tenantId, settingsId);
       }
 
       return result;
 
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to send test email';
-      await this.logAudit(settingsId, 'send', false, errorMessage, 0);
+      await this.logAudit(tenantId, settingsId, 'send', false, errorMessage, 0);
       return { success: false, error: errorMessage };
     }
   }
@@ -439,16 +452,25 @@ export class MailSettingsService {
   /**
    * Get recent audit logs
    */
-  async getAuditLogs(settingsId?: string, limit = 20): Promise<any[]> {
+  async getAuditLogs(tenantId: string, settingsId?: string, limit = 20): Promise<any[]> {
     try {
-      const query = db
+      let query = db
         .select()
         .from(mailSettingsAudit)
+        .where(eq(mailSettingsAudit.tenantId, tenantId)) // Tenant isolation
         .orderBy(desc(mailSettingsAudit.createdAt))
         .limit(limit);
 
       if (settingsId) {
-        query.where(eq(mailSettingsAudit.settingsId, settingsId));
+        query = db
+          .select()
+          .from(mailSettingsAudit)
+          .where(and(
+            eq(mailSettingsAudit.tenantId, tenantId),
+            eq(mailSettingsAudit.settingsId, settingsId)
+          ))
+          .orderBy(desc(mailSettingsAudit.createdAt))
+          .limit(limit);
       }
 
       return await query;
@@ -462,12 +484,15 @@ export class MailSettingsService {
   /**
    * Increment quota usage
    */
-  async incrementQuota(settingsId: string, increment = 1): Promise<void> {
+  async incrementQuota(tenantId: string, settingsId: string, increment = 1): Promise<void> {
     try {
       const [settings] = await db
         .select()
         .from(mailSettings)
-        .where(eq(mailSettings.id, settingsId))
+        .where(and(
+          eq(mailSettings.id, settingsId),
+          eq(mailSettings.tenantId, tenantId) // Verify tenant ownership
+        ))
         .limit(1);
 
       if (!settings) return;
@@ -494,12 +519,15 @@ export class MailSettingsService {
           quotaResetAt: newResetAt,
           updatedAt: new Date()
         })
-        .where(eq(mailSettings.id, settingsId));
+        .where(and(
+          eq(mailSettings.id, settingsId),
+          eq(mailSettings.tenantId, tenantId)
+        ));
 
       // Log quota usage if approaching limit
       const quotaLimit = settings.quotaLimit || 500;
       if (newQuotaUsed >= quotaLimit * 0.8) { // 80% threshold
-        await this.logAudit(settingsId, 'quota', true, `Quota usage: ${newQuotaUsed}/${quotaLimit}`, 0, {
+        await this.logAudit(tenantId, settingsId, 'quota', true, `Quota usage: ${newQuotaUsed}/${quotaLimit}`, 0, {
           quotaUsed: newQuotaUsed,
           quotaLimit,
           percentage: Math.round((newQuotaUsed / quotaLimit) * 100)
@@ -515,6 +543,7 @@ export class MailSettingsService {
    * Log audit entry
    */
   private async logAudit(
+    tenantId: string,
     settingsId: string, 
     kind: string, 
     ok: boolean, 
@@ -526,6 +555,7 @@ export class MailSettingsService {
       await db
         .insert(mailSettingsAudit)
         .values({
+          tenantId, // Add tenant isolation
           settingsId,
           kind,
           ok,

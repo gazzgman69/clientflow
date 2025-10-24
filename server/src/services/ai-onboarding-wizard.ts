@@ -93,6 +93,12 @@ const ONBOARDING_SYSTEM_PROMPT = `You are a friendly AI assistant helping a busi
 10. **Team Members**: Add team members with names, emails, and roles
 11. **Knowledge Base**: FAQs and business information for the AI to reference
 
+**CRITICAL COMMUNICATION RULES:**
+- **ABSOLUTELY FORBIDDEN**: NEVER EVER use phrases like "Welcome back!", "You've completed:", "Let's continue from where we left off", or any similar resume/acknowledgment messages during active conversations.
+- **REQUIRED BEHAVIOR**: Always respond naturally and conversationally as if continuing an ongoing discussion. Move directly to the next question without summarizing progress.
+- Example BAD response: "Welcome back! You've completed: Business Info, Branding. Let's continue!"
+- Example GOOD response: "Perfect! Now tell me about your business contact information - phone, address, and website?"
+
 **Important Guidelines:**
 - Be conversational and friendly. Ask one question at a time.
 - Users can skip ANY question by saying "skip this", "I'll do this later", etc. Use the skip_current_step function when they want to skip.
@@ -242,6 +248,11 @@ export class AIOnboardingWizard {
       }
     }
 
+    console.log('💬 [chat] System message check:', {
+      firstMessageRole: context.conversationHistory[0]?.role,
+      systemMessageIncludes_NeverWelcome: context.conversationHistory[0]?.content?.includes('NEVER use "Welcome back!"')
+    });
+
     // Add user message to history
     context.conversationHistory.push({
       role: 'user',
@@ -258,6 +269,12 @@ export class AIOnboardingWizard {
     });
 
     const message = response.choices[0].message;
+    console.log('🤖 [chat] AI response:', {
+      hasFunctionCall: !!message.function_call,
+      functionName: message.function_call?.name,
+      hasContent: !!message.content,
+      contentPreview: message.content?.substring(0, 100)
+    });
 
     // Check if function was called
     if (message.function_call) {
@@ -365,11 +382,16 @@ export class AIOnboardingWizard {
       { role: 'system', content: ONBOARDING_SYSTEM_PROMPT }
     ];
 
+    // ALWAYS replace the system message with the latest version to ensure prompt updates are applied
+    if (conversationHistory.length > 0 && conversationHistory[0].role === 'system') {
+      conversationHistory[0] = { role: 'system', content: ONBOARDING_SYSTEM_PROMPT };
+    }
+
     // Trim conversation history on restore to prevent payload size issues
     // This handles cases where old records have massive history
     const MAX_MESSAGES = 30;
     if (conversationHistory.length > MAX_MESSAGES + 1) {
-      const systemMessage = conversationHistory[0];
+      const systemMessage = { role: 'system', content: ONBOARDING_SYSTEM_PROMPT };
       const recentMessages = conversationHistory.slice(-MAX_MESSAGES);
       conversationHistory = [systemMessage, ...recentMessages];
     }

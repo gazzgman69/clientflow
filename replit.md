@@ -6,45 +6,6 @@ BusinessCRM is a comprehensive customer relationship management system designed 
 
 Preferred communication style: Simple, everyday language.
 
-# Recent Changes
-
-## October 24, 2025 - Enhanced AI Onboarding Wizard (11 Steps) + Security Fixes
--   **AI Onboarding Wizard Expansion**: Upgraded from 6 to 11 comprehensive setup steps with skip/resume functionality
-    - **11-Step Flow**: Business Info → Branding → Contact Details → Services → Availability → Email Tone → Email/Calendar Integration → Chat Widget → Invoice Settings → Team Members → Knowledge Base → Complete
-    - **Skip Functionality**: Users can skip any question by saying "skip this", "do this later", etc. New skip_current_step function tracks skipped steps in skippedSteps array
-    - **Smart Resume Logic**: AI checks completed/skipped steps on restart and generates personalized resume message showing progress and continuing from where user left off
-    - **OAuth Popup Automation**: trigger_oauth_connection function sets pendingOAuthProvider in database, frontend polls every 2s and auto-opens OAuth popup when detected
-    - **Email Tone Learning**: Integrated existing user_style_samples infrastructure as step 6; AI asks for 2-3 email examples to match writing style
-    - **6 New AI Functions**: save_branding, save_contact_details, save_email_tone, trigger_oauth_connection, save_invoice_settings, save_team_members
-    - **Database Schema Updates**: Added skippedSteps (text array), pendingOAuthProvider (text nullable) to tenant_onboarding_progress
-    - **Frontend UI**: 11-step progress bar, "Skip this question" quick button, OAuth polling with popup trigger, enhanced progress tracking
--   **SECURITY FIX: Mail Settings Multi-Tenancy**: Fixed critical cross-tenant data leak vulnerability in legacy IMAP/SMTP email system
-    - Added tenant_id column to mail_settings and mail_settings_audit tables with NOT NULL constraint
-    - Updated all MailSettingsService methods to enforce tenant isolation (getCurrentSettings, getDecryptedSettings, saveSettings, testConnection, sendTestEmail, getAuditLogs, incrementQuota)
-    - Modified mail settings routes to extract tenantId from session and pass to service layer
-    - Applied manual SQL migration with proper indexes (mail_settings_tenant_id_idx, mail_settings_audit_tenant_id_idx)
-    - All database queries now scoped by tenant_id to prevent cross-tenant access
-    - Legacy system now matches modern OAuth calendar_integrations table security standards
--   **Advanced Scheduler Features**: Implemented comprehensive booking limitations matching 17hats capabilities
-    - Added booking limitation fields: minimum advance notice, maximum future booking window, daily/weekly booking caps, cancellation policy hours, header image URL
-    - Created junction tables: schedule_calendar_checks (calendar conflict detection), schedule_team_members (team assignment)
-    - Implemented 6 secure API endpoints with full tenant validation for calendar checks and team member management
-    - Built EnhancedScheduleDialog with 5 sections: Basic Info, Booking Limitations, Availability Rules, Team & Calendars, Visuals
-    - Added booking validation logic enforcing all limitations on both public and admin booking endpoints
-    - Implemented cancellation policy enforcement preventing late cancellations
-
-## October 23, 2025 - Scheduler & Public Booking Implementation
--   **AI Onboarding Fix**: Removed deprecated OpenAI API calls using 'function' role, replaced with contextual responses
--   **Media Library Route**: Added navigation at /media-library with sidebar link (Image icon)
--   **Widget Settings Route**: Added direct route at /settings/widget (already integrated as Settings tab)
--   **Public Chat Widget**: Built complete frontend at /contact/:slug with AI conversation, message persistence, and session management
--   **Public API Routes**: Created public-facing endpoints at /api/public for widget settings, conversations, chat, schedules, and bookings (no auth required)
--   **Scheduler Admin Page**: Built complete admin interface at /scheduler with tabs for Services, Availability Schedules, and Bookings management
--   **Public Booking Page**: Implemented 3-step booking wizard at /book/:slug for public service booking
--   **Service Filtering**: Public booking endpoints filter services by schedule and validate service-schedule linkage
--   **Tenant Resolution**: Public routes resolve tenant from slug/publicLink parameter for multi-tenant support
--   **API Contract Fix**: Frontend uses custom queryFn to properly pass slug parameter to backend
-
 # System Architecture
 
 ## Frontend
@@ -54,80 +15,25 @@ The frontend uses React 18 with TypeScript and Vite. It employs a component-base
 The backend is built with Express.js and TypeScript, featuring a layered, service-oriented architecture with RESTful APIs, an abstract storage layer, and middleware for request and error handling.
 
 ## Multitenancy
-The system supports multitenancy with data isolation using `tenant_id` across core tables, tenant resolution via subdomains, domains, or user context, and performance indexing on `tenant_id` columns.
-
-### Tenant-Per-User Architecture (Updated: Oct 23, 2025)
-**Signup Flow**: Each new user automatically gets their own isolated tenant with complete data separation:
--   **Tenant Creation**: Signup creates a new tenant first with a unique slug (format: sanitized username with numeric suffix if duplicate)
--   **User Assignment**: First user in tenant automatically gets 'admin' role and is assigned to the new tenant
--   **Tenant Naming**: Default tenant name is "${firstName} ${lastName}'s Business"
--   **Slug Generation**: Username is sanitized (lowercase, alphanumeric with hyphens) and uniqueness is ensured
--   **Global Uniqueness**: Username and email are checked globally across all tenants before signup
--   **Session Management**: After signup, session is automatically created with user ID and tenant ID
--   **Onboarding**: New tenants are redirected to AI onboarding wizard at /onboarding route
-
-**Storage Layer Enhancements**:
--   Added `createTenant()` method to both MemStorage and DrizzleStorage
--   Added `getUserByUsernameGlobal()` and `getUserByEmailGlobal()` for global uniqueness checks
--   Updated `createUser()` to accept tenantId parameter and enforce tenant assignment
+The system supports multitenancy with data isolation using `tenant_id` across core tables. Tenant resolution is achieved via subdomains, domains, or user context, with performance indexing on `tenant_id` columns. A "Tenant-Per-User" architecture ensures each new user gets an isolated tenant upon signup, with automatic admin role assignment and redirection to an AI onboarding wizard.
 
 ## Data Storage
 PostgreSQL is the primary database, managed by Drizzle ORM for type-safe operations and migrations. Neon Database provides serverless PostgreSQL hosting. The schema includes tables for users, leads, clients, projects, quotes, contracts, invoices, tasks, emails, activities, and automations.
 
-## Email Provider Integration
-The system integrates with email providers like Gmail and Microsoft 365/Outlook, featuring secure OAuth 2.0 flows, encrypted token storage, multi-tenant support with one active provider per tenant, and an outgoing email service with fallback. It includes background email synchronization for contacts and automatic Google Calendar event creation for leads with conflict resolution. Email data is fetched from the Gmail API, stored in PostgreSQL with composite indexes, and cached by TanStack Query for fast retrieval.
-
 ## Authentication & Session Management
-The architecture includes session-based authentication using `connect-pg-simple` for PostgreSQL session storage, secure user management, and protected routes.
-
-### Signup Process
--   **No Middleware Required**: Signup endpoint (`POST /api/auth/signup`) does not use tenantResolver middleware
--   **Tenant-First Creation**: Creates tenant → creates user → establishes session → redirects to onboarding
--   **Auto-Login**: Users are automatically logged in after successful signup with session containing userId and tenantId
--   **Validation**: Zod schema validates all signup fields (username, email, password, firstName, lastName)
--   **Security**: Passwords are hashed with bcrypt before storage
+The architecture includes session-based authentication using `connect-pg-simple` for PostgreSQL session storage, secure user management, and protected routes. The signup process handles tenant creation, user assignment, and session management before redirecting to onboarding.
 
 ## AI Assistant
 The system incorporates an AI assistant using Replit AI Integrations (OpenAI) with multi-tenant safety.
-
-### AI Email Assistant
-Provides email summarization, smart reply drafts, action item extraction, and an AI compose assistant with context-based style learning. Personalization adapts to user's past email styles, with a feedback mechanism for personalization level. AI operations are tenant-scoped, and summaries are cached to reduce API calls. The service uses GPT-4o-mini.
-
-### Conversational CRM Assistant
-Enables natural language queries for business data across projects, leads, clients, quotes, contracts, invoices, tasks, calendar events, team members, venues, activities, and emails. It uses OpenAI function calling with 16 specialized database query functions to provide smart insights and formatted responses. The service is implemented via a floating chat button.
-
-### AI Training & Personalization System
-Allows users to train the AI assistant through:
--   **Business Profile Questionnaire**: Captures essential business information, target audience, services, and communication style.
--   **Knowledge Base**: Manages business-specific articles with category tagging and CRUD operations.
--   **Custom Instructions**: Defines AI behavioral guidelines.
-All training data is tenant-scoped and dynamically enhances the AI's system message for personalized responses.
-
-### Media Library & Conversational Chat Widget
-Provides a multi-tenant media library for organizing and displaying files (photos, videos, audio) with categories and tags. The AI chat widget offers:
--   **Deployment**: Embeddable widget or full contact page.
--   **Lead Capture**: Conversational lead qualification, FAQ handling, media sharing, and conditional booking flows for new and existing contacts.
--   **CRM Integration**: Auto-creates contacts, leads, or projects.
--   **Configuration**: Customizable welcome messages, branding, tone, and booking prompt aggressiveness.
-
-### Online Scheduler & AI Onboarding Wizard
-**Online Scheduler**: Allows clients to book services with configurable durations, buffer times, and questions. Features include:
--   **Availability**: Named schedules with daily/weekly/monthly patterns and exception rules.
--   **Management**: Auto-creates contacts/projects, updates project dates, integrates with Google Calendar (conflict detection), and manages booking statuses.
--   **Automation**: Customizable email confirmations and reminders.
--   **Client Experience**: Public booking pages with timezone support and existing contact detection.
-
-**AI Onboarding Wizard**: Guides new tenants through a comprehensive 11-step conversational setup process with skip/resume functionality:
--   **11 Setup Steps**: Business Info, Branding, Contact Details, Services, Availability, Email Tone Learning, Email/Calendar Integration, Chat Widget, Invoice Settings, Team Members, Knowledge Base
--   **Skip Functionality**: Users can skip any question; AI tracks skipped steps separately and allows revisiting later
--   **Smart Resume**: AI detects existing progress on restart and generates personalized resume message showing completed/skipped steps
--   **OAuth Automation**: Seamlessly triggers OAuth popup for Gmail/Outlook connection via polling mechanism
--   **Email Tone Learning**: Captures 2-3 email samples to train AI to match user's writing style
--   **Progress Tracking**: Visual 11-step progress bar with completed/current/pending indicators
--   **Data Persistence**: All conversation history and extracted data stored in database for seamless session restoration
+-   **AI Email Assistant**: Provides summarization, smart replies, action item extraction, and a compose assistant with context-based style learning.
+-   **Conversational CRM Assistant**: Enables natural language queries for business data across various CRM modules using OpenAI function calling with specialized database query functions.
+-   **AI Training & Personalization System**: Allows users to train the AI via a business profile questionnaire, knowledge base, and custom instructions, with all data being tenant-scoped.
+-   **Media Library & Conversational Chat Widget**: Provides a multi-tenant media library and an embeddable/full-page AI chat widget for conversational lead qualification, FAQ handling, and CRM integration.
+-   **Online Scheduler**: Allows clients to book services with configurable durations, buffer times, and questions. Features include named availability schedules, Google Calendar integration for conflict detection, and automated email confirmations.
+-   **AI Onboarding Wizard**: Guides new tenants through a comprehensive 11-step conversational setup process (Business Info, Branding, Contact Details, Services, Availability, Email Tone, Email/Calendar Integration, Chat Widget, Invoice Settings, Team Members, Knowledge Base) with skip/resume functionality and seamless OAuth automation.
 
 ## Invoice System
-Includes a comprehensive invoicing system with payment schedules, recurring invoices, and Stripe integration. It features full database schema, CRUD operations, and API routes for invoices, line items, payment schedules, installments, recurring settings, and transactions. Supports custom/equal payment plans, flexible due dates, automated recurring invoices, multi-currency, and Stripe payments.
+Includes a comprehensive invoicing system with payment schedules, recurring invoices, and Stripe integration. It supports custom/equal payment plans, flexible due dates, automated recurring invoices, multi-currency, and Stripe payments.
 
 # External Dependencies
 

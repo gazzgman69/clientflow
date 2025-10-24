@@ -1437,11 +1437,10 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     res.json({ message: 'Route registration is working' });
   });
 
-  app.post('/api/auth/login', tenantResolver, requireTenant, authLimiter, async (req, res) => {
+  app.post('/api/auth/login', authLimiter, async (req, res) => {
     try {
       console.log('🔐 LOGIN ATTEMPT:', {
-        body: req.body,
-        tenantId: (req as any).tenantId,
+        username: req.body.username,
         host: req.get('host'),
         sessionId: req.session?.id,
         hasSession: !!req.session
@@ -1449,46 +1448,38 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
       
       const { username, password } = loginSchema.parse(req.body);
       
-      // Get current tenant context from request - MUST be properly resolved
-      const currentTenantId = (req as any).tenantId;
-      console.log('🔐 TENANT CHECK:', {
-        currentTenantId,
-        tenantType: typeof currentTenantId,
-        isEmpty: !currentTenantId
+      // TENANT-PER-USER MODEL: Look up user globally first (username or email)
+      // Then derive tenant from the user's record
+      let user = await storage.getUserByUsernameGlobal(username);
+      
+      // If not found by username, try email (support both login methods)
+      if (!user) {
+        user = await storage.getUserByEmailGlobal(username);
+      }
+      
+      if (!user) {
+        console.log('🔐 User not found:', { username });
+        return res.status(401).json({ error: 'Invalid credentials' });
+      }
+      
+      console.log('🔐 User found:', {
+        userId: user.id,
+        userTenantId: user.tenantId,
+        username: user.username,
+        email: user.email
       });
       
-      if (!currentTenantId) {
-        console.error('🚨 TENANT CONTEXT MISSING - Login failed due to no tenant resolution');
-        return res.status(400).json({ 
-          error: 'Tenant context required',
-          message: 'Unable to determine tenant context for authentication'
-        });
-      }
-      
-      // Get user from database with tenant scoping
-      const user = await storage.getUserByUsername(username, currentTenantId);
-      if (!user) {
-        return res.status(401).json({ error: 'Invalid credentials' });
-      }
-      
-      // SECURITY: Validate user belongs to the current tenant context
-      if (user.tenantId !== currentTenantId) {
-        console.warn(`🚨 SECURITY VIOLATION: User ${username} attempted login to wrong tenant`, {
-          userTenant: user.tenantId,
-          requestTenant: currentTenantId,
-          ip: req.ip,
-          userAgent: req.get('User-Agent')
-        });
-        return res.status(403).json({ 
-          error: 'Access denied',
-          message: 'User not authorized for this tenant'
-        });
-      }
-      
-      // Use bcrypt to compare hashed passwords
+      // Verify password
       const passwordMatch = await bcrypt.compare(password, user.password);
       if (!passwordMatch) {
+        console.log('🔐 Password mismatch for user:', { username });
         return res.status(401).json({ error: 'Invalid credentials' });
+      }
+      
+      // Validate user has a tenant assigned
+      if (!user.tenantId) {
+        console.error('🚨 User has no tenant assigned:', { userId: user.id, username: user.username });
+        return res.status(500).json({ error: 'User account configuration error' });
       }
       
       // Regenerate session ID for security

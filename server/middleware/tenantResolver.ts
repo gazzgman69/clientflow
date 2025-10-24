@@ -20,6 +20,14 @@ export interface TenantRequest extends Request {
  */
 export const tenantResolver = async (req: TenantRequest, res: Response, next: NextFunction) => {
   try {
+    // Skip tenant resolution for authentication endpoints (login/signup)
+    // These endpoints handle tenant lookup internally after user authentication
+    const skipPaths = ['/api/auth/login', '/api/auth/signup'];
+    if (skipPaths.includes(req.path)) {
+      console.log('✅ TENANT RESOLVER: Skipping for auth endpoint:', req.path);
+      return next();
+    }
+    
     console.log('🏢 TENANT RESOLVER CALLED:', {
       path: req.path,
       method: req.method,
@@ -32,7 +40,7 @@ export const tenantResolver = async (req: TenantRequest, res: Response, next: Ne
     // No development fallbacks allowed in production
 
     // Extract and normalize host with proxy-awareness for production security
-    const host = getSecureHost(req).toLowerCase().split(':')[0]; // Remove port and normalize case
+    const host = getSecureHost(req).toLowerCase().split(':')[0); // Remove port and normalize case
     const subdomain = extractSubdomain(host);
     let tenantSlug = 'default'; // Safe default for slug
 

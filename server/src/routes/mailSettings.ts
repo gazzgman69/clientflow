@@ -40,7 +40,7 @@ const detectSettingsSchema = z.object({
 
 // Middleware for authentication using session
 const requireAuth = (req: any, res: any, next: any) => {
-  if (!req.session?.userId) {
+  if (!req.session?.userId || !req.session?.tenantId) {
     return res.status(401).json({
       success: false,
       error: 'Authentication required',
@@ -48,6 +48,7 @@ const requireAuth = (req: any, res: any, next: any) => {
     });
   }
   req.user = { id: req.session.userId };
+  req.tenantId = req.session.tenantId; // Add tenant context
   next();
 };
 
@@ -55,9 +56,9 @@ const requireAuth = (req: any, res: any, next: any) => {
  * GET /api/settings/mail/current
  * Get current mail settings (with redacted passwords)
  */
-router.get('/current', requireAuth, async (req, res) => {
+router.get('/current', requireAuth, async (req: any, res) => {
   try {
-    const settings = await mailSettingsService.getCurrentSettings();
+    const settings = await mailSettingsService.getCurrentSettings(req.tenantId);
     
     if (!settings) {
       return res.json({
@@ -85,17 +86,18 @@ router.get('/current', requireAuth, async (req, res) => {
  * POST /api/settings/mail/save
  * Save mail settings with encrypted credentials and auto-test
  */
-router.post('/save', requireAuth, async (req, res) => {
+router.post('/save', requireAuth, async (req: any, res) => {
   try {
     const settingsData = saveSettingsSchema.parse(req.body);
     
     console.log('💾 Saving mail settings:', { 
+      tenantId: req.tenantId,
       name: settingsData.name, 
       provider: settingsData.provider,
       fromEmail: settingsData.fromEmail 
     });
 
-    const result = await mailSettingsService.saveSettings(settingsData);
+    const result = await mailSettingsService.saveSettings(req.tenantId, settingsData);
     
     if (result.success) {
       res.json({
@@ -131,9 +133,9 @@ router.post('/save', requireAuth, async (req, res) => {
  * POST /api/settings/mail/test
  * Test IMAP and SMTP connections for current settings
  */
-router.post('/test', requireAuth, async (req, res) => {
+router.post('/test', requireAuth, async (req: any, res) => {
   try {
-    const currentSettings = await mailSettingsService.getCurrentSettings();
+    const currentSettings = await mailSettingsService.getCurrentSettings(req.tenantId);
     
     if (!currentSettings) {
       return res.status(400).json({
@@ -144,7 +146,7 @@ router.post('/test', requireAuth, async (req, res) => {
 
     console.log('🧪 Testing mail connections for settings:', currentSettings.id);
 
-    const result = await mailSettingsService.testConnection(currentSettings.id);
+    const result = await mailSettingsService.testConnection(req.tenantId, currentSettings.id);
     
     res.json({
       success: result.success,
@@ -211,12 +213,12 @@ router.post('/detect', requireAuth, async (req, res) => {
  * GET /api/settings/mail/logs
  * Get recent audit logs for mail settings
  */
-router.get('/logs', requireAuth, async (req, res) => {
+router.get('/logs', requireAuth, async (req: any, res) => {
   try {
     const limit = parseInt(req.query.limit as string) || 20;
     const settingsId = req.query.settingsId as string;
 
-    const logs = await mailSettingsService.getAuditLogs(settingsId, Math.min(limit, 100));
+    const logs = await mailSettingsService.getAuditLogs(req.tenantId, settingsId, Math.min(limit, 100));
     
     res.json({
       success: true,
@@ -236,9 +238,9 @@ router.get('/logs', requireAuth, async (req, res) => {
  * POST /api/settings/mail/send-test
  * Send a test email to the configured from address
  */
-router.post('/send-test', requireAuth, async (req, res) => {
+router.post('/send-test', requireAuth, async (req: any, res) => {
   try {
-    const currentSettings = await mailSettingsService.getCurrentSettings();
+    const currentSettings = await mailSettingsService.getCurrentSettings(req.tenantId);
     
     if (!currentSettings) {
       return res.status(400).json({
@@ -256,7 +258,7 @@ router.post('/send-test', requireAuth, async (req, res) => {
 
     console.log('📧 Sending test email for settings:', currentSettings.id);
 
-    const result = await mailSettingsService.sendTestEmail(currentSettings.id);
+    const result = await mailSettingsService.sendTestEmail(req.tenantId, currentSettings.id);
     
     if (result.success) {
       res.json({

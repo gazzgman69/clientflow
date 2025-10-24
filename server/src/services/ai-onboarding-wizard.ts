@@ -101,7 +101,11 @@ const ONBOARDING_SYSTEM_PROMPT = `You are a friendly AI assistant helping a busi
 - For email/calendar integration (step 7), explain the benefits and trigger the OAuth connection if they agree. Use trigger_oauth_connection when they want to connect.
 - Listen for their progress preference - some may want to complete everything, others may prefer to skip certain sections.
 
-When you've gathered information for a step, use the appropriate save function. Track progress through the steps systematically.`;
+**Critical Instructions:**
+- When you've gathered information for a step, use the appropriate save function.
+- Track progress through the steps systematically.
+- **WHEN THE USER HAS COMPLETED OR SKIPPED ALL 11 STEPS**, you MUST call the complete_onboarding function with a summary. This finalizes their setup and redirects them to the dashboard.
+- After calling complete_onboarding, congratulate them and let them know their CRM is ready to use.`;
 
 export class AIOnboardingWizard {
   private contexts: Map<string, OnboardingContext> = new Map();
@@ -816,6 +820,7 @@ export class AIOnboardingWizard {
 
   /**
    * Determine the next step in the onboarding flow
+   * IMPORTANT: Never auto-advance to 'complete' - only complete_onboarding function should do that
    */
   private getNextStep(currentStep: string): string {
     const flow = [
@@ -829,13 +834,17 @@ export class AIOnboardingWizard {
       'widget_config',
       'invoice_settings',
       'team_members',
-      'knowledge_base',
-      'complete'
+      'knowledge_base'
+      // NOTE: 'complete' is intentionally excluded - only complete_onboarding should set it
     ];
     const currentIndex = flow.indexOf(currentStep);
-    return currentIndex >= 0 && currentIndex < flow.length - 1
-      ? flow[currentIndex + 1]
-      : 'complete';
+    // If we're at knowledge_base (last step), stay there until AI calls complete_onboarding
+    if (currentIndex >= 0 && currentIndex < flow.length - 1) {
+      return flow[currentIndex + 1];
+    } else {
+      // Stay on knowledge_base or current step instead of auto-advancing to 'complete'
+      return currentIndex >= 0 ? currentStep : flow[0];
+    }
   }
 
   /**

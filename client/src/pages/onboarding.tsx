@@ -71,15 +71,60 @@ export default function OnboardingPage() {
         return;
       }
 
-      // Restore conversation history if exists
+      // Restore conversation history and create smart resume message
       const collectedData = statusData.status.collectedData || {};
-      if (collectedData.conversationHistory) {
+      const completedSteps = statusData.status.completedSteps || [];
+      const skippedSteps = statusData.status.skippedSteps || [];
+      
+      // Helper to format step names
+      const formatStepName = (step: string) => {
+        return step.split('_').map(word => 
+          word.charAt(0).toUpperCase() + word.slice(1)
+        ).join(' ');
+      };
+      
+      if (collectedData.conversationHistory && Array.isArray(collectedData.conversationHistory)) {
         const history = collectedData.conversationHistory;
         // Filter out system messages
         const userMessages = history.filter((msg: any) => 
           msg.role === 'assistant' || msg.role === 'user'
         );
-        setMessages(userMessages);
+        
+        // If there's existing progress, add a smart resume message
+        if (completedSteps.length > 0 || skippedSteps.length > 0) {
+          let resumeMessage = "Welcome back! ";
+          
+          if (completedSteps.length > 0) {
+            resumeMessage += `You've completed: ${completedSteps.map(formatStepName).join(', ')}. `;
+          }
+          
+          if (skippedSteps.length > 0) {
+            resumeMessage += `You skipped: ${skippedSteps.map(formatStepName).join(', ')}. `;
+          }
+          
+          resumeMessage += "Let's continue from where we left off!";
+          
+          // Add resume message to history
+          setMessages([...userMessages, { role: 'assistant', content: resumeMessage }]);
+        } else {
+          setMessages(userMessages);
+        }
+      } else if (completedSteps.length > 0 || skippedSteps.length > 0) {
+        // If no conversation history but there are completed/skipped steps
+        // This can happen if collectedData isn't storing conversation properly
+        let resumeMessage = "Welcome back! ";
+        
+        if (completedSteps.length > 0) {
+          resumeMessage += `You've completed: ${completedSteps.map(formatStepName).join(', ')}. `;
+        }
+        
+        if (skippedSteps.length > 0) {
+          resumeMessage += `You skipped: ${skippedSteps.map(formatStepName).join(', ')}. `;
+        }
+        
+        resumeMessage += "Let's continue from where we left off!";
+        
+        setMessages([{ role: 'assistant', content: resumeMessage }]);
       }
     }
   }, [statusData, navigate]);
@@ -178,7 +223,7 @@ export default function OnboardingPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, chatMutation.isPending]);
 
-  // Start onboarding on mount if no messages
+  // Start onboarding on mount if no conversation history
   useEffect(() => {
     if (messages.length === 0 && !startMutation.isPending && statusData) {
       startMutation.mutate();

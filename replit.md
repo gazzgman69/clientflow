@@ -8,7 +8,16 @@ Preferred communication style: Simple, everyday language.
 
 # Recent Changes
 
-## October 24, 2025 - Multi-Tenancy Security Fix & Enhanced Scheduler
+## October 24, 2025 - Enhanced AI Onboarding Wizard (11 Steps) + Security Fixes
+-   **AI Onboarding Wizard Expansion**: Upgraded from 6 to 11 comprehensive setup steps with skip/resume functionality
+    - **11-Step Flow**: Business Info → Branding → Contact Details → Services → Availability → Email Tone → Email/Calendar Integration → Chat Widget → Invoice Settings → Team Members → Knowledge Base → Complete
+    - **Skip Functionality**: Users can skip any question by saying "skip this", "do this later", etc. New skip_current_step function tracks skipped steps in skippedSteps array
+    - **Smart Resume Logic**: AI checks completed/skipped steps on restart and generates personalized resume message showing progress and continuing from where user left off
+    - **OAuth Popup Automation**: trigger_oauth_connection function sets pendingOAuthProvider in database, frontend polls every 2s and auto-opens OAuth popup when detected
+    - **Email Tone Learning**: Integrated existing user_style_samples infrastructure as step 6; AI asks for 2-3 email examples to match writing style
+    - **6 New AI Functions**: save_branding, save_contact_details, save_email_tone, trigger_oauth_connection, save_invoice_settings, save_team_members
+    - **Database Schema Updates**: Added skippedSteps (text array), pendingOAuthProvider (text nullable) to tenant_onboarding_progress
+    - **Frontend UI**: 11-step progress bar, "Skip this question" quick button, OAuth polling with popup trigger, enhanced progress tracking
 -   **SECURITY FIX: Mail Settings Multi-Tenancy**: Fixed critical cross-tenant data leak vulnerability in legacy IMAP/SMTP email system
     - Added tenant_id column to mail_settings and mail_settings_audit tables with NOT NULL constraint
     - Updated all MailSettingsService methods to enforce tenant isolation (getCurrentSettings, getDecryptedSettings, saveSettings, testConnection, sendTestEmail, getAuditLogs, incrementQuota)
@@ -23,11 +32,6 @@ Preferred communication style: Simple, everyday language.
     - Built EnhancedScheduleDialog with 5 sections: Basic Info, Booking Limitations, Availability Rules, Team & Calendars, Visuals
     - Added booking validation logic enforcing all limitations on both public and admin booking endpoints
     - Implemented cancellation policy enforcement preventing late cancellations
--   **AI Onboarding Enhancement**: Added email/calendar integration step to onboarding wizard
-    - Updated system prompt to include email & calendar setup as step 4 (between availability and widget config)
-    - Added two new functions: skip_email_integration and guide_email_integration
-    - Frontend now shows 6 steps: Business Info → Services → Availability → Email & Calendar → Chat Widget → Complete
-    - AI explains benefits of email/calendar integration and guides users to connect later if interested
 
 ## October 23, 2025 - Scheduler & Public Booking Implementation
 -   **AI Onboarding Fix**: Removed deprecated OpenAI API calls using 'function' role, replaced with contextual responses
@@ -112,7 +116,15 @@ Provides a multi-tenant media library for organizing and displaying files (photo
 -   **Management**: Auto-creates contacts/projects, updates project dates, integrates with Google Calendar (conflict detection), and manages booking statuses.
 -   **Automation**: Customizable email confirmations and reminders.
 -   **Client Experience**: Public booking pages with timezone support and existing contact detection.
-**AI Onboarding Wizard**: Guides new tenants through a conversational setup process for their CRM, configuring business information, services, scheduler, knowledge base, and chat widget. It extracts structured data and auto-populates CRM settings.
+
+**AI Onboarding Wizard**: Guides new tenants through a comprehensive 11-step conversational setup process with skip/resume functionality:
+-   **11 Setup Steps**: Business Info, Branding, Contact Details, Services, Availability, Email Tone Learning, Email/Calendar Integration, Chat Widget, Invoice Settings, Team Members, Knowledge Base
+-   **Skip Functionality**: Users can skip any question; AI tracks skipped steps separately and allows revisiting later
+-   **Smart Resume**: AI detects existing progress on restart and generates personalized resume message showing completed/skipped steps
+-   **OAuth Automation**: Seamlessly triggers OAuth popup for Gmail/Outlook connection via polling mechanism
+-   **Email Tone Learning**: Captures 2-3 email samples to train AI to match user's writing style
+-   **Progress Tracking**: Visual 11-step progress bar with completed/current/pending indicators
+-   **Data Persistence**: All conversation history and extracted data stored in database for seamless session restoration
 
 ## Invoice System
 Includes a comprehensive invoicing system with payment schedules, recurring invoices, and Stripe integration. It features full database schema, CRUD operations, and API routes for invoices, line items, payment schedules, installments, recurring settings, and transactions. Supports custom/equal payment plans, flexible due dates, automated recurring invoices, multi-currency, and Stripe payments.

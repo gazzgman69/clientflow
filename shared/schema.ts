@@ -2482,9 +2482,11 @@ export const tenantOnboardingProgress = pgTable("tenant_onboarding_progress", {
   tenantId: varchar("tenant_id").references(() => tenants.id).notNull().unique(),
   isCompleted: boolean("is_completed").default(false),
   isSkipped: boolean("is_skipped").default(false),
-  currentStep: text("current_step"), // 'business_info', 'services', 'scheduler', 'knowledge_base', 'widget', 'complete'
-  conversationHistory: text("conversation_history"), // JSON array of messages
-  extractedData: text("extracted_data"), // JSON object of extracted information
+  currentStep: text("current_step"), // Current step being worked on
+  completedSteps: text("completed_steps").array().default(sql`ARRAY[]::text[]`), // Array of completed step names
+  skippedSteps: text("skipped_steps").array().default(sql`ARRAY[]::text[]`), // Array of skipped step names
+  pendingOAuthProvider: text("pending_oauth_provider"), // 'gmail' | 'outlook' | null - tracks if AI is waiting for OAuth
+  collectedData: text("collected_data"), // JSON object containing { userId, conversationHistory, extractedData }
   completedAt: timestamp("completed_at"),
   skippedAt: timestamp("skipped_at"),
   lastInteractionAt: timestamp("last_interaction_at").defaultNow(),

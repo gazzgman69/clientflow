@@ -122,32 +122,33 @@ export class AIOnboardingWizard {
     let initialAssistantMessage: string;
     
     if (existingProgress && !existingProgress.isCompleted) {
-      // Resume existing onboarding
-      const completedSteps = existingProgress.completedSteps || [];
-      const skippedSteps = existingProgress.skippedSteps || [];
-      const currentStep = existingProgress.currentStep;
-      
-      // Build smart resume message
-      if (completedSteps.length > 0 || skippedSteps.length > 0) {
-        initialAssistantMessage = "Welcome back! I see you've already made some progress. ";
-        
-        if (completedSteps.length > 0) {
-          initialAssistantMessage += `You've completed: ${this.formatStepList(completedSteps)}. `;
-        }
-        
-        if (skippedSteps.length > 0) {
-          initialAssistantMessage += `You skipped: ${this.formatStepList(skippedSteps)}. `;
-        }
-        
-        initialAssistantMessage += `Let's continue from where we left off. ${this.getNextQuestionForStep(currentStep)}`;
-      } else {
-        initialAssistantMessage = "Hi! I'm here to help you set up your new CRM system. Let's start with the basics - what's your business name?";
-      }
-      
-      // Try to restore context
+      // Try to restore context from database
       const restoredContext = await this.restoreContext(tenantId);
+      
       if (!restoredContext) {
-        // Create fresh context if restoration failed
+        // Context restoration failed - user is genuinely returning to a new session
+        // Build smart resume message showing their progress
+        const completedSteps = existingProgress.completedSteps || [];
+        const skippedSteps = existingProgress.skippedSteps || [];
+        const currentStep = existingProgress.currentStep;
+        
+        if (completedSteps.length > 0 || skippedSteps.length > 0) {
+          initialAssistantMessage = "Welcome back! I see you've already made some progress. ";
+          
+          if (completedSteps.length > 0) {
+            initialAssistantMessage += `You've completed: ${this.formatStepList(completedSteps)}. `;
+          }
+          
+          if (skippedSteps.length > 0) {
+            initialAssistantMessage += `You skipped: ${this.formatStepList(skippedSteps)}. `;
+          }
+          
+          initialAssistantMessage += `Let's continue from where we left off. ${this.getNextQuestionForStep(currentStep)}`;
+        } else {
+          initialAssistantMessage = "Hi! I'm here to help you set up your new CRM system. Let's start with the basics - what's your business name?";
+        }
+        
+        // Create fresh context with resume message
         const context: OnboardingContext = {
           tenantId,
           userId,
@@ -159,20 +160,40 @@ export class AIOnboardingWizard {
         };
         this.contexts.set(tenantId, context);
         
-        // CRITICAL FIX: Persist the fresh context to database so it can be restored on next request
+        // Persist the fresh context to database
         await this.persistContext(context);
-      } else {
-        // Add resume message to existing conversation
-        restoredContext.conversationHistory.push({
-          role: 'assistant',
-          content: initialAssistantMessage
-        });
         
-        // Persist updated conversation with resume message
-        await this.persistContext(restoredContext);
+        return initialAssistantMessage;
+      } else {
+        // Context successfully restored from database
+        console.log('✅ [startOnboarding] Context restored successfully from database');
+        
+        // Check if this is a fresh restore (only system message) vs active conversation
+        const assistantMessages = restoredContext.conversationHistory.filter(msg => msg.role === 'assistant');
+        
+        if (assistantMessages.length === 0) {
+          // Fresh restore with no conversation yet - generate appropriate next question
+          console.log('📝 [startOnboarding] No assistant messages yet, generating next question');
+          const completedSteps = existingProgress.completedSteps || [];
+          const currentStep = existingProgress.currentStep;
+          
+          const nextQuestion = this.getNextQuestionForStep(currentStep);
+          initialAssistantMessage = nextQuestion;
+          
+          // Add to conversation and persist
+          restoredContext.conversationHistory.push({
+            role: 'assistant',
+            content: initialAssistantMessage
+          });
+          await this.persistContext(restoredContext);
+        } else {
+          // Active conversation with existing messages - return last message
+          console.log('💬 [startOnboarding] Active conversation detected, returning last message');
+          initialAssistantMessage = assistantMessages[assistantMessages.length - 1].content;
+        }
+        
+        return initialAssistantMessage;
       }
-      
-      return initialAssistantMessage;
     }
     
     // Brand new onboarding
@@ -322,11 +343,24 @@ export class AIOnboardingWizard {
    */
   private async restoreContext(tenantId: string): Promise<OnboardingContext | null> {
     const progress = await storage.getTenantOnboardingProgress(tenantId);
+    
+    console.log('🔍 [restoreContext] Debug:', {
+      hasProgress: !!progress,
+      hasCollectedData: !!progress?.collectedData,
+      collectedDataType: progress?.collectedData ? typeof progress.collectedData : 'n/a',
+      collectedDataKeys: progress?.collectedData ? Object.keys(progress.collectedData as any) : []
+    });
+    
     if (!progress || !progress.collectedData) {
+      console.log('⚠️  [restoreContext] Returning null - no progress or no collectedData');
       return null;
     }
 
-    const savedData = progress.collectedData as any;
+    // Parse JSON string to object (collectedData is stored as text in DB)
+    const savedData = typeof progress.collectedData === 'string' 
+      ? JSON.parse(progress.collectedData) 
+      : progress.collectedData;
+    
     let conversationHistory = savedData.conversationHistory || [
       { role: 'system', content: ONBOARDING_SYSTEM_PROMPT }
     ];

@@ -40,7 +40,7 @@ export const tenantResolver = async (req: TenantRequest, res: Response, next: Ne
     // No development fallbacks allowed in production
 
     // Extract and normalize host with proxy-awareness for production security
-    const host = getSecureHost(req).toLowerCase().split(':')[0); // Remove port and normalize case
+    const host = getSecureHost(req).toLowerCase().split(':')[0]; // Remove port and normalize case
     const subdomain = extractSubdomain(host);
     let tenantSlug = 'default'; // Safe default for slug
 

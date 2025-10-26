@@ -295,7 +295,7 @@ export default function LoginPage() {
               </Form>
             ) : (
               <Form {...signupForm}>
-                <form onSubmit={signupForm.handleSubmit(onSignupSubmit)} className="space-y-4">
+                <form onSubmit={signupForm.handleSubmit(onSignupSubmit)} className="space-y-4" autoComplete="off">
                   <div className="grid grid-cols-2 gap-4">
                     <FormField
                       control={signupForm.control}
@@ -304,7 +304,7 @@ export default function LoginPage() {
                         <FormItem>
                           <FormLabel>First Name</FormLabel>
                           <FormControl>
-                            <Input {...field} autoComplete="off" data-testid="input-first-name" />
+                            <Input {...field} autoComplete="nope" data-testid="input-first-name" />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -317,7 +317,7 @@ export default function LoginPage() {
                         <FormItem>
                           <FormLabel>Last Name</FormLabel>
                           <FormControl>
-                            <Input {...field} autoComplete="off" data-testid="input-last-name" />
+                            <Input {...field} autoComplete="nope" data-testid="input-last-name" />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -336,7 +336,7 @@ export default function LoginPage() {
                         <FormControl>
                           <Input 
                             {...field} 
-                            autoComplete="off"
+                            autoComplete="nope"
                             onChange={(e) => {
                               field.onChange(e);
                               // Force update for Playwright compatibility
@@ -362,7 +362,7 @@ export default function LoginPage() {
                           Email
                         </FormLabel>
                         <FormControl>
-                          <Input {...field} type="email" autoComplete="off" data-testid="input-email" />
+                          <Input {...field} type="email" autoComplete="nope" data-testid="input-email" />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -382,7 +382,7 @@ export default function LoginPage() {
                             <Input
                               {...field}
                               type={showPassword ? "text" : "password"}
-                              autoComplete="off"
+                              autoComplete="new-password"
                               data-testid="input-signup-password"
                             />
                             <Button

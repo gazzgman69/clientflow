@@ -108,7 +108,13 @@ const ONBOARDING_SYSTEM_PROMPT = `You are a friendly AI assistant helping a busi
 - Listen for their progress preference - some may want to complete everything, others may prefer to skip certain sections.
 
 **Critical Instructions:**
-- When you've gathered information for a step, use the appropriate save function.
+- **GATHER ALL INFORMATION FIRST**: For each step, ask ALL the questions and gather as much information as possible BEFORE calling the save function. Don't rush - have a natural conversation!
+  - Business Info: Ask about business name, THEN industry, THEN target audience, THEN description. Only call save_business_info when you have most of these details.
+  - Branding: Ask about logo, THEN colors, THEN timezone. Gather what you can before saving.
+  - Contact: Ask about phone, address, website separately. Don't save after just one field.
+  - Services: Discuss multiple services if they have them. Ask about pricing, duration for each.
+  - And so on for other steps...
+- When you've gathered SUFFICIENT information for a step (not just the minimum), use the appropriate save function.
 - Track progress through the steps systematically. Count how many steps have been completed or skipped.
 - **IMPORTANT**: There are exactly 11 steps total. Once the user has addressed ALL 11 steps (whether completed OR skipped), you MUST immediately call the complete_onboarding function.
 - The 11 steps are: (1) Business Info, (2) Branding, (3) Contact Details, (4) Services, (5) Availability, (6) Email Tone, (7) Email Integration, (8) Widget Config, (9) Invoice Settings, (10) Team Members, (11) Knowledge Base.
@@ -283,53 +289,48 @@ export class AIOnboardingWizard {
 
       await this.handleFunctionCall(context, functionName, functionArgs);
 
-      // Generate a simple response after saving data
-      let assistantReply = "Great! I've saved that information. ";
+      // Let AI generate natural follow-up instead of hardcoded responses
+      // This allows for more conversational flow based on context
       
-      // Provide contextual follow-up based on what was saved
-      switch (functionName) {
-        case 'skip_current_step':
-          assistantReply = "No problem! We can skip that for now. Let's move on.";
-          break;
-        case 'save_business_info':
-          assistantReply += "Perfect! Now let's talk about branding. Do you have a logo URL and brand colors you'd like to use?";
-          break;
-        case 'save_branding':
-          assistantReply += "Great! Now, what's your main business contact information - phone, address, and website?";
-          break;
-        case 'save_contact_details':
-          assistantReply += "Excellent! Now tell me about the services you offer. What do you provide to your clients?";
-          break;
-        case 'save_services':
-          assistantReply += "Perfect! When are you typically available for bookings? What are your working hours?";
-          break;
-        case 'save_availability':
-          assistantReply += "Great! To help the AI write emails in your voice, you can optionally paste 2-3 sample emails you've written before. This helps match your writing style perfectly. Would you like to do this, or shall we skip it?";
-          break;
-        case 'save_email_tone':
-          assistantReply += "Perfect! I've saved your email samples. Now, would you like to connect your email account (Gmail or Outlook)? This will let you manage emails and sync your calendar directly in the CRM.";
-          break;
-        case 'trigger_oauth_connection':
-          assistantReply = "Great! I'm opening the login window for " + (functionArgs.provider === 'gmail' ? 'Gmail' : 'Outlook') + ". Please complete the login there. I'll wait for you to finish...";
-          break;
-        case 'skip_email_integration':
-          assistantReply += "No problem! You can connect your email later from settings. Let's set up your AI chat widget. What welcome message would you like visitors to see?";
-          break;
-        case 'save_widget_config':
-          assistantReply += "Wonderful! Now let's set up some invoice defaults. What tax rate and payment terms do you typically use?";
-          break;
-        case 'save_invoice_settings':
-          assistantReply += "Great! Would you like to add any team members to your CRM now?";
-          break;
-        case 'save_team_members':
-          assistantReply += "Perfect! Your CRM is almost ready. Would you like to add any FAQs or business information for the AI to reference?";
-          break;
-        case 'complete_onboarding':
-          assistantReply = "🎉 All done! Your CRM is fully set up and ready to use. You can always update these settings later from the dashboard.";
-          break;
-        default:
-          assistantReply += "What would you like to configure next?";
+      // Special cases that need specific handling
+      if (functionName === 'complete_onboarding') {
+        const assistantReply = "🎉 All done! Your CRM is fully set up and ready to use. You can always update these settings later from the dashboard.";
+        context.conversationHistory.push({
+          role: 'assistant',
+          content: assistantReply
+        });
+        await this.persistContext(context);
+        return assistantReply;
       }
+      
+      if (functionName === 'trigger_oauth_connection') {
+        const assistantReply = "Great! I'm opening the login window for " + (functionArgs.provider === 'gmail' ? 'Gmail' : 'Outlook') + ". Please complete the login there. I'll wait for you to finish...";
+        context.conversationHistory.push({
+          role: 'assistant',
+          content: assistantReply
+        });
+        await this.persistContext(context);
+        return assistantReply;
+      }
+      
+      // For all other saves, let AI generate contextual follow-up naturally
+      // Add function call to conversation history for AI awareness
+      context.conversationHistory.push({
+        role: 'assistant',
+        content: null,
+        function_call: {
+          name: functionName,
+          arguments: JSON.stringify(functionArgs)
+        }
+      } as any);
+      
+      // Call AI again to generate natural follow-up response
+      const followUpResponse = await openai.chat.completions.create({
+        model: 'gpt-5-mini',
+        messages: context.conversationHistory,
+      });
+      
+      const assistantReply = followUpResponse.choices[0].message.content || "Great! What would you like to configure next?";
       
       context.conversationHistory.push({
         role: 'assistant',

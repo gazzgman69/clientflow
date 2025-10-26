@@ -140,6 +140,8 @@ export default function LoginPage() {
           title: "Account created",
           description: `Welcome to ${tenant?.branding?.companyName || 'BusinessCRM'}, ${data.user.firstName}!`
         });
+        // Invalidate auth query so the app knows user is logged in
+        queryClient.invalidateQueries({ queryKey: ['/api/auth/me'] });
         // Redirect new users directly to AI onboarding wizard
         setLocation('/onboarding');
       } else {

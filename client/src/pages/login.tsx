@@ -140,7 +140,8 @@ export default function LoginPage() {
           title: "Account created",
           description: `Welcome to ${tenant?.branding?.companyName || 'BusinessCRM'}, ${data.user.firstName}!`
         });
-        setLocation('/');
+        // Redirect new users directly to AI onboarding wizard
+        setLocation('/onboarding');
       } else {
         toast({
           title: "Signup failed",

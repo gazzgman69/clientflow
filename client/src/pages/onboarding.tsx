@@ -90,8 +90,12 @@ export default function OnboardingPage() {
           msg.role === 'assistant' || msg.role === 'user'
         );
         
-        // If there's existing progress, add a smart resume message
-        if (completedSteps.length > 0 || skippedSteps.length > 0) {
+        // Only show resume message if there's NO conversation yet (truly returning after leaving)
+        // If conversation exists, just restore it without adding resume message
+        const hasConversation = userMessages.length > 1; // More than just the initial greeting
+        
+        if (!hasConversation && (completedSteps.length > 0 || skippedSteps.length > 0)) {
+          // User is returning after leaving - add resume message
           let resumeMessage = "Welcome back! ";
           
           if (completedSteps.length > 0) {
@@ -107,6 +111,7 @@ export default function OnboardingPage() {
           // Add resume message to history
           setMessages([...userMessages, { role: 'assistant', content: resumeMessage }]);
         } else {
+          // Active conversation - just restore messages without resume message
           setMessages(userMessages);
         }
       } else if (completedSteps.length > 0 || skippedSteps.length > 0) {

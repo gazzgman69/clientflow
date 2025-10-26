@@ -168,6 +168,9 @@ export default function OnboardingPage() {
         });
         setTimeout(() => navigate('/'), 1000);
       }
+      
+      // Refocus textarea so user can keep typing
+      setTimeout(() => textareaRef.current?.focus(), 100);
     },
     onError: () => {
       toast({
@@ -175,6 +178,8 @@ export default function OnboardingPage() {
         description: 'Please try again',
         variant: 'destructive'
       });
+      // Refocus textarea even on error
+      setTimeout(() => textareaRef.current?.focus(), 100);
     }
   });
 

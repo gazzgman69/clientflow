@@ -7,7 +7,7 @@ import { Card } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest } from '@/lib/queryClient';
-import { Send, Sparkles, Loader2, CheckCircle2 } from 'lucide-react';
+import { Send, Sparkles, Loader2, CheckCircle2, Upload } from 'lucide-react';
 
 interface Message {
   role: 'assistant' | 'user';
@@ -47,6 +47,7 @@ export default function OnboardingPage() {
   const queryClient = useQueryClient();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Fetch onboarding status
   const { data: statusData } = useQuery({
@@ -223,6 +224,44 @@ export default function OnboardingPage() {
     }
   });
 
+  // Logo upload mutation
+  const uploadLogoMutation = useMutation({
+    mutationFn: async (file: File) => {
+      const formData = new FormData();
+      formData.append('file', file);
+      
+      const response = await fetch('/api/media-library', {
+        method: 'POST',
+        credentials: 'include',
+        body: formData,
+      });
+      
+      if (!response.ok) {
+        throw new Error('Upload failed');
+      }
+      
+      return response.json();
+    },
+    onSuccess: (data) => {
+      // Automatically send the logo URL in the chat
+      const logoUrl = data.url || data.fileUrl || `/media/${data.id}`;
+      setMessages(prev => [...prev, { role: 'user', content: logoUrl }]);
+      chatMutation.mutate(logoUrl);
+      
+      toast({
+        title: 'Logo uploaded!',
+        description: 'Continuing setup...'
+      });
+    },
+    onError: () => {
+      toast({
+        title: 'Upload failed',
+        description: 'Please try again or paste a URL instead',
+        variant: 'destructive'
+      });
+    }
+  });
+
   // Auto-scroll to bottom when messages change
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -280,6 +319,18 @@ export default function OnboardingPage() {
       });
     }
   };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    
+    uploadLogoMutation.mutate(files[0]);
+  };
+
+  // Detect if AI is asking about logo
+  const lastMessage = messages.length > 0 ? messages[messages.length - 1] : null;
+  const isAskingAboutLogo = lastMessage?.role === 'assistant' && 
+    lastMessage.content.toLowerCase().includes('logo');
 
   // Calculate progress
   const currentStepIndex = STEPS.findIndex(s => s.key === status?.currentStep);
@@ -371,6 +422,28 @@ export default function OnboardingPage() {
             {/* Input */}
             <div className="border-t p-4 bg-background">
               <div className="flex gap-2 mb-2">
+                {isAskingAboutLogo && (
+                  <>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      onChange={handleFileUpload}
+                      className="hidden"
+                      data-testid="input-logo-file"
+                    />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={uploadLogoMutation.isPending || chatMutation.isPending}
+                      data-testid="button-upload-logo"
+                    >
+                      <Upload className="h-4 w-4 mr-2" />
+                      {uploadLogoMutation.isPending ? 'Uploading...' : 'Upload Logo'}
+                    </Button>
+                  </>
+                )}
                 <Button
                   variant="outline"
                   size="sm"

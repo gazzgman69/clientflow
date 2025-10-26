@@ -144,18 +144,10 @@ export class AIOnboardingWizard {
         const skippedSteps = existingProgress.skippedSteps || [];
         const currentStep = existingProgress.currentStep;
         
+        // Continue naturally without "Welcome back!" messages
+        // Just ask the next appropriate question for their current step
         if (completedSteps.length > 0 || skippedSteps.length > 0) {
-          initialAssistantMessage = "Welcome back! I see you've already made some progress. ";
-          
-          if (completedSteps.length > 0) {
-            initialAssistantMessage += `You've completed: ${this.formatStepList(completedSteps)}. `;
-          }
-          
-          if (skippedSteps.length > 0) {
-            initialAssistantMessage += `You skipped: ${this.formatStepList(skippedSteps)}. `;
-          }
-          
-          initialAssistantMessage += `Let's continue from where we left off. ${this.getNextQuestionForStep(currentStep)}`;
+          initialAssistantMessage = this.getNextQuestionForStep(currentStep);
         } else {
           initialAssistantMessage = "Hi! I'm here to help you set up your new CRM system. Let's start with the basics - what's your business name?";
         }

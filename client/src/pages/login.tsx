@@ -304,7 +304,7 @@ export default function LoginPage() {
                         <FormItem>
                           <FormLabel>First Name</FormLabel>
                           <FormControl>
-                            <Input {...field} data-testid="input-first-name" />
+                            <Input {...field} autoComplete="off" data-testid="input-first-name" />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -317,7 +317,7 @@ export default function LoginPage() {
                         <FormItem>
                           <FormLabel>Last Name</FormLabel>
                           <FormControl>
-                            <Input {...field} data-testid="input-last-name" />
+                            <Input {...field} autoComplete="off" data-testid="input-last-name" />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -336,6 +336,7 @@ export default function LoginPage() {
                         <FormControl>
                           <Input 
                             {...field} 
+                            autoComplete="off"
                             onChange={(e) => {
                               field.onChange(e);
                               // Force update for Playwright compatibility
@@ -361,7 +362,7 @@ export default function LoginPage() {
                           Email
                         </FormLabel>
                         <FormControl>
-                          <Input {...field} type="email" autoComplete="email" data-testid="input-email" />
+                          <Input {...field} type="email" autoComplete="off" data-testid="input-email" />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -381,7 +382,7 @@ export default function LoginPage() {
                             <Input
                               {...field}
                               type={showPassword ? "text" : "password"}
-                              autoComplete="new-password"
+                              autoComplete="off"
                               data-testid="input-signup-password"
                             />
                             <Button

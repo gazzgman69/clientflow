@@ -72,65 +72,19 @@ export default function OnboardingPage() {
         return;
       }
 
-      // Restore conversation history and create smart resume message
+      // Restore conversation history without adding resume messages
+      // (Backend handles all conversation flow)
       const collectedData = statusData.status.collectedData || {};
-      const completedSteps = statusData.status.completedSteps || [];
-      const skippedSteps = statusData.status.skippedSteps || [];
-      
-      // Helper to format step names
-      const formatStepName = (step: string) => {
-        return step.split('_').map(word => 
-          word.charAt(0).toUpperCase() + word.slice(1)
-        ).join(' ');
-      };
       
       if (collectedData.conversationHistory && Array.isArray(collectedData.conversationHistory)) {
         const history = collectedData.conversationHistory;
-        // Filter out system messages
+        // Filter out system messages, keep only assistant and user messages
         const userMessages = history.filter((msg: any) => 
           msg.role === 'assistant' || msg.role === 'user'
         );
         
-        // Only show resume message if there's NO conversation yet (truly returning after leaving)
-        // If conversation exists, just restore it without adding resume message
-        const hasConversation = userMessages.length > 1; // More than just the initial greeting
-        
-        if (!hasConversation && (completedSteps.length > 0 || skippedSteps.length > 0)) {
-          // User is returning after leaving - add resume message
-          let resumeMessage = "Welcome back! ";
-          
-          if (completedSteps.length > 0) {
-            resumeMessage += `You've completed: ${completedSteps.map(formatStepName).join(', ')}. `;
-          }
-          
-          if (skippedSteps.length > 0) {
-            resumeMessage += `You skipped: ${skippedSteps.map(formatStepName).join(', ')}. `;
-          }
-          
-          resumeMessage += "Let's continue from where we left off!";
-          
-          // Add resume message to history
-          setMessages([...userMessages, { role: 'assistant', content: resumeMessage }]);
-        } else {
-          // Active conversation - just restore messages without resume message
-          setMessages(userMessages);
-        }
-      } else if (completedSteps.length > 0 || skippedSteps.length > 0) {
-        // If no conversation history but there are completed/skipped steps
-        // This can happen if collectedData isn't storing conversation properly
-        let resumeMessage = "Welcome back! ";
-        
-        if (completedSteps.length > 0) {
-          resumeMessage += `You've completed: ${completedSteps.map(formatStepName).join(', ')}. `;
-        }
-        
-        if (skippedSteps.length > 0) {
-          resumeMessage += `You skipped: ${skippedSteps.map(formatStepName).join(', ')}. `;
-        }
-        
-        resumeMessage += "Let's continue from where we left off!";
-        
-        setMessages([{ role: 'assistant', content: resumeMessage }]);
+        // Simply restore the conversation as-is
+        setMessages(userMessages);
       }
     }
   }, [statusData, navigate]);

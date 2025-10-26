@@ -82,7 +82,7 @@ interface OnboardingContext {
 const ONBOARDING_SYSTEM_PROMPT = `You are a friendly AI assistant helping a business owner set up their new CRM system. Your goal is to guide them through a comprehensive yet conversational onboarding process to configure:
 
 1. **Business Information**: Company name, industry, target audience, business description, service area (city/region)
-2. **Branding**: Logo URL, primary/secondary colors, business timezone
+2. **Branding**: Logo (can be uploaded), primary/secondary colors, business timezone
 3. **Contact Details**: Phone, address, website, default timezone
 4. **Bookable Services**: Services they offer with pricing and duration
 5. **Availability Schedule**: Working hours and booking availability
@@ -110,7 +110,7 @@ const ONBOARDING_SYSTEM_PROMPT = `You are a friendly AI assistant helping a busi
 **Critical Instructions:**
 - **GATHER ALL INFORMATION FIRST**: For each step, ask ALL the questions and gather as much information as possible BEFORE calling the save function. Don't rush - have a natural conversation!
   - Business Info: Ask about business name, THEN industry, THEN target audience, THEN description, THEN service area. For service area, ask: "Where do you provide your services? For example, a specific city, town, or region." Ask each as a separate question. Only call save_business_info when you have most of these details.
-  - Branding: Ask about logo, THEN colors, THEN timezone. Gather what you can before saving.
+  - Branding: Ask about logo (users can upload it using the upload button), THEN colors, THEN timezone. Gather what you can before saving.
   - Contact: Ask about phone, address, website separately. Don't save after just one field.
   - Services: Discuss multiple services if they have them. Ask about pricing, duration for each.
   - And so on for other steps...
@@ -290,7 +290,7 @@ export class AIOnboardingWizard {
           assistantReply = "No problem! We can skip that for now.";
           break;
         case 'save_business_info':
-          assistantReply = "Perfect! Now let's set up your branding. Do you have a logo URL you'd like to use? (or we can skip this if you don't have one yet)";
+          assistantReply = "Perfect! Now let's set up your branding. Would you like to upload your company logo? (or we can skip this if you don't have one yet)";
           break;
         case 'save_branding':
           assistantReply = "Excellent! Now, what's your main business contact information - phone number, address, and website?";
@@ -968,7 +968,7 @@ export class AIOnboardingWizard {
   private getNextQuestionForStep(step: string): string {
     const questions: Record<string, string> = {
       business_info: "What's your business name?",
-      branding: "Do you have a logo URL and brand colors you'd like to use?",
+      branding: "Would you like to upload your company logo and set your brand colors?",
       contact_details: "What's your main business contact information - phone, address, and website?",
       services: "Tell me about the services you offer. What do you provide to your clients?",
       availability: "When are you typically available for bookings? What are your working hours?",

@@ -189,7 +189,7 @@ export default function OnboardingPage() {
       const formData = new FormData();
       formData.append('file', file);
       
-      const response = await fetch('/api/media-library', {
+      const response = await fetch('/api/ai-features/media', {
         method: 'POST',
         credentials: 'include',
         body: formData,
@@ -203,7 +203,7 @@ export default function OnboardingPage() {
     },
     onSuccess: (data) => {
       // Automatically send the logo URL in the chat
-      const logoUrl = data.url || data.fileUrl || `/media/${data.id}`;
+      const logoUrl = data.fileUrl;
       setMessages(prev => [...prev, { role: 'user', content: logoUrl }]);
       chatMutation.mutate(logoUrl);
       
@@ -212,10 +212,11 @@ export default function OnboardingPage() {
         description: 'Continuing setup...'
       });
     },
-    onError: () => {
+    onError: (error) => {
+      console.error('Logo upload error:', error);
       toast({
         title: 'Upload failed',
-        description: 'Please try again or paste a URL instead',
+        description: 'Please try again',
         variant: 'destructive'
       });
     }

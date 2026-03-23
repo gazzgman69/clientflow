@@ -24,6 +24,7 @@ declare module 'express-session' {
   }
 }
 import { twilioService } from "./src/services/twilio";
+import { sendToMusicianTracker } from "./src/services/musicianTrackerWebhook";
 import bcrypt from "bcrypt";
 import crypto from "crypto";
 import { z } from "zod";
@@ -6391,6 +6392,20 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
         console.error('Sync error details:', syncError?.response?.data || syncError?.message);
         // Don't fail the creation if sync fails
       }
+
+      // Fire musician tracker webhook for confirmed bookings (non-blocking)
+      if (event.status === 'confirmed') {
+        let clientName = event.title;
+        try {
+          if (event.contactId) {
+            const contact = await storage.getContact(event.contactId, req.tenantId);
+            if (contact) clientName = `${contact.firstName} ${contact.lastName}`.trim();
+          }
+        } catch (lookupErr: any) {
+          console.warn('[MusicianTracker] Could not resolve client name:', lookupErr?.message);
+        }
+        sendToMusicianTracker(event as any, clientName).catch(() => {});
+      }
       
       res.status(201).json(event);
     } catch (error) {
@@ -6402,6 +6417,16 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   app.patch("/api/events/:id", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req: any, res) => {
     try {
       const validatedData = insertEventSchema.partial().parse(req.body);
+
+      // Capture previous status before update so we can detect confirmed transition
+      let previousStatus: string | undefined;
+      try {
+        const existing = await storage.getEvent(req.params.id, req.tenantId);
+        previousStatus = existing?.status;
+      } catch {
+        // Non-critical — proceed without previous status
+      }
+
       const event = await storage.updateEvent(req.params.id, validatedData, req.tenantId);
       if (!event) {
         return res.status(404).json({ message: "Event not found" });
@@ -6419,7 +6444,21 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
         console.error('Failed to sync updated event to Google:', syncError);
         // Don't fail the update if sync fails
       }
-      
+
+      // Fire musician tracker webhook when status transitions to confirmed (non-blocking)
+      if (event.status === 'confirmed' && previousStatus !== 'confirmed') {
+        let clientName = event.title;
+        try {
+          if (event.contactId) {
+            const contact = await storage.getContact(event.contactId, req.tenantId);
+            if (contact) clientName = `${contact.firstName} ${contact.lastName}`.trim();
+          }
+        } catch (lookupErr: any) {
+          console.warn('[MusicianTracker] Could not resolve client name:', lookupErr?.message);
+        }
+        sendToMusicianTracker(event as any, clientName).catch(() => {});
+      }
+
       res.json(event);
     } catch (error) {
       res.status(400).json({ message: "Invalid event data", error });

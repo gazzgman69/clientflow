@@ -963,6 +963,8 @@ export const events = pgTable("events", {
   isOrphaned: boolean("is_orphaned").default(false), // Flag for events with tenant_id=NULL (quarantine)
   timezone: text("timezone").default('UTC'), // Timezone for the event (e.g., 'Europe/London', 'America/New_York')
   history: text("history"), // JSON array of change history [{ timestamp, action, userId, changes }]
+  lineupSummary: text("lineup_summary"), // Music agency: description of performers/lineup
+  fee: decimal("fee", { precision: 10, scale: 2 }), // Music agency: booking fee
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => ({

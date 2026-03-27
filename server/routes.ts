@@ -29,24 +29,16 @@ import bcrypt from "bcrypt";
 import crypto from "crypto";
 import { z } from "zod";
 import { neon } from '@neondatabase/serverless';
+import {
+  createPortalToken, verifyPortalToken, consumePortalToken,
+  createResetToken, verifyResetToken, consumeResetToken,
+  purgeExpiredTokens
+} from "./src/services/authTokenService";
 
 // Password hashing utility
 const SALT_ROUNDS = 12;
 export const hashPassword = async (password: string): Promise<string> => {
   return await bcrypt.hash(password, SALT_ROUNDS);
-};
-
-// Secure reset token storage (in production, use Redis or database with TTL)
-const resetTokens = new Map<string, { userId: string, expiresAt: Date }>();
-
-// Generate secure reset token
-const generateResetToken = (): string => {
-  return crypto.randomBytes(32).toString('hex');
-};
-
-// Hash token for secure storage
-const hashToken = (token: string): string => {
-  return crypto.createHash('sha256').update(token).digest('hex');
 };
 import { googleCalendarService } from "./src/services/google-calendar";
 import { googleOAuthService } from "./src/services/google-oauth";
@@ -278,13 +270,8 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   
   app.use(session(sessionConfig));
   
-  // JSON parsing middleware
-  app.use(express.json());
-  
-  // CSRF token endpoint (must be after session middleware)
-  app.get('/api/csrf-token', (req, res) => {
-    res.json({ csrfToken: (req as any).csrfToken() });
-  });
+  // NOTE: express.json() is already mounted globally in index.ts — not duplicated here
+  // NOTE: CSRF token endpoint is already mounted in index.ts after csrfProtection — not duplicated here
   
   // DEBUG: Log before OAuth routes
   app.use((req, res, next) => {
@@ -900,98 +887,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   // Lead Forms routes - public routes (no auth), non-public routes need auth
   // NOTE: This is for lead capture forms only, not general leads endpoints
   
-  // PUBLIC ROUTES: Lead form hosting (no auth required for public access)
-  // Direct implementation to avoid conflicts with lead CRUD operations
-  app.get('/api/leads/public/:slug', async (req, res) => {
-    try {
-      const { slug } = req.params;
-      const form = await storage.getLeadCaptureFormBySlug(slug);
-      
-      if (!form || !form.isActive) {
-        return res.status(404).json({ error: 'Form not found' });
-      }
-
-      // Parse questions from form or use default questions from leadFormsRoutes
-      const getDefaultQuestionsForForm = () => [
-        {
-          id: 'firstName',
-          type: 'text',
-          label: 'First Name',
-          required: true,
-          mapTo: 'firstName',
-          orderIndex: 1
-        },
-        {
-          id: 'lastName', 
-          type: 'text',
-          label: 'Last Name',
-          required: true,
-          mapTo: 'lastName',
-          orderIndex: 2
-        },
-        {
-          id: 'email',
-          type: 'email', 
-          label: 'Email',
-          required: true,
-          mapTo: 'email',
-          orderIndex: 3
-        },
-        {
-          id: 'phone',
-          type: 'tel',
-          label: 'Phone', 
-          required: false,
-          mapTo: 'phone',
-          orderIndex: 4
-        },
-        {
-          id: 'projectDate',
-          type: 'date',
-          label: 'Event Date',
-          required: true,
-          mapTo: 'projectDate', 
-          orderIndex: 5
-        },
-        {
-          id: 'venue',
-          type: 'venue',
-          label: 'Venue',
-          required: false,
-          mapTo: 'venue',
-          orderIndex: 6
-        }
-      ];
-
-      let questions = getDefaultQuestionsForForm();
-      try {
-        if (form.questions) {
-          questions = JSON.parse(form.questions);
-        }
-      } catch (e) {
-        console.error('Error parsing questions:', e);
-        // Fall back to default questions
-      }
-
-      res.json({
-        form: {
-          id: form.id,
-          title: form.name,
-          slug: form.slug,
-          recaptchaEnabled: form.recaptchaEnabled,
-          transparency: 'We will use this information to contact you about our services.',
-          consentRequired: form.consentRequired,
-          consentText: form.consentText,
-          privacyPolicyUrl: form.privacyPolicyUrl,
-          dataRetentionDays: form.dataRetentionDays
-        },
-        questions: questions
-      });
-    } catch (error) {
-      console.error('Error fetching public form:', error);
-      res.status(500).json({ error: 'Failed to fetch form' });
-    }
-  });
+  // PUBLIC ROUTES: Lead form hosting — handled by leadFormsRoutes mounted below at /api/leads/public
   
   // Helper function for default form questions
   function getDefaultQuestionsForForm() {
@@ -1008,47 +904,6 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
 
   // Mount only the specific public form routes (no authentication required)
   // Public form access: GET /api/leads/public/:slug
-  app.get('/api/leads/public/:slug', async (req, res) => {
-    const { slug } = req.params;
-    
-    try {
-      const form = await storage.getLeadCaptureFormBySlug(slug);
-      
-      if (!form || !form.isActive) {
-        return res.status(404).json({ error: 'Form not found' });
-      }
-
-      // Parse questions from form or use default questions
-      let questions = getDefaultQuestionsForForm();
-      try {
-        if (form.questions) {
-          questions = JSON.parse(form.questions);
-        }
-      } catch (e) {
-        console.error('Error parsing questions:', e);
-        // Fall back to default questions
-      }
-
-      res.json({
-        form: {
-          id: form.id,
-          title: form.name,
-          slug: form.slug,
-          recaptchaEnabled: form.recaptchaEnabled,
-          transparency: 'We will use this information to contact you about our services.',
-          consentRequired: form.consentRequired,
-          consentText: form.consentText,
-          privacyPolicyUrl: form.privacyPolicyUrl,
-          dataRetentionDays: form.dataRetentionDays
-        },
-        questions: questions
-      });
-    } catch (error) {
-      console.error('Error fetching public form:', error);
-      res.status(500).json({ error: 'Failed to fetch form' });
-    }
-  });
-  
   // Public form submission: POST /api/leads/public/:slug/submit  
   app.use('/api/leads/public', leadFormsRoutes);
   
@@ -1085,10 +940,12 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   app.use('/api/ai-onboarding', ensureUserAuth, tenantResolver, requireTenant, csrf, aiOnboardingRoutes);
   
   // Security helper functions for portal authentication
-  async function verifyProjectAccess(contactId: string, projectId: string): Promise<boolean> {
+  async function verifyProjectAccess(contactId: string, projectId: string, tenantId?: string): Promise<boolean> {
     try {
-      // Get all projects owned by this contact
-      const contactProjects = await storage.getProjectsByContact(contactId);
+      // Get all projects owned by this contact (tenant-scoped when available)
+      const contactProjects = tenantId
+        ? await storage.getProjectsByContact(contactId, tenantId)
+        : await (storage as any).getProjectsByContact(contactId);
       
       // Check if the requested project is owned by this contact
       const hasAccess = contactProjects.some(project => project.id === projectId);
@@ -1177,8 +1034,9 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     try {
       const { email, projectId } = portalAccessRequestSchema.parse(req.body);
       
-      // Find contact by email
-      const contact = await storage.getContactByEmail(email);
+      // Find contact by email (global lookup — no tenant context in portal request flow)
+      // TODO: Add storage.getContactByEmailGlobal() for proper cross-tenant portal lookups
+      const contact = await (storage as any).getContactByEmail(email);
       if (!contact) {
         // Don't reveal if email exists or not for security
         return res.json({ success: true, message: 'If an account exists with this email, you will receive an access link' });
@@ -1186,7 +1044,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
 
       // SECURITY: Verify project ownership before checking portal access
       if (projectId) {
-        const hasAccess = await verifyProjectAccess(contact.id, projectId);
+        const hasAccess = await verifyProjectAccess(contact.id, projectId, contact.tenantId);
         if (!hasAccess) {
           console.log(`🚫 SECURITY: Contact ${email} denied portal access request for project ${projectId} - not owner`);
           // Don't reveal why access was denied for security
@@ -1205,14 +1063,8 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
         });
       }
       
-      // Generate cryptographically secure access token (expires in 15 minutes)
-      const crypto = require('crypto');
-      const accessToken = crypto.randomBytes(32).toString('base64url');
-      const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
-      
-      // Store token securely (in production, use database with TTL)
-      global.portalTokens = global.portalTokens || new Map();
-      global.portalTokens.set(accessToken, { contactId: contact.id, email: contact.email, expiresAt });
+      // Generate cryptographically secure access token (expires in 15 minutes, stored in DB)
+      const accessToken = await createPortalToken(contact.id, contact.email, contact.tenantId, 15);
       
       // TODO: Send email with magic link containing token
       // For security, never log or return the actual token
@@ -1233,16 +1085,15 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     try {
       const { token } = portalTokenVerifySchema.parse(req.body);
       
-      // Get token from memory store
-      global.portalTokens = global.portalTokens || new Map();
-      const tokenData = global.portalTokens.get(token);
+      // Verify token from database
+      const tokenData = await verifyPortalToken(token);
       
-      if (!tokenData || tokenData.expiresAt < new Date()) {
+      if (!tokenData) {
         return res.status(401).json({ error: 'Invalid or expired access token' });
       }
       
-      // Verify contact still exists
-      const contact = await storage.getContact(tokenData.contactId);
+      // Verify contact still exists (tenant-scoped)
+      const contact = await storage.getContact(tokenData.contactId, tokenData.tenantId);
       if (!contact) {
         return res.status(404).json({ error: 'Contact not found' });
       }
@@ -1254,11 +1105,12 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
           return res.status(500).json({ error: 'Authentication failed' });
         }
         
-        // Store contactId in new session
+        // Store contactId and tenantId in new session
         req.session.portalContactId = contact.id;
+        req.session.tenantId = contact.tenantId;
         
-        // Remove used token
-        global.portalTokens.delete(token);
+        // Consume token (single-use) — fire-and-forget
+        consumePortalToken(token).catch(e => console.error('Failed to consume portal token:', e));
         
         res.json({ 
           success: true, 
@@ -1285,7 +1137,11 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   app.get('/api/portal/auth/me', ensurePortalAuth, async (req, res) => {
     try {
       const contactId = req.session.portalContactId!; // ensurePortalAuth guarantees this exists
-      const contact = await storage.getContact(contactId);
+      const tenantId = req.session.tenantId;
+      if (!tenantId) {
+        return res.status(401).json({ error: 'Missing tenant context in portal session' });
+      }
+      const contact = await storage.getContact(contactId, tenantId);
       if (!contact) {
         return res.status(404).json({ error: 'Contact not found' });
       }
@@ -1300,7 +1156,11 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   app.get('/api/portal/client/projects', ensurePortalAuth, async (req, res) => {
     try {
       const contactId = req.session.portalContactId!; // ensurePortalAuth guarantees this exists
-      const projects = await storage.getProjectsByContact(contactId);
+      const tenantId = req.session.tenantId;
+      if (!tenantId) {
+        return res.status(401).json({ error: 'Missing tenant context in portal session' });
+      }
+      const projects = await storage.getProjectsByContact(contactId, tenantId);
       res.json(projects);
     } catch (error: any) {
       console.error('Error fetching portal projects:', error);
@@ -1311,7 +1171,11 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   app.get('/api/portal/client/contracts', ensurePortalAuth, async (req, res) => {
     try {
       const contactId = req.session.portalContactId!; // ensurePortalAuth guarantees this exists
-      const contracts = await storage.getContractsByClient(contactId);
+      const tenantId = req.session.tenantId;
+      if (!tenantId) {
+        return res.status(401).json({ error: 'Missing tenant context in portal session' });
+      }
+      const contracts = await storage.getContractsByClient(contactId, tenantId);
       res.json(contracts);
     } catch (error: any) {
       console.error('Error fetching portal contracts:', error);
@@ -1322,7 +1186,11 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   app.get('/api/portal/client/quotes', ensurePortalAuth, async (req, res) => {
     try {
       const contactId = req.session.portalContactId!; // ensurePortalAuth guarantees this exists
-      const quotes = await storage.getQuotesByContact(contactId);
+      const tenantId = req.session.tenantId;
+      if (!tenantId) {
+        return res.status(401).json({ error: 'Missing tenant context in portal session' });
+      }
+      const quotes = await storage.getQuotesByContact(contactId, tenantId);
       res.json(quotes);
     } catch (error: any) {
       console.error('Error fetching portal quotes:', error);
@@ -2168,29 +2036,19 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     try {
       const { email } = requestPasswordResetSchema.parse(req.body);
       
-      // Find user by email
-      const users = await storage.getUsers();
-      const user = users.find(u => u.email === email);
+      // Find user by email (global lookup - password reset must work across tenants)
+      const user = await storage.getUserByEmailGlobal(email);
       
       // Always return success to prevent email enumeration attacks
       if (!user) {
         return res.json({ success: true, message: 'If the email exists, a reset link has been sent' });
       }
       
-      // Generate secure reset token using crypto.randomBytes
-      const resetToken = generateResetToken();
-      const hashedToken = hashToken(resetToken);
+      // Generate secure reset token and store in database (15 min TTL)
+      const resetToken = await createResetToken(user.id, 15);
       
-      // Store token with expiry (15 minutes)
-      const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
-      resetTokens.set(hashedToken, { userId: user.id, expiresAt });
-      
-      // Clean up expired tokens
-      for (const [hash, data] of resetTokens.entries()) {
-        if (data.expiresAt < new Date()) {
-          resetTokens.delete(hash);
-        }
-      }
+      // Purge expired tokens in the background
+      purgeExpiredTokens().catch(e => console.error('Token purge error:', e));
       
       // In production, send email with reset link containing the token
       // SECURITY: Never log the token - this would be a serious secret exposure
@@ -2211,24 +2069,16 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     try {
       const { token, newPassword } = resetPasswordSchema.parse(req.body);
       
-      // Hash the provided token and look it up
-      const hashedToken = hashToken(token);
-      const tokenData = resetTokens.get(hashedToken);
+      // Verify token from database
+      const tokenData = await verifyResetToken(token);
       
       if (!tokenData) {
         return res.status(400).json({ error: 'Invalid or expired reset token' });
       }
       
-      // Check if token has expired
-      if (tokenData.expiresAt < new Date()) {
-        resetTokens.delete(hashedToken);
-        return res.status(400).json({ error: 'Invalid or expired reset token' });
-      }
-      
-      // Get the user
-      const user = await storage.getUser(tokenData.userId);
+      // Get the user (global lookup — password reset doesn't have tenant context)
+      const user = await storage.getUserGlobal(tokenData.userId);
       if (!user) {
-        resetTokens.delete(hashedToken);
         return res.status(400).json({ error: 'Invalid or expired reset token' });
       }
       
@@ -2236,8 +2086,8 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
       const hashedPassword = await hashPassword(newPassword);
       await storage.updateUser(user.id, { password: hashedPassword });
       
-      // Delete the used token (single-use)
-      resetTokens.delete(hashedToken);
+      // Consume the token (single-use) — fire-and-forget
+      consumeResetToken(token).catch(e => console.error('Failed to consume reset token:', e));
       
       console.log(`🔐 Password reset completed for user: ${user.email}`);
       
@@ -2249,10 +2099,11 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   });
   
   // Dashboard metrics
-  app.get("/api/dashboard/metrics", ensureUserAuth, async (req, res) => {
+  app.get("/api/dashboard/metrics", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
     try {
+      const tenantId = req.tenantId!;
       const userId = req.authenticatedUserId;
-      const metrics = await storage.getDashboardMetrics(userId);
+      const metrics = await storage.getDashboardMetrics(tenantId, userId);
       res.json(metrics);
     } catch (error) {
       console.error('Error fetching dashboard metrics:', error);
@@ -2282,11 +2133,10 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
       const totalInvoiceValue = parseFloat((invoicesResult[0] as any).total_value || '0');
       const contractsResult = await neonClient('SELECT COUNT(*) as count FROM contracts WHERE tenant_id = $1', [req.tenantId]);
       const contractsCount = parseInt((contractsResult[0] as any).count);
-      // Note: members and venues tables might not have tenant_id column yet
-      const membersResult = await neonClient('SELECT COUNT(*) as count FROM members');
+      const membersResult = await neonClient('SELECT COUNT(*) as count FROM members WHERE tenant_id = $1', [req.tenantId]);
       const membersCount = parseInt((membersResult[0] as any).count);
       // Get venues count using neonClient already declared above
-      const venuesResult = await neonClient('SELECT COUNT(*) as count FROM venues');
+      const venuesResult = await neonClient('SELECT COUNT(*) as count FROM venues WHERE tenant_id = $1', [req.tenantId]);
       const venuesCount = parseInt((venuesResult[0] as any).count);
 
       // Calculate metrics
@@ -2294,30 +2144,37 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
       const convertedLeads = leads.filter(l => l.status === 'converted').length;
       const leadConversionRate = totalLeads > 0 ? Math.round((convertedLeads / totalLeads) * 100) : 0;
 
-      // Calculate metrics using counts from direct DB queries
-      const approvedQuotes = Math.floor(quotesCount * 0.3); // Mock 30% approval rate
+      // Real quote approval rate from DB
+      const approvedQuotesResult = await neonClient('SELECT COUNT(*) as count FROM quotes WHERE tenant_id = $1 AND status = $2', [req.tenantId, 'approved']);
+      const approvedQuotes = parseInt((approvedQuotesResult[0] as any).count);
       const quoteSuccessRate = quotesCount > 0 ? Math.round((approvedQuotes / quotesCount) * 100) : 0;
 
-      const activeProjects = Math.floor(projectsCount * 0.6); // Mock 60% active
-      const completedProjects = Math.floor(projectsCount * 0.3); // Mock 30% completed
-      const projectCompletionRate = projectsCount > 0 ? Math.round((completedProjects / projectsCount) * 100) : 75;
+      // Real project status counts from DB
+      const activeProjectsResult = await neonClient("SELECT COUNT(*) as count FROM projects WHERE tenant_id = $1 AND status IN ('lead', 'booked')", [req.tenantId]);
+      const activeProjects = parseInt((activeProjectsResult[0] as any).count);
+      const completedProjectsResult = await neonClient("SELECT COUNT(*) as count FROM projects WHERE tenant_id = $1 AND status = 'completed'", [req.tenantId]);
+      const completedProjects = parseInt((completedProjectsResult[0] as any).count);
+      const projectCompletionRate = projectsCount > 0 ? Math.round((completedProjects / projectsCount) * 100) : 0;
 
-      const paidInvoicesCount = Math.floor(invoicesCount * 0.7); // Mock 70% paid
+      // Real invoice payment data from DB
+      const paidInvoicesResult = await neonClient("SELECT COUNT(*) as count, COALESCE(SUM(CAST(subtotal AS DECIMAL)), 0) as total FROM invoices WHERE tenant_id = $1 AND status = 'paid'", [req.tenantId]);
+      const paidInvoicesCount = parseInt((paidInvoicesResult[0] as any).count);
+      const paidTotal = parseFloat((paidInvoicesResult[0] as any).total || '0');
       const pendingInvoicesCount = invoicesCount - paidInvoicesCount;
-      const outstandingAmount = Math.round(totalInvoiceValue * 0.3); // Mock 30% outstanding
-      const monthlyRevenue = Math.round(totalInvoiceValue * 0.7); // Mock 70% revenue
+      const outstandingAmount = Math.round(totalInvoiceValue - paidTotal);
+      const monthlyRevenue = Math.round(paidTotal);
 
       const avgProjectValue = projectsCount > 0 ? Math.round(totalProjectValue / projectsCount) : 0;
       const activePipelineValue = totalProjectValue + totalQuoteValue;
 
-      // Mock some calculations with realistic values
-      const cashFlowForecast = monthlyRevenue + outstandingAmount + (activePipelineValue * 0.6);
-      const avgTimeToClose = 14; // days
-      const responseTime = 2; // hours
-      const clientActivityScore = Math.round(7 + Math.random() * 2); // 7-9 range
-      const memberUtilization = membersCount > 0 ? Math.round(65 + Math.random() * 25) : 0; // 65-90%
-      const clientRetentionRate = clientsCount > 0 ? Math.round(75 + Math.random() * 20) : 0; // 75-95%
-      const referralRate = Math.round(15 + Math.random() * 25); // 15-40%
+      // Derived metrics (non-random — use real data or zero until calculated)
+      const cashFlowForecast = monthlyRevenue + outstandingAmount + Math.round(activePipelineValue * 0.6);
+      const avgTimeToClose = 0; // TODO: calculate from real lead→booked timestamps
+      const responseTime = 0; // TODO: calculate from real email response times
+      const clientActivityScore = 0; // TODO: calculate from real activity data
+      const memberUtilization = 0; // TODO: calculate from real member assignment data
+      const clientRetentionRate = 0; // TODO: calculate from real returning client data
+      const referralRate = 0; // TODO: calculate from real referral source data
       const topVenue = venuesCount > 0 ? 'Wedding venues available' : 'No venues yet';
 
       res.json({
@@ -2336,7 +2193,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
         
         // Operations
         responseTime,
-        overdueItems: pendingInvoicesCount + Math.floor(Math.random() * 3),
+        overdueItems: pendingInvoicesCount,
         projectCompletionRate,
         clientActivityScore,
         
@@ -2356,7 +2213,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   // Recent activities - requires authentication
   app.get("/api/activities/recent", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
     try {
-      const activities = await storage.getRecentActivities(10);
+      const activities = await storage.getRecentActivities(req.tenantId!, 10);
       res.json(activities);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch recent activities" });
@@ -2367,7 +2224,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   app.get("/api/calendar-sync/status", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
     try {
       const status = calendarAutoSyncService.getStatus();
-      const activeIntegrations = await storage.getCalendarIntegrations();
+      const activeIntegrations = await storage.getCalendarIntegrations(req.tenantId!);
       const activeCount = activeIntegrations.filter(i => i.isActive).length;
       
       res.json({
@@ -2487,8 +2344,8 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
           LEFT JOIN venues v ON c.venue_id = v.id AND v.tenant_id = c.tenant_id
           WHERE c.tenant_id = $1
           ORDER BY c.created_at DESC
-          LIMIT ${simpleLimit}
-        `, [req.tenantId]);
+          LIMIT $2
+        `, [req.tenantId, simpleLimit]);
         
         // Convert snake_case field names to camelCase for frontend compatibility
         const contacts = contactsRaw.map((contact: any) => ({
@@ -2540,8 +2397,8 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
         WHERE c.tenant_id = $1
         GROUP BY c.id, v.name
         ORDER BY c.created_at DESC
-        LIMIT ${limit} OFFSET ${offset}
-      `, [req.tenantId]);
+        LIMIT $2 OFFSET $3
+      `, [req.tenantId, limit, offset]);
       
       // Convert snake_case field names to camelCase for frontend compatibility
       const contacts = contactsRaw.map((contact: any) => ({
@@ -2981,8 +2838,8 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
           LEFT JOIN venues v ON p.venue_id = v.id
           WHERE p.tenant_id = $1
           ORDER BY p.created_at DESC
-          LIMIT ${simpleLimit}
-        `, [req.tenantId]);
+          LIMIT $2
+        `, [req.tenantId, simpleLimit]);
         return res.json(projects);
       }
 
@@ -3000,8 +2857,8 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
         LEFT JOIN venues v ON p.venue_id = v.id
         WHERE p.tenant_id = $1
         ORDER BY p.created_at DESC
-        LIMIT ${limit} OFFSET ${offset}
-      `, [req.tenantId]);
+        LIMIT $2 OFFSET $3
+      `, [req.tenantId, limit, offset]);
       
       // Get total count for pagination info
       const countResult = await neonClient('SELECT COUNT(*) as count FROM projects WHERE tenant_id = $1', [req.tenantId]);
@@ -5186,7 +5043,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
 
         // Send confirmation email to contact after counter-signing
         try {
-          const contact = await storage.getContact(contract.contactId);
+          const contact = await storage.getContact(contract.contactId, tenantId);
           
           if (contact && contact.email) {
             // Get contract confirmation email template
@@ -6511,9 +6368,9 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
       const { userId } = req.query;
       let integrations;
       if (userId) {
-        integrations = await storage.getCalendarIntegrationsByUser(userId as string);
+        integrations = await storage.getCalendarIntegrationsByUser(userId as string, req.tenantId!);
       } else {
-        integrations = await storage.getCalendarIntegrations();
+        integrations = await storage.getCalendarIntegrations(req.tenantId!);
       }
       res.json(integrations);
     } catch (error) {
@@ -6523,7 +6380,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
 
   app.get("/api/calendar-integrations/:id", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
     try {
-      const integration = await storage.getCalendarIntegration(req.params.id);
+      const integration = await storage.getCalendarIntegration(req.params.id, req.tenantId!);
       if (!integration) {
         return res.status(404).json({ message: "Calendar integration not found" });
       }
@@ -6806,7 +6663,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   // Cleanup orphaned Google Calendar events
   app.post("/api/calendar-integrations/:id/cleanup", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
     try {
-      const integration = await storage.getCalendarIntegration(req.params.id);
+      const integration = await storage.getCalendarIntegration(req.params.id, req.tenantId!);
       if (!integration) {
         return res.status(404).json({ message: "Calendar integration not found" });
       }

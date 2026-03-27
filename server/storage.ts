@@ -135,8 +135,7 @@ import {
 } from "@shared/schema";
 import crypto from "crypto";
 import { TenantScopedStorage } from './utils/tenantScopedStorage';
-import { drizzle } from 'drizzle-orm/neon-http';
-import { neon } from '@neondatabase/serverless';
+import { db as poolDb, pool } from './db';
 import { eq, and, desc, or, isNull, isNotNull, leftJoin, sql, lte, inArray } from 'drizzle-orm';
 import { secureStore } from './src/services/secureStore';
 import { validateAndCleanVenueAddress } from '@shared/addressUtils';
@@ -3653,10 +3652,6 @@ export class MemStorage implements IStorage {
   }
 }
 
-// Database connection
-const sql = neon(process.env.DATABASE_URL!);
-const db = drizzle(sql);
-
 export class DrizzleStorage implements IStorage {
   /**
    * Safely decrypt a token - handles migration from plain text to encrypted tokens
@@ -3676,7 +3671,7 @@ export class DrizzleStorage implements IStorage {
       return token;
     }
   }
-  private db = drizzle(sql);
+  private db = poolDb;
   
   // Tenants (for job scheduling and resolution)
   async getActiveTenants(): Promise<{ id: string; name: string; slug: string }[]> {
@@ -4630,9 +4625,7 @@ export class DrizzleStorage implements IStorage {
     const defaultLimit = limit ?? 100;
     const defaultOffset = offset ?? 0;
     
-    // WORKAROUND: Use Neon client directly to bypass Drizzle orderSelectedFields recursion issue
-    const neonClient = neon(process.env.DATABASE_URL!);
-    
+    // WORKAROUND: Use pool directly to bypass Drizzle orderSelectedFields recursion issue
     if (userId) {
       const query = `
         SELECT * FROM contacts 
@@ -4641,7 +4634,7 @@ export class DrizzleStorage implements IStorage {
         LIMIT ${defaultLimit}
         OFFSET ${defaultOffset}
       `;
-      const result = await neonClient(query, [tenantId, userId]);
+      const { rows: result } = await pool.query(query, [tenantId, userId]);
       return result as Contact[];
     } else {
       const query = `
@@ -4651,7 +4644,7 @@ export class DrizzleStorage implements IStorage {
         LIMIT ${defaultLimit}
         OFFSET ${defaultOffset}
       `;
-      const result = await neonClient(query, [tenantId]);
+      const { rows: result } = await pool.query(query, [tenantId]);
       return result as Contact[];
     }
   }
@@ -4835,12 +4828,11 @@ export class DrizzleStorage implements IStorage {
   }
 
   async getTagByName(name: string, tenantId: string): Promise<Tag | undefined> {
-    const neonClient = neon(process.env.DATABASE_URL!);
-    const result = await neonClient(
+    const { rows } = await pool.query(
       'SELECT * FROM tags WHERE LOWER(name) = LOWER($1) AND tenant_id = $2 LIMIT 1',
       [name, tenantId]
     );
-    return result[0] as Tag | undefined;
+    return rows[0] as Tag | undefined;
   }
 
   async createTag(tag: InsertTag, tenantId: string): Promise<Tag> {
@@ -4870,8 +4862,7 @@ export class DrizzleStorage implements IStorage {
   }
 
   async incrementTagUsage(id: string, tenantId: string): Promise<void> {
-    const neonClient = neon(process.env.DATABASE_URL!);
-    await neonClient(
+    await pool.query(
       'UPDATE tags SET usage_count = usage_count + 1, updated_at = NOW() WHERE id = $1 AND tenant_id = $2',
       [id, tenantId]
     );
@@ -4887,9 +4878,7 @@ export class DrizzleStorage implements IStorage {
     const defaultLimit = limit ?? 100;
     const defaultOffset = offset ?? 0;
     
-    // WORKAROUND: Use Neon client directly to bypass Drizzle orderSelectedFields recursion issue
-    const neonClient = neon(process.env.DATABASE_URL!);
-    
+    // WORKAROUND: Use pool directly to bypass Drizzle orderSelectedFields recursion issue
     if (userId) {
       const query = `
         SELECT 
@@ -4912,7 +4901,7 @@ export class DrizzleStorage implements IStorage {
         LIMIT ${defaultLimit}
         OFFSET ${defaultOffset}
       `;
-      const result = await neonClient(query, [tenantId, userId]);
+      const { rows: result } = await pool.query(query, [tenantId, userId]);
       return result as Project[];
     } else {
       const query = `
@@ -4936,7 +4925,7 @@ export class DrizzleStorage implements IStorage {
         LIMIT ${defaultLimit}
         OFFSET ${defaultOffset}
       `;
-      const result = await neonClient(query, [tenantId]);
+      const { rows: result } = await pool.query(query, [tenantId]);
       return result as Project[];
     }
   }

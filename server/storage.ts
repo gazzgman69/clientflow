@@ -1486,8 +1486,10 @@ export class MemStorage implements IStorage {
     return this.quotes.get(id);
   }
 
-  async getQuotesByContact(contactId: string): Promise<Quote[]> {
-    return Array.from(this.quotes.values()).filter(quote => quote.contactId === contactId);
+  async getQuotesByContact(contactId: string, tenantId?: string): Promise<Quote[]> {
+    return Array.from(this.quotes.values()).filter(quote => 
+      quote.contactId === contactId && (!tenantId || quote.tenantId === tenantId)
+    );
   }
 
   async createQuote(insertQuote: InsertQuote): Promise<Quote> {
@@ -1540,8 +1542,10 @@ export class MemStorage implements IStorage {
     return this.contracts.get(id);
   }
 
-  async getContractsByClient(clientId: string): Promise<Contract[]> {
-    return Array.from(this.contracts.values()).filter(contract => contract.contactId === clientId);
+  async getContractsByClient(clientId: string, tenantId?: string): Promise<Contract[]> {
+    return Array.from(this.contracts.values()).filter(contract => 
+      contract.contactId === clientId && (!tenantId || contract.tenantId === tenantId)
+    );
   }
 
   async getContractsByContact(contactId: string): Promise<Contract[]> {
@@ -2178,9 +2182,11 @@ export class MemStorage implements IStorage {
     );
   }
 
-  async getRecentActivities(limit: number = 10): Promise<Activity[]> {
+  async getRecentActivities(tenantId: string, limit: number = 10): Promise<Activity[]> {
     const activities = await this.getActivities();
-    return activities.slice(0, limit);
+    return activities
+      .filter(a => (a as any).tenantId === tenantId)
+      .slice(0, limit);
   }
 
   async createActivity(insertActivity: InsertActivity): Promise<Activity> {
@@ -2890,15 +2896,20 @@ export class MemStorage implements IStorage {
   }
 
   // Calendar Integrations
-  async getCalendarIntegrations(): Promise<CalendarIntegration[]> {
-    return Array.from(this.calendarIntegrations.values()).sort((a, b) => 
+  async getCalendarIntegrations(tenantId?: string): Promise<CalendarIntegration[]> {
+    let integrations = Array.from(this.calendarIntegrations.values());
+    if (tenantId) {
+      integrations = integrations.filter(i => i.tenantId === tenantId);
+    }
+    return integrations.sort((a, b) => 
       new Date(b.createdAt!).getTime() - new Date(a.createdAt!).getTime()
     );
   }
 
-  async getCalendarIntegration(id: string): Promise<CalendarIntegration | undefined> {
+  async getCalendarIntegration(id: string, tenantId?: string): Promise<CalendarIntegration | undefined> {
     const integration = this.calendarIntegrations.get(id);
     if (!integration) return undefined;
+    if (tenantId && integration.tenantId !== tenantId) return undefined;
     
     // Decrypt tokens for use
     return {
@@ -3082,14 +3093,14 @@ export class MemStorage implements IStorage {
   }
 
   // Dashboard metrics
-  async getDashboardMetrics(userId?: string): Promise<{
+  async getDashboardMetrics(tenantId: string, userId?: string): Promise<{
     totalLeads: number;
     activeProjects: number;
     revenue: number;
     pendingInvoices: number;
   }> {
-    const leads = await this.getLeads(userId);
-    const projects = await this.getProjects(userId);
+    const leads = await this.getLeads(tenantId, userId);
+    const projects = await this.getProjects(tenantId, userId);
     const invoices = await this.getInvoices();
     
     const activeProjects = projects.filter(p => p.status === 'active').length;
@@ -3767,7 +3778,11 @@ export class DrizzleStorage implements IStorage {
   }
   
   // Calendar Integrations - Core functionality for Google Calendar
-  async getCalendarIntegrations(): Promise<CalendarIntegration[]> {
+  async getCalendarIntegrations(tenantId?: string): Promise<CalendarIntegration[]> {
+    if (tenantId) {
+      return await this.db.select().from(calendarIntegrations)
+        .where(eq(calendarIntegrations.tenantId, tenantId));
+    }
     return await this.db.select().from(calendarIntegrations);
   }
 
@@ -3821,8 +3836,12 @@ export class DrizzleStorage implements IStorage {
     }));
   }
 
-  async getCalendarIntegration(id: string): Promise<CalendarIntegration | undefined> {
-    const result = await db.select().from(calendarIntegrations).where(eq(calendarIntegrations.id, id));
+  async getCalendarIntegration(id: string, tenantId?: string): Promise<CalendarIntegration | undefined> {
+    const conditions = [eq(calendarIntegrations.id, id)];
+    if (tenantId) {
+      conditions.push(eq(calendarIntegrations.tenantId, tenantId));
+    }
+    const result = await db.select().from(calendarIntegrations).where(and(...conditions));
     
     if (!result[0]) return undefined;
     
@@ -5291,8 +5310,10 @@ export class DrizzleStorage implements IStorage {
   async getQuotesByProject(projectId: string) { 
     return await this.db.select().from(quotes).where(eq(quotes.leadId, projectId));
   }
-  async getQuotesByContact(contactId: string) { 
-    return await this.db.select().from(quotes).where(eq(quotes.contactId, contactId));
+  async getQuotesByContact(contactId: string, tenantId?: string) { 
+    const conditions = [eq(quotes.contactId, contactId)];
+    if (tenantId) conditions.push(eq(quotes.tenantId, tenantId));
+    return await this.db.select().from(quotes).where(and(...conditions));
   }
   
   // Contracts - PostgreSQL implementation  
@@ -5303,8 +5324,10 @@ export class DrizzleStorage implements IStorage {
     const result = await this.db.select().from(contracts).where(eq(contracts.id, id));
     return result[0];
   }
-  async getContractsByClient(clientId: string) { 
-    return await this.db.select().from(contracts).where(eq(contracts.contactId, clientId));
+  async getContractsByClient(clientId: string, tenantId?: string) { 
+    const conditions = [eq(contracts.contactId, clientId)];
+    if (tenantId) conditions.push(eq(contracts.tenantId, tenantId));
+    return await this.db.select().from(contracts).where(and(...conditions));
   }
   async getContractsByContact(contactId: string) { 
     return await this.db.select().from(contracts).where(eq(contracts.contactId, contactId));
@@ -6346,15 +6369,15 @@ export class DrizzleStorage implements IStorage {
   }
   
   // Dashboard Metrics - PostgreSQL implementation
-  async getDashboardMetrics(userId?: string): Promise<{
+  async getDashboardMetrics(tenantId: string, userId?: string): Promise<{
     totalLeads: number;
     activeProjects: number;
     revenue: number;
     pendingInvoices: number;
   }> { 
     // Calculate metrics from PostgreSQL data
-    const leads = await this.getLeads(userId);
-    const projects = await this.getProjects(userId);
+    const leads = await this.getLeads(tenantId, userId);
+    const projects = await this.getProjects(tenantId, userId);
     const invoices = await this.getInvoices();
     
     const activeProjects = projects.filter(p => p.status === 'active').length;
@@ -6374,9 +6397,11 @@ export class DrizzleStorage implements IStorage {
   }
   
   // Missing methods for API compatibility
-  async getRecentActivities(limit: number) { 
-    const activities = await this.getActivities();
-    return activities.slice(0, limit);
+  async getRecentActivities(tenantId: string, limit: number = 10) { 
+    return await this.db.select().from(activities)
+      .where(eq(activities.tenantId, tenantId))
+      .orderBy(desc(activities.createdAt))
+      .limit(limit);
   }
   async getTodayTasks() { return []; }
   async getTasksByAssignee(userId: string, tenantId?: string): Promise<Task[]> { 

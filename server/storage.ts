@@ -6138,8 +6138,8 @@ export class DrizzleStorage implements IStorage {
     return await this.db.select().from(memberAvailability).where(eq(memberAvailability.memberId, memberId));
   }
 
-  async addMemberAvailability(availability: InsertMemberAvailability): Promise<MemberAvailability> {
-    const result = await this.db.insert(memberAvailability).values(availability).returning();
+  async addMemberAvailability(availability: InsertMemberAvailability, tenantId?: string): Promise<MemberAvailability> {
+    const result = await this.db.insert(memberAvailability).values({ ...availability, tenantId: tenantId || availability.tenantId }).returning();
     return result[0];
   }
 

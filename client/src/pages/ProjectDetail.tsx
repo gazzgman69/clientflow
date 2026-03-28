@@ -84,6 +84,8 @@ const memberAssignmentSchema = z.object({
   memberId: z.string().min(1, "Member is required"),
   role: z.string().optional(),
   fee: z.string().optional(),
+  offerType: z.string().optional(),
+  notes: z.string().optional(),
 });
 
 // Contract edit schema
@@ -394,11 +396,18 @@ export default function ProjectDetail() {
       apiRequest(`/api/projects/${project?.id}/members/${memberId}`, "DELETE"),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/projects", project?.id, "members"] });
-      toast({
-        title: "Success",
-        description: "Member removed successfully",
-      });
+      toast({ title: "Success", description: "Member removed successfully" });
     },
+  });
+
+  const updateProjectMemberMutation = useMutation({
+    mutationFn: ({ memberId, data }: { memberId: string; data: Record<string, any> }) =>
+      apiRequest(`/api/projects/${project?.id}/members/${memberId}`, "PATCH", data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/projects", project?.id, "members"] });
+      toast({ title: "Member updated" });
+    },
+    onError: () => toast({ title: "Failed to update member", variant: "destructive" }),
   });
   
   // Contact update mutation
@@ -1182,29 +1191,27 @@ export default function ProjectDetail() {
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <Users className="h-5 w-5" />
-                    Assigned Members
+                    Assigned Musicians
                   </CardTitle>
                   <CardDescription>
-                    Manage musicians and band members for this gig
+                    Manage musicians for this gig — track offer status and payment
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   {/* Add Member Form */}
                   <form
                     onSubmit={memberForm.handleSubmit((data) => assignMemberMutation.mutate(data))}
-                    className="flex gap-2"
+                    className="flex gap-2 flex-wrap"
                   >
                     <Select onValueChange={(value) => memberForm.setValue("memberId", value)}>
-                      <SelectTrigger data-testid="select-member">
-                        <SelectValue placeholder="Select member" />
+                      <SelectTrigger className="w-48">
+                        <SelectValue placeholder="Select musician" />
                       </SelectTrigger>
                       <SelectContent>
                         {members.map((member) => (
                           <SelectItem key={member.id} value={member.id}>
                             {member.firstName} {member.lastName}
-                            {member.instruments && member.instruments.length > 0 && 
-                              ` (${member.instruments.join(", ")})`
-                            }
+                            {(member as any).primaryInstrument && ` — ${(member as any).primaryInstrument}`}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -1212,20 +1219,26 @@ export default function ProjectDetail() {
                     <Input
                       placeholder="Role (optional)"
                       {...memberForm.register("role")}
-                      data-testid="input-member-role"
+                      className="w-32"
                     />
                     <Input
-                      placeholder="Fee (optional)"
+                      placeholder="Fee £"
                       type="number"
                       step="0.01"
                       {...memberForm.register("fee")}
-                      data-testid="input-member-fee"
+                      className="w-24"
                     />
-                    <Button 
-                      type="submit" 
-                      disabled={assignMemberMutation.isPending}
-                      data-testid="button-assign-member"
-                    >
+                    <Select onValueChange={(value) => memberForm.setValue("offerType", value)}>
+                      <SelectTrigger className="w-36">
+                        <SelectValue placeholder="Offer type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="direct">Direct</SelectItem>
+                        <SelectItem value="shotgun">Shotgun</SelectItem>
+                        <SelectItem value="auto-book">Auto-book</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Button type="submit" disabled={assignMemberMutation.isPending}>
                       {assignMemberMutation.isPending ? "Adding..." : "Add"}
                     </Button>
                   </form>
@@ -1235,32 +1248,75 @@ export default function ProjectDetail() {
                     <Table>
                       <TableHeader>
                         <TableRow>
-                          <TableHead>Member</TableHead>
+                          <TableHead>Musician</TableHead>
                           <TableHead>Role</TableHead>
                           <TableHead>Fee</TableHead>
+                          <TableHead>Offer Type</TableHead>
                           <TableHead>Status</TableHead>
+                          <TableHead>Payment</TableHead>
                           <TableHead>Actions</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
                         {projectMembers.map((pm) => (
                           <TableRow key={pm.memberId}>
-                            <TableCell data-testid={`text-member-${pm.memberId}`}>
+                            <TableCell className="font-medium">
                               {getMemberName(pm.memberId)}
                             </TableCell>
-                            <TableCell>{pm.role || "-"}</TableCell>
+                            <TableCell>{pm.role || "—"}</TableCell>
                             <TableCell>
-                              {pm.fee ? `$${pm.fee}` : "-"}
+                              {pm.fee ? (
+                                <div className="flex items-center gap-1 text-sm">
+                                  <DollarSign className="h-3 w-3" />£{pm.fee}
+                                </div>
+                              ) : "—"}
                             </TableCell>
                             <TableCell>
-                              <Badge variant="outline">{pm.status}</Badge>
+                              {(pm as any).offerType ? (
+                                <Badge variant="outline" className="text-xs capitalize">
+                                  {(pm as any).offerType}
+                                </Badge>
+                              ) : "—"}
+                            </TableCell>
+                            <TableCell>
+                              <Select
+                                value={pm.status || "pending"}
+                                onValueChange={(value) =>
+                                  updateProjectMemberMutation.mutate({ memberId: pm.memberId, data: { status: value } })
+                                }
+                              >
+                                <SelectTrigger className="w-32 h-7 text-xs">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="pending">Pending</SelectItem>
+                                  <SelectItem value="confirmed">Confirmed</SelectItem>
+                                  <SelectItem value="declined">Declined</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </TableCell>
+                            <TableCell>
+                              <Select
+                                value={(pm as any).paymentStatus || "unpaid"}
+                                onValueChange={(value) =>
+                                  updateProjectMemberMutation.mutate({ memberId: pm.memberId, data: { paymentStatus: value } })
+                                }
+                              >
+                                <SelectTrigger className="w-24 h-7 text-xs">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="unpaid">Unpaid</SelectItem>
+                                  <SelectItem value="invoiced">Invoiced</SelectItem>
+                                  <SelectItem value="paid">Paid</SelectItem>
+                                </SelectContent>
+                              </Select>
                             </TableCell>
                             <TableCell>
                               <Button
                                 variant="ghost"
                                 size="sm"
                                 onClick={() => removeMemberMutation.mutate(pm.memberId)}
-                                data-testid={`button-remove-${pm.memberId}`}
                               >
                                 <Trash className="h-4 w-4" />
                               </Button>
@@ -1271,7 +1327,7 @@ export default function ProjectDetail() {
                     </Table>
                   ) : (
                     <p className="text-muted-foreground text-center py-4">
-                      No members assigned yet
+                      No musicians assigned yet
                     </p>
                   )}
                 </CardContent>

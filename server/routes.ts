@@ -1184,6 +1184,85 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
   
+  // ── Musician Portal Routes ─────────────────────────────────────────────────
+  // These use the standard user auth (ensureUserAuth) scoped to a member ID
+  // passed as a query param or from session. For now they work for agency-side
+  // preview — full musician auth can be layered on later.
+
+  app.get('/api/portal/musician/gigs', ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
+    try {
+      const memberId = req.query.memberId as string;
+      if (!memberId) return res.status(400).json({ error: 'memberId required' });
+
+      // Get all projectMembers rows for this musician
+      const allProjects = await storage.getProjects(req.tenantId!);
+      const results = [];
+      for (const project of allProjects) {
+        const pms = await storage.getProjectMembers(project.id, req.tenantId!);
+        const assignment = pms.find(pm => pm.memberId === memberId);
+        if (assignment) results.push({ ...project, assignment });
+      }
+      res.json(results);
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to fetch musician gigs' });
+    }
+  });
+
+  app.get('/api/portal/musician/contracts', ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
+    try {
+      const memberId = req.query.memberId as string;
+      if (!memberId) return res.status(400).json({ error: 'memberId required' });
+      const contracts = await storage.getPerformerContracts(req.tenantId!);
+      res.json(contracts.filter(c => c.memberId === memberId));
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to fetch performer contracts' });
+    }
+  });
+
+  app.get('/api/portal/musician/availability', ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
+    try {
+      const memberId = req.query.memberId as string;
+      if (!memberId) return res.status(400).json({ error: 'memberId required' });
+      const availability = await storage.getMemberAvailability(memberId, req.tenantId!);
+      res.json(availability);
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to fetch availability' });
+    }
+  });
+
+  app.post('/api/portal/musician/availability', ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
+    try {
+      const { memberId, date, availabilityType, notes, startTime, endTime } = req.body;
+      if (!memberId) return res.status(400).json({ error: 'memberId required' });
+      const availability = await storage.addMemberAvailability(
+        { memberId, date: new Date(date), availabilityType: availabilityType || 'available', notes, startTime: startTime ? new Date(startTime) : undefined, endTime: endTime ? new Date(endTime) : undefined, tenantId: req.tenantId! },
+        req.tenantId!
+      );
+      res.status(201).json(availability);
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to set availability' });
+    }
+  });
+
+  // Musician responds to a gig offer (confirm or decline)
+  app.patch('/api/portal/musician/gigs/:projectId/respond', ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
+    try {
+      const { memberId, status } = req.body;
+      if (!memberId || !['confirmed', 'declined'].includes(status)) {
+        return res.status(400).json({ error: 'memberId and status (confirmed|declined) required' });
+      }
+      const updated = await storage.updateProjectMember(
+        req.params.projectId, memberId,
+        { status, respondedAt: new Date() },
+        req.tenantId!
+      );
+      if (!updated) return res.status(404).json({ error: 'Assignment not found' });
+      res.json(updated);
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to respond to gig' });
+    }
+  });
+
   // Main user authentication endpoints  
   // User signup endpoint - Creates isolated tenant for each new user
   app.post('/api/auth/signup', authLimiter, async (req, res) => {

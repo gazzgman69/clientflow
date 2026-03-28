@@ -31,6 +31,8 @@ import PublicBookingPage from "@/pages/public/PublicBookingPage";
 import ProjectDetail from "@/pages/ProjectDetail";
 import ContactDetail from "@/pages/ContactDetail";
 import Members from "@/pages/members";
+import Repertoire from "@/pages/repertoire";
+import PerformerContracts from "@/pages/performer-contracts";
 import Venues from "@/pages/venues";
 import MusicianPortal from "@/pages/portal/musician-portal";
 import ClientPortal from "@/pages/portal/client-portal";
@@ -177,6 +179,8 @@ function Router() {
                   <Route path="/projects/:id" component={ProjectDetail} />
                   <Route path="/projects" component={Projects} />
                   <Route path="/members" component={Members} />
+                  <Route path="/repertoire" component={Repertoire} />
+                  <Route path="/performer-contracts" component={PerformerContracts} />
                   <Route path="/venues" component={Venues} />
                   <Route path="/documents" component={Documents} />
                   <Route path="/media-library" component={MediaLibrary} />

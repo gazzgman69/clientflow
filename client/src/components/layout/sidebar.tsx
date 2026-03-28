@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 import { 
   BarChart3, Users, UserPlus, Briefcase, FileText, 
   File, Receipt, Calendar, Bot, Settings, LogOut,
-  Music, MapPin, FolderOpen, Mail, ChevronDown
+  Music, MapPin, FolderOpen, Mail, ChevronDown, ListMusic
 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import {
@@ -29,6 +29,8 @@ const staticNavigationItems = [
   { href: "/contacts", icon: Users, label: "Contacts", badge: null },
   { href: "/projects", icon: Briefcase, label: "Projects", badge: null },
   { href: "/members", icon: Music, label: "Members", badge: null },
+  { href: "/repertoire", icon: ListMusic, label: "Repertoire", badge: null },
+  { href: "/performer-contracts", icon: FileText, label: "Performer Contracts", badge: null },
   { href: "/venues", icon: MapPin, label: "Venues", badge: null },
   { href: "/documents", icon: FolderOpen, label: "Documents", badge: null },
   { href: "/scheduler", icon: Calendar, label: "Scheduler", badge: null },

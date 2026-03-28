@@ -5,7 +5,7 @@ config({ path: resolve(process.cwd(), '.env') });
 import express, { type Request, Response, NextFunction } from "express";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
-import csrf from "csurf";
+import { csrfProtection } from "./src/middleware/csrfProtection";
 import cookieParser from "cookie-parser";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
@@ -132,39 +132,19 @@ app.use((err: any, req: any, res: any, next: any) => {
   next(err);
 });
 
-// CSRF Protection - applied after sessions are configured
-const csrfProtection = csrf({
+// CSRF Protection — HMAC-signed double-submit cookie (replaces deprecated csurf)
+const csrfMiddleware = csrfProtection({
   cookie: {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax'
-  }
+    sameSite: 'lax',
+  },
+  maxAgeMs: 8 * 60 * 60 * 1000, // 8 hours
 });
 
-// DEBUG: CSRF error handler
-app.use((err: any, req: any, res: any, next: any) => {
-  console.error('🔴 ERROR HANDLER HIT:', {
-    code: err.code,
-    message: err.message,
-    url: req.url,
-    method: req.method
-  });
-  
-  if (err.code === 'EBADCSRFTOKEN') {
-    console.error('🛡️ CSRF TOKEN ERROR:', {
-      url: req.url,
-      method: req.method,
-      csrfToken: req.headers['x-csrf-token'],
-      cookie: req.headers.cookie
-    });
-    return res.status(403).json({ error: 'Invalid CSRF token' });
-  }
-  next(err);
-});
-
-// CSRF token endpoint - apply CSRF middleware to generate token and cookie
-app.get('/api/csrf-token', csrfProtection, (req, res) => {
-  res.json({ csrfToken: req.csrfToken() });
+// CSRF token endpoint — generates secret cookie + returns signed token
+app.get('/api/csrf-token', csrfMiddleware, (req, res) => {
+  res.json({ csrfToken: (req as any).csrfToken() });
 });
 
 
@@ -285,7 +265,7 @@ app.use('/auth', (req, res, next) => {
 });
 
 (async () => {
-  const server = await registerRoutes(app, csrfProtection);
+  const server = await registerRoutes(app, csrfMiddleware);
 
   // DEBUG: Express route dump (only when DEBUG_OAUTH=1)
   if (process.env.DEBUG_OAUTH === '1') {

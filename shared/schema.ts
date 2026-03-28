@@ -730,13 +730,21 @@ export const members = pgTable("members", {
   lastName: text("last_name").notNull(),
   email: text("email").notNull().unique(),
   phone: text("phone"),
-  instruments: text("instruments").array(), // Array of instruments they play
+  instruments: text("instruments").array(), // Array of all instruments they can play
+  primaryInstrument: text("primary_instrument"), // Their main role/instrument (e.g. "Vocalist", "Keys")
   hourlyRate: decimal("hourly_rate", { precision: 10, scale: 2 }),
+  feeNotes: text("fee_notes"), // Fee arrangement notes (e.g. "flat rate only, no % deals")
+  taxNumber: text("tax_number"), // UTR/VAT number for their invoicing
+  paymentDetails: text("payment_details"), // Bank details / payment notes
   address: text("address"),
   city: text("city"),
   state: text("state"),
   zipCode: text("zip_code"),
   preferredStatus: boolean("preferred_status").default(false),
+  callOrder: integer("call_order"), // Default priority within their instrument (1 = first call)
+  isActive: boolean("is_active").default(true), // Active vs retired/inactive
+  portalAccess: boolean("portal_access").default(false), // Can log into member portal
+  portalEmail: text("portal_email"), // Portal login email if different from contact email
   notes: text("notes"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
@@ -804,6 +812,12 @@ export const projectMembers = pgTable("project_members", {
   fee: decimal("fee", { precision: 10, scale: 2 }),
   status: text("status").notNull().default('pending'), // pending, confirmed, declined
   confirmedAt: timestamp("confirmed_at"),
+  callOrder: integer("call_order"), // Which number in the offer sequence (1st call, 2nd call, etc.)
+  offerType: text("offer_type"), // 'direct', 'shotgun', 'auto-book'
+  offeredAt: timestamp("offered_at"), // When the offer/request was sent to the musician
+  respondedAt: timestamp("responded_at"), // When they accepted or declined
+  paymentStatus: text("payment_status").default('unpaid'), // 'unpaid', 'invoiced', 'paid'
+  memberInvoiceId: varchar("member_invoice_id"), // Link to their submitted invoice if applicable
   notes: text("notes"),
   createdAt: timestamp("created_at").defaultNow(),
 }, (table) => ({
@@ -817,13 +831,107 @@ export const memberAvailability = pgTable("member_availability", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   tenantId: varchar("tenant_id").references(() => tenants.id).notNull(),
   memberId: varchar("member_id").references(() => members.id).notNull(),
-  date: timestamp("date").notNull(),
-  available: boolean("available").default(true),
+  date: timestamp("date").notNull(), // Kept for backwards compatibility
+  startTime: timestamp("start_time"), // Start of availability/unavailability window
+  endTime: timestamp("end_time"),     // End of window (null = all day)
+  availabilityType: text("availability_type").default('available'), // 'available', 'pencilled', 'booked', 'unavailable', 'tentative'
+  projectId: varchar("project_id").references(() => projects.id), // If pencilled/booked — which project
+  available: boolean("available").default(true), // Kept for backwards compatibility
+  isRecurring: boolean("is_recurring").default(false), // e.g. unavailable every Sunday
+  recurrenceRule: text("recurrence_rule"), // iCal RRULE string for recurring blocks
   notes: text("notes"),
   createdAt: timestamp("created_at").defaultNow(),
 }, (table) => ({
   tenantIdIdx: index("member_availability_tenant_id_idx").on(table.tenantId),
   memberIdIdx: index("member_availability_member_id_idx").on(table.memberId),
+}));
+
+// Member Groups — for grouping musicians (e.g. "Full Band", "String Quartet", "Duo")
+export const memberGroups = pgTable("member_groups", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").references(() => tenants.id).notNull(),
+  name: text("name").notNull(), // e.g. "Full Band", "String Quartet"
+  description: text("description"),
+  colour: text("colour"), // For calendar/UI colour coding
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  tenantIdIdx: index("member_groups_tenant_id_idx").on(table.tenantId),
+}));
+
+// Member Group Members — junction between groups and musicians
+export const memberGroupMembers = pgTable("member_group_members", {
+  tenantId: varchar("tenant_id").references(() => tenants.id).notNull(),
+  groupId: varchar("group_id").references(() => memberGroups.id).notNull(),
+  memberId: varchar("member_id").references(() => members.id).notNull(),
+  role: text("role"), // Their role within this specific group (e.g. "Lead Vocals")
+  orderIndex: integer("order_index"), // Position in the group listing
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  tenantIdIdx: index("member_group_members_tenant_id_idx").on(table.tenantId),
+  groupIdIdx: index("member_group_members_group_id_idx").on(table.groupId),
+  memberIdIdx: index("member_group_members_member_id_idx").on(table.memberId),
+}));
+
+// Performer Contracts — musician-specific contracts per gig, separate from client contracts
+export const performerContracts = pgTable("performer_contracts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").references(() => tenants.id).notNull(),
+  projectId: varchar("project_id").references(() => projects.id).notNull(),
+  memberId: varchar("member_id").references(() => members.id).notNull(),
+  templateId: varchar("template_id"), // If generated from a contract template
+  title: text("title").notNull(),
+  content: text("content").notNull(), // HTML/markdown contract body
+  fee: decimal("fee", { precision: 10, scale: 2 }),
+  callTime: timestamp("call_time"), // When they need to arrive
+  dresscode: text("dresscode"),
+  specialInstructions: text("special_instructions"),
+  status: text("status").default('draft'), // 'draft', 'sent', 'signed', 'cancelled'
+  sentAt: timestamp("sent_at"),
+  signedAt: timestamp("signed_at"),
+  signatureData: text("signature_data"), // Base64 signature image or typed name
+  signerName: text("signer_name"),
+  signerEmail: text("signer_email"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  tenantIdIdx: index("performer_contracts_tenant_id_idx").on(table.tenantId),
+  projectIdIdx: index("performer_contracts_project_id_idx").on(table.projectId),
+  memberIdIdx: index("performer_contracts_member_id_idx").on(table.memberId),
+}));
+
+// Repertoire — song library for the agency/band
+export const repertoire = pgTable("repertoire", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").references(() => tenants.id).notNull(),
+  title: text("title").notNull(),
+  artist: text("artist"),
+  genre: text("genre"),
+  key: text("key"), // Musical key (C, D, Eb, etc.)
+  tempo: integer("tempo"), // BPM
+  duration: integer("duration"), // Duration in seconds
+  notes: text("notes"),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  tenantIdIdx: index("repertoire_tenant_id_idx").on(table.tenantId),
+}));
+
+// Project Setlist — songs assigned to a specific project/gig
+export const projectSetlist = pgTable("project_setlist", {
+  tenantId: varchar("tenant_id").references(() => tenants.id).notNull(),
+  projectId: varchar("project_id").references(() => projects.id).notNull(),
+  songId: varchar("song_id").references(() => repertoire.id).notNull(),
+  setNumber: integer("set_number").default(1), // Set 1, Set 2, etc.
+  orderIndex: integer("order_index").notNull(), // Position within the set
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  tenantIdIdx: index("project_setlist_tenant_id_idx").on(table.tenantId),
+  projectIdIdx: index("project_setlist_project_id_idx").on(table.projectId),
+  songIdIdx: index("project_setlist_song_id_idx").on(table.songId),
 }));
 
 // Project Files
@@ -1298,6 +1406,11 @@ export const insertMemberSchema = createInsertSchema(members).omit({ id: true, c
 export const insertVenueSchema = createInsertSchema(venues).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertProjectMemberSchema = createInsertSchema(projectMembers).omit({ createdAt: true });
 export const insertMemberAvailabilitySchema = createInsertSchema(memberAvailability).omit({ id: true, createdAt: true });
+export const insertMemberGroupSchema = createInsertSchema(memberGroups).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertMemberGroupMemberSchema = createInsertSchema(memberGroupMembers).omit({ createdAt: true });
+export const insertPerformerContractSchema = createInsertSchema(performerContracts).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertRepertoireSchema = createInsertSchema(repertoire).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertProjectSetlistSchema = createInsertSchema(projectSetlist).omit({ createdAt: true });
 export const insertProjectFileSchema = createInsertSchema(projectFiles).omit({ id: true, createdAt: true });
 export const insertProjectNoteSchema = createInsertSchema(projectNotes).omit({ id: true, createdAt: true });
 export const insertSmsMessageSchema = createInsertSchema(smsMessages).omit({ id: true, createdAt: true });
@@ -1567,6 +1680,16 @@ export type ProjectMember = typeof projectMembers.$inferSelect;
 export type InsertProjectMember = z.infer<typeof insertProjectMemberSchema>;
 export type MemberAvailability = typeof memberAvailability.$inferSelect;
 export type InsertMemberAvailability = z.infer<typeof insertMemberAvailabilitySchema>;
+export type MemberGroup = typeof memberGroups.$inferSelect;
+export type InsertMemberGroup = z.infer<typeof insertMemberGroupSchema>;
+export type MemberGroupMember = typeof memberGroupMembers.$inferSelect;
+export type InsertMemberGroupMember = z.infer<typeof insertMemberGroupMemberSchema>;
+export type PerformerContract = typeof performerContracts.$inferSelect;
+export type InsertPerformerContract = z.infer<typeof insertPerformerContractSchema>;
+export type Repertoire = typeof repertoire.$inferSelect;
+export type InsertRepertoire = z.infer<typeof insertRepertoireSchema>;
+export type ProjectSetlist = typeof projectSetlist.$inferSelect;
+export type InsertProjectSetlist = z.infer<typeof insertProjectSetlistSchema>;
 export type ProjectFile = typeof projectFiles.$inferSelect;
 export type InsertProjectFile = z.infer<typeof insertProjectFileSchema>;
 export type ProjectNote = typeof projectNotes.$inferSelect;

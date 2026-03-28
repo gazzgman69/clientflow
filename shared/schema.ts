@@ -16,6 +16,24 @@ export const tenants = pgTable("tenants", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// Auth tokens table — replaces in-memory Maps for portal and password-reset tokens
+export const authTokens = pgTable("auth_tokens", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tokenHash: text("token_hash").notNull().unique(), // SHA-256 hash of the actual token
+  tokenType: text("token_type").notNull(), // 'portal_access' | 'password_reset'
+  userId: varchar("user_id"), // For password_reset tokens
+  contactId: varchar("contact_id"), // For portal_access tokens
+  tenantId: varchar("tenant_id"), // Tenant scope for portal tokens
+  email: text("email"), // Associated email
+  expiresAt: timestamp("expires_at").notNull(),
+  usedAt: timestamp("used_at"), // Set when token is consumed (single-use)
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  tokenHashIdx: uniqueIndex("auth_tokens_token_hash_idx").on(table.tokenHash),
+  tokenTypeIdx: index("auth_tokens_type_idx").on(table.tokenType),
+  expiresAtIdx: index("auth_tokens_expires_at_idx").on(table.expiresAt),
+}));
+
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   tenantId: varchar("tenant_id").references(() => tenants.id).notNull(), // SECURITY FIX: Made NOT NULL for tenant isolation

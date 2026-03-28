@@ -69,8 +69,13 @@ export const ensurePortalAuth = async (req: Request, res: Response, next: NextFu
     // Import storage dynamically to avoid circular dependencies
     const { storage } = await import('../storage');
     
-    // Get contact to find associated projects and tenant
-    const contact = await storage.getContact(req.session.portalContactId);
+    // Get contact with tenant scoping from session
+    const portalTenantId = req.session.tenantId;
+    if (!portalTenantId) {
+      console.error('🚨 SECURITY: Portal session missing tenantId for contact', req.session.portalContactId);
+      return res.status(401).json({ error: 'Invalid portal session - missing tenant context' });
+    }
+    const contact = await storage.getContact(req.session.portalContactId, portalTenantId);
     if (!contact) {
       return res.status(401).json({ error: 'Invalid portal session' });
     }
@@ -83,7 +88,7 @@ export const ensurePortalAuth = async (req: Request, res: Response, next: NextFu
     
     // SECURITY: Verify project ownership if projectId is provided
     if (projectId) {
-      const hasAccess = await verifyProjectAccessForContact(contact.id, projectId);
+      const hasAccess = await verifyProjectAccessForContact(contact.id, projectId, portalTenantId);
       if (!hasAccess) {
         console.log(`🚫 SECURITY: Contact ${contact.email} denied access to project ${projectId} - not owner`);
         return res.status(403).json({ 
@@ -132,12 +137,14 @@ async function resolveTenantIdFromContact(contactId: string, projectId?: string)
   }
 }
 
-async function verifyProjectAccessForContact(contactId: string, projectId: string): Promise<boolean> {
+async function verifyProjectAccessForContact(contactId: string, projectId: string, tenantId?: string): Promise<boolean> {
   try {
     const { storage } = await import('../storage');
     
-    // Get all projects for this contact
-    const projects = await storage.getProjectsByContact(contactId);
+    // Get all projects for this contact (tenant-scoped if tenantId available)
+    const projects = tenantId 
+      ? await storage.getProjectsByContact(contactId, tenantId)
+      : await storage.getProjectsByContact(contactId);
     
     // Check if contactId has access to this specific project
     const hasAccess = projects.some(p => p.id === projectId);

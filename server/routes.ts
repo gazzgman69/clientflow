@@ -104,6 +104,11 @@ import {
   insertVenueSchema,
   insertProjectMemberSchema,
   insertMemberAvailabilitySchema,
+  insertMemberGroupSchema,
+  insertMemberGroupMemberSchema,
+  insertPerformerContractSchema,
+  insertRepertoireSchema,
+  insertProjectSetlistSchema,
   insertProjectFileSchema,
   insertProjectNoteSchema,
   insertSmsMessageSchema,
@@ -1179,6 +1184,85 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
   
+  // ── Musician Portal Routes ─────────────────────────────────────────────────
+  // These use the standard user auth (ensureUserAuth) scoped to a member ID
+  // passed as a query param or from session. For now they work for agency-side
+  // preview — full musician auth can be layered on later.
+
+  app.get('/api/portal/musician/gigs', ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
+    try {
+      const memberId = req.query.memberId as string;
+      if (!memberId) return res.status(400).json({ error: 'memberId required' });
+
+      // Get all projectMembers rows for this musician
+      const allProjects = await storage.getProjects(req.tenantId!);
+      const results = [];
+      for (const project of allProjects) {
+        const pms = await storage.getProjectMembers(project.id, req.tenantId!);
+        const assignment = pms.find(pm => pm.memberId === memberId);
+        if (assignment) results.push({ ...project, assignment });
+      }
+      res.json(results);
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to fetch musician gigs' });
+    }
+  });
+
+  app.get('/api/portal/musician/contracts', ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
+    try {
+      const memberId = req.query.memberId as string;
+      if (!memberId) return res.status(400).json({ error: 'memberId required' });
+      const contracts = await storage.getPerformerContracts(req.tenantId!);
+      res.json(contracts.filter(c => c.memberId === memberId));
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to fetch performer contracts' });
+    }
+  });
+
+  app.get('/api/portal/musician/availability', ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
+    try {
+      const memberId = req.query.memberId as string;
+      if (!memberId) return res.status(400).json({ error: 'memberId required' });
+      const availability = await storage.getMemberAvailability(memberId, req.tenantId!);
+      res.json(availability);
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to fetch availability' });
+    }
+  });
+
+  app.post('/api/portal/musician/availability', ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
+    try {
+      const { memberId, date, availabilityType, notes, startTime, endTime } = req.body;
+      if (!memberId) return res.status(400).json({ error: 'memberId required' });
+      const availability = await storage.addMemberAvailability(
+        { memberId, date: new Date(date), availabilityType: availabilityType || 'available', notes, startTime: startTime ? new Date(startTime) : undefined, endTime: endTime ? new Date(endTime) : undefined, tenantId: req.tenantId! },
+        req.tenantId!
+      );
+      res.status(201).json(availability);
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to set availability' });
+    }
+  });
+
+  // Musician responds to a gig offer (confirm or decline)
+  app.patch('/api/portal/musician/gigs/:projectId/respond', ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
+    try {
+      const { memberId, status } = req.body;
+      if (!memberId || !['confirmed', 'declined'].includes(status)) {
+        return res.status(400).json({ error: 'memberId and status (confirmed|declined) required' });
+      }
+      const updated = await storage.updateProjectMember(
+        req.params.projectId, memberId,
+        { status, respondedAt: new Date() },
+        req.tenantId!
+      );
+      if (!updated) return res.status(404).json({ error: 'Assignment not found' });
+      res.json(updated);
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to respond to gig' });
+    }
+  });
+
   // Main user authentication endpoints  
   // User signup endpoint - Creates isolated tenant for each new user
   app.post('/api/auth/signup', authLimiter, async (req, res) => {
@@ -5894,6 +5978,236 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
       res.status(204).send();
     } catch (error) {
       res.status(500).json({ message: "Failed to remove project member" });
+    }
+  });
+
+  // Update project member (offer type, payment status, etc.)
+  app.patch("/api/projects/:projectId/members/:memberId", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
+    try {
+      const data = insertProjectMemberSchema.partial().parse(req.body);
+      const updated = await storage.updateProjectMember(req.params.projectId, req.params.memberId, data, req.tenantId!);
+      if (!updated) return res.status(404).json({ message: "Project member not found" });
+      res.json(updated);
+    } catch (error) {
+      res.status(400).json({ message: "Invalid data" });
+    }
+  });
+
+  // ── Member Groups ──────────────────────────────────────────────────────────
+
+  app.get("/api/member-groups", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
+    try {
+      const groups = await storage.getMemberGroups(req.tenantId!);
+      res.json(groups);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch member groups" });
+    }
+  });
+
+  app.get("/api/member-groups/:id", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
+    try {
+      const group = await storage.getMemberGroup(req.params.id, req.tenantId!);
+      if (!group) return res.status(404).json({ message: "Group not found" });
+      res.json(group);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch group" });
+    }
+  });
+
+  app.post("/api/member-groups", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
+    try {
+      const data = insertMemberGroupSchema.parse(req.body);
+      const group = await storage.createMemberGroup(data, req.tenantId!);
+      res.status(201).json(group);
+    } catch (error) {
+      res.status(400).json({ message: "Invalid group data" });
+    }
+  });
+
+  app.patch("/api/member-groups/:id", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
+    try {
+      const data = insertMemberGroupSchema.partial().parse(req.body);
+      const group = await storage.updateMemberGroup(req.params.id, data, req.tenantId!);
+      if (!group) return res.status(404).json({ message: "Group not found" });
+      res.json(group);
+    } catch (error) {
+      res.status(400).json({ message: "Invalid group data" });
+    }
+  });
+
+  app.delete("/api/member-groups/:id", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
+    try {
+      const deleted = await storage.deleteMemberGroup(req.params.id, req.tenantId!);
+      if (!deleted) return res.status(404).json({ message: "Group not found" });
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ message: "Failed to delete group" });
+    }
+  });
+
+  app.get("/api/member-groups/:id/members", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
+    try {
+      const members = await storage.getMemberGroupMembers(req.params.id, req.tenantId!);
+      res.json(members);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch group members" });
+    }
+  });
+
+  app.post("/api/member-groups/:id/members", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
+    try {
+      const data = insertMemberGroupMemberSchema.parse({ ...req.body, groupId: req.params.id });
+      const member = await storage.addMemberToGroup(data, req.tenantId!);
+      res.status(201).json(member);
+    } catch (error) {
+      res.status(400).json({ message: "Invalid data" });
+    }
+  });
+
+  app.delete("/api/member-groups/:id/members/:memberId", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
+    try {
+      const deleted = await storage.removeMemberFromGroup(req.params.id, req.params.memberId, req.tenantId!);
+      if (!deleted) return res.status(404).json({ message: "Member not in group" });
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ message: "Failed to remove member from group" });
+    }
+  });
+
+  // ── Performer Contracts ────────────────────────────────────────────────────
+
+  app.get("/api/performer-contracts", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
+    try {
+      const projectId = req.query.projectId as string | undefined;
+      const contracts = await storage.getPerformerContracts(req.tenantId!, projectId);
+      res.json(contracts);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch performer contracts" });
+    }
+  });
+
+  app.get("/api/performer-contracts/:id", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
+    try {
+      const contract = await storage.getPerformerContract(req.params.id, req.tenantId!);
+      if (!contract) return res.status(404).json({ message: "Contract not found" });
+      res.json(contract);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch contract" });
+    }
+  });
+
+  app.post("/api/performer-contracts", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
+    try {
+      const data = insertPerformerContractSchema.parse(req.body);
+      const contract = await storage.createPerformerContract(data, req.tenantId!);
+      res.status(201).json(contract);
+    } catch (error) {
+      res.status(400).json({ message: "Invalid contract data" });
+    }
+  });
+
+  app.patch("/api/performer-contracts/:id", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
+    try {
+      const data = insertPerformerContractSchema.partial().parse(req.body);
+      const contract = await storage.updatePerformerContract(req.params.id, data, req.tenantId!);
+      if (!contract) return res.status(404).json({ message: "Contract not found" });
+      res.json(contract);
+    } catch (error) {
+      res.status(400).json({ message: "Invalid contract data" });
+    }
+  });
+
+  app.delete("/api/performer-contracts/:id", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
+    try {
+      const deleted = await storage.deletePerformerContract(req.params.id, req.tenantId!);
+      if (!deleted) return res.status(404).json({ message: "Contract not found" });
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ message: "Failed to delete contract" });
+    }
+  });
+
+  // ── Repertoire ─────────────────────────────────────────────────────────────
+
+  app.get("/api/repertoire", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
+    try {
+      const songs = await storage.getRepertoire(req.tenantId!);
+      res.json(songs);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch repertoire" });
+    }
+  });
+
+  app.post("/api/repertoire", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
+    try {
+      const data = insertRepertoireSchema.parse(req.body);
+      const song = await storage.createRepertoireItem(data, req.tenantId!);
+      res.status(201).json(song);
+    } catch (error) {
+      res.status(400).json({ message: "Invalid song data" });
+    }
+  });
+
+  app.patch("/api/repertoire/:id", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
+    try {
+      const data = insertRepertoireSchema.partial().parse(req.body);
+      const song = await storage.updateRepertoireItem(req.params.id, data, req.tenantId!);
+      if (!song) return res.status(404).json({ message: "Song not found" });
+      res.json(song);
+    } catch (error) {
+      res.status(400).json({ message: "Invalid song data" });
+    }
+  });
+
+  app.delete("/api/repertoire/:id", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
+    try {
+      const deleted = await storage.deleteRepertoireItem(req.params.id, req.tenantId!);
+      if (!deleted) return res.status(404).json({ message: "Song not found" });
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ message: "Failed to delete song" });
+    }
+  });
+
+  // ── Project Setlist ────────────────────────────────────────────────────────
+
+  app.get("/api/projects/:id/setlist", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
+    try {
+      const setlist = await storage.getProjectSetlist(req.params.id, req.tenantId!);
+      res.json(setlist);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch setlist" });
+    }
+  });
+
+  app.post("/api/projects/:id/setlist", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
+    try {
+      const data = insertProjectSetlistSchema.parse({ ...req.body, projectId: req.params.id });
+      const item = await storage.addSongToSetlist(data, req.tenantId!);
+      res.status(201).json(item);
+    } catch (error) {
+      res.status(400).json({ message: "Invalid setlist data" });
+    }
+  });
+
+  app.patch("/api/projects/:id/setlist/:songId", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
+    try {
+      const data = insertProjectSetlistSchema.partial().parse(req.body);
+      const item = await storage.updateSetlistItem(req.params.id, req.params.songId, data, req.tenantId!);
+      if (!item) return res.status(404).json({ message: "Setlist item not found" });
+      res.json(item);
+    } catch (error) {
+      res.status(400).json({ message: "Invalid data" });
+    }
+  });
+
+  app.delete("/api/projects/:id/setlist/:songId", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
+    try {
+      const deleted = await storage.removeSongFromSetlist(req.params.id, req.params.songId, req.tenantId!);
+      if (!deleted) return res.status(404).json({ message: "Song not in setlist" });
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ message: "Failed to remove song from setlist" });
     }
   });
 

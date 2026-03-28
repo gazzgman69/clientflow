@@ -14,6 +14,11 @@ import {
   type Venue, type InsertVenue,
   type ProjectMember, type InsertProjectMember,
   type MemberAvailability, type InsertMemberAvailability,
+  type MemberGroup, type InsertMemberGroup,
+  type MemberGroupMember, type InsertMemberGroupMember,
+  type PerformerContract, type InsertPerformerContract,
+  type Repertoire, type InsertRepertoire,
+  type ProjectSetlist, type InsertProjectSetlist,
   type ProjectFile, type InsertProjectFile,
   type ProjectNote, type InsertProjectNote,
   type SmsMessage, type InsertSmsMessage,
@@ -154,6 +159,7 @@ export interface IStorage {
   // Project Members
   getProjectMembers(projectId: string, tenantId: string): Promise<ProjectMember[]>;
   addProjectMember(projectMember: InsertProjectMember, tenantId: string): Promise<ProjectMember>;
+  updateProjectMember(projectId: string, memberId: string, data: Partial<InsertProjectMember>, tenantId: string): Promise<ProjectMember | undefined>;
   removeProjectMember(projectId: string, memberId: string, tenantId: string): Promise<boolean>;
   
   // Member Availability
@@ -161,6 +167,36 @@ export interface IStorage {
   addMemberAvailability(availability: InsertMemberAvailability, tenantId: string): Promise<MemberAvailability>;
   updateMemberAvailability(id: string, availability: Partial<InsertMemberAvailability>, tenantId: string): Promise<MemberAvailability | undefined>;
   deleteMemberAvailability(id: string, tenantId: string): Promise<boolean>;
+
+  // Member Groups
+  getMemberGroups(tenantId: string): Promise<MemberGroup[]>;
+  getMemberGroup(id: string, tenantId: string): Promise<MemberGroup | undefined>;
+  createMemberGroup(group: InsertMemberGroup, tenantId: string): Promise<MemberGroup>;
+  updateMemberGroup(id: string, group: Partial<InsertMemberGroup>, tenantId: string): Promise<MemberGroup | undefined>;
+  deleteMemberGroup(id: string, tenantId: string): Promise<boolean>;
+  getMemberGroupMembers(groupId: string, tenantId: string): Promise<MemberGroupMember[]>;
+  addMemberToGroup(data: InsertMemberGroupMember, tenantId: string): Promise<MemberGroupMember>;
+  removeMemberFromGroup(groupId: string, memberId: string, tenantId: string): Promise<boolean>;
+
+  // Performer Contracts
+  getPerformerContracts(tenantId: string, projectId?: string): Promise<PerformerContract[]>;
+  getPerformerContract(id: string, tenantId: string): Promise<PerformerContract | undefined>;
+  createPerformerContract(contract: InsertPerformerContract, tenantId: string): Promise<PerformerContract>;
+  updatePerformerContract(id: string, contract: Partial<InsertPerformerContract>, tenantId: string): Promise<PerformerContract | undefined>;
+  deletePerformerContract(id: string, tenantId: string): Promise<boolean>;
+
+  // Repertoire
+  getRepertoire(tenantId: string): Promise<Repertoire[]>;
+  getRepertoireItem(id: string, tenantId: string): Promise<Repertoire | undefined>;
+  createRepertoireItem(item: InsertRepertoire, tenantId: string): Promise<Repertoire>;
+  updateRepertoireItem(id: string, item: Partial<InsertRepertoire>, tenantId: string): Promise<Repertoire | undefined>;
+  deleteRepertoireItem(id: string, tenantId: string): Promise<boolean>;
+
+  // Project Setlist
+  getProjectSetlist(projectId: string, tenantId: string): Promise<ProjectSetlist[]>;
+  addSongToSetlist(item: InsertProjectSetlist, tenantId: string): Promise<ProjectSetlist>;
+  updateSetlistItem(projectId: string, songId: string, data: Partial<InsertProjectSetlist>, tenantId: string): Promise<ProjectSetlist | undefined>;
+  removeSongFromSetlist(projectId: string, songId: string, tenantId: string): Promise<boolean>;
   
   // Project Files
   getProjectFiles(projectId: string, tenantId: string): Promise<ProjectFile[]>;

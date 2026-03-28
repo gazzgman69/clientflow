@@ -23,6 +23,11 @@ import {
   type Venue, type InsertVenue,
   type ProjectMember, type InsertProjectMember,
   type MemberAvailability, type InsertMemberAvailability,
+  type MemberGroup, type InsertMemberGroup,
+  type MemberGroupMember, type InsertMemberGroupMember,
+  type PerformerContract, type InsertPerformerContract,
+  type Repertoire, type InsertRepertoire,
+  type ProjectSetlist, type InsertProjectSetlist,
   type ProjectFile, type InsertProjectFile,
   type ProjectNote, type InsertProjectNote,
   type SmsMessage, type InsertSmsMessage,
@@ -99,7 +104,7 @@ import {
   type ScheduleTeamMember, type InsertScheduleTeamMember,
   type Booking, type InsertBooking,
   users, leads, contacts, projects, quotes, contracts, contractTemplates, invoices, incomeCategories, invoiceItems, invoiceLineItems, paymentSchedules, paymentInstallments, recurringInvoiceSettings, paymentTransactions, taxSettings, tasks, emails, emailThreads, activities, automations, 
-  members, venues, projectMembers, memberAvailability, projectFiles, projectNotes, smsMessages, 
+  members, venues, projectMembers, memberAvailability, memberGroups, memberGroupMembers, performerContracts, repertoire, projectSetlist, projectFiles, projectNotes, smsMessages, 
   messageTemplates, messageThreads, calendars, events, calendarIntegrations, calendarSyncLog, templates, leadCaptureForms,
   leadStatusHistory, emailSignatures, emailProviderCatalog, emailProviderConfigs, emailAccounts, emailProviderIntegrations, tenantEmailPrefs, portalForms, paymentSessions, webhookEvents, tenants,
   // Enhanced Quotes System tables
@@ -6106,6 +6111,14 @@ export class DrizzleStorage implements IStorage {
     return result[0];
   }
 
+  async updateProjectMember(projectId: string, memberId: string, data: Partial<InsertProjectMember>, tenantId: string): Promise<ProjectMember | undefined> {
+    const result = await this.db.update(projectMembers)
+      .set(data)
+      .where(and(eq(projectMembers.projectId, projectId), eq(projectMembers.memberId, memberId), eq(projectMembers.tenantId, tenantId)))
+      .returning();
+    return result[0];
+  }
+
   async removeProjectMember(projectId: string, memberId: string): Promise<boolean> {
     const result = await this.db.delete(projectMembers)
       .where(and(eq(projectMembers.projectId, projectId), eq(projectMembers.memberId, memberId)));
@@ -6125,8 +6138,8 @@ export class DrizzleStorage implements IStorage {
     return await this.db.select().from(memberAvailability).where(eq(memberAvailability.memberId, memberId));
   }
 
-  async addMemberAvailability(availability: InsertMemberAvailability): Promise<MemberAvailability> {
-    const result = await this.db.insert(memberAvailability).values(availability).returning();
+  async addMemberAvailability(availability: InsertMemberAvailability, tenantId?: string): Promise<MemberAvailability> {
+    const result = await this.db.insert(memberAvailability).values({ ...availability, tenantId: tenantId || availability.tenantId }).returning();
     return result[0];
   }
 
@@ -6139,8 +6152,120 @@ export class DrizzleStorage implements IStorage {
     const result = await this.db.delete(memberAvailability).where(eq(memberAvailability.id, id));
     return result.rowCount > 0;
   }
-  
-  // Project Files - PostgreSQL implementation
+
+  // Member Groups - PostgreSQL implementation
+  async getMemberGroups(tenantId: string): Promise<MemberGroup[]> {
+    return await this.db.select().from(memberGroups).where(eq(memberGroups.tenantId, tenantId)).orderBy(memberGroups.name);
+  }
+
+  async getMemberGroup(id: string, tenantId: string): Promise<MemberGroup | undefined> {
+    const result = await this.db.select().from(memberGroups).where(and(eq(memberGroups.id, id), eq(memberGroups.tenantId, tenantId))).limit(1);
+    return result[0];
+  }
+
+  async createMemberGroup(group: InsertMemberGroup, tenantId: string): Promise<MemberGroup> {
+    const result = await this.db.insert(memberGroups).values({ ...group, tenantId }).returning();
+    return result[0];
+  }
+
+  async updateMemberGroup(id: string, group: Partial<InsertMemberGroup>, tenantId: string): Promise<MemberGroup | undefined> {
+    const result = await this.db.update(memberGroups).set({ ...group, updatedAt: new Date() }).where(and(eq(memberGroups.id, id), eq(memberGroups.tenantId, tenantId))).returning();
+    return result[0];
+  }
+
+  async deleteMemberGroup(id: string, tenantId: string): Promise<boolean> {
+    await this.db.delete(memberGroupMembers).where(and(eq(memberGroupMembers.groupId, id), eq(memberGroupMembers.tenantId, tenantId)));
+    const result = await this.db.delete(memberGroups).where(and(eq(memberGroups.id, id), eq(memberGroups.tenantId, tenantId)));
+    return result.rowCount > 0;
+  }
+
+  async getMemberGroupMembers(groupId: string, tenantId: string): Promise<MemberGroupMember[]> {
+    return await this.db.select().from(memberGroupMembers).where(and(eq(memberGroupMembers.groupId, groupId), eq(memberGroupMembers.tenantId, tenantId))).orderBy(memberGroupMembers.orderIndex);
+  }
+
+  async addMemberToGroup(data: InsertMemberGroupMember, tenantId: string): Promise<MemberGroupMember> {
+    const result = await this.db.insert(memberGroupMembers).values({ ...data, tenantId }).returning();
+    return result[0];
+  }
+
+  async removeMemberFromGroup(groupId: string, memberId: string, tenantId: string): Promise<boolean> {
+    const result = await this.db.delete(memberGroupMembers).where(and(eq(memberGroupMembers.groupId, groupId), eq(memberGroupMembers.memberId, memberId), eq(memberGroupMembers.tenantId, tenantId)));
+    return result.rowCount > 0;
+  }
+
+  // Performer Contracts - PostgreSQL implementation
+  async getPerformerContracts(tenantId: string, projectId?: string): Promise<PerformerContract[]> {
+    const conditions = projectId
+      ? and(eq(performerContracts.tenantId, tenantId), eq(performerContracts.projectId, projectId))
+      : eq(performerContracts.tenantId, tenantId);
+    return await this.db.select().from(performerContracts).where(conditions).orderBy(desc(performerContracts.createdAt));
+  }
+
+  async getPerformerContract(id: string, tenantId: string): Promise<PerformerContract | undefined> {
+    const result = await this.db.select().from(performerContracts).where(and(eq(performerContracts.id, id), eq(performerContracts.tenantId, tenantId))).limit(1);
+    return result[0];
+  }
+
+  async createPerformerContract(contract: InsertPerformerContract, tenantId: string): Promise<PerformerContract> {
+    const result = await this.db.insert(performerContracts).values({ ...contract, tenantId }).returning();
+    return result[0];
+  }
+
+  async updatePerformerContract(id: string, contract: Partial<InsertPerformerContract>, tenantId: string): Promise<PerformerContract | undefined> {
+    const result = await this.db.update(performerContracts).set({ ...contract, updatedAt: new Date() }).where(and(eq(performerContracts.id, id), eq(performerContracts.tenantId, tenantId))).returning();
+    return result[0];
+  }
+
+  async deletePerformerContract(id: string, tenantId: string): Promise<boolean> {
+    const result = await this.db.delete(performerContracts).where(and(eq(performerContracts.id, id), eq(performerContracts.tenantId, tenantId)));
+    return result.rowCount > 0;
+  }
+
+  // Repertoire - PostgreSQL implementation
+  async getRepertoire(tenantId: string): Promise<Repertoire[]> {
+    return await this.db.select().from(repertoire).where(eq(repertoire.tenantId, tenantId)).orderBy(repertoire.title);
+  }
+
+  async getRepertoireItem(id: string, tenantId: string): Promise<Repertoire | undefined> {
+    const result = await this.db.select().from(repertoire).where(and(eq(repertoire.id, id), eq(repertoire.tenantId, tenantId))).limit(1);
+    return result[0];
+  }
+
+  async createRepertoireItem(item: InsertRepertoire, tenantId: string): Promise<Repertoire> {
+    const result = await this.db.insert(repertoire).values({ ...item, tenantId }).returning();
+    return result[0];
+  }
+
+  async updateRepertoireItem(id: string, item: Partial<InsertRepertoire>, tenantId: string): Promise<Repertoire | undefined> {
+    const result = await this.db.update(repertoire).set({ ...item, updatedAt: new Date() }).where(and(eq(repertoire.id, id), eq(repertoire.tenantId, tenantId))).returning();
+    return result[0];
+  }
+
+  async deleteRepertoireItem(id: string, tenantId: string): Promise<boolean> {
+    await this.db.delete(projectSetlist).where(eq(projectSetlist.songId, id));
+    const result = await this.db.delete(repertoire).where(and(eq(repertoire.id, id), eq(repertoire.tenantId, tenantId)));
+    return result.rowCount > 0;
+  }
+
+  // Project Setlist - PostgreSQL implementation
+  async getProjectSetlist(projectId: string, tenantId: string): Promise<ProjectSetlist[]> {
+    return await this.db.select().from(projectSetlist).where(and(eq(projectSetlist.projectId, projectId), eq(projectSetlist.tenantId, tenantId))).orderBy(projectSetlist.setNumber, projectSetlist.orderIndex);
+  }
+
+  async addSongToSetlist(item: InsertProjectSetlist, tenantId: string): Promise<ProjectSetlist> {
+    const result = await this.db.insert(projectSetlist).values({ ...item, tenantId }).returning();
+    return result[0];
+  }
+
+  async updateSetlistItem(projectId: string, songId: string, data: Partial<InsertProjectSetlist>, tenantId: string): Promise<ProjectSetlist | undefined> {
+    const result = await this.db.update(projectSetlist).set(data).where(and(eq(projectSetlist.projectId, projectId), eq(projectSetlist.songId, songId), eq(projectSetlist.tenantId, tenantId))).returning();
+    return result[0];
+  }
+
+  async removeSongFromSetlist(projectId: string, songId: string, tenantId: string): Promise<boolean> {
+    const result = await this.db.delete(projectSetlist).where(and(eq(projectSetlist.projectId, projectId), eq(projectSetlist.songId, songId), eq(projectSetlist.tenantId, tenantId)));
+    return result.rowCount > 0;
+  }
   async getProjectFiles(projectId: string): Promise<ProjectFile[]> {
     return await this.db.select().from(projectFiles).where(eq(projectFiles.projectId, projectId));
   }

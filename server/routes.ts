@@ -639,6 +639,13 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
           body[key] = undefined;
         }
       }
+      // Coerce date strings → Date objects for timestamp columns
+      const dateFields = ['projectDate', 'holdExpiresAt', 'followUpDate', 'lastContactedAt', 'lastViewedAt'];
+      for (const field of dateFields) {
+        if (body[field] && typeof body[field] === 'string') {
+          body[field] = new Date(body[field]);
+        }
+      }
       const leadData = insertLeadSchema.omit({ tenantId: true }).parse(body);
       const lead = await storage.createLead({ ...leadData, tenantId: req.tenantId }, req.tenantId);
       

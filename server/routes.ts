@@ -720,8 +720,8 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
       
       res.status(201).json(lead);
     } catch (error: any) {
-      console.error('Lead creation error:', error?.issues || error?.message || error);
-      res.status(400).json({ message: "Invalid lead data", errors: error?.issues });
+      console.error('Lead creation error:', JSON.stringify(error, Object.getOwnPropertyNames(error)));
+      res.status(400).json({ message: "Invalid lead data", errors: error?.issues, debug: error?.message || String(error) });
     }
   });
 

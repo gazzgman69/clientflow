@@ -48,8 +48,8 @@ class LeadStatusAutomator {
         lastContactAt: now,
       };
 
-      // 2. If status is "new", auto-move to "contacted"
-      if (lead.status === 'new') {
+      // 2. If status is "new", auto-move to "contacted" (only if it's an upgrade)
+      if (lead.status === 'new' && this.isStatusUpgrade(lead.status, 'contacted')) {
         // Check if we should respect a manual override
         if (!this.shouldRespectManualOverride(lead.lastManualStatusAt)) {
           updates.status = 'contacted';
@@ -92,8 +92,8 @@ class LeadStatusAutomator {
         lastContactAt: now,
       };
 
-      // 2. If status is "new" or "contacted", auto-move to "proposal_sent"
-      if (lead.status === 'new' || lead.status === 'contacted') {
+      // 2. If status is below "proposal_sent", auto-move to "proposal_sent" (only if upgrade)
+      if (this.isStatusUpgrade(lead.status, 'proposal_sent') && (lead.status === 'new' || lead.status === 'contacted')) {
         // Check if we should respect a manual override
         if (!this.shouldRespectManualOverride(lead.lastManualStatusAt)) {
           const previousStatus = lead.status;
@@ -226,8 +226,8 @@ class LeadStatusAutomator {
         return;
       }
 
-      // Only apply to leads in contacted or proposal_sent status
-      if (lead.status !== 'contacted' && lead.status !== 'proposal_sent') {
+      // Only apply to leads in new, contacted or proposal_sent status
+      if (lead.status !== 'new' && lead.status !== 'contacted' && lead.status !== 'proposal_sent') {
         console.log(`LeadStatusAutomator: Lead ${leadId} not in applicable status for ghosting timeout`);
         return;
       }

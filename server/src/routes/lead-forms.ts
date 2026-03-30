@@ -142,8 +142,13 @@ router.post('/', async (req, res) => {
 router.get('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const form = await storage.getLeadCaptureForm(id);
-    
+    // Try UUID lookup first, then fall back to slug lookup (for public routes)
+    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+    let form = isUUID ? await storage.getLeadCaptureForm(id) : null;
+    if (!form) {
+      form = await storage.getLeadCaptureFormBySlug(id) ?? null;
+    }
+
     if (!form) {
       return res.status(404).json({ error: 'Lead form not found' });
     }

@@ -631,8 +631,8 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
 
   app.post("/api/leads", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
     try {
-      const leadData = insertLeadSchema.parse(req.body);
-      const lead = await storage.createLead(leadData, req.tenantId);
+      const leadData = insertLeadSchema.omit({ tenantId: true }).parse(req.body);
+      const lead = await storage.createLead({ ...leadData, tenantId: req.tenantId }, req.tenantId);
       
       // Auto-create calendar event if lead has a projectDate
       if (lead.projectDate) {

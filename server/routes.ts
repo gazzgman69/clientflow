@@ -53,6 +53,7 @@ import autoRespondersRoutes from "./src/routes/auto-responders";
 import mailSettingsRoutes from "./src/routes/mailSettings";
 import userPrefsRoutes from "./src/routes/userPrefs";
 import leadFormsRoutes from "./src/routes/lead-forms";
+import embedRoutes from "./src/routes/embed";
 import leadCustomFieldsRoutes from "./src/routes/lead-custom-fields";
 import leadAutomationSimpleRoutes from "./src/routes/lead-automation-simple";
 import signaturesRoutes from "./src/routes/signatures";
@@ -799,7 +800,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   // PATCH /api/leads/:id/status
   app.patch("/api/leads/:id/status", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
     try {
-      const { status } = leadStatusUpdateSchema.parse(req.body);
+      const { status, lostReason, lostReasonNotes, holdExpiresAt } = leadStatusUpdateSchema.parse(req.body);
 
       // Get current lead first
       const currentLead = await storage.getLead(req.params.id, req.tenantId);
@@ -807,34 +808,55 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
         return res.status(404).json({ message: "Lead not found" });
       }
 
-      // Map pipeline status back to lead status
-      let leadStatus = status;
-      if (status === 'contacted') leadStatus = 'follow-up';
-      if (status === 'archived') leadStatus = 'converted';
+      // Validate lost reason is provided when marking as lost
+      if (status === 'lost' && !lostReason) {
+        return res.status(400).json({ message: "A reason is required when marking a lead as lost" });
+      }
 
-      // Update with manual status tracking
-      const lead = await storage.updateLead(req.params.id, { 
-        status: leadStatus,
+      // Build update payload
+      const updateData: Record<string, any> = {
+        status,
         lastManualStatusAt: new Date()
-      }, req.tenantId);
-      
-      // TODO: Record manual status change in history
-      // await storage.createLeadStatusHistory({
-      //   leadId: req.params.id,
-      //   fromStatus: currentLead.status,
-      //   toStatus: status,
-      //   reason: 'manual',
-      //   metadata: JSON.stringify({ userId: req.headers['user-id'] || 'unknown' })
-      // });
-      
-      // TODO: Trigger automation event for lead update
-      // leadAutomationService.onEvent('lead.status_changed', {
-      //   leadId: req.params.id,
-      //   fromStatus: currentLead.status,
-      //   toStatus: status,
-      //   reason: 'manual'
-      // });
-      
+      };
+
+      // Add lost reason fields when status is lost
+      if (status === 'lost') {
+        updateData.lostReason = lostReason;
+        updateData.lostReasonNotes = lostReason === 'other' ? (lostReasonNotes || null) : null;
+      } else {
+        // Clear lost reason when moving away from lost status
+        updateData.lostReason = null;
+        updateData.lostReasonNotes = null;
+      }
+
+      // Add hold expiry when status is hold
+      if (status === 'hold' && holdExpiresAt) {
+        updateData.holdExpiresAt = new Date(holdExpiresAt);
+      } else if (status !== 'hold') {
+        updateData.holdExpiresAt = null;
+      }
+
+      const lead = await storage.updateLead(req.params.id, updateData, req.tenantId);
+
+      // Record status change in history
+      try {
+        await storage.createLeadStatusHistory({
+          leadId: req.params.id,
+          fromStatus: currentLead.status,
+          toStatus: status,
+          reason: 'manual',
+          metadata: JSON.stringify({
+            userId: req.headers['user-id'] || 'unknown',
+            lostReason: status === 'lost' ? lostReason : undefined,
+            lostReasonNotes: status === 'lost' && lostReason === 'other' ? lostReasonNotes : undefined,
+            holdExpiresAt: status === 'hold' ? holdExpiresAt : undefined,
+          })
+        });
+      } catch (historyError) {
+        // Don't fail the status update if history recording fails
+        console.error('Failed to record lead status history:', historyError);
+      }
+
       res.json({ ok: true });
     } catch (error) {
       res.status(400).json({ message: "Failed to update lead status" });
@@ -888,9 +910,12 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     ];
   }
 
+  // Embed widget script — public, no auth, served at /embed.js
+  app.use('/', embedRoutes);
+
   // Mount only the specific public form routes (no authentication required)
   // Public form access: GET /api/leads/public/:slug
-  // Public form submission: POST /api/leads/public/:slug/submit  
+  // Public form submission: POST /api/leads/public/:slug/submit
   app.use('/api/leads/public', leadFormsRoutes);
   
   // Public chat widget routes - no auth required

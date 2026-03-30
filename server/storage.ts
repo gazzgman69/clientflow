@@ -1186,6 +1186,16 @@ export class MemStorage implements IStorage {
     return this.leads.delete(id);
   }
 
+  async createLeadStatusHistory(history: InsertLeadStatusHistory): Promise<LeadStatusHistory> {
+    const id = crypto.randomUUID();
+    const entry: LeadStatusHistory = {
+      id,
+      ...history,
+      createdAt: new Date(),
+    };
+    return entry;
+  }
+
   // Contacts
   async getContacts(tenantId: string, userId?: string): Promise<Contact[]> {
     let contacts = Array.from(this.contacts.values()).filter(contact => 
@@ -4638,7 +4648,12 @@ export class DrizzleStorage implements IStorage {
   async getEmailsByContact(contactId: string, tenantId: string): Promise<Email[]> {
     return await this.db.select().from(emails).where(and(eq(emails.contactId, contactId), eq(emails.tenantId, tenantId)));
   }
-  
+
+  async createLeadStatusHistory(history: InsertLeadStatusHistory): Promise<LeadStatusHistory> {
+    const [entry] = await this.db.insert(leadStatusHistory).values(history).returning();
+    return entry;
+  }
+
   // Contacts - Using PostgreSQL
   async getContacts(tenantId: string, userId?: string, limit?: number, offset?: number): Promise<Contact[]> {
     if (!tenantId) {

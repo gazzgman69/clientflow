@@ -65,6 +65,24 @@ export const FORM_FIELD_REGISTRY: Record<string, FormFieldMapping> = {
     sanitizer: (value: string) => value?.trim() || '',
   },
   
+  // Budget and referral fields
+  budgetRange: {
+    model: 'leads',
+    field: 'budgetRange',
+    type: 'text',
+    required: false,
+    label: 'Budget Range',
+    sanitizer: (value: string) => value?.trim() || '',
+  },
+  referralSource: {
+    model: 'leads',
+    field: 'referralSource',
+    type: 'text',
+    required: false,
+    label: 'How Did You Hear About Us',
+    sanitizer: (value: string) => value?.trim() || '',
+  },
+
   // Date and notes fields
   projectDate: {
     model: 'leads',

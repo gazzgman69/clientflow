@@ -214,8 +214,14 @@ export const leads = pgTable("leads", {
   company: text("company"),
   leadSource: text("lead_source"),
   estimatedValue: decimal("estimated_value", { precision: 10, scale: 2 }),
-  status: text("status").notNull().default('new'), // new, qualified, follow-up, converted, lost
+  budgetRange: text("budget_range"), // Budget range selection (e.g. "500-1000", "1000-2000") - currency-aware via tenant settings
+  currency: text("currency").default('GBP'), // Currency code for this lead's budget/value
+  status: text("status").notNull().default('new'), // new, contacted, hold, proposal_sent, lost, converted
   notes: text("notes"),
+  lostReason: text("lost_reason"), // Price too high, Date unavailable, Went with another act, No response, Other
+  lostReasonNotes: text("lost_reason_notes"), // Free text when lostReason is "Other"
+  holdExpiresAt: timestamp("hold_expires_at"), // Configurable expiry for Hold/Pencilled status
+  referralSource: text("referral_source"), // How did you hear about us
   assignedTo: varchar("assigned_to").references(() => users.id),
   projectId: varchar("project_id").references(() => projects.id, { onDelete: 'cascade' }),
   lastContactAt: timestamp("last_contact_at"), // updated on outbound email or logged call
@@ -1134,6 +1140,8 @@ export const leadCaptureForms = pgTable("lead_capture_forms", {
   consentRequired: boolean("consent_required").default(false), // Optional by default
   dataRetentionDays: integer("data_retention_days").default(730), // 2+ years for events far in future
   privacyPolicyUrl: text("privacy_policy_url"),
+  redirectUrl: text("redirect_url"), // Post-submission redirect URL (optional - if null, shows thank you message)
+  thankYouMessage: text("thank_you_message").default('Thank you for your enquiry! We will be in touch shortly.'), // Shown when no redirect URL
   fromAddress: text("from_address"), // Tenant-specific from address for notifications
   isActive: boolean("is_active").default(true),
   createdBy: varchar("created_by").references(() => users.id).notNull(),
@@ -1620,9 +1628,12 @@ export const portalTokenVerifySchema = z.object({
 });
 
 export const leadStatusUpdateSchema = z.object({
-  status: z.enum(['new', 'contacted', 'qualified', 'archived'], {
-    errorMap: () => ({ message: 'Status must be one of: new, contacted, qualified, archived' })
+  status: z.enum(['new', 'contacted', 'hold', 'proposal_sent', 'lost', 'converted'], {
+    errorMap: () => ({ message: 'Status must be one of: new, contacted, hold, proposal_sent, lost, converted' })
   }),
+  lostReason: z.enum(['price_too_high', 'date_unavailable', 'went_with_another', 'no_response', 'other']).optional(),
+  lostReasonNotes: z.string().optional(),
+  holdExpiresAt: z.string().datetime().optional(), // ISO date string for hold expiry
 });
 
 // Types

@@ -225,6 +225,11 @@ router.patch('/:id', async (req, res) => {
     if (form.projectTags !== undefined) updateData.projectTags = form.projectTags;
     if (form.recaptchaEnabled !== undefined) updateData.recaptchaEnabled = form.recaptchaEnabled;
     if (form.isActive !== undefined) updateData.isActive = form.isActive;
+    if (form.consentRequired !== undefined) updateData.consentRequired = form.consentRequired;
+    if (form.consentText !== undefined) updateData.consentText = form.consentText;
+    if (form.privacyPolicyUrl !== undefined) updateData.privacyPolicyUrl = form.privacyPolicyUrl;
+    if (form.redirectUrl !== undefined) updateData.redirectUrl = form.redirectUrl;
+    if (form.thankYouMessage !== undefined) updateData.thankYouMessage = form.thankYouMessage;
 
     // Handle questions update
     if (questions) {
@@ -292,7 +297,9 @@ router.get('/:slug', async (req, res) => {
         consentRequired: form.consentRequired,
         consentText: form.consentText,
         privacyPolicyUrl: form.privacyPolicyUrl,
-        dataRetentionDays: form.dataRetentionDays
+        dataRetentionDays: form.dataRetentionDays,
+        redirectUrl: form.redirectUrl || null,
+        thankYouMessage: form.thankYouMessage || 'Thank you for your enquiry! We will be in touch shortly.',
       },
       questions: questions
     });

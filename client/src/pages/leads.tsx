@@ -44,10 +44,46 @@ function getStatusConfig(status: string) {
   return LEAD_STATUSES.find(s => s.value === mapped) || LEAD_STATUSES[0];
 }
 
+// Budget range options (shared with lead-capture-modal)
+const BUDGET_RANGES = [
+  { value: 'under_500', label: 'Under 500' },
+  { value: '500_1000', label: '500 - 1,000' },
+  { value: '1000_2000', label: '1,000 - 2,000' },
+  { value: '2000_3000', label: '2,000 - 3,000' },
+  { value: '3000_5000', label: '3,000 - 5,000' },
+  { value: '5000_plus', label: '5,000+' },
+] as const;
+
+const EVENT_TYPES = [
+  { value: 'wedding', label: 'Wedding' },
+  { value: 'corporate', label: 'Corporate' },
+  { value: 'private_party', label: 'Private Party' },
+  { value: 'festival', label: 'Festival' },
+  { value: 'charity', label: 'Charity Event' },
+  { value: 'other', label: 'Other' },
+] as const;
+
+const REFERRAL_SOURCES = [
+  { value: 'website', label: 'Website' },
+  { value: 'referral', label: 'Referral / Word of Mouth' },
+  { value: 'social_media', label: 'Social Media' },
+  { value: 'directory', label: 'Directory (Bark, Hitched etc)' },
+  { value: 'google', label: 'Google Search' },
+  { value: 'repeat_client', label: 'Repeat Client' },
+  { value: 'other', label: 'Other' },
+] as const;
+
 export default function Leads() {
   const [showLeadCapture, setShowLeadCapture] = useState(false);
   const [showLostReasonDialog, setShowLostReasonDialog] = useState(false);
   const [showHoldDialog, setShowHoldDialog] = useState(false);
+  const [showEditDialog, setShowEditDialog] = useState(false);
+  const [editingLead, setEditingLead] = useState<Lead | null>(null);
+  const [editForm, setEditForm] = useState({
+    firstName: '', lastName: '', email: '', phone: '',
+    eventType: '', projectDate: '', eventLocation: '',
+    budgetRange: '', referralSource: '', notes: '',
+  });
   const [pendingStatusChange, setPendingStatusChange] = useState<{ leadId: string; status: string } | null>(null);
   const [lostReason, setLostReason] = useState<string>('');
   const [lostReasonNotes, setLostReasonNotes] = useState('');
@@ -89,6 +125,61 @@ export default function Leads() {
       toast({ title: "Error", description: "Failed to update status.", variant: "destructive" });
     },
   });
+
+  const editMutation = useMutation({
+    mutationFn: async (data: { leadId: string; updates: Record<string, any> }) => {
+      return await apiRequest("PATCH", `/api/leads/${data.leadId}`, data.updates);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/leads"] });
+      toast({ title: "Lead updated", description: "Lead has been updated successfully." });
+      setShowEditDialog(false);
+      setEditingLead(null);
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to update lead. Please try again.", variant: "destructive" });
+    },
+  });
+
+  const openEditDialog = (lead: Lead) => {
+    setEditingLead(lead);
+    setEditForm({
+      firstName: lead.firstName || '',
+      lastName: lead.lastName || '',
+      email: lead.email || '',
+      phone: lead.phone || '',
+      eventType: lead.eventType || '',
+      projectDate: lead.projectDate ? new Date(lead.projectDate).toISOString().split('T')[0] : '',
+      eventLocation: lead.eventLocation || '',
+      budgetRange: lead.budgetRange || '',
+      referralSource: lead.referralSource || '',
+      notes: lead.notes || '',
+    });
+    setShowEditDialog(true);
+  };
+
+  const submitEdit = () => {
+    if (!editingLead) return;
+    const updates: Record<string, any> = {};
+    // Only send changed fields
+    if (editForm.firstName !== (editingLead.firstName || '')) updates.firstName = editForm.firstName;
+    if (editForm.lastName !== (editingLead.lastName || '')) updates.lastName = editForm.lastName;
+    if (editForm.email !== (editingLead.email || '')) updates.email = editForm.email;
+    if (editForm.phone !== (editingLead.phone || '')) updates.phone = editForm.phone || undefined;
+    if (editForm.eventType !== (editingLead.eventType || '')) updates.eventType = editForm.eventType || undefined;
+    if (editForm.projectDate !== (editingLead.projectDate ? new Date(editingLead.projectDate).toISOString().split('T')[0] : ''))
+      updates.projectDate = editForm.projectDate || undefined;
+    if (editForm.eventLocation !== (editingLead.eventLocation || '')) updates.eventLocation = editForm.eventLocation || undefined;
+    if (editForm.budgetRange !== (editingLead.budgetRange || '')) updates.budgetRange = editForm.budgetRange || undefined;
+    if (editForm.referralSource !== (editingLead.referralSource || '')) updates.referralSource = editForm.referralSource || undefined;
+    if (editForm.notes !== (editingLead.notes || '')) updates.notes = editForm.notes || undefined;
+
+    if (Object.keys(updates).length === 0) {
+      setShowEditDialog(false);
+      return;
+    }
+    editMutation.mutate({ leadId: editingLead.id, updates });
+  };
 
   const handleStatusChange = (leadId: string, newStatus: string) => {
     if (newStatus === 'lost') {
@@ -255,7 +346,7 @@ export default function Leads() {
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center space-x-2">
-                            <Button variant="ghost" size="sm" data-testid={`edit-lead-${lead.id}`}>
+                            <Button variant="ghost" size="sm" data-testid={`edit-lead-${lead.id}`} onClick={() => openEditDialog(lead)}>
                               <Edit className="h-4 w-4" />
                             </Button>
                             <AlertDialog>
@@ -377,6 +468,91 @@ export default function Leads() {
             </Button>
             <Button onClick={confirmHold}>
               Pencil In
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Lead Dialog */}
+      <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
+        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Edit Lead</DialogTitle>
+            <DialogDescription>Update the lead details below.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label>First Name *</Label>
+                <Input value={editForm.firstName} onChange={(e) => setEditForm(f => ({ ...f, firstName: e.target.value }))} />
+              </div>
+              <div className="space-y-2">
+                <Label>Last Name *</Label>
+                <Input value={editForm.lastName} onChange={(e) => setEditForm(f => ({ ...f, lastName: e.target.value }))} />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Email *</Label>
+              <Input type="email" value={editForm.email} onChange={(e) => setEditForm(f => ({ ...f, email: e.target.value }))} />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label>Event Date</Label>
+                <Input type="date" value={editForm.projectDate} onChange={(e) => setEditForm(f => ({ ...f, projectDate: e.target.value }))} />
+              </div>
+              <div className="space-y-2">
+                <Label>Event Type</Label>
+                <Select value={editForm.eventType} onValueChange={(v) => setEditForm(f => ({ ...f, eventType: v }))}>
+                  <SelectTrigger><SelectValue placeholder="Select..." /></SelectTrigger>
+                  <SelectContent>
+                    {EVENT_TYPES.map((t) => (
+                      <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Phone</Label>
+              <Input type="tel" value={editForm.phone} onChange={(e) => setEditForm(f => ({ ...f, phone: e.target.value }))} />
+            </div>
+            <div className="space-y-2">
+              <Label>Venue</Label>
+              <Input value={editForm.eventLocation} onChange={(e) => setEditForm(f => ({ ...f, eventLocation: e.target.value }))} />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label>Budget Range</Label>
+                <Select value={editForm.budgetRange} onValueChange={(v) => setEditForm(f => ({ ...f, budgetRange: v }))}>
+                  <SelectTrigger><SelectValue placeholder="Select..." /></SelectTrigger>
+                  <SelectContent>
+                    {BUDGET_RANGES.map((r) => (
+                      <SelectItem key={r.value} value={r.value}>£{r.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>How Did You Hear?</Label>
+                <Select value={editForm.referralSource} onValueChange={(v) => setEditForm(f => ({ ...f, referralSource: v }))}>
+                  <SelectTrigger><SelectValue placeholder="Select..." /></SelectTrigger>
+                  <SelectContent>
+                    {REFERRAL_SOURCES.map((s) => (
+                      <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Notes</Label>
+              <Textarea rows={2} value={editForm.notes} onChange={(e) => setEditForm(f => ({ ...f, notes: e.target.value }))} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowEditDialog(false)}>Cancel</Button>
+            <Button onClick={submitEdit} disabled={editMutation.isPending}>
+              {editMutation.isPending ? "Saving..." : "Save Changes"}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -28,6 +28,7 @@ const LEAD_STATUSES = [
   { value: 'proposal_sent', label: 'Proposal Sent', color: 'bg-purple-100 text-purple-800' },
   { value: 'converted', label: 'Converted', color: 'bg-green-100 text-green-800' },
   { value: 'lost', label: 'Lost', color: 'bg-red-100 text-red-800' },
+  { value: 'archived', label: 'Archived', color: 'bg-gray-100 text-gray-800' },
 ] as const;
 
 const LOST_REASONS = [
@@ -72,6 +73,55 @@ const REFERRAL_SOURCES = [
   { value: 'repeat_client', label: 'Repeat Client' },
   { value: 'other', label: 'Other' },
 ] as const;
+
+// Statuses that should show activity indicator
+const ACTIVE_STATUSES = ['new', 'contacted', 'hold', 'proposal_sent'];
+
+// Helper function to get activity indicator details
+function getActivityIndicator(lead: Lead) {
+  // Only show for active statuses
+  if (!ACTIVE_STATUSES.includes(lead.status)) {
+    return null;
+  }
+
+  // Use lastContactAt if available, otherwise fall back to createdAt
+  const relevantDate = lead.lastContactAt ? new Date(lead.lastContactAt) : new Date(lead.createdAt);
+  const now = new Date();
+  const diffTime = now.getTime() - relevantDate.getTime();
+  const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+  const diffHours = Math.floor(diffTime / (1000 * 60 * 60));
+
+  let status: 'active' | 'warm' | 'cold' | 'frozen' = 'active';
+  let bgColor = '';
+  let dotColor = '';
+  let pulsing = false;
+  let label = '';
+
+  if (diffDays > 14) {
+    status = 'frozen';
+    bgColor = 'bg-red-50';
+    dotColor = 'bg-red-600';
+    pulsing = true;
+    label = `${diffDays} days - Going cold!`;
+  } else if (diffDays > 7) {
+    status = 'cold';
+    bgColor = 'bg-red-50';
+    dotColor = 'bg-red-500';
+    label = `${diffDays} days ago`;
+  } else if (diffDays >= 3) {
+    status = 'warm';
+    bgColor = 'bg-amber-50';
+    dotColor = 'bg-amber-500';
+    label = `${diffDays} days ago`;
+  } else {
+    status = 'active';
+    bgColor = 'bg-green-50';
+    dotColor = 'bg-green-500';
+    label = diffHours === 0 ? 'Just now' : diffHours === 1 ? '1 hour ago' : `${diffHours} hours ago`;
+  }
+
+  return { status, bgColor, dotColor, label, pulsing };
+}
 
 export default function Leads() {
   const [showLeadCapture, setShowLeadCapture] = useState(false);
@@ -271,6 +321,7 @@ export default function Leads() {
                     <TableHead>Budget</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Created</TableHead>
+                    <TableHead>Activity</TableHead>
                     <TableHead>Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -343,6 +394,21 @@ export default function Leads() {
                         </TableCell>
                         <TableCell data-testid={`lead-created-${lead.id}`}>
                           {lead.createdAt ? formatDistanceToNow(new Date(lead.createdAt), { addSuffix: true }) : 'Just now'}
+                        </TableCell>
+                        <TableCell data-testid={`lead-activity-${lead.id}`}>
+                          {(() => {
+                            const activity = getActivityIndicator(lead);
+                            if (!activity) return null;
+
+                            return (
+                              <div className={`px-2 py-1 rounded text-sm flex items-center gap-2 ${activity.bgColor} w-fit`}>
+                                <div className={`w-2 h-2 rounded-full ${activity.dotColor} ${activity.pulsing ? 'animate-pulse' : ''}`}></div>
+                                <span className={activity.status === 'frozen' ? 'font-semibold text-red-700' : activity.status === 'cold' ? 'text-red-700' : activity.status === 'warm' ? 'text-amber-700' : 'text-green-700'}>
+                                  {activity.label}
+                                </span>
+                              </div>
+                            );
+                          })()}
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center space-x-2">

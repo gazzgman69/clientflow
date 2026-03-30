@@ -216,7 +216,7 @@ export const leads = pgTable("leads", {
   estimatedValue: decimal("estimated_value", { precision: 10, scale: 2 }),
   budgetRange: text("budget_range"), // Budget range selection (e.g. "500-1000", "1000-2000") - currency-aware via tenant settings
   currency: text("currency").default('GBP'), // Currency code for this lead's budget/value
-  status: text("status").notNull().default('new'), // new, contacted, hold, proposal_sent, lost, converted
+  status: text("status").notNull().default('new'), // new, contacted, hold, proposal_sent, lost, converted, archived
   notes: text("notes"),
   lostReason: text("lost_reason"), // Price too high, Date unavailable, Went with another act, No response, Other
   lostReasonNotes: text("lost_reason_notes"), // Free text when lostReason is "Other"
@@ -1628,8 +1628,8 @@ export const portalTokenVerifySchema = z.object({
 });
 
 export const leadStatusUpdateSchema = z.object({
-  status: z.enum(['new', 'contacted', 'hold', 'proposal_sent', 'lost', 'converted'], {
-    errorMap: () => ({ message: 'Status must be one of: new, contacted, hold, proposal_sent, lost, converted' })
+  status: z.enum(['new', 'contacted', 'hold', 'proposal_sent', 'lost', 'converted', 'archived'], {
+    errorMap: () => ({ message: 'Status must be one of: new, contacted, hold, proposal_sent, lost, converted, archived' })
   }),
   lostReason: z.enum(['price_too_high', 'date_unavailable', 'went_with_another', 'no_response', 'other']).optional(),
   lostReasonNotes: z.string().optional(),
@@ -1781,9 +1781,61 @@ export const leadAutomationRules = pgTable("lead_automation_rules", {
   tenantIdIdx: index("lead_automation_rules_tenant_id_idx").on(table.tenantId),
 }));
 
+// Follow-up sequences - multi-step email chains triggered by lead status
+export const followUpSequences = pgTable("follow_up_sequences", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").references(() => tenants.id).notNull(),
+  name: text("name").notNull(),
+  description: text("description"),
+  triggerStatus: text("trigger_status").notNull(), // status that triggers this sequence (e.g. "proposal_sent")
+  isActive: boolean("is_active").default(true).notNull(),
+  stopOnReply: boolean("stop_on_reply").default(true).notNull(), // stop sequence if lead replies
+  stopOnStatusChange: boolean("stop_on_status_change").default(true).notNull(), // stop if status changes manually
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("follow_up_sequences_tenant_idx").on(table.tenantId),
+]);
+
+export const followUpSequenceSteps = pgTable("follow_up_sequence_steps", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  sequenceId: varchar("sequence_id").references(() => followUpSequences.id, { onDelete: 'cascade' }).notNull(),
+  stepNumber: integer("step_number").notNull(),
+  delayDays: integer("delay_days").notNull(), // days after previous step (or trigger) to send
+  templateId: varchar("template_id").references(() => templates.id),
+  subject: text("subject"), // override template subject
+  body: text("body"), // override template body
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("follow_up_steps_sequence_idx").on(table.sequenceId),
+]);
+
+// Tracks which leads are in which sequences and what step they're on
+export const followUpSequenceLogs = pgTable("follow_up_sequence_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").references(() => tenants.id).notNull(),
+  sequenceId: varchar("sequence_id").references(() => followUpSequences.id).notNull(),
+  leadId: varchar("lead_id").references(() => leads.id, { onDelete: 'cascade' }).notNull(),
+  currentStep: integer("current_step").default(0).notNull(), // 0 = not started yet
+  status: text("status").default("active").notNull(), // active, completed, stopped_reply, stopped_manual, stopped_status_change
+  nextSendAt: timestamp("next_send_at"), // when the next step should fire
+  startedAt: timestamp("started_at").defaultNow().notNull(),
+  completedAt: timestamp("completed_at"),
+  stoppedReason: text("stopped_reason"), // why it was stopped
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("follow_up_logs_tenant_idx").on(table.tenantId),
+  index("follow_up_logs_lead_idx").on(table.leadId),
+  index("follow_up_logs_next_send_idx").on(table.nextSendAt),
+]);
+
 // Insert schemas
 export const insertLeadStatusHistorySchema = createInsertSchema(leadStatusHistory);
 export const insertLeadAutomationRuleSchema = createInsertSchema(leadAutomationRules);
+export const insertFollowUpSequenceSchema = createInsertSchema(followUpSequences);
+export const insertFollowUpSequenceStepSchema = createInsertSchema(followUpSequenceSteps);
+export const insertFollowUpSequenceLogSchema = createInsertSchema(followUpSequenceLogs);
 
 export type LeadCaptureForm = typeof leadCaptureForms.$inferSelect;
 export type InsertLeadCaptureForm = z.infer<typeof insertLeadCaptureFormSchema>;
@@ -1791,6 +1843,12 @@ export type LeadStatusHistory = typeof leadStatusHistory.$inferSelect;
 export type InsertLeadStatusHistory = z.infer<typeof insertLeadStatusHistorySchema>;
 export type LeadAutomationRule = typeof leadAutomationRules.$inferSelect;
 export type InsertLeadAutomationRule = z.infer<typeof insertLeadAutomationRuleSchema>;
+export type FollowUpSequence = typeof followUpSequences.$inferSelect;
+export type InsertFollowUpSequence = typeof followUpSequences.$inferInsert;
+export type FollowUpSequenceStep = typeof followUpSequenceSteps.$inferSelect;
+export type InsertFollowUpSequenceStep = typeof followUpSequenceSteps.$inferInsert;
+export type FollowUpSequenceLog = typeof followUpSequenceLogs.$inferSelect;
+export type InsertFollowUpSequenceLog = typeof followUpSequenceLogs.$inferInsert;
 
 // Mail Settings for encrypted IMAP/SMTP credentials
 export const mailSettings = pgTable("mail_settings", {

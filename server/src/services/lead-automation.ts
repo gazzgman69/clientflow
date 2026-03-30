@@ -1,7 +1,8 @@
-import { eq, and, lte, sql, isNull, or } from "drizzle-orm";
+import { eq, and, lte, sql, isNull, or, gte } from "drizzle-orm";
 import { db } from "../../db";
 import { leads, leadAutomationRules, leadStatusHistory, projects, messageTemplates } from "@shared/schema";
 import type { LeadAutomationRule, Lead } from "@shared/schema";
+import { leadStatusAutomator } from "./lead-status-automator";
 
 class LeadAutomationService {
   private worker: NodeJS.Timeout | null = null;
@@ -59,10 +60,10 @@ class LeadAutomationService {
 
   private async processRulesForTenant(tenantId: string, now: Date): Promise<number> {
     console.log(`🏢 Processing automation rules for tenant: ${tenantId}`);
-    
+
     // Import schema
     const { leadAutomationRules } = await import('@shared/schema');
-    
+
     // Load enabled rules for this specific tenant
     const rules = await db
       .select()
@@ -74,10 +75,10 @@ class LeadAutomationService {
 
     if (rules.length === 0) {
       console.log(`🤖 No enabled automation rules found for tenant ${tenantId}`);
-      return 0;
+    } else {
+      console.log(`🤖 Found ${rules.length} enabled rules for tenant ${tenantId}`);
     }
 
-    console.log(`🤖 Found ${rules.length} enabled rules for tenant ${tenantId}`);
     let totalMoved = 0;
 
     for (const rule of rules) {
@@ -87,6 +88,104 @@ class LeadAutomationService {
       } catch (error) {
         console.error(`🤖 Error processing rule ${rule.name} for tenant ${tenantId}:`, error);
       }
+    }
+
+    // Process hold expiry check - find leads with expired holds
+    try {
+      const expiredHolds = await db
+        .select()
+        .from(leads)
+        .where(and(
+          eq(leads.tenantId, tenantId),
+          eq(leads.status, 'hold'),
+          lte(leads.holdExpiresAt, now)
+        ));
+
+      for (const lead of expiredHolds) {
+        try {
+          await leadStatusAutomator.onHoldExpired(lead.id, tenantId);
+          totalMoved++;
+        } catch (error) {
+          console.error(`🤖 Error processing hold expiry for lead ${lead.id}:`, error);
+        }
+      }
+
+      if (expiredHolds.length > 0) {
+        console.log(`🤖 Tenant ${tenantId}: ${expiredHolds.length} leads had expired holds`);
+      }
+    } catch (error) {
+      console.error(`🤖 Error checking hold expiry for tenant ${tenantId}:`, error);
+    }
+
+    // Process ghosting timeout check - find leads inactive for 21 days
+    try {
+      const twentyOneDaysAgo = new Date(now.getTime() - 21 * 24 * 60 * 60 * 1000);
+      const twentyFourHoursAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+
+      const ghostedLeads = await db
+        .select()
+        .from(leads)
+        .where(and(
+          eq(leads.tenantId, tenantId),
+          or(
+            eq(leads.status, 'new'),
+            eq(leads.status, 'contacted'),
+            eq(leads.status, 'proposal_sent')
+          ),
+          lte(
+            leads.lastContactAt || leads.createdAt,
+            twentyOneDaysAgo
+          )
+        ));
+
+      for (const lead of ghostedLeads) {
+        try {
+          // Only trigger if no manual status change in the last 24 hours
+          if (!lead.lastManualStatusAt || new Date(lead.lastManualStatusAt) <= twentyFourHoursAgo) {
+            const daysInactive = Math.floor((now.getTime() - (new Date(lead.lastContactAt || lead.createdAt).getTime())) / (24 * 60 * 60 * 1000));
+            await leadStatusAutomator.onGhostingTimeout(lead.id, tenantId, daysInactive);
+            totalMoved++;
+          }
+        } catch (error) {
+          console.error(`🤖 Error processing ghosting timeout for lead ${lead.id}:`, error);
+        }
+      }
+
+      if (ghostedLeads.length > 0) {
+        console.log(`🤖 Tenant ${tenantId}: ${ghostedLeads.length} leads triggered ghosting timeout`);
+      }
+    } catch (error) {
+      console.error(`🤖 Error checking ghosting timeout for tenant ${tenantId}:`, error);
+    }
+
+    // Process lost archiving check - find lost leads for 90 days
+    try {
+      const ninetyDaysAgo = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+
+      const lostLeads = await db
+        .select()
+        .from(leads)
+        .where(and(
+          eq(leads.tenantId, tenantId),
+          eq(leads.status, 'lost'),
+          lte(leads.updatedAt, ninetyDaysAgo)
+        ));
+
+      for (const lead of lostLeads) {
+        try {
+          const daysLost = Math.floor((now.getTime() - new Date(lead.updatedAt).getTime()) / (24 * 60 * 60 * 1000));
+          await leadStatusAutomator.onLostTimeout(lead.id, tenantId, daysLost);
+          totalMoved++;
+        } catch (error) {
+          console.error(`🤖 Error processing lost timeout for lead ${lead.id}:`, error);
+        }
+      }
+
+      if (lostLeads.length > 0) {
+        console.log(`🤖 Tenant ${tenantId}: ${lostLeads.length} leads archived after lost timeout`);
+      }
+    } catch (error) {
+      console.error(`🤖 Error checking lost timeout for tenant ${tenantId}:`, error);
     }
 
     console.log(`🤖 Tenant ${tenantId}: ${totalMoved} leads moved`);

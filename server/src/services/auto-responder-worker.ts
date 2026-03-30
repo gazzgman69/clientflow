@@ -1,5 +1,6 @@
 import { storage } from '../../storage';
 import { emailDispatcher } from './email-dispatcher';
+import { leadStatusAutomator } from './lead-status-automator';
 import type { AutoResponderLog } from '@shared/schema';
 
 const MAX_RETRIES = 3;
@@ -163,6 +164,16 @@ class AutoResponderWorker {
             snippet: textBody?.substring(0, 100)
           }, log.tenantId);
           console.log(`[AutoResponderWorker] Stored auto-responder email in database for project ${lead.projectId}`);
+
+          // Trigger lead status automator for auto-responder email sent
+          try {
+            if (log.leadId) {
+              await leadStatusAutomator.onEmailSent(log.leadId, log.tenantId);
+            }
+          } catch (automatorError) {
+            console.error('[AutoResponderWorker] Lead status automator error after auto-responder send:', automatorError);
+            // Continue - email was sent successfully regardless
+          }
         } catch (dbError) {
           console.error(`[AutoResponderWorker] Failed to store email in database:`, dbError);
           // Continue - email was sent successfully

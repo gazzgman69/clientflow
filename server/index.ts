@@ -373,7 +373,12 @@ app.use('/auth', (req, res, next) => {
       const { autoResponderWorker } = await import('./src/services/auto-responder-worker');
       autoResponderWorker.start();
       console.log('✅ Auto-responder worker started (every 30 seconds)');
-      
+
+      // Follow-up sequence engine: every 60 seconds (60000ms)
+      const { followUpEngine } = await import('./src/services/follow-up-engine');
+      followUpEngine.start();
+      console.log('✅ Follow-up sequence engine started (every 60 seconds)');
+
       // Daily encrypted database backup: 02:00 Europe/London
       try {
         const { scheduleDailyBackup } = await import('./src/services/backupScheduler');
@@ -392,13 +397,18 @@ app.use('/auth', (req, res, next) => {
       
       // Fallback to old direct service startup if jobs service fails
       calendarAutoSyncService.start();
-      
+
       const { emailAutoSyncService } = await import('./src/services/email-auto-sync');
       emailAutoSyncService.start();
-      
+
       const { leadAutomationService } = await import('./src/services/lead-automation');
+      leadAutomationService.start();
       console.log('🚀 Starting lead automation service (every 5 minutes)');
       console.log('✅ Lead automation service started successfully');
+
+      const { followUpEngine } = await import('./src/services/follow-up-engine');
+      followUpEngine.start();
+      console.log('✅ Follow-up sequence engine started (fallback)');
     }
   });
 })();

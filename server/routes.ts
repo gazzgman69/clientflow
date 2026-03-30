@@ -45,6 +45,7 @@ import { googleOAuthService } from "./src/services/google-oauth";
 import { icalService } from "./src/services/ical";
 import { emailDispatcher } from "./src/services/email-dispatcher";
 import { emailRenderer } from "./src/services/emailRenderer";
+import { leadStatusAutomator } from "./src/services/lead-status-automator";
 import oauthRoutes from "./src/routes/oauth";
 import emailOAuthRoutes from "./src/routes/email-oauth";
 import emailRoutes from "./src/routes/email";
@@ -3208,9 +3209,9 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
         userId: req.session.userId, // Set from authenticated session, not from request body
       };
       const project = await storage.createProject(projectWithUser, req.tenantId);
-      
+
       // CRITICAL FIX: Link lead events to project
-      // When a project is created from a lead, update the lead's calendar events 
+      // When a project is created from a lead, update the lead's calendar events
       // to reference the new project. This ensures events are properly cancelled
       // when the project is deleted (fixes orphaned lead event bug)
       // Find leadId through the contact's leadId field
@@ -3219,8 +3220,18 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
         if (linkedCount > 0) {
           console.log(`🔗 Linked ${linkedCount} lead event(s) to new project ${project.id}`);
         }
+
+        // Trigger lead status automator when project is created from a lead
+        if (req.body.leadId) {
+          try {
+            await leadStatusAutomator.onProjectCreated(req.body.leadId, req.tenantId, project.id);
+          } catch (automatorError) {
+            console.error('⚠️ Lead status automator error after project creation:', automatorError);
+            // Continue - project was created successfully regardless
+          }
+        }
       }
-      
+
       res.status(201).json(project);
     } catch (error) {
       res.status(400).json({ message: "Invalid project data" });

@@ -6,10 +6,11 @@ import { templatesService } from '../services/templates';
 import { tokenResolverService } from '../services/token-resolver';
 import { microsoftMailService } from '../services/microsoft-mail';
 import { imapService } from '../services/imap';
+import { leadStatusAutomator } from '../services/lead-status-automator';
 import { z } from 'zod';
 import { storage } from '../../storage';
 import { db } from '../../db';
-import { emailThreads, emails, emailAttachments, projects, contacts, emailThreadReads, users, emailAccounts } from '@shared/schema';
+import { emailThreads, emails, emailAttachments, projects, contacts, emailThreadReads, users, emailAccounts, leads } from '@shared/schema';
 import { eq, and, or, sql, desc, asc } from 'drizzle-orm';
 import multer from 'multer';
 import path from 'path';
@@ -408,6 +409,27 @@ router.post('/send', requireAuth, upload.array('attachments', 10), async (req: a
             snippet: finalText?.substring(0, 100)
           }, tenantId);
           console.log(`✅ Sent email stored successfully in database for project ${projectId}`);
+
+          // Trigger lead status automator if email was sent to a lead
+          if (contactId) {
+            try {
+              // Try to find if this contact is linked to a lead
+              const leadResult = await db.select()
+                .from(leads)
+                .where(and(
+                  eq(leads.tenantId, tenantId),
+                  eq(leads.contactId, contactId)
+                ))
+                .limit(1);
+
+              if (leadResult.length > 0) {
+                await leadStatusAutomator.onEmailSent(leadResult[0].id, tenantId);
+              }
+            } catch (automatorError) {
+              console.error('⚠️ Lead status automator error after email send:', automatorError);
+              // Continue - email was sent successfully regardless
+            }
+          }
         } catch (dbError) {
           console.error('❌ Failed to store sent email in DB:', dbError);
           // Continue - email was sent successfully

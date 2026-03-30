@@ -4601,14 +4601,14 @@ export class DrizzleStorage implements IStorage {
     } as any));
   }
   async getLead(id: string, tenantId: string): Promise<Lead | undefined> {
-    const result = await db.select().from(leads).where(and(eq(leads.id, id), eq(leads.tenantId, tenantId)));
+    const result = await this.db.select().from(leads).where(and(eq(leads.id, id), eq(leads.tenantId, tenantId)));
     return result[0];
   }
   async createLead(insertLead: InsertLead, tenantId: string): Promise<Lead> {
     if (!tenantId) {
       throw new Error("Tenant ID is required for multi-tenant lead creation");
     }
-    const result = await db.insert(leads).values({
+    const result = await this.db.insert(leads).values({
       ...insertLead,
       tenantId,
       status: insertLead.status ?? 'new',
@@ -4618,7 +4618,7 @@ export class DrizzleStorage implements IStorage {
     return result[0];
   }
   async updateLead(id: string, leadUpdate: Partial<InsertLead>, tenantId: string): Promise<Lead | undefined> {
-    const result = await db.update(leads).set({
+    const result = await this.db.update(leads).set({
       ...leadUpdate,
       updatedAt: new Date(),
     }).where(and(eq(leads.id, id), eq(leads.tenantId, tenantId))).returning();
@@ -4643,7 +4643,7 @@ export class DrizzleStorage implements IStorage {
     return result.rowCount > 0;
   }
   async getLeadsByProject(projectId: string, tenantId: string): Promise<Lead[]> {
-    return await db.select().from(leads).where(and(eq(leads.projectId, projectId), eq(leads.tenantId, tenantId)));
+    return await this.db.select().from(leads).where(and(eq(leads.projectId, projectId), eq(leads.tenantId, tenantId)));
   }
   async getEmailsByContact(contactId: string, tenantId: string): Promise<Email[]> {
     return await this.db.select().from(emails).where(and(eq(emails.contactId, contactId), eq(emails.tenantId, tenantId)));

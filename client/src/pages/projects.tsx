@@ -228,11 +228,12 @@ export default function Projects() {
           });
 
           // Pre-fill the project form with the new contact
-          form.setValue("contactId", newContact.id);
-          form.setValue("name", lead.eventType || "New Project");
+          // shouldValidate ensures react-hook-form marks these fields as valid
+          form.setValue("contactId", newContact.id, { shouldValidate: true, shouldDirty: true });
+          form.setValue("name", lead.eventType || "New Project", { shouldValidate: true, shouldDirty: true });
           if (lead.projectDate) {
-            form.setValue("startDate", lead.projectDate);
-            form.setValue("endDate", lead.projectDate);
+            form.setValue("startDate", lead.projectDate, { shouldValidate: true });
+            form.setValue("endDate", lead.projectDate, { shouldValidate: true });
           }
           
           // Show the project modal
@@ -639,7 +640,7 @@ export default function Projects() {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Contact *</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <Select onValueChange={field.onChange} value={field.value}>
                       <FormControl>
                         <SelectTrigger data-testid="select-project-contact">
                           <SelectValue placeholder="Select a contact..." />
@@ -696,7 +697,7 @@ export default function Projects() {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Status</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <Select onValueChange={field.onChange} value={field.value}>
                         <FormControl>
                           <SelectTrigger data-testid="select-project-status">
                             <SelectValue />

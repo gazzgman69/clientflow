@@ -14,7 +14,7 @@ import { useToast } from "@/hooks/use-toast";
 import { z } from "zod";
 
 // Quick-add form schema — designed for speed (target: under 20 seconds)
-const quickAddSchema = insertLeadSchema.extend({
+const quickAddSchema = insertLeadSchema.omit({ tenantId: true }).extend({
   estimatedValue: z.string().optional(),
   budgetRange: z.string().optional(),
   referralSource: z.string().optional(),

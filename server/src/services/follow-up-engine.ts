@@ -173,6 +173,8 @@ class FollowUpEngine {
       const now = new Date();
 
       // Find all sequence logs where nextSendAt <= now and status = 'active'
+      // Each log carries its own tenantId, and all processing uses log.tenantId
+      // for proper tenant isolation in getLead, getTemplate, sendEmail, etc.
       const dueLogs = await db
         .select()
         .from(followUpSequenceLogs)
@@ -190,6 +192,8 @@ class FollowUpEngine {
       console.log(`📧 [FollowUpEngine] Found ${dueLogs.length} due follow-up step(s)`);
 
       for (const log of dueLogs) {
+        // Each log is processed with its own tenantId context
+        // (storage.getLead, getTemplate, sendEmail all use log.tenantId)
         await this.processSequenceStep(log, db);
       }
     } catch (error: any) {
@@ -202,11 +206,21 @@ class FollowUpEngine {
    */
   private async processSequenceStep(log: FollowUpSequenceLog, db: any): Promise<void> {
     try {
-      // Get sequence
+      if (!log.tenantId) {
+        console.error(`[FollowUpEngine] Sequence log ${log.id} has no tenantId, skipping`);
+        return;
+      }
+
+      // Get sequence — verify it belongs to same tenant
       const sequences = await db
         .select()
         .from(followUpSequences)
-        .where(eq(followUpSequences.id, log.sequenceId));
+        .where(
+          and(
+            eq(followUpSequences.id, log.sequenceId),
+            eq(followUpSequences.tenantId, log.tenantId)
+          )
+        );
 
       if (!sequences.length) {
         throw new Error(`Sequence ${log.sequenceId} not found`);

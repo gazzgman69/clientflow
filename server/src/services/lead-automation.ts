@@ -352,15 +352,21 @@ class LeadAutomationService {
 
   async onEvent(type: string, payload: any): Promise<void> {
     console.log(`🤖 Automation event: ${type}`, payload);
-    
+
+    if (!payload.tenantId) {
+      console.error(`🤖 Automation event ${type} missing tenantId, skipping`);
+      return;
+    }
+
     try {
       if (type === 'lead.created') {
-        // Run rules that could apply to new leads immediately
+        // Run rules that could apply to new leads immediately — scoped to tenant
         const rules = await db
           .select()
           .from(leadAutomationRules)
           .where(
             and(
+              eq(leadAutomationRules.tenantId, payload.tenantId),
               eq(leadAutomationRules.enabled, true),
               or(
                 eq(leadAutomationRules.fromStatus, 'new'),
@@ -370,7 +376,12 @@ class LeadAutomationService {
           );
 
         for (const rule of rules) {
-          const lead = await db.select().from(leads).where(eq(leads.id, payload.leadId)).limit(1);
+          const lead = await db.select().from(leads).where(
+            and(
+              eq(leads.id, payload.leadId),
+              eq(leads.tenantId, payload.tenantId)
+            )
+          ).limit(1);
           if (lead.length > 0) {
             const shouldMove = await this.evaluateTrigger(rule, lead[0], new Date());
             if (shouldMove) {
@@ -384,12 +395,16 @@ class LeadAutomationService {
     }
   }
 
-  // Admin function to get rule summary for UI
-  async getRuleSummary(): Promise<{ [column: string]: boolean }> {
+  // Admin function to get rule summary for UI — scoped to tenant
+  async getRuleSummary(tenantId?: string): Promise<{ [column: string]: boolean }> {
+    const conditions = [eq(leadAutomationRules.enabled, true)];
+    if (tenantId) {
+      conditions.push(eq(leadAutomationRules.tenantId, tenantId));
+    }
     const rules = await db
       .select()
       .from(leadAutomationRules)
-      .where(eq(leadAutomationRules.enabled, true));
+      .where(and(...conditions));
 
     const summary: { [column: string]: boolean } = {
       new: false,

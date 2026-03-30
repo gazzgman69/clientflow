@@ -107,7 +107,7 @@ router.post('/run', requireAuth, async (req: Request, res: Response) => {
 // GET /api/admin/lead-automation/summary
 router.get('/summary', requireAuth, async (req: Request, res: Response) => {
   try {
-    const summary = await leadAutomationService.getRuleSummary();
+    const summary = await leadAutomationService.getRuleSummary((req as any).tenantId);
     res.json(summary);
   } catch (error) {
     console.error('Error getting automation summary:', error);

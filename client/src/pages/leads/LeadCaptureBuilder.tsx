@@ -764,6 +764,39 @@ export default function LeadCaptureBuilder() {
                         </div>
                       </div>
                     </div>
+
+                    <Separator />
+
+                    <div className="space-y-4">
+                      <h3 className="text-sm font-medium">Post-Submission</h3>
+                      <div>
+                        <Label htmlFor="redirect-url">Redirect URL (optional)</Label>
+                        <Input
+                          id="redirect-url"
+                          type="url"
+                          placeholder="https://yoursite.com/thank-you"
+                          value={(formDetails as any)?.redirectUrl || ''}
+                          onChange={(e) => setFormDetails((prev: any) => prev ? {...prev, redirectUrl: e.target.value || null} : null)}
+                          data-testid="input-redirect-url"
+                        />
+                        <p className="text-xs text-muted-foreground mt-1">
+                          After submission, redirect to this URL. Leave blank to show a thank you message instead.
+                        </p>
+                      </div>
+                      <div>
+                        <Label htmlFor="thank-you-message">Thank You Message</Label>
+                        <Input
+                          id="thank-you-message"
+                          placeholder="Thank you for your enquiry! We will be in touch shortly."
+                          value={(formDetails as any)?.thankYouMessage || ''}
+                          onChange={(e) => setFormDetails((prev: any) => prev ? {...prev, thankYouMessage: e.target.value} : null)}
+                          data-testid="input-thank-you-message"
+                        />
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Shown when no redirect URL is set.
+                        </p>
+                      </div>
+                    </div>
                   </CardContent>
                 </Card>
 

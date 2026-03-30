@@ -74,6 +74,7 @@ export default function Projects() {
   const [sortBy, setSortBy] = useState<string>('date-newest');
   const [deletionPreview, setDeletionPreview] = useState<ProjectDeletionPreview | null>(null);
   const [previewProjectId, setPreviewProjectId] = useState<string | null>(null);
+  const [convertingLeadId, setConvertingLeadId] = useState<string | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [, setLocation] = useLocation();
@@ -217,6 +218,9 @@ export default function Projects() {
           const contactResponse = await apiRequest("POST", "/api/contacts", contactData);
           const newContact = await contactResponse.json();
           
+          // Store the leadId for the project creation
+          setConvertingLeadId(lead.id);
+
           // Pre-fill the project form with the new contact
           form.setValue("contactId", newContact.id);
           form.setValue("name", lead.eventType || "New Project");
@@ -285,6 +289,7 @@ export default function Projects() {
         ...data,
         estimatedValue: data.estimatedValue ? parseFloat(data.estimatedValue) : null,
         venueId,
+        ...(convertingLeadId ? { leadId: convertingLeadId } : {}),
       };
       const response = await apiRequest("POST", "/api/projects", projectData);
       return response.json();
@@ -298,6 +303,7 @@ export default function Projects() {
       });
       form.reset();
       setSelectedVenue(null);
+      setConvertingLeadId(null);
       setShowProjectModal(false);
     },
     onError: () => {

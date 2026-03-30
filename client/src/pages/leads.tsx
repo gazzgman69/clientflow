@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import Header from "@/components/layout/header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Plus, Edit, Trash2, ChevronDown, Clock } from "lucide-react";
+import { Plus, Edit, Trash2, ChevronDown, Clock, Briefcase } from "lucide-react";
 import LeadCaptureModal from "@/components/modals/lead-capture-modal";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -124,6 +124,7 @@ function getActivityIndicator(lead: Lead) {
 }
 
 export default function Leads() {
+  const [, setLocation] = useLocation();
   const [showLeadCapture, setShowLeadCapture] = useState(false);
   const [showLostReasonDialog, setShowLostReasonDialog] = useState(false);
   const [showHoldDialog, setShowHoldDialog] = useState(false);
@@ -411,7 +412,12 @@ export default function Leads() {
                           })()}
                         </TableCell>
                         <TableCell>
-                          <div className="flex items-center space-x-2">
+                          <div className="flex items-center space-x-1">
+                            {lead.status !== 'converted' && lead.status !== 'archived' && (
+                              <Button variant="ghost" size="sm" title="Convert to Project" onClick={() => setLocation(`/projects?leadId=${lead.id}`)}>
+                                <Briefcase className="h-4 w-4 text-green-600" />
+                              </Button>
+                            )}
                             <Button variant="ghost" size="sm" data-testid={`edit-lead-${lead.id}`} onClick={() => openEditDialog(lead)}>
                               <Edit className="h-4 w-4" />
                             </Button>

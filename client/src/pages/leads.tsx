@@ -251,7 +251,7 @@ export default function Leads() {
                           )}
                         </TableCell>
                         <TableCell data-testid={`lead-created-${lead.id}`}>
-                          {formatDistanceToNow(new Date(lead.createdAt!), { addSuffix: true })}
+                          {lead.createdAt ? formatDistanceToNow(new Date(lead.createdAt), { addSuffix: true }) : 'Just now'}
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center space-x-2">

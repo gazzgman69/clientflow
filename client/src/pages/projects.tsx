@@ -49,7 +49,7 @@ interface ProjectDeletionPreview {
   };
 }
 
-const projectFormSchema = insertProjectSchema.extend({
+const projectFormSchema = insertProjectSchema.omit({ tenantId: true }).extend({
   estimatedValue: z.string().optional(),
 });
 

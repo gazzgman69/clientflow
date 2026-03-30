@@ -3203,7 +3203,8 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
 
   app.post("/api/projects", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
     try {
-      const projectData = insertProjectSchema.parse(req.body);
+      // Inject tenantId from session before schema validation (client doesn't send it)
+      const projectData = insertProjectSchema.parse({ ...req.body, tenantId: req.tenantId });
       // SECURITY FIX: Always set userId from authenticated session to ensure proper project ownership
       // ensureUserAuth middleware guarantees req.session.userId exists
       const projectWithUser = {

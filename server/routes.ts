@@ -2630,10 +2630,12 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
 
   app.post("/api/contacts", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
     try {
-      const contactData = insertContactSchema.parse(req.body);
+      // Inject tenantId from session before schema validation (client doesn't send it)
+      const contactData = insertContactSchema.parse({ ...req.body, tenantId: req.tenantId });
       const contact = await storage.createContact(contactData, req.tenantId);
       res.status(201).json(contact);
-    } catch (error) {
+    } catch (error: any) {
+      console.error('Error creating contact:', error?.message || error);
       res.status(400).json({ message: "Invalid contact data" });
     }
   });

@@ -169,7 +169,7 @@ function Router() {
                 <Switch>
                   <Route path="/" component={Dashboard} />
                   <Route path="/leads/capture" component={LeadCaptureBuilder} />
-                  <Route path="/leads/urgency" component={LeadsUrgencyList} />
+                  <Route path="/leads/urgency" component={Leads} />
                   <Route path="/leads/inbox" component={LeadsInbox} />
                   <Route path="/leads">
                     <Redirect to="/leads/urgency" replace />

@@ -217,9 +217,15 @@ export default function Projects() {
           
           const contactResponse = await apiRequest("POST", "/api/contacts", contactData);
           const newContact = await contactResponse.json();
-          
+
           // Store the leadId for the project creation
           setConvertingLeadId(lead.id);
+
+          // Add the new contact to the query cache so the Select dropdown displays it
+          queryClient.setQueryData(["/api/contacts"], (oldData: any) => {
+            const existing = oldData?.contacts || oldData || [];
+            return { contacts: [newContact, ...existing] };
+          });
 
           // Pre-fill the project form with the new contact
           form.setValue("contactId", newContact.id);

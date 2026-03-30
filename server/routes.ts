@@ -631,7 +631,15 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
 
   app.post("/api/leads", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
     try {
-      const leadData = insertLeadSchema.omit({ tenantId: true }).parse(req.body);
+      // Clean empty strings → undefined so Zod/drizzle-zod won't choke on
+      // timestamp/numeric columns (e.g. projectDate "" → Invalid Date)
+      const body = { ...req.body };
+      for (const key of Object.keys(body)) {
+        if (body[key] === "") {
+          body[key] = undefined;
+        }
+      }
+      const leadData = insertLeadSchema.omit({ tenantId: true }).parse(body);
       const lead = await storage.createLead({ ...leadData, tenantId: req.tenantId }, req.tenantId);
       
       // Auto-create calendar event if lead has a projectDate
@@ -711,8 +719,9 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
       }
       
       res.status(201).json(lead);
-    } catch (error) {
-      res.status(400).json({ message: "Invalid lead data" });
+    } catch (error: any) {
+      console.error('Lead creation error:', error?.issues || error?.message || error);
+      res.status(400).json({ message: "Invalid lead data", errors: error?.issues });
     }
   });
 

@@ -149,6 +149,20 @@ export default function ProjectDetail() {
   
   // Contact editing state
   const [showContactEditModal, setShowContactEditModal] = useState(false);
+
+  // Project overview editing state
+  const [isEditingOverview, setIsEditingOverview] = useState(false);
+  const [overviewForm, setOverviewForm] = useState({
+    name: '',
+    description: '',
+    venueId: '',
+    startDate: '',
+    eventType: '',
+    estimatedValue: '',
+    leadSource: '',
+    budgetRange: '',
+    referralSource: '',
+  });
   
   // Get portal status for this project (tenant setting + project override)
   const { data: portalStatus } = useQuery({
@@ -724,6 +738,52 @@ export default function ProjectDetail() {
     }
   };
   
+  // Handler for project overview editing
+  const handleStartEditOverview = () => {
+    if (!project) return;
+    setOverviewForm({
+      name: project.name || '',
+      description: project.description || '',
+      venueId: project.venueId || '',
+      startDate: project.startDate ? new Date(project.startDate).toISOString().split('T')[0] : '',
+      eventType: (project as any).eventType || '',
+      estimatedValue: project.estimatedValue ? String(project.estimatedValue) : '',
+      leadSource: (project as any).leadSource || '',
+      budgetRange: (project as any).budgetRange || '',
+      referralSource: (project as any).referralSource || '',
+    });
+    setIsEditingOverview(true);
+  };
+
+  const handleSaveOverview = async () => {
+    if (!project) return;
+    try {
+      const payload: any = {
+        name: overviewForm.name,
+        description: overviewForm.description || null,
+        venueId: overviewForm.venueId || null,
+        startDate: overviewForm.startDate ? new Date(overviewForm.startDate).toISOString() : null,
+        eventType: overviewForm.eventType || null,
+        estimatedValue: overviewForm.estimatedValue ? overviewForm.estimatedValue : null,
+        leadSource: overviewForm.leadSource || null,
+        budgetRange: overviewForm.budgetRange || null,
+        referralSource: overviewForm.referralSource || null,
+      };
+      await apiRequest('PATCH', `/api/projects/${project.id}`, payload);
+      queryClient.invalidateQueries({ queryKey: ['/api/projects', project.id] });
+      queryClient.invalidateQueries({ queryKey: ['/api/projects'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/venues', overviewForm.venueId] });
+      setIsEditingOverview(false);
+      toast({ title: "Project Updated", description: "Project details saved successfully." });
+    } catch (error) {
+      toast({ title: "Error", description: "Failed to save project details.", variant: "destructive" });
+    }
+  };
+
+  const handleCancelEditOverview = () => {
+    setIsEditingOverview(false);
+  };
+
   // Handler for contact editing
   const handleEditContact = () => {
     if (!projectContact) return;
@@ -909,54 +969,171 @@ export default function ProjectDetail() {
                       <Briefcase className="h-5 w-5" />
                       Project Overview
                     </CardTitle>
-                    <Badge className={getStatusColor(project.status)}>
-                      {project.status.charAt(0).toUpperCase() + project.status.slice(1)}
-                    </Badge>
+                    <div className="flex items-center gap-2">
+                      <Badge className={getStatusColor(project.status)}>
+                        {project.status.charAt(0).toUpperCase() + project.status.slice(1)}
+                      </Badge>
+                      {!isEditingOverview && (
+                        <Button variant="outline" size="sm" onClick={handleStartEditOverview}>
+                          <Edit className="h-4 w-4 mr-1" /> Edit
+                        </Button>
+                      )}
+                    </div>
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                      <h3 className="font-medium mb-2">Project Details</h3>
-                      <div className="space-y-2 text-sm">
-                        <div>
-                          <span className="text-muted-foreground">Name:</span> {project.name}
+                  {isEditingOverview ? (
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-3">
+                          <div>
+                            <Label htmlFor="edit-name">Project Name</Label>
+                            <Input id="edit-name" value={overviewForm.name} onChange={e => setOverviewForm(f => ({ ...f, name: e.target.value }))} />
+                          </div>
+                          <div>
+                            <Label htmlFor="edit-description">Description</Label>
+                            <Textarea id="edit-description" value={overviewForm.description} onChange={e => setOverviewForm(f => ({ ...f, description: e.target.value }))} rows={2} />
+                          </div>
+                          <div>
+                            <Label htmlFor="edit-venue">Venue</Label>
+                            <Select value={overviewForm.venueId} onValueChange={val => setOverviewForm(f => ({ ...f, venueId: val === '_none' ? '' : val }))}>
+                              <SelectTrigger id="edit-venue"><SelectValue placeholder="Select venue" /></SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="_none">No venue</SelectItem>
+                                {venues.map((v: Venue) => (
+                                  <SelectItem key={v.id} value={v.id}>{v.name}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div>
+                            <Label htmlFor="edit-event-type">Event Type</Label>
+                            <Select value={overviewForm.eventType} onValueChange={val => setOverviewForm(f => ({ ...f, eventType: val === '_none' ? '' : val }))}>
+                              <SelectTrigger id="edit-event-type"><SelectValue placeholder="Select event type" /></SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="_none">Not specified</SelectItem>
+                                <SelectItem value="wedding">Wedding</SelectItem>
+                                <SelectItem value="corporate">Corporate</SelectItem>
+                                <SelectItem value="private_party">Private Party</SelectItem>
+                                <SelectItem value="festival">Festival</SelectItem>
+                                <SelectItem value="pub_club">Pub / Club</SelectItem>
+                                <SelectItem value="charity">Charity</SelectItem>
+                                <SelectItem value="other">Other</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
                         </div>
-                        <div>
-                          <span className="text-muted-foreground">Description:</span> {project.description || 'No description'}
-                        </div>
-                        <div>
-                          <span className="text-muted-foreground">Estimated Value:</span> 
-                          {project.estimatedValue ? `£${project.estimatedValue.toLocaleString()}` : 'Not specified'}
-                        </div>
-                        <div>
-                          <span className="text-muted-foreground">Progress:</span> {project.progress || 0}%
+                        <div className="space-y-3">
+                          <div>
+                            <Label htmlFor="edit-date">Event Date</Label>
+                            <Input id="edit-date" type="date" value={overviewForm.startDate} onChange={e => setOverviewForm(f => ({ ...f, startDate: e.target.value }))} />
+                          </div>
+                          <div>
+                            <Label htmlFor="edit-value">Estimated Value (£)</Label>
+                            <Input id="edit-value" type="number" step="0.01" value={overviewForm.estimatedValue} onChange={e => setOverviewForm(f => ({ ...f, estimatedValue: e.target.value }))} />
+                          </div>
+                          <div>
+                            <Label htmlFor="edit-source">Lead Source</Label>
+                            <Select value={overviewForm.leadSource} onValueChange={val => setOverviewForm(f => ({ ...f, leadSource: val === '_none' ? '' : val }))}>
+                              <SelectTrigger id="edit-source"><SelectValue placeholder="Select source" /></SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="_none">Not specified</SelectItem>
+                                <SelectItem value="web_form">Website Form</SelectItem>
+                                <SelectItem value="phone">Phone Call</SelectItem>
+                                <SelectItem value="email">Direct Email</SelectItem>
+                                <SelectItem value="referral">Referral</SelectItem>
+                                <SelectItem value="social_media">Social Media</SelectItem>
+                                <SelectItem value="directory">Directory (Bark, Hitched etc)</SelectItem>
+                                <SelectItem value="repeat_client">Repeat Client</SelectItem>
+                                <SelectItem value="other">Other</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div>
+                            <Label htmlFor="edit-budget">Budget Range</Label>
+                            <Select value={overviewForm.budgetRange} onValueChange={val => setOverviewForm(f => ({ ...f, budgetRange: val === '_none' ? '' : val }))}>
+                              <SelectTrigger id="edit-budget"><SelectValue placeholder="Select range" /></SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="_none">Not specified</SelectItem>
+                                <SelectItem value="under_500">Under £500</SelectItem>
+                                <SelectItem value="500_1000">£500 - £1,000</SelectItem>
+                                <SelectItem value="1000_2000">£1,000 - £2,000</SelectItem>
+                                <SelectItem value="2000_5000">£2,000 - £5,000</SelectItem>
+                                <SelectItem value="5000_plus">£5,000+</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div>
+                            <Label htmlFor="edit-referral">Referral Source</Label>
+                            <Input id="edit-referral" placeholder="How did they hear about you?" value={overviewForm.referralSource} onChange={e => setOverviewForm(f => ({ ...f, referralSource: e.target.value }))} />
+                          </div>
                         </div>
                       </div>
-                      {project.progress !== null && (
-                        <div className="mt-3">
-                          <Progress value={project.progress || 0} className="w-full" />
-                        </div>
-                      )}
+                      <div className="flex justify-end gap-2 pt-2">
+                        <Button variant="outline" size="sm" onClick={handleCancelEditOverview}>Cancel</Button>
+                        <Button size="sm" onClick={handleSaveOverview}>Save Changes</Button>
+                      </div>
                     </div>
-                    <div>
-                      <h3 className="font-medium mb-2">Timeline</h3>
-                      <div className="space-y-2 text-sm">
-                        <div className="flex items-center gap-2">
-                          <Calendar className="h-4 w-4 text-muted-foreground" />
-                          <span className="text-muted-foreground">Project Date:</span> {formatDate(project.startDate?.toString() || null)}
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div>
+                        <h3 className="font-medium mb-2">Project Details</h3>
+                        <div className="space-y-2 text-sm">
+                          <div>
+                            <span className="text-muted-foreground">Name:</span> {project.name}
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">Description:</span> {project.description || 'No description'}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <MapPin className="h-4 w-4 text-muted-foreground" />
+                            <span className="text-muted-foreground">Venue:</span> {projectVenue?.name || 'No venue'}
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">Event Type:</span> {(project as any).eventType ? (project as any).eventType.replace(/_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase()) : 'Not specified'}
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">Estimated Value:</span>{' '}
+                            {project.estimatedValue ? `£${Number(project.estimatedValue).toLocaleString()}` : 'Not specified'}
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">Lead Source:</span> {(project as any).leadSource ? (project as any).leadSource.replace(/_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase()) : 'Not specified'}
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">Budget Range:</span> {(project as any).budgetRange ? (project as any).budgetRange.replace(/_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase()) : 'Not specified'}
+                          </div>
+                          {(project as any).referralSource && (
+                            <div>
+                              <span className="text-muted-foreground">Referral:</span> {(project as any).referralSource}
+                            </div>
+                          )}
                         </div>
-                        <div className="flex items-center gap-2">
-                          <Calendar className="h-4 w-4 text-muted-foreground" />
-                          <span className="text-muted-foreground">Created:</span> {formatDate(project.createdAt?.toString() || null)}
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Calendar className="h-4 w-4 text-muted-foreground" />
-                          <span className="text-muted-foreground">Updated:</span> {formatDate(project.updatedAt?.toString() || null)}
+                        {project.progress !== null && (
+                          <div className="mt-3">
+                            <div className="text-sm text-muted-foreground mb-1">Progress: {project.progress || 0}%</div>
+                            <Progress value={project.progress || 0} className="w-full" />
+                          </div>
+                        )}
+                      </div>
+                      <div>
+                        <h3 className="font-medium mb-2">Timeline</h3>
+                        <div className="space-y-2 text-sm">
+                          <div className="flex items-center gap-2">
+                            <Calendar className="h-4 w-4 text-muted-foreground" />
+                            <span className="text-muted-foreground">Event Date:</span> {formatDate(project.startDate?.toString() || null)}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Calendar className="h-4 w-4 text-muted-foreground" />
+                            <span className="text-muted-foreground">Created:</span> {formatDate(project.createdAt?.toString() || null)}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Calendar className="h-4 w-4 text-muted-foreground" />
+                            <span className="text-muted-foreground">Updated:</span> {formatDate(project.updatedAt?.toString() || null)}
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
+                  )}
                 </CardContent>
               </Card>
 

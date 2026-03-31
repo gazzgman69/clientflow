@@ -65,6 +65,20 @@ interface SelectedVenue {
   longitude?: number;
 }
 
+// Status filter configuration
+const STATUS_TABS = [
+  { key: 'active', label: 'Active', color: 'bg-blue-500' },
+  { key: 'new', label: 'New', color: 'bg-emerald-500' },
+  { key: 'contacted', label: 'Contacted', color: 'bg-sky-500' },
+  { key: 'hold', label: 'Hold', color: 'bg-amber-500' },
+  { key: 'proposal_sent', label: 'Proposal Sent', color: 'bg-violet-500' },
+  { key: 'booked', label: 'Booked', color: 'bg-green-600' },
+  { key: 'completed', label: 'Completed', color: 'bg-gray-500' },
+  { key: 'lost', label: 'Lost', color: 'bg-red-500' },
+  { key: 'cancelled', label: 'Cancelled', color: 'bg-rose-400' },
+  { key: 'all', label: 'All', color: 'bg-gray-400' },
+] as const;
+
 export default function Projects() {
   const [showProjectModal, setShowProjectModal] = useState(false);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
@@ -72,6 +86,7 @@ export default function Projects() {
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [selectedVenue, setSelectedVenue] = useState<SelectedVenue | null>(null);
   const [sortBy, setSortBy] = useState<string>('date-newest');
+  const [statusFilter, setStatusFilter] = useState<string>('active');
   const [deletionPreview, setDeletionPreview] = useState<ProjectDeletionPreview | null>(null);
   const [previewProjectId, setPreviewProjectId] = useState<string | null>(null);
   const [convertingLeadId, setConvertingLeadId] = useState<string | null>(null);
@@ -79,8 +94,13 @@ export default function Projects() {
   const queryClient = useQueryClient();
   const [, setLocation] = useLocation();
 
+  // Build query URL with status filter
+  const projectsQueryUrl = statusFilter === 'all'
+    ? '/api/projects'
+    : `/api/projects?status=${statusFilter}`;
+
   const { data: projectsData, isLoading } = useQuery<{
-    projects: Project[], 
+    projects: Project[],
     pagination: any,
     documentStatuses?: Record<string, {
       contracts: Array<{
@@ -93,13 +113,21 @@ export default function Projects() {
       quotes: Record<string, number>;
     }>
   }>({
-    queryKey: ["/api/projects"],
-    refetchInterval: 10000, // Refresh every 10 seconds for better responsiveness
-    refetchIntervalInBackground: false, // Don't poll when tab is inactive
-    refetchOnWindowFocus: true, // Refresh when tab/window gains focus
-    refetchOnMount: true, // Refresh when component mounts
-    refetchOnReconnect: true, // Refresh on reconnect
-    staleTime: 5000, // Data stays fresh for 5 seconds
+    queryKey: ["/api/projects", statusFilter],
+    queryFn: () => fetch(projectsQueryUrl, { credentials: 'include' }).then(r => r.json()),
+    refetchInterval: 10000,
+    refetchIntervalInBackground: false,
+    refetchOnWindowFocus: true,
+    refetchOnMount: true,
+    refetchOnReconnect: true,
+    staleTime: 5000,
+  });
+
+  // Fetch status counts for filter badges
+  const { data: statusCounts } = useQuery<Record<string, number>>({
+    queryKey: ["/api/projects/status-counts"],
+    refetchInterval: 10000,
+    staleTime: 5000,
   });
 
   const projects = projectsData?.projects || [];
@@ -389,11 +417,36 @@ export default function Projects() {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'active': return 'bg-green-100 text-green-800';
+      case 'new': return 'bg-emerald-100 text-emerald-800';
+      case 'contacted': return 'bg-sky-100 text-sky-800';
+      case 'hold': return 'bg-amber-100 text-amber-800';
+      case 'proposal_sent': return 'bg-violet-100 text-violet-800';
+      case 'booked': return 'bg-green-100 text-green-800';
       case 'completed': return 'bg-blue-100 text-blue-800';
-      case 'on-hold': return 'bg-yellow-100 text-yellow-800';
-      case 'cancelled': return 'bg-red-100 text-red-800';
+      case 'lost': return 'bg-red-100 text-red-800';
+      case 'cancelled': return 'bg-rose-100 text-rose-800';
+      case 'archived': return 'bg-gray-100 text-gray-500';
+      // Legacy status support
+      case 'active': return 'bg-green-100 text-green-800';
+      case 'lead': return 'bg-emerald-100 text-emerald-800';
       default: return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  const getStatusLabel = (status: string) => {
+    switch (status) {
+      case 'new': return 'New';
+      case 'contacted': return 'Contacted';
+      case 'hold': return 'Hold';
+      case 'proposal_sent': return 'Proposal Sent';
+      case 'booked': return 'Booked';
+      case 'completed': return 'Completed';
+      case 'lost': return 'Lost';
+      case 'cancelled': return 'Cancelled';
+      case 'archived': return 'Archived';
+      case 'active': return 'Active';
+      case 'lead': return 'New';
+      default: return status.charAt(0).toUpperCase() + status.slice(1).replace(/_/g, ' ');
     }
   };
 
@@ -463,10 +516,56 @@ export default function Projects() {
       />
       
       <main className="flex-1 overflow-auto p-6">
+        {/* Status filter tabs */}
+        <div className="flex items-center gap-2 mb-4 flex-wrap">
+          {STATUS_TABS.map((tab) => {
+            const isActive = statusFilter === tab.key;
+            // Calculate count for this tab
+            let count: number | undefined;
+            if (statusCounts) {
+              if (tab.key === 'all') {
+                count = Object.values(statusCounts).reduce((sum, c) => sum + c, 0);
+              } else if (tab.key === 'active') {
+                count = ['new', 'contacted', 'hold', 'proposal_sent', 'booked', 'completed']
+                  .reduce((sum, s) => sum + (statusCounts[s] || 0), 0);
+              } else {
+                count = statusCounts[tab.key] || 0;
+              }
+            }
+            return (
+              <button
+                key={tab.key}
+                onClick={() => setStatusFilter(tab.key)}
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                  isActive
+                    ? 'bg-primary text-primary-foreground shadow-sm'
+                    : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                }`}
+              >
+                {!isActive && tab.key !== 'all' && tab.key !== 'active' && (
+                  <span className={`w-2 h-2 rounded-full ${tab.color}`} />
+                )}
+                {tab.label}
+                {count !== undefined && count > 0 && (
+                  <span className={`ml-1 text-xs px-1.5 py-0.5 rounded-full ${
+                    isActive ? 'bg-primary-foreground/20' : 'bg-background'
+                  }`}>
+                    {count}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+
         <Card data-testid="projects-table-card">
           <CardHeader>
             <div className="flex items-center justify-between">
-              <CardTitle>All Projects</CardTitle>
+              <CardTitle>
+                {statusFilter === 'all' ? 'All Projects' :
+                 statusFilter === 'active' ? 'Active Projects' :
+                 `${STATUS_TABS.find(t => t.key === statusFilter)?.label || ''} Projects`}
+              </CardTitle>
               <div className="flex items-center space-x-3">
                 <Select value={sortBy} onValueChange={setSortBy}>
                   <SelectTrigger className="w-48" data-testid="select-sort-projects">
@@ -536,7 +635,7 @@ export default function Projects() {
                       </TableCell>
                       <TableCell data-testid={`project-status-${project.id}`}>
                         <Badge className={getStatusColor(project.status)}>
-                          {project.status.charAt(0).toUpperCase() + project.status.slice(1)}
+                          {getStatusLabel(project.status)}
                         </Badge>
                       </TableCell>
                       <TableCell data-testid={`project-documents-${project.id}`}>
@@ -704,9 +803,13 @@ export default function Projects() {
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="active">Active</SelectItem>
+                          <SelectItem value="new">New</SelectItem>
+                          <SelectItem value="contacted">Contacted</SelectItem>
+                          <SelectItem value="hold">Hold</SelectItem>
+                          <SelectItem value="proposal_sent">Proposal Sent</SelectItem>
+                          <SelectItem value="booked">Booked</SelectItem>
                           <SelectItem value="completed">Completed</SelectItem>
-                          <SelectItem value="on-hold">On Hold</SelectItem>
+                          <SelectItem value="lost">Lost</SelectItem>
                           <SelectItem value="cancelled">Cancelled</SelectItem>
                         </SelectContent>
                       </Select>

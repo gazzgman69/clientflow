@@ -182,7 +182,7 @@ export const projects = pgTable("projects", {
   description: text("description"),
   contactId: varchar("contact_id").notNull().references(() => contacts.id, { onDelete: 'cascade' }),
   venueId: varchar("venue_id"),
-  status: text("status").notNull().default('lead'), // lead, booked, completed, cancelled - calendar pipeline states
+  status: text("status").notNull().default('new'), // Unified lifecycle: new, contacted, hold, proposal_sent, booked, completed, lost, cancelled, archived
   progress: integer("progress").default(0), // 0-100
   primaryEventId: varchar("primary_event_id"), // Link to the primary calendar event for this project
   startDate: timestamp("start_date"),
@@ -191,6 +191,19 @@ export const projects = pgTable("projects", {
   actualValue: decimal("actual_value", { precision: 10, scale: 2 }),
   assignedTo: varchar("assigned_to").references(() => users.id),
   portalEnabledOverride: boolean("portal_enabled_override"), // null = follow tenant default, true/false = override
+  // Lead-specific fields (unified from leads table)
+  leadSource: text("lead_source"), // How the enquiry arrived (web_form, phone, referral, social_media, directory, etc.)
+  eventType: text("event_type"), // Wedding, Corporate, Private Party, etc.
+  budgetRange: text("budget_range"), // Budget range selection (e.g. "500-1000", "1000-2000")
+  currency: text("currency").default('GBP'), // Currency code for this project's values
+  lostReason: text("lost_reason"), // Price too high, Date unavailable, Went with another act, No response, Other
+  lostReasonNotes: text("lost_reason_notes"), // Free text when lostReason is "Other"
+  holdExpiresAt: timestamp("hold_expires_at"), // Configurable expiry for Hold/Pencilled status
+  referralSource: text("referral_source"), // How did you hear about us
+  lastContactAt: timestamp("last_contact_at"), // Updated on outbound email or logged call
+  lastManualStatusAt: timestamp("last_manual_status_at"), // When status was last changed manually
+  lastViewedAt: timestamp("last_viewed_at"), // When user last viewed this project
+  migratedFromLeadId: varchar("migrated_from_lead_id"), // Reference to original lead if migrated
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => {
@@ -198,6 +211,7 @@ export const projects = pgTable("projects", {
     tenantIdIdx: index("projects_tenant_id_idx").on(table.tenantId),
     tenantContactIdx: index("projects_tenant_contact_idx").on(table.tenantId, table.contactId),
     tenantStatusIdx: index("projects_tenant_status_idx").on(table.tenantId, table.status),
+    tenantEventTypeIdx: index("projects_tenant_event_type_idx").on(table.tenantId, table.eventType),
   };
 });
 
@@ -1634,6 +1648,16 @@ export const leadStatusUpdateSchema = z.object({
   lostReason: z.enum(['price_too_high', 'date_unavailable', 'went_with_another', 'no_response', 'other']).optional(),
   lostReasonNotes: z.string().optional(),
   holdExpiresAt: z.string().datetime().optional(), // ISO date string for hold expiry
+});
+
+// Unified project status update schema (covers full lifecycle)
+export const projectStatusUpdateSchema = z.object({
+  status: z.enum(['new', 'contacted', 'hold', 'proposal_sent', 'booked', 'completed', 'lost', 'cancelled', 'archived'], {
+    errorMap: () => ({ message: 'Status must be one of: new, contacted, hold, proposal_sent, booked, completed, lost, cancelled, archived' })
+  }),
+  lostReason: z.enum(['price_too_high', 'date_unavailable', 'went_with_another', 'no_response', 'other']).optional(),
+  lostReasonNotes: z.string().optional(),
+  holdExpiresAt: z.string().datetime().optional(),
 });
 
 // Types

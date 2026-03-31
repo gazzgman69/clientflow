@@ -7,7 +7,7 @@ import rateLimit from "express-rate-limit";
 import { storage } from "./storage";
 import { createTenantAwareSessionStore } from "./middleware/enhancedSessionStore";
 import { validateResponseCasing } from "./src/utils/devCasingGuard";
-import { db } from './db';
+import { db, pool } from './db';
 import { sql } from 'drizzle-orm';
 
 // Extend session to include portal and user authentication
@@ -134,7 +134,8 @@ import {
   resetPasswordSchema,
   portalAccessRequestSchema,
   portalTokenVerifySchema,
-  leadStatusUpdateSchema
+  leadStatusUpdateSchema,
+  projectStatusUpdateSchema
 } from "@shared/schema";
 
 export async function registerRoutes(app: Express, csrfProtection?: any): Promise<Server> {
@@ -2909,15 +2910,33 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
       const page = Math.max(1, parseInt(req.query.page as string) || 1);
       const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string) || 25));
       const offset = (page - 1) * limit;
-      
-      // WORKAROUND: Use direct Neon client to bypass Drizzle recursion issue
-      const neonClient = neon(process.env.DATABASE_URL!);
-      
+
+      // Status filter: ?status=new,contacted,hold (comma-separated) or ?status=active (shortcut)
+      const statusParam = req.query.status as string | undefined;
+      let statusFilter: string[] | null = null;
+      if (statusParam) {
+        if (statusParam === 'active') {
+          // Active = everything except lost, cancelled, archived
+          statusFilter = ['new', 'contacted', 'hold', 'proposal_sent', 'booked', 'completed'];
+        } else {
+          statusFilter = statusParam.split(',').map(s => s.trim());
+        }
+      }
+
+      // Build WHERE clause
+      const params: any[] = [req.tenantId];
+      let whereClause = 'WHERE p.tenant_id = $1';
+      if (statusFilter && statusFilter.length > 0) {
+        const placeholders = statusFilter.map((_, i) => `$${params.length + 1 + i}`).join(', ');
+        params.push(...statusFilter);
+        whereClause += ` AND p.status IN (${placeholders})`;
+      }
+
       // For lead capture forms and similar use cases, provide a simple limit-only option
       if (req.query.simple === '1') {
         const simpleLimit = Math.min(50, Math.max(1, parseInt(req.query.limit as string) || 10));
-        const projects = await neonClient(`
-          SELECT 
+        const projects = await pool.query(`
+          SELECT
             p.*,
             v.name as venue_name,
             v.address as venue_address,
@@ -2927,16 +2946,16 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
             v.contact_phone as venue_phone
           FROM projects p
           LEFT JOIN venues v ON p.venue_id = v.id
-          WHERE p.tenant_id = $1
+          ${whereClause}
           ORDER BY p.created_at DESC
-          LIMIT $2
-        `, [req.tenantId, simpleLimit]);
-        return res.json(projects);
+          LIMIT $${params.length + 1}
+        `, [...params, simpleLimit]);
+        return res.json(projects.rows);
       }
 
       // Don't filter by userId - all projects in tenant should be visible to authenticated users
-      const projects = await neonClient(`
-        SELECT 
+      const projects = await pool.query(`
+        SELECT
           p.*,
           v.name as venue_name,
           v.address as venue_address,
@@ -2946,21 +2965,21 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
           v.contact_phone as venue_phone
         FROM projects p
         LEFT JOIN venues v ON p.venue_id = v.id
-        WHERE p.tenant_id = $1
+        ${whereClause}
         ORDER BY p.created_at DESC
-        LIMIT $2 OFFSET $3
-      `, [req.tenantId, limit, offset]);
-      
-      // Get total count for pagination info
-      const countResult = await neonClient('SELECT COUNT(*) as count FROM projects WHERE tenant_id = $1', [req.tenantId]);
-      const totalCount = parseInt((countResult[0] as any).count);
+        LIMIT $${params.length + 1} OFFSET $${params.length + 2}
+      `, [...params, limit, offset]);
+
+      // Get total count for pagination info (with same status filter)
+      const countResult = await pool.query(`SELECT COUNT(*) as count FROM projects p ${whereClause}`, params);
+      const totalCount = parseInt(countResult.rows[0].count);
       const totalPages = Math.ceil(totalCount / limit);
       
       // Fetch document statuses for all projects (for instant loading)
       // Wrapped in try/catch so document status failures don't break the project listing
       const documentStatuses: Record<string, any> = {};
       try {
-        const quoteStatuses = await neonClient(`
+        const quoteResult = await pool.query(`
           SELECT
             p.id as project_id,
             q.status,
@@ -2972,7 +2991,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
           GROUP BY p.id, q.status
         `, [req.tenantId]);
 
-        const contractStatuses = await neonClient(`
+        const contractResult = await pool.query(`
           SELECT
             project_id,
             status,
@@ -2984,7 +3003,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
             AND project_id IS NOT NULL
         `, [req.tenantId]);
 
-        const invoiceStatuses = await neonClient(`
+        const invoiceResult = await pool.query(`
           SELECT
             project_id,
             status,
@@ -2996,7 +3015,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
         `, [req.tenantId]);
 
         // Process quotes
-        for (const row of quoteStatuses as any[]) {
+        for (const row of quoteResult.rows as any[]) {
           if (!documentStatuses[row.project_id]) {
             documentStatuses[row.project_id] = { quotes: {}, contracts: [], invoices: {} };
           }
@@ -3004,7 +3023,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
         }
 
         // Process contracts
-        for (const row of contractStatuses as any[]) {
+        for (const row of contractResult.rows as any[]) {
           if (!documentStatuses[row.project_id]) {
             documentStatuses[row.project_id] = { quotes: {}, contracts: [], invoices: {} };
           }
@@ -3017,7 +3036,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
         }
 
         // Process invoices
-        for (const row of invoiceStatuses as any[]) {
+        for (const row of invoiceResult.rows as any[]) {
           if (!documentStatuses[row.project_id]) {
             documentStatuses[row.project_id] = { quotes: {}, contracts: [], invoices: {} };
           }
@@ -3028,7 +3047,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
       }
       
       res.json({
-        projects,
+        projects: projects.rows,
         pagination: {
           page,
           limit,
@@ -3206,40 +3225,64 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
 
   app.post("/api/projects", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
     try {
-      // Inject tenantId from session before schema validation (client doesn't send it)
-      const projectData = insertProjectSchema.parse({ ...req.body, tenantId: req.tenantId });
+      // Support quick-add: if contactDetails is provided, create or find the contact first
+      let contactId = req.body.contactId;
+      if (!contactId && req.body.contactDetails) {
+        const { firstName, lastName, email, phone, company } = req.body.contactDetails;
+        // Try to find existing contact by email
+        const existingContacts = await pool.query(
+          'SELECT id FROM contacts WHERE email = $1 AND tenant_id = $2 LIMIT 1',
+          [email, req.tenantId]
+        );
+        if (existingContacts.rows.length > 0) {
+          contactId = existingContacts.rows[0].id;
+        } else {
+          // Create the contact
+          const newContact = await storage.createContact({
+            firstName,
+            lastName,
+            email,
+            phone: phone || null,
+            company: company || null,
+            tenantId: req.tenantId,
+          }, req.tenantId);
+          contactId = newContact.id;
+        }
+      }
+
+      // Build project data with the resolved contactId
+      const projectInput = { ...req.body, tenantId: req.tenantId, contactId };
+      // Remove contactDetails from the payload before schema validation
+      delete projectInput.contactDetails;
+
+      const projectData = insertProjectSchema.parse(projectInput);
       // SECURITY FIX: Always set userId from authenticated session to ensure proper project ownership
-      // ensureUserAuth middleware guarantees req.session.userId exists
       const projectWithUser = {
         ...projectData,
-        userId: req.session.userId, // Set from authenticated session, not from request body
+        userId: req.session.userId,
       };
       const project = await storage.createProject(projectWithUser, req.tenantId);
 
-      // CRITICAL FIX: Link lead events to project
-      // When a project is created from a lead, update the lead's calendar events
-      // to reference the new project. This ensures events are properly cancelled
-      // when the project is deleted (fixes orphaned lead event bug)
-      // Find leadId through the contact's leadId field
+      // Link lead events to project if applicable
       if (project.contactId) {
         const linkedCount = await storage.linkLeadEventsToProject(project.contactId, project.id, req.tenantId);
         if (linkedCount > 0) {
           console.log(`🔗 Linked ${linkedCount} lead event(s) to new project ${project.id}`);
         }
 
-        // Trigger lead status automator when project is created from a lead
+        // Trigger lead status automator when project is created from a lead (legacy support)
         if (req.body.leadId) {
           try {
             await leadStatusAutomator.onProjectCreated(req.body.leadId, req.tenantId, project.id);
           } catch (automatorError) {
             console.error('⚠️ Lead status automator error after project creation:', automatorError);
-            // Continue - project was created successfully regardless
           }
         }
       }
 
       res.status(201).json(project);
     } catch (error) {
+      console.error('Error creating project:', error);
       res.status(400).json({ message: "Invalid project data" });
     }
   });
@@ -3254,6 +3297,63 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
       res.json(project);
     } catch (error) {
       res.status(400).json({ message: "Invalid project data" });
+    }
+  });
+
+  // Dedicated project status update with lost reason tracking
+  app.patch("/api/projects/:id/status", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
+    try {
+      const { status, lostReason, lostReasonNotes, holdExpiresAt } = projectStatusUpdateSchema.parse(req.body);
+
+      const updateData: any = {
+        status,
+        lastManualStatusAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      // Store lost reason when marking as lost
+      if (status === 'lost') {
+        updateData.lostReason = lostReason || null;
+        updateData.lostReasonNotes = lostReasonNotes || null;
+      }
+
+      // Store hold expiry when putting on hold
+      if (status === 'hold' && holdExpiresAt) {
+        updateData.holdExpiresAt = new Date(holdExpiresAt);
+      }
+
+      // Clear lost reason when moving away from lost
+      if (status !== 'lost') {
+        updateData.lostReason = null;
+        updateData.lostReasonNotes = null;
+      }
+
+      const project = await storage.updateProject(req.params.id, updateData);
+      if (!project) {
+        return res.status(404).json({ message: "Project not found" });
+      }
+      res.json(project);
+    } catch (error) {
+      console.error('Error updating project status:', error);
+      res.status(400).json({ message: "Invalid status update" });
+    }
+  });
+
+  // Get project status counts for filter badges
+  app.get("/api/projects/status-counts", ensureUserAuth, tenantResolver, requireTenant, async (req: any, res) => {
+    try {
+      const result = await pool.query(
+        `SELECT status, COUNT(*)::int as count FROM projects WHERE tenant_id = $1 GROUP BY status`,
+        [req.tenantId]
+      );
+      const counts: Record<string, number> = {};
+      for (const row of result.rows) {
+        counts[row.status] = row.count;
+      }
+      res.json(counts);
+    } catch (error) {
+      console.error('Error fetching project status counts:', error);
+      res.status(500).json({ message: "Failed to fetch status counts" });
     }
   });
 

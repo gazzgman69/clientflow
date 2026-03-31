@@ -17,17 +17,16 @@ import { useToast } from "@/hooks/use-toast";
 
 const staticNavigationItems = [
   { href: "/", icon: BarChart3, label: "Dashboard", badge: null },
-  { 
-    href: "/leads/urgency", 
-    icon: UserPlus, 
-    label: "Leads", 
-    badge: null, // Will be populated dynamically
+  {
+    href: "/projects",
+    icon: Briefcase,
+    label: "Projects",
+    badge: null, // Will be populated dynamically with new enquiry count
     subItems: [
       { href: "/leads/capture", icon: FileText, label: "Lead Forms", badge: null }
     ]
   },
   { href: "/contacts", icon: Users, label: "Contacts", badge: null },
-  { href: "/projects", icon: Briefcase, label: "Projects", badge: null },
   { href: "/members", icon: Music, label: "Members", badge: null },
   { href: "/repertoire", icon: ListMusic, label: "Repertoire", badge: null },
   { href: "/performer-contracts", icon: FileText, label: "Performer Contracts", badge: null },
@@ -44,15 +43,11 @@ export default function Sidebar() {
   const [location] = useLocation();
   const { toast } = useToast();
 
-  // Fetch leads summary for new leads count
-  const { data: leadsSummary } = useQuery({
-    queryKey: ["/api/leads/summary"],
-    queryFn: async () => {
-      const response = await apiRequest("GET", "/api/leads/summary");
-      return response.json();
-    },
-    refetchInterval: 30000, // Poll every 30 seconds for reasonable updates
-    refetchIntervalInBackground: false, // Don't poll when tab is inactive
+  // Fetch project status counts for new enquiry badge
+  const { data: projectStatusCounts } = useQuery<Record<string, number>>({
+    queryKey: ["/api/projects/status-counts"],
+    refetchInterval: 30000,
+    refetchIntervalInBackground: false,
     refetchOnWindowFocus: true,
     refetchOnMount: true,
     refetchOnReconnect: true,
@@ -88,12 +83,12 @@ export default function Sidebar() {
     }
   });
 
-  // Create navigation items with dynamic badge for leads
+  // Create navigation items with dynamic badge for new enquiries
   const navigationItems = staticNavigationItems.map(item => {
-    if (item.label === "Leads") {
+    if (item.label === "Projects") {
       return {
         ...item,
-        badge: leadsSummary?.counts?.new || null
+        badge: projectStatusCounts?.new || null
       };
     }
     return item;
@@ -129,13 +124,7 @@ export default function Sidebar() {
                     : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
                 )}
                 data-testid={`nav-${item.label.toLowerCase()}`}
-                onClick={() => {
-                  if (item.label === 'Leads') {
-                    setTimeout(() => {
-                      window.dispatchEvent(new CustomEvent('leads:manual-refresh'));
-                    }, 0);
-                  }
-                }}
+                onClick={() => {}}
               >
                 <Icon className="h-4 w-4" />
                 <span>{item.label}</span>

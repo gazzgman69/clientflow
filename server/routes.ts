@@ -2957,71 +2957,74 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
       const totalPages = Math.ceil(totalCount / limit);
       
       // Fetch document statuses for all projects (for instant loading)
-      const quoteStatuses = await neonClient(`
-        SELECT 
-          p.id as project_id,
-          q.status,
-          COUNT(*) as count
-        FROM quotes q
-        JOIN projects p ON q.contact_id = p.contact_id AND q.tenant_id = p.tenant_id
-        WHERE q.tenant_id = $1
-          AND p.id IS NOT NULL
-        GROUP BY p.id, q.status
-      `, [req.tenantId]);
-
-      const contractStatuses = await neonClient(`
-        SELECT 
-          project_id,
-          status,
-          client_signed_at,
-          business_signed_at,
-          signature_workflow
-        FROM contracts
-        WHERE tenant_id = $1
-          AND project_id IS NOT NULL
-      `, [req.tenantId]);
-
-      const invoiceStatuses = await neonClient(`
-        SELECT 
-          project_id,
-          status,
-          COUNT(*) as count
-        FROM invoices
-        WHERE tenant_id = $1
-          AND project_id IS NOT NULL
-        GROUP BY project_id, status
-      `, [req.tenantId]);
-
-      // Organize document statuses by project ID
+      // Wrapped in try/catch so document status failures don't break the project listing
       const documentStatuses: Record<string, any> = {};
-      
-      // Process quotes
-      for (const row of quoteStatuses as any[]) {
-        if (!documentStatuses[row.project_id]) {
-          documentStatuses[row.project_id] = { quotes: {}, contracts: [], invoices: {} };
+      try {
+        const quoteStatuses = await neonClient(`
+          SELECT
+            p.id as project_id,
+            q.status,
+            COUNT(*) as count
+          FROM quotes q
+          JOIN projects p ON q.contact_id = p.contact_id AND q.tenant_id = p.tenant_id
+          WHERE q.tenant_id = $1
+            AND p.id IS NOT NULL
+          GROUP BY p.id, q.status
+        `, [req.tenantId]);
+
+        const contractStatuses = await neonClient(`
+          SELECT
+            project_id,
+            status,
+            client_signed_at,
+            business_signed_at,
+            signature_workflow
+          FROM contracts
+          WHERE tenant_id = $1
+            AND project_id IS NOT NULL
+        `, [req.tenantId]);
+
+        const invoiceStatuses = await neonClient(`
+          SELECT
+            project_id,
+            status,
+            COUNT(*) as count
+          FROM invoices
+          WHERE tenant_id = $1
+            AND project_id IS NOT NULL
+          GROUP BY project_id, status
+        `, [req.tenantId]);
+
+        // Process quotes
+        for (const row of quoteStatuses as any[]) {
+          if (!documentStatuses[row.project_id]) {
+            documentStatuses[row.project_id] = { quotes: {}, contracts: [], invoices: {} };
+          }
+          documentStatuses[row.project_id].quotes[row.status] = parseInt(row.count);
         }
-        documentStatuses[row.project_id].quotes[row.status] = parseInt(row.count);
-      }
-      
-      // Process contracts
-      for (const row of contractStatuses as any[]) {
-        if (!documentStatuses[row.project_id]) {
-          documentStatuses[row.project_id] = { quotes: {}, contracts: [], invoices: {} };
+
+        // Process contracts
+        for (const row of contractStatuses as any[]) {
+          if (!documentStatuses[row.project_id]) {
+            documentStatuses[row.project_id] = { quotes: {}, contracts: [], invoices: {} };
+          }
+          documentStatuses[row.project_id].contracts.push({
+            status: row.status,
+            clientSignedAt: row.client_signed_at,
+            businessSignedAt: row.business_signed_at,
+            signatureWorkflow: row.signature_workflow
+          });
         }
-        documentStatuses[row.project_id].contracts.push({
-          status: row.status,
-          clientSignedAt: row.client_signed_at,
-          businessSignedAt: row.business_signed_at,
-          signatureWorkflow: row.signature_workflow
-        });
-      }
-      
-      // Process invoices
-      for (const row of invoiceStatuses as any[]) {
-        if (!documentStatuses[row.project_id]) {
-          documentStatuses[row.project_id] = { quotes: {}, contracts: [], invoices: {} };
+
+        // Process invoices
+        for (const row of invoiceStatuses as any[]) {
+          if (!documentStatuses[row.project_id]) {
+            documentStatuses[row.project_id] = { quotes: {}, contracts: [], invoices: {} };
+          }
+          documentStatuses[row.project_id].invoices[row.status] = parseInt(row.count);
         }
-        documentStatuses[row.project_id].invoices[row.status] = parseInt(row.count);
+      } catch (docError) {
+        console.error('Error fetching document statuses (projects will still load):', docError);
       }
       
       res.json({

@@ -2916,8 +2916,8 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
       let statusFilter: string[] | null = null;
       if (statusParam) {
         if (statusParam === 'active') {
-          // Active = everything except lost, cancelled, archived
-          statusFilter = ['new', 'contacted', 'hold', 'proposal_sent', 'booked', 'completed'];
+          // Active = everything except completed, lost, cancelled, archived
+          statusFilter = ['new', 'contacted', 'hold', 'proposal_sent', 'booked'];
         } else {
           statusFilter = statusParam.split(',').map(s => s.trim());
         }

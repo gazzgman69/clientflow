@@ -76,6 +76,7 @@ const STATUS_TABS = [
   { key: 'completed', label: 'Completed', color: 'bg-gray-500' },
   { key: 'lost', label: 'Lost', color: 'bg-red-500' },
   { key: 'cancelled', label: 'Cancelled', color: 'bg-rose-400' },
+  { key: 'archived', label: 'Archived', color: 'bg-gray-400' },
   { key: 'all', label: 'All', color: 'bg-gray-400' },
 ] as const;
 

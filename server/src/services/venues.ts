@@ -4,6 +4,7 @@ import type { Venue, InsertVenue } from '@shared/schema';
 import { withTenantData } from '../../utils/tenantQueries';
 import { validateAndCleanVenueAddress, hasAddressDuplication } from '@shared/addressUtils';
 import { neon } from '@neondatabase/serverless';
+import { pool } from '../../db';
 
 export interface CreateVenueFromGoogleRequest {
   placeId: string;
@@ -720,26 +721,22 @@ export class VenuesService {
    * Get all venues
    */
   async getVenues(tenantId: string, limit?: number, offset?: number): Promise<Venue[]> {
-    // WORKAROUND: Use direct Neon client to bypass Drizzle orderSelectedFields recursion issue
-    const neonClient = neon(process.env.DATABASE_URL!);
-    
+    // Use pool.query() which works with both local PostgreSQL and Neon cloud
     const query = `
-      SELECT * FROM venues 
+      SELECT * FROM venues
       WHERE tenant_id = $1
       ORDER BY created_at DESC
       ${limit !== undefined ? `LIMIT ${limit}` : ''}
       ${offset !== undefined ? `OFFSET ${offset}` : ''}
     `;
-    const result = await neonClient(query, [tenantId]);
-    return result as Venue[];
+    const result = await pool.query(query, [tenantId]);
+    return result.rows as Venue[];
   }
 
   async getVenuesCount(tenantId: string): Promise<number> {
-    // WORKAROUND: Use direct Neon client to bypass Drizzle orderSelectedFields recursion issue
-    const neonClient = neon(process.env.DATABASE_URL!);
-    
-    const result = await neonClient('SELECT COUNT(*) as count FROM venues WHERE tenant_id = $1', [tenantId]);
-    return parseInt((result[0] as any).count);
+    // Use pool.query() which works with both local PostgreSQL and Neon cloud
+    const result = await pool.query('SELECT COUNT(*) as count FROM venues WHERE tenant_id = $1', [tenantId]);
+    return parseInt((result.rows[0] as any).count);
   }
 
   /**

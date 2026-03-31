@@ -871,7 +871,7 @@ export default function ProjectDetail() {
   };
 
   const getVenueName = (venueId: string) => {
-    const venue = venues.find(v => v.id === venueId);
+    const venue = (Array.isArray(venues) ? venues : []).find(v => v.id === venueId);
     return venue ? venue.name : "No venue selected";
   };
 
@@ -1000,7 +1000,7 @@ export default function ProjectDetail() {
                               <SelectTrigger id="edit-venue"><SelectValue placeholder="Select venue" /></SelectTrigger>
                               <SelectContent>
                                 <SelectItem value="_none">No venue</SelectItem>
-                                {venues.map((v: Venue) => (
+                                {(Array.isArray(venues) ? venues : []).map((v: Venue) => (
                                   <SelectItem key={v.id} value={v.id}>{v.name}</SelectItem>
                                 ))}
                               </SelectContent>

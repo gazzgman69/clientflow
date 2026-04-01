@@ -96,7 +96,7 @@ export default function Sidebar() {
   });
 
   return (
-    <div className="w-64 flex flex-col" style={{ background: '#111827', color: '#e5e7eb' }}>
+    <div className="w-52 h-full min-h-screen flex flex-col" style={{ background: '#111827', color: '#e5e7eb' }}>
       {/* Logo/Brand */}
       <div className="p-6" style={{ borderBottom: '1px solid #1f2937' }}>
         <div className="flex items-center space-x-3">
@@ -173,7 +173,7 @@ export default function Sidebar() {
         })}
       </nav>
       {/* User Profile */}
-      <div className="p-4" style={{ borderTop: '1px solid #1f2937' }}>
+      <div className="p-4 mt-auto" style={{ borderTop: '1px solid #1f2937' }}>
         <DropdownMenu>
           <DropdownMenuTrigger className="w-full" data-testid="user-menu">
             <div className="flex items-center space-x-3 rounded-lg p-2 transition-colors" style={{ cursor: 'pointer' }}>

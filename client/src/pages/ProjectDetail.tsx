@@ -1530,7 +1530,7 @@ export default function ProjectDetail() {
                             <p className="font-medium">{projectContact.firstName} {projectContact.lastName}</p>
                           </div>
                           <div>
-                            <p className="text-sm text-muted-foreground">Email</p>
+                            <p className="text-sm text-muted-foreground">EMAIL</p>
                             <p className="font-medium text-sm break-all">{projectContact.email}</p>
                           </div>
                           <div>

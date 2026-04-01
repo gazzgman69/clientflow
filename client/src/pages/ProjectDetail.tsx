@@ -20,7 +20,8 @@ import {
   ArrowLeft, Mail, Phone, Calendar, Briefcase, MessageSquare, ExternalLink, Shield, Info,
   Users, FileText, Upload, Download, Trash, Clock, DollarSign, MapPin,
   Receipt, File, Send, Check, Edit, Trash2, Plus, MoreVertical, User, Home,
-  ListTodo, Timer, Music, Utensils, Car, Building, PhoneCall, Activity, TrendingUp, ChevronDown
+  ListTodo, Timer, Music, Utensils, Car, Building, PhoneCall, Activity, TrendingUp, ChevronDown,
+  Share2, Filter, Eye, EyeOff, ClipboardList, FolderOpen, Tag
 } from "lucide-react";
 import {
   Select,
@@ -1146,6 +1147,32 @@ export default function ProjectDetail() {
                   {project.status.charAt(0).toUpperCase() + project.status.slice(1)}
                 </Badge>
               </div>
+              <div className="flex items-center gap-2">
+                <Button variant="outline" size="sm" onClick={handleStartEditOverview}>
+                  <Edit className="h-4 w-4 mr-1" /> Edit
+                </Button>
+                <Button variant="outline" size="sm">Clone</Button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button size="sm">Actions <ChevronDown className="h-4 w-4 ml-1" /></Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={() => setActiveTab('email')}>
+                      <Mail className="h-4 w-4 mr-2" /> Send Email
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setActiveTab('documents')}>
+                      <FileText className="h-4 w-4 mr-2" /> Create Document
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setActiveTab('tasks')}>
+                      <ListTodo className="h-4 w-4 mr-2" /> Add Task
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem className="text-red-600">
+                      <Trash2 className="h-4 w-4 mr-2" /> Archive Project
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
             </div>
           </div>
 
@@ -1159,13 +1186,16 @@ export default function ProjectDetail() {
               <TabsTrigger value="schedule" className="flex items-center gap-2">
                 <Timer className="h-4 w-4" />
                 <span className="hidden sm:inline">Schedule</span>
+                <span className="text-[10px] bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded font-semibold ml-1">NEW</span>
               </TabsTrigger>
-              <TabsTrigger value="tasks">
+              <TabsTrigger value="tasks" className="flex items-center gap-2">
                 <span className="hidden sm:inline">Tasks</span>
+                <span className="text-[10px] bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded font-semibold ml-1">NEW</span>
               </TabsTrigger>
               <TabsTrigger value="timeline" className="flex items-center gap-2">
                 <Activity className="h-4 w-4" />
                 <span className="hidden sm:inline">Timeline</span>
+                <span className="text-[10px] bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded font-semibold ml-1">NEW</span>
               </TabsTrigger>
               <TabsTrigger value="members" className="flex items-center gap-2">
                 <Users className="h-4 w-4" />
@@ -1183,6 +1213,7 @@ export default function ProjectDetail() {
               <TabsTrigger value="financials" className="flex items-center gap-2">
                 <TrendingUp className="h-4 w-4" />
                 <span className="hidden sm:inline">Financials</span>
+                <span className="text-[10px] bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded font-semibold ml-1">NEW</span>
               </TabsTrigger>
             </TabsList>
 
@@ -1416,11 +1447,11 @@ export default function ProjectDetail() {
                             </p>
                           </div>
                           <div>
-                            <p className="text-sm text-muted-foreground">START TIME</p>
+                            <p className="text-sm text-muted-foreground">START TIME <span className="text-[10px] bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded font-semibold ml-1">NEW</span></p>
                             <p className="font-medium">{(project as any).startTime || "Not specified"}</p>
                           </div>
                           <div>
-                            <p className="text-sm text-muted-foreground">END TIME</p>
+                            <p className="text-sm text-muted-foreground">END TIME <span className="text-[10px] bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded font-semibold ml-1">NEW</span></p>
                             <p className="font-medium">{(project as any).endTime || "Not specified"}</p>
                           </div>
                           <div>
@@ -1474,13 +1505,13 @@ export default function ProjectDetail() {
                           )}
                           {(project as any).parkingDetails && (
                             <div>
-                              <p className="text-sm text-muted-foreground">Parking</p>
+                              <p className="text-sm text-muted-foreground">Parking <span className="text-[10px] bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded font-semibold ml-1">NEW</span></p>
                               <p className="font-medium text-sm">{(project as any).parkingDetails}</p>
                             </div>
                           )}
                           {(project as any).loadInDetails && (
                             <div>
-                              <p className="text-sm text-muted-foreground">Load-in</p>
+                              <p className="text-sm text-muted-foreground">Load-in <span className="text-[10px] bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded font-semibold ml-1">NEW</span></p>
                               <p className="font-medium text-sm">{(project as any).loadInDetails}</p>
                             </div>
                           )}
@@ -1556,7 +1587,7 @@ export default function ProjectDetail() {
                         <CardContent className="space-y-4">
                           {(project as any).secondContactName && (
                             <div>
-                              <p className="text-sm text-muted-foreground">Second Contact</p>
+                              <p className="text-sm text-muted-foreground">Second Contact <span className="text-[10px] bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded font-semibold ml-1">NEW</span></p>
                               <p className="font-medium">{(project as any).secondContactName}</p>
                               <p className="text-sm text-muted-foreground">Phone</p>
                               <p className="font-medium">{(project as any).secondContactPhone || "Not provided"}</p>
@@ -1564,7 +1595,7 @@ export default function ProjectDetail() {
                           )}
                           {(project as any).dayOfContactName && (
                             <div>
-                              <p className="text-sm text-muted-foreground">Day-of Contact</p>
+                              <p className="text-sm text-muted-foreground">Day-of Contact <span className="text-[10px] bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded font-semibold ml-1">NEW</span></p>
                               <p className="font-medium">{(project as any).dayOfContactName}</p>
                               <p className="text-sm text-muted-foreground">Phone</p>
                               <p className="font-medium">{(project as any).dayOfContactPhone || "Not provided"}</p>
@@ -1577,7 +1608,7 @@ export default function ProjectDetail() {
                     {/* Financial Summary Card */}
                     <Card>
                       <CardHeader>
-                        <CardTitle className="flex items-center gap-2 text-base">💰 Financial Summary</CardTitle>
+                        <CardTitle className="flex items-center gap-2 text-base">💰 Financial Summary <span className="text-[10px] bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded font-semibold ml-1">NEW</span></CardTitle>
                       </CardHeader>
                       <CardContent className="space-y-3">
                         <div>
@@ -1717,6 +1748,37 @@ export default function ProjectDetail() {
 
                 {/* RIGHT COLUMN - Quick Reference */}
                 <div className="space-y-6">
+                  {/* Meals & Breaks Card */}
+                  <Card>
+                    <CardHeader>
+                      <div className="flex items-center justify-between">
+                        <CardTitle className="text-base">🍽️ Meals & Breaks <span className="text-[10px] bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded font-semibold ml-1">NEW</span></CardTitle>
+                        <Button size="sm" variant="outline">
+                          <Plus className="h-4 w-4 mr-1" /> Add
+                        </Button>
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between py-2 border-b">
+                          <div>
+                            <p className="font-medium text-sm">Dinner</p>
+                            <p className="text-xs text-muted-foreground">6:00 PM - 7:00 PM</p>
+                          </div>
+                          <span className="text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded">Provided</span>
+                        </div>
+                        <div className="flex items-center justify-between py-2">
+                          <div>
+                            <p className="font-medium text-sm">Break</p>
+                            <p className="text-xs text-muted-foreground">9:00 PM - 9:15 PM</p>
+                          </div>
+                          <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded">15 min</span>
+                        </div>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-3">Meals & breaks will appear here once added.</p>
+                    </CardContent>
+                  </Card>
+
                   <Card>
                     <CardHeader>
                       <CardTitle className="text-base">📌 Quick Reference</CardTitle>
@@ -1746,14 +1808,17 @@ export default function ProjectDetail() {
 
                   <Card>
                     <CardHeader>
-                      <CardTitle className="text-base">📤 Export</CardTitle>
+                      <CardTitle className="text-base">📤 Export & Share</CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-2">
                       <Button variant="outline" className="w-full" size="sm">
-                        <Download className="h-4 w-4 mr-2" /> PDF
+                        <Download className="h-4 w-4 mr-2" /> Export PDF
                       </Button>
                       <Button variant="outline" className="w-full" size="sm">
-                        <Download className="h-4 w-4 mr-2" /> CSV
+                        <Download className="h-4 w-4 mr-2" /> Export CSV
+                      </Button>
+                      <Button variant="outline" className="w-full" size="sm">
+                        <Share2 className="h-4 w-4 mr-2" /> Share Schedule
                       </Button>
                     </CardContent>
                   </Card>
@@ -2016,7 +2081,7 @@ export default function ProjectDetail() {
                         <PhoneCall className="h-4 w-4 mr-2" /> Log Call
                       </Button>
                       <Button size="sm" variant="outline">
-                        Filter
+                        <Filter className="h-4 w-4 mr-2" /> Filter
                       </Button>
                     </div>
                   </div>
@@ -2338,6 +2403,25 @@ export default function ProjectDetail() {
                   )}
                 </CardContent>
               </Card>
+
+              {/* Forms & Questionnaires Section */}
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-base">📋 Forms & Questionnaires <span className="text-[10px] bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded font-semibold ml-1">NEW</span></CardTitle>
+                    <Button size="sm">
+                      <Plus className="h-4 w-4 mr-2" /> Create Form
+                    </Button>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-center py-6 text-muted-foreground">
+                    <ClipboardList className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                    <p className="text-sm">No forms or questionnaires yet.</p>
+                    <p className="text-xs mt-1">Create a form to collect information from clients or team members.</p>
+                  </div>
+                </CardContent>
+              </Card>
             </TabsContent>
 
             {/* FILES TAB */}
@@ -2373,10 +2457,23 @@ export default function ProjectDetail() {
                               <p className="text-xs text-muted-foreground">{file.size} bytes</p>
                             </div>
                           </div>
-                          <div className="flex items-center gap-2">
-                            <Badge variant="outline" className="text-xs">
-                              {file.portalVisible ? "Client Portal" : "Private"}
-                            </Badge>
+                          <div className="flex items-center gap-3">
+                            <div className="flex items-center gap-1.5" title="Client Portal Visibility">
+                              <Eye className="h-3 w-3 text-muted-foreground" />
+                              <span className="text-[10px] text-muted-foreground">Client</span>
+                              <Switch
+                                checked={file.portalVisible || false}
+                                className="scale-75"
+                              />
+                            </div>
+                            <div className="flex items-center gap-1.5" title="Member Portal Visibility">
+                              <Users className="h-3 w-3 text-muted-foreground" />
+                              <span className="text-[10px] text-muted-foreground">Member</span>
+                              <Switch
+                                checked={false}
+                                className="scale-75"
+                              />
+                            </div>
                             <Button size="sm" variant="ghost" onClick={() => deleteFileMutation.mutate(file.id)}>
                               <Trash2 className="h-3 w-3" />
                             </Button>
@@ -2443,8 +2540,17 @@ export default function ProjectDetail() {
                             <div className="flex-1">
                               <p className="text-sm font-medium">{note.title || "Untitled"}</p>
                               <p className="text-sm text-muted-foreground">{note.note}</p>
+                              {(note as any).tags && (note as any).tags.length > 0 && (
+                                <div className="flex gap-1 mt-1.5">
+                                  {(note as any).tags.map((tag: string, idx: number) => (
+                                    <span key={idx} className="text-[10px] bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded">
+                                      <Tag className="h-2.5 w-2.5 inline mr-0.5" />{tag}
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
                             </div>
-                            <Badge variant="outline" className="text-xs">
+                            <Badge variant="outline" className="text-xs ml-2">
                               {(note as any).visibility === 'private' ? 'Private' : 'Shared'}
                             </Badge>
                           </div>
@@ -2534,14 +2640,35 @@ export default function ProjectDetail() {
                   <Card>
                     <CardHeader>
                       <div className="flex items-center justify-between">
-                        <CardTitle className="text-base">Expenses</CardTitle>
+                        <CardTitle className="text-base">💸 Expenses <span className="text-[10px] bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded font-semibold ml-1">NEW</span></CardTitle>
                         <Button size="sm">
                           <Plus className="h-4 w-4 mr-2" /> Add Expense
                         </Button>
                       </div>
                     </CardHeader>
                     <CardContent>
-                      <p className="text-sm text-muted-foreground py-4">No expenses recorded yet.</p>
+                      <div className="overflow-x-auto">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Description</TableHead>
+                              <TableHead>Category</TableHead>
+                              <TableHead>Amount</TableHead>
+                              <TableHead>Date</TableHead>
+                              <TableHead className="w-20">Actions</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            <TableRow>
+                              <TableCell colSpan={5} className="text-center py-6 text-muted-foreground">
+                                <Receipt className="h-6 w-6 mx-auto mb-2 opacity-50" />
+                                <p className="text-sm">No expenses recorded yet.</p>
+                                <p className="text-xs mt-1">Track travel, equipment, and other project costs here.</p>
+                              </TableCell>
+                            </TableRow>
+                          </TableBody>
+                        </Table>
+                      </div>
                     </CardContent>
                   </Card>
                 </div>
@@ -2628,24 +2755,54 @@ export default function ProjectDetail() {
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit Contact</DialogTitle>
+            <DialogDescription>Update client contact information for this project.</DialogDescription>
           </DialogHeader>
-          <div className="space-y-4">
-            {/* Contact edit form goes here - simplified for space */}
+          <form onSubmit={contactEditForm.handleSubmit(handleSaveContact)} className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>First Name</Label>
+                <Input {...contactEditForm.register("firstName")} placeholder="First name" />
+              </div>
+              <div>
+                <Label>Last Name</Label>
+                <Input {...contactEditForm.register("lastName")} placeholder="Last name" />
+              </div>
+            </div>
             <div>
-              <Label>First Name</Label>
-              <Input
-                value={projectContact?.firstName || ""}
-                onChange={(e) => {
-                  // Handle contact update
-                }}
-                placeholder="First name"
-              />
+              <Label>Email</Label>
+              <Input {...contactEditForm.register("email")} type="email" placeholder="email@example.com" />
             </div>
-            <div className="flex gap-2">
-              <Button onClick={() => setShowContactEditModal(false)}>Save</Button>
-              <Button variant="outline" onClick={() => setShowContactEditModal(false)}>Cancel</Button>
+            <div>
+              <Label>Phone</Label>
+              <Input {...contactEditForm.register("phone")} placeholder="Phone number" />
             </div>
-          </div>
+            <div>
+              <Label>Company</Label>
+              <Input {...contactEditForm.register("company")} placeholder="Company name" />
+            </div>
+            <div>
+              <Label>Job Title</Label>
+              <Input {...contactEditForm.register("jobTitle")} placeholder="Job title" />
+            </div>
+            <div>
+              <Label>Website</Label>
+              <Input {...contactEditForm.register("website")} placeholder="https://..." />
+            </div>
+            <div>
+              <Label>Lead Source</Label>
+              <Input {...contactEditForm.register("leadSource")} placeholder="e.g. Referral, Website, Social Media" />
+            </div>
+            <div>
+              <Label>Notes</Label>
+              <Textarea {...contactEditForm.register("notes")} placeholder="Any additional notes about this contact..." rows={3} />
+            </div>
+            <div className="flex gap-2 pt-2">
+              <Button type="submit" disabled={updateContactMutation.isPending}>
+                {updateContactMutation.isPending ? "Saving..." : "Save Contact"}
+              </Button>
+              <Button type="button" variant="outline" onClick={() => setShowContactEditModal(false)}>Cancel</Button>
+            </div>
+          </form>
         </DialogContent>
       </Dialog>
       {/* Contact Picker Modal */}

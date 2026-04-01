@@ -60,7 +60,7 @@ export default function PerformerContractsPage() {
   });
 
   const createMutation = useMutation({
-    mutationFn: (data: ContractFormData) => apiRequest("/api/performer-contracts", "POST", {
+    mutationFn: (data: ContractFormData) => apiRequest("POST", "/api/performer-contracts", {
       ...data,
       fee: data.fee || undefined,
       callTime: data.callTime ? new Date(data.callTime).toISOString() : undefined,
@@ -70,13 +70,13 @@ export default function PerformerContractsPage() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: Partial<ContractFormData> }) => apiRequest(`/api/performer-contracts/${id}`, "PATCH", data),
+    mutationFn: ({ id, data }: { id: string; data: Partial<ContractFormData> }) => apiRequest("PATCH", `/api/performer-contracts/${id}`, data),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/performer-contracts"] }); setIsDialogOpen(false); setSelectedContract(null); form.reset(); toast({ title: "Contract updated" }); },
     onError: () => toast({ title: "Failed to update contract", variant: "destructive" }),
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id: string) => apiRequest(`/api/performer-contracts/${id}`, "DELETE"),
+    mutationFn: (id: string) => apiRequest("DELETE", `/api/performer-contracts/${id}`),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/performer-contracts"] }); toast({ title: "Contract deleted" }); },
     onError: () => toast({ title: "Failed to delete contract", variant: "destructive" }),
   });

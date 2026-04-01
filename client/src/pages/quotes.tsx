@@ -71,7 +71,6 @@ export default function Quotes() {
         subtotal: parseFloat(data.subtotal),
         taxAmount: data.taxAmount ? parseFloat(data.taxAmount) : 0,
         total: parseFloat(data.total),
-        createdBy: "default-user", // This would be set to current user
       };
       const response = await apiRequest("POST", "/api/quotes", quoteData);
       return response.json();

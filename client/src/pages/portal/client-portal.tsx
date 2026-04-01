@@ -146,7 +146,7 @@ export default function ClientPortal() {
   // Payment mutation - fixed to use correct endpoint
   const createPaymentMutation = useMutation({
     mutationFn: async (invoiceId: string) => {
-      return apiRequest("/api/portal/payments/create-payment-intent", "POST", { invoiceId });
+      return apiRequest("POST", "/api/portal/payments/create-payment-intent", { invoiceId });
       if (!response.ok) throw new Error("Failed to create payment");
       return response.json();
     },
@@ -173,7 +173,7 @@ export default function ClientPortal() {
 
   const sendMessageMutation = useMutation({
     mutationFn: (data: MessageFormData) =>
-      apiRequest("/api/emails", "POST", {
+      apiRequest("POST", "/api/emails", {
         ...data,
         fromEmail: currentUser?.contact?.email || "client@example.com",
         toEmail: "events@company.com",

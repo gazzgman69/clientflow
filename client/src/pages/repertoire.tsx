@@ -53,7 +53,7 @@ export default function RepertoirePage() {
   });
 
   const createMutation = useMutation({
-    mutationFn: (data: SongFormData) => apiRequest("/api/repertoire", "POST", {
+    mutationFn: (data: SongFormData) => apiRequest("POST", "/api/repertoire", {
       ...data,
       tempo: data.tempo ? parseInt(data.tempo) : undefined,
       duration: data.duration ? parseInt(data.duration) * 60 : undefined,
@@ -63,7 +63,7 @@ export default function RepertoirePage() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: SongFormData }) => apiRequest(`/api/repertoire/${id}`, "PATCH", {
+    mutationFn: ({ id, data }: { id: string; data: SongFormData }) => apiRequest("PATCH", `/api/repertoire/${id}`, {
       ...data,
       tempo: data.tempo ? parseInt(data.tempo) : undefined,
       duration: data.duration ? parseInt(data.duration) * 60 : undefined,
@@ -73,7 +73,7 @@ export default function RepertoirePage() {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id: string) => apiRequest(`/api/repertoire/${id}`, "DELETE"),
+    mutationFn: (id: string) => apiRequest("DELETE", `/api/repertoire/${id}`),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/repertoire"] }); toast({ title: "Song deleted" }); },
     onError: () => toast({ title: "Failed to delete song", variant: "destructive" }),
   });

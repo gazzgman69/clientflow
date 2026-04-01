@@ -13,7 +13,7 @@ export default function TodayTasks() {
   const { data: tasks, isLoading } = useQuery<Task[]>({
     queryKey: ["/api/tasks"],
     queryFn: async () => {
-      const response = await fetch("/api/tasks?today=true&assignedTo=default-user");
+      const response = await fetch("/api/tasks?today=true");
       return response.json();
     },
   });

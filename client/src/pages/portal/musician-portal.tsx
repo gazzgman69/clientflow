@@ -46,7 +46,7 @@ export default function MusicianPortal() {
     queryKey: ["/api/members/me"],
     queryFn: async () => {
       // Get all members and find the one matching logged in user
-      const res = await apiRequest("/api/members", "GET");
+      const res = await apiRequest("GET", "/api/members");
       const data = await res.json();
       // For portal context, return the first active member — in full implementation
       // this would be scoped to the authenticated musician's own record
@@ -60,7 +60,7 @@ export default function MusicianPortal() {
   const { data: myGigs = [], isLoading: gigsLoading } = useQuery<GigWithAssignment[]>({
     queryKey: ["/api/portal/musician/gigs", memberId],
     queryFn: async () => {
-      const res = await apiRequest(`/api/portal/musician/gigs?memberId=${memberId}`, "GET");
+      const res = await apiRequest("GET", `/api/portal/musician/gigs?memberId=${memberId}`);
       return res.json();
     },
     enabled: !!memberId,
@@ -69,7 +69,7 @@ export default function MusicianPortal() {
   const { data: myContracts = [] } = useQuery<PerformerContract[]>({
     queryKey: ["/api/portal/musician/contracts", memberId],
     queryFn: async () => {
-      const res = await apiRequest(`/api/portal/musician/contracts?memberId=${memberId}`, "GET");
+      const res = await apiRequest("GET", `/api/portal/musician/contracts?memberId=${memberId}`);
       return res.json();
     },
     enabled: !!memberId,
@@ -78,7 +78,7 @@ export default function MusicianPortal() {
   const { data: myAvailability = [] } = useQuery<MemberAvailability[]>({
     queryKey: ["/api/portal/musician/availability", memberId],
     queryFn: async () => {
-      const res = await apiRequest(`/api/portal/musician/availability?memberId=${memberId}`, "GET");
+      const res = await apiRequest("GET", `/api/portal/musician/availability?memberId=${memberId}`);
       return res.json();
     },
     enabled: !!memberId,
@@ -86,7 +86,7 @@ export default function MusicianPortal() {
 
   const respondMutation = useMutation({
     mutationFn: ({ projectId, status }: { projectId: string; status: string }) =>
-      apiRequest(`/api/portal/musician/gigs/${projectId}/respond`, "PATCH", { memberId, status }),
+      apiRequest("PATCH", `/api/portal/musician/gigs/${projectId}/respond`, { memberId, status }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/portal/musician/gigs", memberId] });
       setSelectedGig(null);
@@ -97,7 +97,7 @@ export default function MusicianPortal() {
 
   const setAvailabilityMutation = useMutation({
     mutationFn: () =>
-      apiRequest("/api/portal/musician/availability", "POST", {
+      apiRequest("POST", "/api/portal/musician/availability", {
         memberId,
         date: availDate,
         availabilityType: availType,

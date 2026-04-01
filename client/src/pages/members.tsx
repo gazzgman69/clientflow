@@ -149,37 +149,37 @@ export default function MembersPage() {
   });
 
   const createMemberMutation = useMutation({
-    mutationFn: (data: MemberFormData) => apiRequest("/api/members", "POST", buildMemberPayload(data)),
+    mutationFn: (data: MemberFormData) => apiRequest("POST", "/api/members", buildMemberPayload(data)),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/members"] }); setIsMemberDialogOpen(false); memberForm.reset(); toast({ title: "Member added" }); },
     onError: () => toast({ title: "Failed to add member", variant: "destructive" }),
   });
 
   const updateMemberMutation = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: MemberFormData }) => apiRequest(`/api/members/${id}`, "PATCH", buildMemberPayload(data)),
+    mutationFn: ({ id, data }: { id: string; data: MemberFormData }) => apiRequest("PATCH", `/api/members/${id}`, buildMemberPayload(data)),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/members"] }); setIsMemberDialogOpen(false); setSelectedMember(null); memberForm.reset(); toast({ title: "Member updated" }); },
     onError: () => toast({ title: "Failed to update member", variant: "destructive" }),
   });
 
   const deleteMemberMutation = useMutation({
-    mutationFn: (id: string) => apiRequest(`/api/members/${id}`, "DELETE"),
+    mutationFn: (id: string) => apiRequest("DELETE", `/api/members/${id}`),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/members"] }); toast({ title: "Member deleted" }); },
     onError: () => toast({ title: "Failed to delete member", variant: "destructive" }),
   });
 
   const createGroupMutation = useMutation({
-    mutationFn: (data: GroupFormData) => apiRequest("/api/member-groups", "POST", data),
+    mutationFn: (data: GroupFormData) => apiRequest("POST", "/api/member-groups", data),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/member-groups"] }); setIsGroupDialogOpen(false); groupForm.reset(); toast({ title: "Group created" }); },
     onError: () => toast({ title: "Failed to create group", variant: "destructive" }),
   });
 
   const updateGroupMutation = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: GroupFormData }) => apiRequest(`/api/member-groups/${id}`, "PATCH", data),
+    mutationFn: ({ id, data }: { id: string; data: GroupFormData }) => apiRequest("PATCH", `/api/member-groups/${id}`, data),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/member-groups"] }); setIsGroupDialogOpen(false); setSelectedGroup(null); groupForm.reset(); toast({ title: "Group updated" }); },
     onError: () => toast({ title: "Failed to update group", variant: "destructive" }),
   });
 
   const deleteGroupMutation = useMutation({
-    mutationFn: (id: string) => apiRequest(`/api/member-groups/${id}`, "DELETE"),
+    mutationFn: (id: string) => apiRequest("DELETE", `/api/member-groups/${id}`),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/member-groups"] }); toast({ title: "Group deleted" }); },
     onError: () => toast({ title: "Failed to delete group", variant: "destructive" }),
   });

@@ -221,7 +221,7 @@ export default function ContractEditor({
         clientSignature: data.clientSignature,
       };
       
-      return await apiRequest(`/api/contracts/${editingContract.id}`, 'PATCH', contractData);
+      return await apiRequest('PATCH', `/api/contracts/${editingContract.id}`, contractData);
     },
     onSuccess: () => {
       toast({

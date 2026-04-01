@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useLocation } from "wouter";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { UserPlus, FileText, Building, CalendarPlus } from "lucide-react";
@@ -11,10 +12,26 @@ interface QuickActionModalProps {
 
 export default function QuickActionModal({ isOpen, onClose }: QuickActionModalProps) {
   const [showLeadCapture, setShowLeadCapture] = useState(false);
+  const [, setLocation] = useLocation();
 
   const handleAddLead = () => {
     onClose();
     setShowLeadCapture(true);
+  };
+
+  const handleCreateQuote = () => {
+    onClose();
+    setLocation("/quotes");
+  };
+
+  const handleAddClient = () => {
+    onClose();
+    setLocation("/contacts");
+  };
+
+  const handleScheduleAppointment = () => {
+    onClose();
+    setLocation("/calendar");
   };
 
   return (
@@ -39,24 +56,27 @@ export default function QuickActionModal({ isOpen, onClose }: QuickActionModalPr
             <Button
               variant="ghost"
               className="w-full justify-start h-auto p-3"
+              onClick={handleCreateQuote}
               data-testid="quick-create-quote"
             >
               <FileText className="h-5 w-5 text-accent mr-3" />
               <span className="text-sm font-medium">Create Quote</span>
             </Button>
-            
+
             <Button
               variant="ghost"
               className="w-full justify-start h-auto p-3"
+              onClick={handleAddClient}
               data-testid="quick-add-client"
             >
               <Building className="h-5 w-5 text-green-600 mr-3" />
               <span className="text-sm font-medium">Add Client</span>
             </Button>
-            
+
             <Button
               variant="ghost"
               className="w-full justify-start h-auto p-3"
+              onClick={handleScheduleAppointment}
               data-testid="quick-schedule-appointment"
             >
               <CalendarPlus className="h-5 w-5 text-blue-600 mr-3" />

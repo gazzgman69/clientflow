@@ -192,9 +192,9 @@ export default function ProjectDetailModal({ project, isOpen, onClose }: Project
         originalName: file.name,
         fileSize: file.size,
         mimeType: file.type,
-        uploadedBy: "current-user-id", // Would come from auth context
+        uploadedBy: "system", // Backend should override with session user
       };
-      return apiRequest(`/api/projects/${project?.id}/files`, "POST", fileData);
+      return apiRequest("POST", `/api/projects/${project?.id}/files`, fileData);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/projects", project?.id, "files"] });
@@ -215,9 +215,8 @@ export default function ProjectDetailModal({ project, isOpen, onClose }: Project
 
   const addNoteMutation = useMutation({
     mutationFn: (data: NoteFormData) =>
-      apiRequest(`/api/projects/${project?.id}/notes`, "POST", {
+      apiRequest("POST", `/api/projects/${project?.id}/notes`, {
         ...data,
-        createdBy: "current-user-id", // Would come from auth context
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/projects", project?.id, "notes"] });
@@ -238,7 +237,7 @@ export default function ProjectDetailModal({ project, isOpen, onClose }: Project
 
   const assignMemberMutation = useMutation({
     mutationFn: (data: MemberAssignmentData) =>
-      apiRequest(`/api/projects/${project?.id}/members`, "POST", {
+      apiRequest("POST", `/api/projects/${project?.id}/members`, {
         ...data,
         fee: data.fee ? parseFloat(data.fee) : undefined,
       }),
@@ -260,7 +259,7 @@ export default function ProjectDetailModal({ project, isOpen, onClose }: Project
   });
 
   const deleteFileMutation = useMutation({
-    mutationFn: (fileId: string) => apiRequest(`/api/files/${fileId}`, "DELETE"),
+    mutationFn: (fileId: string) => apiRequest("DELETE", `/api/files/${fileId}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/projects", project?.id, "files"] });
       toast({
@@ -272,7 +271,7 @@ export default function ProjectDetailModal({ project, isOpen, onClose }: Project
 
   const removeMemberMutation = useMutation({
     mutationFn: (memberId: string) =>
-      apiRequest(`/api/projects/${project?.id}/members/${memberId}`, "DELETE"),
+      apiRequest("DELETE", `/api/projects/${project?.id}/members/${memberId}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/projects", project?.id, "members"] });
       toast({

@@ -51,7 +51,6 @@ export default function Automations() {
     mutationFn: async (data: z.infer<typeof automationFormSchema>) => {
       const automationData = {
         ...data,
-        createdBy: "default-user", // This would be set to current user
       };
       const response = await apiRequest("POST", "/api/automations", automationData);
       return response.json();

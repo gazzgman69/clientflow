@@ -101,10 +101,7 @@ export default function MediaLibrary() {
 
   const updateMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: Partial<MediaItem> }) => {
-      return apiRequest(`/api/media-library/${id}`, {
-        method: 'PATCH',
-        body: JSON.stringify(data),
-      });
+      return apiRequest("PATCH", `/api/media-library/${id}`, data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/media-library'] });
@@ -126,9 +123,7 @@ export default function MediaLibrary() {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      return apiRequest(`/api/media-library/${id}`, {
-        method: 'DELETE',
-      });
+      return apiRequest("DELETE", `/api/media-library/${id}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/media-library'] });

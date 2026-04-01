@@ -127,12 +127,14 @@ export default function Automations() {
   };
 
   const triggerOptions = [
-    { value: "lead_created", label: "Lead Created" },
+    { value: "project_created", label: "Project Created" },
     { value: "quote_sent", label: "Quote Sent" },
+    { value: "quote_approved", label: "Quote Approved" },
     { value: "contract_signed", label: "Contract Signed" },
     { value: "invoice_overdue", label: "Invoice Overdue" },
+    { value: "invoice_paid", label: "Invoice Paid" },
     { value: "project_completed", label: "Project Completed" },
-    { value: "client_added", label: "Client Added" },
+    { value: "contact_added", label: "Contact Added" },
   ];
 
   const actionOptions = [

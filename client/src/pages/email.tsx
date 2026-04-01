@@ -16,7 +16,7 @@ import { insertEmailSchema } from "@shared/schema";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { formatDistanceToNow } from "date-fns";
-import type { Email, Client, Lead, Project } from "@shared/schema";
+import type { Email, Contact, Project } from "@shared/schema";
 import { z } from "zod";
 import { SummarizeThreadButton, DraftReplyButton, ExtractActionsButton, AIComposeButton } from "@/components/AIActions";
 
@@ -31,16 +31,17 @@ export default function EmailPage() {
     queryKey: ["/api/emails"],
   });
 
-  const { data: clients } = useQuery<Client[]>({
-    queryKey: ["/api/clients"],
-  });
-
-  const { data: leads } = useQuery<Lead[]>({
-    queryKey: ["/api/leads"],
+  const { data: clients } = useQuery<Contact[]>({
+    queryKey: ["/api/contacts?simple=1&limit=100"],
   });
 
   const { data: projects } = useQuery<Project[]>({
     queryKey: ["/api/projects"],
+  });
+
+  const { data: currentUser } = useQuery({
+    queryKey: ["/api/auth/me"],
+    retry: false,
   });
 
   const form = useForm<z.infer<typeof insertEmailSchema>>({
@@ -48,7 +49,7 @@ export default function EmailPage() {
     defaultValues: {
       subject: "",
       body: "",
-      fromEmail: "john@company.com",
+      fromEmail: currentUser?.user?.email || "",
       toEmail: "",
     },
   });
@@ -193,7 +194,7 @@ export default function EmailPage() {
                 data-testid="tab-sent"
               >
                 <SendHorizontal className="h-4 w-4 mr-2" />
-                SendHorizontal
+                Sent
               </Button>
               <Button
                 variant={activeTab === 'archive' ? 'default' : 'ghost'}

@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Search, User, Users } from "lucide-react";
-import type { Contact, Client } from "@shared/schema";
+import type { Contact } from "@shared/schema";
 
 interface ContactPickerProps {
   isOpen: boolean;
@@ -16,37 +16,20 @@ interface ContactPickerProps {
 export default function ContactPicker({ isOpen, onClose, onContactSelect }: ContactPickerProps) {
   const [searchTerm, setSearchTerm] = useState("");
 
-  // Fetch contacts and clients
-  const { data: contactsData } = useQuery<{ contacts: Contact[] }>({
-    queryKey: ["/api/contacts"],
+  // Fetch contacts
+  const { data: contacts = [] } = useQuery<Contact[]>({
+    queryKey: ["/api/contacts?simple=1&limit=100"],
   });
 
-  const { data: clientsData } = useQuery<{ clients: Client[] }>({
-    queryKey: ["/api/clients"],
-  });
-
-  const contacts = contactsData?.contacts || [];
-  const clients = clientsData?.clients || [];
-
-  // Combine and filter contacts/clients based on search
-  const allContacts = [
-    ...(contacts || []).map(contact => ({
-      id: contact.id,
-      originalId: contact.id, // Keep original ID for API calls
-      name: `${contact.firstName} ${contact.lastName}`,
-      email: contact.email,
-      company: contact.company,
-      type: 'contact' as const
-    })),
-    ...(clients || []).map(client => ({
-      id: client.id,
-      originalId: client.id, // Keep original ID for API calls  
-      name: `${client.firstName} ${client.lastName}`,
-      email: client.email,
-      company: client.company,
-      type: 'client' as const
-    }))
-  ];
+  // Map contacts for display
+  const allContacts = (contacts || []).map(contact => ({
+    id: contact.id,
+    originalId: contact.id,
+    name: `${contact.firstName} ${contact.lastName}`.trim() || contact.fullName || contact.email || 'Unknown',
+    email: contact.email,
+    company: contact.company,
+    type: 'contact' as const
+  }));
 
   const filteredContacts = allContacts.filter(contact =>
     contact.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -98,7 +81,6 @@ export default function ContactPicker({ isOpen, onClose, onContactSelect }: Cont
                   <TableHead>Name</TableHead>
                   <TableHead>Email</TableHead>
                   <TableHead>Company</TableHead>
-                  <TableHead>Type</TableHead>
                   <TableHead>Action</TableHead>
                 </TableRow>
               </TableHeader>
@@ -113,15 +95,6 @@ export default function ContactPicker({ isOpen, onClose, onContactSelect }: Cont
                     </TableCell>
                     <TableCell data-testid={`contact-company-${contact.type}-${contact.id}`}>
                       {contact.company || '-'}
-                    </TableCell>
-                    <TableCell>
-                      <span className={`inline-flex px-2 py-1 text-xs rounded-full ${
-                        contact.type === 'contact' 
-                          ? 'bg-blue-100 text-blue-800' 
-                          : 'bg-green-100 text-green-800'
-                      }`}>
-                        {contact.type}
-                      </span>
                     </TableCell>
                     <TableCell>
                       <Button

@@ -18,7 +18,7 @@ import { insertQuoteSchema } from "@shared/schema";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { formatDistanceToNow } from "date-fns";
-import type { Quote, Client, Lead } from "@shared/schema";
+import type { Quote, Client, Contact } from "@shared/schema";
 import { z } from "zod";
 
 const quoteFormSchema = insertQuoteSchema.extend({
@@ -43,12 +43,8 @@ export default function Quotes() {
     queryKey: ["/api/quotes"],
   });
 
-  const { data: clients } = useQuery<Client[]>({
-    queryKey: ["/api/clients"],
-  });
-
-  const { data: leads } = useQuery<Lead[]>({
-    queryKey: ["/api/leads"],
+  const { data: clients } = useQuery<Contact[]>({
+    queryKey: ["/api/contacts?simple=1&limit=100"],
   });
 
   const form = useForm<z.infer<typeof quoteFormSchema>>({

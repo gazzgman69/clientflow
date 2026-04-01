@@ -1,10 +1,10 @@
 import { Link, useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
-import { 
-  BarChart3, Users, UserPlus, Briefcase, FileText, 
+import {
+  BarChart3, Users, UserPlus, Briefcase, FileText,
   File, Receipt, Calendar, Bot, Settings, LogOut,
-  Music, MapPin, FolderOpen, Mail, ChevronDown, ListMusic
+  Music, MapPin, FolderOpen, Mail, ChevronDown, ListMusic, ExternalLink
 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import {
@@ -32,13 +32,14 @@ const staticNavigationItems = [
   { href: "/repertoire", icon: ListMusic, label: "Repertoire", emoji: "🎶", badge: null },
   { href: "/performer-contracts", icon: FileText, label: "Performer Contracts", emoji: "📄", badge: null },
   { href: "/quotes", icon: FileText, label: "Quotes", emoji: "📝", badge: null },
+  { href: "/contracts", icon: File, label: "Contracts", emoji: "📑", badge: null },
   { href: "/invoices", icon: Receipt, label: "Invoices", emoji: "💰", badge: null },
   { href: "/venues", icon: MapPin, label: "Venues", emoji: "📍", badge: null },
   { href: "/documents", icon: FolderOpen, label: "Documents", emoji: "📁", badge: null },
   { href: "/scheduler", icon: Calendar, label: "Scheduler", emoji: "📅", badge: null },
   { href: "/calendar", icon: Calendar, label: "Calendar", emoji: "🗓️", badge: null },
   { href: "/email", icon: Mail, label: "Email", emoji: "✉️", badge: null },
-  { href: "/portal/client", icon: Mail, label: "Client Portal", emoji: "📧", badge: null },
+  { href: "/portal/client", icon: ExternalLink, label: "Client Portal", emoji: "🔗", badge: null },
   { href: "/automations", icon: Bot, label: "Automations", emoji: "🤖", badge: null },
   { href: "/settings", icon: Settings, label: "Settings", emoji: "⚙️", badge: null },
 ];

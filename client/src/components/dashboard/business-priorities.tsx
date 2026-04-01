@@ -3,7 +3,6 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
-  UserPlus, 
   FileX, 
   AlertTriangle, 
   CheckSquare, 
@@ -17,7 +16,7 @@ import { formatDistanceToNow, format, isAfter } from "date-fns";
 
 interface BusinessPriority {
   id: string;
-  type: 'new_lead' | 'overdue_contract' | 'overdue_invoice' | 'todo' | 'approval_needed';
+  type: 'overdue_contract' | 'overdue_invoice' | 'todo' | 'approval_needed';
   title: string;
   description: string;
   clientName?: string;
@@ -34,28 +33,6 @@ interface BusinessPriority {
 export default function BusinessPriorities() {
   // Mock business priority items - in real app, this would come from API
   const businessPriorities: BusinessPriority[] = [
-    // New Leads
-    {
-      id: "lead-1",
-      type: "new_lead",
-      title: "Wedding Inquiry - Beach Resort",
-      description: "Bride seeking live music for oceanfront ceremony",
-      clientName: "Emily Richards",
-      createdDate: new Date(Date.now() - 2 * 60 * 60 * 1000), // 2 hours ago
-      urgency: "high",
-      clientId: "client-new-1"
-    },
-    {
-      id: "lead-2", 
-      type: "new_lead",
-      title: "Corporate Holiday Party",
-      description: "Fortune 500 company needs entertainment for 200+ guests",
-      clientName: "Ace Manufacturing",
-      createdDate: new Date(Date.now() - 6 * 60 * 60 * 1000), // 6 hours ago
-      urgency: "medium",
-      clientId: "client-new-2"
-    },
-    
     // Overdue Documents
     {
       id: "contract-1",
@@ -139,7 +116,6 @@ export default function BusinessPriorities() {
 
   const getItemIcon = (type: string) => {
     switch (type) {
-      case 'new_lead': return <UserPlus className="h-4 w-4 text-blue-500" />;
       case 'overdue_contract': return <FileX className="h-4 w-4 text-red-500" />;
       case 'overdue_invoice': return <DollarSign className="h-4 w-4 text-red-500" />;
       case 'todo': return <CheckSquare className="h-4 w-4 text-green-500" />;
@@ -176,7 +152,6 @@ export default function BusinessPriorities() {
     }
   };
 
-  const newLeads = getItemsByType('new_lead');
   const overdueItems = [...getItemsByType('overdue_contract'), ...getItemsByType('overdue_invoice')];
   const todos = getItemsByType('todo');
   const approvals = getItemsByType('approval_needed');
@@ -249,26 +224,17 @@ export default function BusinessPriorities() {
       </CardHeader>
       <CardContent>
         <Tabs defaultValue="all" className="w-full">
-          <TabsList className="grid w-full grid-cols-5">
+          <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="all">All ({businessPriorities.length})</TabsTrigger>
-            <TabsTrigger value="leads">Leads ({newLeads.length})</TabsTrigger>
             <TabsTrigger value="overdue">Overdue ({overdueItems.length})</TabsTrigger>
             <TabsTrigger value="todos">To-dos ({todos.length})</TabsTrigger>
             <TabsTrigger value="approvals">Approvals ({approvals.length})</TabsTrigger>
           </TabsList>
-          
+
           <TabsContent value="all" className="mt-4">
             {renderItemsList(businessPriorities)}
           </TabsContent>
-          
-          <TabsContent value="leads" className="mt-4">
-            {newLeads.length > 0 ? renderItemsList(newLeads) : (
-              <div className="text-center text-muted-foreground py-8">
-                No new leads to review
-              </div>
-            )}
-          </TabsContent>
-          
+
           <TabsContent value="overdue" className="mt-4">
             {overdueItems.length > 0 ? renderItemsList(overdueItems) : (
               <div className="text-center text-muted-foreground py-8">

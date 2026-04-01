@@ -11,7 +11,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Search, Filter, Download, Send, Check, FileText, File, Receipt, MoreHorizontal, Eye, Edit, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import type { Quote, Contract, Invoice, Client } from "@shared/schema";
+import type { Quote, Contract, Invoice, Contact } from "@shared/schema";
 
 interface Document {
   id: string;
@@ -34,14 +34,23 @@ export default function Documents() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
+  // Build documents URL with proper query params
+  const documentsUrl = (() => {
+    const params = new URLSearchParams();
+    if (statusFilter !== "all") params.set("status", statusFilter);
+    if (typeFilter !== "all") params.set("type", typeFilter);
+    const qs = params.toString();
+    return qs ? `/api/documents?${qs}` : "/api/documents";
+  })();
+
   // Fetch all documents
   const { data: documents = [], isLoading } = useQuery<Document[]>({
-    queryKey: ["/api/documents", { status: statusFilter !== "all" ? statusFilter : undefined, type: typeFilter !== "all" ? typeFilter : undefined }],
+    queryKey: [documentsUrl],
   });
 
-  // Fetch clients for name display
-  const { data: clients = [] } = useQuery<Client[]>({
-    queryKey: ["/api/clients"],
+  // Fetch contacts for name display
+  const { data: clients = [] } = useQuery<Contact[]>({
+    queryKey: ["/api/contacts?simple=1&limit=100"],
   });
 
   // Status change mutations

@@ -16,7 +16,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest } from '@/lib/queryClient';
-import type { Lead } from '@shared/schema';
+import type { Contact } from '@shared/schema';
 
 interface Event {
   id: string;
@@ -89,13 +89,8 @@ export default function CalendarView({ viewMode = 'month' }: CalendarViewProps) 
     refetchOnMount: true, // Refresh when component mounts
   });
 
-  const { data: clientsData } = useQuery<{ contacts: any[] }>({
-    queryKey: ['/api/clients'],
-  });
-  const clients = clientsData?.contacts || [];
-
-  const { data: leads } = useQuery<Lead[]>({
-    queryKey: ['/api/leads'],
+  const { data: clients = [] } = useQuery<Contact[]>({
+    queryKey: ['/api/contacts?simple=1&limit=100'],
   });
 
   const form = useForm<EventFormData>({

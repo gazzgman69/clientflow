@@ -52,7 +52,7 @@ export default function PerformerContractsPage() {
 
   const { data: contracts = [], isLoading } = useQuery<PerformerContract[]>({ queryKey: ["/api/performer-contracts"] });
   const { data: members = [] } = useQuery<Member[]>({ queryKey: ["/api/members"] });
-  const { data: projects = [] } = useQuery<Project[]>({ queryKey: ["/api/projects"] });
+  const { data: projects = [] } = useQuery<Project[]>({ queryKey: ["/api/projects"], select: (data: any) => data?.projects || data || [] });
 
   const form = useForm<ContractFormData>({
     resolver: zodResolver(contractSchema),

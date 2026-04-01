@@ -1565,39 +1565,30 @@ export default function ProjectDetail() {
                               <p className="text-sm text-muted-foreground">VENUE NAME</p>
                               <p className="font-medium text-sm">{projectVenue.name}</p>
                             </div>
-                            {projectVenue.address && (
-                              <div>
-                                <p className="text-sm text-muted-foreground">ADDRESS</p>
-                                <p className="font-medium text-sm">{projectVenue.address}</p>
-                              </div>
-                            )}
-                            {(project as any).parkingDetails && (
-                              <div>
-                                <p className="text-sm text-muted-foreground">PARKING DETAILS <span className="text-[10px] bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded font-semibold ml-1">NEW</span></p>
-                                <p className="font-medium text-sm">{(project as any).parkingDetails}</p>
-                              </div>
-                            )}
-                            {(project as any).loadInDetails && (
-                              <div>
-                                <p className="text-sm text-muted-foreground">LOAD-IN DETAILS <span className="text-[10px] bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded font-semibold ml-1">NEW</span></p>
-                                <p className="font-medium text-sm">{(project as any).loadInDetails}</p>
-                              </div>
-                            )}
-                            {(projectVenue as any).contactName && (
-                              <div>
-                                <p className="text-sm text-muted-foreground">VENUE CONTACT</p>
-                                <p className="font-medium text-sm">
-                                  {(projectVenue as any).contactName}
-                                  {(projectVenue as any).contactPhone && ` — ${(projectVenue as any).contactPhone}`}
-                                </p>
-                              </div>
-                            )}
-                            {(projectVenue as any).notes && (
-                              <div>
-                                <p className="text-sm text-muted-foreground">VENUE NOTES</p>
-                                <p className="font-medium text-sm">{(projectVenue as any).notes}</p>
-                              </div>
-                            )}
+                            <div>
+                              <p className="text-sm text-muted-foreground">ADDRESS</p>
+                              <p className="font-medium text-sm">{projectVenue.address || "Not specified"}</p>
+                            </div>
+                            <div>
+                              <p className="text-sm text-muted-foreground">PARKING DETAILS <span className="text-[10px] bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded font-semibold ml-1">NEW</span></p>
+                              <p className="font-medium text-sm">{(project as any).parkingDetails || "Not specified"}</p>
+                            </div>
+                            <div>
+                              <p className="text-sm text-muted-foreground">LOAD-IN DETAILS <span className="text-[10px] bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded font-semibold ml-1">NEW</span></p>
+                              <p className="font-medium text-sm">{(project as any).loadInDetails || "Not specified"}</p>
+                            </div>
+                            <div>
+                              <p className="text-sm text-muted-foreground">VENUE CONTACT</p>
+                              <p className="font-medium text-sm">
+                                {(projectVenue as any).contactName
+                                  ? `${(projectVenue as any).contactName}${(projectVenue as any).contactPhone ? ` — ${(projectVenue as any).contactPhone}` : ''}`
+                                  : "Not specified"}
+                              </p>
+                            </div>
+                            <div>
+                              <p className="text-sm text-muted-foreground">VENUE NOTES</p>
+                              <p className="font-medium text-sm">{(projectVenue as any).notes || "Not specified"}</p>
+                            </div>
                           </div>
                         ) : (
                           <div>
@@ -1791,40 +1782,60 @@ export default function ProjectDetail() {
                       </CardContent>
                     </Card>
 
-                    {/* Lifecycle Progress */}
+                    {/* Lifecycle Progress - Traffic Light */}
                     <Card>
                       <CardHeader>
-                        <CardTitle className="flex items-center gap-2 text-base">📊 Lifecycle Progress</CardTitle>
+                        <CardTitle className="flex items-center gap-2 text-base">📈 Lifecycle Progress</CardTitle>
                       </CardHeader>
-                      <CardContent className="space-y-3">
-                        <div className="space-y-1">
-                          <div className="flex justify-between text-xs">
-                            <span>Discovery</span>
-                            <Check className="h-4 w-4 text-green-500" />
-                          </div>
-                          <Progress value={100} className="h-1" />
-                        </div>
-                        <div className="space-y-1">
-                          <div className="flex justify-between text-xs">
-                            <span>Proposal</span>
-                            <span className="text-muted-foreground">75%</span>
-                          </div>
-                          <Progress value={75} className="h-1" />
-                        </div>
-                        <div className="space-y-1">
-                          <div className="flex justify-between text-xs">
-                            <span>Booking</span>
-                            <span className="text-muted-foreground">50%</span>
-                          </div>
-                          <Progress value={50} className="h-1" />
-                        </div>
-                        <div className="space-y-1">
-                          <div className="flex justify-between text-xs">
-                            <span>Execution</span>
-                            <span className="text-muted-foreground">0%</span>
-                          </div>
-                          <Progress value={0} className="h-1" />
-                        </div>
+                      <CardContent>
+                        {(() => {
+                          const status = project.status;
+                          const statusOrder = ['new', 'contacted', 'proposal_sent', 'booked', 'completed'];
+                          const statusIndex = statusOrder.indexOf(status);
+                          const hasQuotes = projectQuotes.length > 0;
+                          const hasSignedContract = projectContracts.some((c: any) => c.status === 'signed' || c.status === 'accepted');
+                          const hasPaidInvoice = projectInvoices.some((i: any) => i.status === 'paid' || i.status === 'partially_paid');
+                          const allInvoicesPaid = projectInvoices.length > 0 && projectInvoices.every((i: any) => i.status === 'paid');
+                          const isCompleted = status === 'completed';
+
+                          const steps = [
+                            { label: 'Enquiry received', done: statusIndex >= 0 },
+                            { label: 'Auto-reply sent', done: statusIndex >= 1 || status === 'new' },
+                            { label: 'Proposal sent', done: statusIndex >= 2 || hasQuotes },
+                            { label: 'Proposal accepted', done: statusIndex >= 3 },
+                            { label: 'Contract signed', done: hasSignedContract || statusIndex >= 3 },
+                            { label: 'Deposit paid', done: hasPaidInvoice },
+                            { label: 'Event questionnaire', done: false },
+                            { label: 'Balance paid', done: allInvoicesPaid },
+                            { label: 'Gig complete', done: isCompleted },
+                            { label: 'Follow-up sent', done: false },
+                          ];
+
+                          // Find the current step (first not-done step)
+                          const currentStepIndex = steps.findIndex(s => !s.done);
+
+                          return (
+                            <div className="flex flex-col gap-1.5">
+                              {steps.map((step, idx) => {
+                                let dotColor = 'bg-gray-300'; // grey = not done
+                                if (step.done) {
+                                  dotColor = 'bg-green-500'; // green = complete
+                                } else if (idx === currentStepIndex) {
+                                  dotColor = 'bg-amber-400'; // amber = current step
+                                }
+
+                                return (
+                                  <div key={idx} className="flex items-center gap-2">
+                                    <span className={`inline-block w-2.5 h-2.5 rounded-full ${dotColor} flex-shrink-0`} />
+                                    <span className={`text-[13px] ${step.done ? 'text-foreground' : idx === currentStepIndex ? 'text-foreground font-medium' : 'text-muted-foreground'}`}>
+                                      {step.label}
+                                    </span>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          );
+                        })()}
                       </CardContent>
                     </Card>
                   </div>

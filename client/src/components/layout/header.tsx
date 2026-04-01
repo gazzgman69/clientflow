@@ -6,7 +6,7 @@ interface HeaderProps {
 
 export default function Header({ title, subtitle, actions }: HeaderProps) {
   return (
-    <header className="bg-card border-b border-border px-6 py-4 flex items-center justify-between py-2">
+    <>
       <div>
         <h1 className="text-2xl font-bold text-foreground" data-testid="page-title">{title}</h1>
         {subtitle && (
@@ -18,6 +18,6 @@ export default function Header({ title, subtitle, actions }: HeaderProps) {
         {/* Page-specific actions */}
         {actions}
       </div>
-    </header>
+    </>
   );
 }

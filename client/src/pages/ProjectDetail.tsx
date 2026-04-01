@@ -1426,7 +1426,7 @@ export default function ProjectDetail() {
                             <p className="font-medium">{(project as any).endTime || "Not specified"}</p>
                           </div>
                           <div>
-                            <p className="text-sm text-muted-foreground">Estimated Value</p>
+                            <p className="text-sm text-muted-foreground">ESTIMATED VALUE</p>
                             <p className="font-medium">${project.estimatedValue || "0.00"}</p>
                           </div>
                           <div>

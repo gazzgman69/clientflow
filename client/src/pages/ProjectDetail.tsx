@@ -1134,21 +1134,25 @@ export default function ProjectDetail() {
       <main className="container mx-auto px-4 py-8">
         <div className="space-y-6">
           {/* Header */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <Button variant="ghost" size="sm" onClick={() => setLocation("/projects")}>
-                <Link href="/projects">
-                  <ArrowLeft className="h-4 w-4 mr-2" />
-                  Back to Projects
-                </Link>
-              </Button>
-              <h1 className="text-3xl font-bold">{project.name}</h1>
+          <div className="space-y-2">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Link href="/projects" className="hover:text-foreground transition-colors">Projects</Link>
+              <span>/</span>
+              <span>{project.name}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <h1 className="text-4xl font-bold">{project.name}</h1>
+                <Badge className={getStatusColor(project.status) + " text-sm px-3 py-1"}>
+                  {project.status.charAt(0).toUpperCase() + project.status.slice(1)}
+                </Badge>
+              </div>
             </div>
           </div>
 
           {/* Project Tabs */}
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-9">
+            <TabsList className="grid w-full grid-cols-10">
               <TabsTrigger value="overview" className="flex items-center gap-2">
                 <Briefcase className="h-4 w-4" />
                 <span className="hidden sm:inline">Overview</span>
@@ -1395,7 +1399,7 @@ export default function ProjectDetail() {
                     <Card>
                       <CardHeader>
                         <div className="flex items-center justify-between">
-                          <CardTitle>Event Details</CardTitle>
+                          <CardTitle className="flex items-center gap-2">📋 Event Details</CardTitle>
                           <Badge className={getStatusColor(project.status)}>
                             {project.status.charAt(0).toUpperCase() + project.status.slice(1)}
                           </Badge>
@@ -1457,7 +1461,7 @@ export default function ProjectDetail() {
                     {projectVenue ? (
                       <Card>
                         <CardHeader>
-                          <CardTitle>Venue</CardTitle>
+                          <CardTitle className="flex items-center gap-2">📍 Venue</CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-3">
                           <div>
@@ -1489,7 +1493,7 @@ export default function ProjectDetail() {
                     {/* Event Day Details Card */}
                     <Card>
                       <CardHeader>
-                        <CardTitle>Event Day Details</CardTitle>
+                        <CardTitle className="flex items-center gap-2">🎤 Event Day Details</CardTitle>
                       </CardHeader>
                       <CardContent className="space-y-3">
                         <div>
@@ -1518,7 +1522,7 @@ export default function ProjectDetail() {
                     {projectContact ? (
                       <Card>
                         <CardHeader>
-                          <CardTitle>Client</CardTitle>
+                          <CardTitle className="flex items-center gap-2">👤 Client</CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-3">
                           <div>
@@ -1549,7 +1553,7 @@ export default function ProjectDetail() {
                     {((project as any).secondContactName || (project as any).dayOfContactName) && (
                       <Card>
                         <CardHeader>
-                          <CardTitle>Additional Contacts</CardTitle>
+                          <CardTitle className="flex items-center gap-2">👥 Additional Contacts</CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-4">
                           {(project as any).secondContactName && (
@@ -1575,7 +1579,7 @@ export default function ProjectDetail() {
                     {/* Financial Summary Card */}
                     <Card>
                       <CardHeader>
-                        <CardTitle>Financial Summary</CardTitle>
+                        <CardTitle className="flex items-center gap-2">💰 Financial Summary</CardTitle>
                       </CardHeader>
                       <CardContent className="space-y-3">
                         <div>
@@ -1598,7 +1602,7 @@ export default function ProjectDetail() {
                     {/* Documents Quick View */}
                     <Card>
                       <CardHeader>
-                        <CardTitle>Documents</CardTitle>
+                        <CardTitle className="flex items-center gap-2">📄 Documents</CardTitle>
                       </CardHeader>
                       <CardContent className="space-y-2">
                         <div className="flex items-center gap-2">
@@ -1619,7 +1623,7 @@ export default function ProjectDetail() {
                     {/* Lifecycle Progress */}
                     <Card>
                       <CardHeader>
-                        <CardTitle>Lifecycle Progress</CardTitle>
+                        <CardTitle className="flex items-center gap-2">📊 Lifecycle Progress</CardTitle>
                       </CardHeader>
                       <CardContent className="space-y-3">
                         <div className="space-y-1">

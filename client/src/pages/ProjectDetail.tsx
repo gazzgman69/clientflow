@@ -78,6 +78,7 @@ import QuoteEditor from "@/components/quote/QuoteEditor";
 import CreateContractDialog from "@/components/contracts/create-contract-dialog";
 import InvoiceEditor from "@/components/invoice/InvoiceEditor";
 import { AddressFields } from "@/components/shared/AddressFields";
+import { jsPDF } from "jspdf";
 
 const noteSchema = z.object({
   note: z.string().min(1, "Note is required"),
@@ -143,6 +144,16 @@ const logCallSchema = z.object({
   type: z.string().default("call_logged"),
 });
 
+const taskTemplateSchema = z.object({
+  name: z.string().min(1, "Template name is required"),
+  description: z.string().optional(),
+});
+
+const formSchema = z.object({
+  title: z.string().min(1, "Form title is required"),
+  description: z.string().optional(),
+});
+
 type NoteFormData = z.infer<typeof noteSchema>;
 type MemberAssignmentData = z.infer<typeof memberAssignmentSchema>;
 type ContractEditData = z.infer<typeof contractEditSchema>;
@@ -152,6 +163,8 @@ type ScheduleItemData = z.infer<typeof scheduleItemSchema>;
 type ExpenseFormData = z.infer<typeof expenseSchema>;
 type MealBreakFormData = z.infer<typeof mealBreakSchema>;
 type LogCallFormData = z.infer<typeof logCallSchema>;
+type TaskTemplateFormData = z.infer<typeof taskTemplateSchema>;
+type FormFormData = z.infer<typeof formSchema>;
 
 export default function ProjectDetail() {
   const [match, params] = useRoute("/projects/:id");
@@ -234,6 +247,10 @@ export default function ProjectDetail() {
   const [showLogCallForm, setShowLogCallForm] = useState(false);
   const [showArchiveConfirm, setShowArchiveConfirm] = useState(false);
   const [timelineFilter, setTimelineFilter] = useState<string>('all');
+  const [showTemplateList, setShowTemplateList] = useState(false);
+  const [showCreateTemplate, setShowCreateTemplate] = useState(false);
+  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [formFields, setFormFields] = useState<Array<{label: string; type: string; required: boolean}>>([]);
 
   // Get portal status for this project (tenant setting + project override)
   const { data: portalStatus } = useQuery({
@@ -364,6 +381,26 @@ export default function ProjectDetail() {
     enabled: !!project,
   });
 
+  // Fetch task templates
+  const { data: taskTemplatesList = [] } = useQuery({
+    queryKey: ["/api/task-templates"],
+    queryFn: async () => {
+      const response = await apiRequest("GET", "/api/task-templates");
+      return response.json();
+    },
+    enabled: !!project,
+  });
+
+  // Fetch project forms
+  const { data: projectForms = [] } = useQuery({
+    queryKey: ["/api/projects", project?.id, "forms"],
+    queryFn: async () => {
+      const response = await apiRequest("GET", `/api/projects/${project!.id}/forms`);
+      return response.json();
+    },
+    enabled: !!project,
+  });
+
   // Fetch documents for this project's client
   const { data: projectQuotes = [] } = useQuery<Quote[]>({
     queryKey: ["/api/contacts", project?.contactId, "quotes"],
@@ -440,6 +477,16 @@ export default function ProjectDetail() {
   const logCallForm = useForm<LogCallFormData>({
     resolver: zodResolver(logCallSchema),
     defaultValues: { description: "", type: "call_logged" },
+  });
+
+  const taskTemplateForm = useForm<TaskTemplateFormData>({
+    resolver: zodResolver(taskTemplateSchema),
+    defaultValues: { name: "", description: "" },
+  });
+
+  const formForm = useForm<FormFormData>({
+    resolver: zodResolver(formSchema),
+    defaultValues: { title: "", description: "" },
   });
 
   const contactEditForm = useForm({
@@ -676,6 +723,94 @@ export default function ProjectDetail() {
     },
     onError: () => {
       toast({ title: "Error", description: "Failed to archive project.", variant: "destructive" });
+    },
+  });
+
+  // Apply task template mutation
+  const applyTemplateMutation = useMutation({
+    mutationFn: async (templateId: string) => {
+      const response = await apiRequest("POST", `/api/projects/${projectId}/apply-template/${templateId}`);
+      return response.json();
+    },
+    onSuccess: (data: any) => {
+      toast({ title: "Template applied", description: `${data.applied} tasks added to the project.` });
+      setShowTemplateList(false);
+      queryClient.invalidateQueries({ queryKey: ["/api/projects", projectId, "tasks"] });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to apply template.", variant: "destructive" });
+    },
+  });
+
+  // Create task template mutation
+  const createTemplateMutation = useMutation({
+    mutationFn: async (data: TaskTemplateFormData) => {
+      // Save current project tasks as a template
+      const tasksToSave = (projectTasks as any[]).map((t: any) => ({
+        title: t.title,
+        description: t.description || "",
+        priority: t.priority || "MEDIUM",
+      }));
+      const response = await apiRequest("POST", "/api/task-templates", {
+        name: data.name,
+        description: data.description,
+        tasks: tasksToSave,
+      });
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Template saved", description: "Current tasks saved as a reusable template." });
+      taskTemplateForm.reset();
+      setShowCreateTemplate(false);
+      queryClient.invalidateQueries({ queryKey: ["/api/task-templates"] });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to save template.", variant: "destructive" });
+    },
+  });
+
+  // Delete task template mutation
+  const deleteTemplateMutation = useMutation({
+    mutationFn: async (templateId: string) => {
+      await apiRequest("DELETE", `/api/task-templates/${templateId}`);
+    },
+    onSuccess: () => {
+      toast({ title: "Template deleted" });
+      queryClient.invalidateQueries({ queryKey: ["/api/task-templates"] });
+    },
+  });
+
+  // Create form mutation
+  const createFormMutation = useMutation({
+    mutationFn: async (data: FormFormData) => {
+      const response = await apiRequest("POST", `/api/projects/${projectId}/forms`, {
+        title: data.title,
+        description: data.description,
+        contactId: project?.contactId,
+        fields: formFields,
+      });
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Form created", description: "The questionnaire has been created." });
+      formForm.reset();
+      setFormFields([]);
+      setShowCreateForm(false);
+      queryClient.invalidateQueries({ queryKey: ["/api/projects", projectId, "forms"] });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to create form.", variant: "destructive" });
+    },
+  });
+
+  // Delete form mutation
+  const deleteFormMutation = useMutation({
+    mutationFn: async (formId: string) => {
+      await apiRequest("DELETE", `/api/projects/${projectId}/forms/${formId}`);
+    },
+    onSuccess: () => {
+      toast({ title: "Form deleted" });
+      queryClient.invalidateQueries({ queryKey: ["/api/projects", projectId, "forms"] });
     },
   });
 
@@ -2193,6 +2328,66 @@ export default function ProjectDetail() {
                     </CardHeader>
                     <CardContent className="space-y-2">
                       <Button variant="outline" className="w-full" size="sm" onClick={() => {
+                        // Generate PDF from schedule items
+                        const doc = new jsPDF();
+                        doc.setFontSize(18);
+                        doc.text(project?.name || "Schedule", 20, 20);
+                        doc.setFontSize(10);
+                        doc.setTextColor(100);
+                        if (project?.startDate) {
+                          doc.text(`Date: ${new Date(project.startDate).toLocaleDateString()}`, 20, 30);
+                        }
+                        if (projectVenue) {
+                          doc.text(`Venue: ${projectVenue.name}`, 20, 36);
+                        }
+                        doc.setTextColor(0);
+                        doc.setFontSize(12);
+                        doc.text("Schedule", 20, 48);
+                        doc.setLineWidth(0.5);
+                        doc.line(20, 50, 190, 50);
+                        let y = 58;
+                        doc.setFontSize(10);
+                        if ((projectSchedule as any[]).length === 0) {
+                          doc.text("No schedule items.", 20, y);
+                        } else {
+                          (projectSchedule as any[]).forEach((item: any) => {
+                            doc.setFont("helvetica", "bold");
+                            doc.text(item.time || "", 20, y);
+                            doc.setFont("helvetica", "normal");
+                            doc.text(item.label || "", 50, y);
+                            if (item.notes) {
+                              doc.setTextColor(100);
+                              doc.text(item.notes, 50, y + 5);
+                              doc.setTextColor(0);
+                              y += 5;
+                            }
+                            y += 8;
+                            if (y > 270) { doc.addPage(); y = 20; }
+                          });
+                        }
+                        // Add meals & breaks
+                        if ((projectMealsBreaks as any[]).length > 0) {
+                          y += 5;
+                          doc.setFontSize(12);
+                          doc.text("Meals & Breaks", 20, y);
+                          doc.line(20, y + 2, 190, y + 2);
+                          y += 10;
+                          doc.setFontSize(10);
+                          (projectMealsBreaks as any[]).forEach((item: any) => {
+                            doc.setFont("helvetica", "bold");
+                            doc.text(`${item.startTime || "?"} - ${item.endTime || "?"}`, 20, y);
+                            doc.setFont("helvetica", "normal");
+                            doc.text(`${item.label}${item.provided ? " (Provided)" : ""}`, 70, y);
+                            y += 7;
+                            if (y > 270) { doc.addPage(); y = 20; }
+                          });
+                        }
+                        doc.save(`${project?.name || "schedule"}-schedule.pdf`);
+                        toast({ title: "Exported", description: "Schedule exported as PDF." });
+                      }}>
+                        <Download className="h-4 w-4 mr-2" /> Export PDF
+                      </Button>
+                      <Button variant="outline" className="w-full" size="sm" onClick={() => {
                         // Generate CSV from schedule items
                         const rows = [["Time", "Item", "Notes"]];
                         (projectSchedule as any[]).forEach((item: any) => {
@@ -2282,9 +2477,37 @@ export default function ProjectDetail() {
                   <div className="flex items-center justify-between">
                     <CardTitle className="text-base">✅ Tasks</CardTitle>
                     <div className="flex gap-2">
-                      <Button size="sm" variant="outline">
-                        Apply Template
-                      </Button>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button size="sm" variant="outline">
+                            Apply Template <ChevronDown className="h-3 w-3 ml-1" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          {(taskTemplatesList as any[]).length === 0 ? (
+                            <DropdownMenuItem disabled>
+                              <span className="text-muted-foreground text-xs">No templates yet</span>
+                            </DropdownMenuItem>
+                          ) : (
+                            (taskTemplatesList as any[]).map((tmpl: any) => (
+                              <DropdownMenuItem key={tmpl.id} onClick={() => applyTemplateMutation.mutate(tmpl.id)}>
+                                <ClipboardList className="h-4 w-4 mr-2" />
+                                {tmpl.name}
+                                <span className="text-xs text-muted-foreground ml-2">
+                                  ({JSON.parse(tmpl.tasks || "[]").length} tasks)
+                                </span>
+                              </DropdownMenuItem>
+                            ))
+                          )}
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem onClick={() => {
+                            taskTemplateForm.reset();
+                            setShowCreateTemplate(true);
+                          }}>
+                            <Plus className="h-4 w-4 mr-2" /> Save Current Tasks as Template
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                       <Button size="sm" onClick={() => {
                         setEditingTask(null);
                         taskForm.reset();
@@ -2973,18 +3196,48 @@ export default function ProjectDetail() {
               <Card>
                 <CardHeader>
                   <div className="flex items-center justify-between">
-                    <CardTitle className="text-base">📋 Forms & Questionnaires <span className="text-[10px] bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded font-semibold ml-1">NEW</span></CardTitle>
-                    <Button size="sm">
+                    <CardTitle className="text-base">📋 FORMS & QUESTIONNAIRES</CardTitle>
+                    <Button size="sm" onClick={() => {
+                      formForm.reset();
+                      setFormFields([]);
+                      setShowCreateForm(true);
+                    }}>
                       <Plus className="h-4 w-4 mr-2" /> Create Form
                     </Button>
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-center py-6 text-muted-foreground">
-                    <ClipboardList className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                    <p className="text-sm">No forms or questionnaires yet.</p>
-                    <p className="text-xs mt-1">Create a form to collect information from clients or team members.</p>
-                  </div>
+                  {(projectForms as any[]).length === 0 ? (
+                    <div className="text-center py-6 text-muted-foreground">
+                      <ClipboardList className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                      <p className="text-sm">No forms or questionnaires yet.</p>
+                      <p className="text-xs mt-1">Create a form to collect information from clients or team members.</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {(projectForms as any[]).map((form: any) => {
+                        const fields = JSON.parse(form.formDefinition || "[]");
+                        return (
+                          <div key={form.id} className="flex items-center justify-between border rounded-lg p-3">
+                            <div>
+                              <p className="font-medium text-sm">{form.title}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {fields.length} field{fields.length !== 1 ? "s" : ""} · Status: <span className={`capitalize ${form.status === 'submitted' ? 'text-green-600' : form.status === 'in_progress' ? 'text-amber-600' : 'text-gray-500'}`}>{form.status.replace(/_/g, ' ')}</span>
+                              </p>
+                            </div>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-6 w-6 p-0 text-red-500 hover:text-red-700"
+                              onClick={() => deleteFormMutation.mutate(form.id)}
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </TabsContent>
@@ -3593,6 +3846,128 @@ export default function ProjectDetail() {
               <Button type="button" variant="outline" onClick={() => setShowMealBreakForm(false)}>Cancel</Button>
               <Button type="submit" disabled={createMealBreakMutation.isPending}>
                 {createMealBreakMutation.isPending ? "Saving..." : "Add"}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Save Tasks as Template Dialog */}
+      <Dialog open={showCreateTemplate} onOpenChange={setShowCreateTemplate}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Save Tasks as Template</DialogTitle>
+            <DialogDescription>
+              Save the current {(projectTasks as any[]).length} task{(projectTasks as any[]).length !== 1 ? "s" : ""} as a reusable template.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={taskTemplateForm.handleSubmit((data) => createTemplateMutation.mutate(data))} className="space-y-4">
+            <div>
+              <Label>TEMPLATE NAME</Label>
+              <Input {...taskTemplateForm.register("name")} placeholder="e.g. Wedding Prep Checklist" />
+            </div>
+            <div>
+              <Label>DESCRIPTION</Label>
+              <Textarea {...taskTemplateForm.register("description")} placeholder="What is this template for?" rows={2} />
+            </div>
+            {(projectTasks as any[]).length > 0 && (
+              <div className="border rounded-lg p-3 space-y-1">
+                <p className="text-xs text-muted-foreground font-medium">TASKS TO SAVE:</p>
+                {(projectTasks as any[]).map((t: any) => (
+                  <p key={t.id} className="text-sm">• {t.title} <span className="text-xs text-muted-foreground">({t.priority})</span></p>
+                ))}
+              </div>
+            )}
+            <div className="flex justify-end gap-2">
+              <Button type="button" variant="outline" onClick={() => setShowCreateTemplate(false)}>Cancel</Button>
+              <Button type="submit" disabled={createTemplateMutation.isPending || (projectTasks as any[]).length === 0}>
+                {createTemplateMutation.isPending ? "Saving..." : "Save Template"}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Create Form Dialog */}
+      <Dialog open={showCreateForm} onOpenChange={setShowCreateForm}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Create Form / Questionnaire</DialogTitle>
+            <DialogDescription>
+              Create a form to collect information from clients.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={formForm.handleSubmit((data) => createFormMutation.mutate(data))} className="space-y-4">
+            <div>
+              <Label>FORM TITLE</Label>
+              <Input {...formForm.register("title")} placeholder="e.g. Wedding Details Questionnaire" />
+            </div>
+            <div>
+              <Label>DESCRIPTION</Label>
+              <Textarea {...formForm.register("description")} placeholder="What information do you need?" rows={2} />
+            </div>
+
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <Label>FORM FIELDS</Label>
+                <Button type="button" size="sm" variant="outline" onClick={() => setFormFields([...formFields, { label: "", type: "text", required: false }])}>
+                  <Plus className="h-3 w-3 mr-1" /> Add Field
+                </Button>
+              </div>
+              {formFields.length === 0 ? (
+                <p className="text-xs text-muted-foreground">No fields yet. Add fields to build your form.</p>
+              ) : (
+                <div className="space-y-2">
+                  {formFields.map((field, idx) => (
+                    <div key={idx} className="flex gap-2 items-center">
+                      <Input
+                        value={field.label}
+                        onChange={(e) => {
+                          const updated = [...formFields];
+                          updated[idx].label = e.target.value;
+                          setFormFields(updated);
+                        }}
+                        placeholder="Field label"
+                        className="flex-1"
+                      />
+                      <Select
+                        value={field.type}
+                        onValueChange={(value) => {
+                          const updated = [...formFields];
+                          updated[idx].type = value;
+                          setFormFields(updated);
+                        }}
+                      >
+                        <SelectTrigger className="w-[100px]">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="text">Text</SelectItem>
+                          <SelectItem value="textarea">Long Text</SelectItem>
+                          <SelectItem value="date">Date</SelectItem>
+                          <SelectItem value="select">Dropdown</SelectItem>
+                          <SelectItem value="checkbox">Checkbox</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 w-8 p-0 text-red-500"
+                        onClick={() => setFormFields(formFields.filter((_, i) => i !== idx))}
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="flex justify-end gap-2">
+              <Button type="button" variant="outline" onClick={() => setShowCreateForm(false)}>Cancel</Button>
+              <Button type="submit" disabled={createFormMutation.isPending}>
+                {createFormMutation.isPending ? "Creating..." : "Create Form"}
               </Button>
             </div>
           </form>

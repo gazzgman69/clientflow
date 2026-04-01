@@ -32,6 +32,7 @@ import {
   type ProjectNote, type InsertProjectNote,
   type ProjectExpense, type InsertProjectExpense,
   type ProjectMealBreak, type InsertProjectMealBreak,
+  type TaskTemplate, type InsertTaskTemplate,
   type ProjectTask, type InsertProjectTask,
   type ProjectScheduleItem, type InsertProjectScheduleItem,
   type SmsMessage, type InsertSmsMessage,
@@ -108,7 +109,7 @@ import {
   type ScheduleTeamMember, type InsertScheduleTeamMember,
   type Booking, type InsertBooking,
   users, leads, contacts, projects, quotes, contracts, contractTemplates, invoices, incomeCategories, invoiceItems, invoiceLineItems, paymentSchedules, paymentInstallments, recurringInvoiceSettings, paymentTransactions, taxSettings, tasks, emails, emailThreads, activities, automations,
-  members, venues, projectMembers, memberAvailability, memberGroups, memberGroupMembers, performerContracts, repertoire, projectSetlist, projectFiles, projectNotes, projectTasks, projectScheduleItems, projectExpenses, projectMealsBreaks, smsMessages,
+  members, venues, projectMembers, memberAvailability, memberGroups, memberGroupMembers, performerContracts, repertoire, projectSetlist, projectFiles, projectNotes, projectTasks, projectScheduleItems, projectExpenses, projectMealsBreaks, taskTemplates, smsMessages,
   messageTemplates, messageThreads, calendars, events, calendarIntegrations, calendarSyncLog, templates, leadCaptureForms,
   leadStatusHistory, emailSignatures, emailProviderCatalog, emailProviderConfigs, emailAccounts, emailProviderIntegrations, tenantEmailPrefs, portalForms, paymentSessions, webhookEvents, tenants,
   // Enhanced Quotes System tables
@@ -512,6 +513,16 @@ export interface IStorage {
 
   // Project Activities (for timeline)
   getActivitiesByProject(projectId: string, tenantId: string): Promise<Activity[]>;
+
+  // Task Templates
+  getTaskTemplates(tenantId: string): Promise<TaskTemplate[]>;
+  createTaskTemplate(template: InsertTaskTemplate, tenantId: string): Promise<TaskTemplate>;
+  deleteTaskTemplate(id: string, tenantId: string): Promise<boolean>;
+
+  // Project Forms (admin-side access to portal forms)
+  getProjectForms(projectId: string, tenantId: string): Promise<any[]>;
+  createProjectForm(form: any, tenantId: string): Promise<any>;
+  deleteProjectForm(id: string, tenantId: string): Promise<boolean>;
 
   // Authentication
   validateUser(username: string, password: string, tenantId: string): Promise<User | undefined>;
@@ -2266,6 +2277,16 @@ export class MemStorage implements IStorage {
   async getProjectMealsBreaks(projectId: string, tenantId: string): Promise<ProjectMealBreak[]> { return []; }
   async createProjectMealBreak(item: InsertProjectMealBreak, tenantId: string): Promise<ProjectMealBreak> { throw new Error("Not implemented"); }
   async deleteProjectMealBreak(id: string, tenantId: string): Promise<boolean> { return false; }
+
+  // Task Templates (MemStorage - stubs)
+  async getTaskTemplates(tenantId: string): Promise<TaskTemplate[]> { return []; }
+  async createTaskTemplate(template: InsertTaskTemplate, tenantId: string): Promise<TaskTemplate> { throw new Error("Not implemented"); }
+  async deleteTaskTemplate(id: string, tenantId: string): Promise<boolean> { return false; }
+
+  // Project Forms (MemStorage - stubs)
+  async getProjectForms(projectId: string, tenantId: string): Promise<any[]> { return []; }
+  async createProjectForm(form: any, tenantId: string): Promise<any> { throw new Error("Not implemented"); }
+  async deleteProjectForm(id: string, tenantId: string): Promise<boolean> { return false; }
 
   // Automations
   async getAutomations(): Promise<Automation[]> {
@@ -6594,6 +6615,51 @@ export class DrizzleStorage implements IStorage {
         eq(activities.tenantId, tenantId)
       ))
       .orderBy(desc(activities.createdAt));
+  }
+
+  // Task Templates - PostgreSQL implementation
+  async getTaskTemplates(tenantId: string): Promise<TaskTemplate[]> {
+    return await this.db.select().from(taskTemplates)
+      .where(eq(taskTemplates.tenantId, tenantId))
+      .orderBy(taskTemplates.name);
+  }
+
+  async createTaskTemplate(template: InsertTaskTemplate, tenantId: string): Promise<TaskTemplate> {
+    const result = await this.db.insert(taskTemplates).values({
+      ...template,
+      tenantId,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    }).returning();
+    return result[0];
+  }
+
+  async deleteTaskTemplate(id: string, tenantId: string): Promise<boolean> {
+    const result = await this.db.delete(taskTemplates)
+      .where(and(eq(taskTemplates.id, id), eq(taskTemplates.tenantId, tenantId)));
+    return result.rowCount > 0;
+  }
+
+  // Project Forms (admin-side) - PostgreSQL implementation
+  async getProjectForms(projectId: string, tenantId: string): Promise<any[]> {
+    return await this.db.select().from(portalForms)
+      .where(eq(portalForms.projectId, projectId))
+      .orderBy(desc(portalForms.createdAt));
+  }
+
+  async createProjectForm(form: any, tenantId: string): Promise<any> {
+    const result = await this.db.insert(portalForms).values({
+      ...form,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    }).returning();
+    return result[0];
+  }
+
+  async deleteProjectForm(id: string, tenantId: string): Promise<boolean> {
+    const result = await this.db.delete(portalForms)
+      .where(eq(portalForms.id, id));
+    return result.rowCount > 0;
   }
 
   // SMS Messages - PostgreSQL implementation

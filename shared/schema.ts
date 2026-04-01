@@ -1091,6 +1091,19 @@ export const projectMealsBreaks = pgTable("project_meals_breaks", {
   projectIdIdx: index("project_meals_breaks_project_id_idx").on(table.projectId),
 }));
 
+// Task Templates (reusable checklists for projects)
+export const taskTemplates = pgTable("task_templates", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").references(() => tenants.id).notNull(),
+  name: text("name").notNull(),
+  description: text("description"),
+  tasks: text("tasks").notNull(), // JSON array of {title, description, priority, dueOffset}
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  tenantIdIdx: index("task_templates_tenant_id_idx").on(table.tenantId),
+}));
+
 // Calendar Integrations
 export const calendarIntegrations = pgTable("calendar_integrations", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -1542,6 +1555,7 @@ export const insertProjectNoteSchema = createInsertSchema(projectNotes).omit({ i
 export const insertProjectTaskSchema = createInsertSchema(projectTasks).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertProjectScheduleItemSchema = createInsertSchema(projectScheduleItems).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertProjectExpenseSchema = createInsertSchema(projectExpenses).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertTaskTemplateSchema = createInsertSchema(taskTemplates).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertProjectMealBreakSchema = createInsertSchema(projectMealsBreaks).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertSmsMessageSchema = createInsertSchema(smsMessages).omit({ id: true, createdAt: true });
 export const insertMessageTemplateSchema = createInsertSchema(messageTemplates).omit({ id: true, createdAt: true, updatedAt: true });
@@ -1841,6 +1855,8 @@ export type ProjectExpense = typeof projectExpenses.$inferSelect;
 export type InsertProjectExpense = z.infer<typeof insertProjectExpenseSchema>;
 export type ProjectMealBreak = typeof projectMealsBreaks.$inferSelect;
 export type InsertProjectMealBreak = z.infer<typeof insertProjectMealBreakSchema>;
+export type TaskTemplate = typeof taskTemplates.$inferSelect;
+export type InsertTaskTemplate = z.infer<typeof insertTaskTemplateSchema>;
 export type SmsMessage = typeof smsMessages.$inferSelect;
 export type InsertSmsMessage = z.infer<typeof insertSmsMessageSchema>;
 export type MessageTemplate = typeof messageTemplates.$inferSelect;

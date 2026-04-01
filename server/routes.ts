@@ -6715,6 +6715,116 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
 
+  // ==========================================
+  // TASK TEMPLATES
+  // ==========================================
+  app.get("/api/task-templates", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
+    try {
+      const templates = await storage.getTaskTemplates(req.tenantId!);
+      res.json(templates);
+    } catch (error) {
+      console.error('Error fetching task templates:', error);
+      res.status(500).json({ message: "Failed to fetch task templates" });
+    }
+  });
+
+  app.post("/api/task-templates", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
+    try {
+      const template = await storage.createTaskTemplate({
+        tenantId: req.tenantId!,
+        name: req.body.name,
+        description: req.body.description || null,
+        tasks: JSON.stringify(req.body.tasks), // Array of {title, description, priority}
+      }, req.tenantId!);
+      res.status(201).json(template);
+    } catch (error) {
+      console.error('Error creating task template:', error);
+      res.status(400).json({ message: "Failed to create task template" });
+    }
+  });
+
+  app.delete("/api/task-templates/:id", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
+    try {
+      const deleted = await storage.deleteTaskTemplate(req.params.id, req.tenantId!);
+      if (!deleted) return res.status(404).json({ message: "Template not found" });
+      res.status(204).send();
+    } catch (error) {
+      console.error('Error deleting task template:', error);
+      res.status(500).json({ message: "Failed to delete task template" });
+    }
+  });
+
+  // Apply a task template to a project (creates tasks from template)
+  app.post("/api/projects/:id/apply-template/:templateId", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
+    try {
+      const templates = await storage.getTaskTemplates(req.tenantId!);
+      const template = templates.find(t => t.id === req.params.templateId);
+      if (!template) return res.status(404).json({ message: "Template not found" });
+
+      const templateTasks = JSON.parse(template.tasks);
+      const createdTasks = [];
+
+      for (const t of templateTasks) {
+        const task = await storage.createProjectTask({
+          projectId: req.params.id,
+          tenantId: req.tenantId!,
+          title: t.title,
+          description: t.description || null,
+          priority: t.priority || 'MEDIUM',
+          status: 'pending',
+        }, req.tenantId!);
+        createdTasks.push(task);
+      }
+
+      res.status(201).json({ applied: createdTasks.length, tasks: createdTasks });
+    } catch (error) {
+      console.error('Error applying task template:', error);
+      res.status(500).json({ message: "Failed to apply task template" });
+    }
+  });
+
+  // ==========================================
+  // PROJECT FORMS (admin-side CRUD)
+  // ==========================================
+  app.get("/api/projects/:id/forms", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
+    try {
+      const forms = await storage.getProjectForms(req.params.id, req.tenantId!);
+      res.json(forms);
+    } catch (error) {
+      console.error('Error fetching project forms:', error);
+      res.status(500).json({ message: "Failed to fetch forms" });
+    }
+  });
+
+  app.post("/api/projects/:id/forms", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
+    try {
+      const form = await storage.createProjectForm({
+        projectId: req.params.id,
+        contactId: req.body.contactId,
+        title: req.body.title,
+        description: req.body.description || null,
+        formDefinition: JSON.stringify(req.body.fields || []),
+        status: 'not_started',
+        createdBy: req.session.userId,
+      }, req.tenantId!);
+      res.status(201).json(form);
+    } catch (error) {
+      console.error('Error creating project form:', error);
+      res.status(400).json({ message: "Failed to create form" });
+    }
+  });
+
+  app.delete("/api/projects/:projectId/forms/:formId", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
+    try {
+      const deleted = await storage.deleteProjectForm(req.params.formId, req.tenantId!);
+      if (!deleted) return res.status(404).json({ message: "Form not found" });
+      res.status(204).send();
+    } catch (error) {
+      console.error('Error deleting project form:', error);
+      res.status(500).json({ message: "Failed to delete form" });
+    }
+  });
+
   // Enhanced Dashboard APIs
   app.get("/api/dashboard/client-activity", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
     try {

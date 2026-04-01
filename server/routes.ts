@@ -2164,6 +2164,20 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
 
+  // Update current user profile
+  app.patch('/api/auth/me', ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
+    try {
+      const userId = req.authenticatedUserId;
+      const { firstName, lastName } = req.body;
+      const updated = await storage.updateUser(userId, { firstName, lastName }, req.tenantId!);
+      if (!updated) return res.status(404).json({ error: 'User not found' });
+      res.json({ user: { id: updated.id, username: updated.username, email: updated.email, firstName: updated.firstName, lastName: updated.lastName, role: updated.role } });
+    } catch (error: any) {
+      console.error('Error updating user profile:', error);
+      res.status(500).json({ error: 'Failed to update profile' });
+    }
+  });
+
   // Password reset endpoints
   app.post('/api/auth/request-reset', authLimiter, async (req, res) => {
     try {
@@ -3297,6 +3311,18 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
         userId: req.session.userId,
       };
       const project = await storage.createProject(projectWithUser, req.tenantId);
+
+      // Increment venue use count if a venue was assigned (non-blocking)
+      if (project.venueId) {
+        try {
+          const venue = await storage.getVenue(project.venueId, req.tenantId!);
+          if (venue) {
+            await storage.updateVenue(project.venueId, { useCount: (venue.useCount || 0) + 1 }, req.tenantId!);
+          }
+        } catch (venueErr) {
+          console.error('⚠️ Failed to increment venue use count (non-blocking):', venueErr);
+        }
+      }
 
       // Link lead events to project if applicable (non-blocking — don't let linking errors crash project creation)
       if (project.contactId) {

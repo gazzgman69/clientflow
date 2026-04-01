@@ -17,7 +17,8 @@ interface Document {
   id: string;
   title: string;
   status: string;
-  clientId: string;
+  contactId: string;
+  clientId?: string; // legacy alias
   total?: number;
   amount?: number;
   createdAt: string;
@@ -121,7 +122,7 @@ export default function Documents() {
   // Filter documents based on search and filters
   const filteredDocuments = documents.filter(doc => {
     const matchesSearch = doc.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         getClientName(doc.clientId).toLowerCase().includes(searchTerm.toLowerCase());
+                         getClientName(doc.contactId ?? doc.clientId ?? "").toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === "all" || doc.status === statusFilter;
     const matchesType = typeFilter === "all" || doc.documentType === typeFilter.replace('s', '');
     
@@ -281,7 +282,7 @@ export default function Documents() {
                       </div>
                     </TableCell>
                     <TableCell data-testid={`text-client-${doc.id}`}>
-                      {getClientName(doc.clientId)}
+                      {getClientName(doc.contactId ?? doc.clientId ?? "")}
                     </TableCell>
                     <TableCell data-testid={`text-amount-${doc.id}`}>
                       {getDocumentAmount(doc)}
@@ -402,7 +403,7 @@ export default function Documents() {
                 </div>
                 <div>
                   <label className="text-sm font-medium text-muted-foreground">Client</label>
-                  <p>{getClientName(selectedDocument.clientId)}</p>
+                  <p>{getClientName(selectedDocument.contactId ?? selectedDocument.clientId ?? "")}</p>
                 </div>
                 <div>
                   <label className="text-sm font-medium text-muted-foreground">Amount</label>

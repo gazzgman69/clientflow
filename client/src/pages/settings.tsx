@@ -49,6 +49,7 @@ export default function Settings() {
   const [showGoogleOAuth, setShowGoogleOAuth] = useState(false);
   const [showPurgeModal, setShowPurgeModal] = useState(false);
   const [selectedIntegrationToPurge, setSelectedIntegrationToPurge] = useState<any>(null);
+  const [profileForm, setProfileForm] = useState({ firstName: "", lastName: "", email: "" });
   const { toast } = useToast();
 
   // Check for tab parameter in URL and set active tab
@@ -70,6 +71,17 @@ export default function Settings() {
       return response.json();
     },
   });
+
+  // Populate profile form when user data loads
+  useEffect(() => {
+    if (currentUser?.user) {
+      setProfileForm({
+        firstName: currentUser.user.firstName || "",
+        lastName: currentUser.user.lastName || "",
+        email: currentUser.user.email || "",
+      });
+    }
+  }, [currentUser]);
 
   // Gmail auth status query
   const { data: gmailStatus, isLoading: gmailStatusLoading, refetch: refetchGmailStatus } = useQuery({
@@ -319,8 +331,7 @@ export default function Settings() {
               <CardContent className="space-y-6">
                 <div className="flex items-center space-x-4">
                   <Avatar className="h-20 w-20" data-testid="profile-avatar">
-                    <AvatarImage src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=100&h=100" />
-                    <AvatarFallback>JS</AvatarFallback>
+                    <AvatarFallback>{(profileForm.firstName?.[0] || "") + (profileForm.lastName?.[0] || "")}</AvatarFallback>
                   </Avatar>
                   <div className="space-y-2">
                     <Button variant="outline" size="sm" data-testid="button-upload-avatar">
@@ -338,42 +349,31 @@ export default function Settings() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-2">
                     <Label htmlFor="firstName">First Name</Label>
-                    <Input id="firstName" defaultValue="John" data-testid="input-first-name" />
+                    <Input id="firstName" value={profileForm.firstName} onChange={e => setProfileForm(f => ({ ...f, firstName: e.target.value }))} data-testid="input-first-name" />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="lastName">Last Name</Label>
-                    <Input id="lastName" defaultValue="Smith" data-testid="input-last-name" />
+                    <Input id="lastName" value={profileForm.lastName} onChange={e => setProfileForm(f => ({ ...f, lastName: e.target.value }))} data-testid="input-last-name" />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="email">Email</Label>
-                    <Input id="email" type="email" defaultValue="john@company.com" data-testid="input-email" />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="phone">Phone</Label>
-                    <Input id="phone" type="tel" defaultValue="+1 (555) 123-4567" data-testid="input-phone" />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="title">Job Title</Label>
-                    <Input id="title" defaultValue="Business Owner" data-testid="input-job-title" />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="company">Company</Label>
-                    <Input id="company" defaultValue="Business Solutions Inc." data-testid="input-company" />
+                    <Input id="email" type="email" value={profileForm.email} readOnly disabled data-testid="input-email" />
                   </div>
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="bio">Bio</Label>
-                  <Textarea 
-                    id="bio" 
-                    rows={3}
-                    placeholder="Tell us about yourself..."
-                    data-testid="textarea-bio"
-                  />
-                </div>
-
-                <Button 
-                  onClick={() => handleSaveSettings("Profile")}
+                <Button
+                  onClick={async () => {
+                    setIsLoading(true);
+                    try {
+                      await apiRequest("PATCH", "/api/auth/me", { firstName: profileForm.firstName, lastName: profileForm.lastName });
+                      queryClient.invalidateQueries({ queryKey: ['/api/auth/me'] });
+                      toast({ title: "Profile updated", description: "Your name has been saved." });
+                    } catch {
+                      toast({ title: "Error", description: "Failed to update profile.", variant: "destructive" });
+                    } finally {
+                      setIsLoading(false);
+                    }
+                  }}
                   disabled={isLoading}
                   data-testid="button-save-profile"
                 >

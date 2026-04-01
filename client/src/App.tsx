@@ -15,6 +15,7 @@ import Invoices from "@/pages/invoices";
 import Documents from "@/pages/documents";
 import Calendar from "@/pages/calendar";
 import Automations from "@/pages/automations";
+import EmailPage from "@/pages/email";
 import Settings from "@/pages/settings";
 import EmailSettings from "@/pages/settings/EmailSettings";
 import Templates from "@/pages/settings/Templates";
@@ -190,6 +191,7 @@ function Router() {
                   <Route path="/contracts" component={Contracts} />
                   <Route path="/invoices" component={Invoices} />
                   <Route path="/calendar" component={Calendar} />
+                  <Route path="/email" component={EmailPage} />
                   <Route path="/automations" component={Automations} />
                   <Route path="/portal/client" component={ClientPortal} />
                   <Route path="/portal" component={ClientPortal} />

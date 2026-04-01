@@ -37,6 +37,7 @@ const staticNavigationItems = [
   { href: "/documents", icon: FolderOpen, label: "Documents", emoji: "📁", badge: null },
   { href: "/scheduler", icon: Calendar, label: "Scheduler", emoji: "📅", badge: null },
   { href: "/calendar", icon: Calendar, label: "Calendar", emoji: "🗓️", badge: null },
+  { href: "/email", icon: Mail, label: "Email", emoji: "✉️", badge: null },
   { href: "/portal/client", icon: Mail, label: "Client Portal", emoji: "📧", badge: null },
   { href: "/automations", icon: Bot, label: "Automations", emoji: "🤖", badge: null },
   { href: "/settings", icon: Settings, label: "Settings", emoji: "⚙️", badge: null },

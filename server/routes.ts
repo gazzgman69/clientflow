@@ -5999,6 +5999,30 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
 
+  app.patch("/api/automations/:id", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
+    try {
+      const automation = await storage.updateAutomation(req.params.id, req.body, req.tenantId);
+      if (!automation) {
+        return res.status(404).json({ message: "Automation not found" });
+      }
+      res.json(automation);
+    } catch (error) {
+      res.status(400).json({ message: "Failed to update automation" });
+    }
+  });
+
+  app.delete("/api/automations/:id", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
+    try {
+      const deleted = await storage.deleteAutomation(req.params.id, req.tenantId);
+      if (!deleted) {
+        return res.status(404).json({ message: "Automation not found" });
+      }
+      res.json({ message: "Automation deleted" });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to delete automation" });
+    }
+  });
+
 
   // Members (Musicians)
   app.get("/api/members", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {

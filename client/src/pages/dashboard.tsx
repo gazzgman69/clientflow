@@ -1,5 +1,5 @@
 import Header from "@/components/layout/header";
-import CalendarWeekView from "@/components/dashboard/calendar-week-view";
+import DashboardCalendar from "@/components/dashboard/dashboard-calendar";
 import RecentClientActivity from "@/components/dashboard/recent-client-activity";
 import PendingItems from "@/components/dashboard/pending-items";
 import BusinessPriorities from "@/components/dashboard/business-priorities";
@@ -14,28 +14,26 @@ export default function Dashboard() {
         subtitle="Welcome back! Here's what's happening with your business today."
       />
 
-      <main className="flex-1 overflow-auto p-6 space-y-5">
-        {/* Financial KPI cards — full width across top */}
+      <main className="flex-1 overflow-auto p-5 space-y-4">
+        {/* Row 1: Financial KPI cards */}
         <CompactMetrics />
 
-        {/* Main grid: Action Required | Activity Feed | Calendar */}
-        <div className="grid grid-cols-1 xl:grid-cols-3 gap-5">
-          {/* Column 1: Action Required + Business Priorities */}
-          <div className="space-y-5">
+        {/* Row 2: Two-column layout matching mockup */}
+        <div className="flex gap-4 min-h-0" style={{ alignItems: "flex-start" }}>
+
+          {/* LEFT: Action Required + Business Priorities (flexible width) */}
+          <div className="flex-1 min-w-0 space-y-4">
             <PendingItems />
             <BusinessPriorities />
           </div>
 
-          {/* Column 2: Recent Activity + Email threads */}
-          <div className="space-y-5">
+          {/* RIGHT: Calendar + Activity + Email (~360px fixed) */}
+          <div className="flex-shrink-0 space-y-4" style={{ width: 360 }}>
+            <DashboardCalendar />
             <RecentClientActivity />
             <EmailThreadsWidget />
           </div>
 
-          {/* Column 3: Calendar */}
-          <div>
-            <CalendarWeekView />
-          </div>
         </div>
       </main>
     </>

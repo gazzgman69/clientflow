@@ -99,9 +99,19 @@ export default function Sidebar() {
   return (
     <div className="w-52 h-full min-h-screen flex flex-col" style={{ background: '#111827', color: '#e5e7eb' }}>
       {/* Logo/Brand */}
-      <div className="p-6" style={{ borderBottom: '1px solid #1f2937' }}>
-        <div className="flex items-center space-x-3">
-          <span className="font-bold text-lg text-white">ClientFlow</span>
+      <div className="px-4 py-5" style={{ borderBottom: '1px solid #1f2937' }}>
+        <div className="flex items-center gap-2.5">
+          {/* Purple logo mark */}
+          <div
+            className="flex items-center justify-center rounded-lg flex-shrink-0"
+            style={{ width: 30, height: 30, background: 'linear-gradient(135deg, #7c3aed 0%, #a855f7 100%)' }}
+          >
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <path d="M3 12 L8 4 L13 12" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M5.5 9 L10.5 9" stroke="white" strokeWidth="1.5" strokeLinecap="round"/>
+            </svg>
+          </div>
+          <span className="font-bold text-base text-white tracking-tight">ClientFlow</span>
         </div>
       </div>
       {/* Navigation Menu */}
@@ -131,7 +141,7 @@ export default function Sidebar() {
                 <span className="text-base leading-none">{item.emoji}</span>
                 <span>{item.label}</span>
                 {item.badge && (
-                  <span className="ml-auto text-xs px-2 py-0.5 rounded-full" style={{ background: '#3b82f6', color: '#fff' }}>
+                  <span className="ml-auto text-xs px-2 py-0.5 rounded-full" style={{ background: '#7c3aed', color: '#fff' }}>
                     {item.badge}
                   </span>
                 )}
@@ -160,7 +170,7 @@ export default function Sidebar() {
                         <span className="text-base leading-none">{subItem.emoji}</span>
                         <span>{subItem.label}</span>
                         {subItem.badge && (
-                          <span className="ml-auto text-xs px-2 py-0.5 rounded-full" style={{ background: '#3b82f6', color: '#fff' }}>
+                          <span className="ml-auto text-xs px-2 py-0.5 rounded-full" style={{ background: '#7c3aed', color: '#fff' }}>
                             {subItem.badge}
                           </span>
                         )}

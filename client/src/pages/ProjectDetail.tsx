@@ -1109,19 +1109,19 @@ export default function ProjectDetail() {
   };
 
   // Helper functions
-  const getStatusColor = (status: string) => {
-    const colors: Record<string, string> = {
-      new: "bg-blue-500",
-      contacted: "bg-cyan-500",
-      hold: "bg-amber-500",
-      proposal_sent: "bg-purple-500",
-      booked: "bg-green-500",
-      completed: "bg-emerald-500",
-      lost: "bg-red-500",
-      cancelled: "bg-gray-500",
-      archived: "bg-gray-500",
+  const getStatusStyle = (status: string) => {
+    const styles: Record<string, string> = {
+      new: "bg-blue-100 text-blue-800",
+      contacted: "bg-cyan-100 text-cyan-800",
+      hold: "bg-amber-100 text-amber-800",
+      proposal_sent: "bg-purple-100 text-purple-800",
+      booked: "bg-green-100 text-green-800",
+      completed: "bg-emerald-100 text-emerald-800",
+      lost: "bg-red-100 text-red-800",
+      cancelled: "bg-gray-100 text-gray-600",
+      archived: "bg-gray-100 text-gray-600",
     };
-    return colors[status] || "bg-gray-500";
+    return styles[status] || "bg-gray-100 text-gray-600";
   };
 
   const getTaskPriorityColor = (priority: string) => {
@@ -1163,9 +1163,9 @@ export default function ProjectDetail() {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
                 <h1 className="text-2xl font-semibold">{project.name}</h1>
-                <Badge className={getStatusColor(project.status) + " text-sm px-3 py-1"}>
-                  {project.status.charAt(0).toUpperCase() + project.status.slice(1)}
-                </Badge>
+                <span className={`${getStatusStyle(project.status)} text-xs font-semibold px-3 py-1 rounded-full`}>
+                  {project.status === 'proposal_sent' ? 'Proposal Sent' : project.status.charAt(0).toUpperCase() + project.status.slice(1)}
+                </span>
               </div>
               <div className="flex items-center gap-2">
                 <Button variant="outline" size="sm" onClick={handleStartEditOverview}>
@@ -1448,14 +1448,9 @@ export default function ProjectDetail() {
                       <CardHeader>
                         <div className="flex items-center justify-between">
                           <CardTitle className="flex items-center gap-2 text-base">📋 Event Details</CardTitle>
-                          <div className="flex items-center gap-2">
-                            <Badge className={getStatusColor(project.status)}>
-                              {project.status.charAt(0).toUpperCase() + project.status.slice(1)}
-                            </Badge>
-                            <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={handleStartEditOverview}>
-                              <Edit className="h-3.5 w-3.5" />
-                            </Button>
-                          </div>
+                          <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={handleStartEditOverview}>
+                            <Edit className="h-3.5 w-3.5" />
+                          </Button>
                         </div>
                       </CardHeader>
                       <CardContent className="space-y-3">
@@ -1662,19 +1657,19 @@ export default function ProjectDetail() {
                       </CardHeader>
                       <CardContent className="space-y-3">
                         <div>
-                          <p className="text-sm text-muted-foreground">Dress Code</p>
+                          <p className="text-sm text-muted-foreground">DRESS CODE</p>
                           <p className="font-medium">{(project as any).dressCode || "Not specified"}</p>
                         </div>
                         <div>
-                          <p className="text-sm text-muted-foreground">Meal</p>
+                          <p className="text-sm text-muted-foreground">MEAL PROVIDED</p>
                           <p className="font-medium">{(project as any).mealDetails || "Not specified"}</p>
                         </div>
                         <div>
-                          <p className="text-sm text-muted-foreground">Accommodation</p>
+                          <p className="text-sm text-muted-foreground">ACCOMMODATION</p>
                           <p className="font-medium">{(project as any).accommodation || "Not specified"}</p>
                         </div>
                         <div>
-                          <p className="text-sm text-muted-foreground">Backline/Production</p>
+                          <p className="text-sm text-muted-foreground">BACKLINE / PRODUCTION</p>
                           <p className="font-medium">{(project as any).backlineProduction || "Not specified"}</p>
                         </div>
                       </CardContent>
@@ -1683,7 +1678,7 @@ export default function ProjectDetail() {
 
                   {/* RIGHT COLUMN */}
                   <div className="space-y-6">
-                    {/* Client Card */}
+                    {/* Client Card (includes additional contacts) */}
                     {projectContact ? (
                       <Card>
                         <CardHeader>
@@ -1707,36 +1702,39 @@ export default function ProjectDetail() {
                             <p className="text-sm text-muted-foreground">PHONE</p>
                             <p className="font-medium">{projectContact.phone || "Not provided"}</p>
                           </div>
+                          {(project as any).secondContactName && (
+                            <>
+                              <Separator />
+                              <div>
+                                <p className="text-sm text-muted-foreground">SECOND CONTACT <span className="text-[10px] bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded font-semibold ml-1">NEW</span></p>
+                                <p className="font-medium">{(project as any).secondContactName}</p>
+                                {(project as any).secondContactPhone && (
+                                  <>
+                                    <p className="text-sm text-muted-foreground mt-1">PHONE</p>
+                                    <p className="font-medium">{(project as any).secondContactPhone}</p>
+                                  </>
+                                )}
+                              </div>
+                            </>
+                          )}
+                          {(project as any).dayOfContactName && (
+                            <>
+                              <Separator />
+                              <div>
+                                <p className="text-sm text-muted-foreground">DAY-OF CONTACT <span className="text-[10px] bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded font-semibold ml-1">NEW</span></p>
+                                <p className="font-medium">{(project as any).dayOfContactName}</p>
+                                {(project as any).dayOfContactPhone && (
+                                  <>
+                                    <p className="text-sm text-muted-foreground mt-1">PHONE</p>
+                                    <p className="font-medium">{(project as any).dayOfContactPhone}</p>
+                                  </>
+                                )}
+                              </div>
+                            </>
+                          )}
                         </CardContent>
                       </Card>
                     ) : null}
-
-                    {/* Second Contact & Day-of Contact */}
-                    {((project as any).secondContactName || (project as any).dayOfContactName) && (
-                      <Card>
-                        <CardHeader>
-                          <CardTitle className="flex items-center gap-2 text-base">👥 Additional Contacts</CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                          {(project as any).secondContactName && (
-                            <div>
-                              <p className="text-sm text-muted-foreground">Second Contact <span className="text-[10px] bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded font-semibold ml-1">NEW</span></p>
-                              <p className="font-medium">{(project as any).secondContactName}</p>
-                              <p className="text-sm text-muted-foreground">Phone</p>
-                              <p className="font-medium">{(project as any).secondContactPhone || "Not provided"}</p>
-                            </div>
-                          )}
-                          {(project as any).dayOfContactName && (
-                            <div>
-                              <p className="text-sm text-muted-foreground">Day-of Contact <span className="text-[10px] bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded font-semibold ml-1">NEW</span></p>
-                              <p className="font-medium">{(project as any).dayOfContactName}</p>
-                              <p className="text-sm text-muted-foreground">Phone</p>
-                              <p className="font-medium">{(project as any).dayOfContactPhone || "Not provided"}</p>
-                            </div>
-                          )}
-                        </CardContent>
-                      </Card>
-                    )}
 
                     {/* Financial Summary Card */}
                     <Card>
@@ -1939,20 +1937,20 @@ export default function ProjectDetail() {
                     <CardContent className="space-y-4">
                       {projectVenue && (
                         <div>
-                          <p className="text-sm text-muted-foreground">Venue</p>
+                          <p className="text-sm text-muted-foreground">VENUE</p>
                           <p className="font-medium">{projectVenue.name}</p>
                         </div>
                       )}
                       {projectContact && (
                         <div>
-                          <p className="text-sm text-muted-foreground">Main Contact</p>
+                          <p className="text-sm text-muted-foreground">MAIN CONTACT</p>
                           <p className="font-medium">{projectContact.firstName} {projectContact.lastName}</p>
                           <p className="text-xs text-muted-foreground">{projectContact.phone}</p>
                         </div>
                       )}
                       {(project as any).dressCode && (
                         <div>
-                          <p className="text-sm text-muted-foreground">Dress Code</p>
+                          <p className="text-sm text-muted-foreground">DRESS CODE</p>
                           <p className="font-medium">{(project as any).dressCode}</p>
                         </div>
                       )}
@@ -2729,7 +2727,7 @@ export default function ProjectDetail() {
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <Card>
                   <CardHeader className="pb-3">
-                    <CardTitle className="text-sm text-muted-foreground">Total Fee</CardTitle>
+                    <CardTitle className="text-sm text-muted-foreground">TOTAL FEE</CardTitle>
                   </CardHeader>
                   <CardContent>
                     <p className="text-2xl font-bold">${project.estimatedValue || "0.00"}</p>
@@ -2737,7 +2735,7 @@ export default function ProjectDetail() {
                 </Card>
                 <Card>
                   <CardHeader className="pb-3">
-                    <CardTitle className="text-sm text-muted-foreground">Received</CardTitle>
+                    <CardTitle className="text-sm text-muted-foreground">RECEIVED</CardTitle>
                   </CardHeader>
                   <CardContent>
                     <p className="text-2xl font-bold">$0.00</p>
@@ -2745,7 +2743,7 @@ export default function ProjectDetail() {
                 </Card>
                 <Card>
                   <CardHeader className="pb-3">
-                    <CardTitle className="text-sm text-muted-foreground">Outstanding</CardTitle>
+                    <CardTitle className="text-sm text-muted-foreground">OUTSTANDING</CardTitle>
                   </CardHeader>
                   <CardContent>
                     <p className="text-2xl font-bold">${project.estimatedValue || "0.00"}</p>
@@ -2753,7 +2751,7 @@ export default function ProjectDetail() {
                 </Card>
                 <Card>
                   <CardHeader className="pb-3">
-                    <CardTitle className="text-sm text-muted-foreground">Projected Profit</CardTitle>
+                    <CardTitle className="text-sm text-muted-foreground">PROJECTED PROFIT</CardTitle>
                   </CardHeader>
                   <CardContent>
                     <p className="text-2xl font-bold text-green-600">$0.00</p>
@@ -2874,24 +2872,24 @@ export default function ProjectDetail() {
                     <CardContent className="space-y-3">
                       <div className="space-y-1">
                         <div className="flex justify-between text-sm">
-                          <span className="text-muted-foreground">Fee</span>
+                          <span className="text-muted-foreground">FEE</span>
                           <span className="font-medium">${project.estimatedValue || "0.00"}</span>
                         </div>
                         <div className="flex justify-between text-sm">
-                          <span className="text-muted-foreground">Member Costs</span>
+                          <span className="text-muted-foreground">MEMBER COSTS</span>
                           <span className="font-medium">$0.00</span>
                         </div>
                         <div className="flex justify-between text-sm">
-                          <span className="text-muted-foreground">Expenses</span>
+                          <span className="text-muted-foreground">EXPENSES</span>
                           <span className="font-medium">$0.00</span>
                         </div>
                         <Separator className="my-2" />
                         <div className="flex justify-between">
-                          <span className="font-semibold">Net Profit</span>
+                          <span className="font-semibold">NET PROFIT</span>
                           <span className="font-bold text-green-600">${project.estimatedValue || "0.00"}</span>
                         </div>
                         <div className="flex justify-between text-sm pt-2">
-                          <span className="text-muted-foreground">Margin</span>
+                          <span className="text-muted-foreground">MARGIN</span>
                           <span className="font-medium">100%</span>
                         </div>
                       </div>

@@ -1422,7 +1422,7 @@ export default function ProjectDetail() {
                             <p className="font-medium">{(project as any).startTime || "Not specified"}</p>
                           </div>
                           <div>
-                            <p className="text-sm text-muted-foreground">End Time</p>
+                            <p className="text-sm text-muted-foreground">END TIME</p>
                             <p className="font-medium">{(project as any).endTime || "Not specified"}</p>
                           </div>
                           <div>
@@ -1430,7 +1430,7 @@ export default function ProjectDetail() {
                             <p className="font-medium">${project.estimatedValue || "0.00"}</p>
                           </div>
                           <div>
-                            <p className="text-sm text-muted-foreground">Lead Source</p>
+                            <p className="text-sm text-muted-foreground">LEAD SOURCE</p>
                             <p className="font-medium">{(project as any).leadSource || "Not specified"}</p>
                           </div>
                           <div className="col-span-2">

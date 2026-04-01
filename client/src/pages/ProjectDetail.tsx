@@ -1418,7 +1418,7 @@ export default function ProjectDetail() {
                             </p>
                           </div>
                           <div>
-                            <p className="text-sm text-muted-foreground">Start Time</p>
+                            <p className="text-sm text-muted-foreground">START TIME</p>
                             <p className="font-medium">{(project as any).startTime || "Not specified"}</p>
                           </div>
                           <div>

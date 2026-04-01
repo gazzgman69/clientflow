@@ -27,6 +27,7 @@ import { twilioService } from "./src/services/twilio";
 import { sendToMusicianTracker } from "./src/services/musicianTrackerWebhook";
 import bcrypt from "bcrypt";
 import crypto from "crypto";
+import multer from "multer";
 import { z } from "zod";
 import { neon } from '@neondatabase/serverless';
 import {
@@ -147,6 +148,28 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     hasGet: typeof app.get === 'function',
     hasPost: typeof app.post === 'function',
     hasUse: typeof app.use === 'function'
+  });
+
+  // Configure multer for project file uploads with tenant isolation
+  const projectFileUpload = multer({
+    storage: multer.diskStorage({
+      destination: async (req: any, file, cb) => {
+        try {
+          const tenantId = req.tenantId || 'default-tenant';
+          const uploadDir = path.join(process.cwd(), 'project-uploads', tenantId);
+          await mkdir(uploadDir, { recursive: true });
+          cb(null, uploadDir);
+        } catch (error: any) {
+          cb(error, '');
+        }
+      },
+      filename: (req, file, cb) => {
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+        const ext = path.extname(file.originalname);
+        cb(null, 'file-' + uniqueSuffix + ext);
+      }
+    }),
+    limits: { fileSize: 25 * 1024 * 1024 } // 25MB limit
   });
 
   // Health endpoints with rate limiting for production monitoring
@@ -6382,11 +6405,21 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
 
-  app.post("/api/projects/:id/files", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
+  app.post("/api/projects/:id/files", ensureUserAuth, tenantResolver, requireTenant, csrf, projectFileUpload.single('file'), async (req: any, res) => {
     try {
+      const uploadedFile = req.file;
+      if (!uploadedFile) {
+        return res.status(400).json({ message: "No file uploaded" });
+      }
+      const tenantId = req.tenantId || 'default-tenant';
+      const fileUrl = `/project-uploads/${tenantId}/${uploadedFile.filename}`;
       const fileData = insertProjectFileSchema.parse({
         ...req.body,
-        projectId: req.params.id
+        projectId: req.params.id,
+        name: req.body.name || uploadedFile.originalname,
+        fileUrl,
+        fileSize: uploadedFile.size,
+        mimeType: uploadedFile.mimetype,
       });
       const file = await storage.addProjectFile(fileData);
       res.status(201).json(file);

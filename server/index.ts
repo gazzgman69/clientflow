@@ -215,6 +215,7 @@ app.post('/api/venues/place-details', async (req, res) => {
 
 // Serve media uploads statically
 app.use('/media-uploads', express.static('media-uploads'));
+app.use('/project-uploads', express.static('project-uploads'));
 
 // NOTE: tenantResolver is applied per-route in routes.ts, not globally
 // Applying it globally here causes session access issues before session middleware runs

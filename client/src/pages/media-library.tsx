@@ -67,12 +67,12 @@ export default function MediaLibrary() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
 
   const { data: mediaItems = [], isLoading } = useQuery<MediaItem[]>({
-    queryKey: ['/api/media-library'],
+    queryKey: ['/api/ai-features/media'],
   });
 
   const uploadMutation = useMutation({
     mutationFn: async (formData: FormData) => {
-      const response = await fetch('/api/media-library', {
+      const response = await fetch('/api/ai-features/media', {
         method: 'POST',
         credentials: 'include',
         body: formData,
@@ -84,7 +84,7 @@ export default function MediaLibrary() {
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/media-library'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/ai-features/media'] });
       toast({
         title: 'Success',
         description: 'Media uploaded successfully',
@@ -101,10 +101,10 @@ export default function MediaLibrary() {
 
   const updateMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: Partial<MediaItem> }) => {
-      return apiRequest("PATCH", `/api/media-library/${id}`, data);
+      return apiRequest("PATCH", `/api/ai-features/media/${id}`, data);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/media-library'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/ai-features/media'] });
       setIsEditDialogOpen(false);
       setEditingItem(null);
       toast({
@@ -123,10 +123,10 @@ export default function MediaLibrary() {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      return apiRequest("DELETE", `/api/media-library/${id}`);
+      return apiRequest("DELETE", `/api/ai-features/media/${id}`);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/media-library'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/ai-features/media'] });
       toast({
         title: 'Success',
         description: 'Media deleted successfully',

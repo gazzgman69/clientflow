@@ -3287,10 +3287,9 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
       }
 
       res.status(201).json(project);
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error creating project:', error);
-      const details = error?.issues ? error.issues.map((i: any) => `${i.path?.join('.')}: ${i.message}`).join('; ') : error?.message || 'Unknown error';
-      res.status(400).json({ message: "Invalid project data", details });
+      res.status(400).json({ message: "Invalid project data" });
     }
   });
 

@@ -212,7 +212,7 @@ export default function CompactMetrics() {
           <CardTitle className="text-xs">Business Overview</CardTitle>
           <Dialog>
             <DialogTrigger asChild>
-              <Button variant="outline" size="sm" className="h-5 px-1 text-[10px]" data-testid="view-full-analytics">
+              <Button variant="outline" size="sm" className="h-5 px-1 text-xs" data-testid="view-full-analytics">
                 <BarChart3 className="h-2.5 w-2.5 mr-0.5" />
                 Analytics
               </Button>
@@ -244,7 +244,7 @@ export default function CompactMetrics() {
                   <Icon className={`${metric.color} h-3 w-3`} />
                 </div>
                 <p className="text-sm font-bold text-foreground leading-tight">{metric.value}</p>
-                <p className="text-[10px] text-muted-foreground leading-tight">{metric.title}</p>
+                <p className="text-xs text-muted-foreground leading-tight">{metric.title}</p>
               </div>
             );
           })}

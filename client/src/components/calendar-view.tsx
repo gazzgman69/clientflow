@@ -382,7 +382,7 @@ export default function CalendarView({ viewMode = 'month' }: CalendarViewProps) 
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <CalendarIcon className="h-5 w-5" />
-              <CardTitle className="font-semibold tracking-tight text-[20px]">Upcoming Events</CardTitle>
+              <CardTitle className="font-semibold tracking-tight text-xl">Upcoming Events</CardTitle>
             </div>
             <div className="flex items-center gap-2">
               {!eventsLoading && getUpcomingEvents().length > 0 && (
@@ -399,7 +399,7 @@ export default function CalendarView({ viewMode = 'month' }: CalendarViewProps) 
                         {event.title}
                       </span>
                       {event.isCancelled && (
-                        <Badge variant="outline" className="text-[10px] px-1 py-0">CANC</Badge>
+                        <Badge variant="outline" className="text-xs px-1 py-0">CANC</Badge>
                       )}
                     </div>
                   ))}

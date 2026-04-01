@@ -95,7 +95,7 @@ export default function CalendarWeekView() {
             <CalendarIcon className="h-2.5 w-2.5" />
             Next 7 Days
           </CardTitle>
-          <div className="text-[10px] text-muted-foreground">
+          <div className="text-xs text-muted-foreground">
             {format(today, 'MMM yyyy')}
           </div>
         </div>
@@ -121,7 +121,7 @@ export default function CalendarWeekView() {
                   >
                     {/* Day Header */}
                     <div className="text-center mb-1">
-                      <div className={`text-[10px] font-medium ${
+                      <div className={`text-xs font-medium ${
                         isCurrentDay ? 'text-primary' : 'text-muted-foreground'
                       }`}>
                         {format(date, 'EEE')}
@@ -138,9 +138,9 @@ export default function CalendarWeekView() {
                       {dayEvents.slice(0, 1).map((event, eventIndex) => (
                         <div
                           key={`event-${eventIndex}`}
-                          className={`text-[9px] p-1 rounded border-l ${
-                            event.isReadonly 
-                              ? 'border-orange-400 bg-orange-50 dark:bg-orange-900/20' 
+                          className={`text-xs p-1 rounded border-l ${
+                            event.isReadonly
+                              ? 'border-orange-400 bg-orange-50 dark:bg-orange-900/20'
                               : 'border-blue-400 bg-blue-50 dark:bg-blue-900/20'
                           }`}
                           data-testid={`event-${index}-${eventIndex}`}
@@ -166,7 +166,7 @@ export default function CalendarWeekView() {
                       {dayTasks.slice(0, 1).map((task, taskIndex) => (
                         <div
                           key={`task-${taskIndex}`}
-                          className="text-[9px] p-1 rounded border-l border-orange-400 bg-orange-50 dark:bg-orange-900/20"
+                          className="text-xs p-1 rounded border-l border-orange-400 bg-orange-50 dark:bg-orange-900/20"
                           data-testid={`task-${index}-${taskIndex}`}
                         >
                           <div className="font-medium text-orange-700 dark:text-orange-300 truncate leading-tight">
@@ -176,13 +176,13 @@ export default function CalendarWeekView() {
                       ))}
 
                       {dayEvents.length === 0 && dayTasks.length === 0 && (
-                        <div className="text-[9px] text-muted-foreground text-center py-1">
+                        <div className="text-xs text-muted-foreground text-center py-1">
                           No events
                         </div>
                       )}
-                      
+
                       {(dayEvents.length > 1 || dayTasks.length > 1) && (
-                        <div className="text-[8px] text-muted-foreground text-center">
+                        <div className="text-xs text-muted-foreground text-center">
                           +{Math.max(0, dayEvents.length - 1) + Math.max(0, dayTasks.length - 1)} more
                         </div>
                       )}
@@ -207,29 +207,29 @@ export default function CalendarWeekView() {
                             <div
                               key={`detail-event-${eventIndex}`}
                               className={`p-1 rounded border-l ${
-                                event.isReadonly 
-                                  ? 'border-orange-400 bg-orange-50 dark:bg-orange-900/20' 
+                                event.isReadonly
+                                  ? 'border-orange-400 bg-orange-50 dark:bg-orange-900/20'
                                   : 'border-blue-400 bg-blue-50 dark:bg-blue-900/20'
                               }`}
                             >
                               <div className={`font-medium text-xs flex items-center gap-1 ${
-                                event.isReadonly 
-                                  ? 'text-orange-700 dark:text-orange-300' 
+                                event.isReadonly
+                                  ? 'text-orange-700 dark:text-orange-300'
                                   : 'text-blue-700 dark:text-blue-300'
                               }`}>
                                 {event.title}
                                 {event.isReadonly && event.source === 'google' && (
-                                  <Badge 
-                                    variant="outline" 
-                                    className="text-[8px] px-1 py-0 ml-1 border-orange-300 text-orange-700 dark:border-orange-600 dark:text-orange-400"
+                                  <Badge
+                                    variant="outline"
+                                    className="text-xs px-1 py-0 ml-1 border-orange-300 text-orange-700 dark:border-orange-600 dark:text-orange-400"
                                   >
                                     🔒 Google (disconnected)
                                   </Badge>
                                 )}
                               </div>
                               <div className={`flex items-center gap-1 text-xs ${
-                                event.isReadonly 
-                                  ? 'text-orange-600 dark:text-orange-400' 
+                                event.isReadonly
+                                  ? 'text-orange-600 dark:text-orange-400'
                                   : 'text-blue-600 dark:text-blue-400'
                               }`}>
                                 <Clock className="h-2 w-2" />
@@ -237,8 +237,8 @@ export default function CalendarWeekView() {
                               </div>
                               {event.location && (
                                 <div className={`text-xs ${
-                                  event.isReadonly 
-                                    ? 'text-orange-600 dark:text-orange-400' 
+                                  event.isReadonly
+                                    ? 'text-orange-600 dark:text-orange-400'
                                     : 'text-blue-600 dark:text-blue-400'
                                 }`}>
                                   📍 {event.location}

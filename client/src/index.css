@@ -138,14 +138,14 @@
   }
 
   .mockup-card-header {
-    font-size: 15px;
+    font-size: 0.875rem;
     font-weight: 600;
     color: #111827;
     margin-bottom: 16px;
   }
 
   .mockup-field-label {
-    font-size: 12px;
+    font-size: 0.75rem;
     color: #6b7280;
     text-transform: uppercase;
     letter-spacing: 0.5px;

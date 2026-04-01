@@ -1592,7 +1592,7 @@ export default function ProjectDetail() {
                             <p className="font-medium">$0.00</p>
                           </div>
                           <div>
-                            <p className="text-muted-foreground">Outstanding</p>
+                            <p className="text-muted-foreground">OUTSTANDING</p>
                             <p className="font-medium">${project.estimatedValue || "0.00"}</p>
                           </div>
                         </div>

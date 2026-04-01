@@ -1434,7 +1434,7 @@ export default function ProjectDetail() {
                             <p className="font-medium">{(project as any).leadSource || "Not specified"}</p>
                           </div>
                           <div className="col-span-2">
-                            <p className="text-sm text-muted-foreground">Budget Range</p>
+                            <p className="text-sm text-muted-foreground">BUDGET RANGE</p>
                             <p className="font-medium">{(project as any).budgetRange || "Not specified"}</p>
                           </div>
                           <div className="col-span-2">

@@ -1588,7 +1588,7 @@ export default function ProjectDetail() {
                         </div>
                         <div className="grid grid-cols-2 gap-2 text-sm">
                           <div>
-                            <p className="text-muted-foreground">Deposit Paid</p>
+                            <p className="text-muted-foreground">DEPOSIT PAID</p>
                             <p className="font-medium">$0.00</p>
                           </div>
                           <div>

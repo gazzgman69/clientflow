@@ -1526,7 +1526,7 @@ export default function ProjectDetail() {
                         </CardHeader>
                         <CardContent className="space-y-3">
                           <div>
-                            <p className="text-sm text-muted-foreground">Name</p>
+                            <p className="text-sm text-muted-foreground">NAME</p>
                             <p className="font-medium">{projectContact.firstName} {projectContact.lastName}</p>
                           </div>
                           <div>

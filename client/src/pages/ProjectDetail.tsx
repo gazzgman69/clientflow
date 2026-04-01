@@ -1534,7 +1534,7 @@ export default function ProjectDetail() {
                             <p className="font-medium text-sm break-all">{projectContact.email}</p>
                           </div>
                           <div>
-                            <p className="text-sm text-muted-foreground">Phone</p>
+                            <p className="text-sm text-muted-foreground">PHONE</p>
                             <p className="font-medium">{projectContact.phone || "Not provided"}</p>
                           </div>
                           <Button

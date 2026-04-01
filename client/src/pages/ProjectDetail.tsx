@@ -1438,7 +1438,7 @@ export default function ProjectDetail() {
                             <p className="font-medium">{(project as any).budgetRange || "Not specified"}</p>
                           </div>
                           <div className="col-span-2">
-                            <p className="text-sm text-muted-foreground">Referral Source</p>
+                            <p className="text-sm text-muted-foreground">REFERRAL SOURCE</p>
                             <p className="font-medium">{(project as any).referralSource || "Not specified"}</p>
                           </div>
                         </div>

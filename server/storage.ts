@@ -6324,7 +6324,12 @@ export class DrizzleStorage implements IStorage {
     return result.rowCount > 0;
   }
   async getProjectFiles(projectId: string): Promise<ProjectFile[]> {
-    return await this.db.select().from(projectFiles).where(eq(projectFiles.projectId, projectId));
+    try {
+      return await this.db.select().from(projectFiles).where(eq(projectFiles.projectId, projectId));
+    } catch (error: any) {
+      console.warn('Note: Project files table may not be fully initialized:', error?.message);
+      return [];
+    }
   }
 
   async addProjectFile(file: InsertProjectFile): Promise<ProjectFile> {
@@ -6339,12 +6344,18 @@ export class DrizzleStorage implements IStorage {
   
   // Project Notes - PostgreSQL implementation
   async getProjectNotes(projectId: string, tenantId: string): Promise<ProjectNote[]> {
-    // Get project to verify tenantId
-    const project = await this.db.select().from(projects).where(and(eq(projects.id, projectId), eq(projects.tenantId, tenantId))).limit(1);
-    if (!project || project.length === 0) {
+    try {
+      // Get project to verify tenantId
+      const project = await this.db.select().from(projects).where(and(eq(projects.id, projectId), eq(projects.tenantId, tenantId))).limit(1);
+      if (!project || project.length === 0) {
+        return [];
+      }
+      return await this.db.select().from(projectNotes).where(eq(projectNotes.projectId, projectId));
+    } catch (error: any) {
+      // If table or columns don't exist, log and return empty array
+      console.warn('Note: Project notes table may not be fully initialized:', error?.message);
       return [];
     }
-    return await this.db.select().from(projectNotes).where(eq(projectNotes.projectId, projectId));
   }
 
   async addProjectNote(note: InsertProjectNote): Promise<ProjectNote> {

@@ -264,6 +264,11 @@ export default function ProjectDetail() {
   const { data: venues = [] } = useQuery<Venue[]>({
     queryKey: ["/api/venues"],
     enabled: !!project,
+    queryFn: async () => {
+      const res = await fetch("/api/venues?simple=1");
+      if (!res.ok) throw new Error("Failed to fetch venues");
+      return res.json();
+    }
   });
 
   const { data: projectFiles = [] } = useQuery<ProjectFile[]>({

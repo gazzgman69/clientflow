@@ -2841,15 +2841,15 @@ export default function ProjectDetail() {
                                 <TableCell>${pm.fee || "0.00"}</TableCell>
                                 <TableCell>
                                   <Badge variant="outline">
-                                    <div className="h-2 w-2 rounded-full bg-green-500 mr-2"></div>
-                                    Confirmed
+                                    <div className={`h-2 w-2 rounded-full mr-2 ${pm.confirmationStatus === 'confirmed' ? 'bg-green-500' : 'bg-gray-400'}`}></div>
+                                    {pm.confirmationStatus ? pm.confirmationStatus.charAt(0).toUpperCase() + pm.confirmationStatus.slice(1) : 'Pending'}
                                   </Badge>
                                 </TableCell>
                                 <TableCell>
-                                  <Badge variant="outline">Pending</Badge>
+                                  <Badge variant="outline">{pm.availability || "Unknown"}</Badge>
                                 </TableCell>
                                 <TableCell>
-                                  <Badge variant="outline">Unpaid</Badge>
+                                  <Badge variant="outline">{pm.paymentStatus ? pm.paymentStatus.charAt(0).toUpperCase() + pm.paymentStatus.slice(1) : 'Unpaid'}</Badge>
                                 </TableCell>
                                 <TableCell>
                                   <Button

@@ -778,8 +778,6 @@ export default function TemplatesPage() {
                               'project.title': 'Website Redesign',
                               'project.date': '15/09/2025',
                               'project.id': 'PRJ-001',
-                              'lead.service': 'Web Development',
-                              'lead.message': 'Looking for a modern website redesign'
                             };
                             return sampleData[token] || match;
                           })}
@@ -798,8 +796,6 @@ export default function TemplatesPage() {
                             'project.title': 'Website Redesign',
                             'project.date': '15/09/2025',
                             'project.id': 'PRJ-001',
-                            'lead.service': 'Web Development',
-                            'lead.message': 'Looking for a modern website redesign'
                           };
                           return sampleData[token] || match;
                         })}

@@ -79,6 +79,9 @@ const venueSchema = z.object({
   preferred: z.boolean().optional(),
   tags: z.string().optional(),
   notes: z.string().optional(),
+  placeId: z.string().optional(),
+  latitude: z.string().optional(),
+  longitude: z.string().optional(),
 });
 
 type VenueFormData = z.infer<typeof venueSchema>;

@@ -200,6 +200,7 @@ function Router() {
                   <Route path="/settings/templates" component={Templates} />
                   <Route path="/settings/automations" component={LeadAutomations} />
                   <Route path="/settings/widget" component={WidgetSettings} />
+                  <Route path="/settings/enquiry-forms" component={LeadCaptureBuilder} />
                   <Route path="/settings" component={Settings} />
                   <Route component={NotFound} />
                 </Switch>

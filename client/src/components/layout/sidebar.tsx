@@ -17,16 +17,7 @@ import { useToast } from "@/hooks/use-toast";
 
 const staticNavigationItems = [
   { href: "/", icon: BarChart3, label: "Dashboard", emoji: "📊", badge: null },
-  {
-    href: "/projects",
-    icon: Briefcase,
-    label: "Projects",
-    emoji: "📋",
-    badge: null,
-    subItems: [
-      { href: "/leads/capture", icon: FileText, label: "Lead Forms", emoji: "📝", badge: null }
-    ]
-  },
+  { href: "/projects", icon: Briefcase, label: "Projects", emoji: "📋", badge: null },
   { href: "/contacts", icon: Users, label: "Contacts", emoji: "👥", badge: null },
   { href: "/members", icon: Music, label: "Members", emoji: "🎵", badge: null },
   { href: "/repertoire", icon: ListMusic, label: "Repertoire", emoji: "🎶", badge: null },
@@ -38,7 +29,16 @@ const staticNavigationItems = [
   { href: "/calendar", icon: Calendar, label: "Calendar", emoji: "🗓️", badge: null },
   { href: "/portal/client", icon: ExternalLink, label: "Client Portal", emoji: "🔗", badge: null },
   { href: "/automations", icon: Bot, label: "Automations", emoji: "🤖", badge: null },
-  { href: "/settings", icon: Settings, label: "Settings", emoji: "⚙️", badge: null },
+  {
+    href: "/settings",
+    icon: Settings,
+    label: "Settings",
+    emoji: "⚙️",
+    badge: null,
+    subItems: [
+      { href: "/settings/enquiry-forms", icon: FileText, label: "Enquiry Forms", emoji: "📝", badge: null }
+    ]
+  },
 ];
 
 export default function Sidebar() {

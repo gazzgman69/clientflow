@@ -90,7 +90,6 @@ export default function Projects() {
   const [statusFilter, setStatusFilter] = useState<string>('active');
   const [deletionPreview, setDeletionPreview] = useState<ProjectDeletionPreview | null>(null);
   const [previewProjectId, setPreviewProjectId] = useState<string | null>(null);
-  const [convertingLeadId, setConvertingLeadId] = useState<string | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [, setLocation] = useLocation();
@@ -220,73 +219,6 @@ export default function Projects() {
     },
   });
 
-  // Handle leadId query parameter - create contact from lead and pre-fill project form
-  useEffect(() => {
-    const searchParams = new URLSearchParams(window.location.search);
-    const leadId = searchParams.get('leadId');
-    
-    if (leadId) {
-      // Fetch the lead data
-      apiRequest("GET", `/api/leads/${leadId}`)
-        .then(res => res.json())
-        .then(async (lead) => {
-          // Create a contact from the lead WITH leadId field set!
-          const contactData = {
-            firstName: lead.firstName,
-            lastName: lead.lastName,
-            fullName: lead.fullName || `${lead.firstName} ${lead.lastName}`,
-            middleName: lead.middleName || "",
-            email: lead.email,
-            phone: lead.phone || "",
-            company: lead.company || "",
-            leadSource: lead.leadSource || "",
-            notes: lead.notes || "",
-            leadId: lead.id, // CRITICAL: Set the leadId field!
-          };
-          
-          const contactResponse = await apiRequest("POST", "/api/contacts", contactData);
-          const newContact = await contactResponse.json();
-
-          // Store the leadId for the project creation
-          setConvertingLeadId(lead.id);
-
-          // Add the new contact to the query cache so the Select dropdown displays it
-          queryClient.setQueryData(["/api/contacts"], (oldData: any) => {
-            const existing = oldData?.contacts || oldData || [];
-            return { contacts: [newContact, ...existing] };
-          });
-
-          // Pre-fill the project form with the new contact
-          // shouldValidate ensures react-hook-form marks these fields as valid
-          form.setValue("contactId", newContact.id, { shouldValidate: true, shouldDirty: true });
-          form.setValue("name", lead.eventType || "New Project", { shouldValidate: true, shouldDirty: true });
-          if (lead.projectDate) {
-            form.setValue("startDate", lead.projectDate, { shouldValidate: true });
-            form.setValue("endDate", lead.projectDate, { shouldValidate: true });
-          }
-          
-          // Show the project modal
-          setShowProjectModal(true);
-          
-          // Clear the query parameter from URL
-          window.history.replaceState({}, '', '/projects');
-          
-          toast({
-            title: "Contact created",
-            description: `Created contact for ${lead.fullName || lead.firstName + ' ' + lead.lastName}`,
-          });
-        })
-        .catch(error => {
-          console.error("Error converting lead to contact:", error);
-          toast({
-            title: "Error",
-            description: "Failed to create contact from lead.",
-            variant: "destructive",
-          });
-        });
-    }
-  }, []); // Run only once on mount
-
   const createProjectMutation = useMutation({
     mutationFn: async (data: z.infer<typeof projectFormSchema>) => {
       let venueId = null;
@@ -325,7 +257,6 @@ export default function Projects() {
         ...data,
         estimatedValue: data.estimatedValue ? parseFloat(data.estimatedValue) : null,
         venueId,
-        ...(convertingLeadId ? { leadId: convertingLeadId } : {}),
       };
       const response = await apiRequest("POST", "/api/projects", projectData);
       return response.json();
@@ -339,7 +270,6 @@ export default function Projects() {
       });
       form.reset();
       setSelectedVenue(null);
-      setConvertingLeadId(null);
       setShowProjectModal(false);
     },
     onError: () => {

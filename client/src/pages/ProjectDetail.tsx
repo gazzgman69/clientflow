@@ -1583,7 +1583,7 @@ export default function ProjectDetail() {
                       </CardHeader>
                       <CardContent className="space-y-3">
                         <div>
-                          <p className="text-sm text-muted-foreground">Total Fee</p>
+                          <p className="text-sm text-muted-foreground">TOTAL FEE</p>
                           <p className="text-lg font-bold">${project.estimatedValue || "0.00"}</p>
                         </div>
                         <div className="grid grid-cols-2 gap-2 text-sm">

@@ -1177,8 +1177,7 @@ export default function ProjectDetail() {
               </TabsTrigger>
               <TabsTrigger value="files">Files</TabsTrigger>
               <TabsTrigger value="notes">Notes</TabsTrigger>
-              <TabsTrigger value="email" className="flex items-center gap-2">
-                <Mail className="h-4 w-4" />
+              <TabsTrigger value="email">
                 <span className="hidden sm:inline">Email</span>
               </TabsTrigger>
               <TabsTrigger value="financials" className="flex items-center gap-2">

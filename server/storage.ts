@@ -3843,7 +3843,7 @@ export class DrizzleStorage implements IStorage {
     });
     
     // Filter by BOTH userId AND tenantId to ensure tenant isolation
-    const integrations = await db.select().from(calendarIntegrations)
+    const integrations = await this.db.select().from(calendarIntegrations)
       .where(and(
         eq(calendarIntegrations.userId, userId),
         eq(calendarIntegrations.tenantId, tenantId)
@@ -3871,7 +3871,7 @@ export class DrizzleStorage implements IStorage {
     if (tenantId) {
       conditions.push(eq(calendarIntegrations.tenantId, tenantId));
     }
-    const result = await db.select().from(calendarIntegrations).where(and(...conditions));
+    const result = await this.db.select().from(calendarIntegrations).where(and(...conditions));
     
     if (!result[0]) return undefined;
     
@@ -3885,7 +3885,7 @@ export class DrizzleStorage implements IStorage {
   }
 
   async getCalendarIntegrationByEmail(email: string, userId: string, tenantId: string): Promise<CalendarIntegration | undefined> {
-    const result = await db.select().from(calendarIntegrations)
+    const result = await this.db.select().from(calendarIntegrations)
       .where(and(
         eq(calendarIntegrations.providerAccountId, email), 
         eq(calendarIntegrations.userId, userId),
@@ -3917,7 +3917,7 @@ export class DrizzleStorage implements IStorage {
       refreshToken: integration.refreshToken ? secureStore.encrypt(integration.refreshToken) : null,
     };
     
-    const result = await db.insert(calendarIntegrations).values(secureIntegration).returning();
+    const result = await this.db.insert(calendarIntegrations).values(secureIntegration).returning();
     
     // Return with decrypted tokens for immediate use
     const storedIntegration = result[0];
@@ -3941,7 +3941,7 @@ export class DrizzleStorage implements IStorage {
       secureUpdates.refreshToken = updates.refreshToken ? secureStore.encrypt(updates.refreshToken) : null;
     }
     
-    const result = await db.update(calendarIntegrations).set(secureUpdates).where(and(
+    const result = await this.db.update(calendarIntegrations).set(secureUpdates).where(and(
       eq(calendarIntegrations.id, id),
       eq(calendarIntegrations.tenantId, tenantId)
     )).returning();
@@ -3967,7 +3967,7 @@ export class DrizzleStorage implements IStorage {
     }
 
     // Check if integration already exists
-    const existing = await db.select().from(calendarIntegrations)
+    const existing = await this.db.select().from(calendarIntegrations)
       .where(and(
         eq(calendarIntegrations.tenantId, tenantId),
         eq(calendarIntegrations.userId, integration.userId!),
@@ -3990,7 +3990,7 @@ export class DrizzleStorage implements IStorage {
   }
 
   async deleteCalendarIntegration(id: string): Promise<boolean> {
-    const result = await db.delete(calendarIntegrations).where(eq(calendarIntegrations.id, id));
+    const result = await this.db.delete(calendarIntegrations).where(eq(calendarIntegrations.id, id));
     return result.rowCount > 0;
   }
 
@@ -4003,7 +4003,7 @@ export class DrizzleStorage implements IStorage {
     });
     
     // Filter by tenantId and exclude orphaned events
-    const results = await db.select().from(events).where(and(
+    const results = await this.db.select().from(events).where(and(
       eq(events.tenantId, tenantId),
       or(
         isNull(events.isOrphaned),
@@ -4024,7 +4024,7 @@ export class DrizzleStorage implements IStorage {
       if (event.isCancelled && !event.title.startsWith('(CANCELLED)')) {
         const oldTitle = event.title;
         const fixedTitle = `(CANCELLED) ${event.title}`;
-        await db.update(events)
+        await this.db.update(events)
           .set({ title: fixedTitle })
           .where(eq(events.id, event.id));
         event.title = fixedTitle; // Update in-memory too
@@ -4040,7 +4040,7 @@ export class DrizzleStorage implements IStorage {
   }
 
   async getEventsByUser(userId: string, tenantId: string): Promise<Event[]> {
-    return await db.select().from(events)
+    return await this.db.select().from(events)
       .where(and(
         eq(events.tenantId, tenantId),
         or(eq(events.createdBy, userId), eq(events.assignedTo, userId)),
@@ -4052,7 +4052,7 @@ export class DrizzleStorage implements IStorage {
   }
 
   async getEvent(id: string, tenantId: string): Promise<Event | undefined> {
-    const result = await db.select().from(events)
+    const result = await this.db.select().from(events)
       .where(and(
         eq(events.id, id),
         eq(events.tenantId, tenantId),
@@ -4065,7 +4065,7 @@ export class DrizzleStorage implements IStorage {
   }
 
   async getEventByExternalId(externalId: string, tenantId: string): Promise<Event | undefined> {
-    const result = await db.select().from(events)
+    const result = await this.db.select().from(events)
       .where(and(
         eq(events.externalEventId, externalId),
         eq(events.tenantId, tenantId),
@@ -4101,7 +4101,7 @@ export class DrizzleStorage implements IStorage {
       tenantId // Always use the parameter to ensure tenant isolation
     };
     
-    const result = await db.insert(events).values(secureEvent).returning();
+    const result = await this.db.insert(events).values(secureEvent).returning();
     
     console.log('✅ EVENT CREATED', {
       action: 'createEvent',
@@ -4131,7 +4131,7 @@ export class DrizzleStorage implements IStorage {
       timestamp: new Date().toISOString()
     });
     
-    const result = await db.update(events)
+    const result = await this.db.update(events)
       .set(updates)
       .where(and(
         eq(events.id, id),
@@ -4167,7 +4167,7 @@ export class DrizzleStorage implements IStorage {
       timestamp: new Date().toISOString()
     });
     
-    const result = await db.delete(events)
+    const result = await this.db.delete(events)
       .where(and(
         eq(events.id, id),
         eq(events.tenantId, tenantId)
@@ -4212,7 +4212,7 @@ export class DrizzleStorage implements IStorage {
     });
     
     // Get all events for this project
-    const projectEvents = await db.select().from(events).where(and(
+    const projectEvents = await this.db.select().from(events).where(and(
       eq(events.projectId, projectId),
       eq(events.tenantId, tenantId)
     ));
@@ -4224,7 +4224,7 @@ export class DrizzleStorage implements IStorage {
       if (!event.title.startsWith('(CANCELLED) ')) {
         const newTitle = `(CANCELLED) ${event.title}`;
         
-        await db.update(events)
+        await this.db.update(events)
           .set({
             title: newTitle,
             status: 'cancelled',
@@ -4279,7 +4279,7 @@ export class DrizzleStorage implements IStorage {
     });
     
     // Get all events for this contact
-    const contactEvents = await db.select().from(events).where(and(
+    const contactEvents = await this.db.select().from(events).where(and(
       eq(events.contactId, contactId),
       eq(events.tenantId, tenantId)
     ));
@@ -4291,7 +4291,7 @@ export class DrizzleStorage implements IStorage {
       if (!event.title.startsWith('(CANCELLED) ')) {
         const newTitle = `(CANCELLED) ${event.title}`;
         
-        await db.update(events)
+        await this.db.update(events)
           .set({
             title: newTitle,
             status: 'cancelled',
@@ -4406,28 +4406,28 @@ export class DrizzleStorage implements IStorage {
 
   // System Calendars (Leads, Booked, Completed)
   async getCalendars(tenantId: string): Promise<Calendar[]> {
-    return await db.select().from(calendars).where(eq(calendars.tenantId, tenantId));
+    return await this.db.select().from(calendars).where(eq(calendars.tenantId, tenantId));
   }
 
   async getCalendar(id: string, tenantId: string): Promise<Calendar | undefined> {
-    const result = await db.select().from(calendars)
+    const result = await this.db.select().from(calendars)
       .where(and(eq(calendars.id, id), eq(calendars.tenantId, tenantId)));
     return result[0];
   }
 
   async getCalendarByType(type: string, tenantId: string): Promise<Calendar | undefined> {
-    const result = await db.select().from(calendars)
+    const result = await this.db.select().from(calendars)
       .where(and(eq(calendars.type, type), eq(calendars.tenantId, tenantId)));
     return result[0];
   }
 
   async createCalendar(calendar: InsertCalendar, tenantId: string): Promise<Calendar> {
-    const result = await db.insert(calendars).values({ ...calendar, tenantId }).returning();
+    const result = await this.db.insert(calendars).values({ ...calendar, tenantId }).returning();
     return result[0];
   }
 
   async updateCalendar(id: string, updates: Partial<InsertCalendar>, tenantId: string): Promise<Calendar | undefined> {
-    const result = await db.update(calendars)
+    const result = await this.db.update(calendars)
       .set(updates)
       .where(and(eq(calendars.id, id), eq(calendars.tenantId, tenantId)))
       .returning();
@@ -4453,7 +4453,7 @@ export class DrizzleStorage implements IStorage {
   }
 
   async getEventsByCalendar(calendarId: string, tenantId: string): Promise<Event[]> {
-    return await db.select().from(events)
+    return await this.db.select().from(events)
       .where(and(
         eq(events.calendarId, calendarId),
         eq(events.tenantId, tenantId)
@@ -4473,7 +4473,7 @@ export class DrizzleStorage implements IStorage {
       userId: event.createdBy
     });
     
-    const result = await db.update(events)
+    const result = await this.db.update(events)
       .set({ calendarId: targetCalendarId, history: JSON.stringify(history) })
       .where(and(eq(events.id, eventId), eq(events.tenantId, tenantId)))
       .returning();
@@ -4481,7 +4481,7 @@ export class DrizzleStorage implements IStorage {
   }
 
   async checkEventConflict(startDate: Date, endDate: Date, tenantId: string, userId?: string, excludeEventId?: string): Promise<{ hasConflict: boolean; conflictingEvents: Event[] }> {
-    let query = db.select().from(events)
+    let query = this.db.select().from(events)
       .where(and(
         eq(events.tenantId, tenantId),
         sql`${events.startDate} < ${endDate}`,

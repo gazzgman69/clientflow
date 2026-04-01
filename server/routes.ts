@@ -2224,52 +2224,49 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   // Business metrics for analytics
   app.get("/api/business/metrics", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
     try {
-      const userId = req.authenticatedUserId;
-      // WORKAROUND: Use direct Neon client to bypass Drizzle recursion issue
-      const neonClient = neon(process.env.DATABASE_URL!);
-      const leadsResult = await neonClient('SELECT * FROM leads WHERE tenant_id = $1', [req.tenantId]);
-      const leads = leadsResult;
+      const tenantId = req.tenantId;
+      const leadsResult = await pool.query('SELECT * FROM leads WHERE tenant_id = $1', [tenantId]);
+      const leads = leadsResult.rows;
       // Get all contacts and projects in tenant for business metrics
-      const clientsResult = await neonClient('SELECT COUNT(*) as count FROM contacts WHERE tenant_id = $1', [req.tenantId]);
-      const clientsCount = parseInt((clientsResult[0] as any).count);
-      const projectsResult = await neonClient('SELECT COUNT(*) as count, SUM(CAST(estimated_value AS DECIMAL)) as total_value FROM projects WHERE tenant_id = $1', [req.tenantId]);
-      const projectsCount = parseInt((projectsResult[0] as any).count);
-      const totalProjectValue = parseFloat((projectsResult[0] as any).total_value || '0');
-      const quotesResult = await neonClient('SELECT COUNT(*) as count, SUM(CAST(subtotal AS DECIMAL)) as total_value FROM quotes WHERE tenant_id = $1', [req.tenantId]);
-      const quotesCount = parseInt((quotesResult[0] as any).count);
-      const totalQuoteValue = parseFloat((quotesResult[0] as any).total_value || '0');
-      const invoicesResult = await neonClient('SELECT COUNT(*) as count, SUM(CAST(subtotal AS DECIMAL)) as total_value FROM invoices WHERE tenant_id = $1', [req.tenantId]);
-      const invoicesCount = parseInt((invoicesResult[0] as any).count);
-      const totalInvoiceValue = parseFloat((invoicesResult[0] as any).total_value || '0');
-      const contractsResult = await neonClient('SELECT COUNT(*) as count FROM contracts WHERE tenant_id = $1', [req.tenantId]);
-      const contractsCount = parseInt((contractsResult[0] as any).count);
-      const membersResult = await neonClient('SELECT COUNT(*) as count FROM members WHERE tenant_id = $1', [req.tenantId]);
-      const membersCount = parseInt((membersResult[0] as any).count);
-      // Get venues count using neonClient already declared above
-      const venuesResult = await neonClient('SELECT COUNT(*) as count FROM venues WHERE tenant_id = $1', [req.tenantId]);
-      const venuesCount = parseInt((venuesResult[0] as any).count);
+      const clientsResult = await pool.query('SELECT COUNT(*) as count FROM contacts WHERE tenant_id = $1', [tenantId]);
+      const clientsCount = parseInt((clientsResult.rows[0] as any).count);
+      const projectsResult = await pool.query('SELECT COUNT(*) as count, COALESCE(SUM(CAST(estimated_value AS DECIMAL)), 0) as total_value FROM projects WHERE tenant_id = $1', [tenantId]);
+      const projectsCount = parseInt((projectsResult.rows[0] as any).count);
+      const totalProjectValue = parseFloat((projectsResult.rows[0] as any).total_value || '0');
+      const quotesResult = await pool.query('SELECT COUNT(*) as count, COALESCE(SUM(CAST(subtotal AS DECIMAL)), 0) as total_value FROM quotes WHERE tenant_id = $1', [tenantId]);
+      const quotesCount = parseInt((quotesResult.rows[0] as any).count);
+      const totalQuoteValue = parseFloat((quotesResult.rows[0] as any).total_value || '0');
+      const invoicesResult = await pool.query('SELECT COUNT(*) as count, COALESCE(SUM(CAST(subtotal AS DECIMAL)), 0) as total_value FROM invoices WHERE tenant_id = $1', [tenantId]);
+      const invoicesCount = parseInt((invoicesResult.rows[0] as any).count);
+      const totalInvoiceValue = parseFloat((invoicesResult.rows[0] as any).total_value || '0');
+      const contractsResult = await pool.query('SELECT COUNT(*) as count FROM contracts WHERE tenant_id = $1', [tenantId]);
+      const contractsCount = parseInt((contractsResult.rows[0] as any).count);
+      const membersResult = await pool.query('SELECT COUNT(*) as count FROM members WHERE tenant_id = $1', [tenantId]);
+      const membersCount = parseInt((membersResult.rows[0] as any).count);
+      const venuesResult = await pool.query('SELECT COUNT(*) as count FROM venues WHERE tenant_id = $1', [tenantId]);
+      const venuesCount = parseInt((venuesResult.rows[0] as any).count);
 
       // Calculate metrics
       const totalLeads = leads.length;
-      const convertedLeads = leads.filter(l => l.status === 'converted').length;
+      const convertedLeads = leads.filter((l: any) => l.status === 'converted').length;
       const leadConversionRate = totalLeads > 0 ? Math.round((convertedLeads / totalLeads) * 100) : 0;
 
       // Real quote approval rate from DB
-      const approvedQuotesResult = await neonClient('SELECT COUNT(*) as count FROM quotes WHERE tenant_id = $1 AND status = $2', [req.tenantId, 'approved']);
-      const approvedQuotes = parseInt((approvedQuotesResult[0] as any).count);
+      const approvedQuotesResult = await pool.query('SELECT COUNT(*) as count FROM quotes WHERE tenant_id = $1 AND status = $2', [tenantId, 'approved']);
+      const approvedQuotes = parseInt((approvedQuotesResult.rows[0] as any).count);
       const quoteSuccessRate = quotesCount > 0 ? Math.round((approvedQuotes / quotesCount) * 100) : 0;
 
       // Real project status counts from DB
-      const activeProjectsResult = await neonClient("SELECT COUNT(*) as count FROM projects WHERE tenant_id = $1 AND status IN ('lead', 'booked')", [req.tenantId]);
-      const activeProjects = parseInt((activeProjectsResult[0] as any).count);
-      const completedProjectsResult = await neonClient("SELECT COUNT(*) as count FROM projects WHERE tenant_id = $1 AND status = 'completed'", [req.tenantId]);
-      const completedProjects = parseInt((completedProjectsResult[0] as any).count);
+      const activeProjectsResult = await pool.query("SELECT COUNT(*) as count FROM projects WHERE tenant_id = $1 AND status IN ('lead', 'booked')", [tenantId]);
+      const activeProjects = parseInt((activeProjectsResult.rows[0] as any).count);
+      const completedProjectsResult = await pool.query("SELECT COUNT(*) as count FROM projects WHERE tenant_id = $1 AND status = 'completed'", [tenantId]);
+      const completedProjects = parseInt((completedProjectsResult.rows[0] as any).count);
       const projectCompletionRate = projectsCount > 0 ? Math.round((completedProjects / projectsCount) * 100) : 0;
 
       // Real invoice payment data from DB
-      const paidInvoicesResult = await neonClient("SELECT COUNT(*) as count, COALESCE(SUM(CAST(subtotal AS DECIMAL)), 0) as total FROM invoices WHERE tenant_id = $1 AND status = 'paid'", [req.tenantId]);
-      const paidInvoicesCount = parseInt((paidInvoicesResult[0] as any).count);
-      const paidTotal = parseFloat((paidInvoicesResult[0] as any).total || '0');
+      const paidInvoicesResult = await pool.query("SELECT COUNT(*) as count, COALESCE(SUM(CAST(subtotal AS DECIMAL)), 0) as total FROM invoices WHERE tenant_id = $1 AND status = 'paid'", [tenantId]);
+      const paidInvoicesCount = parseInt((paidInvoicesResult.rows[0] as any).count);
+      const paidTotal = parseFloat((paidInvoicesResult.rows[0] as any).total || '0');
       const pendingInvoicesCount = invoicesCount - paidInvoicesCount;
       const outstandingAmount = Math.round(totalInvoiceValue - paidTotal);
       const monthlyRevenue = Math.round(paidTotal);
@@ -2424,20 +2421,17 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
       const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string) || 25));
       const offset = (page - 1) * limit;
       
-      // WORKAROUND: Use direct Neon client to bypass Drizzle recursion issue
-      const neonClient = neon(process.env.DATABASE_URL!);
-      
       // For lead capture forms and similar use cases, provide a simple limit-only option
       if (req.query.simple === '1') {
         const simpleLimit = Math.min(50, Math.max(1, parseInt(req.query.limit as string) || 10));
-        const contactsRaw = await neonClient(`
+        const contactsRaw = (await pool.query(`
           SELECT c.*, v.name as venue_name
           FROM contacts c
           LEFT JOIN venues v ON c.venue_id = v.id AND v.tenant_id = c.tenant_id
           WHERE c.tenant_id = $1
           ORDER BY c.created_at DESC
           LIMIT $2
-        `, [req.tenantId, simpleLimit]);
+        `, [req.tenantId, simpleLimit])).rows;
         
         // Convert snake_case field names to camelCase for frontend compatibility
         const contacts = contactsRaw.map((contact: any) => ({
@@ -2478,7 +2472,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
 
       // Don't filter by userId - all contacts in tenant should be visible to authenticated users
       // Join with venues table to get venue name and count projects
-      const contactsRaw = await neonClient(`
+      const contactsRaw = (await pool.query(`
         SELECT 
           c.*, 
           v.name as venue_name,
@@ -2490,7 +2484,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
         GROUP BY c.id, v.name
         ORDER BY c.created_at DESC
         LIMIT $2 OFFSET $3
-      `, [req.tenantId, limit, offset]);
+      `, [req.tenantId, limit, offset])).rows;
       
       // Convert snake_case field names to camelCase for frontend compatibility
       const contacts = contactsRaw.map((contact: any) => ({
@@ -2528,8 +2522,8 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
       }));
       
       // Get total count for pagination info
-      const countResult = await neonClient('SELECT COUNT(*) as count FROM contacts WHERE tenant_id = $1', [req.tenantId]);
-      const totalCount = parseInt((countResult[0] as any).count);
+      const countResult = await pool.query('SELECT COUNT(*) as count FROM contacts WHERE tenant_id = $1', [req.tenantId]);
+      const totalCount = parseInt((countResult.rows[0] as any).count);
       const totalPages = Math.ceil(totalCount / limit);
       
       res.json({
@@ -3131,11 +3125,9 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   // Get document status summary for all projects
   app.get("/api/projects/document-statuses", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
     try {
-      const neonClient = neon(process.env.DATABASE_URL!);
-      
       // Get quote statuses for all projects in this tenant
       // Note: Quotes are linked to contacts, not projects, so we join through contacts
-      const quoteStatuses = await neonClient(`
+      const quoteStatuses = (await pool.query(`
         SELECT 
           p.id as project_id,
           q.status,
@@ -3145,10 +3137,10 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
         WHERE q.tenant_id = $1
           AND p.id IS NOT NULL
         GROUP BY p.id, q.status
-      `, [req.tenantId]);
+      `, [req.tenantId])).rows;
 
       // Get contract statuses for all projects in this tenant
-      const contractStatuses = await neonClient(`
+      const contractStatuses = (await pool.query(`
         SELECT 
           c.project_id,
           c.status,
@@ -3159,10 +3151,10 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
         WHERE c.tenant_id = $1
           AND c.project_id IS NOT NULL
         ORDER BY c.created_at DESC
-      `, [req.tenantId]);
+      `, [req.tenantId])).rows;
 
       // Get invoice statuses
-      const invoiceStatuses = await neonClient(`
+      const invoiceStatuses = (await pool.query(`
         SELECT 
           i.project_id,
           i.status,
@@ -3171,7 +3163,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
         WHERE i.tenant_id = $1
           AND i.project_id IS NOT NULL
         GROUP BY i.project_id, i.status
-      `, [req.tenantId]);
+      `, [req.tenantId])).rows;
 
       // Organize by project
       const projectStatuses: Record<string, any> = {};
@@ -3209,6 +3201,24 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     } catch (error) {
       console.error('Error fetching project document statuses:', error);
       res.status(500).json({ message: "Failed to fetch document statuses" });
+    }
+  });
+
+  // Get project status counts for filter badges (MUST be before :id route)
+  app.get("/api/projects/status-counts", ensureUserAuth, tenantResolver, requireTenant, async (req: any, res) => {
+    try {
+      const result = await pool.query(
+        `SELECT status, COUNT(*)::int as count FROM projects WHERE tenant_id = $1 GROUP BY status`,
+        [req.tenantId]
+      );
+      const counts: Record<string, number> = {};
+      for (const row of result.rows) {
+        counts[row.status] = row.count;
+      }
+      res.json(counts);
+    } catch (error) {
+      console.error('Error fetching project status counts:', error);
+      res.status(500).json({ message: "Failed to fetch status counts" });
     }
   });
 
@@ -3343,24 +3353,6 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     } catch (error) {
       console.error('Error updating project status:', error);
       res.status(400).json({ message: "Invalid status update" });
-    }
-  });
-
-  // Get project status counts for filter badges
-  app.get("/api/projects/status-counts", ensureUserAuth, tenantResolver, requireTenant, async (req: any, res) => {
-    try {
-      const result = await pool.query(
-        `SELECT status, COUNT(*)::int as count FROM projects WHERE tenant_id = $1 GROUP BY status`,
-        [req.tenantId]
-      );
-      const counts: Record<string, number> = {};
-      for (const row of result.rows) {
-        counts[row.status] = row.count;
-      }
-      res.json(counts);
-    } catch (error) {
-      console.error('Error fetching project status counts:', error);
-      res.status(500).json({ message: "Failed to fetch status counts" });
     }
   });
 

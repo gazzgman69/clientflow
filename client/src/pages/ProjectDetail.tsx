@@ -1130,7 +1130,6 @@ export default function ProjectDetail() {
   return (
     <div className="flex-1 overflow-auto bg-background">
       <Header />
-
       <main className="container mx-auto px-4 py-8">
         <div className="space-y-6">
           {/* Header */}
@@ -1408,7 +1407,8 @@ export default function ProjectDetail() {
                       <CardContent className="space-y-3">
                         <div className="grid grid-cols-2 gap-4">
                           <div>
-                            <p className="text-sm text-muted-foreground">Event Type</p>
+                            <p className="text-sm text-muted-foreground">EVENT TYPE
+</p>
                             <p className="font-medium">{(project as any).eventType || "Not specified"}</p>
                           </div>
                           <div>
@@ -2625,7 +2625,6 @@ export default function ProjectDetail() {
           </Tabs>
         </div>
       </main>
-
       {/* Contact Edit Modal */}
       <Dialog open={showContactEditModal} onOpenChange={setShowContactEditModal}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
@@ -2651,14 +2650,12 @@ export default function ProjectDetail() {
           </div>
         </DialogContent>
       </Dialog>
-
       {/* Contact Picker Modal */}
       <ContactPicker
         open={showContactPicker}
         onOpenChange={setShowContactPicker}
         onSelectContact={handleContactSelected}
       />
-
       {/* Quote Editor Modal */}
       <QuoteEditor
         open={showQuoteEditor}
@@ -2669,7 +2666,6 @@ export default function ProjectDetail() {
         projectId={projectId}
         onClose={handleQuoteEditorClose}
       />
-
       {/* Contract Editor Modal */}
       <CreateContractDialog
         open={showContractEditor}
@@ -2680,7 +2676,6 @@ export default function ProjectDetail() {
         projectId={projectId}
         onClose={handleContractEditorClose}
       />
-
       {/* Invoice Editor Modal */}
       <InvoiceEditor
         open={showInvoiceEditor}

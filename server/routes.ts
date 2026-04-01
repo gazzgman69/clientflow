@@ -3451,7 +3451,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
 
   app.post("/api/quotes", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
     try {
-      const quoteData = insertQuoteSchema.parse(req.body);
+      const quoteData = insertQuoteSchema.parse({ ...req.body, tenantId: req.tenantId, createdBy: req.session.userId! });
       const quote = await storage.createQuote(quoteData, req.tenantId);
       res.status(201).json(quote);
     } catch (error) {
@@ -3543,7 +3543,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
 
   app.post("/api/invoices", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
     try {
-      const invoiceData = insertInvoiceSchema.parse(req.body);
+      const invoiceData = insertInvoiceSchema.parse({ ...req.body, tenantId: req.tenantId, createdBy: req.session.userId! });
       const invoice = await storage.createInvoice(invoiceData, req.tenantId);
       res.status(201).json(invoice);
     } catch (error) {
@@ -4032,8 +4032,8 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
 
   app.post("/api/income-categories", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
     try {
-      const tenantId = req.session.tenantId!;
-      const categoryData = insertIncomeCategorySchema.parse(req.body);
+      const tenantId = req.tenantId!;
+      const categoryData = insertIncomeCategorySchema.parse({ ...req.body, tenantId });
       const category = await storage.createIncomeCategory(categoryData, tenantId);
       res.status(201).json(category);
     } catch (error) {
@@ -5378,9 +5378,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
 
   app.post("/api/tasks", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req: TenantRequest, res) => {
     try {
-      const taskData = insertTaskSchema.parse(req.body);
-      // SECURITY: Override any client-provided tenantId with the authenticated tenant
-      taskData.tenantId = req.tenantId;
+      const taskData = insertTaskSchema.parse({ ...req.body, tenantId: req.tenantId, createdBy: req.session.userId! });
       const task = await storage.createTask(taskData, req.tenantId);
       res.status(201).json(task);
     } catch (error) {
@@ -5424,7 +5422,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
 
   app.post("/api/emails", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
     try {
-      const emailData = insertEmailSchema.parse(req.body);
+      const emailData = insertEmailSchema.parse({ ...req.body, tenantId: req.tenantId });
       const email = await storage.createEmail({
         ...emailData,
         sentAt: new Date(),
@@ -5993,7 +5991,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
 
   app.post("/api/automations", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
     try {
-      const automationData = insertAutomationSchema.parse(req.body);
+      const automationData = insertAutomationSchema.parse({ ...req.body, tenantId: req.tenantId, createdBy: req.session.userId! });
       const automation = await storage.createAutomation(automationData, req.tenantId);
       res.status(201).json(automation);
     } catch (error) {
@@ -6027,7 +6025,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
 
   app.post("/api/members", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
     try {
-      const memberData = insertMemberSchema.parse(req.body);
+      const memberData = insertMemberSchema.parse({ ...req.body, tenantId: req.tenantId });
       const member = await storage.createMember(memberData, req.tenantId);
       res.status(201).json(member);
     } catch (error) {
@@ -6237,7 +6235,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
 
   app.post("/api/performer-contracts", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
     try {
-      const data = insertPerformerContractSchema.parse(req.body);
+      const data = insertPerformerContractSchema.parse({ ...req.body, tenantId: req.tenantId });
       const contract = await storage.createPerformerContract(data, req.tenantId!);
       res.status(201).json(contract);
     } catch (error) {
@@ -6279,7 +6277,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
 
   app.post("/api/repertoire", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
     try {
-      const data = insertRepertoireSchema.parse(req.body);
+      const data = insertRepertoireSchema.parse({ ...req.body, tenantId: req.tenantId });
       const song = await storage.createRepertoireItem(data, req.tenantId!);
       res.status(201).json(song);
     } catch (error) {
@@ -6418,7 +6416,9 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     try {
       const noteData = insertProjectNoteSchema.parse({
         ...req.body,
-        projectId: req.params.id
+        projectId: req.params.id,
+        tenantId: req.tenantId,
+        createdBy: req.session.userId!
       });
       const note = await storage.addProjectNote(noteData);
       res.status(201).json(note);
@@ -6457,7 +6457,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
         projectId: req.params.id,
         tenantId: req.tenantId!
       });
-      const task = await storage.addProjectTask(taskData);
+      const task = await storage.createProjectTask(taskData, req.tenantId!);
       res.status(201).json(task);
     } catch (error) {
       console.error('Error creating project task:', error);
@@ -6510,7 +6510,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
         projectId: req.params.id,
         tenantId: req.tenantId!
       });
-      const scheduleItem = await storage.addProjectScheduleItem(scheduleData);
+      const scheduleItem = await storage.createProjectScheduleItem(scheduleData, req.tenantId!);
       res.status(201).json(scheduleItem);
     } catch (error) {
       console.error('Error creating project schedule item:', error);

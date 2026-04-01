@@ -73,6 +73,23 @@ export default function Automations() {
     },
   });
 
+  const updateAutomationMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: z.infer<typeof automationFormSchema> }) => {
+      const response = await apiRequest("PATCH", `/api/automations/${id}`, data);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/automations"] });
+      toast({ title: "Automation updated" });
+      form.reset();
+      setShowAutomationModal(false);
+      setEditingAutomation(null);
+    },
+    onError: () => {
+      toast({ title: "Failed to update automation", variant: "destructive" });
+    },
+  });
+
   const toggleAutomationMutation = useMutation({
     mutationFn: async ({ id, isActive }: { id: string; isActive: boolean }) => {
       const response = await apiRequest("PATCH", `/api/automations/${id}`, { isActive });
@@ -113,7 +130,11 @@ export default function Automations() {
   };
 
   const onSubmit = (data: z.infer<typeof automationFormSchema>) => {
-    createAutomationMutation.mutate(data);
+    if (editingAutomation) {
+      updateAutomationMutation.mutate({ id: editingAutomation.id!, data });
+    } else {
+      createAutomationMutation.mutate(data);
+    }
   };
 
   const getStatusColor = (isActive: boolean) => {
@@ -301,7 +322,7 @@ export default function Automations() {
       </main>
 
       {/* Add/Edit Automation Modal */}
-      <Dialog open={showAutomationModal} onOpenChange={setShowAutomationModal}>
+      <Dialog open={showAutomationModal} onOpenChange={(open) => { if (!open) { setShowAutomationModal(false); setEditingAutomation(null); form.reset(); } else setShowAutomationModal(true); }}>
         <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editingAutomation ? 'Edit Automation' : 'Create New Automation'}</DialogTitle>
@@ -422,20 +443,22 @@ export default function Automations() {
               />
               
               <div className="flex items-center justify-end space-x-3 pt-4">
-                <Button 
-                  type="button" 
-                  variant="secondary" 
-                  onClick={() => setShowAutomationModal(false)}
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => { setShowAutomationModal(false); setEditingAutomation(null); form.reset(); }}
                   data-testid="button-cancel-automation"
                 >
                   Cancel
                 </Button>
-                <Button 
-                  type="submit" 
-                  disabled={createAutomationMutation.isPending}
+                <Button
+                  type="submit"
+                  disabled={createAutomationMutation.isPending || updateAutomationMutation.isPending}
                   data-testid="button-save-automation"
                 >
-                  {createAutomationMutation.isPending ? "Creating..." : "Create Automation"}
+                  {(createAutomationMutation.isPending || updateAutomationMutation.isPending)
+                    ? "Saving..."
+                    : editingAutomation ? "Update Automation" : "Create Automation"}
                 </Button>
               </div>
             </form>

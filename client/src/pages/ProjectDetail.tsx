@@ -1160,8 +1160,7 @@ export default function ProjectDetail() {
                 <Timer className="h-4 w-4" />
                 <span className="hidden sm:inline">Schedule</span>
               </TabsTrigger>
-              <TabsTrigger value="tasks" className="flex items-center gap-2">
-                <ListTodo className="h-4 w-4" />
+              <TabsTrigger value="tasks">
                 <span className="hidden sm:inline">Tasks</span>
               </TabsTrigger>
               <TabsTrigger value="timeline" className="flex items-center gap-2">

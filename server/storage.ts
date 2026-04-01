@@ -478,7 +478,8 @@ export interface IStorage {
   getProjectFiles(projectId: string, tenantId: string): Promise<ProjectFile[]>;
   addProjectFile(file: InsertProjectFile, tenantId: string): Promise<ProjectFile>;
   deleteProjectFile(id: string, tenantId: string): Promise<boolean>;
-  
+  updateProjectFile(id: string, updates: { clientPortalVisible?: boolean; memberPortalVisible?: boolean }): Promise<ProjectFile | null>;
+
   // Project Notes
   getProjectNotes(projectId: string, tenantId: string): Promise<ProjectNote[]>;
   addProjectNote(note: InsertProjectNote, tenantId: string): Promise<ProjectNote>;
@@ -2565,6 +2566,17 @@ export class MemStorage implements IStorage {
       }
     }
     return false;
+  }
+
+  async updateProjectFile(id: string, updates: { clientPortalVisible?: boolean; memberPortalVisible?: boolean }): Promise<ProjectFile | null> {
+    for (const [projectId, files] of Array.from(this.projectFiles.entries())) {
+      const file = files.find((f: ProjectFile) => f.id === id);
+      if (file) {
+        Object.assign(file, updates);
+        return file;
+      }
+    }
+    return null;
   }
 
   // Project Notes
@@ -6341,7 +6353,12 @@ export class DrizzleStorage implements IStorage {
     const result = await this.db.delete(projectFiles).where(eq(projectFiles.id, id));
     return result.rowCount > 0;
   }
-  
+
+  async updateProjectFile(id: string, updates: { clientPortalVisible?: boolean; memberPortalVisible?: boolean }): Promise<ProjectFile | null> {
+    const result = await this.db.update(projectFiles).set(updates).where(eq(projectFiles.id, id)).returning();
+    return result[0] || null;
+  }
+
   // Project Notes - PostgreSQL implementation
   async getProjectNotes(projectId: string, tenantId: string): Promise<ProjectNote[]> {
     try {

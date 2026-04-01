@@ -203,6 +203,7 @@ export default function ProjectDetail() {
   const [noteVisibilityFilter, setNoteVisibilityFilter] = useState<'all' | 'private' | 'shared'>('all');
   const [showVenuePicker, setShowVenuePicker] = useState(false);
   const [venueSearchTerm, setVenueSearchTerm] = useState('');
+  const [showMemberAssign, setShowMemberAssign] = useState(false);
 
   // Get portal status for this project (tenant setting + project override)
   const { data: portalStatus } = useQuery({
@@ -467,6 +468,18 @@ export default function ProjectDetail() {
         description: "Failed to delete file. Please try again.",
         variant: "destructive",
       });
+    },
+  });
+
+  // Update file visibility mutation
+  const updateFileMutation = useMutation({
+    mutationFn: async (data: { fileId: string; clientPortalVisible?: boolean; memberPortalVisible?: boolean }) => {
+      const { fileId, ...updates } = data;
+      const response = await apiRequest("PATCH", `/api/files/${fileId}`, updates);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/projects", projectId, "files"] });
     },
   });
 
@@ -2255,6 +2268,7 @@ export default function ProjectDetail() {
                     <CardTitle className="text-base">👥 Project Members</CardTitle>
                     <Button size="sm" onClick={() => {
                       memberForm.reset();
+                      setShowMemberAssign(true);
                     }}>
                       <Plus className="h-4 w-4 mr-2" /> Assign Member
                     </Button>
@@ -2331,6 +2345,93 @@ export default function ProjectDetail() {
                   </CardContent>
                 </Card>
               )}
+
+              {/* Assign Member Dialog */}
+              <Dialog open={showMemberAssign} onOpenChange={setShowMemberAssign}>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Assign Member to Project</DialogTitle>
+                  </DialogHeader>
+                  <form onSubmit={memberForm.handleSubmit((data) => {
+                    assignMemberMutation.mutate(data, {
+                      onSuccess: () => setShowMemberAssign(false),
+                    });
+                  })} className="space-y-4">
+                    <div>
+                      <Label>MEMBER</Label>
+                      <Select
+                        value={memberForm.watch("memberId")}
+                        onValueChange={(value) => memberForm.setValue("memberId", value)}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select a member..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {members
+                            .filter((m: any) => !projectMembers.some((pm: any) => pm.memberId === m.id))
+                            .map((m: any) => (
+                              <SelectItem key={m.id} value={m.id}>
+                                {m.name} {m.instrument ? `(${m.instrument})` : ''}
+                              </SelectItem>
+                            ))}
+                        </SelectContent>
+                      </Select>
+                      {memberForm.formState.errors.memberId && (
+                        <p className="text-xs text-red-500 mt-1">{memberForm.formState.errors.memberId.message}</p>
+                      )}
+                    </div>
+                    <div>
+                      <Label>ROLE</Label>
+                      <Input
+                        {...memberForm.register("role")}
+                        placeholder="e.g. Lead Vocalist, Guitarist, DJ"
+                      />
+                    </div>
+                    <div>
+                      <Label>FEE</Label>
+                      <Input
+                        {...memberForm.register("fee")}
+                        placeholder="e.g. 250.00"
+                        type="number"
+                        step="0.01"
+                      />
+                    </div>
+                    <div>
+                      <Label>OFFER TYPE</Label>
+                      <Select
+                        value={memberForm.watch("offerType") || ""}
+                        onValueChange={(value) => memberForm.setValue("offerType", value)}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select offer type..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="flat_fee">Flat Fee</SelectItem>
+                          <SelectItem value="percentage">Percentage</SelectItem>
+                          <SelectItem value="hourly">Hourly Rate</SelectItem>
+                          <SelectItem value="tbc">TBC</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label>NOTES</Label>
+                      <Textarea
+                        {...memberForm.register("notes")}
+                        placeholder="Any notes about this assignment..."
+                        rows={2}
+                      />
+                    </div>
+                    <div className="flex gap-2 pt-2">
+                      <Button type="submit" disabled={assignMemberMutation.isPending}>
+                        {assignMemberMutation.isPending ? "Assigning..." : "Assign Member"}
+                      </Button>
+                      <Button type="button" variant="outline" onClick={() => setShowMemberAssign(false)}>
+                        Cancel
+                      </Button>
+                    </div>
+                  </form>
+                </DialogContent>
+              </Dialog>
             </TabsContent>
 
             {/* DOCUMENTS TAB */}
@@ -2613,7 +2714,11 @@ export default function ProjectDetail() {
                               <Eye className="h-3 w-3 text-muted-foreground" />
                               <span className="text-[10px] text-muted-foreground">Client</span>
                               <Switch
-                                checked={file.portalVisible || false}
+                                checked={(file as any).clientPortalVisible || false}
+                                onCheckedChange={(checked) => updateFileMutation.mutate({
+                                  fileId: file.id,
+                                  clientPortalVisible: checked,
+                                })}
                                 className="scale-75"
                               />
                             </div>
@@ -2621,7 +2726,11 @@ export default function ProjectDetail() {
                               <Users className="h-3 w-3 text-muted-foreground" />
                               <span className="text-[10px] text-muted-foreground">Member</span>
                               <Switch
-                                checked={false}
+                                checked={(file as any).memberPortalVisible || false}
+                                onCheckedChange={(checked) => updateFileMutation.mutate({
+                                  fileId: file.id,
+                                  memberPortalVisible: checked,
+                                })}
                                 className="scale-75"
                               />
                             </div>
@@ -2723,6 +2832,20 @@ export default function ProjectDetail() {
 
             {/* FINANCIALS TAB */}
             <TabsContent value="financials" className="space-y-6">
+              {(() => {
+                const totalFee = parseFloat(project.estimatedValue || "0");
+                const totalMemberCosts = projectMembers.reduce((sum: number, pm: any) => sum + parseFloat(pm.fee || "0"), 0);
+                const totalReceived = projectInvoices
+                  .filter((inv: any) => inv.status === 'paid')
+                  .reduce((sum: number, inv: any) => sum + parseFloat(inv.total || inv.subtotal || "0"), 0);
+                const totalInvoiced = projectInvoices
+                  .reduce((sum: number, inv: any) => sum + parseFloat(inv.total || inv.subtotal || "0"), 0);
+                const outstanding = totalFee - totalReceived;
+                const netProfit = totalFee - totalMemberCosts;
+                const margin = totalFee > 0 ? Math.round((netProfit / totalFee) * 100) : 0;
+
+                return (
+                  <>
               {/* Summary Cards */}
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <Card>
@@ -2730,7 +2853,7 @@ export default function ProjectDetail() {
                     <CardTitle className="text-sm text-muted-foreground">TOTAL FEE</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <p className="text-2xl font-bold">${project.estimatedValue || "0.00"}</p>
+                    <p className="text-2xl font-bold">${totalFee.toFixed(2)}</p>
                   </CardContent>
                 </Card>
                 <Card>
@@ -2738,7 +2861,7 @@ export default function ProjectDetail() {
                     <CardTitle className="text-sm text-muted-foreground">RECEIVED</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <p className="text-2xl font-bold">$0.00</p>
+                    <p className="text-2xl font-bold">${totalReceived.toFixed(2)}</p>
                   </CardContent>
                 </Card>
                 <Card>
@@ -2746,7 +2869,7 @@ export default function ProjectDetail() {
                     <CardTitle className="text-sm text-muted-foreground">OUTSTANDING</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <p className="text-2xl font-bold">${project.estimatedValue || "0.00"}</p>
+                    <p className="text-2xl font-bold">${outstanding.toFixed(2)}</p>
                   </CardContent>
                 </Card>
                 <Card>
@@ -2754,7 +2877,7 @@ export default function ProjectDetail() {
                     <CardTitle className="text-sm text-muted-foreground">PROJECTED PROFIT</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <p className="text-2xl font-bold text-green-600">$0.00</p>
+                    <p className={`text-2xl font-bold ${netProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>${netProfit.toFixed(2)}</p>
                   </CardContent>
                 </Card>
               </div>
@@ -2873,11 +2996,11 @@ export default function ProjectDetail() {
                       <div className="space-y-1">
                         <div className="flex justify-between text-sm">
                           <span className="text-muted-foreground">FEE</span>
-                          <span className="font-medium">${project.estimatedValue || "0.00"}</span>
+                          <span className="font-medium">${totalFee.toFixed(2)}</span>
                         </div>
                         <div className="flex justify-between text-sm">
                           <span className="text-muted-foreground">MEMBER COSTS</span>
-                          <span className="font-medium">$0.00</span>
+                          <span className="font-medium">-${totalMemberCosts.toFixed(2)}</span>
                         </div>
                         <div className="flex justify-between text-sm">
                           <span className="text-muted-foreground">EXPENSES</span>
@@ -2886,17 +3009,20 @@ export default function ProjectDetail() {
                         <Separator className="my-2" />
                         <div className="flex justify-between">
                           <span className="font-semibold">NET PROFIT</span>
-                          <span className="font-bold text-green-600">${project.estimatedValue || "0.00"}</span>
+                          <span className={`font-bold ${netProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>${netProfit.toFixed(2)}</span>
                         </div>
                         <div className="flex justify-between text-sm pt-2">
                           <span className="text-muted-foreground">MARGIN</span>
-                          <span className="font-medium">100%</span>
+                          <span className="font-medium">{margin}%</span>
                         </div>
                       </div>
                     </CardContent>
                   </Card>
                 </div>
               </div>
+                  </>
+                );
+              })()}
             </TabsContent>
           </Tabs>
         </div>

@@ -6385,6 +6385,24 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
 
+  // Update file visibility
+  app.patch("/api/files/:id", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req: any, res) => {
+    try {
+      const { clientPortalVisible, memberPortalVisible } = req.body;
+      const updated = await storage.updateProjectFile(req.params.id, {
+        clientPortalVisible,
+        memberPortalVisible,
+      });
+      if (!updated) {
+        return res.status(404).json({ message: "File not found" });
+      }
+      res.json(updated);
+    } catch (error) {
+      console.error('Error updating file:', error);
+      res.status(500).json({ message: "Failed to update file" });
+    }
+  });
+
   // Project Notes
   app.get("/api/projects/:id/notes", ensureUserAuth, tenantResolver, requireTenant, async (req: any, res) => {
     try {

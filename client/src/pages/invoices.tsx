@@ -17,7 +17,7 @@ import { insertInvoiceSchema } from "@shared/schema";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { formatDistanceToNow } from "date-fns";
-import type { Invoice, Client, Project, Contract } from "@shared/schema";
+import type { Invoice, Client, Contract } from "@shared/schema";
 import { z } from "zod";
 
 const invoiceFormSchema = insertInvoiceSchema.extend({
@@ -42,10 +42,6 @@ export default function Invoices() {
 
   const { data: clients } = useQuery<Client[]>({
     queryKey: ["/api/contacts"],
-  });
-
-  const { data: projects } = useQuery<Project[]>({
-    queryKey: ["/api/projects"],
   });
 
   const { data: contracts } = useQuery<Contract[]>({

@@ -6,14 +6,7 @@ import BusinessPriorities from "@/components/dashboard/business-priorities";
 import EnhancedEmails from "@/components/dashboard/enhanced-emails";
 import EmailThreadsWidget from "@/components/dashboard/email-threads-widget";
 import CompactMetrics from "@/components/dashboard/compact-metrics";
-import { useQuery } from "@tanstack/react-query";
-import type { Project } from "@shared/schema";
-
 export default function Dashboard() {
-  const { data: projects, isLoading: projectsLoading } = useQuery<Project[]>({
-    queryKey: ["/api/projects"],
-  });
-
   return (
     <>
       <Header 

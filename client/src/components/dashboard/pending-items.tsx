@@ -109,10 +109,16 @@ export default function PendingItems() {
     }
   };
 
-  // Sort: overdue first, then by due date ascending
+  // Sort: enquiries first, then overdue, then by due date ascending
+  const typeOrder = { enquiry: 0, invoice: 2, contract: 2 };
   const sorted = [...pendingItems].sort((a, b) => {
+    const aType = typeOrder[a.type] ?? 2;
+    const bType = typeOrder[b.type] ?? 2;
+    if (aType !== bType) return aType - bType;
+    // Within same group: overdue first
     if (a.isOverdue && !b.isOverdue) return -1;
     if (!a.isOverdue && b.isOverdue) return 1;
+    // Then by due date
     if (a.dueDate && b.dueDate) {
       return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
     }

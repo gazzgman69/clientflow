@@ -1428,9 +1428,14 @@ export default function ProjectDetail() {
                       <CardHeader>
                         <div className="flex items-center justify-between">
                           <CardTitle className="flex items-center gap-2 text-base">📋 Event Details</CardTitle>
-                          <Badge className={getStatusColor(project.status)}>
-                            {project.status.charAt(0).toUpperCase() + project.status.slice(1)}
-                          </Badge>
+                          <div className="flex items-center gap-2">
+                            <Badge className={getStatusColor(project.status)}>
+                              {project.status.charAt(0).toUpperCase() + project.status.slice(1)}
+                            </Badge>
+                            <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={handleStartEditOverview}>
+                              <Edit className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
                         </div>
                       </CardHeader>
                       <CardContent className="space-y-3">
@@ -1480,9 +1485,6 @@ export default function ProjectDetail() {
                             </div>
                           </>
                         )}
-                        <Button variant="outline" size="sm" onClick={handleStartEditOverview} className="w-full mt-2">
-                          <Edit className="h-4 w-4 mr-2" /> Edit Details
-                        </Button>
                       </CardContent>
                     </Card>
 
@@ -1490,31 +1492,53 @@ export default function ProjectDetail() {
                     {projectVenue ? (
                       <Card>
                         <CardHeader>
-                          <CardTitle className="flex items-center gap-2 text-base">📍 Venue</CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-3">
-                          <div>
-                            <p className="text-sm text-muted-foreground">Venue Name</p>
-                            <p className="font-medium">{projectVenue.name}</p>
+                          <div className="flex items-center justify-between">
+                            <CardTitle className="flex items-center gap-2 text-base">📍 Venue</CardTitle>
+                            <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
+                              <Edit className="h-3.5 w-3.5" />
+                            </Button>
                           </div>
-                          {projectVenue.address && (
+                        </CardHeader>
+                        <CardContent>
+                          <div className="grid grid-cols-2 gap-x-6 gap-y-3">
                             <div>
-                              <p className="text-sm text-muted-foreground">Address</p>
-                              <p className="font-medium text-sm">{projectVenue.address}</p>
+                              <p className="text-sm text-muted-foreground">VENUE NAME</p>
+                              <p className="font-medium text-sm">{projectVenue.name}</p>
                             </div>
-                          )}
-                          {(project as any).parkingDetails && (
-                            <div>
-                              <p className="text-sm text-muted-foreground">Parking <span className="text-[10px] bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded font-semibold ml-1">NEW</span></p>
-                              <p className="font-medium text-sm">{(project as any).parkingDetails}</p>
-                            </div>
-                          )}
-                          {(project as any).loadInDetails && (
-                            <div>
-                              <p className="text-sm text-muted-foreground">Load-in <span className="text-[10px] bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded font-semibold ml-1">NEW</span></p>
-                              <p className="font-medium text-sm">{(project as any).loadInDetails}</p>
-                            </div>
-                          )}
+                            {projectVenue.address && (
+                              <div>
+                                <p className="text-sm text-muted-foreground">ADDRESS</p>
+                                <p className="font-medium text-sm">{projectVenue.address}</p>
+                              </div>
+                            )}
+                            {(project as any).parkingDetails && (
+                              <div>
+                                <p className="text-sm text-muted-foreground">PARKING DETAILS <span className="text-[10px] bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded font-semibold ml-1">NEW</span></p>
+                                <p className="font-medium text-sm">{(project as any).parkingDetails}</p>
+                              </div>
+                            )}
+                            {(project as any).loadInDetails && (
+                              <div>
+                                <p className="text-sm text-muted-foreground">LOAD-IN DETAILS <span className="text-[10px] bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded font-semibold ml-1">NEW</span></p>
+                                <p className="font-medium text-sm">{(project as any).loadInDetails}</p>
+                              </div>
+                            )}
+                            {(projectVenue as any).contactName && (
+                              <div>
+                                <p className="text-sm text-muted-foreground">VENUE CONTACT</p>
+                                <p className="font-medium text-sm">
+                                  {(projectVenue as any).contactName}
+                                  {(projectVenue as any).contactPhone && ` — ${(projectVenue as any).contactPhone}`}
+                                </p>
+                              </div>
+                            )}
+                            {(projectVenue as any).notes && (
+                              <div>
+                                <p className="text-sm text-muted-foreground">VENUE NOTES</p>
+                                <p className="font-medium text-sm">{(projectVenue as any).notes}</p>
+                              </div>
+                            )}
+                          </div>
                         </CardContent>
                       </Card>
                     ) : null}
@@ -1522,7 +1546,12 @@ export default function ProjectDetail() {
                     {/* Event Day Details Card */}
                     <Card>
                       <CardHeader>
-                        <CardTitle className="flex items-center gap-2 text-base">🎤 Event Day Details</CardTitle>
+                        <div className="flex items-center justify-between">
+                          <CardTitle className="flex items-center gap-2 text-base">🎤 Event Day Details</CardTitle>
+                          <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={handleStartEditOverview}>
+                            <Edit className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
                       </CardHeader>
                       <CardContent className="space-y-3">
                         <div>
@@ -1551,7 +1580,12 @@ export default function ProjectDetail() {
                     {projectContact ? (
                       <Card>
                         <CardHeader>
-                          <CardTitle className="flex items-center gap-2 text-base">👤 Client</CardTitle>
+                          <div className="flex items-center justify-between">
+                            <CardTitle className="flex items-center gap-2 text-base">👤 Client</CardTitle>
+                            <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={handleEditContact}>
+                              <Edit className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
                         </CardHeader>
                         <CardContent className="space-y-3">
                           <div>
@@ -1566,14 +1600,6 @@ export default function ProjectDetail() {
                             <p className="text-sm text-muted-foreground">PHONE</p>
                             <p className="font-medium">{projectContact.phone || "Not provided"}</p>
                           </div>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={handleEditContact}
-                            className="w-full mt-2"
-                          >
-                            <Edit className="h-4 w-4 mr-2" /> Edit Contact
-                          </Button>
                         </CardContent>
                       </Card>
                     ) : null}

@@ -201,6 +201,8 @@ export default function ProjectDetail() {
   const [showScheduleForm, setShowScheduleForm] = useState(false);
   const [editingScheduleItem, setEditingScheduleItem] = useState<any>(null);
   const [noteVisibilityFilter, setNoteVisibilityFilter] = useState<'all' | 'private' | 'shared'>('all');
+  const [showVenuePicker, setShowVenuePicker] = useState(false);
+  const [venueSearchTerm, setVenueSearchTerm] = useState('');
 
   // Get portal status for this project (tenant setting + project override)
   const { data: portalStatus } = useQuery({
@@ -988,13 +990,31 @@ export default function ProjectDetail() {
         lineupSummary: overviewForm.lineupSummary || null,
       };
       await apiRequest('PATCH', `/api/projects/${project.id}`, payload);
-      queryClient.invalidateQueries({ queryKey: ['/api/projects', project.id] });
+      // Invalidate project data so it refetches with new venueId
+      await queryClient.invalidateQueries({ queryKey: ['/api/projects', project.id] });
       queryClient.invalidateQueries({ queryKey: ['/api/projects'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/venues', overviewForm.venueId] });
+      // Invalidate all venue queries so the venue card picks up the newly assigned venue
+      queryClient.invalidateQueries({ queryKey: ['/api/venues'] });
       setIsEditingOverview(false);
       toast({ title: "Project Updated", description: "Project details saved successfully." });
     } catch (error) {
       toast({ title: "Error", description: "Failed to save project details.", variant: "destructive" });
+    }
+  };
+
+  // Quick venue assignment without opening full edit form
+  const handleQuickAssignVenue = async (venueId: string) => {
+    if (!project) return;
+    try {
+      await apiRequest('PATCH', `/api/projects/${project.id}`, { venueId });
+      await queryClient.invalidateQueries({ queryKey: ['/api/projects', project.id] });
+      queryClient.invalidateQueries({ queryKey: ['/api/projects'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/venues'] });
+      setShowVenuePicker(false);
+      setVenueSearchTerm('');
+      toast({ title: "Venue Assigned", description: "Venue has been linked to this project." });
+    } catch (error) {
+      toast({ title: "Error", description: "Failed to assign venue.", variant: "destructive" });
     }
   };
 
@@ -1493,14 +1513,52 @@ export default function ProjectDetail() {
                       <CardHeader>
                         <div className="flex items-center justify-between">
                           <CardTitle className="flex items-center gap-2 text-base">📍 Venue</CardTitle>
-                          {projectVenue && (
-                            <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={handleStartEditOverview}>
-                              <Edit className="h-3.5 w-3.5" />
-                            </Button>
-                          )}
+                          <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => { if (projectVenue) { setShowVenuePicker(!showVenuePicker); setVenueSearchTerm(''); } }}>
+                            <Edit className="h-3.5 w-3.5" />
+                          </Button>
                         </div>
                       </CardHeader>
                       <CardContent>
+                        {/* Quick venue swap picker */}
+                        {showVenuePicker && projectVenue && (
+                          <div className="space-y-2 mb-4 pb-4 border-b">
+                            <p className="text-xs font-medium text-muted-foreground">Change venue:</p>
+                            <Input
+                              placeholder="Search your venues..."
+                              value={venueSearchTerm}
+                              onChange={(e) => setVenueSearchTerm(e.target.value)}
+                              autoFocus
+                            />
+                            <div className="max-h-48 overflow-y-auto border rounded-md">
+                              {venues
+                                .filter((v) =>
+                                  v.name.toLowerCase().includes(venueSearchTerm.toLowerCase()) ||
+                                  (v.address && v.address.toLowerCase().includes(venueSearchTerm.toLowerCase()))
+                                )
+                                .map((venue) => (
+                                  <button
+                                    key={venue.id}
+                                    className="w-full text-left px-3 py-2 hover:bg-muted transition-colors border-b last:border-b-0"
+                                    onClick={() => handleQuickAssignVenue(venue.id)}
+                                  >
+                                    <p className="font-medium text-sm">{venue.name}</p>
+                                    {venue.address && (
+                                      <p className="text-xs text-muted-foreground">{venue.address}</p>
+                                    )}
+                                  </button>
+                                ))}
+                              {venues.filter((v) =>
+                                v.name.toLowerCase().includes(venueSearchTerm.toLowerCase()) ||
+                                (v.address && v.address.toLowerCase().includes(venueSearchTerm.toLowerCase()))
+                              ).length === 0 && (
+                                <p className="text-sm text-muted-foreground text-center py-3">No venues found</p>
+                              )}
+                            </div>
+                            <Button variant="ghost" size="sm" onClick={() => { setShowVenuePicker(false); setVenueSearchTerm(''); }}>
+                              Cancel
+                            </Button>
+                          </div>
+                        )}
                         {projectVenue ? (
                           <div className="grid grid-cols-2 gap-x-6 gap-y-3">
                             <div>
@@ -1542,12 +1600,60 @@ export default function ProjectDetail() {
                             )}
                           </div>
                         ) : (
-                          <div className="text-center py-4">
-                            <MapPin className="h-8 w-8 mx-auto mb-2 text-muted-foreground opacity-50" />
-                            <p className="text-sm text-muted-foreground">No venue assigned yet.</p>
-                            <Button variant="outline" size="sm" className="mt-2" onClick={handleStartEditOverview}>
-                              <Plus className="h-4 w-4 mr-1" /> Assign Venue
-                            </Button>
+                          <div>
+                            {!showVenuePicker ? (
+                              <div className="text-center py-4">
+                                <MapPin className="h-8 w-8 mx-auto mb-2 text-muted-foreground opacity-50" />
+                                <p className="text-sm text-muted-foreground">No venue assigned yet.</p>
+                                <Button variant="outline" size="sm" className="mt-2" onClick={() => setShowVenuePicker(true)}>
+                                  <Plus className="h-4 w-4 mr-1" /> Assign Venue
+                                </Button>
+                              </div>
+                            ) : (
+                              <div className="space-y-2">
+                                <Input
+                                  placeholder="Search your venues..."
+                                  value={venueSearchTerm}
+                                  onChange={(e) => setVenueSearchTerm(e.target.value)}
+                                  autoFocus
+                                />
+                                <div className="max-h-48 overflow-y-auto border rounded-md">
+                                  {venues
+                                    .filter((v) =>
+                                      v.name.toLowerCase().includes(venueSearchTerm.toLowerCase()) ||
+                                      (v.address && v.address.toLowerCase().includes(venueSearchTerm.toLowerCase()))
+                                    )
+                                    .map((venue) => (
+                                      <button
+                                        key={venue.id}
+                                        className="w-full text-left px-3 py-2 hover:bg-muted transition-colors border-b last:border-b-0"
+                                        onClick={() => handleQuickAssignVenue(venue.id)}
+                                      >
+                                        <p className="font-medium text-sm">{venue.name}</p>
+                                        {venue.address && (
+                                          <p className="text-xs text-muted-foreground">{venue.address}</p>
+                                        )}
+                                      </button>
+                                    ))}
+                                  {venues.filter((v) =>
+                                    v.name.toLowerCase().includes(venueSearchTerm.toLowerCase()) ||
+                                    (v.address && v.address.toLowerCase().includes(venueSearchTerm.toLowerCase()))
+                                  ).length === 0 && (
+                                    <p className="text-sm text-muted-foreground text-center py-3">No venues found</p>
+                                  )}
+                                </div>
+                                <div className="flex justify-between items-center pt-1">
+                                  <Button variant="ghost" size="sm" onClick={() => { setShowVenuePicker(false); setVenueSearchTerm(''); }}>
+                                    Cancel
+                                  </Button>
+                                  <Link href="/venues">
+                                    <Button variant="link" size="sm" className="text-xs">
+                                      <Plus className="h-3 w-3 mr-1" /> Create New Venue
+                                    </Button>
+                                  </Link>
+                                </div>
+                              </div>
+                            )}
                           </div>
                         )}
                       </CardContent>

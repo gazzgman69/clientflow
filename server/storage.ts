@@ -30,6 +30,8 @@ import {
   type ProjectSetlist, type InsertProjectSetlist,
   type ProjectFile, type InsertProjectFile,
   type ProjectNote, type InsertProjectNote,
+  type ProjectExpense, type InsertProjectExpense,
+  type ProjectMealBreak, type InsertProjectMealBreak,
   type ProjectTask, type InsertProjectTask,
   type ProjectScheduleItem, type InsertProjectScheduleItem,
   type SmsMessage, type InsertSmsMessage,
@@ -106,7 +108,7 @@ import {
   type ScheduleTeamMember, type InsertScheduleTeamMember,
   type Booking, type InsertBooking,
   users, leads, contacts, projects, quotes, contracts, contractTemplates, invoices, incomeCategories, invoiceItems, invoiceLineItems, paymentSchedules, paymentInstallments, recurringInvoiceSettings, paymentTransactions, taxSettings, tasks, emails, emailThreads, activities, automations,
-  members, venues, projectMembers, memberAvailability, memberGroups, memberGroupMembers, performerContracts, repertoire, projectSetlist, projectFiles, projectNotes, projectTasks, projectScheduleItems, smsMessages, 
+  members, venues, projectMembers, memberAvailability, memberGroups, memberGroupMembers, performerContracts, repertoire, projectSetlist, projectFiles, projectNotes, projectTasks, projectScheduleItems, projectExpenses, projectMealsBreaks, smsMessages,
   messageTemplates, messageThreads, calendars, events, calendarIntegrations, calendarSyncLog, templates, leadCaptureForms,
   leadStatusHistory, emailSignatures, emailProviderCatalog, emailProviderConfigs, emailAccounts, emailProviderIntegrations, tenantEmailPrefs, portalForms, paymentSessions, webhookEvents, tenants,
   // Enhanced Quotes System tables
@@ -497,6 +499,19 @@ export interface IStorage {
   createProjectScheduleItem(item: any, tenantId: string): Promise<any>;
   updateProjectScheduleItem(id: string, itemUpdate: Partial<any>, tenantId: string): Promise<any | undefined>;
   deleteProjectScheduleItem(id: string, tenantId: string): Promise<boolean>;
+
+  // Project Expenses
+  getProjectExpenses(projectId: string, tenantId: string): Promise<ProjectExpense[]>;
+  createProjectExpense(expense: InsertProjectExpense, tenantId: string): Promise<ProjectExpense>;
+  deleteProjectExpense(id: string, tenantId: string): Promise<boolean>;
+
+  // Project Meals & Breaks
+  getProjectMealsBreaks(projectId: string, tenantId: string): Promise<ProjectMealBreak[]>;
+  createProjectMealBreak(item: InsertProjectMealBreak, tenantId: string): Promise<ProjectMealBreak>;
+  deleteProjectMealBreak(id: string, tenantId: string): Promise<boolean>;
+
+  // Project Activities (for timeline)
+  getActivitiesByProject(projectId: string, tenantId: string): Promise<Activity[]>;
 
   // Authentication
   validateUser(username: string, password: string, tenantId: string): Promise<User | undefined>;
@@ -2234,6 +2249,23 @@ export class MemStorage implements IStorage {
     this.activities.set(id, activity);
     return activity;
   }
+
+  // Project Activities by Project (MemStorage)
+  async getActivitiesByProject(projectId: string, tenantId: string): Promise<Activity[]> {
+    return Array.from(this.activities.values())
+      .filter(a => a.projectId === projectId)
+      .sort((a, b) => new Date(b.createdAt!).getTime() - new Date(a.createdAt!).getTime());
+  }
+
+  // Project Expenses (MemStorage - stubs)
+  async getProjectExpenses(projectId: string, tenantId: string): Promise<ProjectExpense[]> { return []; }
+  async createProjectExpense(expense: InsertProjectExpense, tenantId: string): Promise<ProjectExpense> { throw new Error("Not implemented"); }
+  async deleteProjectExpense(id: string, tenantId: string): Promise<boolean> { return false; }
+
+  // Project Meals & Breaks (MemStorage - stubs)
+  async getProjectMealsBreaks(projectId: string, tenantId: string): Promise<ProjectMealBreak[]> { return []; }
+  async createProjectMealBreak(item: InsertProjectMealBreak, tenantId: string): Promise<ProjectMealBreak> { throw new Error("Not implemented"); }
+  async deleteProjectMealBreak(id: string, tenantId: string): Promise<boolean> { return false; }
 
   // Automations
   async getAutomations(): Promise<Automation[]> {
@@ -6034,10 +6066,7 @@ export class DrizzleStorage implements IStorage {
   async getActivitiesByClient(clientId: string) { 
     return await this.db.select().from(activities).where(eq(activities.contactId, clientId));
   }
-  async getActivitiesByProject(projectId: string) { 
-    return await this.db.select().from(activities).where(eq(activities.projectId, projectId));
-  }
-  async createActivity(activity: InsertActivity) { 
+  async createActivity(activity: InsertActivity) {
     const result = await this.db.insert(activities).values(activity).returning();
     
     // Update project timestamp
@@ -6499,8 +6528,76 @@ export class DrizzleStorage implements IStorage {
     return result.rowCount > 0;
   }
 
+  // Project Expenses - PostgreSQL implementation
+  async getProjectExpenses(projectId: string, tenantId: string): Promise<ProjectExpense[]> {
+    return await this.db.select().from(projectExpenses)
+      .where(and(
+        eq(projectExpenses.projectId, projectId),
+        eq(projectExpenses.tenantId, tenantId)
+      ))
+      .orderBy(desc(projectExpenses.createdAt));
+  }
+
+  async createProjectExpense(expense: InsertProjectExpense, tenantId: string): Promise<ProjectExpense> {
+    const result = await this.db.insert(projectExpenses).values({
+      ...expense,
+      tenantId,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    }).returning();
+    return result[0];
+  }
+
+  async deleteProjectExpense(id: string, tenantId: string): Promise<boolean> {
+    const result = await this.db.delete(projectExpenses)
+      .where(and(
+        eq(projectExpenses.id, id),
+        eq(projectExpenses.tenantId, tenantId)
+      ));
+    return result.rowCount > 0;
+  }
+
+  // Project Meals & Breaks - PostgreSQL implementation
+  async getProjectMealsBreaks(projectId: string, tenantId: string): Promise<ProjectMealBreak[]> {
+    return await this.db.select().from(projectMealsBreaks)
+      .where(and(
+        eq(projectMealsBreaks.projectId, projectId),
+        eq(projectMealsBreaks.tenantId, tenantId)
+      ))
+      .orderBy(projectMealsBreaks.startTime);
+  }
+
+  async createProjectMealBreak(item: InsertProjectMealBreak, tenantId: string): Promise<ProjectMealBreak> {
+    const result = await this.db.insert(projectMealsBreaks).values({
+      ...item,
+      tenantId,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    }).returning();
+    return result[0];
+  }
+
+  async deleteProjectMealBreak(id: string, tenantId: string): Promise<boolean> {
+    const result = await this.db.delete(projectMealsBreaks)
+      .where(and(
+        eq(projectMealsBreaks.id, id),
+        eq(projectMealsBreaks.tenantId, tenantId)
+      ));
+    return result.rowCount > 0;
+  }
+
+  // Project Activities by Project - PostgreSQL implementation
+  async getActivitiesByProject(projectId: string, tenantId: string): Promise<Activity[]> {
+    return await this.db.select().from(activities)
+      .where(and(
+        eq(activities.projectId, projectId),
+        eq(activities.tenantId, tenantId)
+      ))
+      .orderBy(desc(activities.createdAt));
+  }
+
   // SMS Messages - PostgreSQL implementation
-  async getSmsMessages() { 
+  async getSmsMessages() {
     return await this.db.select().from(smsMessages).orderBy(desc(smsMessages.createdAt));
   }
   async getSmsMessage(id: string) { 

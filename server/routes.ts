@@ -6545,6 +6545,176 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
 
+  // ==========================================
+  // PROJECT EXPENSES CRUD
+  // ==========================================
+  app.get("/api/projects/:id/expenses", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
+    try {
+      const expenses = await storage.getProjectExpenses(req.params.id, req.tenantId!);
+      res.json(expenses);
+    } catch (error) {
+      console.error('Error fetching project expenses:', error);
+      res.status(500).json({ message: "Failed to fetch expenses" });
+    }
+  });
+
+  app.post("/api/projects/:id/expenses", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
+    try {
+      const expense = await storage.createProjectExpense({
+        projectId: req.params.id,
+        tenantId: req.tenantId!,
+        description: req.body.description,
+        category: req.body.category || null,
+        amount: req.body.amount,
+        date: req.body.date || null,
+        notes: req.body.notes || null,
+      }, req.tenantId!);
+      res.status(201).json(expense);
+    } catch (error) {
+      console.error('Error creating project expense:', error);
+      res.status(400).json({ message: "Failed to create expense" });
+    }
+  });
+
+  app.delete("/api/projects/:projectId/expenses/:expenseId", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
+    try {
+      const deleted = await storage.deleteProjectExpense(req.params.expenseId, req.tenantId!);
+      if (!deleted) {
+        return res.status(404).json({ message: "Expense not found" });
+      }
+      res.status(204).send();
+    } catch (error) {
+      console.error('Error deleting project expense:', error);
+      res.status(500).json({ message: "Failed to delete expense" });
+    }
+  });
+
+  // ==========================================
+  // PROJECT MEALS & BREAKS CRUD
+  // ==========================================
+  app.get("/api/projects/:id/meals-breaks", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
+    try {
+      const items = await storage.getProjectMealsBreaks(req.params.id, req.tenantId!);
+      res.json(items);
+    } catch (error) {
+      console.error('Error fetching project meals/breaks:', error);
+      res.status(500).json({ message: "Failed to fetch meals & breaks" });
+    }
+  });
+
+  app.post("/api/projects/:id/meals-breaks", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
+    try {
+      const item = await storage.createProjectMealBreak({
+        projectId: req.params.id,
+        tenantId: req.tenantId!,
+        type: req.body.type,
+        label: req.body.label,
+        startTime: req.body.startTime || null,
+        endTime: req.body.endTime || null,
+        provided: req.body.provided || false,
+        notes: req.body.notes || null,
+      }, req.tenantId!);
+      res.status(201).json(item);
+    } catch (error) {
+      console.error('Error creating meal/break:', error);
+      res.status(400).json({ message: "Failed to create meal/break" });
+    }
+  });
+
+  app.delete("/api/projects/:projectId/meals-breaks/:itemId", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
+    try {
+      const deleted = await storage.deleteProjectMealBreak(req.params.itemId, req.tenantId!);
+      if (!deleted) {
+        return res.status(404).json({ message: "Meal/break not found" });
+      }
+      res.status(204).send();
+    } catch (error) {
+      console.error('Error deleting meal/break:', error);
+      res.status(500).json({ message: "Failed to delete meal/break" });
+    }
+  });
+
+  // ==========================================
+  // PROJECT ACTIVITIES / TIMELINE
+  // ==========================================
+  app.get("/api/projects/:id/activities", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
+    try {
+      const activities = await storage.getActivitiesByProject(req.params.id, req.tenantId!);
+      res.json(activities);
+    } catch (error) {
+      console.error('Error fetching project activities:', error);
+      res.status(500).json({ message: "Failed to fetch activities" });
+    }
+  });
+
+  app.post("/api/projects/:id/activities", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
+    try {
+      const activity = await storage.createActivity({
+        tenantId: req.tenantId!,
+        type: req.body.type || 'call_logged',
+        description: req.body.description,
+        entityType: 'project',
+        entityId: req.params.id,
+        projectId: req.params.id,
+        userId: req.session.userId || null,
+      }, req.tenantId!);
+      res.status(201).json(activity);
+    } catch (error) {
+      console.error('Error creating project activity:', error);
+      res.status(400).json({ message: "Failed to log activity" });
+    }
+  });
+
+  // ==========================================
+  // PROJECT CLONE
+  // ==========================================
+  app.post("/api/projects/:id/clone", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
+    try {
+      // Fetch the original project
+      const original = await storage.getProject(req.params.id, req.tenantId!);
+      if (!original) {
+        return res.status(404).json({ message: "Project not found" });
+      }
+      // Create a copy with "Copy of" prefix and reset status
+      const cloneData: any = {
+        tenantId: req.tenantId!,
+        userId: req.session.userId || original.userId,
+        name: `Copy of ${original.name}`,
+        description: original.description,
+        contactId: original.contactId,
+        venueId: original.venueId,
+        status: 'new',
+        progress: 0,
+        startDate: original.startDate,
+        endDate: original.endDate,
+        estimatedValue: original.estimatedValue,
+        eventType: (original as any).eventType,
+        leadSource: (original as any).leadSource,
+        budgetRange: (original as any).budgetRange,
+        referralSource: (original as any).referralSource,
+        dressCode: (original as any).dressCode,
+        parkingDetails: (original as any).parkingDetails,
+        loadInDetails: (original as any).loadInDetails,
+        accommodation: (original as any).accommodation,
+        mealDetails: (original as any).mealDetails,
+        backlineProduction: (original as any).backlineProduction,
+        secondContactName: (original as any).secondContactName,
+        secondContactPhone: (original as any).secondContactPhone,
+        dayOfContactName: (original as any).dayOfContactName,
+        dayOfContactPhone: (original as any).dayOfContactPhone,
+        lineupSummary: (original as any).lineupSummary,
+        startTime: (original as any).startTime,
+        endTime: (original as any).endTime,
+        currency: (original as any).currency,
+      };
+      const cloned = await storage.createProject(cloneData, req.tenantId!);
+      res.status(201).json(cloned);
+    } catch (error) {
+      console.error('Error cloning project:', error);
+      res.status(500).json({ message: "Failed to clone project" });
+    }
+  });
+
   // Enhanced Dashboard APIs
   app.get("/api/dashboard/client-activity", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
     try {

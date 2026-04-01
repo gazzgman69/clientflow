@@ -121,12 +121,37 @@ const scheduleItemSchema = z.object({
   notes: z.string().optional(),
 });
 
+const expenseSchema = z.object({
+  description: z.string().min(1, "Description is required"),
+  category: z.string().optional(),
+  amount: z.string().min(1, "Amount is required"),
+  date: z.string().optional(),
+  notes: z.string().optional(),
+});
+
+const mealBreakSchema = z.object({
+  type: z.enum(["meal", "break"]),
+  label: z.string().min(1, "Label is required"),
+  startTime: z.string().optional(),
+  endTime: z.string().optional(),
+  provided: z.boolean().default(false),
+  notes: z.string().optional(),
+});
+
+const logCallSchema = z.object({
+  description: z.string().min(1, "Call notes are required"),
+  type: z.string().default("call_logged"),
+});
+
 type NoteFormData = z.infer<typeof noteSchema>;
 type MemberAssignmentData = z.infer<typeof memberAssignmentSchema>;
 type ContractEditData = z.infer<typeof contractEditSchema>;
 type InvoiceEditData = z.infer<typeof invoiceEditSchema>;
 type TaskFormData = z.infer<typeof taskSchema>;
 type ScheduleItemData = z.infer<typeof scheduleItemSchema>;
+type ExpenseFormData = z.infer<typeof expenseSchema>;
+type MealBreakFormData = z.infer<typeof mealBreakSchema>;
+type LogCallFormData = z.infer<typeof logCallSchema>;
 
 export default function ProjectDetail() {
   const [match, params] = useRoute("/projects/:id");
@@ -204,6 +229,11 @@ export default function ProjectDetail() {
   const [showVenuePicker, setShowVenuePicker] = useState(false);
   const [venueSearchTerm, setVenueSearchTerm] = useState('');
   const [showMemberAssign, setShowMemberAssign] = useState(false);
+  const [showExpenseForm, setShowExpenseForm] = useState(false);
+  const [showMealBreakForm, setShowMealBreakForm] = useState(false);
+  const [showLogCallForm, setShowLogCallForm] = useState(false);
+  const [showArchiveConfirm, setShowArchiveConfirm] = useState(false);
+  const [timelineFilter, setTimelineFilter] = useState<string>('all');
 
   // Get portal status for this project (tenant setting + project override)
   const { data: portalStatus } = useQuery({
@@ -304,6 +334,36 @@ export default function ProjectDetail() {
     enabled: !!project,
   });
 
+  // Fetch project expenses
+  const { data: projectExpenses = [] } = useQuery({
+    queryKey: ["/api/projects", project?.id, "expenses"],
+    queryFn: async () => {
+      const response = await apiRequest("GET", `/api/projects/${project!.id}/expenses`);
+      return response.json();
+    },
+    enabled: !!project,
+  });
+
+  // Fetch project meals & breaks
+  const { data: projectMealsBreaks = [] } = useQuery({
+    queryKey: ["/api/projects", project?.id, "meals-breaks"],
+    queryFn: async () => {
+      const response = await apiRequest("GET", `/api/projects/${project!.id}/meals-breaks`);
+      return response.json();
+    },
+    enabled: !!project,
+  });
+
+  // Fetch project activities for timeline
+  const { data: projectActivities = [] } = useQuery({
+    queryKey: ["/api/projects", project?.id, "activities"],
+    queryFn: async () => {
+      const response = await apiRequest("GET", `/api/projects/${project!.id}/activities`);
+      return response.json();
+    },
+    enabled: !!project,
+  });
+
   // Fetch documents for this project's client
   const { data: projectQuotes = [] } = useQuery<Quote[]>({
     queryKey: ["/api/contacts", project?.contactId, "quotes"],
@@ -365,6 +425,21 @@ export default function ProjectDetail() {
   const scheduleForm = useForm<ScheduleItemData>({
     resolver: zodResolver(scheduleItemSchema),
     defaultValues: { time: "", label: "", notes: "" },
+  });
+
+  const expenseForm = useForm<ExpenseFormData>({
+    resolver: zodResolver(expenseSchema),
+    defaultValues: { description: "", category: "", amount: "", date: "", notes: "" },
+  });
+
+  const mealBreakForm = useForm<MealBreakFormData>({
+    resolver: zodResolver(mealBreakSchema),
+    defaultValues: { type: "meal", label: "", startTime: "", endTime: "", provided: false, notes: "" },
+  });
+
+  const logCallForm = useForm<LogCallFormData>({
+    resolver: zodResolver(logCallSchema),
+    defaultValues: { description: "", type: "call_logged" },
   });
 
   const contactEditForm = useForm({
@@ -480,6 +555,127 @@ export default function ProjectDetail() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/projects", projectId, "files"] });
+    },
+  });
+
+  // Create expense mutation
+  const createExpenseMutation = useMutation({
+    mutationFn: async (data: ExpenseFormData) => {
+      const response = await apiRequest("POST", `/api/projects/${projectId}/expenses`, {
+        description: data.description,
+        category: data.category,
+        amount: data.amount,
+        date: data.date,
+        notes: data.notes,
+      });
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Expense added", description: "The expense has been recorded." });
+      expenseForm.reset();
+      setShowExpenseForm(false);
+      queryClient.invalidateQueries({ queryKey: ["/api/projects", projectId, "expenses"] });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to add expense.", variant: "destructive" });
+    },
+  });
+
+  // Delete expense mutation
+  const deleteExpenseMutation = useMutation({
+    mutationFn: async (expenseId: string) => {
+      await apiRequest("DELETE", `/api/projects/${projectId}/expenses/${expenseId}`);
+    },
+    onSuccess: () => {
+      toast({ title: "Expense deleted", description: "The expense has been removed." });
+      queryClient.invalidateQueries({ queryKey: ["/api/projects", projectId, "expenses"] });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to delete expense.", variant: "destructive" });
+    },
+  });
+
+  // Create meal/break mutation
+  const createMealBreakMutation = useMutation({
+    mutationFn: async (data: MealBreakFormData) => {
+      const response = await apiRequest("POST", `/api/projects/${projectId}/meals-breaks`, data);
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Added", description: "Meal/break has been added to the schedule." });
+      mealBreakForm.reset();
+      setShowMealBreakForm(false);
+      queryClient.invalidateQueries({ queryKey: ["/api/projects", projectId, "meals-breaks"] });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to add meal/break.", variant: "destructive" });
+    },
+  });
+
+  // Delete meal/break mutation
+  const deleteMealBreakMutation = useMutation({
+    mutationFn: async (itemId: string) => {
+      await apiRequest("DELETE", `/api/projects/${projectId}/meals-breaks/${itemId}`);
+    },
+    onSuccess: () => {
+      toast({ title: "Deleted", description: "Meal/break has been removed." });
+      queryClient.invalidateQueries({ queryKey: ["/api/projects", projectId, "meals-breaks"] });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to delete meal/break.", variant: "destructive" });
+    },
+  });
+
+  // Log call / activity mutation
+  const logActivityMutation = useMutation({
+    mutationFn: async (data: LogCallFormData) => {
+      const response = await apiRequest("POST", `/api/projects/${projectId}/activities`, {
+        type: data.type,
+        description: data.description,
+      });
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Call logged", description: "The call has been added to the timeline." });
+      logCallForm.reset();
+      setShowLogCallForm(false);
+      queryClient.invalidateQueries({ queryKey: ["/api/projects", projectId, "activities"] });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to log call.", variant: "destructive" });
+    },
+  });
+
+  // Clone project mutation
+  const cloneProjectMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest("POST", `/api/projects/${projectId}/clone`);
+      return response.json();
+    },
+    onSuccess: (data: any) => {
+      toast({ title: "Project cloned", description: `"Copy of ${project?.name}" has been created.` });
+      setLocation(`/projects/${data.id}`);
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to clone project.", variant: "destructive" });
+    },
+  });
+
+  // Archive project mutation
+  const archiveProjectMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest("PATCH", `/api/projects/${projectId}/status`, {
+        status: 'archived',
+      });
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Project archived", description: "The project has been archived." });
+      setShowArchiveConfirm(false);
+      setLocation("/projects");
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to archive project.", variant: "destructive" });
     },
   });
 
@@ -1184,7 +1380,9 @@ export default function ProjectDetail() {
                 <Button variant="outline" size="sm" onClick={handleStartEditOverview}>
                   <Edit className="h-4 w-4 mr-1" /> Edit
                 </Button>
-                <Button variant="outline" size="sm">Clone</Button>
+                <Button variant="outline" size="sm" onClick={() => cloneProjectMutation.mutate()} disabled={cloneProjectMutation.isPending}>
+                  {cloneProjectMutation.isPending ? "Cloning..." : "Clone"}
+                </Button>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button size="sm">Actions <ChevronDown className="h-4 w-4 ml-1" /></Button>
@@ -1200,7 +1398,7 @@ export default function ProjectDetail() {
                       <ListTodo className="h-4 w-4 mr-2" /> Add Task
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
-                    <DropdownMenuItem className="text-red-600">
+                    <DropdownMenuItem className="text-red-600" onClick={() => setShowArchiveConfirm(true)}>
                       <Trash2 className="h-4 w-4 mr-2" /> Archive Project
                     </DropdownMenuItem>
                   </DropdownMenuContent>
@@ -1916,30 +2114,49 @@ export default function ProjectDetail() {
                   <Card>
                     <CardHeader>
                       <div className="flex items-center justify-between">
-                        <CardTitle className="text-base">🍽️ Meals & Breaks <span className="text-[10px] bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded font-semibold ml-1">NEW</span></CardTitle>
-                        <Button size="sm" variant="outline">
+                        <CardTitle className="text-base">🍽️ MEALS & BREAKS</CardTitle>
+                        <Button size="sm" variant="outline" onClick={() => {
+                          mealBreakForm.reset();
+                          setShowMealBreakForm(true);
+                        }}>
                           <Plus className="h-4 w-4 mr-1" /> Add
                         </Button>
                       </div>
                     </CardHeader>
                     <CardContent>
                       <div className="space-y-3">
-                        <div className="flex items-center justify-between py-2 border-b">
-                          <div>
-                            <p className="font-medium text-sm">Dinner</p>
-                            <p className="text-xs text-muted-foreground">6:00 PM - 7:00 PM</p>
-                          </div>
-                          <span className="text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded">Provided</span>
-                        </div>
-                        <div className="flex items-center justify-between py-2">
-                          <div>
-                            <p className="font-medium text-sm">Break</p>
-                            <p className="text-xs text-muted-foreground">9:00 PM - 9:15 PM</p>
-                          </div>
-                          <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded">15 min</span>
-                        </div>
+                        {(projectMealsBreaks as any[]).length === 0 ? (
+                          <p className="text-xs text-muted-foreground">No meals or breaks added yet.</p>
+                        ) : (
+                          (projectMealsBreaks as any[]).map((item: any) => (
+                            <div key={item.id} className="flex items-center justify-between py-2 border-b last:border-0">
+                              <div>
+                                <p className="font-medium text-sm">{item.label}</p>
+                                <p className="text-xs text-muted-foreground">
+                                  {item.startTime || "?"} - {item.endTime || "?"}
+                                </p>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                {item.type === 'meal' ? (
+                                  <span className={`text-xs px-2 py-0.5 rounded ${item.provided ? 'bg-green-100 text-green-800' : 'bg-amber-100 text-amber-800'}`}>
+                                    {item.provided ? "Provided" : "Not provided"}
+                                  </span>
+                                ) : (
+                                  <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded">Break</span>
+                                )}
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-6 w-6 p-0 text-red-500 hover:text-red-700"
+                                  onClick={() => deleteMealBreakMutation.mutate(item.id)}
+                                >
+                                  <Trash2 className="h-3 w-3" />
+                                </Button>
+                              </div>
+                            </div>
+                          ))
+                        )}
                       </div>
-                      <p className="text-xs text-muted-foreground mt-3">Meals & breaks will appear here once added.</p>
                     </CardContent>
                   </Card>
 
@@ -1975,13 +2192,31 @@ export default function ProjectDetail() {
                       <CardTitle className="text-base">📤 Export & Share</CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-2">
-                      <Button variant="outline" className="w-full" size="sm">
-                        <Download className="h-4 w-4 mr-2" /> Export PDF
-                      </Button>
-                      <Button variant="outline" className="w-full" size="sm">
+                      <Button variant="outline" className="w-full" size="sm" onClick={() => {
+                        // Generate CSV from schedule items
+                        const rows = [["Time", "Item", "Notes"]];
+                        (projectSchedule as any[]).forEach((item: any) => {
+                          rows.push([item.time || "", item.label || "", (item.notes || "").replace(/,/g, ";")]);
+                        });
+                        const csv = rows.map(r => r.join(",")).join("\n");
+                        const blob = new Blob([csv], { type: "text/csv" });
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement("a");
+                        a.href = url;
+                        a.download = `${project?.name || "schedule"}-schedule.csv`;
+                        a.click();
+                        URL.revokeObjectURL(url);
+                        toast({ title: "Exported", description: "Schedule exported as CSV." });
+                      }}>
                         <Download className="h-4 w-4 mr-2" /> Export CSV
                       </Button>
-                      <Button variant="outline" className="w-full" size="sm">
+                      <Button variant="outline" className="w-full" size="sm" onClick={() => {
+                        // Copy schedule as text to clipboard for sharing
+                        const lines = (projectSchedule as any[]).map((item: any) => `${item.time} - ${item.label}${item.notes ? ` (${item.notes})` : ""}`);
+                        const text = `Schedule for ${project?.name}\n${"=".repeat(30)}\n${lines.join("\n") || "No schedule items yet."}`;
+                        navigator.clipboard.writeText(text);
+                        toast({ title: "Copied", description: "Schedule copied to clipboard for sharing." });
+                      }}>
                         <Share2 className="h-4 w-4 mr-2" /> Share Schedule
                       </Button>
                     </CardContent>
@@ -2239,25 +2474,103 @@ export default function ProjectDetail() {
               <Card>
                 <CardHeader>
                   <div className="flex items-center justify-between">
-                    <CardTitle className="text-base">📨 Communication Timeline</CardTitle>
+                    <CardTitle className="text-base">📨 COMMUNICATION TIMELINE</CardTitle>
                     <div className="flex gap-2">
-                      <Button size="sm" variant="outline">
+                      <Button size="sm" variant="outline" onClick={() => {
+                        logCallForm.reset();
+                        setShowLogCallForm(true);
+                      }}>
                         <PhoneCall className="h-4 w-4 mr-2" /> Log Call
                       </Button>
-                      <Button size="sm" variant="outline">
-                        <Filter className="h-4 w-4 mr-2" /> Filter
-                      </Button>
+                      <Select value={timelineFilter} onValueChange={setTimelineFilter}>
+                        <SelectTrigger className="w-[130px] h-8">
+                          <Filter className="h-3 w-3 mr-1" />
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All</SelectItem>
+                          <SelectItem value="call_logged">Calls</SelectItem>
+                          <SelectItem value="email_sent">Emails</SelectItem>
+                          <SelectItem value="note_added">Notes</SelectItem>
+                          <SelectItem value="status_change">Status Changes</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
                   </div>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
-                    <div className="text-center py-8 text-muted-foreground">
-                      <p className="text-sm">Timeline events will appear here as communication is logged.</p>
-                    </div>
+                    {(projectActivities as any[]).length === 0 ? (
+                      <div className="text-center py-8 text-muted-foreground">
+                        <Activity className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                        <p className="text-sm">No timeline events yet.</p>
+                        <p className="text-xs mt-1">Log a call or send an email to start the timeline.</p>
+                      </div>
+                    ) : (
+                      (projectActivities as any[])
+                        .filter((a: any) => timelineFilter === 'all' || a.type === timelineFilter)
+                        .map((activity: any) => (
+                        <div key={activity.id} className="flex gap-3 py-3 border-b last:border-0">
+                          <div className="flex-shrink-0 mt-1">
+                            {activity.type === 'call_logged' && <PhoneCall className="h-4 w-4 text-blue-500" />}
+                            {activity.type === 'email_sent' && <Mail className="h-4 w-4 text-green-500" />}
+                            {activity.type === 'note_added' && <MessageSquare className="h-4 w-4 text-amber-500" />}
+                            {activity.type === 'status_change' && <Activity className="h-4 w-4 text-purple-500" />}
+                            {!['call_logged', 'email_sent', 'note_added', 'status_change'].includes(activity.type) && <Clock className="h-4 w-4 text-gray-400" />}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm">{activity.description}</p>
+                            <p className="text-xs text-muted-foreground mt-0.5">
+                              {activity.type.replace(/_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())} · {activity.createdAt ? formatDistanceToNow(new Date(activity.createdAt), { addSuffix: true }) : ''}
+                            </p>
+                          </div>
+                        </div>
+                      ))
+                    )}
                   </div>
                 </CardContent>
               </Card>
+
+              {/* Log Call Dialog */}
+              {showLogCallForm && (
+                <Dialog open={showLogCallForm} onOpenChange={setShowLogCallForm}>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Log Call</DialogTitle>
+                      <DialogDescription>Record details about a phone call for this project.</DialogDescription>
+                    </DialogHeader>
+                    <form onSubmit={logCallForm.handleSubmit((data) => logActivityMutation.mutate(data))} className="space-y-4">
+                      <div>
+                        <Label>TYPE</Label>
+                        <Select
+                          value={logCallForm.watch("type")}
+                          onValueChange={(value) => logCallForm.setValue("type", value)}
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="call_logged">Phone Call</SelectItem>
+                            <SelectItem value="email_sent">Email</SelectItem>
+                            <SelectItem value="note_added">Note</SelectItem>
+                            <SelectItem value="status_change">Status Change</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <Label>NOTES</Label>
+                        <Textarea {...logCallForm.register("description")} placeholder="Describe the call..." rows={4} />
+                      </div>
+                      <div className="flex justify-end gap-2">
+                        <Button type="button" variant="outline" onClick={() => setShowLogCallForm(false)}>Cancel</Button>
+                        <Button type="submit" disabled={logActivityMutation.isPending}>
+                          {logActivityMutation.isPending ? "Saving..." : "Log Call"}
+                        </Button>
+                      </div>
+                    </form>
+                  </DialogContent>
+                </Dialog>
+              )}
             </TabsContent>
 
             {/* MEMBERS TAB */}
@@ -2914,8 +3227,11 @@ export default function ProjectDetail() {
                   <Card>
                     <CardHeader>
                       <div className="flex items-center justify-between">
-                        <CardTitle className="text-base">💸 Expenses <span className="text-[10px] bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded font-semibold ml-1">NEW</span></CardTitle>
-                        <Button size="sm">
+                        <CardTitle className="text-base">💸 EXPENSES</CardTitle>
+                        <Button size="sm" onClick={() => {
+                          expenseForm.reset();
+                          setShowExpenseForm(true);
+                        }}>
                           <Plus className="h-4 w-4 mr-2" /> Add Expense
                         </Button>
                       </div>
@@ -2925,21 +3241,42 @@ export default function ProjectDetail() {
                         <Table>
                           <TableHeader>
                             <TableRow>
-                              <TableHead>Description</TableHead>
-                              <TableHead>Category</TableHead>
-                              <TableHead>Amount</TableHead>
-                              <TableHead>Date</TableHead>
-                              <TableHead className="w-20">Actions</TableHead>
+                              <TableHead>DESCRIPTION</TableHead>
+                              <TableHead>CATEGORY</TableHead>
+                              <TableHead>AMOUNT</TableHead>
+                              <TableHead>DATE</TableHead>
+                              <TableHead className="w-20">ACTIONS</TableHead>
                             </TableRow>
                           </TableHeader>
                           <TableBody>
-                            <TableRow>
-                              <TableCell colSpan={5} className="text-center py-6 text-muted-foreground">
-                                <Receipt className="h-6 w-6 mx-auto mb-2 opacity-50" />
-                                <p className="text-sm">No expenses recorded yet.</p>
-                                <p className="text-xs mt-1">Track travel, equipment, and other project costs here.</p>
-                              </TableCell>
-                            </TableRow>
+                            {(projectExpenses as any[]).length === 0 ? (
+                              <TableRow>
+                                <TableCell colSpan={5} className="text-center py-6 text-muted-foreground">
+                                  <Receipt className="h-6 w-6 mx-auto mb-2 opacity-50" />
+                                  <p className="text-sm">No expenses recorded yet.</p>
+                                  <p className="text-xs mt-1">Track travel, equipment, and other project costs here.</p>
+                                </TableCell>
+                              </TableRow>
+                            ) : (
+                              (projectExpenses as any[]).map((exp: any) => (
+                                <TableRow key={exp.id}>
+                                  <TableCell className="text-sm">{exp.description}</TableCell>
+                                  <TableCell className="text-sm capitalize">{exp.category || "—"}</TableCell>
+                                  <TableCell className="font-medium">${parseFloat(exp.amount || "0").toFixed(2)}</TableCell>
+                                  <TableCell className="text-sm">{exp.date || "—"}</TableCell>
+                                  <TableCell>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-6 w-6 p-0 text-red-500 hover:text-red-700"
+                                      onClick={() => deleteExpenseMutation.mutate(exp.id)}
+                                    >
+                                      <Trash2 className="h-3 w-3" />
+                                    </Button>
+                                  </TableCell>
+                                </TableRow>
+                              ))
+                            )}
                           </TableBody>
                         </Table>
                       </div>
@@ -3002,19 +3339,26 @@ export default function ProjectDetail() {
                           <span className="text-muted-foreground">MEMBER COSTS</span>
                           <span className="font-medium">-${totalMemberCosts.toFixed(2)}</span>
                         </div>
+                        {(() => {
+                          const totalExpenses = (projectExpenses as any[]).reduce((sum: number, exp: any) => sum + parseFloat(exp.amount || "0"), 0);
+                          const adjustedNetProfit = totalFee - totalMemberCosts - totalExpenses;
+                          const adjustedMargin = totalFee > 0 ? Math.round((adjustedNetProfit / totalFee) * 100) : 0;
+                          return (<>
                         <div className="flex justify-between text-sm">
                           <span className="text-muted-foreground">EXPENSES</span>
-                          <span className="font-medium">$0.00</span>
+                          <span className="font-medium">-${totalExpenses.toFixed(2)}</span>
                         </div>
                         <Separator className="my-2" />
                         <div className="flex justify-between">
                           <span className="font-semibold">NET PROFIT</span>
-                          <span className={`font-bold ${netProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>${netProfit.toFixed(2)}</span>
+                          <span className={`font-bold ${adjustedNetProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>${adjustedNetProfit.toFixed(2)}</span>
                         </div>
                         <div className="flex justify-between text-sm pt-2">
                           <span className="text-muted-foreground">MARGIN</span>
-                          <span className="font-medium">{margin}%</span>
+                          <span className="font-medium">{adjustedMargin}%</span>
                         </div>
+                          </>);
+                        })()}
                       </div>
                     </CardContent>
                   </Card>
@@ -3121,6 +3465,139 @@ export default function ProjectDetail() {
           setEditingInvoice(null);
         }}
       />
+      {/* Archive Confirmation Dialog */}
+      <Dialog open={showArchiveConfirm} onOpenChange={setShowArchiveConfirm}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Archive Project</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to archive "{project?.name}"? The project will be moved to the archived list and can be restored later.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end gap-2 pt-4">
+            <Button variant="outline" onClick={() => setShowArchiveConfirm(false)}>Cancel</Button>
+            <Button variant="destructive" onClick={() => archiveProjectMutation.mutate()} disabled={archiveProjectMutation.isPending}>
+              {archiveProjectMutation.isPending ? "Archiving..." : "Archive Project"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Expense Dialog */}
+      <Dialog open={showExpenseForm} onOpenChange={setShowExpenseForm}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add Expense</DialogTitle>
+            <DialogDescription>Record a project expense for tracking costs.</DialogDescription>
+          </DialogHeader>
+          <form onSubmit={expenseForm.handleSubmit((data) => createExpenseMutation.mutate(data))} className="space-y-4">
+            <div>
+              <Label>DESCRIPTION</Label>
+              <Input {...expenseForm.register("description")} placeholder="e.g. Travel to venue" />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>CATEGORY</Label>
+                <Select
+                  value={expenseForm.watch("category") || ""}
+                  onValueChange={(value) => expenseForm.setValue("category", value)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="travel">Travel</SelectItem>
+                    <SelectItem value="equipment">Equipment</SelectItem>
+                    <SelectItem value="accommodation">Accommodation</SelectItem>
+                    <SelectItem value="catering">Catering</SelectItem>
+                    <SelectItem value="other">Other</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>AMOUNT</Label>
+                <Input {...expenseForm.register("amount")} type="number" step="0.01" placeholder="0.00" />
+              </div>
+            </div>
+            <div>
+              <Label>DATE</Label>
+              <Input {...expenseForm.register("date")} type="date" />
+            </div>
+            <div>
+              <Label>NOTES</Label>
+              <Textarea {...expenseForm.register("notes")} placeholder="Additional details..." rows={2} />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button type="button" variant="outline" onClick={() => setShowExpenseForm(false)}>Cancel</Button>
+              <Button type="submit" disabled={createExpenseMutation.isPending}>
+                {createExpenseMutation.isPending ? "Saving..." : "Add Expense"}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Meal/Break Dialog */}
+      <Dialog open={showMealBreakForm} onOpenChange={setShowMealBreakForm}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add Meal or Break</DialogTitle>
+            <DialogDescription>Add a meal or break to the event day schedule.</DialogDescription>
+          </DialogHeader>
+          <form onSubmit={mealBreakForm.handleSubmit((data) => createMealBreakMutation.mutate(data))} className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>TYPE</Label>
+                <Select
+                  value={mealBreakForm.watch("type")}
+                  onValueChange={(value: "meal" | "break") => mealBreakForm.setValue("type", value)}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="meal">Meal</SelectItem>
+                    <SelectItem value="break">Break</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>LABEL</Label>
+                <Input {...mealBreakForm.register("label")} placeholder="e.g. Dinner, Lunch Break" />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>START TIME</Label>
+                <Input {...mealBreakForm.register("startTime")} type="time" />
+              </div>
+              <div>
+                <Label>END TIME</Label>
+                <Input {...mealBreakForm.register("endTime")} type="time" />
+              </div>
+            </div>
+            {mealBreakForm.watch("type") === "meal" && (
+              <div className="flex items-center gap-2">
+                <Switch
+                  checked={mealBreakForm.watch("provided")}
+                  onCheckedChange={(checked) => mealBreakForm.setValue("provided", checked)}
+                />
+                <Label>Meal provided</Label>
+              </div>
+            )}
+            <div>
+              <Label>NOTES</Label>
+              <Textarea {...mealBreakForm.register("notes")} placeholder="Additional details..." rows={2} />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button type="button" variant="outline" onClick={() => setShowMealBreakForm(false)}>Cancel</Button>
+              <Button type="submit" disabled={createMealBreakMutation.isPending}>
+                {createMealBreakMutation.isPending ? "Saving..." : "Add"}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -1049,6 +1049,41 @@ export const projectScheduleItems = pgTable("project_schedule_items", {
   projectIdIdx: index("project_schedule_project_id_idx").on(table.projectId),
 }));
 
+// Project Expenses (for tracking travel, equipment, and other project costs)
+export const projectExpenses = pgTable("project_expenses", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").references(() => tenants.id).notNull(),
+  projectId: varchar("project_id").references(() => projects.id).notNull(),
+  description: text("description").notNull(),
+  category: text("category"), // travel, equipment, accommodation, catering, other
+  amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
+  date: text("date"), // YYYY-MM-DD
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  tenantIdIdx: index("project_expenses_tenant_id_idx").on(table.tenantId),
+  projectIdIdx: index("project_expenses_project_id_idx").on(table.projectId),
+}));
+
+// Project Meals & Breaks (schedule-adjacent items for event day)
+export const projectMealsBreaks = pgTable("project_meals_breaks", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").references(() => tenants.id).notNull(),
+  projectId: varchar("project_id").references(() => projects.id).notNull(),
+  type: text("type").notNull(), // meal, break
+  label: text("label").notNull(), // e.g. "Dinner", "Break", "Lunch"
+  startTime: text("start_time"), // e.g. "18:00"
+  endTime: text("end_time"), // e.g. "19:00"
+  provided: boolean("provided").default(false), // Is the meal provided?
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  tenantIdIdx: index("project_meals_breaks_tenant_id_idx").on(table.tenantId),
+  projectIdIdx: index("project_meals_breaks_project_id_idx").on(table.projectId),
+}));
+
 // Calendar Integrations
 export const calendarIntegrations = pgTable("calendar_integrations", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -1499,6 +1534,8 @@ export const insertProjectFileSchema = createInsertSchema(projectFiles).omit({ i
 export const insertProjectNoteSchema = createInsertSchema(projectNotes).omit({ id: true, createdAt: true });
 export const insertProjectTaskSchema = createInsertSchema(projectTasks).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertProjectScheduleItemSchema = createInsertSchema(projectScheduleItems).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertProjectExpenseSchema = createInsertSchema(projectExpenses).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertProjectMealBreakSchema = createInsertSchema(projectMealsBreaks).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertSmsMessageSchema = createInsertSchema(smsMessages).omit({ id: true, createdAt: true });
 export const insertMessageTemplateSchema = createInsertSchema(messageTemplates).omit({ id: true, createdAt: true, updatedAt: true });
 
@@ -1793,6 +1830,10 @@ export type ProjectFile = typeof projectFiles.$inferSelect;
 export type InsertProjectFile = z.infer<typeof insertProjectFileSchema>;
 export type ProjectNote = typeof projectNotes.$inferSelect;
 export type InsertProjectNote = z.infer<typeof insertProjectNoteSchema>;
+export type ProjectExpense = typeof projectExpenses.$inferSelect;
+export type InsertProjectExpense = z.infer<typeof insertProjectExpenseSchema>;
+export type ProjectMealBreak = typeof projectMealsBreaks.$inferSelect;
+export type InsertProjectMealBreak = z.infer<typeof insertProjectMealBreakSchema>;
 export type SmsMessage = typeof smsMessages.$inferSelect;
 export type InsertSmsMessage = z.infer<typeof insertSmsMessageSchema>;
 export type MessageTemplate = typeof messageTemplates.$inferSelect;

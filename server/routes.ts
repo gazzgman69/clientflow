@@ -2249,9 +2249,77 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   app.get("/api/dashboard/metrics", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
     try {
       const tenantId = req.tenantId!;
-      const userId = req.authenticatedUserId;
-      const metrics = await storage.getDashboardMetrics(tenantId, userId);
-      res.json(metrics);
+
+      const now = new Date();
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+
+      // Paid this month
+      const paidThisMonthResult = await pool.query(
+        `SELECT COALESCE(SUM(CAST(total AS DECIMAL)), 0) as total
+         FROM invoices
+         WHERE tenant_id = $1 AND status = 'paid'
+           AND updated_at >= $2 AND updated_at <= $3`,
+        [tenantId, startOfMonth, endOfMonth]
+      );
+      const paidThisMonth = parseFloat((paidThisMonthResult.rows[0] as any).total || '0');
+
+      // Outstanding (sent but not overdue)
+      const outstandingResult = await pool.query(
+        `SELECT COALESCE(SUM(CAST(total AS DECIMAL)), 0) as total
+         FROM invoices
+         WHERE tenant_id = $1 AND status = 'sent'
+           AND (due_date IS NULL OR due_date >= NOW())`,
+        [tenantId]
+      );
+      const outstanding = parseFloat((outstandingResult.rows[0] as any).total || '0');
+
+      // Overdue (sent past due date OR status = 'overdue')
+      const overdueResult = await pool.query(
+        `SELECT COALESCE(SUM(CAST(total AS DECIMAL)), 0) as total, COUNT(*) as count
+         FROM invoices
+         WHERE tenant_id = $1
+           AND (status = 'overdue' OR (status = 'sent' AND due_date IS NOT NULL AND due_date < NOW()))`,
+        [tenantId]
+      );
+      const overdue = parseFloat((overdueResult.rows[0] as any).total || '0');
+      const overdueCount = parseInt((overdueResult.rows[0] as any).count || '0');
+
+      // Pipeline value (active/booked projects + sent quotes)
+      const pipelineResult = await pool.query(
+        `SELECT COALESCE(SUM(CAST(estimated_value AS DECIMAL)), 0) as total
+         FROM projects
+         WHERE tenant_id = $1 AND status IN ('lead', 'booked', 'active')
+           AND estimated_value IS NOT NULL AND estimated_value != ''`,
+        [tenantId]
+      );
+      const pipeline = parseFloat((pipelineResult.rows[0] as any).total || '0');
+
+      // Active project count
+      const activeProjectsResult = await pool.query(
+        `SELECT COUNT(*) as count FROM projects
+         WHERE tenant_id = $1 AND status IN ('lead', 'booked', 'active')`,
+        [tenantId]
+      );
+      const activeProjects = parseInt((activeProjectsResult.rows[0] as any).count || '0');
+
+      // Unsigned contracts (sent but not signed)
+      const unsignedContractsResult = await pool.query(
+        `SELECT COUNT(*) as count FROM contracts
+         WHERE tenant_id = $1 AND status IN ('sent', 'awaiting_counter_signature')`,
+        [tenantId]
+      );
+      const unsignedContracts = parseInt((unsignedContractsResult.rows[0] as any).count || '0');
+
+      res.json({
+        paidThisMonth: Math.round(paidThisMonth),
+        outstanding: Math.round(outstanding),
+        overdue: Math.round(overdue),
+        overdueCount,
+        pipeline: Math.round(pipeline),
+        activeProjects,
+        unsignedContracts,
+      });
     } catch (error) {
       console.error('Error fetching dashboard metrics:', error);
       res.status(500).json({ message: "Failed to fetch dashboard metrics" });
@@ -6911,90 +6979,144 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   // Enhanced Dashboard APIs
   app.get("/api/dashboard/client-activity", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
     try {
-      // Mock client activity data - in real implementation, would aggregate from multiple sources
-      const activities = [
-        {
-          id: "1",
-          type: "contract_viewed",
-          clientName: "Sarah Johnson",
-          projectName: "Wedding Reception",
-          documentTitle: "Performance Contract #WR-2024-001",
-          timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000),
-          description: "Opened and viewed contract",
-          contactId: "contact-1",
-          projectId: "project-1"
-        },
-        {
-          id: "2",
-          type: "quote_opened",
-          clientName: "Mike Thompson",
-          projectName: "Corporate Event",
-          documentTitle: "Event Quote #CE-2024-015",
-          timestamp: new Date(Date.now() - 4 * 60 * 60 * 1000),
-          description: "Opened quote document",
-          contactId: "contact-2",
-          projectId: "project-2"
-        }
-      ];
+      const tenantId = req.tenantId!;
+
+      // Fetch real activities from DB, join with contacts and projects for names
+      const activityRows = await pool.query(
+        `SELECT a.id, a.type, a.description, a.entity_type, a.entity_id, a.created_at,
+                a.contact_id, a.project_id,
+                c.first_name, c.last_name,
+                p.name as project_name
+         FROM activities a
+         LEFT JOIN contacts c ON c.id = a.contact_id AND c.tenant_id = $1
+         LEFT JOIN projects p ON p.id = a.project_id AND p.tenant_id = $1
+         WHERE a.tenant_id = $1
+         ORDER BY a.created_at DESC
+         LIMIT 20`,
+        [tenantId]
+      );
+
+      const activities = activityRows.rows.map((row: any) => ({
+        id: row.id,
+        type: row.type,
+        clientName: row.first_name ? `${row.first_name} ${row.last_name}`.trim() : 'Unknown Client',
+        projectName: row.project_name || null,
+        description: row.description,
+        entityType: row.entity_type,
+        entityId: row.entity_id,
+        timestamp: row.created_at,
+        contactId: row.contact_id,
+        projectId: row.project_id,
+      }));
+
       res.json(activities);
     } catch (error) {
+      console.error('Error fetching client activity:', error);
       res.status(500).json({ message: "Failed to fetch client activity" });
     }
   });
 
   app.get("/api/dashboard/pending-items", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
     try {
-      const tenantId = req.session.tenantId!;
-      
-      // Get pending quotes, contracts, invoices from database (TENANT FILTERED)
-      const quotes = await storage.getQuotes(tenantId);
-      const contracts = await storage.getContracts(tenantId);
-      const invoices = await storage.getInvoices(tenantId);
-      
-      const pendingQuotes = quotes.filter(q => q.status === 'sent').map(q => ({
-        id: q.id,
-        type: 'quote',
-        title: q.title,
-        clientName: q.contactId, // In real implementation, would join with contact data
-        projectName: q.leadId || 'General Project',
-        sentDate: q.createdAt,
-        amount: parseFloat(q.subtotal),
-        status: q.status,
-        contactId: q.contactId,
-        projectId: q.leadId,
-        urgency: 'medium'
-      }));
+      const tenantId = req.tenantId!;
+      const now = new Date();
 
-      const pendingContracts = contracts.filter(c => c.status === 'sent').map(c => ({
-        id: c.id,
+      // Pending invoices — join contacts and projects for real names
+      const invoiceRows = await pool.query(
+        `SELECT i.id, i.title, i.status, i.total, i.created_at, i.due_date, i.contact_id, i.project_id,
+                c.first_name, c.last_name, p.name as project_name
+         FROM invoices i
+         LEFT JOIN contacts c ON c.id = i.contact_id AND c.tenant_id = $1
+         LEFT JOIN projects p ON p.id = i.project_id AND p.tenant_id = $1
+         WHERE i.tenant_id = $1
+           AND (i.status = 'sent' OR i.status = 'overdue'
+                OR (i.status = 'sent' AND i.due_date IS NOT NULL AND i.due_date < NOW()))
+         ORDER BY i.due_date ASC NULLS LAST
+         LIMIT 20`,
+        [tenantId]
+      );
+
+      const pendingInvoices = invoiceRows.rows.map((i: any) => {
+        const isOverdue = i.status === 'overdue' || (i.due_date && new Date(i.due_date) < now);
+        return {
+          id: i.id,
+          type: 'invoice',
+          title: i.title || 'Invoice',
+          clientName: i.first_name ? `${i.first_name} ${i.last_name}`.trim() : 'Unknown Client',
+          projectName: i.project_name || 'General Project',
+          sentDate: i.created_at,
+          dueDate: i.due_date,
+          amount: parseFloat(i.total || '0'),
+          status: isOverdue ? 'overdue' : i.status,
+          contactId: i.contact_id,
+          projectId: i.project_id,
+          isOverdue,
+          urgency: isOverdue ? 'high' : 'medium',
+        };
+      });
+
+      // Pending contracts — unsigned/sent
+      const contractRows = await pool.query(
+        `SELECT ct.id, ct.title, ct.status, ct.created_at, ct.due_date, ct.contact_id, ct.project_id,
+                c.first_name, c.last_name, p.name as project_name
+         FROM contracts ct
+         LEFT JOIN contacts c ON c.id = ct.contact_id AND c.tenant_id = $1
+         LEFT JOIN projects p ON p.id = ct.project_id AND p.tenant_id = $1
+         WHERE ct.tenant_id = $1
+           AND ct.status IN ('sent', 'awaiting_counter_signature')
+         ORDER BY ct.created_at ASC
+         LIMIT 20`,
+        [tenantId]
+      );
+
+      const pendingContracts = contractRows.rows.map((ct: any) => ({
+        id: ct.id,
         type: 'contract',
-        title: c.title,
-        clientName: c.contactId,
-        projectName: c.projectId || 'General Project',
-        sentDate: c.createdAt,
-        status: c.status,
-        contactId: c.contactId,
-        projectId: c.projectId,
-        urgency: 'high'
+        title: ct.title || 'Contract',
+        clientName: ct.first_name ? `${ct.first_name} ${ct.last_name}`.trim() : 'Unknown Client',
+        projectName: ct.project_name || 'General Project',
+        sentDate: ct.created_at,
+        dueDate: ct.due_date,
+        status: ct.status,
+        contactId: ct.contact_id,
+        projectId: ct.project_id,
+        isOverdue: ct.due_date ? new Date(ct.due_date) < now : false,
+        urgency: ct.status === 'awaiting_counter_signature' ? 'high' : 'medium',
+        requiresCounterSignature: ct.status === 'awaiting_counter_signature',
       }));
 
-      const pendingInvoices = invoices.filter(i => i.status === 'sent' || i.status === 'overdue').map(i => ({
-        id: i.id,
-        type: 'invoice',
-        title: i.title,
-        clientName: i.contactId,
-        projectName: i.projectId || 'General Project',
-        sentDate: i.createdAt,
-        amount: parseFloat(i.total),
-        status: i.status,
-        contactId: i.contactId,
-        projectId: i.projectId,
-        urgency: i.status === 'overdue' ? 'critical' : 'medium'
+      // Pending enquiries (contacts created recently with no project)
+      const enquiryRows = await pool.query(
+        `SELECT c.id, c.first_name, c.last_name, c.email, c.created_at
+         FROM contacts c
+         WHERE c.tenant_id = $1
+           AND c.created_at > NOW() - INTERVAL '30 days'
+           AND NOT EXISTS (
+             SELECT 1 FROM projects p WHERE p.contact_id = c.id AND p.tenant_id = $1
+           )
+         ORDER BY c.created_at DESC
+         LIMIT 10`,
+        [tenantId]
+      );
+
+      const pendingEnquiries = enquiryRows.rows.map((e: any) => ({
+        id: e.id,
+        type: 'enquiry',
+        title: `New Enquiry from ${e.first_name} ${e.last_name}`,
+        clientName: `${e.first_name} ${e.last_name}`.trim(),
+        projectName: 'No project yet',
+        sentDate: e.created_at,
+        status: 'new',
+        contactId: e.id,
+        projectId: null,
+        isOverdue: false,
+        urgency: 'medium',
       }));
 
-      const allPending = [...pendingQuotes, ...pendingContracts, ...pendingInvoices];
+      const allPending = [...pendingInvoices, ...pendingContracts, ...pendingEnquiries];
       res.json(allPending);
     } catch (error) {
+      console.error('Error fetching pending items:', error);
       res.status(500).json({ message: "Failed to fetch pending items" });
     }
   });

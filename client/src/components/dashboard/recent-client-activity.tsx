@@ -1,185 +1,162 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { FileText, Mail, CreditCard, User, Clock, ExternalLink } from "lucide-react";
+import {
+  FileText,
+  Mail,
+  CreditCard,
+  User,
+  Clock,
+  FileCheck,
+  FileSignature,
+  PenLine,
+  Activity,
+} from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
+import { useQuery } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 
-interface ClientActivity {
+interface ActivityItem {
   id: string;
-  type: 'quote_opened' | 'contract_viewed' | 'invoice_paid' | 'questionnaire_completed' | 'email_replied';
+  type: string;
   clientName: string;
-  projectName: string;
-  documentTitle?: string;
-  timestamp: Date;
+  projectName?: string | null;
   description: string;
-  clientId: string;
-  projectId: string;
+  entityType?: string | null;
+  entityId?: string | null;
+  timestamp: string;
+  contactId?: string | null;
+  projectId?: string | null;
+}
+
+function getActivityIcon(type: string) {
+  if (type.includes("invoice") || type.includes("payment")) return <CreditCard className="h-4 w-4 text-emerald-500" />;
+  if (type.includes("contract") && type.includes("sign")) return <FileSignature className="h-4 w-4 text-green-500" />;
+  if (type.includes("contract")) return <FileCheck className="h-4 w-4 text-blue-500" />;
+  if (type.includes("quote")) return <FileText className="h-4 w-4 text-blue-500" />;
+  if (type.includes("email") || type.includes("message")) return <Mail className="h-4 w-4 text-orange-500" />;
+  if (type.includes("note")) return <PenLine className="h-4 w-4 text-yellow-500" />;
+  if (type.includes("project")) return <Clock className="h-4 w-4 text-indigo-500" />;
+  if (type.includes("contact") || type.includes("client")) return <User className="h-4 w-4 text-purple-500" />;
+  return <Activity className="h-4 w-4 text-gray-400" />;
+}
+
+function getActivityBadge(type: string) {
+  if (type.includes("invoice") || type.includes("payment"))
+    return <Badge className="bg-emerald-100 text-emerald-700 text-xs">Payment</Badge>;
+  if (type.includes("contract") && type.includes("sign"))
+    return <Badge className="bg-green-100 text-green-700 text-xs">Signed</Badge>;
+  if (type.includes("contract"))
+    return <Badge className="bg-blue-100 text-blue-700 text-xs">Contract</Badge>;
+  if (type.includes("quote"))
+    return <Badge className="bg-blue-100 text-blue-700 text-xs">Quote</Badge>;
+  if (type.includes("email") || type.includes("message"))
+    return <Badge className="bg-orange-100 text-orange-700 text-xs">Email</Badge>;
+  if (type.includes("note"))
+    return <Badge className="bg-yellow-100 text-yellow-700 text-xs">Note</Badge>;
+  if (type.includes("project"))
+    return <Badge className="bg-indigo-100 text-indigo-700 text-xs">Project</Badge>;
+  return <Badge variant="outline" className="text-xs">Activity</Badge>;
+}
+
+function formatDescription(description: string): string {
+  // Make descriptions more readable
+  return description
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
 export default function RecentClientActivity() {
-  // Mock recent client activities - in real app, this would come from API
-  const recentActivities: ClientActivity[] = [
-    {
-      id: "1",
-      type: "contract_viewed",
-      clientName: "Sarah Johnson",
-      projectName: "Wedding Reception",
-      documentTitle: "Performance Contract #WR-2024-001",
-      timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000), // 2 hours ago
-      description: "Opened and viewed contract",
-      clientId: "client-1",
-      projectId: "project-1"
-    },
-    {
-      id: "2", 
-      type: "quote_opened",
-      clientName: "Mike Thompson",
-      projectName: "Corporate Event",
-      documentTitle: "Event Quote #CE-2024-015",
-      timestamp: new Date(Date.now() - 4 * 60 * 60 * 1000), // 4 hours ago
-      description: "Opened quote document",
-      clientId: "client-2",
-      projectId: "project-2"
-    },
-    {
-      id: "3",
-      type: "invoice_paid",
-      clientName: "The Grand Hotel",
-      projectName: "New Year's Eve Gala",
-      documentTitle: "Invoice #NYE-2024-003",
-      timestamp: new Date(Date.now() - 6 * 60 * 60 * 1000), // 6 hours ago
-      description: "Payment received",
-      clientId: "client-3",
-      projectId: "project-3"
-    },
-    {
-      id: "4",
-      type: "questionnaire_completed",
-      clientName: "Jennifer Davis",
-      projectName: "Anniversary Party",
-      documentTitle: "Event Planning Questionnaire",
-      timestamp: new Date(Date.now() - 8 * 60 * 60 * 1000), // 8 hours ago
-      description: "Completed event details form",
-      clientId: "client-4",
-      projectId: "project-4"
-    },
-    {
-      id: "5",
-      type: "email_replied",
-      clientName: "Downtown Music Venue",
-      projectName: "Monthly Residency",
-      timestamp: new Date(Date.now() - 12 * 60 * 60 * 1000), // 12 hours ago
-      description: "Replied to setlist confirmation email",
-      clientId: "client-5",
-      projectId: "project-5"
-    },
-    {
-      id: "6",
-      type: "contract_viewed",
-      clientName: "Emily Wilson",
-      projectName: "Graduation Celebration",
-      documentTitle: "Performance Agreement #GC-2024-007",
-      timestamp: new Date(Date.now() - 18 * 60 * 60 * 1000), // 18 hours ago
-      description: "Downloaded contract PDF",
-      clientId: "client-6",
-      projectId: "project-6"
-    },
-    {
-      id: "7",
-      type: "quote_opened",
-      clientName: "Restaurant & Bar",
-      projectName: "Live Music Series",
-      documentTitle: "Monthly Performance Quote",
-      timestamp: new Date(Date.now() - 24 * 60 * 60 * 1000), // 1 day ago
-      description: "Viewed pricing details",
-      clientId: "client-7",
-      projectId: "project-7"
-    }
-  ];
+  const [, setLocation] = useLocation();
 
-  const getActivityIcon = (type: string) => {
-    switch (type) {
-      case 'quote_opened': return <FileText className="h-4 w-4 text-blue-500" />;
-      case 'contract_viewed': return <FileText className="h-4 w-4 text-green-500" />;
-      case 'invoice_paid': return <CreditCard className="h-4 w-4 text-emerald-500" />;
-      case 'questionnaire_completed': return <User className="h-4 w-4 text-purple-500" />;
-      case 'email_replied': return <Mail className="h-4 w-4 text-orange-500" />;
-      default: return <Clock className="h-4 w-4 text-gray-500" />;
+  const { data: activities = [], isLoading } = useQuery<ActivityItem[]>({
+    queryKey: ["/api/dashboard/client-activity"],
+  });
+
+  const handleClick = (activity: ActivityItem) => {
+    if (activity.projectId) {
+      setLocation(`/projects/${activity.projectId}`);
+    } else if (activity.contactId) {
+      setLocation(`/contacts/${activity.contactId}`);
     }
   };
 
-  const getActivityBadge = (type: string) => {
-    switch (type) {
-      case 'quote_opened': return <Badge variant="secondary" className="bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300">Quote</Badge>;
-      case 'contract_viewed': return <Badge variant="secondary" className="bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300">Contract</Badge>;
-      case 'invoice_paid': return <Badge variant="secondary" className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300">Payment</Badge>;
-      case 'questionnaire_completed': return <Badge variant="secondary" className="bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300">Form</Badge>;
-      case 'email_replied': return <Badge variant="secondary" className="bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300">Email</Badge>;
-      default: return <Badge variant="outline">Activity</Badge>;
-    }
-  };
-
-  const handleClientClick = (clientId: string, projectId: string) => {
-    // In real app, this would navigate to the project page
-    console.log(`Navigate to project ${projectId} for client ${clientId}`);
-  };
+  if (isLoading) {
+    return (
+      <Card>
+        <CardHeader className="pb-4">
+          <CardTitle className="flex items-center gap-2">
+            <Activity className="h-5 w-5" />
+            Recent Activity
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-3">
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="h-14 bg-muted animate-pulse rounded-lg" />
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card data-testid="recent-client-activity-card">
       <CardHeader className="pb-4">
         <div className="flex items-center justify-between">
           <CardTitle className="flex items-center gap-2">
-            <User className="h-5 w-5" />
-            Recent Client Activity
+            <Activity className="h-5 w-5" />
+            Recent Activity
           </CardTitle>
-          <Button variant="ghost" size="sm" data-testid="button-view-all-activity">
+          <Button variant="ghost" size="sm">
             View All
           </Button>
         </div>
       </CardHeader>
       <CardContent>
-        <div className="space-y-4">
-          {recentActivities.slice(0, 8).map((activity) => (
-            <div
-              key={activity.id}
-              className="flex items-start gap-3 p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors"
-              data-testid={`activity-item-${activity.id}`}
-            >
-              <div className="flex-shrink-0 mt-0.5">
-                {getActivityIcon(activity.type)}
-              </div>
-              
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-1">
-                  <button
-                    onClick={() => handleClientClick(activity.clientId, activity.projectId)}
-                    className="font-medium text-foreground hover:text-primary hover:underline cursor-pointer"
-                    data-testid={`client-name-${activity.id}`}
-                  >
-                    {activity.clientName}
-                  </button>
-                  <ExternalLink className="h-3 w-3 text-muted-foreground" />
-                  {getActivityBadge(activity.type)}
+        {activities.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-10 text-center text-muted-foreground">
+            <Activity className="h-10 w-10 mb-3 text-muted-foreground/40" />
+            <p className="font-medium text-foreground">No activity yet</p>
+            <p className="text-sm mt-1">Actions like sending quotes and contracts will appear here.</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {activities.slice(0, 10).map((activity) => (
+              <div
+                key={activity.id}
+                className="flex items-start gap-3 p-3 rounded-lg bg-muted/40 hover:bg-muted transition-colors cursor-pointer"
+                onClick={() => handleClick(activity)}
+                data-testid={`activity-item-${activity.id}`}
+              >
+                <div className="flex-shrink-0 mt-0.5">
+                  {getActivityIcon(activity.type)}
                 </div>
-                
-                <div className="text-sm text-muted-foreground mb-1">
-                  <span className="font-medium text-foreground">{activity.projectName}</span>
-                  {activity.documentTitle && (
-                    <span> • {activity.documentTitle}</span>
-                  )}
+
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-0.5 flex-wrap">
+                    <span className="font-medium text-sm text-foreground">
+                      {activity.clientName !== "Unknown Client" ? activity.clientName : "System"}
+                    </span>
+                    {getActivityBadge(activity.type)}
+                  </div>
+
+                  <p className="text-sm text-muted-foreground leading-snug">
+                    {formatDescription(activity.description)}
+                    {activity.projectName && (
+                      <span className="text-foreground/70"> · {activity.projectName}</span>
+                    )}
+                  </p>
                 </div>
-                
-                <div className="text-sm text-muted-foreground">
-                  {activity.description}
+
+                <div className="flex-shrink-0 text-xs text-muted-foreground whitespace-nowrap">
+                  {formatDistanceToNow(new Date(activity.timestamp), { addSuffix: true })}
                 </div>
               </div>
-              
-              <div className="flex-shrink-0 text-xs text-muted-foreground">
-                {formatDistanceToNow(activity.timestamp, { addSuffix: true })}
-              </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </CardContent>
     </Card>
   );

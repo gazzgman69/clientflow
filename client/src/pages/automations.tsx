@@ -186,20 +186,18 @@ export default function Automations() {
             </CardContent>
           </Card>
 
-          <Card data-testid="automation-stats-triggered">
+          <Card data-testid="automation-stats-inactive">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-muted-foreground">Times Triggered</p>
-                  <p className="text-3xl font-bold text-foreground">142</p>
+                  <p className="text-sm font-medium text-muted-foreground">Inactive Automations</p>
+                  <p className="text-3xl font-bold text-foreground">
+                    {automations?.filter(a => !a.isActive).length || 0}
+                  </p>
                 </div>
                 <div className="w-12 h-12 bg-accent/10 rounded-lg flex items-center justify-center">
-                  <Zap className="h-6 w-6 text-accent" />
+                  <Pause className="h-6 w-6 text-accent" />
                 </div>
-              </div>
-              <div className="mt-4 flex items-center">
-                <span className="text-sm font-medium text-green-600">+23</span>
-                <span className="text-sm text-muted-foreground ml-2">this week</span>
               </div>
             </CardContent>
           </Card>

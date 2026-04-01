@@ -76,10 +76,15 @@ app.use(helmet(cspConfig));
 // Rate limiting - protect against DDoS and brute force attacks
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 1000, // Limit each IP to 1000 requests per windowMs (general)
+  max: 5000, // Limit each IP to 5000 requests per windowMs (general)
   message: { error: 'Too many requests, please try again later' },
   standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
   legacyHeaders: false, // Disable the `X-RateLimit-*` headers
+  skip: (req) => {
+    // Don't rate limit static assets or the SPA HTML shell
+    const path = req.path;
+    return path.startsWith('/assets/') || path.endsWith('.js') || path.endsWith('.css') || path.endsWith('.ico');
+  },
 });
 
 // Stricter rate limiting for auth endpoints

@@ -150,18 +150,8 @@ export default function CalendarPage() {
     syncMutation.mutate(integrationId);
   };
 
-  // Auto-trigger sync when calendar page loads (for active Google integrations)
-  useEffect(() => {
-    if (integrations && integrations.length > 0) {
-      const activeGoogleIntegration = integrations.find(
-        (i) => i.isActive && i.provider === 'google'
-      );
-      if (activeGoogleIntegration) {
-        // Silently trigger sync in background (no loading state or toast)
-        syncMutation.mutate(activeGoogleIntegration.id);
-      }
-    }
-  }, [integrations?.length]); // Only run when integrations first load
+  // Auto-sync removed — was firing on every page load, hammering the API
+  // and contributing to rate-limit issues. Use the "Sync Now" button instead.
 
   const handleAddICal = () => {
     if (!icalUrl.trim() || !calendarName.trim()) {
@@ -213,6 +203,25 @@ export default function CalendarPage() {
           <p className="text-muted-foreground">
             Manage your schedule and calendar integrations
           </p>
+        </div>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setShowGoogleOAuth(true)}>
+            <Mail className="h-4 w-4 mr-2" />
+            Connect Google Calendar
+          </Button>
+          {integrations && integrations.length > 0 && (
+            <Button
+              variant="outline"
+              onClick={() => {
+                const active = integrations.find(i => i.isActive && i.provider === 'google');
+                if (active) handleSync(active.id);
+              }}
+              disabled={syncMutation.isPending}
+            >
+              <RotateCcw className={`h-4 w-4 mr-2 ${syncMutation.isPending ? 'animate-spin' : ''}`} />
+              Sync Now
+            </Button>
+          )}
         </div>
       </div>
 

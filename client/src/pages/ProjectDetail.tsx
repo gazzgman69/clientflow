@@ -1142,7 +1142,7 @@ export default function ProjectDetail() {
             </div>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
-                <h1 className="text-4xl font-bold">{project.name}</h1>
+                <h1 className="text-2xl font-semibold">{project.name}</h1>
                 <Badge className={getStatusColor(project.status) + " text-sm px-3 py-1"}>
                   {project.status.charAt(0).toUpperCase() + project.status.slice(1)}
                 </Badge>
@@ -1194,7 +1194,7 @@ export default function ProjectDetail() {
               {isEditingOverview ? (
                 <Card>
                   <CardHeader>
-                    <CardTitle>Edit Project Details</CardTitle>
+                    <CardTitle className="text-base">Edit Project Details</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1399,7 +1399,7 @@ export default function ProjectDetail() {
                     <Card>
                       <CardHeader>
                         <div className="flex items-center justify-between">
-                          <CardTitle className="flex items-center gap-2">📋 Event Details</CardTitle>
+                          <CardTitle className="flex items-center gap-2 text-base">📋 Event Details</CardTitle>
                           <Badge className={getStatusColor(project.status)}>
                             {project.status.charAt(0).toUpperCase() + project.status.slice(1)}
                           </Badge>
@@ -1461,7 +1461,7 @@ export default function ProjectDetail() {
                     {projectVenue ? (
                       <Card>
                         <CardHeader>
-                          <CardTitle className="flex items-center gap-2">📍 Venue</CardTitle>
+                          <CardTitle className="flex items-center gap-2 text-base">📍 Venue</CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-3">
                           <div>
@@ -1493,7 +1493,7 @@ export default function ProjectDetail() {
                     {/* Event Day Details Card */}
                     <Card>
                       <CardHeader>
-                        <CardTitle className="flex items-center gap-2">🎤 Event Day Details</CardTitle>
+                        <CardTitle className="flex items-center gap-2 text-base">🎤 Event Day Details</CardTitle>
                       </CardHeader>
                       <CardContent className="space-y-3">
                         <div>
@@ -1522,7 +1522,7 @@ export default function ProjectDetail() {
                     {projectContact ? (
                       <Card>
                         <CardHeader>
-                          <CardTitle className="flex items-center gap-2">👤 Client</CardTitle>
+                          <CardTitle className="flex items-center gap-2 text-base">👤 Client</CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-3">
                           <div>
@@ -1553,7 +1553,7 @@ export default function ProjectDetail() {
                     {((project as any).secondContactName || (project as any).dayOfContactName) && (
                       <Card>
                         <CardHeader>
-                          <CardTitle className="flex items-center gap-2">👥 Additional Contacts</CardTitle>
+                          <CardTitle className="flex items-center gap-2 text-base">👥 Additional Contacts</CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-4">
                           {(project as any).secondContactName && (
@@ -1579,7 +1579,7 @@ export default function ProjectDetail() {
                     {/* Financial Summary Card */}
                     <Card>
                       <CardHeader>
-                        <CardTitle className="flex items-center gap-2">💰 Financial Summary</CardTitle>
+                        <CardTitle className="flex items-center gap-2 text-base">💰 Financial Summary</CardTitle>
                       </CardHeader>
                       <CardContent className="space-y-3">
                         <div>
@@ -1602,7 +1602,7 @@ export default function ProjectDetail() {
                     {/* Documents Quick View */}
                     <Card>
                       <CardHeader>
-                        <CardTitle className="flex items-center gap-2">📄 Documents</CardTitle>
+                        <CardTitle className="flex items-center gap-2 text-base">📄 Documents</CardTitle>
                       </CardHeader>
                       <CardContent className="space-y-2">
                         <div className="flex items-center gap-2">
@@ -1623,7 +1623,7 @@ export default function ProjectDetail() {
                     {/* Lifecycle Progress */}
                     <Card>
                       <CardHeader>
-                        <CardTitle className="flex items-center gap-2">📊 Lifecycle Progress</CardTitle>
+                        <CardTitle className="flex items-center gap-2 text-base">📊 Lifecycle Progress</CardTitle>
                       </CardHeader>
                       <CardContent className="space-y-3">
                         <div className="space-y-1">
@@ -1669,7 +1669,7 @@ export default function ProjectDetail() {
                   <Card>
                     <CardHeader>
                       <div className="flex items-center justify-between">
-                        <CardTitle>Run of Day</CardTitle>
+                        <CardTitle className="text-base">🕐 Run of Day</CardTitle>
                         <Button size="sm" onClick={() => {
                           setEditingScheduleItem(null);
                           scheduleForm.reset();
@@ -1721,7 +1721,7 @@ export default function ProjectDetail() {
                 <div className="space-y-6">
                   <Card>
                     <CardHeader>
-                      <CardTitle>Quick Reference</CardTitle>
+                      <CardTitle className="text-base">📌 Quick Reference</CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-4">
                       {projectVenue && (
@@ -1748,7 +1748,7 @@ export default function ProjectDetail() {
 
                   <Card>
                     <CardHeader>
-                      <CardTitle>Export</CardTitle>
+                      <CardTitle className="text-base">📤 Export</CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-2">
                       <Button variant="outline" className="w-full" size="sm">
@@ -1818,7 +1818,7 @@ export default function ProjectDetail() {
               <Card>
                 <CardHeader>
                   <div className="flex items-center justify-between">
-                    <CardTitle>Tasks</CardTitle>
+                    <CardTitle className="text-base">✅ Tasks</CardTitle>
                     <div className="flex gap-2">
                       <Button size="sm" variant="outline">
                         Apply Template
@@ -2012,7 +2012,7 @@ export default function ProjectDetail() {
               <Card>
                 <CardHeader>
                   <div className="flex items-center justify-between">
-                    <CardTitle>Communication Timeline</CardTitle>
+                    <CardTitle className="text-base">📨 Communication Timeline</CardTitle>
                     <div className="flex gap-2">
                       <Button size="sm" variant="outline">
                         <PhoneCall className="h-4 w-4 mr-2" /> Log Call
@@ -2038,7 +2038,7 @@ export default function ProjectDetail() {
               <Card>
                 <CardHeader>
                   <div className="flex items-center justify-between">
-                    <CardTitle>Project Members</CardTitle>
+                    <CardTitle className="text-base">👥 Project Members</CardTitle>
                     <Button size="sm" onClick={() => {
                       memberForm.reset();
                     }}>
@@ -2110,7 +2110,7 @@ export default function ProjectDetail() {
               {(project as any).lineupSummary && (
                 <Card>
                   <CardHeader>
-                    <CardTitle>Line-up Summary</CardTitle>
+                    <CardTitle className="text-base">🎵 Line-up Summary</CardTitle>
                   </CardHeader>
                   <CardContent>
                     <p className="text-sm">{(project as any).lineupSummary}</p>
@@ -2153,7 +2153,7 @@ export default function ProjectDetail() {
               <Card>
                 <CardHeader>
                   <div className="flex items-center justify-between">
-                    <CardTitle>Quotes</CardTitle>
+                    <CardTitle className="text-base">Quotes</CardTitle>
                     <Button size="sm" onClick={handleCreateQuote}>
                       <Plus className="h-4 w-4 mr-2" /> Create Quote
                     </Button>
@@ -2217,7 +2217,7 @@ export default function ProjectDetail() {
               <Card>
                 <CardHeader>
                   <div className="flex items-center justify-between">
-                    <CardTitle>Contracts</CardTitle>
+                    <CardTitle className="text-base">Contracts</CardTitle>
                     <Button size="sm" onClick={handleCreateContract}>
                       <Plus className="h-4 w-4 mr-2" /> Create Contract
                     </Button>
@@ -2281,7 +2281,7 @@ export default function ProjectDetail() {
               <Card>
                 <CardHeader>
                   <div className="flex items-center justify-between">
-                    <CardTitle>Invoices</CardTitle>
+                    <CardTitle className="text-base">Invoices</CardTitle>
                     <Button size="sm" onClick={handleCreateInvoice}>
                       <Plus className="h-4 w-4 mr-2" /> Create Invoice
                     </Button>
@@ -2347,7 +2347,7 @@ export default function ProjectDetail() {
               <Card>
                 <CardHeader>
                   <div className="flex items-center justify-between">
-                    <CardTitle>Project Files</CardTitle>
+                    <CardTitle className="text-base">📁 Project Files</CardTitle>
                     <div className="flex items-center gap-2">
                       <Input
                         type="file"
@@ -2396,7 +2396,7 @@ export default function ProjectDetail() {
               <Card>
                 <CardHeader>
                   <div className="flex items-center justify-between">
-                    <CardTitle>Notes</CardTitle>
+                    <CardTitle className="text-base">📝 Notes</CardTitle>
                     <div className="flex items-center gap-2">
                       <Select value={noteVisibilityFilter} onValueChange={(value: any) => setNoteVisibilityFilter(value)}>
                         <SelectTrigger className="w-40">
@@ -2510,7 +2510,7 @@ export default function ProjectDetail() {
                   {/* Income Table */}
                   <Card>
                     <CardHeader>
-                      <CardTitle>Income</CardTitle>
+                      <CardTitle className="text-base">Income</CardTitle>
                     </CardHeader>
                     <CardContent>
                       <div className="overflow-x-auto">
@@ -2536,7 +2536,7 @@ export default function ProjectDetail() {
                   <Card>
                     <CardHeader>
                       <div className="flex items-center justify-between">
-                        <CardTitle>Expenses</CardTitle>
+                        <CardTitle className="text-base">Expenses</CardTitle>
                         <Button size="sm">
                           <Plus className="h-4 w-4 mr-2" /> Add Expense
                         </Button>
@@ -2553,7 +2553,7 @@ export default function ProjectDetail() {
                   {/* Member Costs Table */}
                   <Card>
                     <CardHeader>
-                      <CardTitle>Member Costs</CardTitle>
+                      <CardTitle className="text-base">Member Costs</CardTitle>
                     </CardHeader>
                     <CardContent>
                       <div className="overflow-x-auto">
@@ -2591,7 +2591,7 @@ export default function ProjectDetail() {
                   {/* Profit Breakdown */}
                   <Card>
                     <CardHeader>
-                      <CardTitle>Profit Breakdown</CardTitle>
+                      <CardTitle className="text-base">Profit Breakdown</CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-3">
                       <div className="space-y-1">

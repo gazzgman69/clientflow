@@ -1412,7 +1412,7 @@ export default function ProjectDetail() {
                             <p className="font-medium">{(project as any).eventType || "Not specified"}</p>
                           </div>
                           <div>
-                            <p className="text-sm text-muted-foreground">Date</p>
+                            <p className="text-sm text-muted-foreground">DATE</p>
                             <p className="font-medium">
                               {project.startDate ? new Date(project.startDate).toLocaleDateString() : "Not specified"}
                             </p>
@@ -1446,7 +1446,7 @@ export default function ProjectDetail() {
                           <>
                             <Separator />
                             <div>
-                              <p className="text-sm text-muted-foreground">Description</p>
+                              <p className="text-sm text-muted-foreground">DESCRIPTION</p>
                               <p className="font-medium text-sm">{project.description}</p>
                             </div>
                           </>

@@ -30,6 +30,8 @@ import {
   type ProjectSetlist, type InsertProjectSetlist,
   type ProjectFile, type InsertProjectFile,
   type ProjectNote, type InsertProjectNote,
+  type ProjectTask, type InsertProjectTask,
+  type ProjectScheduleItem, type InsertProjectScheduleItem,
   type SmsMessage, type InsertSmsMessage,
   type MessageTemplate, type InsertMessageTemplate,
   type MessageThread, type InsertMessageThread,
@@ -103,8 +105,8 @@ import {
   type ScheduleCalendarCheck, type InsertScheduleCalendarCheck,
   type ScheduleTeamMember, type InsertScheduleTeamMember,
   type Booking, type InsertBooking,
-  users, leads, contacts, projects, quotes, contracts, contractTemplates, invoices, incomeCategories, invoiceItems, invoiceLineItems, paymentSchedules, paymentInstallments, recurringInvoiceSettings, paymentTransactions, taxSettings, tasks, emails, emailThreads, activities, automations, 
-  members, venues, projectMembers, memberAvailability, memberGroups, memberGroupMembers, performerContracts, repertoire, projectSetlist, projectFiles, projectNotes, smsMessages, 
+  users, leads, contacts, projects, quotes, contracts, contractTemplates, invoices, incomeCategories, invoiceItems, invoiceLineItems, paymentSchedules, paymentInstallments, recurringInvoiceSettings, paymentTransactions, taxSettings, tasks, emails, emailThreads, activities, automations,
+  members, venues, projectMembers, memberAvailability, memberGroups, memberGroupMembers, performerContracts, repertoire, projectSetlist, projectFiles, projectNotes, projectTasks, projectScheduleItems, smsMessages, 
   messageTemplates, messageThreads, calendars, events, calendarIntegrations, calendarSyncLog, templates, leadCaptureForms,
   leadStatusHistory, emailSignatures, emailProviderCatalog, emailProviderConfigs, emailAccounts, emailProviderIntegrations, tenantEmailPrefs, portalForms, paymentSessions, webhookEvents, tenants,
   // Enhanced Quotes System tables
@@ -481,7 +483,20 @@ export interface IStorage {
   getProjectNotes(projectId: string, tenantId: string): Promise<ProjectNote[]>;
   addProjectNote(note: InsertProjectNote, tenantId: string): Promise<ProjectNote>;
   deleteProjectNote(id: string, tenantId: string): Promise<boolean>;
-  
+
+  // Project Tasks
+  getProjectTasks(projectId: string, tenantId: string): Promise<any[]>;
+  getProjectTask(id: string, tenantId: string): Promise<any | undefined>;
+  createProjectTask(task: any, tenantId: string): Promise<any>;
+  updateProjectTask(id: string, taskUpdate: Partial<any>, tenantId: string): Promise<any | undefined>;
+  deleteProjectTask(id: string, tenantId: string): Promise<boolean>;
+
+  // Project Schedule Items
+  getProjectScheduleItems(projectId: string, tenantId: string): Promise<any[]>;
+  createProjectScheduleItem(item: any, tenantId: string): Promise<any>;
+  updateProjectScheduleItem(id: string, itemUpdate: Partial<any>, tenantId: string): Promise<any | undefined>;
+  deleteProjectScheduleItem(id: string, tenantId: string): Promise<boolean>;
+
   // Authentication
   validateUser(username: string, password: string, tenantId: string): Promise<User | undefined>;
   
@@ -5028,6 +5043,20 @@ export class DrizzleStorage implements IStorage {
         lastManualStatusAt: projects.lastManualStatusAt,
         lastViewedAt: projects.lastViewedAt,
         migratedFromLeadId: projects.migratedFromLeadId,
+        // Event details fields
+        startTime: projects.startTime,
+        endTime: projects.endTime,
+        dressCode: projects.dressCode,
+        parkingDetails: projects.parkingDetails,
+        loadInDetails: projects.loadInDetails,
+        accommodation: projects.accommodation,
+        mealDetails: projects.mealDetails,
+        backlineProduction: projects.backlineProduction,
+        secondContactName: projects.secondContactName,
+        secondContactPhone: projects.secondContactPhone,
+        dayOfContactName: projects.dayOfContactName,
+        dayOfContactPhone: projects.dayOfContactPhone,
+        lineupSummary: projects.lineupSummary,
         // Contact fields
         contactFirstName: contacts.firstName,
         contactLastName: contacts.lastName,
@@ -6332,7 +6361,116 @@ export class DrizzleStorage implements IStorage {
     const result = await this.db.delete(projectNotes).where(eq(projectNotes.id, id));
     return result.rowCount > 0;
   }
-  
+
+  // Project Tasks - PostgreSQL implementation
+  async getProjectTasks(projectId: string, tenantId: string): Promise<ProjectTask[]> {
+    // Get project to verify tenantId
+    const project = await this.db.select().from(projects).where(and(eq(projects.id, projectId), eq(projects.tenantId, tenantId))).limit(1);
+    if (!project || project.length === 0) {
+      return [];
+    }
+    return await this.db.select().from(projectTasks).where(eq(projectTasks.projectId, projectId)).orderBy(projectTasks.sortOrder);
+  }
+
+  async getProjectTask(id: string, tenantId: string): Promise<ProjectTask | undefined> {
+    // Verify tenant isolation by checking project ownership
+    const result = await this.db.select().from(projectTasks)
+      .leftJoin(projects, eq(projectTasks.projectId, projects.id))
+      .where(and(
+        eq(projectTasks.id, id),
+        eq(projects.tenantId, tenantId)
+      ))
+      .limit(1);
+    return result[0]?.project_tasks;
+  }
+
+  async createProjectTask(task: InsertProjectTask, tenantId: string): Promise<ProjectTask> {
+    // Verify project belongs to tenant
+    const project = await this.db.select().from(projects).where(and(eq(projects.id, task.projectId), eq(projects.tenantId, tenantId))).limit(1);
+    if (!project || project.length === 0) {
+      throw new Error('Project not found or does not belong to this tenant');
+    }
+    const result = await this.db.insert(projectTasks).values({
+      ...task,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    }).returning();
+    return result[0];
+  }
+
+  async updateProjectTask(id: string, taskUpdate: Partial<InsertProjectTask>, tenantId: string): Promise<ProjectTask | undefined> {
+    // Verify tenant isolation
+    const result = await this.db.update(projectTasks)
+      .set({
+        ...taskUpdate,
+        updatedAt: new Date(),
+      })
+      .where(and(
+        eq(projectTasks.id, id),
+        // Use subquery to ensure tenant isolation
+        sql`${projectTasks.projectId} IN (SELECT id FROM ${projects} WHERE ${projects.tenantId} = ${tenantId})`
+      ))
+      .returning();
+    return result[0];
+  }
+
+  async deleteProjectTask(id: string, tenantId: string): Promise<boolean> {
+    const result = await this.db.delete(projectTasks)
+      .where(and(
+        eq(projectTasks.id, id),
+        sql`${projectTasks.projectId} IN (SELECT id FROM ${projects} WHERE ${projects.tenantId} = ${tenantId})`
+      ));
+    return result.rowCount > 0;
+  }
+
+  // Project Schedule Items - PostgreSQL implementation
+  async getProjectScheduleItems(projectId: string, tenantId: string): Promise<ProjectScheduleItem[]> {
+    // Get project to verify tenantId
+    const project = await this.db.select().from(projects).where(and(eq(projects.id, projectId), eq(projects.tenantId, tenantId))).limit(1);
+    if (!project || project.length === 0) {
+      return [];
+    }
+    return await this.db.select().from(projectScheduleItems).where(eq(projectScheduleItems.projectId, projectId)).orderBy(projectScheduleItems.sortOrder);
+  }
+
+  async createProjectScheduleItem(item: InsertProjectScheduleItem, tenantId: string): Promise<ProjectScheduleItem> {
+    // Verify project belongs to tenant
+    const project = await this.db.select().from(projects).where(and(eq(projects.id, item.projectId), eq(projects.tenantId, tenantId))).limit(1);
+    if (!project || project.length === 0) {
+      throw new Error('Project not found or does not belong to this tenant');
+    }
+    const result = await this.db.insert(projectScheduleItems).values({
+      ...item,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    }).returning();
+    return result[0];
+  }
+
+  async updateProjectScheduleItem(id: string, itemUpdate: Partial<InsertProjectScheduleItem>, tenantId: string): Promise<ProjectScheduleItem | undefined> {
+    // Verify tenant isolation
+    const result = await this.db.update(projectScheduleItems)
+      .set({
+        ...itemUpdate,
+        updatedAt: new Date(),
+      })
+      .where(and(
+        eq(projectScheduleItems.id, id),
+        sql`${projectScheduleItems.projectId} IN (SELECT id FROM ${projects} WHERE ${projects.tenantId} = ${tenantId})`
+      ))
+      .returning();
+    return result[0];
+  }
+
+  async deleteProjectScheduleItem(id: string, tenantId: string): Promise<boolean> {
+    const result = await this.db.delete(projectScheduleItems)
+      .where(and(
+        eq(projectScheduleItems.id, id),
+        sql`${projectScheduleItems.projectId} IN (SELECT id FROM ${projects} WHERE ${projects.tenantId} = ${tenantId})`
+      ));
+    return result.rowCount > 0;
+  }
+
   // SMS Messages - PostgreSQL implementation
   async getSmsMessages() { 
     return await this.db.select().from(smsMessages).orderBy(desc(smsMessages.createdAt));

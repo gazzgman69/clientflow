@@ -113,6 +113,8 @@ import {
   insertProjectSetlistSchema,
   insertProjectFileSchema,
   insertProjectNoteSchema,
+  insertProjectTaskSchema,
+  insertProjectScheduleItemSchema,
   insertSmsMessageSchema,
   insertMessageTemplateSchema,
   insertMessageThreadSchema,
@@ -6420,6 +6422,112 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
       res.status(204).send();
     } catch (error) {
       res.status(500).json({ message: "Failed to delete note" });
+    }
+  });
+
+  // Project Tasks
+  app.get("/api/projects/:id/tasks", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
+    try {
+      const tasks = await storage.getProjectTasks(req.params.id, req.tenantId!);
+      res.json(tasks);
+    } catch (error) {
+      console.error('Error fetching project tasks:', error);
+      res.status(500).json({ message: "Failed to fetch project tasks" });
+    }
+  });
+
+  app.post("/api/projects/:id/tasks", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
+    try {
+      const taskData = insertProjectTaskSchema.parse({
+        ...req.body,
+        projectId: req.params.id,
+        tenantId: req.tenantId!
+      });
+      const task = await storage.addProjectTask(taskData);
+      res.status(201).json(task);
+    } catch (error) {
+      console.error('Error creating project task:', error);
+      res.status(400).json({ message: "Invalid task data" });
+    }
+  });
+
+  app.patch("/api/projects/:projectId/tasks/:taskId", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
+    try {
+      const data = insertProjectTaskSchema.partial().parse(req.body);
+      const updated = await storage.updateProjectTask(req.params.projectId, req.params.taskId, data, req.tenantId!);
+      if (!updated) {
+        return res.status(404).json({ message: "Task not found" });
+      }
+      res.json(updated);
+    } catch (error) {
+      console.error('Error updating project task:', error);
+      res.status(400).json({ message: "Invalid task data" });
+    }
+  });
+
+  app.delete("/api/projects/:projectId/tasks/:taskId", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
+    try {
+      const deleted = await storage.deleteProjectTask(req.params.projectId, req.params.taskId, req.tenantId!);
+      if (!deleted) {
+        return res.status(404).json({ message: "Task not found" });
+      }
+      res.status(204).send();
+    } catch (error) {
+      console.error('Error deleting project task:', error);
+      res.status(500).json({ message: "Failed to delete task" });
+    }
+  });
+
+  // Project Schedule Items
+  app.get("/api/projects/:id/schedule", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
+    try {
+      const scheduleItems = await storage.getProjectScheduleItems(req.params.id, req.tenantId!);
+      res.json(scheduleItems);
+    } catch (error) {
+      console.error('Error fetching project schedule items:', error);
+      res.status(500).json({ message: "Failed to fetch project schedule items" });
+    }
+  });
+
+  app.post("/api/projects/:id/schedule", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
+    try {
+      const scheduleData = insertProjectScheduleItemSchema.parse({
+        ...req.body,
+        projectId: req.params.id,
+        tenantId: req.tenantId!
+      });
+      const scheduleItem = await storage.addProjectScheduleItem(scheduleData);
+      res.status(201).json(scheduleItem);
+    } catch (error) {
+      console.error('Error creating project schedule item:', error);
+      res.status(400).json({ message: "Invalid schedule item data" });
+    }
+  });
+
+  app.patch("/api/projects/:projectId/schedule/:itemId", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
+    try {
+      const data = insertProjectScheduleItemSchema.partial().parse(req.body);
+      const updated = await storage.updateProjectScheduleItem(req.params.projectId, req.params.itemId, data, req.tenantId!);
+      if (!updated) {
+        return res.status(404).json({ message: "Schedule item not found" });
+      }
+      res.json(updated);
+    } catch (error) {
+      console.error('Error updating project schedule item:', error);
+      res.status(400).json({ message: "Invalid schedule item data" });
+    }
+  });
+
+  app.delete("/api/projects/:projectId/schedule/:itemId", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
+    try {
+      const deleted = await storage.deleteProjectScheduleItem(req.params.projectId, req.params.itemId, req.tenantId!);
+      if (!deleted) {
+        return res.status(404).json({ message: "Schedule item not found" });
+      }
+      res.status(204).send();
+    } catch (error) {
+      console.error('Error deleting project schedule item:', error);
+      res.status(500).json({ message: "Failed to delete schedule item" });
     }
   });
 

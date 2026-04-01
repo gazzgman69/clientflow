@@ -204,6 +204,22 @@ export const projects = pgTable("projects", {
   lastManualStatusAt: timestamp("last_manual_status_at"), // When status was last changed manually
   lastViewedAt: timestamp("last_viewed_at"), // When user last viewed this project
   migratedFromLeadId: varchar("migrated_from_lead_id"), // Reference to original lead if migrated
+  // Event day details (from mockup — Priority 1)
+  startTime: text("start_time"), // Time of day e.g. "19:00"
+  endTime: text("end_time"), // Time of day e.g. "00:00"
+  dressCode: text("dress_code"), // e.g. "Smart black — black trousers, black shirt"
+  parkingDetails: text("parking_details"), // Parking instructions for the venue
+  loadInDetails: text("load_in_details"), // Load-in access details
+  accommodation: text("accommodation"), // Accommodation details for travelling musicians
+  mealDetails: text("meal_details"), // Meal/catering arrangements
+  backlineProduction: text("backline_production"), // PA, backline, power details
+  // Additional contacts
+  secondContactName: text("second_contact_name"), // Partner, wedding planner, PA etc.
+  secondContactPhone: text("second_contact_phone"),
+  dayOfContactName: text("day_of_contact_name"), // Who to call on the day
+  dayOfContactPhone: text("day_of_contact_phone"),
+  // Lineup
+  lineupSummary: text("lineup_summary"), // e.g. "4-piece band + DJ"
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => {
@@ -963,6 +979,8 @@ export const projectFiles = pgTable("project_files", {
   originalName: text("original_name").notNull(),
   fileSize: integer("file_size"),
   mimeType: text("mime_type"),
+  clientPortalVisible: boolean("client_portal_visible").default(false), // Show in client portal
+  memberPortalVisible: boolean("member_portal_visible").default(false), // Show in member portal
   uploadedBy: varchar("uploaded_by").references(() => users.id).notNull(),
   createdAt: timestamp("created_at").defaultNow(),
 }, (table) => ({
@@ -978,6 +996,10 @@ export const projectNotes = pgTable("project_notes", {
   tenantId: varchar("tenant_id").references(() => tenants.id).notNull(),
   projectId: varchar("project_id").references(() => projects.id).notNull(),
   note: text("note").notNull(),
+  title: text("title"), // Optional title for the note
+  visibility: text("visibility").default('private'), // 'private' (owner only) or 'shared' (visible to members/clients)
+  noteType: text("note_type").default('note'), // 'note' or 'call_log'
+  callDuration: integer("call_duration"), // Duration in minutes (for call logs)
   createdBy: varchar("created_by").references(() => users.id).notNull(),
   createdAt: timestamp("created_at").defaultNow(),
 }, (table) => ({
@@ -985,6 +1007,46 @@ export const projectNotes = pgTable("project_notes", {
   tenantIdIdx: index("project_notes_tenant_id_idx").on(table.tenantId),
   projectIdIdx: index("project_notes_project_id_idx").on(table.projectId),
   createdByIdx: index("project_notes_created_by_idx").on(table.createdBy),
+}));
+
+// Project Tasks (per-project to-do items with priorities, due dates, dependencies)
+export const projectTasks = pgTable("project_tasks", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").references(() => tenants.id).notNull(),
+  projectId: varchar("project_id").references(() => projects.id).notNull(),
+  name: text("name").notNull(),
+  description: text("description"),
+  status: text("status").notNull().default('pending'), // pending, in_progress, completed
+  priority: text("priority").default('medium'), // low, medium, high
+  assignedTo: varchar("assigned_to").references(() => users.id),
+  dueDate: timestamp("due_date"),
+  dueDateRelative: text("due_date_relative"), // e.g. "3_weeks_before_event", "1_day_after_event"
+  dependsOn: varchar("depends_on"), // ID of another project_task this depends on
+  completedAt: timestamp("completed_at"),
+  sortOrder: integer("sort_order").default(0),
+  isAutomatic: boolean("is_automatic").default(false), // true if created by automation engine
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  tenantIdIdx: index("project_tasks_tenant_id_idx").on(table.tenantId),
+  projectIdIdx: index("project_tasks_project_id_idx").on(table.projectId),
+  statusIdx: index("project_tasks_status_idx").on(table.projectId, table.status),
+}));
+
+// Project Schedule Items (run of day — load-in, soundcheck, sets, breaks, etc.)
+export const projectScheduleItems = pgTable("project_schedule_items", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").references(() => tenants.id).notNull(),
+  projectId: varchar("project_id").references(() => projects.id).notNull(),
+  time: text("time").notNull(), // e.g. "14:00"
+  label: text("label").notNull(), // e.g. "Load In", "Soundcheck", "Set 1"
+  notes: text("notes"), // Additional details
+  sortOrder: integer("sort_order").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  tenantIdIdx: index("project_schedule_tenant_id_idx").on(table.tenantId),
+  projectIdIdx: index("project_schedule_project_id_idx").on(table.projectId),
 }));
 
 // Calendar Integrations
@@ -1435,6 +1497,8 @@ export const insertRepertoireSchema = createInsertSchema(repertoire).omit({ id: 
 export const insertProjectSetlistSchema = createInsertSchema(projectSetlist).omit({ createdAt: true });
 export const insertProjectFileSchema = createInsertSchema(projectFiles).omit({ id: true, createdAt: true });
 export const insertProjectNoteSchema = createInsertSchema(projectNotes).omit({ id: true, createdAt: true });
+export const insertProjectTaskSchema = createInsertSchema(projectTasks).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertProjectScheduleItemSchema = createInsertSchema(projectScheduleItems).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertSmsMessageSchema = createInsertSchema(smsMessages).omit({ id: true, createdAt: true });
 export const insertMessageTemplateSchema = createInsertSchema(messageTemplates).omit({ id: true, createdAt: true, updatedAt: true });
 

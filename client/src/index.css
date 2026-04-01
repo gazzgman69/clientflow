@@ -5,51 +5,73 @@
 @tailwind utilities;
 
 :root {
-  /* Modern Light Theme - Clean & Professional */
-  --background: 0 0% 100%;
-  --foreground: 240 10% 4%;
+  /* Clean Professional Theme - Matching Approved Mockup */
+  --background: 0 0% 96%;
+  --foreground: 221 39% 11%;
   --card: 0 0% 100%;
-  --card-foreground: 240 10% 4%;
+  --card-foreground: 221 39% 11%;
   --popover: 0 0% 100%;
-  --popover-foreground: 240 10% 4%;
-  --primary: 200 100% 60%;
+  --popover-foreground: 221 39% 11%;
+  --primary: 217 91% 60%;
   --primary-foreground: 0 0% 100%;
-  --secondary: 240 10% 96%;
-  --secondary-foreground: 240 10% 20%;
-  --muted: 240 10% 96%;
-  --muted-foreground: 240 4% 46%;
-  --accent: 270 95% 65%;
-  --accent-foreground: 240 10% 8%;
+  --secondary: 220 14% 96%;
+  --secondary-foreground: 220 9% 46%;
+  --muted: 220 14% 96%;
+  --muted-foreground: 220 9% 46%;
+  --accent: 217 91% 60%;
+  --accent-foreground: 0 0% 100%;
   --destructive: 0 85% 55%;
   --destructive-foreground: 0 0% 98%;
-  --border: 240 5% 90%;
-  --input: 240 5% 90%;
-  --ring: 200 100% 60%;
-  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  --radius: 0.75rem;
+  --border: 220 13% 91%;
+  --input: 220 13% 91%;
+  --ring: 217 91% 60%;
+  --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Inter', sans-serif;
+  --radius: 0.5rem;
+
+  /* Sidebar - Dark Navy */
+  --sidebar-background: 221 39% 11%;
+  --sidebar-foreground: 220 13% 91%;
+  --sidebar-primary: 0 0% 100%;
+  --sidebar-primary-foreground: 221 39% 11%;
+  --sidebar-accent: 215 28% 17%;
+  --sidebar-accent-foreground: 0 0% 100%;
+  --sidebar-border: 215 28% 17%;
+  --sidebar-ring: 217 91% 60%;
+  --sidebar-muted-foreground: 218 11% 65%;
 }
 
 .dark {
-  /* Enhanced Dark Mode - Even Sleeker */
-  --background: 240 15% 6%;
+  /* Dark Mode */
+  --background: 221 39% 11%;
   --foreground: 0 0% 97%;
-  --card: 240 15% 9%;
+  --card: 215 28% 17%;
   --card-foreground: 0 0% 94%;
-  --popover: 240 15% 7%;
+  --popover: 215 28% 17%;
   --popover-foreground: 0 0% 97%;
-  --primary: 190 100% 55%;
-  --primary-foreground: 240 15% 6%;
-  --secondary: 240 15% 12%;
+  --primary: 217 91% 60%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 215 28% 17%;
   --secondary-foreground: 0 0% 88%;
-  --muted: 240 15% 11%;
-  --muted-foreground: 0 0% 68%;
-  --accent: 280 100% 70%;
-  --accent-foreground: 240 15% 6%;
+  --muted: 221 39% 11%;
+  --muted-foreground: 218 11% 65%;
+  --accent: 217 91% 60%;
+  --accent-foreground: 0 0% 100%;
   --destructive: 0 90% 58%;
   --destructive-foreground: 0 0% 97%;
-  --border: 240 15% 15%;
-  --input: 240 15% 13%;
-  --ring: 190 100% 55%;
+  --border: 215 28% 22%;
+  --input: 215 28% 22%;
+  --ring: 217 91% 60%;
+
+  /* Sidebar stays the same in dark mode */
+  --sidebar-background: 221 39% 11%;
+  --sidebar-foreground: 220 13% 91%;
+  --sidebar-primary: 0 0% 100%;
+  --sidebar-primary-foreground: 221 39% 11%;
+  --sidebar-accent: 215 28% 17%;
+  --sidebar-accent-foreground: 0 0% 100%;
+  --sidebar-border: 215 28% 17%;
+  --sidebar-ring: 217 91% 60%;
+  --sidebar-muted-foreground: 218 11% 65%;
 }
 
 @layer base {
@@ -69,55 +91,65 @@
   }
 
   .sidebar-link {
-    @apply transition-all duration-300 ease-in-out;
+    @apply transition-all duration-200 ease-in-out;
     border-radius: 0.5rem;
   }
-  
+
   .sidebar-link:hover {
-    @apply bg-muted;
-    opacity: 0.8;
+    background: hsl(var(--sidebar-accent));
+    color: hsl(var(--sidebar-accent-foreground));
     transform: translateX(2px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   }
-  
+
   .sidebar-link.active {
-    @apply bg-primary text-primary-foreground;
-    box-shadow: 0 6px 16px rgba(0, 200, 255, 0.25);
+    background: hsl(var(--sidebar-accent));
+    color: #fff;
+    font-weight: 500;
   }
 
   .metric-card {
-    background: linear-gradient(135deg, hsl(var(--card)) 0%, hsl(var(--muted)) 100%);
+    background: hsl(var(--card));
     border: 1px solid hsl(var(--border));
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-    transition: all 0.3s ease-in-out;
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+    transition: all 0.2s ease-in-out;
   }
-  
+
   .metric-card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
   }
 
   .progress-bar {
-    background: linear-gradient(90deg, hsl(var(--primary)) 0%, hsl(var(--accent)) 100%);
-    box-shadow: 0 2px 8px rgba(0, 200, 255, 0.3);
+    background: hsl(var(--primary));
+    border-radius: 4px;
   }
-  
+
   .glass-effect {
-    backdrop-filter: blur(10px);
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: hsl(var(--card));
+    border: 1px solid hsl(var(--border));
   }
-  
-  .dark-gradient {
-    background: linear-gradient(135deg, hsl(240 15% 9%) 0%, hsl(240 15% 11%) 100%);
+
+  /* Card style matching mockup */
+  .mockup-card {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 20px;
   }
-  
-  .glow-primary {
-    box-shadow: 0 0 20px rgba(0, 200, 255, 0.3);
+
+  .mockup-card-header {
+    font-size: 15px;
+    font-weight: 600;
+    color: #111827;
+    margin-bottom: 16px;
   }
-  
-  .glow-accent {
-    box-shadow: 0 0 20px rgba(140, 100, 255, 0.3);
+
+  .mockup-field-label {
+    font-size: 12px;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 4px;
   }
 
   /* Focus ring fixes resolved by removing overflow-hidden from dialog containers */

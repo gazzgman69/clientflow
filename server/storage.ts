@@ -4338,18 +4338,18 @@ export class DrizzleStorage implements IStorage {
     }
     
     // Get the contact to find its leadId
-    const contact = await db.select().from(contacts).where(and(
+    const contact = await this.db.select().from(contacts).where(and(
       eq(contacts.id, contactId),
       eq(contacts.tenantId, tenantId)
     )).limit(1);
-    
+
     if (!contact[0] || !contact[0].leadId) {
       console.log('ℹ️ No lead associated with contact, skipping event linking', { contactId, projectId, tenantId });
       return 0; // No lead associated with this contact
     }
-    
+
     const leadId = contact[0].leadId;
-    
+
     console.log('🔗 LINKING LEAD EVENTS TO PROJECT', {
       action: 'linkLeadEventsToProject',
       leadId,
@@ -4358,18 +4358,18 @@ export class DrizzleStorage implements IStorage {
       tenantId,
       timestamp: new Date().toISOString()
     });
-    
+
     // Get all events for this lead that don't already have a projectId
-    const leadEvents = await db.select().from(events).where(and(
+    const leadEvents = await this.db.select().from(events).where(and(
       eq(events.leadId, leadId),
       eq(events.tenantId, tenantId),
       isNull(events.projectId)
     ));
-    
+
     let linkedCount = 0;
-    
+
     for (const event of leadEvents) {
-      await db.update(events)
+      await this.db.update(events)
         .set({
           projectId: projectId,
           updatedAt: new Date()

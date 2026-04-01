@@ -3265,11 +3265,15 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
       };
       const project = await storage.createProject(projectWithUser, req.tenantId);
 
-      // Link lead events to project if applicable
+      // Link lead events to project if applicable (non-blocking — don't let linking errors crash project creation)
       if (project.contactId) {
-        const linkedCount = await storage.linkLeadEventsToProject(project.contactId, project.id, req.tenantId);
-        if (linkedCount > 0) {
-          console.log(`🔗 Linked ${linkedCount} lead event(s) to new project ${project.id}`);
+        try {
+          const linkedCount = await storage.linkLeadEventsToProject(project.contactId, project.id, req.tenantId);
+          if (linkedCount > 0) {
+            console.log(`🔗 Linked ${linkedCount} lead event(s) to new project ${project.id}`);
+          }
+        } catch (linkError) {
+          console.error('⚠️ Failed to link lead events to project (non-blocking):', linkError);
         }
 
         // Trigger lead status automator when project is created from a lead (legacy support)

@@ -100,10 +100,9 @@ export default function Sidebar() {
       {/* Logo/Brand */}
       <div className="p-6" style={{ borderBottom: '1px solid #1f2937' }}>
         <div className="flex items-center space-x-3">
-          <span className="font-bold text-lg text-white">CLIENTFLOW</span>
+          <span className="font-bold text-lg text-white">ClientFlow</span>
         </div>
       </div>
-
       {/* Navigation Menu */}
       <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
         {navigationItems.map((item) => {
@@ -136,7 +135,6 @@ export default function Sidebar() {
                   </span>
                 )}
               </Link>
-
               {/* Sub-items */}
               {hasSubItems && (
                 <div className="ml-7 mt-1 space-y-1">
@@ -174,7 +172,6 @@ export default function Sidebar() {
           );
         })}
       </nav>
-
       {/* User Profile */}
       <div className="p-4" style={{ borderTop: '1px solid #1f2937' }}>
         <DropdownMenu>

@@ -146,7 +146,7 @@ export default function ClientPortal() {
   // Payment mutation - fixed to use correct endpoint
   const createPaymentMutation = useMutation({
     mutationFn: async (invoiceId: string) => {
-      return apiRequest("POST", "/api/portal/payments/create-payment-intent", { invoiceId });
+      const response = await apiRequest("POST", "/api/portal/payments/create-payment-intent", { invoiceId });
       if (!response.ok) throw new Error("Failed to create payment");
       return response.json();
     },

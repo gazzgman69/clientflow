@@ -73,6 +73,45 @@ export default function Automations() {
     },
   });
 
+  const toggleAutomationMutation = useMutation({
+    mutationFn: async ({ id, isActive }: { id: string; isActive: boolean }) => {
+      const response = await apiRequest("PATCH", `/api/automations/${id}`, { isActive });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/automations"] });
+      toast({ title: "Automation updated" });
+    },
+    onError: () => {
+      toast({ title: "Failed to update automation", variant: "destructive" });
+    },
+  });
+
+  const deleteAutomationMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return apiRequest("DELETE", `/api/automations/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/automations"] });
+      toast({ title: "Automation deleted" });
+    },
+    onError: () => {
+      toast({ title: "Failed to delete automation", variant: "destructive" });
+    },
+  });
+
+  const handleEditAutomation = (automation: any) => {
+    setEditingAutomation(automation);
+    form.reset({
+      name: automation.name,
+      description: automation.description || "",
+      trigger: automation.trigger,
+      actions: automation.actions,
+      isActive: automation.isActive,
+    });
+    setShowAutomationModal(true);
+  };
+
   const onSubmit = (data: z.infer<typeof automationFormSchema>) => {
     createAutomationMutation.mutate(data);
   };
@@ -241,13 +280,13 @@ export default function Automations() {
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center space-x-2">
-                          <Button variant="ghost" size="sm" data-testid={`toggle-automation-${automation.id}`}>
+                          <Button variant="ghost" size="sm" data-testid={`toggle-automation-${automation.id}`} onClick={() => toggleAutomationMutation.mutate({ id: automation.id!, isActive: !automation.isActive })}>
                             {automation.isActive ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
                           </Button>
-                          <Button variant="ghost" size="sm" data-testid={`edit-automation-${automation.id}`}>
+                          <Button variant="ghost" size="sm" data-testid={`edit-automation-${automation.id}`} onClick={() => handleEditAutomation(automation)}>
                             <Edit className="h-4 w-4" />
                           </Button>
-                          <Button variant="ghost" size="sm" data-testid={`delete-automation-${automation.id}`}>
+                          <Button variant="ghost" size="sm" data-testid={`delete-automation-${automation.id}`} onClick={() => deleteAutomationMutation.mutate(automation.id!)}>
                             <Trash2 className="h-4 w-4" />
                           </Button>
                         </div>

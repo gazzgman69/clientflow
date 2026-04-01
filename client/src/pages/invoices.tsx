@@ -41,7 +41,7 @@ export default function Invoices() {
   });
 
   const { data: clients } = useQuery<Client[]>({
-    queryKey: ["/api/clients"],
+    queryKey: ["/api/contacts"],
   });
 
   const { data: projects } = useQuery<Project[]>({

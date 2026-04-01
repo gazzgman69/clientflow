@@ -31,6 +31,8 @@ const staticNavigationItems = [
   { href: "/members", icon: Music, label: "Members", emoji: "🎵", badge: null },
   { href: "/repertoire", icon: ListMusic, label: "Repertoire", emoji: "🎶", badge: null },
   { href: "/performer-contracts", icon: FileText, label: "Performer Contracts", emoji: "📄", badge: null },
+  { href: "/quotes", icon: FileText, label: "Quotes", emoji: "📝", badge: null },
+  { href: "/invoices", icon: Receipt, label: "Invoices", emoji: "💰", badge: null },
   { href: "/venues", icon: MapPin, label: "Venues", emoji: "📍", badge: null },
   { href: "/documents", icon: FolderOpen, label: "Documents", emoji: "📁", badge: null },
   { href: "/scheduler", icon: Calendar, label: "Scheduler", emoji: "📅", badge: null },

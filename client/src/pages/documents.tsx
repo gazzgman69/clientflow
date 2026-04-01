@@ -341,7 +341,7 @@ export default function Documents() {
                               <Eye className="mr-2 h-4 w-4" />
                               View
                             </DropdownMenuItem>
-                            <DropdownMenuItem data-testid={`action-edit-${doc.id}`}>
+                            <DropdownMenuItem data-testid={`action-edit-${doc.id}`} onClick={() => { setSelectedDocument(doc); }}>
                               <Edit className="mr-2 h-4 w-4" />
                               Edit
                             </DropdownMenuItem>

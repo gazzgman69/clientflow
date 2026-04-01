@@ -100,7 +100,7 @@ export default function Sidebar() {
       {/* Logo/Brand */}
       <div className="p-6" style={{ borderBottom: '1px solid #1f2937' }}>
         <div className="flex items-center space-x-3">
-          <span className="font-bold text-lg text-white">ClientFlow</span>
+          <span className="font-bold text-lg text-white">CLIENTFLOW</span>
         </div>
       </div>
 

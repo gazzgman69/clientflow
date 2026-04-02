@@ -463,6 +463,7 @@ export interface IStorage {
   getVenues(tenantId: string, limit?: number, offset?: number): Promise<Venue[]>;
   getVenuesCount(tenantId: string): Promise<number>;
   getVenue(id: string, tenantId: string): Promise<Venue | undefined>;
+  getVenueById(id: string): Promise<Venue | undefined>;
   createVenue(venue: InsertVenue, tenantId: string): Promise<Venue>;
   updateVenue(id: string, venue: Partial<InsertVenue>, tenantId: string): Promise<Venue | undefined>;
   deleteVenue(id: string, tenantId: string): Promise<boolean>;
@@ -2419,9 +2420,13 @@ export class MemStorage implements IStorage {
     if (!tenantId) {
       throw new Error("SECURITY: tenantId is required to prevent cross-tenant data access");
     }
-    
+
     const venue = this.venues.get(id);
     return venue && venue.tenantId === tenantId ? venue : undefined;
+  }
+
+  async getVenueById(id: string): Promise<Venue | undefined> {
+    return this.venues.get(id);
   }
 
   async createVenue(insertVenue: InsertVenue): Promise<Venue> {
@@ -6194,9 +6199,15 @@ export class DrizzleStorage implements IStorage {
     if (!tenantId) {
       throw new Error("SECURITY: tenantId is required to prevent cross-tenant data access");
     }
-    
+
     const result = await this.db.select().from(venues)
       .where(and(eq(venues.id, id), eq(venues.tenantId, tenantId)));
+    return result[0];
+  }
+
+  // Tenant-agnostic lookup — use only for public endpoints that need address fields only
+  async getVenueById(id: string): Promise<Venue | undefined> {
+    const result = await this.db.select().from(venues).where(eq(venues.id, id));
     return result[0];
   }
 

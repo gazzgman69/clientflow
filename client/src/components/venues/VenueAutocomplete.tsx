@@ -193,8 +193,8 @@ export function VenueAutocomplete({
 
       // Handle cached venues differently
       if (prediction.cached && prediction.venueId) {
-        // For cached venues, fetch the venue directly from our database
-        const response = await fetch(`/api/venues/${prediction.venueId}`, {
+        // For cached venues, fetch details from the public endpoint (works without auth on public forms)
+        const response = await fetch(`/api/venues/${prediction.venueId}/public`, {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',

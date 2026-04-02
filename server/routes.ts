@@ -407,6 +407,22 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
 
+  // Public venue details endpoint for lead capture forms (no auth required)
+  // Needed when a visitor selects a cached venue from the autocomplete dropdown
+  app.get('/api/venues/:id/public', async (req, res) => {
+    try {
+      const { venuesService } = await import('./src/services/venues');
+      const venue = await venuesService.getVenuePublic(req.params.id);
+      if (!venue) {
+        return res.status(404).json({ message: 'Venue not found' });
+      }
+      res.json(venue);
+    } catch (error) {
+      console.error('Error fetching public venue details:', error);
+      res.status(500).json({ message: 'Failed to fetch venue details' });
+    }
+  });
+
   // Venue routes with authentication, tenant resolution and CSRF protection (except for public endpoints used by lead capture forms)
   app.use('/api/venues', ...withTenantSecurity(ensureUserAuth, tenantResolver, requireTenant), (req, res, next) => {
     console.log(`🔍 VENUES DEBUG: path="${req.path}", method="${req.method}"`);

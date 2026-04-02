@@ -343,7 +343,8 @@ export default function LeadFormHosted({ slug }: LeadFormHostedProps) {
                 
               // Store the full address as the main value
               handleInputChange(question.mapTo, fullAddress);
-              // Also store detailed venue information if needed
+              // Also store detailed venue information for server-side processing
+              if (venue.placeId) handleInputChange(`${question.mapTo}PlaceId`, venue.placeId);
               if (venue.city) handleInputChange(`${question.mapTo}City`, venue.city);
               if (venue.state) handleInputChange(`${question.mapTo}State`, venue.state);
               if (venue.zipCode) handleInputChange(`${question.mapTo}ZipCode`, venue.zipCode);

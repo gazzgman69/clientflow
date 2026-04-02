@@ -748,6 +748,27 @@ export class VenuesService {
   }
 
   /**
+   * Get venue by ID without tenant check — for public lead capture forms only.
+   * Returns only safe address fields (no sensitive business data).
+   */
+  async getVenuePublic(venueId: string): Promise<Pick<Venue, 'id' | 'name' | 'address' | 'city' | 'state' | 'zipCode' | 'country' | 'placeId' | 'latitude' | 'longitude'> | null> {
+    const result = await storage.getVenueById(venueId);
+    if (!result) return null;
+    return {
+      id: result.id,
+      name: result.name,
+      address: result.address,
+      city: result.city,
+      state: result.state,
+      zipCode: result.zipCode,
+      country: result.country,
+      placeId: result.placeId,
+      latitude: result.latitude,
+      longitude: result.longitude,
+    };
+  }
+
+  /**
    * Delete venue
    */
   async deleteVenue(venueId: string, tenantId: string): Promise<boolean> {

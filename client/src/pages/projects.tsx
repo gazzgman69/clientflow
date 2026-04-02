@@ -5,6 +5,7 @@ import Header from "@/components/layout/header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Progress } from "@/components/ui/progress";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -346,6 +347,20 @@ export default function Projects() {
     createProjectMutation.mutate(data);
   };
 
+  const handleProjectStatusChange = async (projectId: string, newStatus: string) => {
+    try {
+      const csrfRes = await fetch('/api/csrf-token');
+      const { csrfToken } = await csrfRes.json();
+      await fetch(`/api/projects/${projectId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken },
+        body: JSON.stringify({ status: newStatus }),
+      });
+      queryClient.invalidateQueries({ queryKey: ['/api/projects'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/projects/status-counts'] });
+    } catch (e) { console.error('Status update failed', e); }
+  };
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'new': return 'bg-emerald-100 text-emerald-800';
@@ -564,10 +579,21 @@ export default function Projects() {
                       <TableCell data-testid={`project-venue-${project.id}`}>
                         {formatVenueAddress(project)}
                       </TableCell>
-                      <TableCell data-testid={`project-status-${project.id}`}>
-                        <Badge className={getStatusColor(project.status)}>
-                          {getStatusLabel(project.status)}
-                        </Badge>
+                      <TableCell data-testid={`project-status-${project.id}`} onClick={(e) => e.stopPropagation()}>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <span className={`${getStatusColor(project.status)} cursor-pointer hover:opacity-80 inline-flex items-center rounded-md px-2.5 py-0.5 text-xs font-semibold`}>
+                              {getStatusLabel(project.status)}
+                            </span>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="start">
+                            {['new','contacted','hold','proposal_sent','booked','completed','lost','cancelled','archived'].map(s => (
+                              <DropdownMenuItem key={s} onClick={(e) => { e.stopPropagation(); handleProjectStatusChange(project.id, s); }} className={project.status === s ? 'bg-muted font-semibold' : ''}>
+                                {getStatusLabel(s)}
+                              </DropdownMenuItem>
+                            ))}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </TableCell>
                       <TableCell data-testid={`project-documents-${project.id}`}>
                         <DocumentStatusIndicators 

@@ -7085,30 +7085,38 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
         requiresCounterSignature: ct.status === 'awaiting_counter_signature',
       }));
 
-      // Pending enquiries (contacts created recently with no project)
+      // Pending enquiries: (1) contacts without any project, (2) projects with status 'new'
       const enquiryRows = await pool.query(
-        `SELECT c.id, c.first_name, c.last_name, c.email, c.created_at
+        `SELECT c.id as contact_id, c.first_name, c.last_name, c.email, c.created_at,
+                NULL::varchar as project_id, NULL::text as project_name
          FROM contacts c
          WHERE c.tenant_id = $1
            AND c.created_at > NOW() - INTERVAL '30 days'
            AND NOT EXISTS (
              SELECT 1 FROM projects p WHERE p.contact_id = c.id AND p.tenant_id = $1
            )
-         ORDER BY c.created_at DESC
+         UNION ALL
+         SELECT c.id as contact_id, c.first_name, c.last_name, c.email, p.created_at,
+                p.id as project_id, p.name as project_name
+         FROM projects p
+         LEFT JOIN contacts c ON c.id = p.contact_id AND c.tenant_id = $1
+         WHERE p.tenant_id = $1
+           AND p.status = 'new'
+         ORDER BY created_at DESC
          LIMIT 10`,
         [tenantId]
       );
 
       const pendingEnquiries = enquiryRows.rows.map((e: any) => ({
-        id: e.id,
+        id: e.contact_id,
         type: 'enquiry',
         title: `New Enquiry from ${e.first_name} ${e.last_name}`,
         clientName: `${e.first_name} ${e.last_name}`.trim(),
-        projectName: 'No project yet',
+        projectName: e.project_name || 'No project yet',
         sentDate: e.created_at,
         status: 'new',
-        contactId: e.id,
-        projectId: null,
+        contactId: e.contact_id,
+        projectId: e.project_id || null,
         isOverdue: false,
         urgency: 'medium',
       }));

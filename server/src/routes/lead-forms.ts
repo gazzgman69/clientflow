@@ -1355,6 +1355,7 @@ router.post('/:slug/submit', formSubmissionLimiter, async (req, res) => {
     res.json({
       ok: true,
       leadId: lead.id,
+      _debug: { formTenantId: form.tenantId, leadTenantId: lead.tenantId, storageClass: (storage as any).constructor?.name },
       afterSubmit: {
         type: 'message',
         message: 'Thank you! We will be in touch soon.'

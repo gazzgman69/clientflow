@@ -215,6 +215,28 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     });
   });
 
+  // Debug endpoint: raw leads from DB regardless of tenant (no auth — diagnostic only, remove before prod)
+  app.get('/api/debug/leads-raw', async (req, res) => {
+    try {
+      const result = await db.execute(sql.raw(`SELECT id, tenant_id, email, full_name, status, created_at FROM leads ORDER BY created_at DESC LIMIT 10`));
+      res.set('Cache-Control', 'no-store');
+      res.status(200).json({ rows: result.rows, count: result.rows.length });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // Debug endpoint: raw form submissions from DB
+  app.get('/api/debug/form-submissions-raw', async (req, res) => {
+    try {
+      const result = await db.execute(sql.raw(`SELECT id, tenant_id, form_id, lead_id, status, created_at FROM form_submissions ORDER BY created_at DESC LIMIT 10`));
+      res.set('Cache-Control', 'no-store');
+      res.status(200).json({ rows: result.rows, count: result.rows.length });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   // Readiness check - comprehensive dependency verification
   app.get('/api/ready', readinessLimiter, async (req, res) => {
     res.set('Cache-Control', 'no-store');

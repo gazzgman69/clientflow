@@ -3660,11 +3660,17 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
 
   app.post("/api/invoices", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
     try {
-      const invoiceData = insertInvoiceSchema.parse({ ...req.body, tenantId: req.tenantId, createdBy: req.session.userId! });
+      // Auto-generate invoiceNumber if not provided (schema requires it but clients shouldn't have to supply it)
+      const bodyWithNumber = {
+        ...req.body,
+        invoiceNumber: req.body.invoiceNumber || `INV-${Date.now()}`,
+      };
+      const invoiceData = insertInvoiceSchema.parse({ ...bodyWithNumber, tenantId: req.tenantId, createdBy: req.session.userId! });
       const invoice = await storage.createInvoice(invoiceData, req.tenantId);
       res.status(201).json(invoice);
     } catch (error) {
-      res.status(400).json({ message: "Invalid invoice data" });
+      console.error('Invoice creation error:', error);
+      res.status(400).json({ message: "Invalid invoice data", error: error instanceof Error ? error.message : String(error) });
     }
   });
 

@@ -650,9 +650,10 @@ router.post('/:slug/submit', formSubmissionLimiter, async (req, res) => {
               // Skip contact creation, use existing contact for project creation
               const projectData = {
                 ...mappingResult.projectData,
-                name: `${mappingResult.leadData.event_type || 'Project'} - ${existingContact.firstName} ${existingContact.lastName}`,
+                name: `${existingContact.firstName} ${existingContact.lastName} - ${mappingResult.leadData.event_type || 'Event'}`,
                 contactId: existingContact.id,
-                status: 'active' as const,
+                venueAddress: mappingResult.contactData.venueAddress || null,
+                status: 'new' as const,
                 userId
               };
               
@@ -1095,11 +1096,13 @@ router.post('/:slug/submit', formSubmissionLimiter, async (req, res) => {
     const projectStartTime = Date.now();
     const projectData = {
       ...mappingResult.projectData,
-      name: `${mappingResult.leadData.eventType || 'Event'} - ${nameParts.fullName || 'Unknown'}`,
+      name: `${nameParts.fullName || 'Unknown'} - ${mappingResult.leadData.eventType || 'Event'}`,
       description: `${mappingResult.leadData.eventType || 'Event'} at ${mappingResult.contactData.venueAddress || 'TBD'}`,
       contactId: contact.id,
       venueId: createdVenue?.id || null, // Link project to venue if created
-      status: 'pending' as const,
+      // Always copy venueAddress directly so it's preserved even if venue record creation fails
+      venueAddress: mappingResult.contactData.venueAddress || null,
+      status: 'new' as const,  // 'pending' is not a valid status — must be 'new' so it appears in the CRM
       progress: 0,
       userId,
       // Copy project date from lead to project start date for proper conflict detection

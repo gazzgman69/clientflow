@@ -144,6 +144,9 @@ export default function PendingItems() {
       setLocation(`/contracts/${item.id}`);
     } else if (item.type === "invoice") {
       setLocation(item.projectId ? `/projects/${item.projectId}` : "/invoices");
+    } else if (item.type === "enquiry") {
+      // Go to the project if one exists, otherwise fall back to the contact
+      setLocation(item.projectId ? `/projects/${item.projectId}` : `/contacts/${item.contactId}`);
     } else {
       setLocation(`/contacts/${item.contactId}`);
     }

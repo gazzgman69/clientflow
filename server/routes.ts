@@ -47,6 +47,7 @@ import { icalService } from "./src/services/ical";
 import { emailDispatcher } from "./src/services/email-dispatcher";
 import { emailRenderer } from "./src/services/emailRenderer";
 import { leadStatusAutomator } from "./src/services/lead-status-automator";
+import { projectStatusAutomator } from "./src/services/project-status-automator";
 import oauthRoutes from "./src/routes/oauth";
 import emailOAuthRoutes from "./src/routes/email-oauth";
 import emailRoutes from "./src/routes/email";
@@ -5280,6 +5281,12 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
           return res.status(404).json({ message: "Failed to update contract" });
         }
 
+        // Auto-status: project proposal_sent → booked (if also has paid invoice)
+        if (updatedContract.projectId) {
+          projectStatusAutomator.onBookingConditionMet(updatedContract.projectId, tenantId).catch(err =>
+            console.error('[ProjectStatusAutomator] contract sign hook:', err)
+          );
+        }
         res.json({ 
           message: "Contract counter-signed successfully",
           contract: updatedContract 
@@ -5300,6 +5307,12 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
       });
       if (!contract) {
         return res.status(404).json({ message: "Contract not found" });
+      }
+      // Auto-status: project new/contacted → proposal_sent
+      if (contract.projectId) {
+        projectStatusAutomator.onDocumentSent(contract.projectId, req.tenantId!).catch(err =>
+          console.error('[ProjectStatusAutomator] contract send hook:', err)
+        );
       }
       res.json(contract);
     } catch (error) {
@@ -5450,6 +5463,12 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
       if (!invoice) {
         return res.status(404).json({ message: "Invoice not found" });
       }
+      // Auto-status: project new/contacted → proposal_sent
+      if (invoice.projectId) {
+        projectStatusAutomator.onDocumentSent(invoice.projectId, req.tenantId!).catch(err =>
+          console.error('[ProjectStatusAutomator] invoice send hook:', err)
+        );
+      }
       res.json(invoice);
     } catch (error) {
       res.status(500).json({ message: "Failed to send invoice" });
@@ -5464,6 +5483,12 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
       });
       if (!invoice) {
         return res.status(404).json({ message: "Invoice not found" });
+      }
+      // Auto-status: project proposal_sent → booked (if also has signed contract)
+      if (invoice.projectId) {
+        projectStatusAutomator.onBookingConditionMet(invoice.projectId, req.tenantId!).catch(err =>
+          console.error('[ProjectStatusAutomator] invoice pay hook:', err)
+        );
       }
       res.json(invoice);
     } catch (error) {
@@ -5558,6 +5583,12 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
         sentAt: new Date(),
         status: 'sent'
       }, req.tenantId);
+      // Auto-status: project new → contacted (manual emails only, not auto-responders)
+      if (email.direction === 'outbound' && email.projectId) {
+        projectStatusAutomator.onEmailSent(email.projectId, req.tenantId!).catch(err =>
+          console.error('[ProjectStatusAutomator] email hook:', err)
+        );
+      }
       res.status(201).json(email);
     } catch (error) {
       res.status(400).json({ message: "Invalid email data" });

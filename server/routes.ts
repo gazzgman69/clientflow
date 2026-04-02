@@ -201,6 +201,20 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     });
   });
 
+  // Debug endpoint: identify runtime storage type and git commit
+  app.get('/api/debug/info', (req, res) => {
+    const { execSync } = require('child_process');
+    let gitHash = 'unknown';
+    try { gitHash = execSync('git rev-parse HEAD', { timeout: 3000 }).toString().trim(); } catch {}
+    res.set('Cache-Control', 'no-store');
+    res.status(200).json({
+      storageClass: storage.constructor.name,
+      gitHash,
+      nodeEnv: process.env.NODE_ENV,
+      timestamp: new Date().toISOString()
+    });
+  });
+
   // Readiness check - comprehensive dependency verification
   app.get('/api/ready', readinessLimiter, async (req, res) => {
     res.set('Cache-Control', 'no-store');

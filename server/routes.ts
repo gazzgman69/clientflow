@@ -3422,7 +3422,14 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
 
   app.patch("/api/projects/:id", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
     try {
-      const projectData = insertProjectSchema.partial().parse(req.body);
+      // Convert ISO date strings to Date objects before schema validation
+      const bodyWithDates = {
+        ...req.body,
+        startDate: req.body.startDate ? new Date(req.body.startDate) : undefined,
+        endDate: req.body.endDate ? new Date(req.body.endDate) : undefined,
+        holdExpiresAt: req.body.holdExpiresAt ? new Date(req.body.holdExpiresAt) : undefined,
+      };
+      const projectData = insertProjectSchema.partial().parse(bodyWithDates);
       const project = await storage.updateProject(req.params.id, projectData, req.tenantId!);
       if (!project) {
         return res.status(404).json({ message: "Project not found" });

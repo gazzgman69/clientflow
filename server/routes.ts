@@ -7231,7 +7231,26 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
         urgency: 'medium',
       }));
 
-      const allPending = [...pendingInvoices, ...pendingContracts, ...pendingEnquiries];
+      const quoteRows = await pool.query(
+        `SELECT q.id, q.quote_number, q.title, q.status, q.total, q.created_at, q.valid_until, q.contact_id,
+                c.first_name, c.last_name
+         FROM quotes q
+         LEFT JOIN contacts c ON c.id = q.contact_id AND c.tenant_id = $1
+         WHERE q.tenant_id = $1 AND q.status = 'sent'
+         ORDER BY q.created_at ASC LIMIT 20`,
+        [tenantId]
+      );
+      const pendingQuotes = quoteRows.rows.map((q) => ({
+        id: q.id, type: 'quote',
+        title: q.title || q.quote_number || 'Quote',
+        clientName: q.first_name ? `${q.first_name} ${q.last_name}`.trim() : 'Unknown Client',
+        projectName: '', sentDate: q.created_at, dueDate: q.valid_until,
+        amount: parseFloat(q.total || '0'), status: q.status,
+        contactId: q.contact_id, projectId: null,
+        isOverdue: q.valid_until ? new Date(q.valid_until) < now : false,
+        urgency: 'medium',
+      }));
+      const allPending = [...pendingInvoices, ...pendingContracts, ...pendingEnquiries, ...pendingQuotes];
       res.json(allPending);
     } catch (error) {
       console.error('Error fetching pending items:', error);

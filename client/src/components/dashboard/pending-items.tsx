@@ -13,6 +13,7 @@ import {
   CheckCircle2,
   ChevronDown,
   ChevronRight,
+  FilePen,
 } from "lucide-react";
 import { format } from "date-fns";
 import { useQuery } from "@tanstack/react-query";
@@ -20,7 +21,7 @@ import { useLocation } from "wouter";
 
 interface PendingItem {
   id: string;
-  type: "invoice" | "contract" | "enquiry";
+  type: "invoice" | "contract" | "enquiry" | "quote";
   title: string;
   clientName: string;
   projectName: string;
@@ -50,6 +51,7 @@ function buildGroups(items: PendingItem[]): Group[] {
   const overdueCtx  = items.filter(i => i.type === "contract" && i.isOverdue);
   const pendingInv  = items.filter(i => i.type === "invoice"  && !i.isOverdue);
   const pendingCtx  = items.filter(i => i.type === "contract" && !i.isOverdue);
+  const pendingQts  = items.filter(i => i.type === "quote");
 
   const groups: Group[] = [
     {
@@ -75,6 +77,14 @@ function buildGroups(items: PendingItem[]): Group[] {
       accentColor: "border-l-red-400",
       headerColor: "bg-red-50 dark:bg-red-900/20",
       countColor: "bg-red-100 text-red-700",
+    },
+    {
+      key: "pending-quotes",
+      label: "Awaiting Approval",
+      items: pendingQts,
+      accentColor: "border-l-amber-400",
+      headerColor: "bg-amber-50 dark:bg-amber-900/20",
+      countColor: "bg-amber-100 text-amber-700",
     },
     {
       key: "pending-invoices",
@@ -114,6 +124,7 @@ export default function PendingItems() {
       case "invoice":  return <CreditCard className="h-4 w-4 text-emerald-500" />;
       case "contract": return <FileCheck   className="h-4 w-4 text-blue-500" />;
       case "enquiry":  return <Mail        className="h-4 w-4 text-purple-500" />;
+      case "quote":    return <FilePen     className="h-4 w-4 text-amber-500" />;
       default:         return <FileText    className="h-4 w-4 text-gray-500" />;
     }
   };
@@ -135,6 +146,7 @@ export default function PendingItems() {
       case "invoice":  return <Badge className="bg-amber-100  text-amber-700  text-xs">Awaiting Payment</Badge>;
       case "contract": return <Badge className="bg-blue-100   text-blue-700   text-xs">Awaiting Signature</Badge>;
       case "enquiry":  return <Badge className="bg-purple-100 text-purple-700 text-xs">New Enquiry</Badge>;
+      case "quote":    return <Badge className="bg-amber-100  text-amber-700  text-xs">Awaiting Approval</Badge>;
       default:         return <Badge variant="outline" className="text-xs">{item.status}</Badge>;
     }
   };
@@ -147,6 +159,8 @@ export default function PendingItems() {
     } else if (item.type === "enquiry") {
       // Go to the project if one exists, otherwise fall back to the contact
       setLocation(item.projectId ? `/projects/${item.projectId}` : `/contacts/${item.contactId}`);
+    } else if (item.type === "quote") {
+      setLocation(`/quotes/${item.id}`);
     } else {
       setLocation(`/contacts/${item.contactId}`);
     }

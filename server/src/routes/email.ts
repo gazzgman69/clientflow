@@ -414,7 +414,11 @@ router.post('/send', requireAuth, upload.array('attachments', 10), async (req: a
           await storage.createEmail({
             tenantId,
             userId,
-            threadId: result.messageId,
+            // Use Gmail threadId for proper threading; fall back to messageId
+            threadId: result.threadId || result.messageId,
+            // Store Gmail messageId as providerMessageId so background sync can deduplicate
+            providerMessageId: result.messageId,
+            provider: 'gmail',
             fromEmail: result.fromEmail || req.user?.email || '',
             toEmails: [validatedEmailData.to],
             ccEmails: validatedEmailData.cc ? [validatedEmailData.cc] : [],

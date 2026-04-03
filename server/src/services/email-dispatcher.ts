@@ -15,6 +15,7 @@ export interface DispatchEmailParams {
 export interface DispatchEmailResult {
   ok: boolean;
   messageId?: string;
+  threadId?: string;
   provider?: 'google' | 'microsoft';
   warning?: string;
   error?: string;
@@ -116,6 +117,7 @@ export class EmailDispatcher {
           return {
             ok: true,
             messageId: result.messageId,
+            threadId: result.threadId,
             provider: 'google',
             warning: result.warning,
             fromEmail: googleIntegration.accountEmail || ''

@@ -112,7 +112,7 @@ export class GmailEmailProvider {
   /**
    * Send email via Gmail API
    */
-  async sendEmail(integration: EmailProviderIntegration, params: SendEmailParams): Promise<{ messageId: string; warning?: string }> {
+  async sendEmail(integration: EmailProviderIntegration, params: SendEmailParams): Promise<{ messageId: string; threadId: string; warning?: string }> {
     // Decrypt secrets if using new format
     let access_token = integration.accessTokenEnc || '';
     let refresh_token = integration.refreshTokenEnc || '';
@@ -243,6 +243,7 @@ export class GmailEmailProvider {
 
       return {
         messageId: response.data.id || '',
+        threadId: response.data.threadId || response.data.id || '',
         warning
       };
     } catch (error: any) {

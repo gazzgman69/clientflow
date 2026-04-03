@@ -2,7 +2,6 @@ import Header from "@/components/layout/header";
 import DashboardCalendar from "@/components/dashboard/dashboard-calendar";
 import RecentClientActivity from "@/components/dashboard/recent-client-activity";
 import PendingItems from "@/components/dashboard/pending-items";
-import BusinessPriorities from "@/components/dashboard/business-priorities";
 import EmailThreadsWidget from "@/components/dashboard/email-threads-widget";
 import CompactMetrics from "@/components/dashboard/compact-metrics";
 
@@ -21,10 +20,9 @@ export default function Dashboard() {
         {/* Row 2: Two-column layout matching mockup */}
         <div className="flex gap-4 min-h-0" style={{ alignItems: "flex-start" }}>
 
-          {/* LEFT: Action Required + Business Priorities (flexible width) */}
+          {/* LEFT: Action Required (flexible width) */}
           <div className="flex-1 min-w-0 space-y-4">
             <PendingItems />
-            <BusinessPriorities />
           </div>
 
           {/* RIGHT: Calendar + Activity + Email (~360px fixed) */}

@@ -374,7 +374,11 @@ app.use('/auth', (req, res, next) => {
       // Lead automation: every 5 minutes (300000ms) - processes all tenants
       await jobs.enqueueRecurring('lead-automation', {}, 5 * 60 * 1000, { tenantId: 'system' });
       console.log('✅ Lead automation job scheduled (every 5 minutes)');
-      
+
+      // Booking reminders: every 60 minutes - sends reminders for upcoming bookings
+      await jobs.enqueueRecurring('booking-reminders', {}, 60 * 60 * 1000, { tenantId: 'system' });
+      console.log('✅ Booking reminders job scheduled (every 60 minutes)');
+
       // Auto-responder worker: every 30 seconds (30000ms)
       const { autoResponderWorker } = await import('./src/services/auto-responder-worker');
       autoResponderWorker.start();

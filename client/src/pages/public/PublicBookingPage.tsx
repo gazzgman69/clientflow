@@ -5,138 +5,243 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { Calendar as CalendarIcon, Clock, CheckCircle, Loader2 } from 'lucide-react';
+import {
+  Clock,
+  CheckCircle,
+  Loader2,
+  ChevronLeft,
+  ChevronRight,
+} from 'lucide-react';
 import type { BookableService, AvailabilitySchedule } from '@shared/schema';
 
 interface PublicBookingPageProps {
   slug: string;
 }
 
+// ─── Mini Calendar ────────────────────────────────────────────────────────────
+
+function MiniCalendar({
+  selectedDate,
+  onSelect,
+  minDate,
+  maxDate,
+}: {
+  selectedDate: string;
+  onSelect: (date: string) => void;
+  minDate: Date;
+  maxDate?: Date;
+}) {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const [viewYear, setViewYear] = useState(
+    selectedDate ? new Date(selectedDate + 'T00:00:00').getFullYear() : today.getFullYear()
+  );
+  const [viewMonth, setViewMonth] = useState(
+    selectedDate ? new Date(selectedDate + 'T00:00:00').getMonth() : today.getMonth()
+  );
+
+  const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
+  const firstDayOfMonth = new Date(viewYear, viewMonth, 1).getDay(); // 0=Sun
+
+  const monthName = new Date(viewYear, viewMonth).toLocaleString('default', {
+    month: 'long',
+    year: 'numeric',
+  });
+
+  function prevMonth() {
+    if (viewMonth === 0) { setViewMonth(11); setViewYear(y => y - 1); }
+    else setViewMonth(m => m - 1);
+  }
+  function nextMonth() {
+    if (viewMonth === 11) { setViewMonth(0); setViewYear(y => y + 1); }
+    else setViewMonth(m => m + 1);
+  }
+
+  function formatDay(day: number): string {
+    const month = String(viewMonth + 1).padStart(2, '0');
+    return `${viewYear}-${month}-${String(day).padStart(2, '0')}`;
+  }
+
+  function isDisabled(day: number): boolean {
+    const d = new Date(viewYear, viewMonth, day);
+    d.setHours(0, 0, 0, 0);
+    if (d < minDate) return true;
+    if (maxDate && d > maxDate) return true;
+    return false;
+  }
+
+  const blanks = Array(firstDayOfMonth).fill(null);
+  const days = Array.from({ length: daysInMonth }, (_, i) => i + 1);
+
+  return (
+    <div className="select-none">
+      {/* Month navigation */}
+      <div className="flex items-center justify-between mb-3">
+        <Button variant="ghost" size="icon" onClick={prevMonth} className="h-8 w-8">
+          <ChevronLeft className="w-4 h-4" />
+        </Button>
+        <span className="text-sm font-medium">{monthName}</span>
+        <Button variant="ghost" size="icon" onClick={nextMonth} className="h-8 w-8">
+          <ChevronRight className="w-4 h-4" />
+        </Button>
+      </div>
+
+      {/* Day-of-week headers */}
+      <div className="grid grid-cols-7 mb-1">
+        {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map(d => (
+          <div key={d} className="text-center text-xs text-muted-foreground py-1">{d}</div>
+        ))}
+      </div>
+
+      {/* Day cells */}
+      <div className="grid grid-cols-7 gap-0.5">
+        {blanks.map((_, i) => <div key={`b${i}`} />)}
+        {days.map(day => {
+          const dateStr = formatDay(day);
+          const disabled = isDisabled(day);
+          const isSelected = selectedDate === dateStr;
+          const isToday = new Date(viewYear, viewMonth, day).toDateString() === new Date().toDateString();
+          return (
+            <button
+              key={day}
+              disabled={disabled}
+              onClick={() => !disabled && onSelect(dateStr)}
+              className={[
+                'w-full aspect-square rounded text-sm flex items-center justify-center transition-colors',
+                disabled ? 'text-muted-foreground/40 cursor-not-allowed' : 'hover:bg-muted cursor-pointer',
+                isSelected ? 'bg-primary text-primary-foreground hover:bg-primary' : '',
+                isToday && !isSelected ? 'font-bold underline' : '',
+              ].join(' ')}
+            >
+              {day}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ─── Main Component ───────────────────────────────────────────────────────────
+
 export default function PublicBookingPage({ slug }: PublicBookingPageProps) {
   const [step, setStep] = useState<'service' | 'datetime' | 'info' | 'success'>('service');
   const [selectedService, setSelectedService] = useState<BookableService | null>(null);
   const [selectedDate, setSelectedDate] = useState('');
   const [selectedTime, setSelectedTime] = useState('');
-  const [clientInfo, setClientInfo] = useState({
-    name: '',
-    email: '',
-    phone: '',
-    notes: ''
-  });
+  const [clientInfo, setClientInfo] = useState({ name: '', email: '', phone: '', notes: '' });
   const [existingContact, setExistingContact] = useState<any>(null);
   const [isCheckingEmail, setIsCheckingEmail] = useState(false);
   const { toast } = useToast();
 
-  // Fetch schedule by public link
+  // Fetch schedule
   const { data: schedule, isLoading: isLoadingSchedule } = useQuery<AvailabilitySchedule>({
     queryKey: [`/api/public/schedules/${slug}`],
   });
 
-  // Fetch available services for this schedule
+  // Fetch services for this schedule
   const { data: services, isLoading: isLoadingServices } = useQuery<BookableService[]>({
     queryKey: [`/api/public/schedules/${slug}/services`],
     enabled: !!schedule,
   });
 
-  // Email check function
+  // Fetch available slots for selected date + service
+  const {
+    data: slotsData,
+    isLoading: isLoadingSlots,
+    isFetching: isFetchingSlots,
+  } = useQuery<{ date: string; slots: string[] }>({
+    queryKey: [
+      `/api/public/schedules/${slug}/slots`,
+      selectedDate,
+      selectedService?.id,
+    ],
+    queryFn: async () => {
+      const params = new URLSearchParams({ date: selectedDate });
+      if (selectedService?.id) params.set('serviceId', selectedService.id);
+      const res = await fetch(`/api/public/schedules/${slug}/slots?${params}`);
+      if (!res.ok) throw new Error('Failed to fetch slots');
+      return res.json();
+    },
+    enabled: step === 'datetime' && !!selectedDate && !!selectedService,
+    staleTime: 30_000,
+  });
+
+  // Reset time when date changes
+  useEffect(() => { setSelectedTime(''); }, [selectedDate]);
+
+  // Min/max date constraints from schedule
+  const minDate = new Date();
+  minDate.setHours(0, 0, 0, 0);
+  if (schedule?.minAdvanceNoticeHours) {
+    minDate.setTime(minDate.getTime() + schedule.minAdvanceNoticeHours * 3600 * 1000);
+    minDate.setHours(0, 0, 0, 0);
+  }
+  const maxDate = schedule?.maxFutureDays
+    ? (() => { const d = new Date(); d.setDate(d.getDate() + schedule.maxFutureDays!); return d; })()
+    : undefined;
+
+  // Email check
   const checkEmail = async (email: string) => {
     if (!email || !email.includes('@')) return;
-    
     setIsCheckingEmail(true);
     try {
-      const response = await fetch('/api/public/contact-check', {
+      const res = await fetch('/api/public/contact-check', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, slug }),
       });
-      
-      if (response.ok) {
-        const data = await response.json();
+      if (res.ok) {
+        const data = await res.json();
         if (data.exists) {
           setExistingContact(data);
-          setClientInfo(prev => ({
-            ...prev,
-            name: data.name || prev.name,
-            phone: data.phone || prev.phone,
-          }));
-          toast({
-            title: 'Welcome back!',
-            description: 'We found your information',
-          });
+          setClientInfo(prev => ({ ...prev, name: data.name || prev.name, phone: data.phone || prev.phone }));
+          toast({ title: 'Welcome back!', description: 'We found your information' });
         } else {
           setExistingContact(null);
         }
       }
-    } catch (error) {
-      console.error('Error checking email:', error);
+    } catch (e) {
+      console.error('Email check error:', e);
     } finally {
       setIsCheckingEmail(false);
     }
   };
 
-  // Create booking mutation
+  // Create booking
   const createBookingMutation = useMutation({
-    mutationFn: async (bookingData: any) => {
-      const response = await fetch(`/api/public/bookings/${slug}`, {
+    mutationFn: async (data: any) => {
+      const res = await fetch(`/api/public/bookings/${slug}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          ...bookingData,
+          ...data,
           contactId: existingContact?.contactId || null,
           projectId: existingContact?.mostRecentProjectId || null,
         }),
       });
-      
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to create booking');
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Failed to create booking');
       }
-      
-      return response.json();
+      return res.json();
     },
-    onSuccess: () => {
-      setStep('success');
-    },
-    onError: (error: any) => {
-      toast({
-        title: 'Booking failed',
-        description: error.message,
-        variant: 'destructive',
-      });
-    },
+    onSuccess: () => setStep('success'),
+    onError: (err: any) => toast({ title: 'Booking failed', description: err.message, variant: 'destructive' }),
   });
 
   const handleServiceSelect = (service: BookableService) => {
     setSelectedService(service);
+    setSelectedDate('');
+    setSelectedTime('');
     setStep('datetime');
-  };
-
-  const handleDateTimeSubmit = () => {
-    if (!selectedDate || !selectedTime) {
-      toast({
-        title: 'Missing information',
-        description: 'Please select both a date and time',
-        variant: 'destructive',
-      });
-      return;
-    }
-    setStep('info');
   };
 
   const handleBookingSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (!selectedService || !selectedDate || !selectedTime) {
-      toast({
-        title: 'Missing information',
-        description: 'Please complete all previous steps',
-        variant: 'destructive',
-      });
-      return;
-    }
-
+    if (!selectedService || !selectedDate || !selectedTime) return;
     createBookingMutation.mutate({
       serviceId: selectedService.id,
       scheduleId: schedule?.id,
@@ -146,10 +251,11 @@ export default function PublicBookingPage({ slug }: PublicBookingPageProps) {
       bookingDate: selectedDate,
       bookingTime: selectedTime,
       notes: clientInfo.notes,
-      status: 'pending',
+      status: selectedService.requireApproval ? 'pending' : 'confirmed',
     });
   };
 
+  // ── Loading / Not Found ───────────────────────────────────────────────────
   if (isLoadingSchedule) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -160,7 +266,6 @@ export default function PublicBookingPage({ slug }: PublicBookingPageProps) {
       </div>
     );
   }
-
   if (!schedule) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -173,59 +278,65 @@ export default function PublicBookingPage({ slug }: PublicBookingPageProps) {
     );
   }
 
+  // ── Progress indicator steps ──────────────────────────────────────────────
+  const stepOrder = ['service', 'datetime', 'info'] as const;
+  const currentIdx = stepOrder.indexOf(step as any);
+
+  // ── Render ────────────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-gray-50 py-12 px-4">
       <div className="max-w-2xl mx-auto">
+
+        {/* Header */}
         <div className="text-center mb-8">
+          {schedule.headerImageUrl && (
+            <img
+              src={schedule.headerImageUrl}
+              alt=""
+              className="w-full h-40 object-cover rounded-xl mb-6"
+            />
+          )}
           <h1 className="text-3xl font-bold mb-2" data-testid="text-booking-title">
             {schedule.name}
           </h1>
-          {schedule.description && (
+          {(schedule as any).description && (
             <p className="text-muted-foreground" data-testid="text-booking-description">
-              {schedule.description}
+              {(schedule as any).description}
             </p>
           )}
         </div>
 
-        {/* Progress indicator */}
-        <div className="flex justify-center mb-8">
-          <div className="flex items-center gap-4">
-            <div className={`flex items-center gap-2 ${step === 'service' ? 'text-primary' : 'text-muted-foreground'}`}>
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center ${step === 'service' ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
-                1
-              </div>
-              <span className="text-sm">Service</span>
-            </div>
-            <div className="w-16 h-px bg-muted" />
-            <div className={`flex items-center gap-2 ${step === 'datetime' ? 'text-primary' : 'text-muted-foreground'}`}>
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center ${step === 'datetime' ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
-                2
-              </div>
-              <span className="text-sm">Date & Time</span>
-            </div>
-            <div className="w-16 h-px bg-muted" />
-            <div className={`flex items-center gap-2 ${step === 'info' ? 'text-primary' : 'text-muted-foreground'}`}>
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center ${step === 'info' ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
-                3
-              </div>
-              <span className="text-sm">Your Info</span>
+        {/* Progress */}
+        {step !== 'success' && (
+          <div className="flex justify-center mb-8">
+            <div className="flex items-center gap-2">
+              {(['Service', 'Date & Time', 'Your Info'] as const).map((label, i) => (
+                <div key={label} className="flex items-center gap-2">
+                  <div className={`flex items-center gap-2 ${i === currentIdx ? 'text-primary' : i < currentIdx ? 'text-green-600' : 'text-muted-foreground'}`}>
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
+                      i === currentIdx ? 'bg-primary text-primary-foreground' :
+                      i < currentIdx ? 'bg-green-600 text-white' : 'bg-muted'
+                    }`}>
+                      {i < currentIdx ? '✓' : i + 1}
+                    </div>
+                    <span className="text-sm hidden sm:inline">{label}</span>
+                  </div>
+                  {i < 2 && <div className="w-8 sm:w-16 h-px bg-muted mx-1" />}
+                </div>
+              ))}
             </div>
           </div>
-        </div>
+        )}
 
-        {/* Step 1: Service Selection */}
+        {/* ── Step 1: Service Selection ── */}
         {step === 'service' && (
           <div className="space-y-4">
             <h2 className="text-xl font-semibold mb-4">Select a Service</h2>
             {isLoadingServices ? (
-              <Card>
-                <CardContent className="py-8 text-center">
-                  <Loader2 className="w-6 h-6 animate-spin mx-auto" />
-                </CardContent>
-              </Card>
+              <Card><CardContent className="py-8 text-center"><Loader2 className="w-6 h-6 animate-spin mx-auto" /></CardContent></Card>
             ) : services && services.length > 0 ? (
               <div className="grid gap-4">
-                {services.map((service) => (
+                {services.map(service => (
                   <Card
                     key={service.id}
                     className="cursor-pointer hover:border-primary transition-colors"
@@ -234,20 +345,21 @@ export default function PublicBookingPage({ slug }: PublicBookingPageProps) {
                   >
                     <CardHeader>
                       <CardTitle>{service.name}</CardTitle>
-                      {service.description && (
-                        <CardDescription>{service.description}</CardDescription>
-                      )}
+                      {service.description && <CardDescription>{service.description}</CardDescription>}
                     </CardHeader>
                     <CardContent>
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2 text-sm text-muted-foreground">
                           <Clock className="w-4 h-4" />
                           <span>{service.duration} minutes</span>
+                          {service.location && (
+                            <span className="ml-2 text-xs bg-muted px-2 py-0.5 rounded-full">
+                              {service.location}
+                            </span>
+                          )}
                         </div>
                         {service.price && (
-                          <div className="text-lg font-semibold">
-                            ${service.price}
-                          </div>
+                          <div className="text-lg font-semibold">£{service.price}</div>
                         )}
                       </div>
                     </CardContent>
@@ -264,71 +376,107 @@ export default function PublicBookingPage({ slug }: PublicBookingPageProps) {
           </div>
         )}
 
-        {/* Step 2: Date & Time Selection */}
+        {/* ── Step 2: Date & Time ── */}
         {step === 'datetime' && selectedService && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Select Date & Time</CardTitle>
-              <CardDescription>
-                Booking: {selectedService.name}
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <Label htmlFor="date">Date</Label>
-                <Input
-                  id="date"
-                  type="date"
-                  value={selectedDate}
-                  onChange={(e) => setSelectedDate(e.target.value)}
-                  min={new Date().toISOString().split('T')[0]}
-                  data-testid="input-booking-date"
+          <div className="grid sm:grid-cols-2 gap-4">
+            {/* Calendar */}
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base">Pick a Date</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <MiniCalendar
+                  selectedDate={selectedDate}
+                  onSelect={setSelectedDate}
+                  minDate={minDate}
+                  maxDate={maxDate}
                 />
-              </div>
-              <div>
-                <Label htmlFor="time">Time</Label>
-                <Input
-                  id="time"
-                  type="time"
-                  value={selectedTime}
-                  onChange={(e) => setSelectedTime(e.target.value)}
-                  data-testid="input-booking-time"
-                />
-              </div>
-              <div className="flex gap-2 pt-4">
-                <Button
-                  variant="outline"
-                  onClick={() => setStep('service')}
-                  data-testid="button-back-to-service"
-                >
-                  Back
-                </Button>
-                <Button
-                  onClick={handleDateTimeSubmit}
-                  className="flex-1"
-                  data-testid="button-continue-to-info"
-                >
-                  Continue
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+
+            {/* Time slots */}
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base">
+                  {selectedDate
+                    ? `Available Times — ${new Date(selectedDate + 'T00:00:00').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}`
+                    : 'Select a date first'}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {!selectedDate ? (
+                  <p className="text-sm text-muted-foreground py-4 text-center">
+                    Choose a date on the left to see available times.
+                  </p>
+                ) : isLoadingSlots || isFetchingSlots ? (
+                  <div className="flex items-center justify-center py-8 gap-2 text-muted-foreground">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span className="text-sm">Loading times…</span>
+                  </div>
+                ) : slotsData && slotsData.slots.length > 0 ? (
+                  <div className="grid grid-cols-3 gap-2 max-h-64 overflow-y-auto pr-1">
+                    {slotsData.slots.map(slot => (
+                      <button
+                        key={slot}
+                        onClick={() => setSelectedTime(slot)}
+                        className={[
+                          'py-2 text-sm rounded-md border transition-colors',
+                          selectedTime === slot
+                            ? 'bg-primary text-primary-foreground border-primary'
+                            : 'border-muted-foreground/20 hover:border-primary hover:text-primary',
+                        ].join(' ')}
+                        data-testid={`button-slot-${slot}`}
+                      >
+                        {slot}
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground py-4 text-center">
+                    No available times on this date. Please try another day.
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Navigation */}
+            <div className="sm:col-span-2 flex gap-2">
+              <Button variant="outline" onClick={() => setStep('service')} data-testid="button-back-to-service">
+                Back
+              </Button>
+              <Button
+                className="flex-1"
+                disabled={!selectedDate || !selectedTime}
+                onClick={() => setStep('info')}
+                data-testid="button-continue-to-info"
+              >
+                Continue
+              </Button>
+            </div>
+          </div>
         )}
 
-        {/* Step 3: Client Information */}
+        {/* ── Step 3: Client Info ── */}
         {step === 'info' && (
           <Card>
             <CardHeader>
               <CardTitle>Your Information</CardTitle>
               <CardDescription>
-                {existingContact 
-                  ? 'Welcome back! Please confirm your details.' 
+                {existingContact
+                  ? 'Welcome back! Please confirm your details.'
                   : 'Please provide your contact details to complete the booking'}
               </CardDescription>
             </CardHeader>
             <CardContent>
+              {/* Booking summary banner */}
+              <div className="bg-muted rounded-lg px-4 py-3 mb-4 text-sm flex flex-wrap gap-x-6 gap-y-1">
+                <span><strong>{selectedService?.name}</strong></span>
+                <span>{new Date(selectedDate + 'T00:00:00').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}</span>
+                <span>{selectedTime}</span>
+                {selectedService?.duration && <span>{selectedService.duration} min</span>}
+              </div>
+
               <form onSubmit={handleBookingSubmit} className="space-y-4">
-                {/* Email field - always shown first */}
                 <div>
                   <Label htmlFor="email">Email *</Label>
                   <div className="relative">
@@ -336,61 +484,41 @@ export default function PublicBookingPage({ slug }: PublicBookingPageProps) {
                       id="email"
                       type="email"
                       value={clientInfo.email}
-                      onChange={(e) => setClientInfo({ ...clientInfo, email: e.target.value })}
-                      onBlur={(e) => checkEmail(e.target.value)}
+                      onChange={e => setClientInfo({ ...clientInfo, email: e.target.value })}
+                      onBlur={e => checkEmail(e.target.value)}
                       required
-                      data-testid="input-client-email"
                       disabled={isCheckingEmail}
+                      data-testid="input-client-email"
                     />
                     {isCheckingEmail && (
                       <Loader2 className="w-4 h-4 animate-spin absolute right-3 top-3 text-muted-foreground" />
                     )}
                   </div>
-                  {existingContact && (
-                    <p className="text-xs text-green-600 mt-1">
-                      ✓ We found your information
-                    </p>
-                  )}
+                  {existingContact && <p className="text-xs text-green-600 mt-1">✓ We found your information</p>}
                 </div>
 
-                {/* Conditional fields based on whether contact exists */}
                 {existingContact ? (
-                  // Simplified form for existing contacts - pre-filled, read-only
                   <>
                     <div>
-                      <Label htmlFor="name">Full Name</Label>
-                      <Input
-                        id="name"
-                        value={clientInfo.name}
-                        readOnly
-                        className="bg-muted"
-                        data-testid="input-client-name"
-                      />
+                      <Label>Full Name</Label>
+                      <Input value={clientInfo.name} readOnly className="bg-muted" data-testid="input-client-name" />
                     </div>
                     <div>
-                      <Label htmlFor="phone">Phone Number</Label>
-                      <Input
-                        id="phone"
-                        type="tel"
-                        value={clientInfo.phone}
-                        readOnly
-                        className="bg-muted"
-                        data-testid="input-client-phone"
-                      />
+                      <Label>Phone Number</Label>
+                      <Input value={clientInfo.phone} readOnly className="bg-muted" data-testid="input-client-phone" />
                     </div>
                   </>
                 ) : (
-                  // Extended form for new contacts
                   <>
                     <div>
                       <Label htmlFor="name">Full Name *</Label>
                       <Input
                         id="name"
                         value={clientInfo.name}
-                        onChange={(e) => setClientInfo({ ...clientInfo, name: e.target.value })}
+                        onChange={e => setClientInfo({ ...clientInfo, name: e.target.value })}
                         required
+                        placeholder="Jane Smith"
                         data-testid="input-client-name"
-                        placeholder="John Doe"
                       />
                     </div>
                     <div>
@@ -399,28 +527,27 @@ export default function PublicBookingPage({ slug }: PublicBookingPageProps) {
                         id="phone"
                         type="tel"
                         value={clientInfo.phone}
-                        onChange={(e) => setClientInfo({ ...clientInfo, phone: e.target.value })}
+                        onChange={e => setClientInfo({ ...clientInfo, phone: e.target.value })}
                         required
+                        placeholder="+44 7700 900000"
                         data-testid="input-client-phone"
-                        placeholder="(555) 123-4567"
                       />
                     </div>
                   </>
                 )}
 
-                {/* Notes field - always editable */}
                 <div>
                   <Label htmlFor="notes">Additional Notes (optional)</Label>
                   <Textarea
                     id="notes"
                     value={clientInfo.notes}
-                    onChange={(e) => setClientInfo({ ...clientInfo, notes: e.target.value })}
-                    placeholder="Any special requests or information..."
+                    onChange={e => setClientInfo({ ...clientInfo, notes: e.target.value })}
+                    placeholder="Any special requests or information…"
                     data-testid="input-booking-notes"
                   />
                 </div>
 
-                <div className="flex gap-2 pt-4">
+                <div className="flex gap-2 pt-2">
                   <Button
                     type="button"
                     variant="outline"
@@ -436,13 +563,8 @@ export default function PublicBookingPage({ slug }: PublicBookingPageProps) {
                     data-testid="button-submit-booking"
                   >
                     {createBookingMutation.isPending ? (
-                      <>
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        Creating Booking...
-                      </>
-                    ) : (
-                      'Complete Booking'
-                    )}
+                      <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Creating Booking…</>
+                    ) : selectedService?.requireApproval ? 'Request Booking' : 'Complete Booking'}
                   </Button>
                 </div>
               </form>
@@ -450,30 +572,34 @@ export default function PublicBookingPage({ slug }: PublicBookingPageProps) {
           </Card>
         )}
 
-        {/* Success State */}
+        {/* ── Success ── */}
         {step === 'success' && (
           <Card>
             <CardContent className="py-12 text-center">
               <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-4" />
               <h2 className="text-2xl font-bold mb-2" data-testid="text-booking-success">
-                Booking Confirmed!
+                {selectedService?.requireApproval ? 'Request Received!' : 'Booking Confirmed!'}
               </h2>
-              <p className="text-muted-foreground mb-4">
-                We've received your booking request. You'll receive a confirmation email shortly.
+              <p className="text-muted-foreground mb-6">
+                {selectedService?.requireApproval
+                  ? "We'll review your request and send you a confirmation email shortly."
+                  : "You'll receive a confirmation email shortly."}
               </p>
               <div className="bg-muted rounded-lg p-4 text-left max-w-md mx-auto">
-                <h3 className="font-semibold mb-2">Booking Details:</h3>
-                <div className="space-y-1 text-sm">
-                  <div><strong>Service:</strong> {selectedService?.name}</div>
-                  <div><strong>Date:</strong> {new Date(selectedDate).toLocaleDateString()}</div>
-                  <div><strong>Time:</strong> {selectedTime}</div>
-                  <div><strong>Name:</strong> {clientInfo.name}</div>
-                  <div><strong>Email:</strong> {clientInfo.email}</div>
+                <h3 className="font-semibold mb-3">Booking Details</h3>
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between"><span className="text-muted-foreground">Service</span><span>{selectedService?.name}</span></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">Date</span><span>{new Date(selectedDate + 'T00:00:00').toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</span></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">Time</span><span>{selectedTime}</span></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">Duration</span><span>{selectedService?.duration} min</span></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">Name</span><span>{clientInfo.name}</span></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">Email</span><span>{clientInfo.email}</span></div>
                 </div>
               </div>
             </CardContent>
           </Card>
         )}
+
       </div>
     </div>
   );

@@ -224,7 +224,109 @@ class JobsService {
       return { cleanedCount, timestamp: new Date().toISOString() };
     });
 
-    // Daily encrypted database backup job handler  
+    // Booking reminder job handler — runs every hour, sends reminders for upcoming bookings
+    this.registerHandler('booking-reminders', async (_payload) => {
+      console.log('📅 Processing booking reminder job');
+
+      const { storage } = await import('../../storage');
+      const { emailDispatcher } = await import('./email-dispatcher');
+
+      // Get all tenants
+      const tenants = await storage.getActiveTenants();
+      let totalSent = 0;
+
+      for (const tenant of tenants) {
+        try {
+          const bookings = await storage.getBookings(tenant.id);
+          const now = new Date();
+
+          for (const booking of bookings) {
+            // Only confirmed/pending bookings that haven't had a reminder sent
+            if (booking.status === 'cancelled' || booking.status === 'completed') continue;
+            if (booking.reminderSentAt) continue;
+            if (!booking.clientEmail) continue;
+
+            // Get the service to find reminderDaysBefore
+            const service = await storage.getBookableService(booking.serviceId, tenant.id);
+            const reminderDaysBefore = (service as any)?.reminderDaysBefore ?? 1;
+
+            // Calculate reminder window: send reminder if booking is within reminderDaysBefore days
+            const bookingDate = new Date(booking.bookingDate);
+            const hoursUntilBooking = (bookingDate.getTime() - now.getTime()) / (1000 * 60 * 60);
+            const hoursWindow = reminderDaysBefore * 24;
+
+            // Send if within the reminder window (and at least 1 hour away)
+            if (hoursUntilBooking > 1 && hoursUntilBooking <= hoursWindow) {
+              const serviceName = service?.name || 'your appointment';
+              const dateStr = bookingDate.toLocaleDateString('en-GB', {
+                weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
+              });
+
+              // Use custom template if configured
+              let subject = `Reminder: ${serviceName} tomorrow`;
+              let html = `
+                <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
+                  <h2>Booking Reminder</h2>
+                  <p>Hi ${booking.clientName},</p>
+                  <p>This is a friendly reminder about your upcoming booking:</p>
+                  <table style="width:100%; border-collapse:collapse; margin: 16px 0;">
+                    <tr><td style="padding:8px; border:1px solid #e5e7eb;"><strong>Service</strong></td>
+                        <td style="padding:8px; border:1px solid #e5e7eb;">${serviceName}</td></tr>
+                    <tr><td style="padding:8px; border:1px solid #e5e7eb;"><strong>Date</strong></td>
+                        <td style="padding:8px; border:1px solid #e5e7eb;">${dateStr}</td></tr>
+                    <tr><td style="padding:8px; border:1px solid #e5e7eb;"><strong>Time</strong></td>
+                        <td style="padding:8px; border:1px solid #e5e7eb;">${booking.bookingTime}</td></tr>
+                    ${service?.location ? `<tr><td style="padding:8px; border:1px solid #e5e7eb;"><strong>Location</strong></td>
+                        <td style="padding:8px; border:1px solid #e5e7eb;">${service.location}${(service as any).locationDetails ? ` — ${(service as any).locationDetails}` : ''}</td></tr>` : ''}
+                  </table>
+                  <p style="color:#6b7280; font-size:14px;">If you need to make any changes, please get in touch as soon as possible.</p>
+                </div>
+              `;
+
+              if ((service as any)?.reminderMessageTemplateId) {
+                const template = await storage.getMessageTemplate(
+                  (service as any).reminderMessageTemplateId,
+                  tenant.id
+                );
+                if (template) {
+                  subject = (template as any).subject || subject;
+                  const vars: Record<string, string> = {
+                    '{{clientName}}': booking.clientName || '',
+                    '{{serviceName}}': serviceName,
+                    '{{bookingDate}}': dateStr,
+                    '{{bookingTime}}': booking.bookingTime || '',
+                  };
+                  let body = (template as any).bodyHtml || html;
+                  for (const [k, v] of Object.entries(vars)) {
+                    body = body.replace(new RegExp(k.replace(/[{}]/g, '\\$&'), 'g'), v);
+                  }
+                  html = body;
+                }
+              }
+
+              const result = await emailDispatcher.sendEmail({
+                tenantId: tenant.id,
+                to: booking.clientEmail,
+                subject,
+                html,
+              });
+
+              if (result.success) {
+                await storage.updateBooking(booking.id, { reminderSentAt: new Date() }, tenant.id);
+                totalSent++;
+                console.log(`📅 Reminder sent for booking ${booking.id} to ${booking.clientEmail}`);
+              }
+            }
+          }
+        } catch (tenantErr) {
+          console.error(`❌ Booking reminder error for tenant ${tenant.id}:`, tenantErr);
+        }
+      }
+
+      return { remindersSent: totalSent, timestamp: new Date().toISOString() };
+    });
+
+    // Daily encrypted database backup job handler
     this.registerHandler('daily-backup', async (payload) => {
       console.log('💾 Processing daily backup job:', payload);
       

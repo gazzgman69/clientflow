@@ -200,18 +200,231 @@ router.get('/schedules/:slug', async (req, res) => {
     const { slug } = req.params;
     
     // Find schedule by public link
-    const schedules = await storage.getAvailabilitySchedules();
-    const schedule = schedules.find(s => s.publicLink === slug);
-    
+    const schedule = await storage.getAvailabilityScheduleByPublicLink(slug);
+
     if (!schedule) {
       res.status(404).json({ error: 'Schedule not found' });
       return;
     }
-    
+
     res.json(schedule);
   } catch (error) {
     console.error('Error fetching public schedule:', error);
     res.status(500).json({ error: 'Failed to fetch schedule' });
+  }
+});
+
+// ─── Slot Generation Helpers ──────────────────────────────────────────────────
+
+/** Map day-code strings to JS getDay() values (0=Sun) */
+const DAY_CODE_MAP: Record<string, number> = {
+  SU: 0, MO: 1, TU: 2, WE: 3, TH: 4, FR: 5, SA: 6,
+};
+
+/** Parse 'HH:MM' → total minutes since midnight */
+function parseTime(t: string): number {
+  const [h, m] = t.split(':').map(Number);
+  return h * 60 + m;
+}
+
+/** Format total minutes → 'HH:MM' */
+function formatTime(mins: number): string {
+  const h = Math.floor(mins / 60).toString().padStart(2, '0');
+  const m = (mins % 60).toString().padStart(2, '0');
+  return `${h}:${m}`;
+}
+
+/**
+ * Generate available time slots for a given date based on availability rules,
+ * existing bookings, and (optionally) Google Calendar busy blocks.
+ */
+async function generateAvailableSlots(
+  scheduleId: string,
+  tenantId: string,
+  date: string,          // 'YYYY-MM-DD'
+  durationMins: number,
+  bufferAfter: number,
+  minAdvanceNoticeHours: number,
+): Promise<string[]> {
+  const requestedDate = new Date(`${date}T00:00:00`);
+  const dayCode = (['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'])[requestedDate.getDay()];
+
+  // Load rules for this schedule
+  const rules = await storage.getAvailabilityRules(scheduleId);
+
+  // Separate availability windows from exception (block-out) windows
+  const windows: Array<{ start: number; end: number }> = [];
+  const exceptions: Array<{ start: number; end: number }> = [];
+
+  for (const rule of rules) {
+    // Check date bounds if set
+    if (rule.dateStart && new Date(rule.dateStart) > requestedDate) continue;
+    if (rule.dateEnd && new Date(rule.dateEnd) < requestedDate) continue;
+
+    // Check if this rule covers the requested day
+    let coversDay = false;
+    if (rule.frequency === 'daily') {
+      coversDay = true;
+    } else if (rule.frequency === 'weekly' && rule.selectedDays) {
+      coversDay = rule.selectedDays.includes(dayCode);
+    } else if (rule.frequency === 'monthly') {
+      // Monthly: selectedDays treated as day-of-month numbers e.g. ['1','15']
+      const dayOfMonth = requestedDate.getDate().toString();
+      coversDay = !!rule.selectedDays?.includes(dayOfMonth);
+    }
+
+    if (!coversDay) continue;
+
+    const entry = { start: parseTime(rule.timeStart), end: parseTime(rule.timeEnd) };
+    if (rule.isException) {
+      exceptions.push(entry);
+    } else {
+      windows.push(entry);
+    }
+  }
+
+  if (windows.length === 0) return []; // No availability on this day
+
+  // Generate raw slots across all windows
+  const interval = durationMins + bufferAfter;
+  const rawSlots: number[] = [];
+  for (const window of windows) {
+    for (let mins = window.start; mins + durationMins <= window.end; mins += interval) {
+      rawSlots.push(mins);
+    }
+  }
+
+  // Remove duplicates and sort
+  const uniqueSlots = [...new Set(rawSlots)].sort((a, b) => a - b);
+
+  // Filter out exception (blocked) times
+  const nonBlockedSlots = uniqueSlots.filter(slotStart => {
+    const slotEnd = slotStart + durationMins;
+    return !exceptions.some(ex => slotStart < ex.end && slotEnd > ex.start);
+  });
+
+  // Filter out slots that are in the past (if booking for today)
+  const now = new Date();
+  const isToday = requestedDate.toDateString() === now.toDateString();
+  const minAdvanceMins = minAdvanceNoticeHours * 60;
+  const nowMins = now.getHours() * 60 + now.getMinutes();
+  const cutoffMins = nowMins + minAdvanceMins;
+
+  const futureSlots = isToday
+    ? nonBlockedSlots.filter(s => s >= cutoffMins)
+    : nonBlockedSlots;
+
+  // Filter out slots that overlap with existing confirmed/pending bookings
+  const existingBookings = await storage.getBookings(tenantId);
+  const sameDayBookings = existingBookings.filter(b => {
+    if (b.scheduleId !== scheduleId) return false;
+    if (b.status === 'cancelled') return false;
+    const bDate = new Date(b.bookingDate);
+    return bDate.toDateString() === requestedDate.toDateString();
+  });
+
+  const availableSlots = futureSlots.filter(slotStart => {
+    const slotEnd = slotStart + durationMins;
+    return !sameDayBookings.some(b => {
+      const bStart = parseTime(b.bookingTime || '00:00');
+      // Use the booking's service duration if we can, otherwise assume 60 mins
+      const bEnd = bStart + 60;
+      return slotStart < bEnd && slotEnd > bStart;
+    });
+  });
+
+  // Filter out slots blocked by linked Google Calendar events
+  try {
+    const { db } = await import('../../db');
+    const { scheduleCalendarChecks, calendarIntegrations } = await import('@shared/schema');
+    const { eq, and } = await import('drizzle-orm');
+
+    const calChecks = await db
+      .select({ integration: calendarIntegrations })
+      .from(scheduleCalendarChecks)
+      .innerJoin(calendarIntegrations, eq(scheduleCalendarChecks.calendarIntegrationId, calendarIntegrations.id))
+      .where(eq(scheduleCalendarChecks.scheduleId, scheduleId));
+
+    if (calChecks.length > 0) {
+      const { googleCalendarService } = await import('../services/google-calendar');
+      const dayStart = new Date(`${date}T00:00:00`);
+      const dayEnd = new Date(`${date}T23:59:59`);
+
+      for (const { integration } of calChecks) {
+        if (integration.provider !== 'google' || !integration.accessToken) continue;
+        try {
+          googleCalendarService.setCredentials({
+            access_token: integration.accessToken,
+            refresh_token: integration.refreshToken || undefined,
+            expiry_date: undefined,
+          });
+          const { events } = await googleCalendarService.getEvents(
+            integration.calendarId || 'primary',
+            { timeMin: dayStart, timeMax: dayEnd, maxResults: 50 }
+          );
+          for (const event of events) {
+            if (event.transparency === 'transparent') continue; // "free" events don't block
+            const evStart = event.start?.dateTime ? new Date(event.start.dateTime) : null;
+            const evEnd = event.end?.dateTime ? new Date(event.end.dateTime) : null;
+            if (!evStart || !evEnd) continue;
+            const evStartMins = evStart.getHours() * 60 + evStart.getMinutes();
+            const evEndMins = evEnd.getHours() * 60 + evEnd.getMinutes();
+            availableSlots.splice(0, availableSlots.length,
+              ...availableSlots.filter(s => !(s < evEndMins && s + durationMins > evStartMins))
+            );
+          }
+        } catch (calErr) {
+          console.warn(`⚠️ Could not check calendar ${integration.id} for conflicts:`, calErr);
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('⚠️ Calendar conflict check skipped:', err);
+  }
+
+  return availableSlots.map(formatTime);
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+
+// GET /api/public/schedules/:slug/slots?date=YYYY-MM-DD&serviceId=xxx
+router.get('/schedules/:slug/slots', async (req, res) => {
+  try {
+    const { slug } = req.params;
+    const { date, serviceId } = req.query as { date?: string; serviceId?: string };
+
+    if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      res.status(400).json({ error: 'date query param required (YYYY-MM-DD)' });
+      return;
+    }
+
+    const schedule = await storage.getAvailabilityScheduleByPublicLink(slug);
+    if (!schedule) { res.status(404).json({ error: 'Schedule not found' }); return; }
+
+    // Resolve service for duration/buffer (use first linked service as fallback)
+    let durationMins = 60;
+    let bufferAfter = 0;
+    if (serviceId) {
+      const service = await storage.getBookableService(serviceId, schedule.tenantId);
+      if (service) {
+        durationMins = service.duration || 60;
+        bufferAfter = service.bufferAfter || 0;
+      }
+    }
+
+    const slots = await generateAvailableSlots(
+      schedule.id,
+      schedule.tenantId,
+      date,
+      durationMins,
+      bufferAfter,
+      schedule.minAdvanceNoticeHours || 0,
+    );
+
+    res.json({ date, slots });
+  } catch (error) {
+    console.error('Error generating slots:', error);
+    res.status(500).json({ error: 'Failed to generate available slots' });
   }
 });
 
@@ -221,14 +434,13 @@ router.get('/schedules/:slug/services', async (req, res) => {
     const { slug } = req.params;
     
     // Find schedule by public link
-    const schedules = await storage.getAvailabilitySchedules();
-    const schedule = schedules.find(s => s.publicLink === slug);
-    
+    const schedule = await storage.getAvailabilityScheduleByPublicLink(slug);
+
     if (!schedule) {
       res.status(404).json({ error: 'Schedule not found' });
       return;
     }
-    
+
     // Get services linked to this schedule
     const scheduleServices = await storage.getScheduleServices(schedule.id);
     
@@ -313,14 +525,13 @@ router.post('/bookings/:slug', async (req, res) => {
     }
     
     // Find schedule by public link
-    const schedules = await storage.getAvailabilitySchedules();
-    const schedule = schedules.find(s => s.publicLink === slug);
-    
+    const schedule = await storage.getAvailabilityScheduleByPublicLink(slug);
+
     if (!schedule) {
       res.status(404).json({ error: 'Schedule not found' });
       return;
     }
-    
+
     // Verify service exists and belongs to this tenant
     const service = await storage.getBookableService(bookingData.serviceId, schedule.tenantId);
     if (!service) {
@@ -488,6 +699,73 @@ router.post('/bookings/:slug', async (req, res) => {
       }
     }, schedule.tenantId);
     
+    // ── Send confirmation email ─────────────────────────────────────────────
+    try {
+      const { emailDispatcher } = await import('../services/email-dispatcher');
+
+      let subject = `Booking Confirmed: ${service.name}`;
+      let html = `
+        <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2>Booking Confirmed</h2>
+          <p>Hi ${bookingData.clientName},</p>
+          <p>Your booking has been received. Here are the details:</p>
+          <table style="width:100%; border-collapse:collapse; margin: 16px 0;">
+            <tr><td style="padding:8px; border:1px solid #e5e7eb;"><strong>Service</strong></td>
+                <td style="padding:8px; border:1px solid #e5e7eb;">${service.name}</td></tr>
+            <tr><td style="padding:8px; border:1px solid #e5e7eb;"><strong>Date</strong></td>
+                <td style="padding:8px; border:1px solid #e5e7eb;">${new Date(bookingData.bookingDate).toLocaleDateString('en-GB', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</td></tr>
+            <tr><td style="padding:8px; border:1px solid #e5e7eb;"><strong>Time</strong></td>
+                <td style="padding:8px; border:1px solid #e5e7eb;">${bookingData.bookingTime}</td></tr>
+            <tr><td style="padding:8px; border:1px solid #e5e7eb;"><strong>Duration</strong></td>
+                <td style="padding:8px; border:1px solid #e5e7eb;">${service.duration} minutes</td></tr>
+            ${service.location ? `<tr><td style="padding:8px; border:1px solid #e5e7eb;"><strong>Location</strong></td>
+                <td style="padding:8px; border:1px solid #e5e7eb;">${service.location}${service.locationDetails ? ` — ${service.locationDetails}` : ''}</td></tr>` : ''}
+          </table>
+          ${bookingData.notes ? `<p><strong>Notes:</strong> ${bookingData.notes}</p>` : ''}
+          <p style="color:#6b7280; font-size:14px;">We'll be in touch soon. If you need to make any changes, please reply to this email.</p>
+        </div>
+      `;
+
+      // Use custom template if configured on the service
+      if ((service as any).confirmationMessageTemplateId) {
+        const template = await storage.getMessageTemplate(
+          (service as any).confirmationMessageTemplateId,
+          schedule.tenantId
+        );
+        if (template) {
+          subject = (template as any).subject || subject;
+          // Simple variable replacement
+          const vars: Record<string, string> = {
+            '{{clientName}}': bookingData.clientName,
+            '{{serviceName}}': service.name,
+            '{{bookingDate}}': new Date(bookingData.bookingDate).toLocaleDateString('en-GB'),
+            '{{bookingTime}}': bookingData.bookingTime,
+            '{{duration}}': String(service.duration),
+            '{{location}}': service.location || '',
+          };
+          let body = (template as any).bodyHtml || html;
+          for (const [key, val] of Object.entries(vars)) {
+            body = body.replace(new RegExp(key.replace(/[{}]/g, '\\$&'), 'g'), val);
+          }
+          html = body;
+        }
+      }
+
+      await emailDispatcher.sendEmail({
+        tenantId: schedule.tenantId,
+        to: bookingData.clientEmail,
+        subject,
+        html,
+      });
+
+      // Mark confirmation as sent
+      await storage.updateBooking(booking.id, { confirmationSentAt: new Date() }, schedule.tenantId);
+    } catch (emailErr) {
+      // Non-fatal — booking already created, just log
+      console.warn('⚠️ Could not send booking confirmation email:', emailErr);
+    }
+    // ───────────────────────────────────────────────────────────────────────
+
     res.json({
       ...booking,
       contactId,

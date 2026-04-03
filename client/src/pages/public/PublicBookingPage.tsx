@@ -124,13 +124,28 @@ function MiniCalendar({
   );
 }
 
+// ─── Question Types ───────────────────────────────────────────────────────────
+
+interface ServiceQuestion {
+  label: string;
+  type: 'text' | 'textarea' | 'select';
+  required?: boolean;
+  options?: string[];
+}
+
+function parseQuestions(raw: string | null | undefined): ServiceQuestion[] {
+  if (!raw) return [];
+  try { return JSON.parse(raw); } catch { return []; }
+}
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function PublicBookingPage({ slug }: PublicBookingPageProps) {
-  const [step, setStep] = useState<'service' | 'datetime' | 'info' | 'success'>('service');
+  const [step, setStep] = useState<'service' | 'datetime' | 'questions' | 'info' | 'success'>('service');
   const [selectedService, setSelectedService] = useState<BookableService | null>(null);
   const [selectedDate, setSelectedDate] = useState('');
   const [selectedTime, setSelectedTime] = useState('');
+  const [questionAnswers, setQuestionAnswers] = useState<Record<string, string>>({});
   const [clientInfo, setClientInfo] = useState({ name: '', email: '', phone: '', notes: '' });
   const [existingContact, setExistingContact] = useState<any>(null);
   const [isCheckingEmail, setIsCheckingEmail] = useState(false);
@@ -242,6 +257,16 @@ export default function PublicBookingPage({ slug }: PublicBookingPageProps) {
   const handleBookingSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedService || !selectedDate || !selectedTime) return;
+
+    // Split answers by question type
+    const svcLabels = new Set(serviceQuestions.map(q => q.label));
+    const serviceResponses: Record<string, string> = {};
+    const projectResponses: Record<string, string> = {};
+    for (const [label, answer] of Object.entries(questionAnswers)) {
+      if (svcLabels.has(label)) serviceResponses[label] = answer;
+      else projectResponses[label] = answer;
+    }
+
     createBookingMutation.mutate({
       serviceId: selectedService.id,
       scheduleId: schedule?.id,
@@ -251,8 +276,41 @@ export default function PublicBookingPage({ slug }: PublicBookingPageProps) {
       bookingDate: selectedDate,
       bookingTime: selectedTime,
       notes: clientInfo.notes,
-      status: selectedService.requireApproval ? 'pending' : 'confirmed',
+      status: (selectedService as any).requireApproval ? 'pending' : 'confirmed',
+      serviceResponses: Object.keys(serviceResponses).length > 0 ? JSON.stringify(serviceResponses) : undefined,
+      projectResponses: Object.keys(projectResponses).length > 0 ? JSON.stringify(projectResponses) : undefined,
     });
+  };
+
+  // Derived questions from selected service
+  const serviceQuestions = parseQuestions((selectedService as any)?.serviceQuestions);
+  const projectQuestions = parseQuestions((selectedService as any)?.projectQuestions);
+  // Show project questions only for new contacts (or before we know)
+  const questionsToShow = [
+    ...serviceQuestions.map(q => ({ ...q, _type: 'service' as const })),
+    ...(!existingContact ? projectQuestions.map(q => ({ ...q, _type: 'project' as const })) : []),
+  ];
+  const hasQuestions = questionsToShow.length > 0;
+
+  const handleDateTimeContinue = () => {
+    if (!selectedDate || !selectedTime) return;
+    if (hasQuestions) {
+      setStep('questions');
+    } else {
+      setStep('info');
+    }
+  };
+
+  const handleQuestionsSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    // Validate required questions
+    for (const q of questionsToShow) {
+      if (q.required && !questionAnswers[q.label]?.trim()) {
+        toast({ title: 'Missing answer', description: `"${q.label}" is required.`, variant: 'destructive' });
+        return;
+      }
+    }
+    setStep('info');
   };
 
   // ── Loading / Not Found ───────────────────────────────────────────────────
@@ -307,26 +365,35 @@ export default function PublicBookingPage({ slug }: PublicBookingPageProps) {
         </div>
 
         {/* Progress */}
-        {step !== 'success' && (
-          <div className="flex justify-center mb-8">
-            <div className="flex items-center gap-2">
-              {(['Service', 'Date & Time', 'Your Info'] as const).map((label, i) => (
-                <div key={label} className="flex items-center gap-2">
-                  <div className={`flex items-center gap-2 ${i === currentIdx ? 'text-primary' : i < currentIdx ? 'text-green-600' : 'text-muted-foreground'}`}>
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
-                      i === currentIdx ? 'bg-primary text-primary-foreground' :
-                      i < currentIdx ? 'bg-green-600 text-white' : 'bg-muted'
-                    }`}>
-                      {i < currentIdx ? '✓' : i + 1}
+        {step !== 'success' && (() => {
+          const progressSteps = hasQuestions
+            ? ['Service', 'Date & Time', 'Questions', 'Your Info']
+            : ['Service', 'Date & Time', 'Your Info'];
+          const stepOrder = hasQuestions
+            ? ['service', 'datetime', 'questions', 'info']
+            : ['service', 'datetime', 'info'];
+          const currentStepIdx = stepOrder.indexOf(step as string);
+          return (
+            <div className="flex justify-center mb-8">
+              <div className="flex items-center gap-2">
+                {progressSteps.map((label, i) => (
+                  <div key={label} className="flex items-center gap-2">
+                    <div className={`flex items-center gap-2 ${i === currentStepIdx ? 'text-primary' : i < currentStepIdx ? 'text-green-600' : 'text-muted-foreground'}`}>
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
+                        i === currentStepIdx ? 'bg-primary text-primary-foreground' :
+                        i < currentStepIdx ? 'bg-green-600 text-white' : 'bg-muted'
+                      }`}>
+                        {i < currentStepIdx ? '✓' : i + 1}
+                      </div>
+                      <span className="text-sm hidden sm:inline">{label}</span>
                     </div>
-                    <span className="text-sm hidden sm:inline">{label}</span>
+                    {i < progressSteps.length - 1 && <div className="w-8 sm:w-12 h-px bg-muted mx-1" />}
                   </div>
-                  {i < 2 && <div className="w-8 sm:w-16 h-px bg-muted mx-1" />}
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
-          </div>
-        )}
+          );
+        })()}
 
         {/* ── Step 1: Service Selection ── */}
         {step === 'service' && (
@@ -447,7 +514,7 @@ export default function PublicBookingPage({ slug }: PublicBookingPageProps) {
               <Button
                 className="flex-1"
                 disabled={!selectedDate || !selectedTime}
-                onClick={() => setStep('info')}
+                onClick={handleDateTimeContinue}
                 data-testid="button-continue-to-info"
               >
                 Continue
@@ -456,7 +523,72 @@ export default function PublicBookingPage({ slug }: PublicBookingPageProps) {
           </div>
         )}
 
-        {/* ── Step 3: Client Info ── */}
+        {/* ── Step 3: Questions (only shown when service has intake questions) ── */}
+        {step === 'questions' && (
+          <Card>
+            <CardHeader>
+              <CardTitle>A few quick questions</CardTitle>
+              <CardDescription>
+                Help us prepare for your {selectedService?.name}.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={handleQuestionsSubmit} className="space-y-5">
+                {questionsToShow.map((q, i) => (
+                  <div key={i}>
+                    <Label htmlFor={`q-${i}`}>
+                      {q.label}{q.required && <span className="text-destructive ml-1">*</span>}
+                    </Label>
+                    {q.type === 'textarea' ? (
+                      <Textarea
+                        id={`q-${i}`}
+                        value={questionAnswers[q.label] || ''}
+                        onChange={e => setQuestionAnswers(prev => ({ ...prev, [q.label]: e.target.value }))}
+                        required={q.required}
+                        placeholder="Your answer…"
+                      />
+                    ) : q.type === 'select' && q.options ? (
+                      <select
+                        id={`q-${i}`}
+                        value={questionAnswers[q.label] || ''}
+                        onChange={e => setQuestionAnswers(prev => ({ ...prev, [q.label]: e.target.value }))}
+                        required={q.required}
+                        className="w-full border border-input rounded-md px-3 py-2 text-sm bg-background"
+                      >
+                        <option value="">Select an option…</option>
+                        {q.options.map(opt => (
+                          <option key={opt} value={opt}>{opt}</option>
+                        ))}
+                      </select>
+                    ) : (
+                      <Input
+                        id={`q-${i}`}
+                        value={questionAnswers[q.label] || ''}
+                        onChange={e => setQuestionAnswers(prev => ({ ...prev, [q.label]: e.target.value }))}
+                        required={q.required}
+                        placeholder="Your answer…"
+                      />
+                    )}
+                  </div>
+                ))}
+                <div className="flex gap-2 pt-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setStep('datetime')}
+                  >
+                    Back
+                  </Button>
+                  <Button type="submit" className="flex-1">
+                    Continue
+                  </Button>
+                </div>
+              </form>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* ── Step 4 (or 3 if no questions): Client Info ── */}
         {step === 'info' && (
           <Card>
             <CardHeader>
@@ -551,7 +683,7 @@ export default function PublicBookingPage({ slug }: PublicBookingPageProps) {
                   <Button
                     type="button"
                     variant="outline"
-                    onClick={() => setStep('datetime')}
+                    onClick={() => setStep(hasQuestions ? 'questions' : 'datetime')}
                     data-testid="button-back-to-datetime"
                   >
                     Back

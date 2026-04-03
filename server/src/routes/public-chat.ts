@@ -450,7 +450,7 @@ router.get('/schedules/:slug/services', async (req, res) => {
     );
     const services = await Promise.all(servicePromises);
     
-    // Filter out null values and return only public-safe fields
+    // Filter out null values and return public-safe fields (including questions for the wizard)
     const publicServices = services.filter(s => s !== null && s !== undefined).map(service => ({
       id: service.id,
       name: service.name,
@@ -459,6 +459,11 @@ router.get('/schedules/:slug/services', async (req, res) => {
       bufferBefore: service.bufferBefore,
       bufferAfter: service.bufferAfter,
       price: service.price,
+      location: service.location,
+      locationDetails: service.locationDetails,
+      requireApproval: service.requireApproval,
+      serviceQuestions: service.serviceQuestions,   // JSON string — parsed by client
+      projectQuestions: service.projectQuestions,   // JSON string — parsed by client
     }));
     
     res.json(publicServices);
@@ -676,7 +681,26 @@ router.post('/bookings/:slug', async (req, res) => {
       wasProjectCreated = true;
     }
     
-    // Create the booking
+    // ── Apply contact tag automation ───────────────────────────────────────
+    if (contactId && service.addContactTags && service.addContactTags.length > 0) {
+      try {
+        const contact = await storage.getContact(contactId, schedule.tenantId);
+        if (contact) {
+          const existing = contact.tags || [];
+          const merged = [...new Set([...existing, ...service.addContactTags])];
+          await storage.updateContact(contactId, { tags: merged }, schedule.tenantId);
+        }
+      } catch (tagErr) {
+        console.warn('⚠️ Could not apply contact tags:', tagErr);
+      }
+    }
+
+    // ── Determine booking status (approval required vs auto-confirmed) ─────
+    const needsApproval = !!service.requireApproval;
+    const bookingStatus = needsApproval ? 'pending' : 'confirmed';
+    const approvalStatus = needsApproval ? 'pending_approval' : null;
+
+    // ── Create the booking ─────────────────────────────────────────────────
     const booking = await storage.createBooking({
       tenantId: schedule.tenantId,
       serviceId: bookingData.serviceId,
@@ -686,8 +710,11 @@ router.post('/bookings/:slug', async (req, res) => {
       clientPhone: bookingData.clientPhone || null,
       bookingDate: new Date(bookingData.bookingDate),
       bookingTime: bookingData.bookingTime,
-      status: 'pending',
+      status: bookingStatus,
+      approvalStatus,
       notes: bookingData.notes || null,
+      serviceResponses: bookingData.serviceResponses || null,
+      projectResponses: bookingData.projectResponses || null,
       contactId,
       projectId: projectId || null,
       leadId: null,
@@ -698,73 +725,132 @@ router.post('/bookings/:slug', async (req, res) => {
         projectCreated: wasProjectCreated
       }
     }, schedule.tenantId);
+
+    // ── Save intake answers as a project note ──────────────────────────────
+    if (projectId && (bookingData.serviceResponses || bookingData.projectResponses)) {
+      try {
+        const responses: Record<string, string> = {
+          ...JSON.parse(bookingData.serviceResponses || '{}'),
+          ...JSON.parse(bookingData.projectResponses || '{}'),
+        };
+        const keys = Object.keys(responses);
+        if (keys.length > 0) {
+          const noteLines = keys.map(q => `• ${q}: ${responses[q]}`).join('\n');
+          const noteContent = `Booking intake answers (${service.name}):\n${noteLines}`;
+          // Get first tenant user for createdBy
+          const tenantUsers = await storage.getUsers(schedule.tenantId);
+          const systemUser = tenantUsers[0];
+          if (systemUser) {
+            await storage.addProjectNote({
+              tenantId: schedule.tenantId,
+              projectId,
+              note: noteContent,
+              title: 'Booking Intake Answers',
+              noteType: 'note',
+              visibility: 'private',
+              createdBy: systemUser.id,
+            }, schedule.tenantId);
+          }
+        }
+      } catch (noteErr) {
+        console.warn('⚠️ Could not save intake answers as project note:', noteErr);
+      }
+    }
     
-    // ── Send confirmation email ─────────────────────────────────────────────
+    // ── Emails: confirmation (auto-confirmed) OR admin notification (needs approval) ──
     try {
       const { emailDispatcher } = await import('../services/email-dispatcher');
+      const dateStr = new Date(bookingData.bookingDate).toLocaleDateString('en-GB', {
+        weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
+      });
+      const detailsTable = `
+        <table style="width:100%;border-collapse:collapse;margin:16px 0;">
+          <tr><td style="padding:8px;border:1px solid #e5e7eb;"><strong>Service</strong></td>
+              <td style="padding:8px;border:1px solid #e5e7eb;">${service.name}</td></tr>
+          <tr><td style="padding:8px;border:1px solid #e5e7eb;"><strong>Date</strong></td>
+              <td style="padding:8px;border:1px solid #e5e7eb;">${dateStr}</td></tr>
+          <tr><td style="padding:8px;border:1px solid #e5e7eb;"><strong>Time</strong></td>
+              <td style="padding:8px;border:1px solid #e5e7eb;">${bookingData.bookingTime}</td></tr>
+          <tr><td style="padding:8px;border:1px solid #e5e7eb;"><strong>Duration</strong></td>
+              <td style="padding:8px;border:1px solid #e5e7eb;">${service.duration} minutes</td></tr>
+          ${service.location ? `<tr><td style="padding:8px;border:1px solid #e5e7eb;"><strong>Location</strong></td>
+              <td style="padding:8px;border:1px solid #e5e7eb;">${service.location}${service.locationDetails ? ` — ${service.locationDetails}` : ''}</td></tr>` : ''}
+        </table>`;
 
-      let subject = `Booking Confirmed: ${service.name}`;
-      let html = `
-        <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
+      if (needsApproval) {
+        // Send "pending review" email to client
+        await emailDispatcher.sendEmail({
+          tenantId: schedule.tenantId,
+          to: bookingData.clientEmail,
+          subject: `Booking Request Received: ${service.name}`,
+          html: `<div style="font-family:sans-serif;max-width:600px;margin:0 auto;">
+            <h2>Request Received</h2>
+            <p>Hi ${bookingData.clientName},</p>
+            <p>Thank you for your booking request. We'll review it and get back to you shortly with a confirmation.</p>
+            ${detailsTable}
+            <p style="color:#6b7280;font-size:14px;">You'll receive another email once your booking is confirmed.</p>
+          </div>`,
+        });
+
+        // Send admin notification email (to all tenant users)
+        const tenantUsers = await storage.getUsers(schedule.tenantId);
+        for (const adminUser of tenantUsers) {
+          if (!adminUser.email) continue;
+          await emailDispatcher.sendEmail({
+            tenantId: schedule.tenantId,
+            to: adminUser.email,
+            subject: `New Booking Request: ${bookingData.clientName} — ${service.name}`,
+            html: `<div style="font-family:sans-serif;max-width:600px;margin:0 auto;">
+              <h2>New Booking Request</h2>
+              <p>A new booking request needs your approval.</p>
+              <p><strong>Client:</strong> ${bookingData.clientName} (${bookingData.clientEmail})</p>
+              ${detailsTable}
+              ${bookingData.notes ? `<p><strong>Notes:</strong> ${bookingData.notes}</p>` : ''}
+              <p><a href="/scheduler" style="background:#2563eb;color:white;padding:10px 20px;text-decoration:none;border-radius:6px;display:inline-block;margin-top:8px;">Review in Scheduler →</a></p>
+            </div>`,
+          });
+        }
+      } else {
+        // Auto-confirmed — send full confirmation to client
+        let subject = `Booking Confirmed: ${service.name}`;
+        let html = `<div style="font-family:sans-serif;max-width:600px;margin:0 auto;">
           <h2>Booking Confirmed</h2>
           <p>Hi ${bookingData.clientName},</p>
-          <p>Your booking has been received. Here are the details:</p>
-          <table style="width:100%; border-collapse:collapse; margin: 16px 0;">
-            <tr><td style="padding:8px; border:1px solid #e5e7eb;"><strong>Service</strong></td>
-                <td style="padding:8px; border:1px solid #e5e7eb;">${service.name}</td></tr>
-            <tr><td style="padding:8px; border:1px solid #e5e7eb;"><strong>Date</strong></td>
-                <td style="padding:8px; border:1px solid #e5e7eb;">${new Date(bookingData.bookingDate).toLocaleDateString('en-GB', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</td></tr>
-            <tr><td style="padding:8px; border:1px solid #e5e7eb;"><strong>Time</strong></td>
-                <td style="padding:8px; border:1px solid #e5e7eb;">${bookingData.bookingTime}</td></tr>
-            <tr><td style="padding:8px; border:1px solid #e5e7eb;"><strong>Duration</strong></td>
-                <td style="padding:8px; border:1px solid #e5e7eb;">${service.duration} minutes</td></tr>
-            ${service.location ? `<tr><td style="padding:8px; border:1px solid #e5e7eb;"><strong>Location</strong></td>
-                <td style="padding:8px; border:1px solid #e5e7eb;">${service.location}${service.locationDetails ? ` — ${service.locationDetails}` : ''}</td></tr>` : ''}
-          </table>
+          <p>Your booking is confirmed. Here are your details:</p>
+          ${detailsTable}
           ${bookingData.notes ? `<p><strong>Notes:</strong> ${bookingData.notes}</p>` : ''}
-          <p style="color:#6b7280; font-size:14px;">We'll be in touch soon. If you need to make any changes, please reply to this email.</p>
-        </div>
-      `;
+          <p style="color:#6b7280;font-size:14px;">If you need to make any changes, please reply to this email.</p>
+        </div>`;
 
-      // Use custom template if configured on the service
-      if ((service as any).confirmationMessageTemplateId) {
-        const template = await storage.getMessageTemplate(
-          (service as any).confirmationMessageTemplateId,
-          schedule.tenantId
-        );
-        if (template) {
-          subject = (template as any).subject || subject;
-          // Simple variable replacement
-          const vars: Record<string, string> = {
-            '{{clientName}}': bookingData.clientName,
-            '{{serviceName}}': service.name,
-            '{{bookingDate}}': new Date(bookingData.bookingDate).toLocaleDateString('en-GB'),
-            '{{bookingTime}}': bookingData.bookingTime,
-            '{{duration}}': String(service.duration),
-            '{{location}}': service.location || '',
-          };
-          let body = (template as any).bodyHtml || html;
-          for (const [key, val] of Object.entries(vars)) {
-            body = body.replace(new RegExp(key.replace(/[{}]/g, '\\$&'), 'g'), val);
+        if ((service as any).confirmationMessageTemplateId) {
+          const template = await storage.getMessageTemplate(
+            (service as any).confirmationMessageTemplateId, schedule.tenantId
+          );
+          if (template) {
+            subject = (template as any).subject || subject;
+            const vars: Record<string, string> = {
+              '{{clientName}}': bookingData.clientName,
+              '{{serviceName}}': service.name,
+              '{{bookingDate}}': new Date(bookingData.bookingDate).toLocaleDateString('en-GB'),
+              '{{bookingTime}}': bookingData.bookingTime,
+              '{{duration}}': String(service.duration),
+              '{{location}}': service.location || '',
+            };
+            let body = (template as any).bodyHtml || html;
+            for (const [k, v] of Object.entries(vars)) {
+              body = body.replace(new RegExp(k.replace(/[{}]/g, '\\$&'), 'g'), v);
+            }
+            html = body;
           }
-          html = body;
         }
+
+        await emailDispatcher.sendEmail({ tenantId: schedule.tenantId, to: bookingData.clientEmail, subject, html });
+        await storage.updateBooking(booking.id, { confirmationSentAt: new Date() }, schedule.tenantId);
       }
-
-      await emailDispatcher.sendEmail({
-        tenantId: schedule.tenantId,
-        to: bookingData.clientEmail,
-        subject,
-        html,
-      });
-
-      // Mark confirmation as sent
-      await storage.updateBooking(booking.id, { confirmationSentAt: new Date() }, schedule.tenantId);
     } catch (emailErr) {
-      // Non-fatal — booking already created, just log
-      console.warn('⚠️ Could not send booking confirmation email:', emailErr);
+      console.warn('⚠️ Could not send booking email:', emailErr);
     }
-    // ───────────────────────────────────────────────────────────────────────
+    // ─────────────────────────────────────────────────────────────────────────
 
     res.json({
       ...booking,

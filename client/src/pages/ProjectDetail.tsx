@@ -3687,31 +3687,30 @@ export default function ProjectDetail() {
       />
       {/* Quote Editor Modal */}
       <QuoteEditor
-        open={showQuoteEditor}
-        onOpenChange={setShowQuoteEditor}
+        isOpen={showQuoteEditor}
         contactId={selectedContactId}
         contactName={selectedContactName}
-        quote={editingQuote}
+        editingQuote={editingQuote}
         projectId={projectId}
         onClose={handleQuoteEditorClose}
       />
       {/* Contract Editor Modal */}
       <CreateContractDialog
         open={showContractEditor}
-        onOpenChange={setShowContractEditor}
-        contactId={selectedContactId}
-        contactName={selectedContactName}
+        onOpenChange={(open) => {
+          setShowContractEditor(open);
+          if (!open) handleContractEditorClose();
+        }}
+        initialContactId={selectedContactId}
+        initialProjectId={projectId}
         contract={editingContract}
-        projectId={projectId}
-        onClose={handleContractEditorClose}
       />
       {/* Invoice Editor Modal */}
       <InvoiceEditor
-        open={showInvoiceEditor}
-        onOpenChange={setShowInvoiceEditor}
+        isOpen={showInvoiceEditor}
         contactId={selectedContactId}
         contactName={selectedContactName}
-        invoice={editingInvoice}
+        editingInvoice={editingInvoice}
         projectId={projectId}
         onClose={() => {
           setShowInvoiceEditor(false);

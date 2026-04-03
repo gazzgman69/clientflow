@@ -194,7 +194,7 @@ export default function ProjectEmailPanel({ projectId, emails, autoOpenComposer 
   const { data: emailTemplates, isLoading: templatesLoading } = useQuery({
     queryKey: ['/api/templates'],
     queryFn: async () => {
-      const response = await fetch('/api/templates?type=email');
+      const response = await fetch('/api/templates?type=email', { credentials: 'include' });
       if (!response.ok) throw new Error('Failed to fetch templates');
       return response.json();
     }
@@ -257,7 +257,7 @@ export default function ProjectEmailPanel({ projectId, emails, autoOpenComposer 
   const { data: project } = useQuery({
     queryKey: [`/api/projects/${projectId}`],
     queryFn: async () => {
-      const response = await fetch(`/api/projects/${projectId}`);
+      const response = await fetch(`/api/projects/${projectId}`, { credentials: 'include' });
       return response.json();
     },
     enabled: !!projectId,
@@ -267,7 +267,7 @@ export default function ProjectEmailPanel({ projectId, emails, autoOpenComposer 
   const { data: contactsResponse } = useQuery({
     queryKey: ['/api/contacts'],
     queryFn: async () => {
-      const response = await fetch('/api/contacts');
+      const response = await fetch('/api/contacts', { credentials: 'include' });
       return response.json();
     },
   });

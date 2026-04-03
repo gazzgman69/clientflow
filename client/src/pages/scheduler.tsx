@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { Calendar, Clock, Plus, Pencil, Trash2, Copy, ExternalLink, Check, X, AlertCircle } from 'lucide-react';
+import { Calendar, Clock, Plus, Pencil, Trash2, Copy, ExternalLink, Check, X, AlertCircle, Code2 } from 'lucide-react';
 import { apiRequest, queryClient } from '@/lib/queryClient';
 import type { BookableService, AvailabilitySchedule, Booking } from '@shared/schema';
 import { EnhancedScheduleDialog } from './scheduler-enhanced';
@@ -478,6 +478,16 @@ function ScheduleCard({ schedule }: { schedule: AvailabilitySchedule }) {
     toast({ description: 'Public booking link copied to clipboard' });
   };
 
+  const [embedOpen, setEmbedOpen] = useState(false);
+  const embedSnippet = schedule.publicLink
+    ? `<!-- Inline booking widget -->\n<div id="cf-booking-${schedule.publicLink}"></div>\n<script src="${window.location.origin}/embed.js"\n  data-slug="${schedule.publicLink}"\n  data-container="#cf-booking-${schedule.publicLink}">\n</script>\n\n<!-- OR: modal button -->\n<!--\n<script src="${window.location.origin}/embed.js"\n  data-slug="${schedule.publicLink}"\n  data-button-text="Book a Call">\n</script>\n-->`
+    : '';
+
+  const copyEmbed = () => {
+    navigator.clipboard.writeText(embedSnippet);
+    toast({ description: 'Embed code copied to clipboard' });
+  };
+
   return (
     <Card data-testid={`card-schedule-${schedule.id}`}>
       <CardHeader>
@@ -490,14 +500,44 @@ function ScheduleCard({ schedule }: { schedule: AvailabilitySchedule }) {
           </div>
           <div className="flex gap-2">
             {schedule.publicLink && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={copyPublicLink}
-                data-testid={`button-copy-link-${schedule.id}`}
-              >
-                <Copy className="w-4 h-4" />
-              </Button>
+              <>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={copyPublicLink}
+                  title="Copy booking link"
+                  data-testid={`button-copy-link-${schedule.id}`}
+                >
+                  <Copy className="w-4 h-4" />
+                </Button>
+                <Dialog open={embedOpen} onOpenChange={setEmbedOpen}>
+                  <DialogTrigger asChild>
+                    <Button variant="ghost" size="sm" title="Embed on your website" data-testid={`button-embed-${schedule.id}`}>
+                      <Code2 className="w-4 h-4" />
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="max-w-lg">
+                    <DialogHeader>
+                      <DialogTitle>Embed on your website</DialogTitle>
+                      <DialogDescription>
+                        Paste either snippet into any webpage to let visitors book without leaving your site.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-3">
+                      <pre className="bg-muted text-xs rounded-lg p-3 overflow-x-auto whitespace-pre-wrap break-all select-all">
+                        {embedSnippet}
+                      </pre>
+                      <p className="text-xs text-muted-foreground">
+                        The first snippet embeds inline. Remove the comment markers for the second snippet to show a button that opens a modal instead.
+                      </p>
+                    </div>
+                    <DialogFooter>
+                      <Button variant="outline" onClick={() => setEmbedOpen(false)}>Close</Button>
+                      <Button onClick={copyEmbed}><Copy className="w-4 h-4 mr-2" />Copy code</Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
+              </>
             )}
             <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
               <DialogTrigger asChild>

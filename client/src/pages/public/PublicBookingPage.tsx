@@ -141,8 +141,10 @@ function parseQuestions(raw: string | null | undefined): ServiceQuestion[] {
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function PublicBookingPage({ slug }: PublicBookingPageProps) {
-  // Detect reschedule mode from URL query param
-  const rescheduleBookingId = new URLSearchParams(window.location.search).get('reschedule');
+  // Detect embed mode and reschedule mode from URL query params
+  const searchParams = new URLSearchParams(window.location.search);
+  const isEmbed = searchParams.get('embed') === '1';
+  const rescheduleBookingId = searchParams.get('reschedule');
   const isReschedule = !!rescheduleBookingId;
 
   const [step, setStep] = useState<'service' | 'datetime' | 'questions' | 'info' | 'success'>('service');
@@ -212,6 +214,25 @@ export default function PublicBookingPage({ slug }: PublicBookingPageProps) {
       setStep('datetime');
     }
   }, [isReschedule, rescheduleInfo, services]);
+
+  // Embed mode: notify parent of height changes and booking completion
+  useEffect(() => {
+    if (!isEmbed) return;
+    const sendHeight = () => {
+      const h = document.documentElement.scrollHeight;
+      window.parent.postMessage({ type: 'clientflow:resize', height: h }, '*');
+    };
+    sendHeight();
+    const ro = new ResizeObserver(sendHeight);
+    ro.observe(document.documentElement);
+    return () => ro.disconnect();
+  }, [isEmbed, step]);
+
+  useEffect(() => {
+    if (isEmbed && step === 'success') {
+      window.parent.postMessage({ type: 'clientflow:booked' }, '*');
+    }
+  }, [isEmbed, step]);
 
   // Min/max date constraints from schedule
   const minDate = new Date();
@@ -401,8 +422,8 @@ export default function PublicBookingPage({ slug }: PublicBookingPageProps) {
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-gray-50 py-12 px-4">
-      <div className="max-w-2xl mx-auto">
+    <div className={isEmbed ? 'py-4 px-2' : 'min-h-screen bg-gray-50 py-12 px-4'}>
+      <div className={isEmbed ? 'w-full' : 'max-w-2xl mx-auto'}>
 
         {/* Header */}
         <div className="text-center mb-8">

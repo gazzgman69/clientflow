@@ -64,6 +64,9 @@ const cspConfig = {
     },
   },
   crossOriginEmbedderPolicy: false,
+  // Disable frameguard globally — superseded by CSP frame-ancestors.
+  // The /book/:slug pages need to be embeddable in third-party sites.
+  frameguard: false,
   hsts: {
     maxAge: 31536000,
     includeSubDomains: true,
@@ -72,6 +75,15 @@ const cspConfig = {
 };
 
 app.use(helmet(cspConfig));
+
+// Allow /book/* and /embed.js to be embedded in iframes on any origin
+app.use((req, res, next) => {
+  if (req.path.startsWith('/book/') || req.path === '/embed.js') {
+    res.removeHeader('X-Frame-Options');
+    res.setHeader('Content-Security-Policy', "frame-ancestors *");
+  }
+  next();
+});
 
 // Rate limiting - protect against DDoS and brute force attacks
 const limiter = rateLimit({

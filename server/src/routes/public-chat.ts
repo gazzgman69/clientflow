@@ -850,6 +850,19 @@ router.post('/bookings/:slug', async (req, res) => {
     } catch (emailErr) {
       console.warn('⚠️ Could not send booking email:', emailErr);
     }
+
+    // ── Google Calendar event (auto-confirmed bookings only) ──────────────
+    if (!needsApproval) {
+      try {
+        const { createBookingCalendarEvent } = await import('../services/booking-calendar');
+        const googleEventId = await createBookingCalendarEvent(booking, schedule.tenantId);
+        if (googleEventId) {
+          await storage.updateBooking(booking.id, { googleEventId } as any, schedule.tenantId);
+        }
+      } catch (calErr) {
+        console.warn('⚠️ Could not create Google Calendar event:', calErr);
+      }
+    }
     // ─────────────────────────────────────────────────────────────────────────
 
     res.json({

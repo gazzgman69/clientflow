@@ -933,11 +933,39 @@ router.patch('/bookings/:id', async (req, res) => {
     const tenantId = req.tenantId!;
     const { id } = req.params;
     const validatedData = updateBookingSchema.parse(req.body);
+
+    // Snapshot the booking BEFORE the update so we can compare status changes
+    const existingBooking = await storage.getBooking(id, tenantId);
+
     const booking = await storage.updateBooking(id, validatedData, tenantId);
     if (!booking) {
       res.status(404).json({ error: 'Booking not found' });
       return;
     }
+
+    // ── Google Calendar side-effects ──────────────────────────────────────
+    try {
+      const { createBookingCalendarEvent, deleteBookingCalendarEvent } = await import('../services/booking-calendar');
+
+      const prevStatus = existingBooking?.status;
+      const newStatus = booking.status;
+      const existingGoogleId = (existingBooking as any)?.googleEventId as string | null | undefined;
+
+      if (newStatus === 'confirmed' && !existingGoogleId) {
+        // Booking just confirmed (approval workflow) — create calendar event
+        const googleEventId = await createBookingCalendarEvent(booking, tenantId);
+        if (googleEventId) {
+          await storage.updateBooking(id, { googleEventId } as any, tenantId);
+        }
+      } else if (newStatus === 'cancelled' && existingGoogleId) {
+        // Booking cancelled — remove calendar event
+        await deleteBookingCalendarEvent(existingBooking!, tenantId);
+      }
+    } catch (calErr) {
+      console.warn('⚠️ Google Calendar side-effect failed (non-fatal):', calErr);
+    }
+    // ─────────────────────────────────────────────────────────────────────
+
     res.json(booking);
   } catch (error) {
     console.error('Error updating booking:', error);

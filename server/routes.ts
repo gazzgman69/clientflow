@@ -3628,11 +3628,19 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
 
   app.post("/api/quotes", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
     try {
-      const quoteData = insertQuoteSchema.parse({ ...req.body, tenantId: req.tenantId, createdBy: req.session.userId! });
+      // Coerce numeric decimal fields to strings (Drizzle schema expects strings for decimal columns)
+      const body = {
+        ...req.body,
+        subtotal: req.body.subtotal != null ? String(req.body.subtotal) : undefined,
+        taxAmount: req.body.taxAmount != null ? String(req.body.taxAmount) : undefined,
+        total: req.body.total != null ? String(req.body.total) : undefined,
+      };
+      const quoteData = insertQuoteSchema.parse({ ...body, tenantId: req.tenantId, createdBy: req.session.userId! });
       const quote = await storage.createQuote(quoteData, req.tenantId);
       res.status(201).json(quote);
     } catch (error) {
-      res.status(400).json({ message: "Invalid quote data" });
+      console.error("Quote creation error:", error);
+      res.status(400).json({ message: "Invalid quote data", error: error instanceof Error ? error.message : String(error) });
     }
   });
 
@@ -3751,7 +3759,13 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
 
   app.patch("/api/quotes/:id", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
     try {
-      const quoteData = insertQuoteSchema.partial().parse(req.body);
+      const body = {
+        ...req.body,
+        subtotal: req.body.subtotal != null ? String(req.body.subtotal) : undefined,
+        taxAmount: req.body.taxAmount != null ? String(req.body.taxAmount) : undefined,
+        total: req.body.total != null ? String(req.body.total) : undefined,
+      };
+      const quoteData = insertQuoteSchema.partial().parse(body);
       const quote = await storage.updateQuote(req.params.id, quoteData);
       if (!quote) {
         return res.status(404).json({ message: "Quote not found" });

@@ -344,21 +344,42 @@ router.post('/:slug/submit', formSubmissionLimiter, async (req, res) => {
       return res.status(500).json({ error: 'Form configuration error' });
     }
 
-    // Resolve the correct tenantId.
-    // req.tenantId is authoritatively resolved by the tenantResolver middleware:
-    //   - authenticated requests → session.tenantId
-    //   - unauthenticated requests on Replit/dev → 'default' tenant from DB
-    // form.tenantId may be stale (e.g. created under a test/dev tenant).
-    // We use req.tenantId as the primary source of truth, falling back to
-    // form.tenantId only when req.tenantId is unavailable.
-    const resolvedTenantId = (req as any).tenantId || form.tenantId;
+    // Resolve the correct tenantId using a 3-tier priority:
+    //  1. req.tenantId — set by tenantResolver on authenticated routes (most authoritative)
+    //  2. form creator's tenant — resolved from the user who created the form (handles public routes)
+    //  3. form.tenantId — last resort fallback (may be stale)
+    let resolvedTenantId: string = form.tenantId;
 
-    if ((req as any).tenantId && (req as any).tenantId !== form.tenantId) {
-      console.warn('⚠️ TENANT MISMATCH: using req.tenantId over form.tenantId', {
+    if ((req as any).tenantId && typeof (req as any).tenantId === 'string') {
+      // Authenticated route: tenantResolver already resolved the correct tenant
+      resolvedTenantId = (req as any).tenantId;
+    } else if (form.createdBy) {
+      // Public route: no req.tenantId — look up the form creator's tenant
+      try {
+        const creator = await storage.getUserGlobal(form.createdBy);
+        if (creator?.tenantId && typeof creator.tenantId === 'string') {
+          resolvedTenantId = creator.tenantId;
+          console.log('🔍 TENANT RESOLVED from form creator:', {
+            slug,
+            formId: form.id,
+            createdBy: form.createdBy,
+            creatorTenantId: resolvedTenantId,
+            formTenantId: form.tenantId,
+            timestamp: new Date().toISOString()
+          });
+        }
+      } catch (creatorLookupError) {
+        console.error('❌ Failed to resolve tenant from form creator, falling back to form.tenantId:', creatorLookupError);
+      }
+    }
+
+    if (resolvedTenantId !== form.tenantId) {
+      console.warn('⚠️ TENANT MISMATCH: using resolved tenantId over form.tenantId', {
         slug,
         formId: form.id,
-        reqTenantId: (req as any).tenantId,
+        resolvedTenantId,
         formTenantId: form.tenantId,
+        source: (req as any).tenantId ? 'req.tenantId' : 'creator lookup',
         timestamp: new Date().toISOString()
       });
     }
@@ -1376,7 +1397,7 @@ router.post('/:slug/submit', formSubmissionLimiter, async (req, res) => {
     res.json({
       ok: true,
       leadId: lead.id,
-      _debug: { formTenantId: form.tenantId, leadTenantId: lead.tenantId, storageClass: (storage as any).constructor?.name },
+      _debug: { formTenantId: form.tenantId, resolvedTenantId, leadTenantId: lead.tenantId, reqTenantId: (req as any).tenantId || null },
       afterSubmit: {
         type: 'message',
         message: 'Thank you! We will be in touch soon.'

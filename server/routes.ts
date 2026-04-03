@@ -201,6 +201,42 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     });
   });
 
+  // Debug endpoint: identify runtime storage type and git commit
+  app.get('/api/debug/info', (req, res) => {
+    const { execSync } = require('child_process');
+    let gitHash = 'unknown';
+    try { gitHash = execSync('git rev-parse HEAD', { timeout: 3000 }).toString().trim(); } catch {}
+    res.set('Cache-Control', 'no-store');
+    res.status(200).json({
+      storageClass: storage.constructor.name,
+      gitHash,
+      nodeEnv: process.env.NODE_ENV,
+      timestamp: new Date().toISOString()
+    });
+  });
+
+  // Debug endpoint: raw leads from DB regardless of tenant (no auth — diagnostic only, remove before prod)
+  app.get('/api/debug/leads-raw', async (req, res) => {
+    try {
+      const result = await db.execute(sql.raw(`SELECT id, tenant_id, email, full_name, status, created_at FROM leads ORDER BY created_at DESC LIMIT 10`));
+      res.set('Cache-Control', 'no-store');
+      res.status(200).json({ rows: result.rows, count: result.rows.length });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // Debug endpoint: raw form submissions from DB
+  app.get('/api/debug/form-submissions-raw', async (req, res) => {
+    try {
+      const result = await db.execute(sql.raw(`SELECT id, tenant_id, form_id, lead_id, status, created_at FROM form_submissions ORDER BY created_at DESC LIMIT 10`));
+      res.set('Cache-Control', 'no-store');
+      res.status(200).json({ rows: result.rows, count: result.rows.length });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   // Readiness check - comprehensive dependency verification
   app.get('/api/ready', readinessLimiter, async (req, res) => {
     res.set('Cache-Control', 'no-store');
@@ -3592,11 +3628,19 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
 
   app.post("/api/quotes", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
     try {
-      const quoteData = insertQuoteSchema.parse({ ...req.body, tenantId: req.tenantId, createdBy: req.session.userId! });
+      // Coerce numeric decimal fields to strings (Drizzle schema expects strings for decimal columns)
+      const body = {
+        ...req.body,
+        subtotal: req.body.subtotal != null ? String(req.body.subtotal) : undefined,
+        taxAmount: req.body.taxAmount != null ? String(req.body.taxAmount) : undefined,
+        total: req.body.total != null ? String(req.body.total) : undefined,
+      };
+      const quoteData = insertQuoteSchema.parse({ ...body, tenantId: req.tenantId, createdBy: req.session.userId! });
       const quote = await storage.createQuote(quoteData, req.tenantId);
       res.status(201).json(quote);
     } catch (error) {
-      res.status(400).json({ message: "Invalid quote data" });
+      console.error("Quote creation error:", error);
+      res.status(400).json({ message: "Invalid quote data", error: error instanceof Error ? error.message : String(error) });
     }
   });
 
@@ -3715,7 +3759,13 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
 
   app.patch("/api/quotes/:id", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
     try {
-      const quoteData = insertQuoteSchema.partial().parse(req.body);
+      const body = {
+        ...req.body,
+        subtotal: req.body.subtotal != null ? String(req.body.subtotal) : undefined,
+        taxAmount: req.body.taxAmount != null ? String(req.body.taxAmount) : undefined,
+        total: req.body.total != null ? String(req.body.total) : undefined,
+      };
+      const quoteData = insertQuoteSchema.partial().parse(body);
       const quote = await storage.updateQuote(req.params.id, quoteData);
       if (!quote) {
         return res.status(404).json({ message: "Quote not found" });
@@ -7209,7 +7259,6 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
         isOverdue: q.valid_until ? new Date(q.valid_until) < now : false,
         urgency: 'medium',
       }));
-
       const allPending = [...pendingInvoices, ...pendingContracts, ...pendingEnquiries, ...pendingQuotes];
       res.json(allPending);
     } catch (error) {

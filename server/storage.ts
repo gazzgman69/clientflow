@@ -4693,6 +4693,7 @@ export class DrizzleStorage implements IStorage {
     if (!tenantId) {
       throw new Error("Tenant ID is required for multi-tenant lead creation");
     }
+    console.log('🗄️ DrizzleStorage.createLead: inserting to DB', { email: insertLead.email, tenantId });
     const result = await this.db.insert(leads).values({
       ...insertLead,
       tenantId,
@@ -4700,6 +4701,7 @@ export class DrizzleStorage implements IStorage {
       createdAt: new Date(),
       updatedAt: new Date(),
     }).returning();
+    console.log('🗄️ DrizzleStorage.createLead: insert result', { id: result[0]?.id, rowCount: result.length });
     return result[0];
   }
   async updateLead(id: string, leadUpdate: Partial<InsertLead>, tenantId: string): Promise<Lead | undefined> {

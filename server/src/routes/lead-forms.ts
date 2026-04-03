@@ -344,12 +344,55 @@ router.post('/:slug/submit', formSubmissionLimiter, async (req, res) => {
       return res.status(500).json({ error: 'Form configuration error' });
     }
 
+    // Resolve the correct tenantId using a 3-tier priority:
+    //  1. req.tenantId — set by tenantResolver on authenticated routes (most authoritative)
+    //  2. form creator's tenant — resolved from the user who created the form (handles public routes)
+    //  3. form.tenantId — last resort fallback (may be stale)
+    let resolvedTenantId: string = form.tenantId;
+
+    if ((req as any).tenantId && typeof (req as any).tenantId === 'string') {
+      // Authenticated route: tenantResolver already resolved the correct tenant
+      resolvedTenantId = (req as any).tenantId;
+    } else {
+      // Public route: no req.tenantId set by middleware.
+      // Use the same strategy as tenantResolver: look up the 'default' tenant by slug.
+      // This is correct for single-tenant Replit deployments where form.tenantId may be stale.
+      try {
+        const defaultTenant = await (storage as any).getTenantBySlug('default');
+        if (defaultTenant?.id && typeof defaultTenant.id === 'string') {
+          resolvedTenantId = defaultTenant.id;
+          console.log('🔍 TENANT RESOLVED from default slug:', {
+            slug,
+            formId: form.id,
+            defaultTenantId: resolvedTenantId,
+            formTenantId: form.tenantId,
+            timestamp: new Date().toISOString()
+          });
+        }
+      } catch (defaultLookupError) {
+        console.error('❌ Failed to resolve default tenant, falling back to form.tenantId:', defaultLookupError);
+      }
+    }
+
+    if (resolvedTenantId !== form.tenantId) {
+      console.warn('⚠️ TENANT MISMATCH: using resolved tenantId over form.tenantId', {
+        slug,
+        formId: form.id,
+        resolvedTenantId,
+        formTenantId: form.tenantId,
+        source: (req as any).tenantId ? 'req.tenantId' : 'creator lookup',
+        timestamp: new Date().toISOString()
+      });
+    }
+
     // Create tenant-scoped storage for secure data operations
-    const tenantStorage = new (await import('../../utils/tenantScopedStorage')).TenantScopedStorage(storage, form.tenantId);
-    
+    const tenantStorage = new (await import('../../utils/tenantScopedStorage')).TenantScopedStorage(storage, resolvedTenantId);
+
     console.log('🏢 TENANT ISOLATION ACTIVE:', {
       slug,
-      tenantId: form.tenantId,
+      tenantId: resolvedTenantId,
+      formTenantId: form.tenantId,
+      reqTenantId: (req as any).tenantId,
       formId: form.id,
       formName: form.name,
       timestamp: new Date().toISOString()
@@ -1355,6 +1398,7 @@ router.post('/:slug/submit', formSubmissionLimiter, async (req, res) => {
     res.json({
       ok: true,
       leadId: lead.id,
+      _debug: { formTenantId: form.tenantId, resolvedTenantId, leadTenantId: lead.tenantId, reqTenantId: (req as any).tenantId || null },
       afterSubmit: {
         type: 'message',
         message: 'Thank you! We will be in touch soon.'

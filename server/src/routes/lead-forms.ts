@@ -353,23 +353,24 @@ router.post('/:slug/submit', formSubmissionLimiter, async (req, res) => {
     if ((req as any).tenantId && typeof (req as any).tenantId === 'string') {
       // Authenticated route: tenantResolver already resolved the correct tenant
       resolvedTenantId = (req as any).tenantId;
-    } else if (form.createdBy) {
-      // Public route: no req.tenantId — look up the form creator's tenant
+    } else {
+      // Public route: no req.tenantId set by middleware.
+      // Use the same strategy as tenantResolver: look up the 'default' tenant by slug.
+      // This is correct for single-tenant Replit deployments where form.tenantId may be stale.
       try {
-        const creator = await storage.getUserGlobal(form.createdBy);
-        if (creator?.tenantId && typeof creator.tenantId === 'string') {
-          resolvedTenantId = creator.tenantId;
-          console.log('🔍 TENANT RESOLVED from form creator:', {
+        const defaultTenant = await (storage as any).getTenantBySlug('default');
+        if (defaultTenant?.id && typeof defaultTenant.id === 'string') {
+          resolvedTenantId = defaultTenant.id;
+          console.log('🔍 TENANT RESOLVED from default slug:', {
             slug,
             formId: form.id,
-            createdBy: form.createdBy,
-            creatorTenantId: resolvedTenantId,
+            defaultTenantId: resolvedTenantId,
             formTenantId: form.tenantId,
             timestamp: new Date().toISOString()
           });
         }
-      } catch (creatorLookupError) {
-        console.error('❌ Failed to resolve tenant from form creator, falling back to form.tenantId:', creatorLookupError);
+      } catch (defaultLookupError) {
+        console.error('❌ Failed to resolve default tenant, falling back to form.tenantId:', defaultLookupError);
       }
     }
 

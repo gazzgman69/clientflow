@@ -344,12 +344,36 @@ router.post('/:slug/submit', formSubmissionLimiter, async (req, res) => {
       return res.status(500).json({ error: 'Form configuration error' });
     }
 
+    // Resolve the correct tenantId — verify against form creator's actual tenant.
+    // The form.tenantId may be a fallback/dev value if the form was created without
+    // a proper authenticated session. We cross-check via the creator's user record.
+    let resolvedTenantId = form.tenantId;
+    try {
+      if (form.createdBy) {
+        const formCreator = await storage.getUserGlobal(form.createdBy);
+        if (formCreator?.tenantId && formCreator.tenantId !== form.tenantId) {
+          console.warn('⚠️ TENANT MISMATCH CORRECTED', {
+            slug,
+            formId: form.id,
+            formTenantId: form.tenantId,
+            creatorTenantId: formCreator.tenantId,
+            createdBy: form.createdBy,
+            timestamp: new Date().toISOString()
+          });
+          resolvedTenantId = formCreator.tenantId;
+        }
+      }
+    } catch (err) {
+      console.warn('⚠️ Could not verify tenantId via creator lookup, using form.tenantId:', err);
+    }
+
     // Create tenant-scoped storage for secure data operations
-    const tenantStorage = new (await import('../../utils/tenantScopedStorage')).TenantScopedStorage(storage, form.tenantId);
-    
+    const tenantStorage = new (await import('../../utils/tenantScopedStorage')).TenantScopedStorage(storage, resolvedTenantId);
+
     console.log('🏢 TENANT ISOLATION ACTIVE:', {
       slug,
-      tenantId: form.tenantId,
+      tenantId: resolvedTenantId,
+      formTenantId: form.tenantId,
       formId: form.id,
       formName: form.name,
       timestamp: new Date().toISOString()

@@ -1,4 +1,7 @@
 import { storage } from '../../storage';
+import { db } from '../../db';
+import { emailAccounts } from '@shared/schema';
+import { eq, and } from 'drizzle-orm';
 
 /**
  * Get Google OAuth tokens for a specific user from email_accounts table
@@ -10,9 +13,17 @@ export async function getUserGoogleTokens(userId: string): Promise<{
   expiry_date?: number;
 }> {
   try {
-    // Get user's Gmail OAuth account from email_accounts table via storage layer
-    const emailAccounts = await storage.getEmailAccountsByUser(userId, 'default-tenant');
-    const googleAccount = emailAccounts.find(acc => acc.providerKey === 'google' && acc.status === 'connected');
+    // Query by userId only — do not hardcode tenantId, as it varies per deployment
+    const accounts = await db
+      .select()
+      .from(emailAccounts)
+      .where(and(
+        eq(emailAccounts.userId, userId),
+        eq(emailAccounts.providerKey, 'google'),
+        eq(emailAccounts.status, 'connected')
+      ))
+      .limit(1);
+    const googleAccount = accounts[0] || null;
     
     if (!googleAccount) {
       throw new Error('No active Gmail connection found. Please connect your Gmail account first.');

@@ -113,23 +113,27 @@ export class EmailSyncService {
       this.gmailService = await this.initializeGmailService();
       console.log(`🔄 Syncing Gmail threads to database with tenantId: ${this.tenantId}...`);
       
-      // Get all projects and their contact emails for matching
-      const projectsWithContacts = await withDbRetry(() => 
+      // Get all projects and their contact emails for this tenant only
+      const tenantId = this.tenantId;
+      const projectsWithContacts = await withDbRetry(() =>
         db
           .select({
             projectId: projects.id,
             projectName: projects.name,
             contactEmail: contacts.email,
+            contactId: contacts.id,
           })
           .from(projects)
-          .leftJoin(contacts, eq(contacts.id, projects.contactId))
-          .where(isNotNull(contacts.email))
+          .leftJoin(contacts, and(eq(contacts.id, projects.contactId), eq(contacts.tenantId, tenantId!)))
+          .where(and(eq(projects.tenantId, tenantId!), isNotNull(contacts.email)))
       );
 
       const emailToProjectMap = new Map<string, string>();
+      const emailToContactMap = new Map<string, string>(); // email -> contactId
       projectsWithContacts.forEach(p => {
         if (p.contactEmail) {
           emailToProjectMap.set(p.contactEmail.toLowerCase(), p.projectId);
+          if (p.contactId) emailToContactMap.set(p.contactEmail.toLowerCase(), p.contactId);
         }
       });
 
@@ -274,19 +278,20 @@ export class EmailSyncService {
           let contactId: string | null = null;
           
           if (direction === 'inbound') {
-            // For inbound emails, sender must be a known contact
-            contactId = await this.findExistingContact(fromEmailParsed, tenantId);
+            // For inbound emails, sender must be a known contact — check map first, then DB
+            contactId = emailToContactMap.get(fromEmailParsed.toLowerCase()) ||
+                        await this.findExistingContact(fromEmailParsed, tenantId);
             if (!contactId) {
-              // PII-SAFE LOGGING: Use domain-only information
               const senderDomain = fromEmailParsed ? fromEmailParsed.split('@')[1] || 'unknown' : 'unknown';
               console.log(`🚫 INGESTION GUARD: Rejecting inbound email from unknown contact from domain: ${senderDomain} (tenant: ${tenantId})`);
               skipped++;
-              continue; // Skip this email - do not persist
+              continue;
             }
           } else {
-            // For outbound emails, recipient should be a contact (create if needed)
+            // For outbound emails, recipient must be a known contact
             const toEmailParsed = this.extractEmails(gmailThread.latest.to)[0] || '';
-            contactId = await this.findOrCreateContact(toEmailParsed, tenantId, matchedProjectId);
+            contactId = emailToContactMap.get(toEmailParsed.toLowerCase()) ||
+                        await this.findOrCreateContact(toEmailParsed, tenantId, matchedProjectId);
           }
           
           // AUTO-LINK PROJECTS: When contact has active projects, link to most recent

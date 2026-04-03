@@ -262,6 +262,26 @@ router.post('/send', requireAuth, upload.array('attachments', 10), async (req: a
       }
     }
     
+    // If contactId is still null but we have a projectId, look up the project's contact
+    if (!contactId && projectId) {
+      const tenantId = req.tenantId || 'default-tenant';
+      try {
+        const [proj] = await db
+          .select({ contactId: projects.contactId })
+          .from(projects)
+          .where(and(
+            eq(projects.tenantId, tenantId),
+            eq(projects.id, projectId)
+          ))
+          .limit(1);
+        if (proj?.contactId) {
+          contactId = proj.contactId;
+        }
+      } catch (error) {
+        console.log('Could not auto-detect contact from project:', projectId);
+      }
+    }
+
     if (contactId) context.contactId = contactId;
     if (projectId) context.projectId = projectId;
     
@@ -404,6 +424,7 @@ router.post('/send', requireAuth, upload.array('attachments', 10), async (req: a
             bodyHtml: finalHtml,
             sentAt: new Date(),
             projectId,
+            contactId,
             isSent: true,
             direction: 'outbound',
             snippet: finalText?.substring(0, 100)

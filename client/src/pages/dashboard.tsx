@@ -17,7 +17,7 @@ export default function Dashboard() {
         {/* Row 1: Financial KPI cards */}
         <CompactMetrics />
 
-        {/* Row 2: Two-column layout matching mockup */}
+        {/* Row 2: Two-column layout */}
         <div className="flex gap-4 min-h-0" style={{ alignItems: "flex-start" }}>
 
           {/* LEFT: Action Required (flexible width) */}
@@ -25,14 +25,16 @@ export default function Dashboard() {
             <PendingItems />
           </div>
 
-          {/* RIGHT: Calendar + Activity + Email (~360px fixed) */}
+          {/* RIGHT: Calendar + Activity (~360px fixed) */}
           <div className="flex-shrink-0 space-y-4" style={{ width: 360 }}>
             <DashboardCalendar />
             <RecentClientActivity />
-            <EmailThreadsWidget />
           </div>
 
         </div>
+
+        {/* Row 3: Email Threads — full width */}
+        <EmailThreadsWidget />
       </main>
     </>
   );

@@ -87,7 +87,7 @@ export default function EmailThreadsWidget() {
   const { data: threadsResponse, isLoading, error } = useQuery({
     queryKey: ['/api/email/threads'],
     queryFn: async () => {
-      const response = await fetch('/api/email/threads?limit=10', {
+      const response = await fetch('/api/email/threads?limit=20', {
         credentials: 'include'
       });
       return response.json();
@@ -331,7 +331,7 @@ export default function EmailThreadsWidget() {
             <p className="text-sm">Connect Gmail to see recent email conversations</p>
           </div>
         ) : (
-          <div className="space-y-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {threads.map((thread: EmailThread) => (
               <div 
                 key={thread.threadId}

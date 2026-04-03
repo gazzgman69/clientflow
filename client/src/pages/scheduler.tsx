@@ -178,6 +178,16 @@ function ServiceDialog({ service, onClose }: { service?: BookableService; onClos
     location: svc?.location || '',
     requireApproval: !!svc?.requireApproval,
     addContactTags: (svc?.addContactTags || []).join(', '),
+    contractTemplateId: svc?.contractTemplateId || '',
+    enableOnlinePayments: !!svc?.enableOnlinePayments,
+    paymentAmount: svc?.paymentAmount || '',
+    paymentType: svc?.paymentType || 'deposit',
+  });
+
+  // Load contract templates for the dropdown
+  const { data: contractTemplates } = useQuery<any[]>({
+    queryKey: ['/api/contract-templates'],
+    staleTime: 60_000,
   });
   const [questions, setQuestions] = useState<ServiceQuestion[]>(() => {
     try { return JSON.parse(svc?.serviceQuestions || '[]'); } catch { return []; }
@@ -216,6 +226,9 @@ function ServiceDialog({ service, onClose }: { service?: BookableService; onClos
       bufferAfter: Number(formData.bufferAfter),
       addContactTags: tags,
       serviceQuestions: questions.length ? JSON.stringify(questions) : null,
+      contractTemplateId: formData.contractTemplateId || null,
+      paymentAmount: formData.enableOnlinePayments && formData.paymentAmount ? formData.paymentAmount : null,
+      paymentType: formData.enableOnlinePayments ? formData.paymentType : null,
     });
   };
 
@@ -324,6 +337,68 @@ function ServiceDialog({ service, onClose }: { service?: BookableService; onClos
                 </div>
               ))}
             </div>
+          </div>
+
+          {/* Contract template */}
+          <div>
+            <Label htmlFor="contractTemplateId">Auto-send contract on confirmation</Label>
+            <Select
+              value={formData.contractTemplateId || 'none'}
+              onValueChange={v => setFormData({ ...formData, contractTemplateId: v === 'none' ? '' : v })}
+            >
+              <SelectTrigger id="contractTemplateId">
+                <SelectValue placeholder="No contract (optional)" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">No contract</SelectItem>
+                {(contractTemplates || []).map((t: any) => (
+                  <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground mt-1">Client will receive a signing link in their confirmation email.</p>
+          </div>
+
+          {/* Deposit / payment */}
+          <div className="space-y-3">
+            <div className="flex items-center gap-3 py-1">
+              <input
+                type="checkbox"
+                id="enableOnlinePayments"
+                checked={formData.enableOnlinePayments}
+                onChange={e => setFormData({ ...formData, enableOnlinePayments: e.target.checked })}
+                className="w-4 h-4 accent-primary"
+              />
+              <Label htmlFor="enableOnlinePayments" className="cursor-pointer">Require payment at booking</Label>
+            </div>
+            {formData.enableOnlinePayments && (
+              <div className="grid grid-cols-2 gap-3 pl-7">
+                <div>
+                  <Label htmlFor="paymentAmount">Amount (£)</Label>
+                  <Input
+                    id="paymentAmount"
+                    type="number"
+                    step="0.01"
+                    value={formData.paymentAmount}
+                    onChange={e => setFormData({ ...formData, paymentAmount: e.target.value })}
+                    placeholder="e.g., 50"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="paymentType">Type</Label>
+                  <Select
+                    value={formData.paymentType}
+                    onValueChange={v => setFormData({ ...formData, paymentType: v })}
+                  >
+                    <SelectTrigger id="paymentType"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="deposit">Deposit</SelectItem>
+                      <SelectItem value="full">Full payment</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            )}
           </div>
 
         </div>

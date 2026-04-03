@@ -812,14 +812,19 @@ router.post('/bookings/:slug', async (req, res) => {
         }
       } else {
         // Auto-confirmed — send full confirmation to client
+        const appBaseUrl = process.env.APP_URL || '';
+        const rescheduleUrl = `${appBaseUrl}/book/${slug}?reschedule=${booking.id}`;
         let subject = `Booking Confirmed: ${service.name}`;
         let html = `<div style="font-family:sans-serif;max-width:600px;margin:0 auto;">
-          <h2>Booking Confirmed</h2>
+          <h2>Booking Confirmed ✓</h2>
           <p>Hi ${bookingData.clientName},</p>
           <p>Your booking is confirmed. Here are your details:</p>
           ${detailsTable}
           ${bookingData.notes ? `<p><strong>Notes:</strong> ${bookingData.notes}</p>` : ''}
-          <p style="color:#6b7280;font-size:14px;">If you need to make any changes, please reply to this email.</p>
+          <p style="margin-top:24px;">
+            <a href="${rescheduleUrl}" style="color:#2563eb;font-size:14px;">Need to reschedule? Click here →</a>
+          </p>
+          <p style="color:#6b7280;font-size:14px;">If you need to cancel or have any questions, please reply to this email.</p>
         </div>`;
 
         if ((service as any).confirmationMessageTemplateId) {
@@ -863,6 +868,114 @@ router.post('/bookings/:slug', async (req, res) => {
         console.warn('⚠️ Could not create Google Calendar event:', calErr);
       }
     }
+
+    // ── Auto-send contract on confirmation ─────────────────────────────────
+    const contractTemplateId = (service as any).contractTemplateId as string | null | undefined;
+    if (!needsApproval && contractTemplateId && contactId) {
+      try {
+        const template = await storage.getContractTemplate(contractTemplateId, schedule.tenantId);
+        if (template) {
+          const tenantUsers = await storage.getUsers(schedule.tenantId);
+          const createdBy = tenantUsers[0]?.id;
+          if (createdBy) {
+            // Substitute basic tokens in the contract body
+            const vars: Record<string, string> = {
+              '{{clientName}}': bookingData.clientName,
+              '{{serviceName}}': service.name,
+              '{{bookingDate}}': new Date(bookingData.bookingDate).toLocaleDateString('en-GB'),
+              '{{bookingTime}}': bookingData.bookingTime,
+            };
+            let bodyHtml = (template as any).bodyHtml || '';
+            for (const [k, v] of Object.entries(vars)) {
+              bodyHtml = bodyHtml.replace(new RegExp(k.replace(/[{}]/g, '\\$&'), 'g'), v);
+            }
+            const contract = await storage.createContract({
+              tenantId: schedule.tenantId,
+              contactId,
+              projectId: projectId || undefined,
+              templateId: contractTemplateId,
+              title: `${service.name} — ${bookingData.clientName}`,
+              bodyHtml,
+              status: 'sent',
+              sentAt: new Date(),
+              createdBy,
+            } as any, schedule.tenantId);
+            // Send signing link to client
+            const { emailDispatcher } = await import('../services/email-dispatcher');
+            const appBaseUrl = process.env.APP_URL || '';
+            await emailDispatcher.sendEmail({
+              tenantId: schedule.tenantId,
+              to: bookingData.clientEmail,
+              subject: `Please sign your contract: ${service.name}`,
+              html: `<div style="font-family:sans-serif;max-width:600px;margin:0 auto;">
+                <h2>Contract Ready to Sign</h2>
+                <p>Hi ${bookingData.clientName},</p>
+                <p>Your booking is confirmed. Please review and sign your contract by clicking the button below.</p>
+                <p style="margin:24px 0;"><a href="${appBaseUrl}/c/${contract.id}" style="background:#2563eb;color:white;padding:12px 24px;text-decoration:none;border-radius:6px;display:inline-block;">View &amp; Sign Contract →</a></p>
+                <p style="color:#6b7280;font-size:14px;">If the button doesn't work, copy this link: ${appBaseUrl}/c/${contract.id}</p>
+              </div>`,
+            });
+          }
+        }
+      } catch (contractErr) {
+        console.warn('⚠️ Could not auto-send contract:', contractErr);
+      }
+    }
+
+    // ── Auto-create deposit invoice on confirmation ────────────────────────
+    const svcPayment = service as any;
+    if (!needsApproval && svcPayment.enableOnlinePayments && svcPayment.paymentAmount && contactId) {
+      try {
+        const tenantUsers = await storage.getUsers(schedule.tenantId);
+        const createdBy = tenantUsers[0]?.id;
+        if (createdBy) {
+          const amount = parseFloat(svcPayment.paymentAmount);
+          const isDeposit = svcPayment.paymentType === 'deposit';
+          const invoiceTitle = isDeposit ? `Deposit — ${service.name}` : `Invoice — ${service.name}`;
+          const invoice = await storage.createInvoice({
+            tenantId: schedule.tenantId,
+            contactId,
+            projectId: projectId || undefined,
+            title: invoiceTitle,
+            subtotal: String(amount),
+            total: String(amount),
+            taxAmount: '0',
+            status: 'sent',
+            sentAt: new Date(),
+            currency: 'GBP',
+            onlinePaymentsEnabled: true,
+            createdBy,
+          } as any, schedule.tenantId);
+          // Line item
+          await storage.createInvoiceLineItem({
+            tenantId: schedule.tenantId,
+            invoiceId: invoice.id,
+            description: invoiceTitle,
+            quantity: '1',
+            unitPrice: String(amount),
+            lineTotal: String(amount),
+            isTaxable: false,
+            displayOrder: 0,
+          } as any, schedule.tenantId);
+          // Notify client
+          const { emailDispatcher } = await import('../services/email-dispatcher');
+          await emailDispatcher.sendEmail({
+            tenantId: schedule.tenantId,
+            to: bookingData.clientEmail,
+            subject: `${isDeposit ? 'Deposit' : 'Invoice'} for ${service.name} — £${amount.toFixed(2)}`,
+            html: `<div style="font-family:sans-serif;max-width:600px;margin:0 auto;">
+              <h2>${isDeposit ? 'Deposit Required' : 'Invoice'}</h2>
+              <p>Hi ${bookingData.clientName},</p>
+              <p>A ${isDeposit ? 'deposit' : 'payment'} of <strong>£${amount.toFixed(2)}</strong> is due for your booking of <strong>${service.name}</strong>.</p>
+              <p>Your account manager will be in touch with a payment link shortly.</p>
+              <p style="color:#6b7280;font-size:14px;">Invoice reference: ${invoice.invoiceNumber}</p>
+            </div>`,
+          });
+        }
+      } catch (invoiceErr) {
+        console.warn('⚠️ Could not auto-create deposit invoice:', invoiceErr);
+      }
+    }
     // ─────────────────────────────────────────────────────────────────────────
 
     res.json({
@@ -873,6 +986,126 @@ router.post('/bookings/:slug', async (req, res) => {
   } catch (error) {
     console.error('Error creating public booking:', error);
     res.status(500).json({ error: 'Failed to create booking' });
+  }
+});
+
+// ── GET /api/public/bookings/:id — look up a booking (for reschedule flow) ───
+router.get('/booking/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    // We don't know the tenantId without a slug, so search across tenants is needed.
+    // The booking ID is a UUID — use a raw lookup helper if available, otherwise
+    // fall back to the first tenant that owns it (safe because we'll verify clientEmail).
+    // Use storage.getBookingById if available, otherwise iterate.
+    const booking = await (storage as any).getBookingById?.(id);
+    if (!booking) {
+      res.status(404).json({ error: 'Booking not found' });
+      return;
+    }
+    const service = await storage.getBookableService(booking.serviceId, booking.tenantId);
+    const schedule = booking.scheduleId
+      ? await (storage as any).getAvailabilitySchedule?.(booking.scheduleId, booking.tenantId)
+      : null;
+
+    res.json({
+      id: booking.id,
+      clientName: booking.clientName,
+      // Mask email: show first 3 chars + domain for verification UI
+      clientEmailMasked: (() => {
+        const e = booking.clientEmail || '';
+        const [local, domain] = e.split('@');
+        return `${local.slice(0, 3)}***@${domain || ''}`;
+      })(),
+      bookingDate: booking.bookingDate,
+      bookingTime: booking.bookingTime,
+      status: booking.status,
+      serviceId: booking.serviceId,
+      serviceName: service?.name || booking.serviceId,
+      scheduleSlug: schedule?.publicLink || null,
+    });
+  } catch (err) {
+    console.error('Error fetching public booking:', err);
+    res.status(500).json({ error: 'Failed to fetch booking' });
+  }
+});
+
+// ── POST /api/public/bookings/:id/reschedule — reschedule an existing booking ─
+router.post('/booking/:id/reschedule', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { clientEmail, newDate, newTime } = req.body;
+
+    if (!clientEmail || !newDate || !newTime) {
+      res.status(400).json({ error: 'clientEmail, newDate, and newTime are required' });
+      return;
+    }
+
+    const booking = await (storage as any).getBookingById?.(id);
+    if (!booking) {
+      res.status(404).json({ error: 'Booking not found' });
+      return;
+    }
+
+    // Verify the requester owns this booking
+    if ((booking.clientEmail || '').toLowerCase() !== clientEmail.toLowerCase()) {
+      res.status(403).json({ error: 'Email does not match booking' });
+      return;
+    }
+
+    if (booking.status === 'cancelled') {
+      res.status(400).json({ error: 'Cannot reschedule a cancelled booking' });
+      return;
+    }
+
+    // Update the booking with the new date/time
+    const updated = await storage.updateBooking(
+      id,
+      { bookingDate: new Date(newDate), bookingTime: newTime } as any,
+      booking.tenantId
+    );
+
+    // Update Google Calendar event if one exists
+    if ((booking as any).googleEventId) {
+      try {
+        const { updateBookingCalendarEvent } = await import('../services/booking-calendar');
+        await updateBookingCalendarEvent(updated!, booking.tenantId);
+      } catch (calErr) {
+        console.warn('⚠️ Could not update Google Calendar event on reschedule:', calErr);
+      }
+    }
+
+    // Send reschedule confirmation email
+    try {
+      const { emailDispatcher } = await import('../services/email-dispatcher');
+      const service = await storage.getBookableService(booking.serviceId, booking.tenantId);
+      const dateStr = new Date(newDate).toLocaleDateString('en-GB', {
+        weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
+      });
+      await emailDispatcher.sendEmail({
+        tenantId: booking.tenantId,
+        to: booking.clientEmail,
+        subject: `Booking Rescheduled: ${service?.name || 'Your booking'}`,
+        html: `<div style="font-family:sans-serif;max-width:600px;margin:0 auto;">
+          <h2>Booking Rescheduled ✓</h2>
+          <p>Hi ${booking.clientName},</p>
+          <p>Your booking has been rescheduled to:</p>
+          <table style="width:100%;border-collapse:collapse;margin:16px 0;">
+            <tr><td style="padding:8px;border:1px solid #e5e7eb;"><strong>Date</strong></td>
+                <td style="padding:8px;border:1px solid #e5e7eb;">${dateStr}</td></tr>
+            <tr><td style="padding:8px;border:1px solid #e5e7eb;"><strong>Time</strong></td>
+                <td style="padding:8px;border:1px solid #e5e7eb;">${newTime}</td></tr>
+          </table>
+          <p style="color:#6b7280;font-size:14px;">If you need to make further changes, please reply to this email.</p>
+        </div>`,
+      });
+    } catch (emailErr) {
+      console.warn('⚠️ Could not send reschedule email:', emailErr);
+    }
+
+    res.json({ success: true, booking: updated });
+  } catch (err) {
+    console.error('Error rescheduling booking:', err);
+    res.status(500).json({ error: 'Failed to reschedule booking' });
   }
 });
 

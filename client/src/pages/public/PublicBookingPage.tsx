@@ -141,6 +141,10 @@ function parseQuestions(raw: string | null | undefined): ServiceQuestion[] {
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function PublicBookingPage({ slug }: PublicBookingPageProps) {
+  // Detect reschedule mode from URL query param
+  const rescheduleBookingId = new URLSearchParams(window.location.search).get('reschedule');
+  const isReschedule = !!rescheduleBookingId;
+
   const [step, setStep] = useState<'service' | 'datetime' | 'questions' | 'info' | 'success'>('service');
   const [selectedService, setSelectedService] = useState<BookableService | null>(null);
   const [selectedDate, setSelectedDate] = useState('');
@@ -149,7 +153,19 @@ export default function PublicBookingPage({ slug }: PublicBookingPageProps) {
   const [clientInfo, setClientInfo] = useState({ name: '', email: '', phone: '', notes: '' });
   const [existingContact, setExistingContact] = useState<any>(null);
   const [isCheckingEmail, setIsCheckingEmail] = useState(false);
+  const [rescheduleInfo, setRescheduleInfo] = useState<any>(null);
   const { toast } = useToast();
+
+  // Load booking info for reschedule mode
+  useEffect(() => {
+    if (!rescheduleBookingId) return;
+    fetch(`/api/public/booking/${rescheduleBookingId}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (data) setRescheduleInfo(data);
+      })
+      .catch(() => {});
+  }, [rescheduleBookingId]);
 
   // Fetch schedule
   const { data: schedule, isLoading: isLoadingSchedule } = useQuery<AvailabilitySchedule>({
@@ -186,6 +202,16 @@ export default function PublicBookingPage({ slug }: PublicBookingPageProps) {
 
   // Reset time when date changes
   useEffect(() => { setSelectedTime(''); }, [selectedDate]);
+
+  // In reschedule mode: when services load and we know the booking's serviceId, pre-select it
+  useEffect(() => {
+    if (!isReschedule || !rescheduleInfo || !services || selectedService) return;
+    const svc = services.find(s => s.id === rescheduleInfo.serviceId);
+    if (svc) {
+      setSelectedService(svc);
+      setStep('datetime');
+    }
+  }, [isReschedule, rescheduleInfo, services]);
 
   // Min/max date constraints from schedule
   const minDate = new Date();
@@ -247,6 +273,28 @@ export default function PublicBookingPage({ slug }: PublicBookingPageProps) {
     onError: (err: any) => toast({ title: 'Booking failed', description: err.message, variant: 'destructive' }),
   });
 
+  // Reschedule mutation
+  const rescheduleMutation = useMutation({
+    mutationFn: async ({ newDate, newTime }: { newDate: string; newTime: string }) => {
+      const res = await fetch(`/api/public/booking/${rescheduleBookingId}/reschedule`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          clientEmail: rescheduleInfo?.clientEmail || clientInfo.email,
+          newDate,
+          newTime,
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Failed to reschedule booking');
+      }
+      return res.json();
+    },
+    onSuccess: () => setStep('success'),
+    onError: (err: any) => toast({ title: 'Reschedule failed', description: err.message, variant: 'destructive' }),
+  });
+
   const handleServiceSelect = (service: BookableService) => {
     setSelectedService(service);
     setSelectedDate('');
@@ -257,6 +305,12 @@ export default function PublicBookingPage({ slug }: PublicBookingPageProps) {
   const handleBookingSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedService || !selectedDate || !selectedTime) return;
+
+    // Reschedule mode: skip the normal create flow
+    if (isReschedule && rescheduleBookingId) {
+      rescheduleMutation.mutate({ newDate: selectedDate, newTime: selectedTime });
+      return;
+    }
 
     // Split answers by question type
     const svcLabels = new Set(serviceQuestions.map(q => q.label));
@@ -294,6 +348,11 @@ export default function PublicBookingPage({ slug }: PublicBookingPageProps) {
 
   const handleDateTimeContinue = () => {
     if (!selectedDate || !selectedTime) return;
+    // In reschedule mode, we skip info/questions — just submit the new slot
+    if (isReschedule && rescheduleBookingId) {
+      rescheduleMutation.mutate({ newDate: selectedDate, newTime: selectedTime });
+      return;
+    }
     if (hasQuestions) {
       setStep('questions');
     } else {
@@ -446,6 +505,13 @@ export default function PublicBookingPage({ slug }: PublicBookingPageProps) {
         {/* ── Step 2: Date & Time ── */}
         {step === 'datetime' && selectedService && (
           <div className="grid sm:grid-cols-2 gap-4">
+            {isReschedule && rescheduleInfo && (
+              <div className="sm:col-span-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                <strong>Rescheduling:</strong> {rescheduleInfo.serviceName} — currently{' '}
+                {new Date(rescheduleInfo.bookingDate).toLocaleDateString('en-GB')} at {rescheduleInfo.bookingTime}.
+                Pick a new date and time below.
+              </div>
+            )}
             {/* Calendar */}
             <Card>
               <CardHeader className="pb-2">
@@ -710,10 +776,12 @@ export default function PublicBookingPage({ slug }: PublicBookingPageProps) {
             <CardContent className="py-12 text-center">
               <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-4" />
               <h2 className="text-2xl font-bold mb-2" data-testid="text-booking-success">
-                {selectedService?.requireApproval ? 'Request Received!' : 'Booking Confirmed!'}
+                {isReschedule ? 'Rescheduled!' : selectedService?.requireApproval ? 'Request Received!' : 'Booking Confirmed!'}
               </h2>
               <p className="text-muted-foreground mb-6">
-                {selectedService?.requireApproval
+                {isReschedule
+                  ? 'Your booking has been rescheduled. A confirmation email is on its way.'
+                  : selectedService?.requireApproval
                   ? "We'll review your request and send you a confirmation email shortly."
                   : "You'll receive a confirmation email shortly."}
               </p>

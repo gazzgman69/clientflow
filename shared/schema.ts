@@ -3055,7 +3055,10 @@ export const bookableServices = pgTable("bookable_services", {
   approvalCalendarId: varchar("approval_calendar_id").references(() => calendarIntegrations.id),
   approvalWorkflowId: text("approval_workflow_id"),
   approvalAutoEmail: text("approval_auto_email"), // 'do_not_send', 'waiting_for_approval', custom template
-  
+
+  // Contract: auto-send on confirmation
+  contractTemplateId: varchar("contract_template_id").references(() => contractTemplates.id, { onDelete: 'set null' }),
+
   isActive: boolean("is_active").default(true),
   displayOrder: integer("display_order").default(0),
   createdBy: varchar("created_by").references(() => users.id),

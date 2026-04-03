@@ -9565,7 +9565,16 @@ export class DrizzleStorage implements IStorage {
         eq(bookings.id, id),
         eq(bookings.tenantId, tenantId)
       ));
-    
+
+    return booking;
+  }
+
+  /** Cross-tenant lookup by ID — used for public reschedule flow (email verified before any mutation) */
+  async getBookingById(id: string): Promise<Booking | undefined> {
+    const [booking] = await this.db
+      .select()
+      .from(bookings)
+      .where(eq(bookings.id, id));
     return booking;
   }
 

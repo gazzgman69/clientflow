@@ -111,7 +111,7 @@ export default function PendingItems() {
   const [, setLocation] = useLocation();
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
 
-  const { data: pendingItems = [], isLoading } = useQuery<PendingItem[]>({
+  const { data: pendingItems = [], isLoading, isError } = useQuery<PendingItem[]>({
     queryKey: ["/api/dashboard/pending-items"],
   });
 
@@ -178,6 +178,21 @@ export default function PendingItems() {
           <div className="space-y-3">
             {[1, 2, 3].map(i => <div key={i} className="h-16 bg-muted animate-pulse rounded-lg" />)}
           </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (isError) {
+    return (
+      <Card>
+        <CardHeader className="pb-4">
+          <CardTitle className="flex items-center gap-2">
+            <Clock className="h-5 w-5" /> Action Required
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm text-muted-foreground">Could not load pending items. Please refresh.</p>
         </CardContent>
       </Card>
     );

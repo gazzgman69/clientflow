@@ -69,7 +69,7 @@ function formatDescription(description: string): string {
 export default function RecentClientActivity() {
   const [, setLocation] = useLocation();
 
-  const { data: activities = [], isLoading } = useQuery<ActivityItem[]>({
+  const { data: activities = [], isLoading, isError } = useQuery<ActivityItem[]>({
     queryKey: ["/api/dashboard/client-activity"],
   });
 
@@ -96,6 +96,22 @@ export default function RecentClientActivity() {
               <div key={i} className="h-14 bg-muted animate-pulse rounded-lg" />
             ))}
           </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (isError) {
+    return (
+      <Card>
+        <CardHeader className="pb-4">
+          <CardTitle className="flex items-center gap-2">
+            <Activity className="h-5 w-5" />
+            Recent Activity
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm text-muted-foreground">Could not load recent activity. Please refresh.</p>
         </CardContent>
       </Card>
     );

@@ -3703,7 +3703,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   // Quote operations
   app.get("/api/quotes/:id", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
     try {
-      const quote = await storage.getQuote(req.params.id);
+      const quote = await storage.getQuote(req.params.id, req.tenantId);
       if (!quote) {
         return res.status(404).json({ message: "Quote not found" });
       }
@@ -3741,7 +3741,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   // Contract operations
   app.get("/api/contracts/:id", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
     try {
-      const contract = await storage.getContract(req.params.id);
+      const contract = await storage.getContract(req.params.id, req.tenantId);
       if (!contract) {
         return res.status(404).json({ message: "Contract not found" });
       }
@@ -3862,7 +3862,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   // Invoice operations  
   app.get("/api/invoices/:id", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
     try {
-      const invoice = await storage.getInvoice(req.params.id);
+      const invoice = await storage.getInvoice(req.params.id, req.tenantId);
       if (!invoice) {
         return res.status(404).json({ message: "Invoice not found" });
       }

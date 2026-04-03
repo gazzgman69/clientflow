@@ -20,7 +20,7 @@ function formatCurrency(value: number): string {
 }
 
 export default function CompactMetrics() {
-  const { data: metrics, isLoading } = useQuery<DashboardMetrics>({
+  const { data: metrics, isLoading, isError } = useQuery<DashboardMetrics>({
     queryKey: ["/api/dashboard/metrics"],
   });
 
@@ -68,6 +68,20 @@ export default function CompactMetrics() {
           <Card key={i} className="animate-pulse">
             <CardContent className="p-4">
               <div className="h-12 bg-muted rounded" />
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        {[1, 2, 3, 4].map((i) => (
+          <Card key={i}>
+            <CardContent className="p-4">
+              <div className="h-12 flex items-center justify-center text-muted-foreground text-sm">—</div>
             </CardContent>
           </Card>
         ))}

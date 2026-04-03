@@ -5401,8 +5401,11 @@ export class DrizzleStorage implements IStorage {
   async getQuotes() { 
     return await this.db.select().from(quotes).orderBy(desc(quotes.createdAt));
   }
-  async getQuote(id: string) { 
-    const result = await this.db.select().from(quotes).where(eq(quotes.id, id));
+  async getQuote(id: string, tenantId?: string) {
+    const condition = tenantId
+      ? and(eq(quotes.id, id), eq(quotes.tenantId, tenantId))
+      : eq(quotes.id, id);
+    const result = await this.db.select().from(quotes).where(condition);
     return result[0];
   }
   async getQuotesByClient(clientId: string) { 
@@ -5452,8 +5455,11 @@ export class DrizzleStorage implements IStorage {
   async getContracts() { 
     return await this.db.select().from(contracts).orderBy(desc(contracts.createdAt));
   }
-  async getContract(id: string) { 
-    const result = await this.db.select().from(contracts).where(eq(contracts.id, id));
+  async getContract(id: string, tenantId?: string) {
+    const condition = tenantId
+      ? and(eq(contracts.id, id), eq(contracts.tenantId, tenantId))
+      : eq(contracts.id, id);
+    const result = await this.db.select().from(contracts).where(condition);
     return result[0];
   }
   async getContractsByClient(clientId: string, tenantId?: string) { 
@@ -5558,8 +5564,11 @@ export class DrizzleStorage implements IStorage {
   async getInvoices() { 
     return await this.db.select().from(invoices).orderBy(desc(invoices.createdAt));
   }
-  async getInvoice(id: string) { 
-    const result = await this.db.select().from(invoices).where(eq(invoices.id, id));
+  async getInvoice(id: string, tenantId?: string) {
+    const condition = tenantId
+      ? and(eq(invoices.id, id), eq(invoices.tenantId, tenantId))
+      : eq(invoices.id, id);
+    const result = await this.db.select().from(invoices).where(condition);
     return result[0];
   }
   async getInvoicesByClient(clientId: string) { 

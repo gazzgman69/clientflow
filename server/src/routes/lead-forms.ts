@@ -344,27 +344,23 @@ router.post('/:slug/submit', formSubmissionLimiter, async (req, res) => {
       return res.status(500).json({ error: 'Form configuration error' });
     }
 
-    // Resolve the correct tenantId — verify against form creator's actual tenant.
-    // The form.tenantId may be a fallback/dev value if the form was created without
-    // a proper authenticated session. We cross-check via the creator's user record.
-    let resolvedTenantId = form.tenantId;
-    try {
-      if (form.createdBy) {
-        const formCreator = await storage.getUserGlobal(form.createdBy);
-        if (formCreator?.tenantId && formCreator.tenantId !== form.tenantId) {
-          console.warn('⚠️ TENANT MISMATCH CORRECTED', {
-            slug,
-            formId: form.id,
-            formTenantId: form.tenantId,
-            creatorTenantId: formCreator.tenantId,
-            createdBy: form.createdBy,
-            timestamp: new Date().toISOString()
-          });
-          resolvedTenantId = formCreator.tenantId;
-        }
-      }
-    } catch (err) {
-      console.warn('⚠️ Could not verify tenantId via creator lookup, using form.tenantId:', err);
+    // Resolve the correct tenantId.
+    // req.tenantId is authoritatively resolved by the tenantResolver middleware:
+    //   - authenticated requests → session.tenantId
+    //   - unauthenticated requests on Replit/dev → 'default' tenant from DB
+    // form.tenantId may be stale (e.g. created under a test/dev tenant).
+    // We use req.tenantId as the primary source of truth, falling back to
+    // form.tenantId only when req.tenantId is unavailable.
+    const resolvedTenantId = (req as any).tenantId || form.tenantId;
+
+    if ((req as any).tenantId && (req as any).tenantId !== form.tenantId) {
+      console.warn('⚠️ TENANT MISMATCH: using req.tenantId over form.tenantId', {
+        slug,
+        formId: form.id,
+        reqTenantId: (req as any).tenantId,
+        formTenantId: form.tenantId,
+        timestamp: new Date().toISOString()
+      });
     }
 
     // Create tenant-scoped storage for secure data operations
@@ -374,6 +370,7 @@ router.post('/:slug/submit', formSubmissionLimiter, async (req, res) => {
       slug,
       tenantId: resolvedTenantId,
       formTenantId: form.tenantId,
+      reqTenantId: (req as any).tenantId,
       formId: form.id,
       formName: form.name,
       timestamp: new Date().toISOString()

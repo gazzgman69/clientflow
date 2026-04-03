@@ -5410,8 +5410,11 @@ export class DrizzleStorage implements IStorage {
     const result = await this.db.select().from(quotes).where(condition);
     return result[0];
   }
-  async getQuotesByClient(clientId: string) { 
-    return await this.db.select().from(quotes).where(eq(quotes.contactId, clientId));
+  async getQuotesByClient(clientId: string, tenantId?: string) {
+    const condition = tenantId
+      ? and(eq(quotes.contactId, clientId), eq(quotes.tenantId, tenantId))
+      : eq(quotes.contactId, clientId);
+    return await this.db.select().from(quotes).where(condition);
   }
   async createQuote(quote: InsertQuote) { 
     const result = await this.db.insert(quotes).values({
@@ -5469,8 +5472,11 @@ export class DrizzleStorage implements IStorage {
     if (tenantId) conditions.push(eq(contracts.tenantId, tenantId));
     return await this.db.select().from(contracts).where(and(...conditions));
   }
-  async getContractsByContact(contactId: string) { 
-    return await this.db.select().from(contracts).where(eq(contracts.contactId, contactId));
+  async getContractsByContact(contactId: string, tenantId?: string) {
+    const condition = tenantId
+      ? and(eq(contracts.contactId, contactId), eq(contracts.tenantId, tenantId))
+      : eq(contracts.contactId, contactId);
+    return await this.db.select().from(contracts).where(condition);
   }
   async createContract(contract: InsertContract) { 
     const result = await this.db.insert(contracts).values({
@@ -5573,8 +5579,11 @@ export class DrizzleStorage implements IStorage {
     const result = await this.db.select().from(invoices).where(condition);
     return result[0];
   }
-  async getInvoicesByClient(clientId: string) { 
-    return await this.db.select().from(invoices).where(eq(invoices.contactId, clientId));
+  async getInvoicesByClient(clientId: string, tenantId?: string) {
+    const condition = tenantId
+      ? and(eq(invoices.contactId, clientId), eq(invoices.tenantId, tenantId))
+      : eq(invoices.contactId, clientId);
+    return await this.db.select().from(invoices).where(condition);
   }
   async createInvoice(invoice: InsertInvoice) { 
     const result = await this.db.insert(invoices).values({
@@ -5978,14 +5987,23 @@ export class DrizzleStorage implements IStorage {
     const result = await this.db.select().from(tasks).where(whereCondition);
     return result[0];
   }
-  async getTasksByClient(clientId: string) { 
-    return await this.db.select().from(tasks).where(eq(tasks.contactId, clientId));
+  async getTasksByClient(clientId: string, tenantId?: string) {
+    const condition = tenantId
+      ? and(eq(tasks.contactId, clientId), eq(tasks.tenantId, tenantId))
+      : eq(tasks.contactId, clientId);
+    return await this.db.select().from(tasks).where(condition);
   }
-  async getTasksByProject(projectId: string) { 
-    return await this.db.select().from(tasks).where(eq(tasks.projectId, projectId));
+  async getTasksByProject(projectId: string, tenantId?: string) {
+    const condition = tenantId
+      ? and(eq(tasks.projectId, projectId), eq(tasks.tenantId, tenantId))
+      : eq(tasks.projectId, projectId);
+    return await this.db.select().from(tasks).where(condition);
   }
-  async getTasksByUser(userId: string) { 
-    return await this.db.select().from(tasks).where(eq(tasks.assignedTo, userId));
+  async getTasksByUser(userId: string, tenantId?: string) {
+    const condition = tenantId
+      ? and(eq(tasks.assignedTo, userId), eq(tasks.tenantId, tenantId))
+      : eq(tasks.assignedTo, userId);
+    return await this.db.select().from(tasks).where(condition);
   }
   async createTask(task: InsertTask) { 
     const result = await this.db.insert(tasks).values({
@@ -6217,8 +6235,11 @@ export class DrizzleStorage implements IStorage {
   }
 
   // Tenant-agnostic lookup — use only for public endpoints that need address fields only
-  async getVenueById(id: string): Promise<Venue | undefined> {
-    const result = await this.db.select().from(venues).where(eq(venues.id, id));
+  async getVenueById(id: string, tenantId?: string): Promise<Venue | undefined> {
+    const condition = tenantId
+      ? and(eq(venues.id, id), eq(venues.tenantId, tenantId))
+      : eq(venues.id, id);
+    const result = await this.db.select().from(venues).where(condition);
     return result[0];
   }
 

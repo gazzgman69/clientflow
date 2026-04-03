@@ -4440,7 +4440,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   // Documents by client/project
   app.get("/api/clients/:clientId/quotes", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
     try {
-      const quotes = await storage.getQuotesByClient(req.params.clientId);
+      const quotes = await storage.getQuotesByClient(req.params.clientId, req.tenantId);
       res.json(quotes);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch quotes for client" });
@@ -4449,7 +4449,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
 
   app.get("/api/clients/:clientId/contracts", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
     try {
-      const contracts = await storage.getContractsByClient(req.params.clientId);
+      const contracts = await storage.getContractsByClient(req.params.clientId, req.tenantId);
       res.json(contracts);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch contracts for client" });
@@ -4458,7 +4458,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
 
   app.get("/api/clients/:clientId/invoices", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
     try {
-      const invoices = await storage.getInvoicesByClient(req.params.clientId);
+      const invoices = await storage.getInvoicesByClient(req.params.clientId, req.tenantId);
       res.json(invoices);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch invoices for client" });
@@ -4478,7 +4478,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
 
   app.get("/api/contacts/:contactId/contracts", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
     try {
-      const contracts = await storage.getContractsByClient(req.params.contactId);
+      const contracts = await storage.getContractsByClient(req.params.contactId, req.tenantId);
       res.json(contracts);
     } catch (error) {
       console.error("Error fetching contracts for contact:", error);
@@ -4504,9 +4504,9 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
       let quotes, contracts, invoices;
       
       if (clientId) {
-        quotes = await storage.getQuotesByClient(clientId as string);
-        contracts = await storage.getContractsByClient(clientId as string);
-        invoices = await storage.getInvoicesByClient(clientId as string);
+        quotes = await storage.getQuotesByClient(clientId as string, req.tenantId);
+        contracts = await storage.getContractsByClient(clientId as string, req.tenantId);
+        invoices = await storage.getInvoicesByClient(clientId as string, req.tenantId);
       } else {
         quotes = await storage.getQuotes();
         contracts = await storage.getContracts();
@@ -5287,9 +5287,15 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
       }
 
       const contract = await storage.getContract(contractId);
-      
+
       if (!contract) {
         return res.status(404).json({ message: "Contract not found" });
+      }
+
+      // Contract must be in a signable state — reject cancelled, draft, or already-completed
+      const signableStatuses = ['sent', 'active', 'awaiting_counter_signature'];
+      if (!signableStatuses.includes(contract.status)) {
+        return res.status(400).json({ message: "This contract is not available for signing" });
       }
 
       // Check if contract can be signed

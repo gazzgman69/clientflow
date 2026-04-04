@@ -104,11 +104,9 @@ export default function ContactDetail() {
                   <h1 className="text-3xl font-bold" data-testid="contact-name">
                     {displayName}
                   </h1>
-                  <Link href={`/contacts/${contactId}/edit`}>
-                    <Button variant="outline" data-testid="button-edit-contact">
-                      Edit Contact
-                    </Button>
-                  </Link>
+                  <Button variant="outline" data-testid="button-edit-contact" onClick={() => setLocation(`/contacts?edit=${contactId}`)}>
+                    Edit Contact
+                  </Button>
                 </div>
                 {contact?.company && (
                   <p className="text-muted-foreground text-lg" data-testid="contact-company">

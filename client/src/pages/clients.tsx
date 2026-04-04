@@ -78,6 +78,21 @@ export default function Contacts() {
 
   const contacts = contactsData?.contacts || [];
 
+  // Handle ?edit=contactId URL param (from ContactDetail "Edit Contact" button)
+  useEffect(() => {
+    if (contacts.length === 0) return;
+    const params = new URLSearchParams(window.location.search);
+    const editId = params.get('edit');
+    if (editId) {
+      const contact = contacts.find(c => c.id === editId);
+      if (contact) {
+        setEditingContact(contact);
+        setShowContactModal(true);
+        window.history.replaceState({}, '', '/contacts');
+      }
+    }
+  }, [contacts]);
+
   // Load recent contacts from localStorage
   useEffect(() => {
     const stored = localStorage.getItem('recentContacts');

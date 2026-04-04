@@ -982,7 +982,7 @@ router.post('/bookings/:slug', async (req, res) => {
     });
   } catch (error) {
     console.error('Error creating public booking:', error);
-    res.status(500).json({ error: 'Failed to create booking' });
+    res.status(500).json({ error: 'Failed to create booking', detail: String(error) });
   }
 });
 

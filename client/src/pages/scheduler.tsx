@@ -18,7 +18,7 @@ import {
 } from 'lucide-react';
 import { apiRequest, queryClient } from '@/lib/queryClient';
 import type { BookableService, AvailabilitySchedule, Booking } from '@shared/schema';
-import { EnhancedScheduleDialog } from './scheduler-enhanced';
+import { ScheduleSettingsPage } from './scheduler-enhanced';
 
 export default function Scheduler() {
   const [activeTab, setActiveTab] = useState('services');
@@ -1023,12 +1023,21 @@ function ServiceSettingsPage({ service, onClose }: { service?: BookableService; 
 /* ─── Availability Tab ───────────────────────────────────────────────────────── */
 
 function AvailabilityTab() {
-  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
-  const { toast } = useToast();
+  const [editingSchedule, setEditingSchedule] = useState<AvailabilitySchedule | 'new' | null>(null);
 
   const { data: schedules, isLoading } = useQuery<AvailabilitySchedule[]>({
     queryKey: ['/api/ai-features/schedules'],
   });
+
+  // Full-page editor mode
+  if (editingSchedule !== null) {
+    return (
+      <ScheduleSettingsPage
+        schedule={editingSchedule === 'new' ? undefined : editingSchedule}
+        onClose={() => setEditingSchedule(null)}
+      />
+    );
+  }
 
   return (
     <div className="space-y-4">
@@ -1039,15 +1048,10 @@ function AvailabilityTab() {
             Define when services are available for booking
           </p>
         </div>
-        <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-          <DialogTrigger asChild>
-            <Button data-testid="button-create-schedule">
-              <Plus className="w-4 h-4 mr-2" />
-              Add Schedule
-            </Button>
-          </DialogTrigger>
-          <EnhancedScheduleDialog onClose={() => setIsCreateDialogOpen(false)} />
-        </Dialog>
+        <Button data-testid="button-create-schedule" onClick={() => setEditingSchedule('new')}>
+          <Plus className="w-4 h-4 mr-2" />
+          Add Schedule
+        </Button>
       </div>
 
       {isLoading ? (
@@ -1055,7 +1059,7 @@ function AvailabilityTab() {
       ) : schedules && schedules.length > 0 ? (
         <div className="grid gap-4">
           {schedules.map((schedule) => (
-            <ScheduleCard key={schedule.id} schedule={schedule} />
+            <ScheduleCard key={schedule.id} schedule={schedule} onEdit={() => setEditingSchedule(schedule)} />
           ))}
         </div>
       ) : (
@@ -1069,8 +1073,7 @@ function AvailabilityTab() {
   );
 }
 
-function ScheduleCard({ schedule }: { schedule: AvailabilitySchedule }) {
-  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+function ScheduleCard({ schedule, onEdit }: { schedule: AvailabilitySchedule; onEdit: () => void }) {
   const { toast } = useToast();
 
   const deleteMutation = useMutation({
@@ -1148,17 +1151,14 @@ function ScheduleCard({ schedule }: { schedule: AvailabilitySchedule }) {
                 </Dialog>
               </>
             )}
-            <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-              <DialogTrigger asChild>
-                <Button variant="ghost" size="sm" data-testid={`button-edit-schedule-${schedule.id}`}>
-                  <Pencil className="w-4 h-4" />
-                </Button>
-              </DialogTrigger>
-              <EnhancedScheduleDialog
-                schedule={schedule}
-                onClose={() => setIsEditDialogOpen(false)}
-              />
-            </Dialog>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onEdit}
+              data-testid={`button-edit-schedule-${schedule.id}`}
+            >
+              <Pencil className="w-4 h-4" />
+            </Button>
             <Button
               variant="ghost"
               size="sm"

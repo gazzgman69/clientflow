@@ -4,419 +4,483 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Switch } from '@/components/ui/switch';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { Calendar as CalendarIcon, Clock, Plus, Pencil, Trash2, X, Users, CalendarCheck, Image as ImageIcon, AlertCircle } from 'lucide-react';
+import {
+  Plus, Pencil, Trash2, ArrowLeft, ChevronDown, Users,
+  CalendarCheck, AlertCircle, X,
+} from 'lucide-react';
 import { apiRequest, queryClient } from '@/lib/queryClient';
 import type { AvailabilitySchedule, BookableService, Member, CalendarIntegration, AvailabilityRule } from '@shared/schema';
 
-// Enhanced schema for schedule with all new fields
+/* ─── Form schema ────────────────────────────────────────────────────────────── */
+
 const scheduleSchema = z.object({
   name: z.string().min(1, 'Name is required'),
   publicLink: z.string().optional(),
   isActive: z.boolean().default(true),
-  // Booking Limitations
-  minAdvanceNoticeHours: z.number().min(0).optional().nullable(),
-  maxFutureDays: z.number().min(0).optional().nullable(),
-  dailyBookingLimit: z.number().min(0).optional().nullable(),
-  weeklyBookingLimit: z.number().min(0).optional().nullable(),
-  cancellationPolicyHours: z.number().min(0).optional().nullable(),
-  // Visual
   headerImageUrl: z.string().optional().nullable(),
+  // Booking limitations (null = unlimited / disabled)
+  minAdvanceNoticeEnabled: z.boolean().default(false),
+  minAdvanceNoticeHours: z.number().min(0).optional().nullable(),
+  maxFutureDaysEnabled: z.boolean().default(false),
+  maxFutureDays: z.number().min(0).optional().nullable(),
+  dailyLimitEnabled: z.boolean().default(false),
+  dailyBookingLimit: z.number().min(0).optional().nullable(),
+  weeklyLimitEnabled: z.boolean().default(false),
+  weeklyBookingLimit: z.number().min(0).optional().nullable(),
+  cancellationPolicyEnabled: z.boolean().default(false),
+  cancellationPolicyHours: z.number().min(0).optional().nullable(),
 });
 
 type ScheduleFormData = z.infer<typeof scheduleSchema>;
 
-interface EnhancedScheduleDialogProps {
+/* ─── Schedule Settings Page (full-page, 5 sections) ────────────────────────── */
+
+function ScheduleSettingsPage({
+  schedule,
+  onClose,
+}: {
   schedule?: AvailabilitySchedule;
   onClose: () => void;
-}
-
-function EnhancedScheduleDialog({ schedule, onClose }: EnhancedScheduleDialogProps) {
-  const [activeSection, setActiveSection] = useState('basic');
+}) {
   const { toast } = useToast();
   const isEditing = !!schedule;
+  const sched = schedule as any;
 
-  // Fetch all necessary data
+  // Which sections are expanded
+  const [openSections, setOpenSections] = useState<Record<number, boolean>>({
+    1: true, 2: false, 3: false, 4: false, 5: false, 6: false,
+  });
+  const toggleSection = (n: number) =>
+    setOpenSections(prev => ({ ...prev, [n]: !prev[n] }));
+
+  /* ── Data queries ── */
   const { data: services = [] } = useQuery<BookableService[]>({
     queryKey: ['/api/ai-features/services'],
   });
-
   const { data: members = [] } = useQuery<Member[]>({
     queryKey: ['/api/members'],
   });
-
   const { data: calendars = [] } = useQuery<CalendarIntegration[]>({
     queryKey: ['/api/calendar-integrations'],
   });
-
-  const { data: scheduleServices = [] } = useQuery({
-    queryKey: [`/api/ai-features/schedules/${schedule?.id}/services`],
-    enabled: isEditing,
-  });
-
   const { data: scheduleRules = [] } = useQuery<AvailabilityRule[]>({
     queryKey: [`/api/ai-features/schedules/${schedule?.id}/rules`],
     enabled: isEditing,
   });
-
-  const { data: scheduleTeamMembers = [] } = useQuery({
+  const { data: scheduleTeamMembers = [] } = useQuery<any[]>({
     queryKey: [`/api/ai-features/schedules/${schedule?.id}/team-members`],
     enabled: isEditing,
   });
-
-  const { data: scheduleCalendarChecks = [] } = useQuery({
+  const { data: scheduleCalendarChecks = [] } = useQuery<any[]>({
     queryKey: [`/api/ai-features/schedules/${schedule?.id}/calendar-checks`],
     enabled: isEditing,
   });
 
+  /* ── Form ── */
   const form = useForm<ScheduleFormData>({
     resolver: zodResolver(scheduleSchema),
     defaultValues: {
-      name: schedule?.name || '',
-      publicLink: schedule?.publicLink || '',
-      isActive: schedule?.isActive ?? true,
-      minAdvanceNoticeHours: schedule?.minAdvanceNoticeHours || null,
-      maxFutureDays: schedule?.maxFutureDays || null,
-      dailyBookingLimit: schedule?.dailyBookingLimit || null,
-      weeklyBookingLimit: schedule?.weeklyBookingLimit || null,
-      cancellationPolicyHours: schedule?.cancellationPolicyHours || null,
-      headerImageUrl: schedule?.headerImageUrl || null,
+      name: sched?.name || '',
+      publicLink: sched?.publicLink || '',
+      isActive: sched?.isActive ?? true,
+      headerImageUrl: sched?.headerImageUrl || null,
+      minAdvanceNoticeEnabled: !!sched?.minAdvanceNoticeHours,
+      minAdvanceNoticeHours: sched?.minAdvanceNoticeHours || 24,
+      maxFutureDaysEnabled: !!sched?.maxFutureDays,
+      maxFutureDays: sched?.maxFutureDays || 30,
+      dailyLimitEnabled: !!sched?.dailyBookingLimit,
+      dailyBookingLimit: sched?.dailyBookingLimit || 5,
+      weeklyLimitEnabled: !!sched?.weeklyBookingLimit,
+      weeklyBookingLimit: sched?.weeklyBookingLimit || 20,
+      cancellationPolicyEnabled: !!sched?.cancellationPolicyHours,
+      cancellationPolicyHours: sched?.cancellationPolicyHours || 24,
     },
   });
 
   const saveMutation = useMutation({
     mutationFn: async (data: ScheduleFormData) => {
+      const payload = {
+        name: data.name,
+        publicLink: data.publicLink || null,
+        isActive: data.isActive,
+        headerImageUrl: data.headerImageUrl || null,
+        minAdvanceNoticeHours: data.minAdvanceNoticeEnabled ? (data.minAdvanceNoticeHours ?? null) : null,
+        maxFutureDays: data.maxFutureDaysEnabled ? (data.maxFutureDays ?? null) : null,
+        dailyBookingLimit: data.dailyLimitEnabled ? (data.dailyBookingLimit ?? null) : null,
+        weeklyBookingLimit: data.weeklyLimitEnabled ? (data.weeklyBookingLimit ?? null) : null,
+        cancellationPolicyHours: data.cancellationPolicyEnabled ? (data.cancellationPolicyHours ?? null) : null,
+      };
       if (isEditing) {
-        return apiRequest('PATCH', `/api/ai-features/schedules/${schedule.id}`, data);
-      } else {
-        return apiRequest('POST', '/api/ai-features/schedules', data);
+        return apiRequest('PATCH', `/api/ai-features/schedules/${schedule.id}`, payload);
       }
+      return apiRequest('POST', '/api/ai-features/schedules', payload);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/ai-features/schedules'] });
       toast({ description: `Schedule ${isEditing ? 'updated' : 'created'} successfully` });
       onClose();
     },
-    onError: (error) => {
-      console.error('Schedule mutation error:', error);
-      toast({ 
-        variant: 'destructive',
-        description: `Failed to ${isEditing ? 'update' : 'create'} schedule` 
-      });
+    onError: () => {
+      toast({ variant: 'destructive', description: `Failed to ${isEditing ? 'update' : 'create'} schedule` });
     },
   });
 
-  const onSubmit = (data: ScheduleFormData) => {
-    saveMutation.mutate(data);
-  };
+  /* ── Section Header ── */
+  function SectionHeader({ n, title, isOpen }: { n: number; title: string; isOpen: boolean }) {
+    return (
+      <div
+        className="flex items-center gap-3 px-6 py-4 cursor-pointer select-none hover:bg-gray-50 transition-colors"
+        onClick={() => toggleSection(n)}
+      >
+        <span className="w-7 h-7 rounded-full bg-blue-600 text-white text-xs font-bold flex items-center justify-center flex-shrink-0">
+          {n}
+        </span>
+        <span className="font-semibold text-sm tracking-wide uppercase flex-1 text-gray-700">
+          {title}
+        </span>
+        <ChevronDown
+          className={`w-4 h-4 text-gray-400 transition-transform flex-shrink-0 ${isOpen ? 'rotate-180' : ''}`}
+        />
+      </div>
+    );
+  }
 
+  /* ── Locked section message (requires schedule to exist first) ── */
+  const SaveFirstNotice = () => (
+    <div className="px-6 pb-6">
+      <div className="flex items-center gap-2 text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-4 py-3">
+        <AlertCircle className="w-4 h-4 flex-shrink-0" />
+        Save the schedule name first, then come back to configure this section.
+      </div>
+    </div>
+  );
+
+  /* ────────────────────────────── RENDER ──────────────────────────────────── */
   return (
-    <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-      <DialogHeader>
-        <DialogTitle>{isEditing ? 'Edit' : 'Create'} Availability Schedule</DialogTitle>
-        <DialogDescription>
-          Configure your availability settings, booking rules, and calendar integration
-        </DialogDescription>
-      </DialogHeader>
+    <div
+      className="bg-white rounded-xl border shadow-sm overflow-hidden"
+      data-testid="schedule-settings-page"
+    >
+      {/* ── Top bar ── */}
+      <div className="flex items-center justify-between px-6 py-4 border-b bg-gray-50">
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="sm" onClick={onClose} className="gap-1.5 text-muted-foreground">
+            <ArrowLeft className="w-4 h-4" />
+            Schedules
+          </Button>
+          <span className="text-gray-300">|</span>
+          <h2 className="text-base font-semibold">Schedule Settings</h2>
+        </div>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={onClose}>Cancel</Button>
+          <Button
+            onClick={form.handleSubmit((data) => saveMutation.mutate(data))}
+            disabled={saveMutation.isPending}
+            data-testid="button-save-schedule"
+          >
+            {saveMutation.isPending ? 'Saving…' : 'Save'}
+          </Button>
+        </div>
+      </div>
 
+      {/* ── Sections ── */}
       <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-          <Tabs value={activeSection} onValueChange={setActiveSection}>
-            <TabsList className="grid w-full grid-cols-5">
-              <TabsTrigger value="basic">Basic Info</TabsTrigger>
-              <TabsTrigger value="limitations">Booking Limits</TabsTrigger>
-              <TabsTrigger value="rules">Availability Rules</TabsTrigger>
-              <TabsTrigger value="team">Team & Calendars</TabsTrigger>
-              <TabsTrigger value="visual">Visuals</TabsTrigger>
-            </TabsList>
+        <div className="divide-y">
 
-            {/* Basic Info Tab */}
-            <TabsContent value="basic" className="space-y-4">
-              <FormField
-                control={form.control}
-                name="name"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Schedule Name *</FormLabel>
-                    <FormControl>
-                      <Input {...field} placeholder="e.g., Consultation Call Availability" data-testid="input-schedule-name" />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+          {/* ①  NAME & SERVICES ──────────────────────────────────── */}
+          <div>
+            <SectionHeader n={1} title="Name & Services" isOpen={openSections[1]} />
+            {openSections[1] && (
+              <div className="px-6 pb-6 space-y-5">
+                <FormField
+                  control={form.control}
+                  name="name"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Availability Schedule Name *</FormLabel>
+                      <FormControl>
+                        <Input
+                          {...field}
+                          placeholder="e.g., Consultation Call Availability"
+                          className="mt-1"
+                          data-testid="input-schedule-name"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-              <FormField
-                control={form.control}
-                name="publicLink"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Public Link Slug</FormLabel>
-                    <FormControl>
-                      <Input {...field} placeholder="consultation-availability" data-testid="input-public-link" />
-                    </FormControl>
-                    <FormDescription>
-                      Public booking page will be available at: /book/{field.value || 'your-slug'}
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+                <FormField
+                  control={form.control}
+                  name="publicLink"
+                  render={({ field }) => (
+                    <FormItem className="max-w-sm">
+                      <FormLabel>Public Link Slug</FormLabel>
+                      <FormControl>
+                        <Input
+                          {...field}
+                          placeholder="consultation-availability"
+                          className="mt-1"
+                          data-testid="input-public-link"
+                        />
+                      </FormControl>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Booking page: /book/{field.value || 'your-slug'}
+                      </p>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-              <FormField
-                control={form.control}
-                name="isActive"
-                render={({ field }) => (
-                  <FormItem className="flex items-center justify-between rounded-lg border p-4">
-                    <div className="space-y-0.5">
-                      <FormLabel>Active Schedule</FormLabel>
-                      <FormDescription>
-                        Allow clients to book appointments using this schedule
-                      </FormDescription>
-                    </div>
-                    <FormControl>
-                      <Switch checked={field.value} onCheckedChange={field.onChange} />
-                    </FormControl>
-                  </FormItem>
-                )}
-              />
+                <FormField
+                  control={form.control}
+                  name="isActive"
+                  render={({ field }) => (
+                    <FormItem className="flex items-center gap-3">
+                      <FormControl>
+                        <Switch checked={field.value} onCheckedChange={field.onChange} />
+                      </FormControl>
+                      <FormLabel className="!mt-0 cursor-pointer">Schedule is active</FormLabel>
+                    </FormItem>
+                  )}
+                />
 
-              {isEditing && (
-                <ServicesAssignment scheduleId={schedule.id} services={services} />
-              )}
-            </TabsContent>
-
-            {/* Booking Limitations Tab */}
-            <TabsContent value="limitations" className="space-y-6">
-              <div className="space-y-4">
-                <h3 className="text-lg font-medium">Booking Limitations</h3>
-                <p className="text-sm text-muted-foreground">
-                  Control when and how clients can book appointments
-                </p>
-              </div>
-
-              <div className="grid gap-6">
-                <div className="space-y-4 rounded-lg border p-4">
-                  <h4 className="font-medium">Advance Notice</h4>
-                  <FormField
-                    control={form.control}
-                    name="minAdvanceNoticeHours"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Minimum hours in advance</FormLabel>
-                        <FormControl>
-                          <Input 
-                            type="number" 
-                            {...field} 
-                            value={field.value ?? ''}
-                            onChange={(e) => field.onChange(e.target.value ? parseInt(e.target.value) : null)}
-                            placeholder="e.g., 24"
-                            data-testid="input-min-advance-hours"
-                          />
-                        </FormControl>
-                        <FormDescription>
-                          Clients must book at least this many hours in advance
-                        </FormDescription>
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="maxFutureDays"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Maximum days in the future</FormLabel>
-                        <FormControl>
-                          <Input 
-                            type="number" 
-                            {...field}
-                            value={field.value ?? ''}
-                            onChange={(e) => field.onChange(e.target.value ? parseInt(e.target.value) : null)}
-                            placeholder="e.g., 30"
-                            data-testid="input-max-future-days"
-                          />
-                        </FormControl>
-                        <FormDescription>
-                          Clients can't book more than this many days ahead
-                        </FormDescription>
-                      </FormItem>
-                    )}
-                  />
-                </div>
-
-                <div className="space-y-4 rounded-lg border p-4">
-                  <h4 className="font-medium">Booking Limits</h4>
-                  <FormField
-                    control={form.control}
-                    name="dailyBookingLimit"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Daily booking limit</FormLabel>
-                        <FormControl>
-                          <Input 
-                            type="number" 
-                            {...field}
-                            value={field.value ?? ''}
-                            onChange={(e) => field.onChange(e.target.value ? parseInt(e.target.value) : null)}
-                            placeholder="e.g., 5"
-                            data-testid="input-daily-limit"
-                          />
-                        </FormControl>
-                        <FormDescription>
-                          Maximum bookings allowed per day (0 = unlimited)
-                        </FormDescription>
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="weeklyBookingLimit"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Weekly booking limit</FormLabel>
-                        <FormControl>
-                          <Input 
-                            type="number" 
-                            {...field}
-                            value={field.value ?? ''}
-                            onChange={(e) => field.onChange(e.target.value ? parseInt(e.target.value) : null)}
-                            placeholder="e.g., 20"
-                            data-testid="input-weekly-limit"
-                          />
-                        </FormControl>
-                        <FormDescription>
-                          Maximum bookings allowed per week (0 = unlimited)
-                        </FormDescription>
-                      </FormItem>
-                    )}
-                  />
-                </div>
-
-                <div className="space-y-4 rounded-lg border p-4">
-                  <h4 className="font-medium">Cancellation Policy</h4>
-                  <FormField
-                    control={form.control}
-                    name="cancellationPolicyHours"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Cancellation notice (hours)</FormLabel>
-                        <FormControl>
-                          <Input 
-                            type="number" 
-                            {...field}
-                            value={field.value ?? ''}
-                            onChange={(e) => field.onChange(e.target.value ? parseInt(e.target.value) : null)}
-                            placeholder="e.g., 24"
-                            data-testid="input-cancellation-hours"
-                          />
-                        </FormControl>
-                        <FormDescription>
-                          Clients can't cancel within this many hours of appointment
-                        </FormDescription>
-                      </FormItem>
-                    )}
-                  />
+                <div>
+                  <Label className="text-sm font-medium">Services Available on This Schedule</Label>
+                  {isEditing ? (
+                    <ServicesAssignment scheduleId={schedule.id} services={services} />
+                  ) : (
+                    <p className="text-sm text-muted-foreground mt-2">
+                      Save the schedule first to assign services.
+                    </p>
+                  )}
                 </div>
               </div>
-            </TabsContent>
+            )}
+          </div>
 
-            {/* Availability Rules Tab */}
-            <TabsContent value="rules" className="space-y-4">
-              {isEditing ? (
-                <AvailabilityRulesManager scheduleId={schedule.id} rules={scheduleRules} />
-              ) : (
-                <div className="text-center py-8 text-muted-foreground">
-                  <AlertCircle className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                  <p>Save the schedule first to add availability rules</p>
-                </div>
-              )}
-            </TabsContent>
+          {/* ②  SCHEDULING HEADER IMAGE ───────────────────────────── */}
+          <div>
+            <SectionHeader n={2} title="Scheduling Header Image" isOpen={openSections[2]} />
+            {openSections[2] && (
+              <div className="px-6 pb-6 space-y-4">
+                <FormField
+                  control={form.control}
+                  name="headerImageUrl"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Image URL</FormLabel>
+                      <FormControl>
+                        <Input
+                          {...field}
+                          value={field.value ?? ''}
+                          placeholder="https://example.com/header.jpg"
+                          className="mt-1 max-w-md"
+                        />
+                      </FormControl>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Optional header image shown at the top of your public booking page.
+                      </p>
+                    </FormItem>
+                  )}
+                />
+                {form.watch('headerImageUrl') && (
+                  <div className="rounded-lg border overflow-hidden max-w-md">
+                    <img
+                      src={form.watch('headerImageUrl') || ''}
+                      alt="Header preview"
+                      className="w-full h-40 object-cover"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = 'https://placehold.co/800x160?text=Invalid+URL';
+                      }}
+                    />
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
 
-            {/* Team & Calendars Tab */}
-            <TabsContent value="team" className="space-y-6">
-              {isEditing ? (
-                <>
-                  <TeamMembersManager 
-                    scheduleId={schedule.id} 
+          {/* ③  TEAM MEMBERS ──────────────────────────────────────── */}
+          <div>
+            <SectionHeader n={3} title="Team Members" isOpen={openSections[3]} />
+            {openSections[3] && (
+              isEditing ? (
+                <div className="px-6 pb-6">
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Select team members who offer services on this schedule.
+                  </p>
+                  <TeamMembersManager
+                    scheduleId={schedule.id}
                     members={members}
                     assignedMembers={scheduleTeamMembers}
                   />
-                  <CalendarChecksManager 
+                </div>
+              ) : (
+                <SaveFirstNotice />
+              )
+            )}
+          </div>
+
+          {/* ④  CALENDAR CHECKS ───────────────────────────────────── */}
+          <div>
+            <SectionHeader n={4} title="Calendar Checks" isOpen={openSections[4]} />
+            {openSections[4] && (
+              isEditing ? (
+                <div className="px-6 pb-6">
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Choose calendars to cross-check for conflicts before allowing bookings.
+                  </p>
+                  <CalendarChecksManager
                     scheduleId={schedule.id}
                     calendars={calendars}
                     assignedCalendars={scheduleCalendarChecks}
                   />
-                </>
-              ) : (
-                <div className="text-center py-8 text-muted-foreground">
-                  <AlertCircle className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                  <p>Save the schedule first to configure team members and calendar checks</p>
                 </div>
-              )}
-            </TabsContent>
+              ) : (
+                <SaveFirstNotice />
+              )
+            )}
+          </div>
 
-            {/* Visual Tab */}
-            <TabsContent value="visual" className="space-y-4">
-              <FormField
-                control={form.control}
-                name="headerImageUrl"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Header Image URL</FormLabel>
-                    <FormControl>
-                      <Input {...field} value={field.value ?? ''} placeholder="https://example.com/header.jpg" />
-                    </FormControl>
-                    <FormDescription>
-                      Optional header image for your public booking page
-                    </FormDescription>
-                  </FormItem>
-                )}
-              />
+          {/* ⑤  BOOKING LIMITATIONS ──────────────────────────────── */}
+          <div>
+            <SectionHeader n={5} title="Booking Limitations" isOpen={openSections[5]} />
+            {openSections[5] && (
+              <div className="px-6 pb-6 space-y-5">
+                <p className="text-sm text-muted-foreground">
+                  Control when and how clients can book or change appointments.
+                </p>
 
-              {form.watch('headerImageUrl') && (
-                <div className="rounded-lg border overflow-hidden">
-                  <img 
-                    src={form.watch('headerImageUrl') || ''} 
-                    alt="Header preview" 
-                    className="w-full h-48 object-cover"
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).src = 'https://placehold.co/800x200?text=Invalid+Image+URL';
-                    }}
+                {/* Prevent clients from scheduling less than X hours in advance */}
+                <LimitRow
+                  form={form}
+                  toggleKey="minAdvanceNoticeEnabled"
+                  valueKey="minAdvanceNoticeHours"
+                  label="less than"
+                  unit="hours in advance"
+                  prefix="Prevent clients from scheduling"
+                />
+
+                {/* Prevent clients from scheduling more than X days in the future */}
+                <LimitRow
+                  form={form}
+                  toggleKey="maxFutureDaysEnabled"
+                  valueKey="maxFutureDays"
+                  label="more than"
+                  unit="days in the future"
+                  prefix="Prevent clients from scheduling"
+                />
+
+                <div className="border-t pt-4 space-y-4">
+                  <p className="text-sm font-medium text-gray-700">Limit the Number of Time Slots Booked</p>
+
+                  <LimitRow
+                    form={form}
+                    toggleKey="dailyLimitEnabled"
+                    valueKey="dailyBookingLimit"
+                    label="Daily"
+                    unit="per day"
+                  />
+
+                  <LimitRow
+                    form={form}
+                    toggleKey="weeklyLimitEnabled"
+                    valueKey="weeklyBookingLimit"
+                    label="Weekly"
+                    unit="per week"
                   />
                 </div>
-              )}
-            </TabsContent>
-          </Tabs>
 
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={onClose}>
-              Cancel
-            </Button>
-            <Button type="submit" disabled={saveMutation.isPending} data-testid="button-save-schedule">
-              {saveMutation.isPending ? 'Saving...' : (isEditing ? 'Update Schedule' : 'Create Schedule')}
-            </Button>
-          </DialogFooter>
-        </form>
+                <div className="border-t pt-4">
+                  <p className="text-sm font-medium text-gray-700 mb-3">
+                    Prevent Cancelling or Changing Appointments
+                  </p>
+                  <LimitRow
+                    form={form}
+                    toggleKey="cancellationPolicyEnabled"
+                    valueKey="cancellationPolicyHours"
+                    label="less than"
+                    unit="hours in advance"
+                    prefix="Prevent changes"
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* ⑥  AVAILABILITY RULES ────────────────────────────────── */}
+          <div>
+            <SectionHeader n={6} title="Availability Rules" isOpen={openSections[6]} />
+            {openSections[6] && (
+              isEditing ? (
+                <div className="px-6 pb-6">
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Define the days and times when this schedule is open for bookings.
+                  </p>
+                  <AvailabilityRulesManager
+                    scheduleId={schedule.id}
+                    rules={scheduleRules}
+                  />
+                </div>
+              ) : (
+                <SaveFirstNotice />
+              )
+            )}
+          </div>
+
+        </div>{/* end sections */}
       </Form>
-    </DialogContent>
+    </div>
   );
 }
 
-// Services Assignment Component
+/* ─── Limit Row helper ───────────────────────────────────────────────────────── */
+
+function LimitRow({ form, toggleKey, valueKey, label, unit, prefix }: {
+  form: any;
+  toggleKey: string;
+  valueKey: string;
+  label: string;
+  unit: string;
+  prefix?: string;
+}) {
+  const enabled = form.watch(toggleKey);
+  return (
+    <div className="flex items-center gap-3">
+      <Switch
+        checked={enabled}
+        onCheckedChange={(v: boolean) => form.setValue(toggleKey, v)}
+      />
+      {prefix && <span className="text-sm text-gray-500">{prefix}</span>}
+      <span className="text-sm font-medium text-gray-700">{label}</span>
+      <Input
+        type="number"
+        className={`w-20 text-center ${!enabled ? 'opacity-40 pointer-events-none' : ''}`}
+        value={form.watch(valueKey) ?? 0}
+        onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+          form.setValue(valueKey, parseInt(e.target.value) || 0)
+        }
+        disabled={!enabled}
+      />
+      <span className="text-sm text-gray-500">{unit}</span>
+    </div>
+  );
+}
+
+/* ─── Services Assignment ────────────────────────────────────────────────────── */
+
 function ServicesAssignment({ scheduleId, services }: { scheduleId: string; services: BookableService[] }) {
-  const { toast } = useToast();
   const { data: assignedServices = [] } = useQuery({
     queryKey: [`/api/ai-features/schedules/${scheduleId}/services`],
   });
@@ -427,40 +491,80 @@ function ServicesAssignment({ scheduleId, services }: { scheduleId: string; serv
     mutationFn: async ({ serviceId, isAssigned }: { serviceId: string; isAssigned: boolean }) => {
       if (isAssigned) {
         return apiRequest('DELETE', `/api/ai-features/schedules/${scheduleId}/services/${serviceId}`);
-      } else {
-        return apiRequest('POST', `/api/ai-features/schedules/${scheduleId}/services`, { serviceId });
       }
+      return apiRequest('POST', `/api/ai-features/schedules/${scheduleId}/services`, { serviceId });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/ai-features/schedules/${scheduleId}/services`] });
+      queryClient.invalidateQueries({
+        queryKey: [`/api/ai-features/schedules/${scheduleId}/services`],
+      });
     },
   });
 
+  // Currently assigned services (shown as tags)
+  const assigned = services.filter(s => assignedServiceIds.has(s.id));
+  // Available to add
+  const available = services.filter(s => !assignedServiceIds.has(s.id));
+
   return (
-    <div className="space-y-3">
-      <Label>Services Available on This Schedule</Label>
-      <div className="space-y-2">
-        {services.map((service) => {
-          const isAssigned = assignedServiceIds.has(service.id);
-          return (
-            <div key={service.id} className="flex items-center space-x-2">
-              <Checkbox
-                checked={isAssigned}
-                onCheckedChange={() => toggleService.mutate({ serviceId: service.id, isAssigned })}
-                data-testid={`checkbox-service-${service.id}`}
-              />
-              <Label className="font-normal cursor-pointer" htmlFor={service.id}>
-                {service.name} <span className="text-muted-foreground">({service.duration} min)</span>
-              </Label>
-            </div>
-          );
-        })}
-      </div>
+    <div className="mt-2 space-y-3">
+      {/* Assigned list */}
+      {assigned.length > 0 && (
+        <div className="flex flex-wrap gap-2">
+          {assigned.map(s => (
+            <span
+              key={s.id}
+              className="inline-flex items-center gap-1.5 bg-blue-50 text-blue-700 border border-blue-200 text-sm px-3 py-1 rounded-full"
+            >
+              {s.name}
+              <button
+                type="button"
+                onClick={() => toggleService.mutate({ serviceId: s.id, isAssigned: true })}
+                className="hover:text-blue-900"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+
+      {/* Add dropdown */}
+      {available.length > 0 && (
+        <Select
+          value=""
+          onValueChange={serviceId =>
+            toggleService.mutate({ serviceId, isAssigned: false })
+          }
+        >
+          <SelectTrigger className="max-w-xs text-muted-foreground">
+            <SelectValue placeholder="Select a service to add" />
+          </SelectTrigger>
+          <SelectContent>
+            {available.map(s => (
+              <SelectItem key={s.id} value={s.id}>
+                {s.name} ({s.duration} min)
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      )}
+
+      {services.length === 0 && (
+        <p className="text-sm text-muted-foreground">
+          No services yet. Create a service in the Services tab first.
+        </p>
+      )}
+
+      {assigned.length === 0 && available.length > 0 && (
+        <p className="text-xs text-red-500">At least one service is required.</p>
+      )}
     </div>
   );
 }
 
-// Availability Rules Manager Component
+/* ─── Availability Rules Manager ────────────────────────────────────────────── */
+
 function AvailabilityRulesManager({ scheduleId, rules }: { scheduleId: string; rules: AvailabilityRule[] }) {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [editingRule, setEditingRule] = useState<AvailabilityRule | null>(null);
@@ -470,115 +574,93 @@ function AvailabilityRulesManager({ scheduleId, rules }: { scheduleId: string; r
     mutationFn: (ruleId: string) => apiRequest('DELETE', `/api/ai-features/rules/${ruleId}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/ai-features/schedules/${scheduleId}/rules`] });
-      toast({ description: 'Availability rule deleted' });
+      toast({ description: 'Rule deleted' });
     },
   });
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-between items-center">
-        <div>
-          <h3 className="text-lg font-medium">Availability Rules</h3>
-          <p className="text-sm text-muted-foreground">
-            Define when time slots are available for booking
-          </p>
-        </div>
-        <Button onClick={() => setIsAddDialogOpen(true)} size="sm">
-          <Plus className="w-4 h-4 mr-2" />
-          Add Rule
-        </Button>
-      </div>
-
       {rules.length > 0 ? (
         <div className="space-y-2">
           {rules.map((rule) => (
-            <Card key={rule.id}>
-              <CardContent className="p-4">
-                <div className="flex justify-between items-start">
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      <Badge>{rule.frequency}</Badge>
-                      <span className="text-sm font-medium">
-                        {rule.timeStart} - {rule.timeEnd}
-                      </span>
-                    </div>
-                    {rule.selectedDays && rule.selectedDays.length > 0 && (
-                      <p className="text-sm text-muted-foreground">
-                        Days: {rule.selectedDays.join(', ')}
-                      </p>
-                    )}
-                    {(rule.dateStart || rule.dateEnd) && (
-                      <p className="text-sm text-muted-foreground">
-                        {rule.dateStart ? new Date(rule.dateStart).toLocaleDateString() : 'No start'} 
-                        {' → '}
-                        {rule.dateEnd ? new Date(rule.dateEnd).toLocaleDateString() : 'No end'}
-                      </p>
-                    )}
-                  </div>
-                  <div className="flex gap-2">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setEditingRule(rule)}
-                    >
-                      <Pencil className="w-4 h-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => deleteRuleMutation.mutate(rule.id)}
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+            <div
+              key={rule.id}
+              className="flex items-center justify-between bg-gray-50 border rounded-lg px-4 py-3"
+            >
+              <div className="flex items-center gap-3 text-sm">
+                <Badge variant="secondary">{rule.frequency}</Badge>
+                <span className="font-medium">{rule.timeStart} – {rule.timeEnd}</span>
+                {rule.selectedDays && rule.selectedDays.length > 0 && (
+                  <span className="text-muted-foreground">{rule.selectedDays.join(', ')}</span>
+                )}
+                {rule.isException && <Badge variant="destructive">Blocked</Badge>}
+              </div>
+              <div className="flex gap-1">
+                <Button variant="ghost" size="sm" onClick={() => setEditingRule(rule)}>
+                  <Pencil className="w-4 h-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => deleteRuleMutation.mutate(rule.id)}
+                >
+                  <Trash2 className="w-4 h-4" />
+                </Button>
+              </div>
+            </div>
           ))}
         </div>
       ) : (
-        <Card>
-          <CardContent className="py-8 text-center text-muted-foreground">
-            No availability rules yet. Add a rule to define when slots are available.
-          </CardContent>
-        </Card>
+        <p className="text-sm text-muted-foreground">
+          No rules yet. Add a rule to define when time slots are available.
+        </p>
       )}
+
+      <Button type="button" variant="outline" size="sm" onClick={() => setIsAddDialogOpen(true)}>
+        <Plus className="w-3 h-3 mr-1" /> Add Rule
+      </Button>
 
       {(isAddDialogOpen || editingRule) && (
         <RuleDialog
           scheduleId={scheduleId}
           rule={editingRule}
-          onClose={() => {
-            setIsAddDialogOpen(false);
-            setEditingRule(null);
-          }}
+          onClose={() => { setIsAddDialogOpen(false); setEditingRule(null); }}
         />
       )}
     </div>
   );
 }
 
-// Rule Dialog Component
+/* ─── Rule Dialog ────────────────────────────────────────────────────────────── */
+
 const ruleSchema = z.object({
   frequency: z.enum(['daily', 'weekly', 'monthly']),
   selectedDays: z.array(z.string()).optional(),
   dateStart: z.string().optional(),
   dateEnd: z.string().optional(),
-  timeStart: z.string().min(1, 'Start time is required'),
-  timeEnd: z.string().min(1, 'End time is required'),
+  timeStart: z.string().min(1, 'Start time required'),
+  timeEnd: z.string().min(1, 'End time required'),
   isException: z.boolean().default(false),
 });
 
 type RuleFormData = z.infer<typeof ruleSchema>;
 
-function RuleDialog({ scheduleId, rule, onClose }: { scheduleId: string; rule: AvailabilityRule | null; onClose: () => void }) {
+function RuleDialog({
+  scheduleId,
+  rule,
+  onClose,
+}: {
+  scheduleId: string;
+  rule: AvailabilityRule | null;
+  onClose: () => void;
+}) {
   const { toast } = useToast();
   const isEditing = !!rule;
 
   const form = useForm<RuleFormData>({
     resolver: zodResolver(ruleSchema),
     defaultValues: {
-      frequency: rule?.frequency as any || 'weekly',
+      frequency: (rule?.frequency as any) || 'weekly',
       selectedDays: rule?.selectedDays || [],
       dateStart: rule?.dateStart ? new Date(rule.dateStart).toISOString().split('T')[0] : '',
       dateEnd: rule?.dateEnd ? new Date(rule.dateEnd).toISOString().split('T')[0] : '',
@@ -596,16 +678,12 @@ function RuleDialog({ scheduleId, rule, onClose }: { scheduleId: string; rule: A
         dateStart: data.dateStart ? new Date(data.dateStart).toISOString() : null,
         dateEnd: data.dateEnd ? new Date(data.dateEnd).toISOString() : null,
       };
-
-      if (isEditing) {
-        return apiRequest('PATCH', `/api/ai-features/rules/${rule.id}`, payload);
-      } else {
-        return apiRequest('POST', `/api/ai-features/schedules/${scheduleId}/rules`, payload);
-      }
+      if (isEditing) return apiRequest('PATCH', `/api/ai-features/rules/${rule.id}`, payload);
+      return apiRequest('POST', `/api/ai-features/schedules/${scheduleId}/rules`, payload);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/ai-features/schedules/${scheduleId}/rules`] });
-      toast({ description: `Rule ${isEditing ? 'updated' : 'created'} successfully` });
+      toast({ description: `Rule ${isEditing ? 'updated' : 'created'}` });
       onClose();
     },
   });
@@ -630,7 +708,7 @@ function RuleDialog({ scheduleId, rule, onClose }: { scheduleId: string; rule: A
                   <FormLabel>Repeat Frequency</FormLabel>
                   <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl>
-                      <SelectTrigger>
+                      <SelectTrigger className="mt-1">
                         <SelectValue />
                       </SelectTrigger>
                     </FormControl>
@@ -651,22 +729,28 @@ function RuleDialog({ scheduleId, rule, onClose }: { scheduleId: string; rule: A
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Repeat On</FormLabel>
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 mt-1 flex-wrap">
                       {dayOptions.map((day) => (
-                        <div key={day} className="flex items-center">
+                        <label
+                          key={day}
+                          className={`flex items-center justify-center w-9 h-9 rounded-full border text-xs font-medium cursor-pointer transition-colors ${
+                            field.value?.includes(day)
+                              ? 'bg-blue-600 text-white border-blue-600'
+                              : 'border-gray-300 hover:border-blue-400'
+                          }`}
+                        >
                           <Checkbox
                             checked={field.value?.includes(day)}
                             onCheckedChange={(checked) => {
                               const current = field.value || [];
-                              if (checked) {
-                                field.onChange([...current, day]);
-                              } else {
-                                field.onChange(current.filter((d) => d !== day));
-                              }
+                              field.onChange(
+                                checked ? [...current, day] : current.filter((d) => d !== day)
+                              );
                             }}
+                            className="sr-only"
                           />
-                          <Label className="ml-1 text-xs">{day}</Label>
-                        </div>
+                          {day}
+                        </label>
                       ))}
                     </div>
                   </FormItem>
@@ -677,25 +761,24 @@ function RuleDialog({ scheduleId, rule, onClose }: { scheduleId: string; rule: A
             <div className="grid grid-cols-2 gap-4">
               <FormField
                 control={form.control}
-                name="dateStart"
+                name="timeStart"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Start Date</FormLabel>
+                    <FormLabel>Start Time *</FormLabel>
                     <FormControl>
-                      <Input type="date" {...field} />
+                      <Input type="time" {...field} className="mt-1" />
                     </FormControl>
                   </FormItem>
                 )}
               />
-
               <FormField
                 control={form.control}
-                name="dateEnd"
+                name="timeEnd"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>End Date</FormLabel>
+                    <FormLabel>End Time *</FormLabel>
                     <FormControl>
-                      <Input type="date" {...field} />
+                      <Input type="time" {...field} className="mt-1" />
                     </FormControl>
                   </FormItem>
                 )}
@@ -705,25 +788,24 @@ function RuleDialog({ scheduleId, rule, onClose }: { scheduleId: string; rule: A
             <div className="grid grid-cols-2 gap-4">
               <FormField
                 control={form.control}
-                name="timeStart"
+                name="dateStart"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Start Time *</FormLabel>
+                    <FormLabel>Start Date</FormLabel>
                     <FormControl>
-                      <Input type="time" {...field} />
+                      <Input type="date" {...field} className="mt-1" />
                     </FormControl>
                   </FormItem>
                 )}
               />
-
               <FormField
                 control={form.control}
-                name="timeEnd"
+                name="dateEnd"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>End Time *</FormLabel>
+                    <FormLabel>End Date</FormLabel>
                     <FormControl>
-                      <Input type="time" {...field} />
+                      <Input type="date" {...field} className="mt-1" />
                     </FormControl>
                   </FormItem>
                 )}
@@ -734,11 +816,11 @@ function RuleDialog({ scheduleId, rule, onClose }: { scheduleId: string; rule: A
               control={form.control}
               name="isException"
               render={({ field }) => (
-                <FormItem className="flex items-center space-x-2">
+                <FormItem className="flex items-center gap-2">
                   <FormControl>
                     <Checkbox checked={field.value} onCheckedChange={field.onChange} />
                   </FormControl>
-                  <FormLabel className="!mt-0">Block out time (exception)</FormLabel>
+                  <FormLabel className="!mt-0 cursor-pointer">Block out time (exception)</FormLabel>
                 </FormItem>
               )}
             />
@@ -746,7 +828,7 @@ function RuleDialog({ scheduleId, rule, onClose }: { scheduleId: string; rule: A
             <DialogFooter>
               <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
               <Button type="submit" disabled={saveMutation.isPending}>
-                {saveMutation.isPending ? 'Saving...' : 'Save Rule'}
+                {saveMutation.isPending ? 'Saving…' : 'Save Rule'}
               </Button>
             </DialogFooter>
           </form>
@@ -756,98 +838,109 @@ function RuleDialog({ scheduleId, rule, onClose }: { scheduleId: string; rule: A
   );
 }
 
-// Team Members Manager
-function TeamMembersManager({ scheduleId, members, assignedMembers }: any) {
-  const { toast } = useToast();
+/* ─── Team Members Manager ───────────────────────────────────────────────────── */
+
+function TeamMembersManager({ scheduleId, members, assignedMembers }: {
+  scheduleId: string;
+  members: Member[];
+  assignedMembers: any[];
+}) {
   const assignedMemberIds = new Set(assignedMembers.map((m: any) => m.memberId));
 
   const toggleMember = useMutation({
     mutationFn: async ({ memberId, isAssigned }: { memberId: string; isAssigned: boolean }) => {
       if (isAssigned) {
         return apiRequest('DELETE', `/api/ai-features/schedules/${scheduleId}/team-members/${memberId}`);
-      } else {
-        return apiRequest('POST', `/api/ai-features/schedules/${scheduleId}/team-members`, { memberId });
       }
+      return apiRequest('POST', `/api/ai-features/schedules/${scheduleId}/team-members`, { memberId });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/ai-features/schedules/${scheduleId}/team-members`] });
+      queryClient.invalidateQueries({
+        queryKey: [`/api/ai-features/schedules/${scheduleId}/team-members`],
+      });
     },
   });
 
-  return (
-    <div className="space-y-4 rounded-lg border p-4">
-      <div className="flex items-center gap-2">
-        <Users className="w-5 h-5" />
-        <h3 className="text-lg font-medium">Team Members</h3>
-      </div>
+  if (members.length === 0) {
+    return (
       <p className="text-sm text-muted-foreground">
-        Select team members who can provide services on this schedule
+        No team members found. Add team members in your account settings.
       </p>
-      <div className="space-y-2">
-        {members.map((member: Member) => {
-          const isAssigned = assignedMemberIds.has(member.id);
-          return (
-            <div key={member.id} className="flex items-center space-x-2">
-              <Checkbox
-                checked={isAssigned}
-                onCheckedChange={() => toggleMember.mutate({ memberId: member.id, isAssigned })}
-              />
-              <Label className="font-normal">{member.name}</Label>
-            </div>
-          );
-        })}
-      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      {members.map((member: Member) => {
+        const isAssigned = assignedMemberIds.has(member.id);
+        return (
+          <div key={member.id} className="flex items-center gap-3">
+            <Switch
+              checked={isAssigned}
+              onCheckedChange={() => toggleMember.mutate({ memberId: member.id, isAssigned })}
+            />
+            <span className="text-sm font-medium">{member.name}</span>
+          </div>
+        );
+      })}
     </div>
   );
 }
 
-// Calendar Checks Manager
-function CalendarChecksManager({ scheduleId, calendars, assignedCalendars }: any) {
-  const { toast } = useToast();
+/* ─── Calendar Checks Manager ───────────────────────────────────────────────── */
+
+function CalendarChecksManager({ scheduleId, calendars, assignedCalendars }: {
+  scheduleId: string;
+  calendars: CalendarIntegration[];
+  assignedCalendars: any[];
+}) {
   const assignedCalendarIds = new Set(assignedCalendars.map((c: any) => c.calendarIntegrationId));
 
   const toggleCalendar = useMutation({
     mutationFn: async ({ calendarId, isAssigned }: { calendarId: string; isAssigned: boolean }) => {
       if (isAssigned) {
         return apiRequest('DELETE', `/api/ai-features/schedules/${scheduleId}/calendar-checks/${calendarId}`);
-      } else {
-        return apiRequest('POST', `/api/ai-features/schedules/${scheduleId}/calendar-checks`, { 
-          calendarIntegrationId: calendarId 
-        });
       }
+      return apiRequest('POST', `/api/ai-features/schedules/${scheduleId}/calendar-checks`, {
+        calendarIntegrationId: calendarId,
+      });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/ai-features/schedules/${scheduleId}/calendar-checks`] });
+      queryClient.invalidateQueries({
+        queryKey: [`/api/ai-features/schedules/${scheduleId}/calendar-checks`],
+      });
     },
   });
 
-  return (
-    <div className="space-y-4 rounded-lg border p-4">
-      <div className="flex items-center gap-2">
-        <CalendarCheck className="w-5 h-5" />
-        <h3 className="text-lg font-medium">Calendar Conflict Checking</h3>
-      </div>
+  if (calendars.length === 0) {
+    return (
       <p className="text-sm text-muted-foreground">
-        Check these calendars for conflicts before allowing bookings
+        No calendars connected. Connect a Google Calendar in the Calendar section.
       </p>
-      <div className="space-y-2">
-        {calendars.map((calendar: CalendarIntegration) => {
-          const isAssigned = assignedCalendarIds.has(calendar.id);
-          return (
-            <div key={calendar.id} className="flex items-center space-x-2">
-              <Checkbox
-                checked={isAssigned}
-                onCheckedChange={() => toggleCalendar.mutate({ calendarId: calendar.id, isAssigned })}
-              />
-              <Label className="font-normal">
-                {calendar.provider} - {calendar.accountEmail}
-              </Label>
-            </div>
-          );
-        })}
-      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      {calendars.map((calendar: CalendarIntegration) => {
+        const isAssigned = assignedCalendarIds.has(calendar.id);
+        return (
+          <div key={calendar.id} className="flex items-center gap-3">
+            <Switch
+              checked={isAssigned}
+              onCheckedChange={() => toggleCalendar.mutate({ calendarId: calendar.id, isAssigned })}
+            />
+            <span className="text-sm font-medium">
+              {(calendar as any).accountEmail || calendar.provider}
+            </span>
+          </div>
+        );
+      })}
     </div>
   );
 }
 
-export { EnhancedScheduleDialog };
+export { ScheduleSettingsPage };
+
+// Backward-compatible export alias
+export { ScheduleSettingsPage as EnhancedScheduleDialog };

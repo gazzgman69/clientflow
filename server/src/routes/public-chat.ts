@@ -483,10 +483,14 @@ router.post('/contact-check', async (req, res) => {
       return;
     }
     
-    const tenant = await resolveTenantFromSlug(slug);
-    
+    const ccSchedule = await storage.getAvailabilityScheduleByPublicLink(slug);
+    if (!ccSchedule) {
+      res.status(404).json({ error: 'Schedule not found' });
+      return;
+    }
+
     // Find contact by email in this tenant
-    const contacts = await storage.getContacts(tenant.id);
+    const contacts = await storage.getContacts(ccSchedule.tenantId);
     const contact = contacts.find(c => c.email?.toLowerCase() === email.toLowerCase());
     
     if (contact) {
@@ -708,8 +712,8 @@ router.post('/bookings/:slug', async (req, res) => {
       clientName: bookingData.clientName,
       clientEmail: bookingData.clientEmail,
       clientPhone: bookingData.clientPhone || null,
-      bookingDate: new Date(bookingData.bookingDate),
-      bookingTime: bookingData.bookingTime,
+      startTime: new Date(`${bookingData.bookingDate}T${bookingData.bookingTime}`),
+      endTime: new Date(new Date(`${bookingData.bookingDate}T${bookingData.bookingTime}`).getTime() + (service.duration || 60) * 60 * 1000),
       status: bookingStatus,
       approvalStatus,
       notes: bookingData.notes || null,

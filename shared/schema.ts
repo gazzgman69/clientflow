@@ -3059,6 +3059,25 @@ export const bookableServices = pgTable("bookable_services", {
   // Contract: auto-send on confirmation
   contractTemplateId: varchar("contract_template_id").references(() => contractTemplates.id, { onDelete: 'set null' }),
 
+  // Booking Messaging
+  termsOfServiceTemplateId: varchar("terms_of_service_template_id").references(() => messageTemplates.id),
+
+  // Confirmation Settings
+  confirmationCalendarId: varchar("confirmation_calendar_id").references(() => calendarIntegrations.id),
+  confirmationWorkflowId: text("confirmation_workflow_id"),
+
+  // Cancellation Settings
+  cancellationWorkflowId: text("cancellation_workflow_id"),
+
+  // Reminder Settings
+  dayOfReminderTemplateId: varchar("day_of_reminder_template_id").references(() => messageTemplates.id),
+
+  // Tracking
+  metaPixelId: text("meta_pixel_id"),
+
+  // Display price (separate from paymentAmount deposit)
+  price: text("price"),
+
   isActive: boolean("is_active").default(true),
   displayOrder: integer("display_order").default(0),
   createdBy: varchar("created_by").references(() => users.id),

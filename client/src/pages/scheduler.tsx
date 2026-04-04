@@ -1497,17 +1497,17 @@ function BookingRow({ booking, serviceMap }: { booking: Booking; serviceMap: Map
   return (
     <TableRow data-testid={`row-booking-${booking.id}`}>
       <TableCell>
-        <div className="font-medium">{booking.clientName}</div>
-        <div className="text-sm text-muted-foreground">{booking.clientEmail}</div>
+        <div className="font-medium">{booking.bookedBy}</div>
+        <div className="text-sm text-muted-foreground">{booking.bookedEmail}</div>
       </TableCell>
       <TableCell>{serviceMap.get(booking.serviceId) || booking.serviceId}</TableCell>
       <TableCell>
         <div className="text-sm">
-          {new Date(booking.bookingDate).toLocaleDateString('en-GB', {
+          {new Date(booking.startTime).toLocaleDateString('en-GB', {
             day: 'numeric', month: 'short', year: 'numeric',
           })}
           <br />
-          <span className="text-muted-foreground">{booking.bookingTime}</span>
+          <span className="text-muted-foreground">{new Date(booking.startTime).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}</span>
         </div>
       </TableCell>
       <TableCell>{getStatusBadge()}</TableCell>

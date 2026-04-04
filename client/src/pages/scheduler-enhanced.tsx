@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -115,6 +115,21 @@ function ScheduleSettingsPage({
       disableTimezonePreviewOverride: sched?.disableTimezonePreviewOverride ?? false,
     },
   });
+
+  // Auto-generate slug from name when creating a new schedule
+  const watchedName = form.watch('name');
+  useEffect(() => {
+    if (!isEditing) {
+      const slug = watchedName
+        .toLowerCase()
+        .trim()
+        .replace(/[^a-z0-9\s-]/g, '')
+        .replace(/\s+/g, '-')
+        .replace(/-+/g, '-')
+        .slice(0, 60);
+      form.setValue('publicLink', slug, { shouldDirty: false });
+    }
+  }, [watchedName, isEditing]);
 
   const saveMutation = useMutation({
     mutationFn: async (data: ScheduleFormData) => {

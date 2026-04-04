@@ -7639,10 +7639,11 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
       
       if (integration.provider === 'google') {
         try {
-          console.log('🔄 Starting enhanced Google Calendar bidirectional sync...');
-          // Use the enhanced Google OAuth service for full bidirectional sync
-          result = await googleOAuthService.syncFromGoogle(integration);
-          console.log('🎉 Enhanced Google Calendar sync completed:', result);
+          console.log('🔄 Starting Google Calendar export sync (CRM → Google only)...');
+          // One-way export: push CRM events to Google Calendar only
+          // Google → CRM import is disabled to keep personal calendar events out of ClientFlow
+          result = await googleOAuthService.syncToGoogleAll(integration);
+          console.log('🎉 Google Calendar export sync completed:', result);
         } catch (error: any) {
           console.error('❌ Enhanced Google Calendar sync failed:', error);
           throw new Error(`Google Calendar sync failed: ${error.message}`);

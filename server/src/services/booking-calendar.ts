@@ -6,7 +6,7 @@
  */
 
 import { storage } from '../../storage';
-import { googleCalendarService } from './google-calendar';
+import { googleOAuthService } from './google-oauth';
 import type { Booking, BookableService } from '@shared/schema';
 
 /**
@@ -45,10 +45,17 @@ function buildGoogleEvent(booking: Booking, service: BookableService) {
 
 /**
  * Get the active Google Calendar integration for a tenant, if any.
+ * Prefers serviceType==='calendar', falls back to any active Google integration.
  */
 async function getActiveGoogleIntegration(tenantId: string) {
   const integrations = await storage.getCalendarIntegrationsByTenant(tenantId);
+  console.log(`📅 Found ${integrations.length} calendar integrations for tenant ${tenantId}:`,
+    integrations.map(i => ({ id: i.id, provider: i.provider, serviceType: (i as any).serviceType, isActive: i.isActive, hasToken: !!i.accessToken }))
+  );
+  // Prefer a dedicated calendar integration; fall back to any active Google integration
   return integrations.find(
+    (i) => i.provider === 'google' && i.isActive && i.accessToken && (i as any).serviceType === 'calendar'
+  ) || integrations.find(
     (i) => i.provider === 'google' && i.isActive && i.accessToken
   ) || null;
 }
@@ -74,16 +81,12 @@ export async function createBookingCalendarEvent(
       return null;
     }
 
-    googleCalendarService.setCredentials({
-      access_token: integration.accessToken!,
-      refresh_token: integration.refreshToken || undefined,
-    });
-
+    const calendarClient = await googleOAuthService.getCalendarService(integration);
     const event = buildGoogleEvent(booking, service);
     const calendarId = integration.calendarId || 'primary';
 
-    const created = await googleCalendarService.createEvent(calendarId, event);
-    const googleEventId = (created as any).id as string;
+    const created = await calendarClient.events.insert({ calendarId, requestBody: event });
+    const googleEventId = created.data.id as string;
 
     console.log(`📅 Google Calendar event created: ${googleEventId} for booking ${booking.id}`);
     return googleEventId;
@@ -107,13 +110,9 @@ export async function deleteBookingCalendarEvent(
     const integration = await getActiveGoogleIntegration(tenantId);
     if (!integration) return;
 
-    googleCalendarService.setCredentials({
-      access_token: integration.accessToken!,
-      refresh_token: integration.refreshToken || undefined,
-    });
-
+    const calendarClient = await googleOAuthService.getCalendarService(integration);
     const calendarId = integration.calendarId || 'primary';
-    await googleCalendarService.deleteEvent(calendarId, googleEventId);
+    await calendarClient.events.delete({ calendarId, eventId: googleEventId });
     console.log(`📅 Google Calendar event deleted: ${googleEventId} for booking ${booking.id}`);
   } catch (err) {
     console.error(`📅 Failed to delete Google Calendar event for booking ${booking.id}:`, err);
@@ -138,21 +137,17 @@ export async function updateBookingCalendarEvent(
     const service = await storage.getBookableService(booking.serviceId, tenantId);
     if (!service) return null;
 
-    googleCalendarService.setCredentials({
-      access_token: integration.accessToken!,
-      refresh_token: integration.refreshToken || undefined,
-    });
-
+    const calendarClient = await googleOAuthService.getCalendarService(integration);
     const event = buildGoogleEvent(booking, service);
     const calendarId = integration.calendarId || 'primary';
 
     if (googleEventId) {
-      await googleCalendarService.updateEvent(calendarId, googleEventId, event);
+      await calendarClient.events.update({ calendarId, eventId: googleEventId, requestBody: event });
       console.log(`📅 Google Calendar event updated: ${googleEventId} for booking ${booking.id}`);
       return googleEventId;
     } else {
-      const created = await googleCalendarService.createEvent(calendarId, event);
-      const newEventId = (created as any).id as string;
+      const created = await calendarClient.events.insert({ calendarId, requestBody: event });
+      const newEventId = created.data.id as string;
       console.log(`📅 Google Calendar event created (via update): ${newEventId} for booking ${booking.id}`);
       return newEventId;
     }

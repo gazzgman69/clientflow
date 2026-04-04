@@ -858,20 +858,15 @@ router.post('/bookings/:slug', async (req, res) => {
     }
 
     // ── Google Calendar event (auto-confirmed bookings only) ──────────────
-    let calendarDebug: any = null;
     if (!needsApproval) {
       try {
         const { createBookingCalendarEvent } = await import('../services/booking-calendar');
         const googleEventId = await createBookingCalendarEvent(booking, schedule.tenantId);
         if (googleEventId) {
           await storage.updateBooking(booking.id, { googleEventId } as any, schedule.tenantId);
-          calendarDebug = { success: true, googleEventId };
-        } else {
-          calendarDebug = { success: false, reason: 'createBookingCalendarEvent returned null' };
         }
-      } catch (calErr: any) {
+      } catch (calErr) {
         console.warn('⚠️ Could not create Google Calendar event:', calErr);
-        calendarDebug = { success: false, error: calErr?.message, stack: calErr?.stack?.slice(0, 300) };
       }
     }
 
@@ -988,7 +983,6 @@ router.post('/bookings/:slug', async (req, res) => {
       ...booking,
       contactId,
       projectId,
-      _calendarDebug: calendarDebug,
     });
   } catch (error) {
     console.error('Error creating public booking:', error);

@@ -67,6 +67,7 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { formatDistanceToNow } from "date-fns";
+import { formatCurrency } from "@/lib/currency";
 import type {
   Project, Member, Venue, ProjectFile,
   ProjectNote, ProjectMember, Quote, Contract, Invoice, Contact
@@ -1822,7 +1823,7 @@ export default function ProjectDetail() {
                           </div>
                           <div>
                             <p className="text-sm text-muted-foreground">ESTIMATED VALUE</p>
-                            <p className="font-medium">${project.estimatedValue || "0.00"}</p>
+                            <p className="font-medium">{formatCurrency(parseFloat(project.estimatedValue || "0"), (project.currency as any) || 'GBP')}</p>
                           </div>
                           <div>
                             <p className="text-sm text-muted-foreground">LEAD SOURCE</p>
@@ -2090,16 +2091,16 @@ export default function ProjectDetail() {
                       <CardContent className="space-y-3">
                         <div>
                           <p className="text-sm text-muted-foreground">TOTAL FEE</p>
-                          <p className="text-lg font-bold">${project.estimatedValue || "0.00"}</p>
+                          <p className="text-lg font-bold">{formatCurrency(parseFloat(project.estimatedValue || "0"), (project.currency as any) || 'GBP')}</p>
                         </div>
                         <div className="grid grid-cols-2 gap-2 text-sm">
                           <div>
                             <p className="text-muted-foreground">DEPOSIT PAID</p>
-                            <p className="font-medium">$0.00</p>
+                            <p className="font-medium">{formatCurrency(0, (project.currency as any) || 'GBP')}</p>
                           </div>
                           <div>
                             <p className="text-muted-foreground">OUTSTANDING</p>
-                            <p className="font-medium">${project.estimatedValue || "0.00"}</p>
+                            <p className="font-medium">{formatCurrency(parseFloat(project.estimatedValue || "0"), (project.currency as any) || 'GBP')}</p>
                           </div>
                         </div>
                       </CardContent>
@@ -3419,7 +3420,7 @@ export default function ProjectDetail() {
                     <CardTitle className="text-sm text-muted-foreground">TOTAL FEE</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <p className="text-2xl font-bold">${totalFee.toFixed(2)}</p>
+                    <p className="text-2xl font-bold">{formatCurrency(totalFee, (project.currency as any) || 'GBP')}</p>
                   </CardContent>
                 </Card>
                 <Card>
@@ -3427,7 +3428,7 @@ export default function ProjectDetail() {
                     <CardTitle className="text-sm text-muted-foreground">RECEIVED</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <p className="text-2xl font-bold">${totalReceived.toFixed(2)}</p>
+                    <p className="text-2xl font-bold">{formatCurrency(totalReceived, (project.currency as any) || 'GBP')}</p>
                   </CardContent>
                 </Card>
                 <Card>
@@ -3435,7 +3436,7 @@ export default function ProjectDetail() {
                     <CardTitle className="text-sm text-muted-foreground">OUTSTANDING</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <p className="text-2xl font-bold">${outstanding.toFixed(2)}</p>
+                    <p className="text-2xl font-bold">{formatCurrency(outstanding, (project.currency as any) || 'GBP')}</p>
                   </CardContent>
                 </Card>
                 <Card>
@@ -3443,7 +3444,7 @@ export default function ProjectDetail() {
                     <CardTitle className="text-sm text-muted-foreground">PROJECTED PROFIT</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <p className={`text-2xl font-bold ${netProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>${netProfit.toFixed(2)}</p>
+                    <p className={`text-2xl font-bold ${netProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>{formatCurrency(netProfit, (project.currency as any) || 'GBP')}</p>
                   </CardContent>
                 </Card>
               </div>
@@ -3468,7 +3469,7 @@ export default function ProjectDetail() {
                           <TableBody>
                             <TableRow>
                               <TableCell>Total Project Fee</TableCell>
-                              <TableCell className="font-medium">${project.estimatedValue || "0.00"}</TableCell>
+                              <TableCell className="font-medium">{formatCurrency(parseFloat(project.estimatedValue || "0"), (project.currency as any) || 'GBP')}</TableCell>
                             </TableRow>
                           </TableBody>
                         </Table>
@@ -3515,7 +3516,7 @@ export default function ProjectDetail() {
                                 <TableRow key={exp.id}>
                                   <TableCell className="text-sm">{exp.description}</TableCell>
                                   <TableCell className="text-sm capitalize">{exp.category || "—"}</TableCell>
-                                  <TableCell className="font-medium">${parseFloat(exp.amount || "0").toFixed(2)}</TableCell>
+                                  <TableCell className="font-medium">{formatCurrency(parseFloat(exp.amount || "0"), (project.currency as any) || 'GBP')}</TableCell>
                                   <TableCell className="text-sm">{exp.date || "—"}</TableCell>
                                   <TableCell>
                                     <Button
@@ -3566,7 +3567,7 @@ export default function ProjectDetail() {
                                 return (
                                   <TableRow key={pm.id}>
                                     <TableCell className="text-sm">{member?.name}</TableCell>
-                                    <TableCell className="font-medium">${pm.fee || "0.00"}</TableCell>
+                                    <TableCell className="font-medium">{formatCurrency(parseFloat(pm.fee || "0"), (project.currency as any) || 'GBP')}</TableCell>
                                   </TableRow>
                                 );
                               })
@@ -3586,11 +3587,11 @@ export default function ProjectDetail() {
                       <div className="space-y-1">
                         <div className="flex justify-between text-sm">
                           <span className="text-muted-foreground">FEE</span>
-                          <span className="font-medium">${totalFee.toFixed(2)}</span>
+                          <span className="font-medium">{formatCurrency(totalFee, (project.currency as any) || 'GBP')}</span>
                         </div>
                         <div className="flex justify-between text-sm">
                           <span className="text-muted-foreground">MEMBER COSTS</span>
-                          <span className="font-medium">-${totalMemberCosts.toFixed(2)}</span>
+                          <span className="font-medium">-{formatCurrency(totalMemberCosts, (project.currency as any) || 'GBP')}</span>
                         </div>
                         {(() => {
                           const totalExpenses = (projectExpenses as any[]).reduce((sum: number, exp: any) => sum + parseFloat(exp.amount || "0"), 0);
@@ -3599,12 +3600,12 @@ export default function ProjectDetail() {
                           return (<>
                         <div className="flex justify-between text-sm">
                           <span className="text-muted-foreground">EXPENSES</span>
-                          <span className="font-medium">-${totalExpenses.toFixed(2)}</span>
+                          <span className="font-medium">-{formatCurrency(totalExpenses, (project.currency as any) || 'GBP')}</span>
                         </div>
                         <Separator className="my-2" />
                         <div className="flex justify-between">
                           <span className="font-semibold">NET PROFIT</span>
-                          <span className={`font-bold ${adjustedNetProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>${adjustedNetProfit.toFixed(2)}</span>
+                          <span className={`font-bold ${adjustedNetProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>{formatCurrency(adjustedNetProfit, (project.currency as any) || 'GBP')}</span>
                         </div>
                         <div className="flex justify-between text-sm pt-2">
                           <span className="text-muted-foreground">MARGIN</span>

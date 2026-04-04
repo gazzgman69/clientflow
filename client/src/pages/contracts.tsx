@@ -127,10 +127,10 @@ export default function Contracts() {
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center space-x-2">
-                          <Button variant="ghost" size="sm" data-testid={`send-contract-${contract.id}`}>
+                          <Button variant="ghost" size="sm" data-testid={`send-contract-${contract.id}`} onClick={() => setLocation(`/contracts/${contract.id}/preview`)}>
                             <Send className="h-4 w-4" />
                           </Button>
-                          <Button variant="ghost" size="sm" data-testid={`edit-contract-${contract.id}`}>
+                          <Button variant="ghost" size="sm" data-testid={`edit-contract-${contract.id}`} onClick={() => setLocation(`/contracts/${contract.id}/preview`)}>
                             <Edit className="h-4 w-4" />
                           </Button>
                           <Button variant="ghost" size="sm" data-testid={`delete-contract-${contract.id}`}>

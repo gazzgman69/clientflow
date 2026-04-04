@@ -113,6 +113,35 @@ export default function Invoices() {
     return client ? `${client.firstName} ${client.lastName}` : 'Unknown Client';
   };
 
+  const sendInvoiceMutation = useMutation({
+    mutationFn: async (invoiceId: string) => {
+      const response = await apiRequest("POST", `/api/invoices/${invoiceId}/send`, {});
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/invoices"] });
+      toast({ title: "Invoice sent", description: "The invoice has been sent to the client." });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to send invoice.", variant: "destructive" });
+    },
+  });
+
+  const deleteInvoiceMutation = useMutation({
+    mutationFn: async (invoiceId: string) => {
+      const response = await apiRequest("DELETE", `/api/invoices/${invoiceId}`);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/invoices"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/metrics"] });
+      toast({ title: "Deleted", description: "Invoice deleted successfully." });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to delete invoice.", variant: "destructive" });
+    },
+  });
+
   const handleAddInvoice = () => {
     setEditingInvoice(null);
     form.reset();
@@ -204,13 +233,13 @@ export default function Invoices() {
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center space-x-2">
-                          <Button variant="ghost" size="sm" data-testid={`send-invoice-${invoice.id}`}>
+                          <Button variant="ghost" size="sm" data-testid={`send-invoice-${invoice.id}`} onClick={() => sendInvoiceMutation.mutate(invoice.id)} disabled={invoice.status !== 'draft'}>
                             <Send className="h-4 w-4" />
                           </Button>
-                          <Button variant="ghost" size="sm" data-testid={`edit-invoice-${invoice.id}`}>
+                          <Button variant="ghost" size="sm" data-testid={`edit-invoice-${invoice.id}`} onClick={() => { setEditingInvoice(invoice); setShowInvoiceModal(true); }}>
                             <Edit className="h-4 w-4" />
                           </Button>
-                          <Button variant="ghost" size="sm" data-testid={`delete-invoice-${invoice.id}`}>
+                          <Button variant="ghost" size="sm" data-testid={`delete-invoice-${invoice.id}`} onClick={() => { if (confirm(`Delete invoice "${invoice.title}"?`)) deleteInvoiceMutation.mutate(invoice.id); }}>
                             <Trash2 className="h-4 w-4" />
                           </Button>
                         </div>

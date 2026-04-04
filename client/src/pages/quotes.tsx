@@ -138,6 +138,20 @@ export default function Quotes() {
     return client ? `${client.firstName} ${client.lastName}` : 'Unknown Client';
   };
 
+  const sendQuoteMutation = useMutation({
+    mutationFn: async (quoteId: string) => {
+      const response = await apiRequest("POST", `/api/quotes/${quoteId}/send`, {});
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/quotes"] });
+      toast({ title: "Quote sent", description: "The quote has been sent to the client." });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to send quote.", variant: "destructive" });
+    },
+  });
+
   const handleAddQuote = () => {
     setEditingQuote(null);
     form.reset();
@@ -240,10 +254,10 @@ export default function Quotes() {
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center space-x-2">
-                          <Button variant="ghost" size="sm" data-testid={`send-quote-${quote.id}`}>
+                          <Button variant="ghost" size="sm" data-testid={`send-quote-${quote.id}`} onClick={() => sendQuoteMutation.mutate(quote.id)} disabled={quote.status !== 'draft'}>
                             <Send className="h-4 w-4" />
                           </Button>
-                          <Button variant="ghost" size="sm" data-testid={`edit-quote-${quote.id}`}>
+                          <Button variant="ghost" size="sm" data-testid={`edit-quote-${quote.id}`} onClick={() => { setEditingQuote(quote); setShowQuoteModal(true); }}>
                             <Edit className="h-4 w-4" />
                           </Button>
                           <Button 

@@ -59,6 +59,16 @@ const eventSchema = z.object({
 
 type EventFormData = z.infer<typeof eventSchema>;
 
+interface Booking {
+  id: string;
+  bookedBy: string;
+  bookedEmail: string;
+  startTime: string;
+  endTime: string;
+  status: string;
+  serviceId: string;
+}
+
 interface CalendarViewProps {
   viewMode?: 'month' | 'week' | 'day';
 }
@@ -91,6 +101,17 @@ export default function CalendarView({ viewMode = 'month' }: CalendarViewProps) 
 
   const { data: clients = [] } = useQuery<Contact[]>({
     queryKey: ['/api/contacts?simple=1&limit=100'],
+  });
+
+  // Fetch confirmed bookings to display on calendar
+  const { data: bookings = [] } = useQuery<Booking[]>({
+    queryKey: ['/api/ai-features/bookings'],
+    queryFn: async () => {
+      const res = await fetch('/api/ai-features/bookings?status=all', { credentials: 'include' });
+      if (!res.ok) return [];
+      const data = await res.json();
+      return Array.isArray(data) ? data : (data.bookings ?? []);
+    },
   });
 
   const form = useForm<EventFormData>({
@@ -342,13 +363,38 @@ export default function CalendarView({ viewMode = 'month' }: CalendarViewProps) 
   };
 
   const getEventsForDay = (day: number) => {
-    if (!events || !Array.isArray(events)) return [];
-    
     const dayDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), day);
-    return events.filter(event => {
-      const eventDate = new Date(event.startDate);
-      return eventDate.toDateString() === dayDate.toDateString();
-    });
+
+    const calEvents: (Event & { isBooking?: boolean })[] = (events && Array.isArray(events))
+      ? events.filter(event => {
+          const eventDate = new Date(event.startDate);
+          return eventDate.toDateString() === dayDate.toDateString();
+        })
+      : [];
+
+    const bookingEvents: (Event & { isBooking?: boolean })[] = (bookings && Array.isArray(bookings))
+      ? bookings
+          .filter(b => b.status !== 'cancelled')
+          .filter(b => {
+            const bDate = new Date(b.startTime);
+            return bDate.toDateString() === dayDate.toDateString();
+          })
+          .map(b => ({
+            id: `booking-${b.id}`,
+            title: `📅 ${b.bookedBy}`,
+            startDate: b.startTime,
+            endDate: b.endTime,
+            allDay: false,
+            status: b.status,
+            recurring: false,
+            createdBy: '',
+            createdAt: '',
+            updatedAt: '',
+            isBooking: true,
+          }))
+      : [];
+
+    return [...calEvents, ...bookingEvents];
   };
 
 
@@ -492,15 +538,18 @@ export default function CalendarView({ viewMode = 'month' }: CalendarViewProps) 
                               {dayEvents.map((event, eventIndex) => {
                                 const isNewLead = event.title.includes('New Lead Project •');
                                 const isCancelled = event.isCancelled;
+                                const isBooking = (event as any).isBooking;
                                 return (
                                 <div
                                   key={event.id}
                                   className={`text-xs p-1 rounded cursor-pointer hover:opacity-80 ${
-                                    isCancelled 
-                                      ? 'bg-muted/50 text-muted-foreground dark:bg-muted/20 dark:text-muted-foreground' 
-                                      : isNewLead 
-                                        ? 'bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-300' 
-                                        : 'bg-primary/10 text-primary'
+                                    isCancelled
+                                      ? 'bg-muted/50 text-muted-foreground dark:bg-muted/20 dark:text-muted-foreground'
+                                      : isBooking
+                                        ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300'
+                                        : isNewLead
+                                          ? 'bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-300'
+                                          : 'bg-primary/10 text-primary'
                                   }`}
                                   onClick={(e) => {
                                     e.stopPropagation();

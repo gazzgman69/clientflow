@@ -709,25 +709,18 @@ router.post('/bookings/:slug', async (req, res) => {
       tenantId: schedule.tenantId,
       serviceId: bookingData.serviceId,
       scheduleId: schedule.id,
-      clientName: bookingData.clientName,
-      clientEmail: bookingData.clientEmail,
-      clientPhone: bookingData.clientPhone || null,
+      bookedBy: bookingData.clientName,
+      bookedEmail: bookingData.clientEmail,
+      bookedPhone: bookingData.clientPhone || null,
       startTime: new Date(`${bookingData.bookingDate}T${bookingData.bookingTime}`),
       endTime: new Date(new Date(`${bookingData.bookingDate}T${bookingData.bookingTime}`).getTime() + (service.duration || 60) * 60 * 1000),
       status: bookingStatus,
       approvalStatus,
-      notes: bookingData.notes || null,
       serviceResponses: bookingData.serviceResponses || null,
       projectResponses: bookingData.projectResponses || null,
       contactId,
       projectId: projectId || null,
-      leadId: null,
-      metadata: {
-        source: 'public_booking',
-        publicLink: slug,
-        contactCreated: wasContactCreated,
-        projectCreated: wasProjectCreated
-      }
+      leadId: null
     }, schedule.tenantId);
 
     // ── Save intake answers as a project note ──────────────────────────────

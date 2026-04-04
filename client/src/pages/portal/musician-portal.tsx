@@ -15,6 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { queryClient, apiRequest } from "@/lib/queryClient";
+import { formatCurrency } from "@/lib/currency";
 import { useToast } from "@/hooks/use-toast";
 import { format, formatDistanceToNow } from "date-fns";
 import type { Project, ProjectMember, Member, MemberAvailability, PerformerContract } from "@shared/schema";
@@ -191,7 +192,7 @@ export default function MusicianPortal() {
             <div className="flex items-center gap-3">
               <DollarSign className="h-8 w-8 text-green-500" />
               <div>
-                <p className="text-2xl font-bold">£{totalEarned.toFixed(0)}</p>
+                <p className="text-2xl font-bold">{formatCurrency(totalEarned, 'GBP')}</p>
                 <p className="text-sm text-muted-foreground">Total earned</p>
               </div>
             </div>
@@ -202,7 +203,7 @@ export default function MusicianPortal() {
             <div className="flex items-center gap-3">
               <Clock className="h-8 w-8 text-blue-500" />
               <div>
-                <p className="text-2xl font-bold">£{pendingPayment.toFixed(0)}</p>
+                <p className="text-2xl font-bold">{formatCurrency(pendingPayment, 'GBP')}</p>
                 <p className="text-sm text-muted-foreground">Awaiting payment</p>
               </div>
             </div>

@@ -265,7 +265,7 @@ export default function ClientPortal() {
               <div>
                 <p className="text-sm font-medium">Total Invoiced</p>
                 <p className="text-2xl font-bold" data-testid="text-total-invoiced">
-                  ${accountSummary.totalInvoiced || 0}
+                  {formatCurrency(accountSummary.totalInvoiced || 0, 'GBP')}
                 </p>
               </div>
             </div>
@@ -406,7 +406,7 @@ export default function ClientPortal() {
                           {invoice.createdAt ? format(new Date(invoice.createdAt), "dd/MM/yyyy") : "N/A"}
                         </TableCell>
                         <TableCell>
-                          ${invoice.total}
+                          {formatCurrency(parseFloat(invoice.total || '0'), 'GBP')}
                         </TableCell>
                         <TableCell>
                           <Badge className={getStatusColor(invoice.status)}>

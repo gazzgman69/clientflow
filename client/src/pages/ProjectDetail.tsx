@@ -2839,7 +2839,7 @@ export default function ProjectDetail() {
                               <TableRow key={pm.id}>
                                 <TableCell className="font-medium">{member?.name || "Unknown"}</TableCell>
                                 <TableCell>{pm.role || "-"}</TableCell>
-                                <TableCell>${pm.fee || "0.00"}</TableCell>
+                                <TableCell>{formatCurrency(parseFloat(pm.fee || '0'), (project?.currency as any) || 'GBP')}</TableCell>
                                 <TableCell>
                                   <Badge variant="outline">
                                     <div className={`h-2 w-2 rounded-full mr-2 ${pm.confirmationStatus === 'confirmed' ? 'bg-green-500' : 'bg-gray-400'}`}></div>
@@ -3030,7 +3030,7 @@ export default function ProjectDetail() {
                           {projectQuotes.map((quote) => (
                             <TableRow key={quote.id}>
                               <TableCell className="font-medium">{quote.quoteNumber || quote.id.slice(0, 8)}</TableCell>
-                              <TableCell>${quote.amount || "0.00"}</TableCell>
+                              <TableCell>{formatCurrency(parseFloat(quote.amount || quote.total || '0'), (project?.currency as any) || 'GBP')}</TableCell>
                               <TableCell>
                                 <Badge variant="outline">{quote.status || "draft"}</Badge>
                               </TableCell>
@@ -3094,7 +3094,7 @@ export default function ProjectDetail() {
                           {projectContracts.map((contract) => (
                             <TableRow key={contract.id}>
                               <TableCell className="font-medium">{contract.title}</TableCell>
-                              <TableCell>${contract.amount || "0.00"}</TableCell>
+                              <TableCell>{formatCurrency(parseFloat(contract.amount || '0'), (project?.currency as any) || 'GBP')}</TableCell>
                               <TableCell>
                                 <Badge variant="outline">{contract.status || "draft"}</Badge>
                               </TableCell>
@@ -3158,7 +3158,7 @@ export default function ProjectDetail() {
                           {projectInvoices.map((invoice) => (
                             <TableRow key={invoice.id}>
                               <TableCell className="font-medium">{invoice.invoiceNumber || invoice.id.slice(0, 8)}</TableCell>
-                              <TableCell>${invoice.total || "0.00"}</TableCell>
+                              <TableCell>{formatCurrency(parseFloat(invoice.total || '0'), (project?.currency as any) || 'GBP')}</TableCell>
                               <TableCell>
                                 <Badge variant="outline">{invoice.status || "draft"}</Badge>
                               </TableCell>

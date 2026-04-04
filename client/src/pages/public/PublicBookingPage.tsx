@@ -506,7 +506,7 @@ export default function PublicBookingPage({ slug }: PublicBookingPageProps) {
                           )}
                         </div>
                         {service.price && (
-                          <div className="text-lg font-semibold">£{service.price}</div>
+                          <div className="text-lg font-semibold">{service.price}</div>
                         )}
                       </div>
                     </CardContent>

@@ -990,7 +990,7 @@ export default function ProjectDetailModal({ project, isOpen, onClose }: Project
                                   {quote.title}
                                 </p>
                                 <p className="text-sm text-muted-foreground">
-                                  ${quote.total} • {quote.status}
+                                  {formatCurrency(parseFloat(quote.total || '0'), ((quote as any).currency as any) || 'GBP')} • {quote.status}
                                 </p>
                               </div>
                             </div>
@@ -1081,7 +1081,7 @@ export default function ProjectDetailModal({ project, isOpen, onClose }: Project
                                   {contract.title}
                                 </p>
                                 <p className="text-sm text-muted-foreground">
-                                  ${contract.amount} • {contract.status}
+                                  {formatCurrency(parseFloat(contract.amount || '0'), ((contract as any).currency as any) || 'GBP')} • {contract.status}
                                 </p>
                               </div>
                             </div>
@@ -1172,7 +1172,7 @@ export default function ProjectDetailModal({ project, isOpen, onClose }: Project
                                   {invoice.title}
                                 </p>
                                 <p className="text-sm text-muted-foreground">
-                                  ${invoice.total} • {invoice.status}
+                                  {formatCurrency(parseFloat(invoice.total || '0'), ((invoice as any).currency as any) || 'GBP')} • {invoice.status}
                                 </p>
                               </div>
                             </div>
@@ -1420,9 +1420,11 @@ export default function ProjectDetailModal({ project, isOpen, onClose }: Project
               <div>
                 <Label className="text-sm font-medium">Total Amount</Label>
                 <p className="text-lg font-semibold">
-                  ${selectedDocument.type === 'quote' ? (selectedDocument.data as Quote).total : 
-                    selectedDocument.type === 'contract' ? (selectedDocument.data as Contract).amount :
-                    (selectedDocument.data as Invoice).total}
+                  {formatCurrency(parseFloat(
+                    selectedDocument.type === 'quote' ? ((selectedDocument.data as Quote).total || '0') :
+                    selectedDocument.type === 'contract' ? ((selectedDocument.data as Contract).amount || '0') :
+                    ((selectedDocument.data as Invoice).total || '0')
+                  ), ((selectedDocument.data as any).currency as any) || 'GBP')}
                 </p>
               </div>
               <div>

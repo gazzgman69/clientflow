@@ -15,6 +15,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { queryClient, apiRequest } from "@/lib/queryClient";
+import { formatCurrency } from "@/lib/currency";
 import { useToast } from "@/hooks/use-toast";
 import { Link } from "wouter";
 import type { Member, MemberGroup } from "@shared/schema";
@@ -89,7 +90,7 @@ function MemberTable({ members, onEdit, onDelete }: { members: Member[]; onEdit:
                   </div>
                 </TableCell>
                 <TableCell>
-                  {member.hourlyRate && <div className="flex items-center gap-1 text-sm"><DollarSign className="h-3 w-3" />£{member.hourlyRate}</div>}
+                  {member.hourlyRate && <div className="flex items-center gap-1 text-sm">{formatCurrency(parseFloat(member.hourlyRate), 'GBP')}/hr</div>}
                 </TableCell>
                 <TableCell>
                   {(member as any).callOrder && <Badge variant="outline">#{(member as any).callOrder}</Badge>}

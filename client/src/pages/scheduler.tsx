@@ -1466,6 +1466,7 @@ function BookingsTab() {
 function BookingRow({ booking, serviceMap }: { booking: Booking; serviceMap: Map<string, string> }) {
   const { toast } = useToast();
   const bk = booking as any;
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   const updateMutation = useMutation({
     mutationFn: (data: Record<string, any>) =>
@@ -1475,6 +1476,15 @@ function BookingRow({ booking, serviceMap }: { booking: Booking; serviceMap: Map
       toast({ description: 'Booking updated' });
     },
     onError: () => toast({ title: 'Error', description: 'Could not update booking', variant: 'destructive' }),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: () => apiRequest('DELETE', `/api/ai-features/bookings/${booking.id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/ai-features/bookings'] });
+      toast({ description: 'Booking deleted' });
+    },
+    onError: () => toast({ title: 'Error', description: 'Could not delete booking', variant: 'destructive' }),
   });
 
   const needsApproval = bk.approvalStatus === 'pending_approval';
@@ -1554,6 +1564,37 @@ function BookingRow({ booking, serviceMap }: { booking: Booking; serviceMap: Map
               data-testid={`button-cancel-booking-${booking.id}`}
             >
               Cancel
+            </Button>
+          )}
+          {confirmDelete ? (
+            <>
+              <Button
+                size="sm"
+                variant="destructive"
+                onClick={() => { setConfirmDelete(false); deleteMutation.mutate(); }}
+                disabled={deleteMutation.isPending}
+                data-testid={`button-confirm-delete-booking-${booking.id}`}
+              >
+                {deleteMutation.isPending ? 'Deleting…' : 'Confirm Delete'}
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => setConfirmDelete(false)}
+              >
+                Keep
+              </Button>
+            </>
+          ) : (
+            <Button
+              size="sm"
+              variant="ghost"
+              className="text-red-600 hover:text-red-700 hover:bg-red-50"
+              onClick={() => setConfirmDelete(true)}
+              disabled={deleteMutation.isPending}
+              data-testid={`button-delete-booking-${booking.id}`}
+            >
+              <Trash2 className="w-3.5 h-3.5" />
             </Button>
           )}
         </div>

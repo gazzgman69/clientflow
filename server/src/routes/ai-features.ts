@@ -1025,6 +1025,39 @@ router.post('/bookings/:id/cancel', async (req, res) => {
   }
 });
 
+// DELETE /api/ai-features/bookings/:id - Permanently delete a booking
+router.delete('/bookings/:id', async (req, res) => {
+  try {
+    const tenantId = req.tenantId!;
+    const { id } = req.params;
+
+    // Get the booking first so we can delete the calendar event
+    const existingBooking = await storage.getBooking(id, tenantId);
+    if (!existingBooking) {
+      res.status(404).json({ error: 'Booking not found' });
+      return;
+    }
+
+    // Delete Google Calendar event if one was created
+    const googleEventId = (existingBooking as any).googleEventId as string | null | undefined;
+    if (googleEventId) {
+      const { deleteBookingCalendarEvent } = await import('../services/booking-calendar');
+      await deleteBookingCalendarEvent(existingBooking, tenantId);
+    }
+
+    const deleted = await storage.deleteBooking(id, tenantId);
+    if (!deleted) {
+      res.status(404).json({ error: 'Booking not found' });
+      return;
+    }
+
+    res.json({ success: true, id });
+  } catch (error) {
+    console.error('Error deleting booking:', error);
+    res.status(500).json({ error: 'Failed to delete booking' });
+  }
+});
+
 /* ─── Scheduler Settings (global per tenant) ────────────────────────────────── */
 
 // GET /api/ai-features/scheduler-settings

@@ -821,6 +821,7 @@ export interface IStorage {
   createBooking(booking: InsertBooking, tenantId: string): Promise<Booking>;
   updateBooking(id: string, booking: Partial<InsertBooking>, tenantId: string): Promise<Booking | undefined>;
   cancelBooking(id: string, cancelledBy: string, cancellationReason: string, tenantId: string): Promise<Booking | undefined>;
+  deleteBooking(id: string, tenantId: string): Promise<boolean>;
 
   // Tenant-scoped storage wrapper
   withTenant(tenantId: string): TenantScopedStorage;
@@ -9617,6 +9618,16 @@ export class DrizzleStorage implements IStorage {
       .returning();
     
     return updated;
+  }
+
+  async deleteBooking(id: string, tenantId: string): Promise<boolean> {
+    const result = await this.db
+      .delete(bookings)
+      .where(and(
+        eq(bookings.id, id),
+        eq(bookings.tenantId, tenantId)
+      ));
+    return (result.rowCount ?? 0) > 0;
   }
 
   // Tenant-scoped storage wrapper

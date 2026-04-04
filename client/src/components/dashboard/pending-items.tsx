@@ -18,6 +18,7 @@ import {
 import { format } from "date-fns";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
+import { formatCurrency } from "@/lib/currency";
 
 interface PendingItem {
   id: string;
@@ -282,7 +283,7 @@ export default function PendingItems() {
                               )}
                               {item.amount !== undefined && item.amount > 0 && (
                                 <span className="font-semibold text-foreground">
-                                  £{item.amount.toLocaleString()}
+                                  {formatCurrency(item.amount, 'GBP')}
                                 </span>
                               )}
                             </div>

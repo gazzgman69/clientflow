@@ -12,6 +12,7 @@ import {
 import { format, isAfter } from "date-fns";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
+import { formatCurrency } from "@/lib/currency";
 
 interface BusinessPriority {
   id: string;
@@ -150,7 +151,7 @@ export default function BusinessPriorities() {
                       )}
                       {item.amount && (
                         <span className="font-medium text-green-600">
-                          £{item.amount.toLocaleString()}
+                          {formatCurrency(item.amount, 'GBP')}
                         </span>
                       )}
                       {item.dueDate && (

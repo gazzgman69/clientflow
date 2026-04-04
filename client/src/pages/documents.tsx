@@ -11,6 +11,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Search, Filter, Download, Send, Check, FileText, File, Receipt, MoreHorizontal, Eye, Edit, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { formatCurrency } from "@/lib/currency";
 import type { Quote, Contract, Invoice, Contact } from "@shared/schema";
 
 interface Document {
@@ -160,10 +161,7 @@ export default function Documents() {
 
   const getDocumentAmount = (doc: Document) => {
     const amount = doc.total || doc.amount || 0;
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD'
-    }).format(amount);
+    return formatCurrency(typeof amount === 'string' ? parseFloat(amount) : amount, (doc as any).currency || 'GBP');
   };
 
   const canSend = (doc: Document) => doc.status === 'draft';

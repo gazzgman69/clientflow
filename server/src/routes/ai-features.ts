@@ -1025,4 +1025,67 @@ router.post('/bookings/:id/cancel', async (req, res) => {
   }
 });
 
+/* ─── Scheduler Settings (global per tenant) ────────────────────────────────── */
+
+// GET /api/ai-features/scheduler-settings
+router.get('/scheduler-settings', async (req, res) => {
+  try {
+    const tenantId = req.tenantId!;
+    const { db } = await import('../../db');
+    const { schedulerSettings } = await import('@shared/schema');
+    const { eq } = await import('drizzle-orm');
+
+    const [settings] = await db
+      .select()
+      .from(schedulerSettings)
+      .where(eq(schedulerSettings.tenantId, tenantId));
+
+    // Return defaults if no row exists yet
+    res.json(settings || { requirePhone: false, disableTimezonePreview: false });
+  } catch (error) {
+    console.error('Error fetching scheduler settings:', error);
+    res.status(500).json({ error: 'Failed to fetch scheduler settings' });
+  }
+});
+
+// PATCH /api/ai-features/scheduler-settings
+router.patch('/scheduler-settings', async (req, res) => {
+  try {
+    const tenantId = req.tenantId!;
+    const { requirePhone, disableTimezonePreview } = req.body;
+    const { db } = await import('../../db');
+    const { schedulerSettings } = await import('@shared/schema');
+    const { eq } = await import('drizzle-orm');
+
+    // Upsert
+    const [existing] = await db
+      .select()
+      .from(schedulerSettings)
+      .where(eq(schedulerSettings.tenantId, tenantId));
+
+    let result;
+    if (existing) {
+      [result] = await db
+        .update(schedulerSettings)
+        .set({
+          requirePhone: requirePhone ?? existing.requirePhone,
+          disableTimezonePreview: disableTimezonePreview ?? existing.disableTimezonePreview,
+          updatedAt: new Date(),
+        })
+        .where(eq(schedulerSettings.tenantId, tenantId))
+        .returning();
+    } else {
+      [result] = await db
+        .insert(schedulerSettings)
+        .values({ tenantId, requirePhone: requirePhone ?? false, disableTimezonePreview: disableTimezonePreview ?? false })
+        .returning();
+    }
+
+    res.json(result);
+  } catch (error) {
+    console.error('Error updating scheduler settings:', error);
+    res.status(500).json({ error: 'Failed to update scheduler settings' });
+  }
+});
+
 export default router;

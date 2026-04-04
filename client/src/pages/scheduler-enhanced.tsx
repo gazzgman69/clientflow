@@ -39,6 +39,11 @@ const scheduleSchema = z.object({
   weeklyBookingLimit: z.number().min(0).optional().nullable(),
   cancellationPolicyEnabled: z.boolean().default(false),
   cancellationPolicyHours: z.number().min(0).optional().nullable(),
+  // Per-schedule overrides (enabled = override active; value = what to override with)
+  requirePhoneOverrideEnabled: z.boolean().default(false),
+  requirePhoneOverride: z.boolean().default(false),
+  disableTimezonePreviewOverrideEnabled: z.boolean().default(false),
+  disableTimezonePreviewOverride: z.boolean().default(false),
 });
 
 type ScheduleFormData = z.infer<typeof scheduleSchema>;
@@ -58,7 +63,7 @@ function ScheduleSettingsPage({
 
   // Which sections are expanded
   const [openSections, setOpenSections] = useState<Record<number, boolean>>({
-    1: true, 2: false, 3: false, 4: false, 5: false, 6: false,
+    1: true, 2: false, 3: false, 4: false, 5: false, 6: false, 7: false,
   });
   const toggleSection = (n: number) =>
     setOpenSections(prev => ({ ...prev, [n]: !prev[n] }));
@@ -104,6 +109,10 @@ function ScheduleSettingsPage({
       weeklyBookingLimit: sched?.weeklyBookingLimit || 20,
       cancellationPolicyEnabled: !!sched?.cancellationPolicyHours,
       cancellationPolicyHours: sched?.cancellationPolicyHours || 24,
+      requirePhoneOverrideEnabled: sched?.requirePhoneOverride != null,
+      requirePhoneOverride: sched?.requirePhoneOverride ?? false,
+      disableTimezonePreviewOverrideEnabled: sched?.disableTimezonePreviewOverride != null,
+      disableTimezonePreviewOverride: sched?.disableTimezonePreviewOverride ?? false,
     },
   });
 
@@ -119,6 +128,8 @@ function ScheduleSettingsPage({
         dailyBookingLimit: data.dailyLimitEnabled ? (data.dailyBookingLimit ?? null) : null,
         weeklyBookingLimit: data.weeklyLimitEnabled ? (data.weeklyBookingLimit ?? null) : null,
         cancellationPolicyHours: data.cancellationPolicyEnabled ? (data.cancellationPolicyHours ?? null) : null,
+        requirePhoneOverride: data.requirePhoneOverrideEnabled ? data.requirePhoneOverride : null,
+        disableTimezonePreviewOverride: data.disableTimezonePreviewOverrideEnabled ? data.disableTimezonePreviewOverride : null,
       };
       if (isEditing) {
         return apiRequest('PATCH', `/api/ai-features/schedules/${schedule.id}`, payload);
@@ -436,6 +447,35 @@ function ScheduleSettingsPage({
               ) : (
                 <SaveFirstNotice />
               )
+            )}
+          </div>
+
+          {/* ⑦  SETTINGS OVERRIDE ────────────────────────────────── */}
+          <div>
+            <SectionHeader n={7} title="Settings (Override Global)" isOpen={openSections[7]} />
+            {openSections[7] && (
+              <div className="px-6 pb-6 space-y-5">
+                <p className="text-sm text-muted-foreground">
+                  These override the global scheduler settings for this schedule only.
+                  Leave as <strong>Use global</strong> to inherit from the Settings tab.
+                </p>
+
+                <OverrideRow
+                  label="Require Phone Number"
+                  description="Require clients to provide a phone number when booking."
+                  form={form}
+                  enabledKey="requirePhoneOverrideEnabled"
+                  valueKey="requirePhoneOverride"
+                />
+
+                <OverrideRow
+                  label="Turn Off Time Zone Preview"
+                  description="Only show times in your timezone; block clients from switching."
+                  form={form}
+                  enabledKey="disableTimezonePreviewOverrideEnabled"
+                  valueKey="disableTimezonePreviewOverride"
+                />
+              </div>
             )}
           </div>
 
@@ -936,6 +976,54 @@ function CalendarChecksManager({ scheduleId, calendars, assignedCalendars }: {
           </div>
         );
       })}
+    </div>
+  );
+}
+
+/* ─── Override Row helper ────────────────────────────────────────────────────── */
+
+function OverrideRow({ label, description, form, enabledKey, valueKey }: {
+  label: string;
+  description: string;
+  form: any;
+  enabledKey: string;
+  valueKey: string;
+}) {
+  const isOverriding = form.watch(enabledKey);
+  const overrideValue = form.watch(valueKey);
+
+  return (
+    <div className="flex items-start gap-4 border rounded-lg p-4 bg-gray-50">
+      <div className="flex-1">
+        <p className="text-sm font-semibold">{label}</p>
+        <p className="text-xs text-muted-foreground mt-0.5">{description}</p>
+      </div>
+      <div className="flex items-center gap-3 flex-shrink-0">
+        {isOverriding ? (
+          <>
+            <Switch
+              checked={overrideValue}
+              onCheckedChange={(v: boolean) => form.setValue(valueKey, v)}
+            />
+            <span className="text-xs font-medium text-blue-600">{overrideValue ? 'On' : 'Off'}</span>
+            <button
+              type="button"
+              onClick={() => form.setValue(enabledKey, false)}
+              className="text-xs text-muted-foreground hover:text-gray-800 underline"
+            >
+              Use global
+            </button>
+          </>
+        ) : (
+          <button
+            type="button"
+            onClick={() => form.setValue(enabledKey, true)}
+            className="text-xs text-blue-600 hover:text-blue-800 underline"
+          >
+            Override
+          </button>
+        )}
+      </div>
     </div>
   );
 }

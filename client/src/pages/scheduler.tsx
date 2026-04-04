@@ -15,6 +15,7 @@ import { useToast } from '@/hooks/use-toast';
 import {
   Calendar, Clock, Plus, Pencil, Trash2, Copy, ExternalLink,
   Check, X, AlertCircle, Code2, ChevronDown, ArrowLeft, User, Users,
+  Settings, HelpCircle, Phone, Globe,
 } from 'lucide-react';
 import { apiRequest, queryClient } from '@/lib/queryClient';
 import type { BookableService, AvailabilitySchedule, Booking } from '@shared/schema';
@@ -33,10 +34,22 @@ export default function Scheduler() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="services" data-testid="tab-services">Services</TabsTrigger>
-          <TabsTrigger value="availability" data-testid="tab-availability">Availability</TabsTrigger>
-          <TabsTrigger value="bookings" data-testid="tab-bookings">Bookings</TabsTrigger>
+        <TabsList className="grid w-full grid-cols-5">
+          <TabsTrigger value="services" data-testid="tab-services" className="flex items-center gap-1.5">
+            <Users className="w-3.5 h-3.5" /> Services
+          </TabsTrigger>
+          <TabsTrigger value="availability" data-testid="tab-availability" className="flex items-center gap-1.5">
+            <Clock className="w-3.5 h-3.5" /> Availability
+          </TabsTrigger>
+          <TabsTrigger value="bookings" data-testid="tab-bookings" className="flex items-center gap-1.5">
+            <Calendar className="w-3.5 h-3.5" /> Bookings
+          </TabsTrigger>
+          <TabsTrigger value="settings" data-testid="tab-settings" className="flex items-center gap-1.5">
+            <Settings className="w-3.5 h-3.5" /> Settings
+          </TabsTrigger>
+          <TabsTrigger value="help" data-testid="tab-help" className="flex items-center gap-1.5">
+            <HelpCircle className="w-3.5 h-3.5" /> Help
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="services" className="mt-6">
@@ -50,7 +63,119 @@ export default function Scheduler() {
         <TabsContent value="bookings" className="mt-6">
           <BookingsTab />
         </TabsContent>
+
+        <TabsContent value="settings" className="mt-6">
+          <SchedulerSettingsTab />
+        </TabsContent>
+
+        <TabsContent value="help" className="mt-6">
+          <SchedulerHelpTab />
+        </TabsContent>
       </Tabs>
+    </div>
+  );
+}
+
+/* ─── Scheduler Settings Tab ─────────────────────────────────────────────────── */
+
+function SchedulerSettingsTab() {
+  const { toast } = useToast();
+
+  const { data: settings, isLoading } = useQuery<any>({
+    queryKey: ['/api/ai-features/scheduler-settings'],
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: (data: any) => apiRequest('PATCH', '/api/ai-features/scheduler-settings', data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/ai-features/scheduler-settings'] });
+      toast({ description: 'Settings saved' });
+    },
+    onError: () => toast({ title: 'Error', description: 'Failed to save settings', variant: 'destructive' }),
+  });
+
+  if (isLoading) return <div className="text-center py-8 text-muted-foreground">Loading settings…</div>;
+
+  return (
+    <div className="max-w-2xl">
+      <Card>
+        <CardContent className="pt-6">
+          <div className="mb-5">
+            <h2 className="text-base font-bold uppercase tracking-wide">Settings</h2>
+            <p className="text-sm text-muted-foreground mt-0.5">Select settings for your booking form</p>
+          </div>
+          <div className="divide-y">
+
+            {/* Require Phone */}
+            <div className="flex items-start gap-4 py-5">
+              <Switch
+                checked={settings?.requirePhone ?? false}
+                onCheckedChange={v => updateMutation.mutate({ requirePhone: v })}
+                disabled={updateMutation.isPending}
+              />
+              <div>
+                <p className="font-semibold text-sm">Require Phone Number When Making Booking</p>
+                <p className="text-sm text-muted-foreground mt-0.5">
+                  When your contact makes a booking, require them to fill out their phone number.
+                </p>
+              </div>
+            </div>
+
+            {/* Disable Timezone Preview */}
+            <div className="flex items-start gap-4 py-5">
+              <Switch
+                checked={settings?.disableTimezonePreview ?? false}
+                onCheckedChange={v => updateMutation.mutate({ disableTimezonePreview: v })}
+                disabled={updateMutation.isPending}
+              />
+              <div>
+                <p className="font-semibold text-sm">Turn Off Time Zone Preview</p>
+                <p className="text-sm text-muted-foreground mt-0.5">
+                  Only show your available booking times in your time zone. Do not allow your contacts
+                  to change the time zone to preview the times in their time zone.
+                </p>
+              </div>
+            </div>
+
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+/* ─── Scheduler Help Tab ─────────────────────────────────────────────────────── */
+
+function SchedulerHelpTab() {
+  return (
+    <div className="max-w-2xl">
+      <Card>
+        <CardContent className="pt-6">
+          <h2 className="text-base font-bold uppercase tracking-wide mb-4">About Online Scheduling</h2>
+          <div className="border-t pt-4 space-y-4 text-sm text-gray-700 leading-relaxed">
+            <p>
+              Online Scheduling will allow your contacts to easily schedule a service (appointment,
+              consultation, event, session, etc.) with just a few clicks of a button.
+            </p>
+            <p>
+              Contacts can access your availability calendar to book an appointment through a link
+              you share with them, or you can embed your schedule on your website. Once they select
+              the date and time and complete their basic information, they'll receive a confirmation
+              email — and you can automatically send a contract, invoice, or trigger other actions.
+            </p>
+            <p>
+              Use the <strong>Services</strong> tab to define what clients can book, the{' '}
+              <strong>Availability</strong> tab to set your working hours and booking rules, and the{' '}
+              <strong>Settings</strong> tab to configure global preferences like phone number
+              requirements and timezone display.
+            </p>
+            <p className="text-muted-foreground text-xs mt-2">
+              Tip: you can embed any schedule on your own website using the embed code button (
+              <Code2 className="w-3.5 h-3.5 inline" />) next to each schedule.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
@@ -162,7 +287,23 @@ function ServiceCard({ service, onEdit }: { service: BookableService; onEdit: ()
 }
 
 /* ─── Service Questions type ─────────────────────────────────────────────────── */
-interface ServiceQuestion { label: string; type: 'text' | 'textarea' | 'select'; required: boolean; options?: string[] }
+type QuestionType = 'text' | 'textarea' | 'yes_no' | 'select' | 'checkboxes' | 'date' | 'display_text';
+interface ServiceQuestion {
+  label: string;
+  type: QuestionType;
+  required: boolean;
+  options?: string[];
+}
+
+const QUESTION_TYPES: { value: QuestionType; label: string; description: string }[] = [
+  { value: 'text',         label: 'Short Answer',       description: 'Single line of text' },
+  { value: 'textarea',     label: 'Long Answer',        description: 'Multiple lines of text' },
+  { value: 'yes_no',       label: 'Yes / No',           description: 'Simple yes or no' },
+  { value: 'select',       label: 'Choose from a List', description: 'One answer from a list' },
+  { value: 'checkboxes',   label: 'Checkboxes',         description: 'Multiple answers from a list' },
+  { value: 'date',         label: 'Date',               description: 'Pick a date' },
+  { value: 'display_text', label: 'Text / Instructions','description': 'Display-only text block' },
+];
 
 /* ─── Service Settings Page (full-page, 12 sections) ────────────────────────── */
 
@@ -330,8 +471,11 @@ function ServiceSettingsPage({ service, onClose }: { service?: BookableService; 
   };
 
   /* ── Question helpers ── */
-  const addQuestion = () =>
-    setQuestions(prev => [...prev, { label: '', type: 'text', required: false }]);
+  const [showQuestionPicker, setShowQuestionPicker] = useState(false);
+  const addQuestion = (type: QuestionType) => {
+    setQuestions(prev => [...prev, { label: '', type, required: false }]);
+    setShowQuestionPicker(false);
+  };
   const removeQuestion = (i: number) =>
     setQuestions(prev => prev.filter((_, idx) => idx !== i));
   const updateQuestion = (i: number, field: keyof ServiceQuestion, value: any) =>
@@ -604,7 +748,7 @@ function ServiceSettingsPage({ service, onClose }: { service?: BookableService; 
         {/* ③  SERVICE QUESTIONS ───────────────────────────────────── */}
         <div>
           <SectionHeader
-            n={3} title="Service Questions"
+            n={3} title="Service Questions (Optional)"
             hasToggle toggleKey="questionsEnabled"
             isOpen={openSections[3]}
           />
@@ -617,59 +761,95 @@ function ServiceSettingsPage({ service, onClose }: { service?: BookableService; 
               ) : (
                 <div className="space-y-3">
                   {questions.length === 0 && (
-                    <p className="text-sm text-muted-foreground">
-                      No questions yet. Click "Add Question" to start.
+                    <p className="text-sm text-muted-foreground text-center py-4">
+                      Currently you have no questions. Click "+ Add Question" to add one.
                     </p>
                   )}
                   {questions.map((q, i) => (
-                    <div key={i} className="border rounded-lg p-3 space-y-2 bg-gray-50">
-                      <div className="flex gap-2">
-                        <Input
-                          value={q.label}
-                          onChange={e => updateQuestion(i, 'label', e.target.value)}
-                          placeholder="Question text…"
-                          className="flex-1"
-                        />
-                        <select
-                          value={q.type}
-                          onChange={e => updateQuestion(i, 'type', e.target.value)}
-                          className="border rounded-md px-2 text-sm bg-white"
-                        >
-                          <option value="text">Short text</option>
-                          <option value="textarea">Long text</option>
-                          <option value="select">Dropdown</option>
-                        </select>
-                        <Button type="button" variant="ghost" size="icon" onClick={() => removeQuestion(i)}>
-                          <X className="w-4 h-4 text-muted-foreground" />
+                    <div key={i} className="border rounded-lg p-4 space-y-3 bg-gray-50">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-semibold text-blue-600 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-full flex-shrink-0">
+                          {QUESTION_TYPES.find(t => t.value === q.type)?.label || q.type}
+                        </span>
+                        <Button type="button" variant="ghost" size="icon" className="ml-auto h-7 w-7" onClick={() => removeQuestion(i)}>
+                          <X className="w-3.5 h-3.5 text-muted-foreground" />
                         </Button>
                       </div>
-                      {q.type === 'select' && (
-                        <Input
-                          value={(q.options || []).join(', ')}
-                          onChange={e =>
-                            updateQuestion(i, 'options', e.target.value.split(',').map(o => o.trim()).filter(Boolean))
-                          }
-                          placeholder="Options: Google, Instagram, Referral"
-                          className="text-sm"
+
+                      {q.type === 'display_text' ? (
+                        /* Display text: just a text content area, no label/required */
+                        <Textarea
+                          value={q.label}
+                          onChange={e => updateQuestion(i, 'label', e.target.value)}
+                          placeholder="Enter instructions or information to display to clients…"
+                          rows={3}
                         />
+                      ) : (
+                        <>
+                          <Input
+                            value={q.label}
+                            onChange={e => updateQuestion(i, 'label', e.target.value)}
+                            placeholder="Question text…"
+                          />
+                          {/* Options for list-based types */}
+                          {(q.type === 'select' || q.type === 'checkboxes') && (
+                            <Input
+                              value={(q.options || []).join(', ')}
+                              onChange={e =>
+                                updateQuestion(i, 'options', e.target.value.split(',').map(o => o.trim()).filter(Boolean))
+                              }
+                              placeholder="Options: Option A, Option B, Option C"
+                              className="text-sm"
+                            />
+                          )}
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="checkbox"
+                              id={`req-${i}`}
+                              checked={q.required}
+                              onChange={e => updateQuestion(i, 'required', e.target.checked)}
+                              className="w-3.5 h-3.5 accent-primary"
+                            />
+                            <label htmlFor={`req-${i}`} className="text-xs text-muted-foreground cursor-pointer">Required</label>
+                          </div>
+                        </>
                       )}
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="checkbox"
-                          id={`req-${i}`}
-                          checked={q.required}
-                          onChange={e => updateQuestion(i, 'required', e.target.checked)}
-                          className="w-3.5 h-3.5 accent-primary"
-                        />
-                        <label htmlFor={`req-${i}`} className="text-xs text-muted-foreground cursor-pointer">
-                          Required
-                        </label>
-                      </div>
                     </div>
                   ))}
-                  <Button type="button" variant="outline" size="sm" onClick={addQuestion}>
-                    <Plus className="w-3 h-3 mr-1" /> Add Question
-                  </Button>
+
+                  {/* Question type picker */}
+                  <div className="relative">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setShowQuestionPicker(v => !v)}
+                    >
+                      <Plus className="w-3 h-3 mr-1" /> Add Question
+                    </Button>
+                    {showQuestionPicker && (
+                      <div className="absolute left-0 top-9 z-20 bg-white border rounded-xl shadow-lg p-4 w-[480px] grid grid-cols-2 gap-3">
+                        {QUESTION_TYPES.map(qt => (
+                          <button
+                            key={qt.value}
+                            type="button"
+                            onClick={() => addQuestion(qt.value)}
+                            className="flex items-start gap-3 p-3 rounded-lg border hover:border-blue-400 hover:bg-blue-50 text-left transition-colors"
+                          >
+                            <div className="w-8 h-8 rounded bg-blue-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+                              <span className="text-blue-600 text-xs font-bold">
+                                {qt.value === 'text' ? 'A' : qt.value === 'textarea' ? '¶' : qt.value === 'yes_no' ? '✓✗' : qt.value === 'select' ? '▾' : qt.value === 'checkboxes' ? '☑' : qt.value === 'date' ? '📅' : 'T'}
+                              </span>
+                            </div>
+                            <div>
+                              <p className="text-sm font-semibold text-gray-800">{qt.label}</p>
+                              <p className="text-xs text-muted-foreground mt-0.5">{qt.description}</p>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
             </div>

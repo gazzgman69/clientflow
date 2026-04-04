@@ -3114,7 +3114,11 @@ export const availabilitySchedules = pgTable("availability_schedules", {
   
   // Visual Customization
   headerImageUrl: text("header_image_url"), // Public booking page header image
-  
+
+  // Per-schedule overrides for global scheduler settings (null = use global)
+  requirePhoneOverride: boolean("require_phone_override"),
+  disableTimezonePreviewOverride: boolean("disable_timezone_preview_override"),
+
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => ({
@@ -3130,6 +3134,18 @@ export const insertAvailabilityScheduleSchema = createInsertSchema(availabilityS
 
 export type AvailabilitySchedule = typeof availabilitySchedules.$inferSelect;
 export type InsertAvailabilitySchedule = z.infer<typeof insertAvailabilityScheduleSchema>;
+
+// Global Scheduler Settings - One row per tenant
+export const schedulerSettings = pgTable("scheduler_settings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").references(() => tenants.id).notNull().unique(),
+  requirePhone: boolean("require_phone").default(false),
+  disableTimezonePreview: boolean("disable_timezone_preview").default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export type SchedulerSettings = typeof schedulerSettings.$inferSelect;
 
 // Schedule Services - Link services to schedules (many-to-many)
 export const scheduleServices = pgTable("schedule_services", {

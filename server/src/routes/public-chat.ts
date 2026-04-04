@@ -659,10 +659,14 @@ router.post('/bookings/:slug', async (req, res) => {
         
         projectId = contactProjects[0]?.id || null;
       } else {
-        // Create new contact
+        // Create new contact — split clientName into firstName / lastName
+        const nameParts = (bookingData.clientName as string).trim().split(/\s+/);
+        const firstName = nameParts[0] || bookingData.clientName;
+        const lastName = nameParts.slice(1).join(' ') || '';
         const newContact = await storage.createContact({
           tenantId: schedule.tenantId,
-          name: bookingData.clientName,
+          firstName,
+          lastName,
           email: bookingData.clientEmail,
           phone: bookingData.clientPhone || null,
           source: 'public_booking',

@@ -125,7 +125,7 @@ export default function RecentClientActivity() {
             <Activity className="h-5 w-5" />
             Recent Activity
           </CardTitle>
-          <Button variant="ghost" size="sm">
+          <Button variant="ghost" size="sm" onClick={() => setLocation('/projects')}>
             View All
           </Button>
         </div>

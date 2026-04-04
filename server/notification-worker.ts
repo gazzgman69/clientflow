@@ -1,6 +1,6 @@
 import { storage } from './storage';
 import { urgencyService } from './urgency-service';
-import { emailDispatcher } from './email-dispatcher';
+import { emailDispatcher } from './src/services/email-dispatcher';
 import { Contact, LeadFollowUpNotification, Email, AutoReplyLog } from '@shared/schema';
 
 interface NotificationWorkerOptions {

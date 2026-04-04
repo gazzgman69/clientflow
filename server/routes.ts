@@ -2623,7 +2623,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
       
       // For lead capture forms and similar use cases, provide a simple limit-only option
       if (req.query.simple === '1') {
-        const simpleLimit = Math.min(50, Math.max(1, parseInt(req.query.limit as string) || 10));
+        const simpleLimit = Math.min(500, Math.max(1, parseInt(req.query.limit as string) || 10));
         const contactsRaw = (await pool.query(`
           SELECT c.*, v.name as venue_name
           FROM contacts c
@@ -3130,7 +3130,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
 
       // For lead capture forms and similar use cases, provide a simple limit-only option
       if (req.query.simple === '1') {
-        const simpleLimit = Math.min(50, Math.max(1, parseInt(req.query.limit as string) || 10));
+        const simpleLimit = Math.min(500, Math.max(1, parseInt(req.query.limit as string) || 10));
         const projects = await pool.query(`
           SELECT
             p.*,

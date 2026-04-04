@@ -55,6 +55,7 @@ import {
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { formatDistanceToNow } from "date-fns";
+import { formatCurrency } from "@/lib/currency";
 import type { 
   Project, Member, Venue, ProjectFile, 
   ProjectNote, ProjectMember, Quote, Contract, Invoice, Contact
@@ -1587,11 +1588,11 @@ export default function ProjectDetailModal({ project, isOpen, onClose }: Project
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <Label className="text-sm font-medium">Subtotal</Label>
-                    <p className="text-sm">${(selectedDocument.data as Quote).subtotal}</p>
+                    <p className="text-sm">{formatCurrency(parseFloat((selectedDocument.data as Quote).subtotal || '0'), ((selectedDocument.data as Quote).currency as any) || 'GBP')}</p>
                   </div>
                   <div>
                     <Label className="text-sm font-medium">Tax</Label>
-                    <p className="text-sm">${(selectedDocument.data as Quote).taxAmount || '0.00'}</p>
+                    <p className="text-sm">{formatCurrency(parseFloat((selectedDocument.data as Quote).taxAmount || '0'), ((selectedDocument.data as Quote).currency as any) || 'GBP')}</p>
                   </div>
                   {(selectedDocument.data as Quote).validUntil && (
                     <div className="col-span-2">
@@ -1631,11 +1632,11 @@ export default function ProjectDetailModal({ project, isOpen, onClose }: Project
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <Label className="text-sm font-medium">Subtotal</Label>
-                    <p className="text-sm">${(selectedDocument.data as Invoice).subtotal}</p>
+                    <p className="text-sm">{formatCurrency(parseFloat((selectedDocument.data as Invoice).subtotal || '0'), ((selectedDocument.data as Invoice).currency as any) || 'GBP')}</p>
                   </div>
                   <div>
                     <Label className="text-sm font-medium">Tax</Label>
-                    <p className="text-sm">${(selectedDocument.data as Invoice).taxAmount || '0.00'}</p>
+                    <p className="text-sm">{formatCurrency(parseFloat((selectedDocument.data as Invoice).taxAmount || '0'), ((selectedDocument.data as Invoice).currency as any) || 'GBP')}</p>
                   </div>
                   {(selectedDocument.data as Invoice).dueDate && (
                     <div>

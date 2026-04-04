@@ -18,6 +18,7 @@ import { insertQuoteSchema } from "@shared/schema";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { formatDistanceToNow } from "date-fns";
+import { formatCurrency } from "@/lib/currency";
 import type { Quote, Client, Contact } from "@shared/schema";
 import { z } from "zod";
 
@@ -227,7 +228,7 @@ export default function Quotes() {
                         {getClientName(quote.clientId)}
                       </TableCell>
                       <TableCell data-testid={`quote-amount-${quote.id}`}>
-                        ${parseFloat(quote.total).toLocaleString()}
+                        {formatCurrency(parseFloat(quote.total || '0'), ((quote as any).currency as any) || 'GBP')}
                       </TableCell>
                       <TableCell data-testid={`quote-status-${quote.id}`}>
                         <Badge className={getStatusColor(quote.status)}>
@@ -439,7 +440,7 @@ export default function Quotes() {
                 <div className="mt-2 p-3 bg-muted rounded-lg">
                   <p className="font-medium">{quoteToDelete.title}</p>
                   <p className="text-sm text-muted-foreground">
-                    Quote #{quoteToDelete.quoteNumber} • ${parseFloat(quoteToDelete.total).toLocaleString()}
+                    Quote #{quoteToDelete.quoteNumber} • {formatCurrency(parseFloat(quoteToDelete.total || '0'), ((quoteToDelete as any).currency as any) || 'GBP')}
                   </p>
                 </div>
               )}

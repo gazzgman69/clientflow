@@ -17,6 +17,7 @@ import { insertInvoiceSchema } from "@shared/schema";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { formatDistanceToNow } from "date-fns";
+import { formatCurrency } from "@/lib/currency";
 import type { Invoice, Client, Contract } from "@shared/schema";
 import { z } from "zod";
 
@@ -191,7 +192,7 @@ export default function Invoices() {
                         {getClientName(invoice.clientId)}
                       </TableCell>
                       <TableCell data-testid={`invoice-amount-${invoice.id}`}>
-                        ${parseFloat(invoice.total).toLocaleString()}
+                        {formatCurrency(parseFloat(invoice.total || '0'), ((invoice as any).currency as any) || 'GBP')}
                       </TableCell>
                       <TableCell data-testid={`invoice-status-${invoice.id}`}>
                         <Badge className={getStatusColor(invoice.status)}>

@@ -32,6 +32,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { formatDistanceToNow, format } from "date-fns";
+import { formatCurrency } from "@/lib/currency";
 import type { 
   Project, Invoice, Contract, Quote, Email, PortalForm, Event 
 } from "@shared/schema";
@@ -627,7 +628,7 @@ export default function ClientPortal() {
                           {contract.contractNumber}
                         </TableCell>
                         <TableCell>{contract.title}</TableCell>
-                        <TableCell>${contract.amount}</TableCell>
+                        <TableCell>{formatCurrency(parseFloat(contract.amount || '0'), 'GBP')}</TableCell>
                         <TableCell>
                           <Badge className={getStatusColor(contract.status)}>
                             {contract.status}
@@ -692,7 +693,7 @@ export default function ClientPortal() {
                           {quote.quoteNumber}
                         </TableCell>
                         <TableCell>{quote.title}</TableCell>
-                        <TableCell>${quote.total}</TableCell>
+                        <TableCell>{formatCurrency(parseFloat(quote.total || '0'), ((quote as any).currency as any) || 'GBP')}</TableCell>
                         <TableCell>
                           <Badge className={getStatusColor(quote.status)}>
                             {quote.status}
@@ -853,7 +854,7 @@ export default function ClientPortal() {
                 </div>
                 <div>
                   <Label className="font-medium">Estimated Value</Label>
-                  <p>${selectedProject.estimatedValue || '0.00'}</p>
+                  <p>{formatCurrency(parseFloat(selectedProject.estimatedValue || '0'), ((selectedProject as any).currency as any) || 'GBP')}</p>
                 </div>
                 <div>
                   <Label className="font-medium">Start Date</Label>

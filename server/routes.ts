@@ -2432,14 +2432,56 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
       const avgProjectValue = projectsCount > 0 ? Math.round(totalProjectValue / projectsCount) : 0;
       const activePipelineValue = totalProjectValue + totalQuoteValue;
 
-      // Derived metrics (non-random — use real data or zero until calculated)
+      // Derived metrics — real calculations from DB
       const cashFlowForecast = monthlyRevenue + outstandingAmount + Math.round(activePipelineValue * 0.6);
-      const avgTimeToClose = 0; // TODO: calculate from real lead→booked timestamps
-      const responseTime = 0; // TODO: calculate from real email response times
-      const clientActivityScore = 0; // TODO: calculate from real activity data
-      const memberUtilization = 0; // TODO: calculate from real member assignment data
-      const clientRetentionRate = 0; // TODO: calculate from real returning client data
-      const referralRate = 0; // TODO: calculate from real referral source data
+
+      // avgTimeToClose: average days from project creation to when status was manually set to booked/completed
+      const avgTimeResult = await pool.query(
+        `SELECT ROUND(AVG(EXTRACT(EPOCH FROM (last_manual_status_at - created_at)) / 86400)) as avg_days
+         FROM projects
+         WHERE tenant_id = $1
+           AND status IN ('booked', 'completed')
+           AND last_manual_status_at IS NOT NULL
+           AND last_manual_status_at > created_at`,
+        [tenantId]
+      );
+      const avgTimeToClose = parseInt(avgTimeResult.rows[0]?.avg_days || '0') || 0;
+
+      // responseTime: not calculable from existing schema — leave at 0
+      const responseTime = 0;
+
+      // clientActivityScore: % of active projects contacted in last 30 days
+      const recentContactResult = await pool.query(
+        `SELECT ROUND(100.0 * COUNT(CASE WHEN last_contact_at > NOW() - INTERVAL '30 days' THEN 1 END) / NULLIF(COUNT(*), 0)) as score
+         FROM projects WHERE tenant_id = $1 AND status NOT IN ('completed', 'lost', 'cancelled', 'archived')`,
+        [tenantId]
+      );
+      const clientActivityScore = parseInt(recentContactResult.rows[0]?.score || '0') || 0;
+
+      // memberUtilization: % of projects that have at least one member assigned
+      const memberUtilResult = await pool.query(
+        `SELECT ROUND(100.0 * COUNT(CASE WHEN assigned_to IS NOT NULL THEN 1 END) / NULLIF(COUNT(*), 0)) as pct
+         FROM projects WHERE tenant_id = $1`,
+        [tenantId]
+      );
+      const memberUtilization = parseInt(memberUtilResult.rows[0]?.pct || '0') || 0;
+
+      // clientRetentionRate: % of contacts who have more than one project (returning clients)
+      const retentionResult = await pool.query(
+        `SELECT ROUND(100.0 * COUNT(DISTINCT CASE WHEN project_count > 1 THEN contact_id END) / NULLIF(COUNT(DISTINCT contact_id), 0)) as rate
+         FROM (SELECT contact_id, COUNT(*) as project_count FROM projects WHERE tenant_id = $1 GROUP BY contact_id) sub`,
+        [tenantId]
+      );
+      const clientRetentionRate = parseInt(retentionResult.rows[0]?.rate || '0') || 0;
+
+      // referralRate: % of projects where lead_source = 'referral' or referral_source is set
+      const referralResult = await pool.query(
+        `SELECT ROUND(100.0 * SUM(CASE WHEN lead_source = 'referral' OR referral_source IS NOT NULL AND referral_source != '' THEN 1 ELSE 0 END) / NULLIF(COUNT(*), 0)) as rate
+         FROM projects WHERE tenant_id = $1`,
+        [tenantId]
+      );
+      const referralRate = parseInt(referralResult.rows[0]?.rate || '0') || 0;
+
       const topVenue = venuesCount > 0 ? 'Wedding venues available' : 'No venues yet';
 
       res.json({

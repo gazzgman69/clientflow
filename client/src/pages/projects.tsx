@@ -21,6 +21,7 @@ import { insertProjectSchema } from "@shared/schema";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { formatDistanceToNow, format } from "date-fns";
+import { formatCurrency } from "@/lib/currency";
 import type { Project, Contact, Venue } from "@shared/schema";
 import { z } from "zod";
 import ProjectDetailModal from "@/components/modals/project-detail-modal";
@@ -608,7 +609,7 @@ export default function Projects() {
                         </div>
                       </TableCell>
                       <TableCell data-testid={`project-value-${project.id}`}>
-                        {project.estimatedValue ? `$${parseFloat(project.estimatedValue).toLocaleString()}` : '-'}
+                        {project.estimatedValue ? formatCurrency(parseFloat(project.estimatedValue), (project.currency as any) || 'GBP') : '-'}
                       </TableCell>
                       <TableCell data-testid={`project-date-${project.id}`}>
                         {(() => {

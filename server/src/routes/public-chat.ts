@@ -319,16 +319,17 @@ async function generateAvailableSlots(
   const sameDayBookings = existingBookings.filter(b => {
     if (b.scheduleId !== scheduleId) return false;
     if (b.status === 'cancelled') return false;
-    const bDate = new Date(b.bookingDate);
+    const bDate = new Date(b.startTime);
     return bDate.toDateString() === requestedDate.toDateString();
   });
 
   const availableSlots = futureSlots.filter(slotStart => {
     const slotEnd = slotStart + durationMins;
     return !sameDayBookings.some(b => {
-      const bStart = parseTime(b.bookingTime || '00:00');
-      // Use the booking's service duration if we can, otherwise assume 60 mins
-      const bEnd = bStart + 60;
+      const bDate = new Date(b.startTime);
+      const bStart = bDate.getHours() * 60 + bDate.getMinutes();
+      const bEndDate = new Date(b.endTime);
+      const bEnd = bEndDate.getHours() * 60 + bEndDate.getMinutes();
       return slotStart < bEnd && slotEnd > bStart;
     });
   });
@@ -590,7 +591,7 @@ router.post('/bookings/:slug', async (req, res) => {
       const bookings = await storage.getBookings(schedule.tenantId);
       const bookingDate = new Date(bookingData.bookingDate);
       const dailyBookings = bookings.filter(b => {
-        const bDate = new Date(b.bookingDate);
+        const bDate = new Date(b.startTime);
         return b.scheduleId === schedule.id &&
                b.status !== 'cancelled' &&
                bDate.toDateString() === bookingDate.toDateString();
@@ -620,7 +621,7 @@ router.post('/bookings/:slug', async (req, res) => {
       weekEnd.setHours(23, 59, 59, 999);
       
       const weeklyBookings = bookings.filter(b => {
-        const bDate = new Date(b.bookingDate);
+        const bDate = new Date(b.startTime);
         return b.scheduleId === schedule.id &&
                b.status !== 'cancelled' &&
                bDate >= weekStart &&
@@ -678,8 +679,7 @@ router.post('/bookings/:slug', async (req, res) => {
         contactId,
         name: `${service.name} - ${bookingData.clientName}`,
         status: 'lead',
-        eventDate: new Date(bookingData.bookingDate),
-        notes: bookingData.notes || null,
+        startDate: new Date(bookingData.bookingDate),
       }, schedule.tenantId);
       projectId = newProject.id;
       wasProjectCreated = true;
@@ -1006,15 +1006,15 @@ router.get('/booking/:id', async (req, res) => {
 
     res.json({
       id: booking.id,
-      clientName: booking.clientName,
+      clientName: booking.bookedBy,
       // Mask email: show first 3 chars + domain for verification UI
       clientEmailMasked: (() => {
-        const e = booking.clientEmail || '';
+        const e = booking.bookedEmail || '';
         const [local, domain] = e.split('@');
         return `${local.slice(0, 3)}***@${domain || ''}`;
       })(),
-      bookingDate: booking.bookingDate,
-      bookingTime: booking.bookingTime,
+      bookingDate: booking.startTime,
+      bookingTime: new Date(booking.startTime).toTimeString().slice(0, 5),
       status: booking.status,
       serviceId: booking.serviceId,
       serviceName: service?.name || booking.serviceId,
@@ -1044,7 +1044,7 @@ router.post('/booking/:id/reschedule', async (req, res) => {
     }
 
     // Verify the requester owns this booking
-    if ((booking.clientEmail || '').toLowerCase() !== clientEmail.toLowerCase()) {
+    if ((booking.bookedEmail || '').toLowerCase() !== clientEmail.toLowerCase()) {
       res.status(403).json({ error: 'Email does not match booking' });
       return;
     }
@@ -1057,7 +1057,10 @@ router.post('/booking/:id/reschedule', async (req, res) => {
     // Update the booking with the new date/time
     const updated = await storage.updateBooking(
       id,
-      { bookingDate: new Date(newDate), bookingTime: newTime } as any,
+      {
+        startTime: new Date(`${newDate}T${newTime}`),
+        endTime: new Date(new Date(`${newDate}T${newTime}`).getTime() + (booking.endTime.getTime() - booking.startTime.getTime())),
+      } as any,
       booking.tenantId
     );
 
@@ -1080,11 +1083,11 @@ router.post('/booking/:id/reschedule', async (req, res) => {
       });
       await emailDispatcher.sendEmail({
         tenantId: booking.tenantId,
-        to: booking.clientEmail,
+        to: booking.bookedEmail,
         subject: `Booking Rescheduled: ${service?.name || 'Your booking'}`,
         html: `<div style="font-family:sans-serif;max-width:600px;margin:0 auto;">
           <h2>Booking Rescheduled ✓</h2>
-          <p>Hi ${booking.clientName},</p>
+          <p>Hi ${booking.bookedBy},</p>
           <p>Your booking has been rescheduled to:</p>
           <table style="width:100%;border-collapse:collapse;margin:16px 0;">
             <tr><td style="padding:8px;border:1px solid #e5e7eb;"><strong>Date</strong></td>

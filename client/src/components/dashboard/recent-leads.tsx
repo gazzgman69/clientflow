@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import type { Lead } from "@shared/schema";
+import { formatCurrency } from "@/lib/currency";
 
 export default function RecentLeads() {
   const { data: leads, isLoading } = useQuery<Lead[]>({
@@ -101,7 +102,7 @@ export default function RecentLeads() {
               </div>
               <div className="text-right">
                 <p className="text-sm font-medium text-foreground" data-testid={`lead-value-${lead.id}`}>
-                  ${lead.estimatedValue ? parseFloat(lead.estimatedValue).toLocaleString() : '0'}
+                  {formatCurrency(lead.estimatedValue ? parseFloat(lead.estimatedValue) : 0, (lead as any).currency || 'GBP')}
                 </p>
                 <Badge 
                   className={getStatusColor(lead.status)}

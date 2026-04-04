@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { UserPlus, Briefcase, DollarSign, Clock } from "lucide-react";
 import type { DashboardMetrics } from "@/lib/types";
+import { formatCurrency } from "@/lib/currency";
 
 export default function MetricsCards() {
   const { data: metrics, isLoading } = useQuery<DashboardMetrics>({
@@ -47,7 +48,7 @@ export default function MetricsCards() {
     },
     {
       title: "Revenue This Month",
-      value: `$${(metrics?.revenue || 0).toLocaleString()}`,
+      value: formatCurrency(metrics?.revenue || 0, 'GBP'),
       icon: DollarSign,
       iconColor: "text-green-600",
       iconBg: "bg-green-100",

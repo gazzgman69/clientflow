@@ -14,6 +14,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { queryClient, apiRequest } from "@/lib/queryClient";
+import { formatCurrency } from "@/lib/currency";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import type { PerformerContract, Member, Project } from "@shared/schema";
@@ -203,7 +204,7 @@ export default function PerformerContractsPage() {
                     <TableCell className="font-medium">{contract.title}</TableCell>
                     <TableCell>{getMemberName(contract.memberId)}</TableCell>
                     <TableCell className="text-muted-foreground">{getProjectName(contract.projectId)}</TableCell>
-                    <TableCell>{contract.fee && `£${contract.fee}`}</TableCell>
+                    <TableCell>{contract.fee && formatCurrency(parseFloat(contract.fee), 'GBP')}</TableCell>
                     <TableCell>{contract.callTime && format(new Date(contract.callTime), "d MMM HH:mm")}</TableCell>
                     <TableCell>
                       <Badge variant={STATUS_COLOURS[contract.status || "draft"] as any} className="flex items-center gap-1 w-fit">

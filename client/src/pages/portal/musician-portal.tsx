@@ -269,7 +269,7 @@ export default function MusicianPortal() {
                         <TableCell>{getGigDate(gig)}</TableCell>
                         <TableCell>{gig.assignment.role || "—"}</TableCell>
                         <TableCell>
-                          {gig.assignment.fee ? `£${gig.assignment.fee}` : "—"}
+                          {gig.assignment.fee ? formatCurrency(parseFloat(gig.assignment.fee), 'GBP') : "—"}
                         </TableCell>
                         <TableCell>
                           <Badge variant={STATUS_VARIANT[gig.assignment.status || "pending"]}>
@@ -399,7 +399,7 @@ export default function MusicianPortal() {
                     {myContracts.map((contract) => (
                       <TableRow key={contract.id}>
                         <TableCell className="font-medium">{contract.title}</TableCell>
-                        <TableCell>{contract.fee ? `£${contract.fee}` : "—"}</TableCell>
+                        <TableCell>{contract.fee ? formatCurrency(parseFloat(contract.fee), 'GBP') : "—"}</TableCell>
                         <TableCell>{contract.callTime ? format(new Date(contract.callTime), "d MMM HH:mm") : "—"}</TableCell>
                         <TableCell>
                           <Badge variant={contract.status === "signed" ? "default" : contract.status === "sent" ? "secondary" : "outline"}>
@@ -427,7 +427,7 @@ export default function MusicianPortal() {
               <div className="grid grid-cols-2 gap-3 text-sm">
                 <div><p className="text-muted-foreground">Date</p><p className="font-medium">{getGigDate(selectedGig)}</p></div>
                 <div><p className="text-muted-foreground">Your role</p><p className="font-medium">{selectedGig.assignment.role || "—"}</p></div>
-                <div><p className="text-muted-foreground">Fee</p><p className="font-medium">{selectedGig.assignment.fee ? `£${selectedGig.assignment.fee}` : "TBC"}</p></div>
+                <div><p className="text-muted-foreground">Fee</p><p className="font-medium">{selectedGig.assignment.fee ? formatCurrency(parseFloat(selectedGig.assignment.fee), 'GBP') : "TBC"}</p></div>
                 <div><p className="text-muted-foreground">Offer type</p><p className="font-medium capitalize">{(selectedGig.assignment as any).offerType || "Direct"}</p></div>
               </div>
 

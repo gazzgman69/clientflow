@@ -22,7 +22,6 @@ import Templates from "@/pages/settings/Templates";
 import LeadAutomations from "@/pages/settings/Automations";
 import WidgetSettings from "@/pages/settings/WidgetSettings";
 import LeadCaptureBuilder from "@/pages/leads/LeadCaptureBuilder";
-import LeadsUrgencyList from "@/pages/leads/LeadsUrgencyList";
 import LeadsInbox from "@/pages/leads/LeadsInbox";
 import LeadFormHosted from "@/pages/public/LeadFormHosted";
 import PublicQuote from "@/pages/public/PublicQuote";

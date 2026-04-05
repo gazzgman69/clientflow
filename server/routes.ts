@@ -6135,7 +6135,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   app.delete("/api/message-templates/:id", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
     try {
       const { id } = req.params;
-      const deleted = await storage.deleteMessageTemplate(id);
+      const deleted = await storage.deleteMessageTemplate(id, req.tenantId!);
       
       if (!deleted) {
         return res.status(404).json({ message: "Template not found" });
@@ -7541,7 +7541,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
 
   app.delete("/api/calendar-integrations/:id", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
     try {
-      const deleted = await storage.deleteCalendarIntegration(req.params.id);
+      const deleted = await storage.deleteCalendarIntegration(req.params.id, req.tenantId!);
       if (!deleted) {
         return res.status(404).json({ message: "Calendar integration not found" });
       }

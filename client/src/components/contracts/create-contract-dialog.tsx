@@ -354,7 +354,7 @@ export default function CreateContractDialog({
                     <FormLabel>My Signature:</FormLabel>
                     <Select
                       onValueChange={field.onChange}
-                      defaultValue={field.value || 'counter_sign_after_client'}
+                      value={field.value || 'counter_sign_after_client'}
                     >
                       <FormControl>
                         <SelectTrigger data-testid="select-signature-workflow">

@@ -209,6 +209,10 @@ export default function CalendarPage() {
             <Mail className="h-4 w-4 mr-2" />
             Connect Google Calendar
           </Button>
+          <Button variant="outline" onClick={() => setShowAddDialog(true)}>
+            <Plus className="h-4 w-4 mr-2" />
+            Add iCal Feed
+          </Button>
           {integrations && integrations.length > 0 && (
             <Button
               variant="outline"
@@ -230,7 +234,7 @@ export default function CalendarPage() {
       {/* Google OAuth Modal */}
       {showGoogleOAuth && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <GoogleOAuthModal 
+          <GoogleOAuthModal
             onSuccess={() => {
               setShowGoogleOAuth(false);
               queryClient.invalidateQueries({ queryKey: ['/api/calendar-integrations'] });
@@ -239,6 +243,46 @@ export default function CalendarPage() {
           />
         </div>
       )}
+
+      {/* Add iCal Feed Dialog */}
+      <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Add iCal Feed</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label htmlFor="ical-name">Calendar Name</Label>
+              <Input
+                id="ical-name"
+                placeholder="e.g. My iCal Feed"
+                value={calendarName}
+                onChange={(e) => setCalendarName(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="ical-url">iCal URL</Label>
+              <Input
+                id="ical-url"
+                placeholder="https://example.com/calendar.ics"
+                value={icalUrl}
+                onChange={(e) => setIcalUrl(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">
+                Paste the .ics URL from your calendar provider (Apple Calendar, Outlook, etc.)
+              </p>
+            </div>
+          </div>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="outline" onClick={() => setShowAddDialog(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleAddICal} disabled={addICalMutation.isPending}>
+              {addICalMutation.isPending ? 'Adding...' : 'Add Calendar'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

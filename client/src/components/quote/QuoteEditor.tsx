@@ -301,7 +301,7 @@ export default function QuoteEditor({
       };
 
       const url = editingQuote ? `/api/quotes/${editingQuote.id}` : "/api/quotes";
-      const method = editingQuote ? "PUT" : "POST";
+      const method = editingQuote ? "PATCH" : "POST";
       
       const response = await apiRequest(method, url, quoteData);
       return response.json();
@@ -553,7 +553,7 @@ export default function QuoteEditor({
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel>Status</FormLabel>
-                          <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <Select onValueChange={field.onChange} value={field.value}>
                             <FormControl>
                               <SelectTrigger data-testid="select-quote-status">
                                 <SelectValue placeholder="Select status..." />
@@ -659,7 +659,7 @@ export default function QuoteEditor({
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel>Currency</FormLabel>
-                          <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <Select onValueChange={field.onChange} value={field.value}>
                             <FormControl>
                               <SelectTrigger data-testid="select-quote-currency">
                                 <SelectValue placeholder="Select currency..." />
@@ -687,7 +687,7 @@ export default function QuoteEditor({
                           <FormControl>
                             <RadioGroup
                               onValueChange={field.onChange}
-                              defaultValue={field.value}
+                              value={field.value}
                               className="flex flex-row space-x-6"
                             >
                               <div className="flex items-center space-x-2">

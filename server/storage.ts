@@ -1587,7 +1587,7 @@ export class MemStorage implements IStorage {
     return updatedQuote;
   }
 
-  async deleteQuote(id: string): Promise<boolean> {
+  async deleteQuote(id: string, tenantId: string): Promise<boolean> {
     return this.quotes.delete(id);
   }
 
@@ -1646,7 +1646,7 @@ export class MemStorage implements IStorage {
     return updatedContract;
   }
 
-  async deleteContract(id: string): Promise<boolean> {
+  async deleteContract(id: string, tenantId: string): Promise<boolean> {
     return this.contracts.delete(id);
   }
 
@@ -1752,7 +1752,7 @@ export class MemStorage implements IStorage {
     return updatedInvoice;
   }
 
-  async deleteInvoice(id: string): Promise<boolean> {
+  async deleteInvoice(id: string, tenantId: string): Promise<boolean> {
     return this.invoices.delete(id);
   }
 
@@ -2185,7 +2185,7 @@ export class MemStorage implements IStorage {
     return updatedTemplate;
   }
 
-  async deleteMessageTemplate(id: string): Promise<boolean> {
+  async deleteMessageTemplate(id: string, tenantId: string): Promise<boolean> {
     return this.messageTemplates.delete(id);
   }
 
@@ -2329,7 +2329,7 @@ export class MemStorage implements IStorage {
     return updatedAutomation;
   }
 
-  async deleteAutomation(id: string): Promise<boolean> {
+  async deleteAutomation(id: string, tenantId: string): Promise<boolean> {
     return this.automations.delete(id);
   }
 
@@ -2507,7 +2507,7 @@ export class MemStorage implements IStorage {
     return updatedVenue;
   }
 
-  async deleteVenue(id: string): Promise<boolean> {
+  async deleteVenue(id: string, tenantId: string): Promise<boolean> {
     return this.venues.delete(id);
   }
 
@@ -3144,7 +3144,7 @@ export class MemStorage implements IStorage {
     }
   }
 
-  async deleteCalendarIntegration(id: string): Promise<boolean> {
+  async deleteCalendarIntegration(id: string, tenantId: string): Promise<boolean> {
     return this.calendarIntegrations.delete(id);
   }
   
@@ -4061,8 +4061,8 @@ export class DrizzleStorage implements IStorage {
     }
   }
 
-  async deleteCalendarIntegration(id: string): Promise<boolean> {
-    const result = await this.db.delete(calendarIntegrations).where(eq(calendarIntegrations.id, id));
+  async deleteCalendarIntegration(id: string, tenantId: string): Promise<boolean> {
+    const result = await this.db.delete(calendarIntegrations).where(and(eq(calendarIntegrations.id, id), eq(calendarIntegrations.tenantId, tenantId)));
     return result.rowCount > 0;
   }
 
@@ -5445,8 +5445,8 @@ export class DrizzleStorage implements IStorage {
     
     return result[0];
   }
-  async deleteQuote(id: string) { 
-    const result = await this.db.delete(quotes).where(eq(quotes.id, id));
+  async deleteQuote(id: string, tenantId: string) {
+    const result = await this.db.delete(quotes).where(and(eq(quotes.id, id), eq(quotes.tenantId, tenantId)));
     return result.rowCount > 0;
   }
   async getQuotesByProject(projectId: string) { 
@@ -5507,8 +5507,8 @@ export class DrizzleStorage implements IStorage {
     
     return result[0];
   }
-  async deleteContract(id: string) { 
-    const result = await this.db.delete(contracts).where(eq(contracts.id, id));
+  async deleteContract(id: string, tenantId: string) {
+    const result = await this.db.delete(contracts).where(and(eq(contracts.id, id), eq(contracts.tenantId, tenantId)));
     return result.rowCount > 0;
   }
   async getContractsByProject(projectId: string) { 
@@ -5614,8 +5614,8 @@ export class DrizzleStorage implements IStorage {
     
     return result[0];
   }
-  async deleteInvoice(id: string) { 
-    const result = await this.db.delete(invoices).where(eq(invoices.id, id));
+  async deleteInvoice(id: string, tenantId: string) {
+    const result = await this.db.delete(invoices).where(and(eq(invoices.id, id), eq(invoices.tenantId, tenantId)));
     return result.rowCount > 0;
   }
   async getInvoicesByProject(projectId: string) { 
@@ -6164,11 +6164,11 @@ export class DrizzleStorage implements IStorage {
     return result[0];
   }
 
-  async deleteAutomation(id: string): Promise<boolean> {
-    const result = await this.db.delete(automations).where(eq(automations.id, id));
+  async deleteAutomation(id: string, tenantId: string): Promise<boolean> {
+    const result = await this.db.delete(automations).where(and(eq(automations.id, id), eq(automations.tenantId, tenantId)));
     return result.rowCount > 0;
   }
-  
+
   // Members - PostgreSQL implementation
   async getMembers(tenantId: string): Promise<Member[]> {
     return await this.db.select().from(members).where(eq(members.tenantId, tenantId));
@@ -6257,11 +6257,11 @@ export class DrizzleStorage implements IStorage {
     return result[0];
   }
 
-  async deleteVenue(id: string): Promise<boolean> {
-    const result = await this.db.delete(venues).where(eq(venues.id, id));
+  async deleteVenue(id: string, tenantId: string): Promise<boolean> {
+    const result = await this.db.delete(venues).where(and(eq(venues.id, id), eq(venues.tenantId, tenantId)));
     return result.rowCount > 0;
   }
-  
+
   // Project Members - PostgreSQL implementation
   async getProjectMembers(projectId: string, tenantId: string): Promise<ProjectMember[]> {
     // Get project to verify tenantId
@@ -6761,11 +6761,11 @@ export class DrizzleStorage implements IStorage {
     return result[0];
   }
 
-  async deleteMessageTemplate(id: string): Promise<boolean> {
-    const result = await this.db.delete(messageTemplates).where(eq(messageTemplates.id, id));
+  async deleteMessageTemplate(id: string, tenantId: string): Promise<boolean> {
+    const result = await this.db.delete(messageTemplates).where(and(eq(messageTemplates.id, id), eq(messageTemplates.tenantId, tenantId)));
     return result.rowCount > 0;
   }
-  
+
   // Auto-responder Logs - PostgreSQL implementation (TENANT SECURE)
   async getAutoResponderLogs(tenantId: string): Promise<AutoResponderLog[]> {
     return await this.db.select().from(autoResponderLogs)

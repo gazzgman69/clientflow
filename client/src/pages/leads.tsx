@@ -20,6 +20,7 @@ import { useToast } from "@/hooks/use-toast";
 import type { Lead } from "@shared/schema";
 import { formatDistanceToNow, addDays, format } from "date-fns";
 import { formatCurrency } from "@/lib/currency";
+import { useCurrency } from "@/hooks/useCurrency";
 
 // Spec-aligned lead statuses
 const LEAD_STATUSES = [
@@ -126,6 +127,7 @@ function getActivityIndicator(lead: Lead) {
 
 export default function Leads() {
   const [, setLocation] = useLocation();
+  const { currencySymbol, currencyCode } = useCurrency();
   const [showLeadCapture, setShowLeadCapture] = useState(false);
   const [showLostReasonDialog, setShowLostReasonDialog] = useState(false);
   const [showHoldDialog, setShowHoldDialog] = useState(false);
@@ -355,7 +357,7 @@ export default function Leads() {
                           {lead.budgetRange
                             ? lead.budgetRange
                             : lead.estimatedValue
-                              ? formatCurrency(parseFloat(lead.estimatedValue), (lead as any).currency || 'GBP')
+                              ? formatCurrency(parseFloat(lead.estimatedValue), (lead as any).currency || currencyCode)
                               : '-'}
                         </TableCell>
                         <TableCell data-testid={`lead-status-${lead.id}`}>
@@ -600,7 +602,7 @@ export default function Leads() {
                   <SelectTrigger><SelectValue placeholder="Select..." /></SelectTrigger>
                   <SelectContent>
                     {BUDGET_RANGES.map((r) => (
-                      <SelectItem key={r.value} value={r.value}>£{r.label}</SelectItem>
+                      <SelectItem key={r.value} value={r.value}>{currencySymbol}{r.label}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>

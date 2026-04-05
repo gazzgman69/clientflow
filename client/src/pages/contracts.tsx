@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import Header from "@/components/layout/header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -10,11 +10,15 @@ import { formatDistanceToNow } from "date-fns";
 import type { Contract, Contact } from "@shared/schema";
 import CreateContractDialog from "@/components/contracts/create-contract-dialog";
 import { useLocation } from "wouter";
+import { apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 
 export default function Contracts() {
   const [showContractModal, setShowContractModal] = useState(false);
   const [editingTemplateId, setEditingTemplateId] = useState<string | null>(null);
   const [, setLocation] = useLocation();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   // Check for URL parameters to edit a template
   useEffect(() => {
@@ -32,6 +36,20 @@ export default function Contracts() {
 
   const { data: contracts, isLoading } = useQuery<Contract[]>({
     queryKey: ["/api/contracts"],
+  });
+
+  const deleteContractMutation = useMutation({
+    mutationFn: async (contractId: string) => {
+      const response = await apiRequest("DELETE", `/api/contracts/${contractId}`);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/contracts"] });
+      toast({ title: "Deleted", description: "Contract deleted successfully." });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to delete contract.", variant: "destructive" });
+    },
   });
 
   const { data: contacts = [] } = useQuery<Contact[]>({
@@ -133,7 +151,16 @@ export default function Contracts() {
                           <Button variant="ghost" size="sm" data-testid={`edit-contract-${contract.id}`} onClick={() => setLocation(`/contracts/${contract.id}/preview`)}>
                             <Edit className="h-4 w-4" />
                           </Button>
-                          <Button variant="ghost" size="sm" data-testid={`delete-contract-${contract.id}`}>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            data-testid={`delete-contract-${contract.id}`}
+                            onClick={() => {
+                              if (confirm(`Delete contract "${contract.displayTitle || contract.title}"?`)) {
+                                deleteContractMutation.mutate(contract.id);
+                              }
+                            }}
+                          >
                             <Trash2 className="h-4 w-4" />
                           </Button>
                         </div>

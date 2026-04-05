@@ -161,9 +161,9 @@ export default function InvoiceEditor({
     queryKey: ["/api/tax-settings"],
   });
 
-  // Fetch contacts for the contact picker
+  // Fetch contacts for the contact picker (simple mode returns plain array)
   const { data: contactsData } = useQuery<Contact[]>({
-    queryKey: ["/api/contacts"],
+    queryKey: ["/api/contacts?simple=1&limit=100"],
   });
   const contacts = Array.isArray(contactsData) ? contactsData : [];
 

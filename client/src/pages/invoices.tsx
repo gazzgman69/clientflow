@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import Header from "@/components/layout/header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,7 +10,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Edit, Trash2, Receipt, Send, DollarSign } from "lucide-react";
+import { Plus, Edit, Trash2, Receipt, Send } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertInvoiceSchema } from "@shared/schema";
@@ -18,7 +18,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { formatDistanceToNow } from "date-fns";
 import { formatCurrency } from "@/lib/currency";
-import type { Invoice, Client, Contract } from "@shared/schema";
+import type { Invoice, Client } from "@shared/schema";
 import { z } from "zod";
 
 const invoiceFormSchema = insertInvoiceSchema.extend({
@@ -42,11 +42,7 @@ export default function Invoices() {
   });
 
   const { data: clients } = useQuery<Client[]>({
-    queryKey: ["/api/contacts"],
-  });
-
-  const { data: contracts } = useQuery<Contract[]>({
-    queryKey: ["/api/contracts"],
+    queryKey: ["/api/contacts?simple=1&limit=100"],
   });
 
   const form = useForm<z.infer<typeof invoiceFormSchema>>({
@@ -93,8 +89,59 @@ export default function Invoices() {
     },
   });
 
+  const updateInvoiceMutation = useMutation({
+    mutationFn: async (data: z.infer<typeof invoiceFormSchema>) => {
+      const invoiceData = {
+        ...data,
+        subtotal: parseFloat(data.subtotal),
+        taxAmount: data.taxAmount ? parseFloat(data.taxAmount) : 0,
+        total: parseFloat(data.total),
+      };
+      const response = await apiRequest("PATCH", `/api/invoices/${editingInvoice!.id}`, invoiceData);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/invoices"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/metrics"] });
+      toast({
+        title: "Success",
+        description: "Invoice updated successfully!",
+      });
+      form.reset();
+      setEditingInvoice(null);
+      setShowInvoiceModal(false);
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to update invoice. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Populate form when editing an existing invoice
+  useEffect(() => {
+    if (editingInvoice) {
+      form.reset({
+        title: editingInvoice.title || "",
+        description: editingInvoice.description || "",
+        subtotal: editingInvoice.subtotal?.toString() || "",
+        taxAmount: editingInvoice.taxAmount?.toString() || "",
+        total: editingInvoice.total?.toString() || "",
+        status: editingInvoice.status || "draft",
+        clientId: editingInvoice.clientId || "",
+        createdBy: editingInvoice.createdBy || "",
+      });
+    }
+  }, [editingInvoice]);
+
   const onSubmit = (data: z.infer<typeof invoiceFormSchema>) => {
-    createInvoiceMutation.mutate(data);
+    if (editingInvoice) {
+      updateInvoiceMutation.mutate(data);
+    } else {
+      createInvoiceMutation.mutate(data);
+    }
   };
 
   const getStatusColor = (status: string) => {
@@ -401,12 +448,14 @@ export default function Invoices() {
                 >
                   Cancel
                 </Button>
-                <Button 
-                  type="submit" 
-                  disabled={createInvoiceMutation.isPending}
+                <Button
+                  type="submit"
+                  disabled={createInvoiceMutation.isPending || updateInvoiceMutation.isPending}
                   data-testid="button-save-invoice"
                 >
-                  {createInvoiceMutation.isPending ? "Creating..." : "Create Invoice"}
+                  {editingInvoice
+                    ? (updateInvoiceMutation.isPending ? "Saving..." : "Save Changes")
+                    : (createInvoiceMutation.isPending ? "Creating..." : "Create Invoice")}
                 </Button>
               </div>
             </form>

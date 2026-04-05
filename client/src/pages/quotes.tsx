@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import Header from "@/components/layout/header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -90,6 +90,36 @@ export default function Quotes() {
     },
   });
 
+  const updateQuoteMutation = useMutation({
+    mutationFn: async (data: z.infer<typeof quoteFormSchema>) => {
+      const quoteData = {
+        ...data,
+        subtotal: parseFloat(data.subtotal),
+        taxAmount: data.taxAmount ? parseFloat(data.taxAmount) : 0,
+        total: parseFloat(data.total),
+      };
+      const response = await apiRequest("PATCH", `/api/quotes/${editingQuote!.id}`, quoteData);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/quotes"] });
+      toast({
+        title: "Success",
+        description: "Quote updated successfully!",
+      });
+      form.reset();
+      setEditingQuote(null);
+      setShowQuoteModal(false);
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to update quote. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
   const deleteQuoteMutation = useMutation({
     mutationFn: async (quoteId: string) => {
       const response = await apiRequest("DELETE", `/api/quotes/${quoteId}`);
@@ -117,8 +147,28 @@ export default function Quotes() {
     },
   });
 
+  // Populate form when editing an existing quote
+  useEffect(() => {
+    if (editingQuote) {
+      form.reset({
+        title: editingQuote.title || "",
+        description: editingQuote.description || "",
+        subtotal: editingQuote.subtotal?.toString() || "",
+        taxAmount: editingQuote.taxAmount?.toString() || "",
+        total: editingQuote.total?.toString() || "",
+        status: editingQuote.status || "draft",
+        clientId: editingQuote.clientId || editingQuote.contactId || "",
+        createdBy: editingQuote.createdBy || "",
+      });
+    }
+  }, [editingQuote]);
+
   const onSubmit = (data: z.infer<typeof quoteFormSchema>) => {
-    createQuoteMutation.mutate(data);
+    if (editingQuote) {
+      updateQuoteMutation.mutate(data);
+    } else {
+      createQuoteMutation.mutate(data);
+    }
   };
 
   const getStatusColor = (status: string) => {
@@ -427,12 +477,14 @@ export default function Quotes() {
                 >
                   Cancel
                 </Button>
-                <Button 
-                  type="submit" 
-                  disabled={createQuoteMutation.isPending}
+                <Button
+                  type="submit"
+                  disabled={createQuoteMutation.isPending || updateQuoteMutation.isPending}
                   data-testid="button-save-quote"
                 >
-                  {createQuoteMutation.isPending ? "Creating..." : "Create Quote"}
+                  {editingQuote
+                    ? (updateQuoteMutation.isPending ? "Saving..." : "Save Changes")
+                    : (createQuoteMutation.isPending ? "Creating..." : "Create Quote")}
                 </Button>
               </div>
             </form>

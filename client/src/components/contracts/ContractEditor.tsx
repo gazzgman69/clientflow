@@ -160,11 +160,11 @@ export default function ContractEditor({
     enabled: !!currentUser,
   });
 
-  // Fetch contacts for picker
+  // Fetch contacts for picker (simple mode returns plain array)
   const { data: contacts = [] } = useQuery<Contact[]>({
-    queryKey: ['/api/contacts'],
+    queryKey: ['/api/contacts?simple=1&limit=100'],
     queryFn: async () => {
-      const response = await fetch('/api/contacts', {
+      const response = await fetch('/api/contacts?simple=1&limit=100', {
         credentials: 'include'
       });
       return response.json();

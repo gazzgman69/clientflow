@@ -370,7 +370,7 @@ export default function Automations() {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Trigger *</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <Select onValueChange={field.onChange} value={field.value || ""}>
                       <FormControl>
                         <SelectTrigger data-testid="select-automation-trigger">
                           <SelectValue placeholder="Select a trigger..." />

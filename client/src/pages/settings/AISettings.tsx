@@ -697,40 +697,27 @@ export default function AISettings() {
 
     const uploadMutation = useMutation({
       mutationFn: async (formData: FormData) => {
-        try {
-          console.log('Fetching CSRF token...');
-          // Get CSRF token
-          const csrfResponse = await fetch('/api/csrf-token', {
-            credentials: 'include',
-          });
-          const { csrfToken } = await csrfResponse.json();
-          console.log('CSRF token obtained:', csrfToken ? 'yes' : 'no');
+        // Get CSRF token
+        const csrfResponse = await fetch('/api/csrf-token', {
+          credentials: 'include',
+        });
+        const { csrfToken } = await csrfResponse.json();
 
-          console.log('Sending upload request...');
-          const response = await fetch('/api/ai-features/media', {
-            method: 'POST',
-            credentials: 'include',
-            headers: {
-              'X-CSRF-Token': csrfToken,
-            },
-            body: formData,
-          });
-          
-          console.log('Upload response status:', response.status);
-          
-          if (!response.ok) {
-            const error = await response.json();
-            console.error('Upload failed:', error);
-            throw new Error(error.message || 'Upload failed');
-          }
-          
-          const result = await response.json();
-          console.log('Upload successful:', result);
-          return result;
-        } catch (error) {
-          console.error('Upload error:', error);
-          throw error;
+        const response = await fetch('/api/ai-features/media', {
+          method: 'POST',
+          credentials: 'include',
+          headers: {
+            'X-CSRF-Token': csrfToken,
+          },
+          body: formData,
+        });
+
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.message || 'Upload failed');
         }
+
+        return response.json();
       },
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: ['/api/ai-features/media'] });

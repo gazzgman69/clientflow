@@ -60,7 +60,6 @@ export default function PublicContract({ id }: PublicContractProps) {
     queryKey: ['/api/public/contracts', id],
     queryFn: async () => {
       const url = `/api/public/contracts/${id}`;
-      console.log('🔍 Fetching public contract from:', url);
       const response = await fetch(url);
       if (!response.ok) {
         if (response.status === 404) {
@@ -118,12 +117,6 @@ export default function PublicContract({ id }: PublicContractProps) {
   // Token replacement function
   const replaceTokens = (html: string | null): string => {
     if (!html || !data) return html || "";
-    
-    console.log('Token replacement data:', { 
-      contact: data.contact, 
-      project: data.project, 
-      venue: data.venue 
-    });
     
     let replaced = html;
     const { contact, project, venue, contract, tenant } = data;

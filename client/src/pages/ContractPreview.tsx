@@ -258,8 +258,6 @@ export default function ContractPreview() {
   // Save template mutation
   const saveTemplateMutation = useMutation({
     mutationFn: async (templateData: { name: string; subject: string; body: string; category: string }) => {
-      console.log('💾 Saving template:', templateData);
-      
       if (isUpdatingTemplate && selectedTemplate?.id) {
         // Update existing template
         const response = await apiRequest('PATCH', `/api/message-templates/${selectedTemplate.id}`, {

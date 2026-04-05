@@ -99,8 +99,6 @@ export default function TemplatesPage() {
     retry: false,
   });
   
-  console.log('👤 Current user:', currentUser);
-  
   // Force invalidate old cached queries on mount
   useEffect(() => {
     queryClient.invalidateQueries({ queryKey: ['/api/admin/templates'] });
@@ -120,18 +118,13 @@ export default function TemplatesPage() {
   const { data: templates = [], isLoading } = useQuery<Template[]>({
     queryKey: ['/api/templates'],
     queryFn: async () => {
-      console.log('🔍 FETCHING TEMPLATES (active only)');
       const response = await fetch('/api/templates', {
         credentials: 'include'
       });
-      console.log('📡 Templates API response:', response.status, response.ok);
       if (!response.ok) {
-        console.error('❌ Templates API failed:', response.status);
         return []; // Return empty array if API fails
       }
-      const data = await response.json();
-      console.log('📦 Templates data received:', data.length, 'templates', data);
-      return data;
+      return response.json();
     },
     enabled: !!currentUser,
     staleTime: 0, // Always fetch fresh data
@@ -201,14 +194,6 @@ export default function TemplatesPage() {
   // Filter templates by active type
   const filteredTemplates = (templates || []).filter(template => template.type === activeType);
   
-  console.log('🔍 TEMPLATES DEBUG:', {
-    totalTemplates: templates?.length || 0,
-    activeType,
-    filteredCount: filteredTemplates.length,
-    allTemplates: templates,
-    filteredTemplates
-  });
-
   // Create template mutation
   const createMutation = useMutation({
     mutationFn: async (data: TemplateFormData) => {
@@ -247,16 +232,13 @@ export default function TemplatesPage() {
   // Delete template mutation
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      console.log('🗑️ Attempting to delete template:', id);
       await apiRequest('DELETE', `/api/templates/admin/templates/${id}`);
     },
     onSuccess: () => {
-      console.log('✅ Template deleted successfully');
       queryClient.invalidateQueries({ queryKey: ['/api/templates'] });
       toast({ title: 'Template deleted successfully' });
     },
-    onError: (error) => {
-      console.error('❌ Failed to delete template:', error);
+    onError: () => {
       toast({ title: 'Failed to delete template', variant: 'destructive' });
     },
   });

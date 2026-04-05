@@ -93,29 +93,8 @@ export default function ClientPortal() {
   const { data: recentMessages = [] } = useQuery({
     queryKey: ["/api/portal/client/messages"],
     queryFn: async () => {
-      // Mock recent messages for portal - would be replaced with proper portal endpoint
-      return [
-        {
-          id: "1",
-          subject: "Contract Ready for Review",
-          body: "Your contract for the upcoming event is ready for review and signing.",
-          fromEmail: "events@company.com",
-          toEmail: "client@example.com",
-          status: "sent",
-          sentAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000),
-          createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000),
-        },
-        {
-          id: "2", 
-          subject: "Event Details Confirmation",
-          body: "Please confirm the final details for your upcoming event.",
-          fromEmail: "events@company.com",
-          toEmail: "client@example.com",
-          status: "sent",
-          sentAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000),
-          createdAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000),
-        }
-      ];
+      // Messages endpoint not yet implemented — return empty array
+      return [];
     }
   });
 

@@ -67,7 +67,9 @@ function getDefaultQuestionsForForm() {
 // GET /api/lead-forms (mounted at /api/lead-forms)
 router.get('/', async (req, res) => {
   try {
-    const forms = await storage.getLeadCaptureForms();
+    const tenantId = (req as TenantRequest).tenantId;
+    if (!tenantId) return res.status(403).json({ error: 'Tenant context required' });
+    const forms = await storage.getLeadCaptureForms(tenantId);
     // Return simplified list format
     const formsList = forms.map(form => ({
       id: form.id,

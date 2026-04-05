@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 import { Card } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -28,6 +29,7 @@ interface Document {
 }
 
 export default function Documents() {
+  const [, setLocation] = useLocation();
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState("all");
@@ -340,7 +342,15 @@ export default function Documents() {
                               <Eye className="mr-2 h-4 w-4" />
                               View
                             </DropdownMenuItem>
-                            <DropdownMenuItem data-testid={`action-edit-${doc.id}`} onClick={() => { setSelectedDocument(doc); }}>
+                            <DropdownMenuItem data-testid={`action-edit-${doc.id}`} onClick={() => {
+                              if (doc.documentType === 'contract') {
+                                setLocation(`/contracts/${doc.id}/preview`);
+                              } else if (doc.documentType === 'quote') {
+                                setLocation(`/quotes?action=edit&id=${doc.id}`);
+                              } else if (doc.documentType === 'invoice') {
+                                setLocation(`/invoices?action=edit&id=${doc.id}`);
+                              }
+                            }}>
                               <Edit className="mr-2 h-4 w-4" />
                               Edit
                             </DropdownMenuItem>

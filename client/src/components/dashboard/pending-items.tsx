@@ -114,6 +114,8 @@ export default function PendingItems() {
 
   const { data: pendingItems = [], isLoading, isError } = useQuery<PendingItem[]>({
     queryKey: ["/api/dashboard/pending-items"],
+    refetchInterval: 30000,
+    refetchOnWindowFocus: true,
   });
 
   const toggleGroup = (key: string) => {

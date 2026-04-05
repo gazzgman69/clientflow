@@ -50,6 +50,8 @@ export default function Settings() {
   const [showPurgeModal, setShowPurgeModal] = useState(false);
   const [selectedIntegrationToPurge, setSelectedIntegrationToPurge] = useState<any>(null);
   const [profileForm, setProfileForm] = useState({ firstName: "", lastName: "", email: "" });
+  const [passwordForm, setPasswordForm] = useState({ currentPassword: "", newPassword: "", confirmPassword: "" });
+  const [passwordLoading, setPasswordLoading] = useState(false);
   const { toast } = useToast();
 
   // Check for tab parameter in URL and set active tab
@@ -399,19 +401,43 @@ export default function Settings() {
                 <div className="space-y-4">
                   <div className="space-y-2">
                     <Label htmlFor="currentPassword">Current Password</Label>
-                    <Input id="currentPassword" type="password" data-testid="input-current-password" />
+                    <Input id="currentPassword" type="password" value={passwordForm.currentPassword} onChange={e => setPasswordForm(f => ({ ...f, currentPassword: e.target.value }))} data-testid="input-current-password" />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="newPassword">New Password</Label>
-                    <Input id="newPassword" type="password" data-testid="input-new-password" />
+                    <Input id="newPassword" type="password" value={passwordForm.newPassword} onChange={e => setPasswordForm(f => ({ ...f, newPassword: e.target.value }))} data-testid="input-new-password" />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="confirmPassword">Confirm New Password</Label>
-                    <Input id="confirmPassword" type="password" data-testid="input-confirm-password" />
+                    <Input id="confirmPassword" type="password" value={passwordForm.confirmPassword} onChange={e => setPasswordForm(f => ({ ...f, confirmPassword: e.target.value }))} data-testid="input-confirm-password" />
                   </div>
-                  <Button variant="outline" data-testid="button-change-password">
+                  <Button variant="outline" disabled={passwordLoading} data-testid="button-change-password" onClick={async () => {
+                    if (!passwordForm.currentPassword || !passwordForm.newPassword || !passwordForm.confirmPassword) {
+                      toast({ title: "Missing fields", description: "Please fill in all password fields.", variant: "destructive" });
+                      return;
+                    }
+                    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+                      toast({ title: "Passwords don't match", description: "New password and confirmation must match.", variant: "destructive" });
+                      return;
+                    }
+                    if (passwordForm.newPassword.length < 8) {
+                      toast({ title: "Password too short", description: "New password must be at least 8 characters.", variant: "destructive" });
+                      return;
+                    }
+                    setPasswordLoading(true);
+                    try {
+                      await apiRequest("PATCH", "/api/auth/me/password", { currentPassword: passwordForm.currentPassword, newPassword: passwordForm.newPassword });
+                      toast({ title: "Password changed", description: "Your password has been updated successfully." });
+                      setPasswordForm({ currentPassword: "", newPassword: "", confirmPassword: "" });
+                    } catch (err: any) {
+                      const msg = err?.message || "Failed to change password. Check your current password is correct.";
+                      toast({ title: "Error", description: msg, variant: "destructive" });
+                    } finally {
+                      setPasswordLoading(false);
+                    }
+                  }}>
                     <Key className="h-4 w-4 mr-2" />
-                    Change Password
+                    {passwordLoading ? "Changing..." : "Change Password"}
                   </Button>
                 </div>
 
@@ -448,14 +474,6 @@ export default function Settings() {
                   </div>
                 </div>
 
-                <Button 
-                  onClick={() => handleSaveSettings("Security")}
-                  disabled={isLoading}
-                  data-testid="button-save-security"
-                >
-                  <Save className="h-4 w-4 mr-2" />
-                  {isLoading ? "Saving..." : "Save Changes"}
-                </Button>
               </CardContent>
             </Card>
           </TabsContent>

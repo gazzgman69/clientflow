@@ -254,6 +254,7 @@ export default function Contacts() {
     onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ["/api/contacts"] });
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard/metrics"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/pending-items"] });
       queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
       
       // Clear preview state

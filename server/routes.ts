@@ -2204,6 +2204,30 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
 
+  // Change password (authenticated user, requires current password verification)
+  app.patch('/api/auth/me/password', ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
+    try {
+      const { currentPassword, newPassword } = req.body;
+      if (!currentPassword || !newPassword) {
+        return res.status(400).json({ error: 'Current and new passwords are required' });
+      }
+      if (newPassword.length < 8) {
+        return res.status(400).json({ error: 'New password must be at least 8 characters' });
+      }
+      const userId = req.authenticatedUserId;
+      const user = await storage.getUser(userId);
+      if (!user) return res.status(404).json({ error: 'User not found' });
+      const valid = await bcrypt.compare(currentPassword, user.password || '');
+      if (!valid) return res.status(400).json({ error: 'Current password is incorrect' });
+      const hashedPassword = await hashPassword(newPassword);
+      await storage.updateUser(userId, { password: hashedPassword }, req.tenantId!);
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error('Error changing password:', error);
+      res.status(500).json({ error: 'Failed to change password' });
+    }
+  });
+
   // Password reset endpoints
   app.post('/api/auth/request-reset', authLimiter, async (req, res) => {
     try {
@@ -7170,7 +7194,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
          SELECT c.id as contact_id, c.first_name, c.last_name, c.email, p.created_at,
                 p.id as project_id, p.name as project_name
          FROM projects p
-         LEFT JOIN contacts c ON c.id = p.contact_id AND c.tenant_id = $1
+         INNER JOIN contacts c ON c.id = p.contact_id AND c.tenant_id = $1
          WHERE p.tenant_id = $1
            AND p.status = 'new'
          ORDER BY created_at DESC

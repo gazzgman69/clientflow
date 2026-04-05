@@ -157,7 +157,7 @@ export default function Quotes() {
         taxAmount: editingQuote.taxAmount?.toString() || "",
         total: editingQuote.total?.toString() || "",
         status: editingQuote.status || "draft",
-        clientId: editingQuote.clientId || editingQuote.contactId || "",
+        contactId: editingQuote.contactId || "",
         createdBy: editingQuote.createdBy || "",
       });
     }

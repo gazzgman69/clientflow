@@ -1481,7 +1481,6 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
 
   // Test route to verify routing is working
   app.get('/api/auth/test', (req, res) => {
-    console.log('🧪 TEST ROUTE HIT:', req.path);
     res.json({ message: 'Route registration is working' });
   });
 
@@ -2168,7 +2167,6 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
 
   // CRITICAL TEST: Place test route right next to working route
   app.get('/api/auth/debug-test', (req, res) => {
-    console.log('🎯 CRITICAL TEST ROUTE HIT - RIGHT NEXT TO WORKING ROUTE!');
     res.json({ message: 'Test route next to working route works!', timestamp: new Date().toISOString() });
   });
 
@@ -7536,7 +7534,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   // Calendar Sync API - Enhanced with bidirectional Google sync
   app.post("/api/calendar-integrations/:id/sync", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
     try {
-      console.log('🚀 Sync endpoint called for integration:', req.params.id);
+
       const integrationId = req.params.id;
       const integration = await storage.getCalendarIntegration(integrationId);
       
@@ -8124,9 +8122,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
       }
       
       // Get emails in thread (tenant-scoped)
-      console.log('🔍 Querying emails for thread:', { threadId, tenantId: req.tenantId });
       const threadEmails = await storage.getEmailsByThread(threadId, req.tenantId!);
-      console.log('📧 Query result:', { count: threadEmails.length, emails: threadEmails.map(e => ({ id: e.id, threadId: e.threadId, subject: e.subject })) });
       if (threadEmails.length === 0) {
         return res.status(404).json({ error: 'No emails found in thread' });
       }
@@ -8966,12 +8962,6 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   app.post('/api/notification-settings', ensureUserAuth, tenantResolver, requireTenant, csrf, async (req: TenantRequest, res) => {
     try {
       const userId = req.authenticatedUserId!;
-      console.log('📝 Saving notification settings:', { 
-        userId, 
-        tenantId: req.tenantId,
-        body: req.body 
-      });
-      
       // Extract only the settings fields, excluding id, timestamps, and tenant info
       const { 
         id, 
@@ -8986,7 +8976,6 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
         { ...settingsData, userId },
         req.tenantId!
       );
-      console.log('✅ Settings saved successfully:', settings);
       res.json(settings);
     } catch (error: any) {
       console.error('❌ Error saving notification settings:', {

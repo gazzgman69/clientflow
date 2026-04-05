@@ -24,6 +24,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import type { Quote, QuotePackage, QuoteAddon, Contact, Client, QuoteExtraInfoField, QuoteExtraInfoConfig } from "@shared/schema";
 import { z } from "zod";
+import { formatCurrency, type CurrencyCode } from "@/lib/currency";
 
 // Enhanced form schema for the quote editor
 const quoteEditorSchema = z.object({
@@ -113,6 +114,8 @@ export default function QuoteEditor({
       status: "draft",
     },
   });
+
+  const quoteCurrency = (form.watch('currency') || 'GBP') as CurrencyCode;
 
   // Fetch packages and add-ons with error handling
   const { data: packages, error: packagesError } = useQuery<QuotePackage[]>({
@@ -776,7 +779,7 @@ export default function QuoteEditor({
                             <div className="flex items-center justify-between">
                               <h4 className="font-medium">{pkg.name}</h4>
                               <Badge variant={selectedItems.packageId === pkg.id ? "default" : "secondary"}>
-                                £{parseFloat(pkg.basePrice).toFixed(2)}
+                                {formatCurrency(parseFloat(pkg.basePrice), quoteCurrency)}
                               </Badge>
                             </div>
                             {pkg.description && (
@@ -833,7 +836,7 @@ export default function QuoteEditor({
                               )}
                               <div className="flex items-center justify-between">
                                 <Badge variant="outline">
-                                  £{parseFloat(addon.price).toFixed(2)}
+                                  {formatCurrency(parseFloat(addon.price), quoteCurrency)}
                                 </Badge>
                                 {addon.category && (
                                   <span className="text-xs text-muted-foreground">
@@ -864,16 +867,16 @@ export default function QuoteEditor({
                   <div className="space-y-2">
                     <div className="flex justify-between text-sm">
                       <span>Subtotal:</span>
-                      <span data-testid="quote-subtotal">£{totals.subtotal.toFixed(2)}</span>
+                      <span data-testid="quote-subtotal">{formatCurrency(totals.subtotal, quoteCurrency)}</span>
                     </div>
                     <div className="flex justify-between text-sm">
                       <span>VAT (20%):</span>
-                      <span data-testid="quote-vat">£{totals.vatAmount.toFixed(2)}</span>
+                      <span data-testid="quote-vat">{formatCurrency(totals.vatAmount, quoteCurrency)}</span>
                     </div>
                     <div className="border-t pt-2">
                       <div className="flex justify-between font-medium">
                         <span>Total:</span>
-                        <span data-testid="quote-total">£{totals.total.toFixed(2)}</span>
+                        <span data-testid="quote-total">{formatCurrency(totals.total, quoteCurrency)}</span>
                       </div>
                     </div>
                   </div>

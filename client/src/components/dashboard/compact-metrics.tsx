@@ -1,6 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { TrendingUp, DollarSign, AlertTriangle, Briefcase } from "lucide-react";
+import { formatCurrency as fmt, getCurrencySymbol } from "@/lib/currency";
+import { useCurrency } from "@/hooks/useCurrency";
 
 interface DashboardMetrics {
   paidThisMonth: number;
@@ -12,17 +14,18 @@ interface DashboardMetrics {
   unsignedContracts: number;
 }
 
-function formatCurrency(value: number): string {
-  if (value >= 1000) {
-    return `£${(value / 1000).toFixed(1)}k`;
-  }
-  return `£${value.toLocaleString()}`;
-}
-
 export default function CompactMetrics() {
   const { data: metrics, isLoading, isError } = useQuery<DashboardMetrics>({
     queryKey: ["/api/dashboard/metrics"],
   });
+  const { currencyCode, currencySymbol } = useCurrency();
+
+  const formatCurrency = (value: number): string => {
+    if (value >= 1000) {
+      return `${currencySymbol}${(value / 1000).toFixed(1)}k`;
+    }
+    return fmt(value, currencyCode);
+  };
 
   const cards = [
     {

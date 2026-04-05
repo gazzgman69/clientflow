@@ -53,7 +53,6 @@ export function AIAssistant({ isOpen, onClose }: AIAssistantProps) {
       return data;
     },
     onSuccess: (data) => {
-      console.log('[AI Assistant] Response received:', { response: data.response, actions: data.actions, data: data.data });
       // Add assistant's response
       setMessages(prev => [...prev, {
         id: crypto.randomUUID(),
@@ -116,23 +115,16 @@ export function AIAssistant({ isOpen, onClose }: AIAssistantProps) {
   };
 
   const handleAction = (action: { type: string; label: string; data?: any }) => {
-    console.log('[AI Assistant] Action clicked:', action);
-    
     switch (action.type) {
       case 'compose_email':
         // Navigate to project page and auto-open email composer
         if (action.data?.projectId) {
           const params = new URLSearchParams({ action: 'compose_email' });
           if (action.data.contactId) params.set('contactId', action.data.contactId);
-          const url = `/projects/${action.data.projectId}?${params.toString()}`;
-          console.log('[AI Assistant] Navigating to:', url);
-          setLocation(url);
-          onClose(); // Close the assistant
+          setLocation(`/projects/${action.data.projectId}?${params.toString()}`);
+          onClose();
         } else if (action.data?.contactId) {
-          // Navigate to contact detail page with auto-open email
-          const url = `/contacts/${action.data.contactId}?action=compose_email`;
-          console.log('[AI Assistant] Navigating to:', url);
-          setLocation(url);
+          setLocation(`/contacts/${action.data.contactId}?action=compose_email`);
           onClose();
         } else {
           toast({
@@ -142,15 +134,12 @@ export function AIAssistant({ isOpen, onClose }: AIAssistantProps) {
           });
         }
         break;
-      
+
       case 'view_project':
         if (action.data?.projectId) {
-          const url = `/projects/${action.data.projectId}`;
-          console.log('[AI Assistant] Navigating to:', url);
-          setLocation(url);
+          setLocation(`/projects/${action.data.projectId}`);
           onClose();
         } else {
-          console.error('[AI Assistant] No projectId in action data:', action);
           toast({
             title: "Missing project information",
             description: "Cannot navigate - no project ID provided",
@@ -158,34 +147,28 @@ export function AIAssistant({ isOpen, onClose }: AIAssistantProps) {
           });
         }
         break;
-      
+
       case 'create_quote':
         // Navigate to quotes page and auto-open create dialog
         const quoteParams = new URLSearchParams({ action: 'create' });
         if (action.data?.contactId) quoteParams.set('contactId', action.data.contactId);
-        const quoteUrl = `/quotes?${quoteParams.toString()}`;
-        console.log('[AI Assistant] Navigating to:', quoteUrl);
-        setLocation(quoteUrl);
+        setLocation(`/quotes?${quoteParams.toString()}`);
         onClose();
         break;
-      
+
       case 'create_invoice':
         // Navigate to invoices page and auto-open create dialog
         const invoiceParams = new URLSearchParams({ action: 'create' });
         if (action.data?.projectId) invoiceParams.set('projectId', action.data.projectId);
         if (action.data?.contactId) invoiceParams.set('contactId', action.data.contactId);
-        const invoiceUrl = `/invoices?${invoiceParams.toString()}`;
-        console.log('[AI Assistant] Navigating to:', invoiceUrl);
-        setLocation(invoiceUrl);
+        setLocation(`/invoices?${invoiceParams.toString()}`);
         onClose();
         break;
-      
+
       case 'create_task':
         // Navigate to project page and auto-open task creation
         if (action.data?.projectId) {
-          const taskUrl = `/projects/${action.data.projectId}?action=create_task`;
-          console.log('[AI Assistant] Navigating to:', taskUrl);
-          setLocation(taskUrl);
+          setLocation(`/projects/${action.data.projectId}?action=create_task`);
           onClose();
         } else {
           toast({

@@ -766,16 +766,11 @@ export default function AISettings() {
     const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
       const files = e.target.files;
       if (!files || files.length === 0) {
-        console.log('No file selected');
         return;
       }
 
-      console.log('File selected:', files[0].name, files[0].type, files[0].size);
-      
       const formData = new FormData();
       formData.append('file', files[0]);
-      
-      console.log('Uploading file...');
       uploadMutation.mutate(formData);
       e.target.value = '';
     };

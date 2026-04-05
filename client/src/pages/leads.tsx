@@ -19,6 +19,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import type { Lead } from "@shared/schema";
 import { formatDistanceToNow, addDays, format } from "date-fns";
+import { formatCurrency } from "@/lib/currency";
 
 // Spec-aligned lead statuses
 const LEAD_STATUSES = [
@@ -352,9 +353,9 @@ export default function Leads() {
                         </TableCell>
                         <TableCell data-testid={`lead-budget-${lead.id}`}>
                           {lead.budgetRange
-                            ? `${lead.currency || '£'}${lead.budgetRange}`
+                            ? lead.budgetRange
                             : lead.estimatedValue
-                              ? `${lead.currency || '£'}${parseFloat(lead.estimatedValue).toLocaleString()}`
+                              ? formatCurrency(parseFloat(lead.estimatedValue), (lead as any).currency || 'GBP')
                               : '-'}
                         </TableCell>
                         <TableCell data-testid={`lead-status-${lead.id}`}>

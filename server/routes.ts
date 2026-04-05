@@ -1561,20 +1561,6 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
             return res.status(500).json({ error: 'Session save failed' });
           }
           
-          console.log('✅ SESSION EXPLICITLY SAVED');
-          
-          // Debug: Check Set-Cookie header being sent  
-          try {
-            const setCookieHeader = res.getHeader('Set-Cookie');
-            console.log('🍪 SET-COOKIE HEADER DEBUG:', {
-              setCookieHeader: setCookieHeader || 'NONE',
-              sessionId: req.session?.id || 'NO_SESSION_ID',
-              hasSetCookie: !!setCookieHeader
-            });
-          } catch (debugError) {
-            console.log('🚨 DEBUG ERROR:', debugError.message);
-          }
-          
           res.json({ 
             success: true, 
             user: { 
@@ -5411,8 +5397,6 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
       const { signature, signatureType = 'business' } = req.body;
       const tenantId = req.session.tenantId;
 
-      console.log('[CONTRACT SIGN] Request:', { contractId, signature, signatureType, tenantId, body: req.body });
-
       if (!signature || !signature.trim()) {
         return res.status(400).json({ message: "Signature is required" });
       }
@@ -6098,15 +6082,6 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     try {
       // FIX: Use req.session.userId directly since req.authenticatedUserId isn't persisting
       const userId = req.authenticatedUserId || req.session?.userId;
-      
-      console.log('🐛 DEBUG Template creation:', {
-        authenticatedUserId: req.authenticatedUserId,
-        userId: req.userId,
-        sessionUserId: req.session?.userId,
-        tenantId: req.tenantId,
-        resolvedUserId: userId,
-        body: req.body
-      });
       
       const dataToValidate = {
         ...req.body,
@@ -7335,50 +7310,16 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
       const { userId, startDate, endDate, clientId } = req.query;
       const tenantId = req.tenantId;
       
-      console.log('📅 EVENTS FETCH REQUEST', {
-        action: 'getEvents',
-        tenantId,
-        userId: userId || req.authenticatedUserId,
-        hasDateRange: !!(startDate && endDate),
-        hasClientId: !!clientId,
-        timestamp: new Date().toISOString()
-      });
-      
       let events;
-      let queryBranch;
       if (startDate && endDate) {
-        queryBranch = 'dateRange';
         events = await storage.getEventsByDateRange(new Date(startDate as string), new Date(endDate as string), tenantId);
       } else if (userId) {
-        queryBranch = 'legacyUserQuery';
-        console.log('⚠️ LEGACY AUTH: Using userId query parameter instead of session-based authentication', {
-          userId,
-          authenticatedUserId: req.authenticatedUserId,
-          warning: 'Frontend should use session-based authentication'
-        });
         events = await storage.getEventsByUser(userId as string, tenantId);
       } else if (clientId) {
-        queryBranch = 'clientFilter';
         events = await storage.getEventsByClient(clientId as string, tenantId);
       } else {
-        queryBranch = 'sessionBased';
-        console.log('✅ SESSION AUTH: Using session-based tenant-scoped query', {
-          tenantId,
-          authenticatedUserId: req.authenticatedUserId
-        });
         events = await storage.getEvents(tenantId);
       }
-      
-      console.log('📊 EVENTS FETCH RESULTS', {
-        action: 'getEvents',
-        tenantId,
-        queryBranch,
-        eventsCount: events.length,
-        eventsWithTenantId: events.filter(e => e.tenantId).length,
-        leadEvents: events.filter(e => e.type === 'lead').length,
-        eventTypes: [...new Set(events.map(e => e.type))],
-        timestamp: new Date().toISOString()
-      });
       
       res.json(events);
     } catch (error) {
@@ -7414,20 +7355,13 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
       
       // Auto-sync to Google Calendar if user has an active integration
       try {
-        console.log(`Attempting to sync new event "${event.title}" to Google Calendar`);
         const integrations = await storage.getCalendarIntegrationsByUser(event.createdBy, req.tenantId);
         const googleIntegration = integrations.find(int => int.provider === 'google' && int.isActive);
-        
         if (googleIntegration) {
-          console.log('Found active Google integration, starting sync...');
-          const syncResult = await googleOAuthService.syncToGoogle(googleIntegration, event.id);
-          console.log(`Successfully synced event "${event.title}" to Google Calendar:`, syncResult);
-        } else {
-          console.log('No active Google integration found for user:', event.createdBy);
+          await googleOAuthService.syncToGoogle(googleIntegration, event.id);
         }
       } catch (syncError: any) {
-        console.error('Failed to sync new event to Google:', syncError);
-        console.error('Sync error details:', syncError?.response?.data || syncError?.message);
+        console.error('Failed to sync new event to Google:', syncError?.message || syncError);
         // Don't fail the creation if sync fails
       }
 
@@ -7518,19 +7452,12 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
           const googleIntegration = integrations.find(int => int.provider === 'google' && int.isActive);
           
           if (googleIntegration) {
-            console.log(`Deleting event "${event.title}" from Google Calendar:`, event.externalEventId);
             await googleOAuthService.deleteFromGoogle(googleIntegration, event.externalEventId);
-            console.log(`Successfully deleted "${event.title}" from Google Calendar`);
-          } else {
-            console.log('No active Google integration found for deletion sync');
           }
         } catch (syncError: any) {
-          console.error('Failed to delete from Google Calendar:', syncError);
-          console.error('Error details:', syncError?.response?.data || syncError?.message);
+          console.error('Failed to delete from Google Calendar:', syncError?.message || syncError);
           // Continue with CRM deletion even if Google sync fails
         }
-      } else {
-        console.log(`Event "${event.title}" has no external event ID, skipping Google deletion`);
       }
       
       const deleted = await storage.deleteEvent(req.params.id, req.tenantId);
@@ -7625,13 +7552,11 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
       
       if (integration.provider === 'google') {
         try {
-          console.log('🔄 Starting Google Calendar export sync (CRM → Google only)...');
           // One-way export: push CRM events to Google Calendar only
           // Google → CRM import is disabled to keep personal calendar events out of ClientFlow
           result = await googleOAuthService.syncToGoogleAll(integration);
-          console.log('🎉 Google Calendar export sync completed:', result);
         } catch (error: any) {
-          console.error('❌ Enhanced Google Calendar sync failed:', error);
+          console.error('Google Calendar sync failed:', error?.message || error);
           throw new Error(`Google Calendar sync failed: ${error.message}`);
         }
       } else if (integration.provider === 'ical') {
@@ -7644,8 +7569,6 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
         return res.status(400).json({ message: "Unsupported calendar provider" });
       }
       
-      // Update last sync time
-      console.log('⏰ Updating last sync time...');
       await storage.updateCalendarIntegration(integrationId, {
         lastSyncAt: new Date()
       });
@@ -8189,11 +8112,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
 
   // AI-Powered Features Routes
   // Email summarization - generate AI summary of email thread
-  app.post('/api/ai/threads/:threadId/summarize', (req, res, next) => {
-    console.log('🚨 AI ROUTE REACHED - BEFORE MIDDLEWARE:', { path: req.path, method: req.method, params: req.params });
-    next();
-  }, ensureUserAuth, tenantResolver, requireTenant, csrf, async (req: TenantRequest, res) => {
-    console.log('🤖 AI SUMMARIZE ROUTE HIT:', { threadId: req.params.threadId, tenantId: req.tenantId, userId: (req as any).session?.userId });
+  app.post('/api/ai/threads/:threadId/summarize', ensureUserAuth, tenantResolver, requireTenant, csrf, async (req: TenantRequest, res) => {
     try {
       const { threadId } = req.params;
       const userId = (req as any).session?.userId;

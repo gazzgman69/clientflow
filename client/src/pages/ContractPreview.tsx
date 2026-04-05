@@ -595,7 +595,7 @@ export default function ContractPreview() {
           <div className="flex items-center gap-2 justify-between">
             <Button
               variant="outline"
-              onClick={() => setLocation(`/projects/${contract.projectId}`)}
+              onClick={() => contract.projectId ? setLocation(`/projects/${contract.projectId}`) : setLocation('/projects')}
               data-testid="button-back"
             >
               <ArrowLeft className="h-4 w-4 mr-2" />

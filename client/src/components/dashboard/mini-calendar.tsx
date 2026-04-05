@@ -4,7 +4,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useState } from "react";
 
 export default function MiniCalendar() {
-  const [currentDate, setCurrentDate] = useState(new Date(2024, 11, 12)); // December 12, 2024
+  const [currentDate, setCurrentDate] = useState(new Date());
 
   const monthNames = [
     "January", "February", "March", "April", "May", "June",

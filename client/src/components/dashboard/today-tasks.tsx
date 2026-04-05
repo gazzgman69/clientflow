@@ -72,39 +72,7 @@ export default function TodayTasks() {
     );
   }
 
-  // Mock tasks for demonstration
-  const mockTasks = [
-    {
-      id: "1",
-      title: "Follow up with Sarah Johnson",
-      priority: "high",
-      status: "pending",
-      dueDate: new Date(),
-    },
-    {
-      id: "2",
-      title: "Send quote to Mike Rodriguez",
-      priority: "medium",
-      status: "completed",
-      dueDate: new Date(),
-    },
-    {
-      id: "3",
-      title: "Review contract terms",
-      priority: "low",
-      status: "pending",
-      dueDate: new Date(),
-    },
-    {
-      id: "4",
-      title: "Prepare presentation",
-      priority: "urgent",
-      status: "pending",
-      dueDate: new Date(),
-    },
-  ];
-
-  const displayTasks = tasks && tasks.length > 0 ? tasks : mockTasks;
+  const displayTasks = tasks || [];
 
   return (
     <Card data-testid="today-tasks-card">
@@ -112,6 +80,9 @@ export default function TodayTasks() {
         <CardTitle>Today's Tasks</CardTitle>
       </CardHeader>
       <CardContent>
+        {displayTasks.length === 0 && (
+          <p className="text-sm text-muted-foreground text-center py-4">No tasks due today</p>
+        )}
         <div className="space-y-3">
           {displayTasks.map((task) => (
             <div key={task.id} className="flex items-center space-x-3" data-testid={`task-item-${task.id}`}>

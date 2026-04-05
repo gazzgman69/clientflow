@@ -19,6 +19,7 @@ import { format } from "date-fns";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { formatCurrency } from "@/lib/currency";
+import { useCurrency } from "@/hooks/useCurrency";
 
 interface PendingItem {
   id: string;
@@ -111,6 +112,7 @@ function buildGroups(items: PendingItem[]): Group[] {
 export default function PendingItems() {
   const [, setLocation] = useLocation();
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+  const { currencyCode } = useCurrency();
 
   const { data: pendingItems = [], isLoading, isError } = useQuery<PendingItem[]>({
     queryKey: ["/api/dashboard/pending-items"],
@@ -285,7 +287,7 @@ export default function PendingItems() {
                               )}
                               {item.amount !== undefined && item.amount > 0 && (
                                 <span className="font-semibold text-foreground">
-                                  {formatCurrency(item.amount, 'GBP')}
+                                  {formatCurrency(item.amount, currencyCode || 'GBP')}
                                 </span>
                               )}
                             </div>

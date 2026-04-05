@@ -3805,7 +3805,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
         total: req.body.total != null ? String(req.body.total) : undefined,
       };
       const quoteData = insertQuoteSchema.partial().parse(body);
-      const quote = await storage.updateQuote(req.params.id, quoteData);
+      const quote = await storage.updateQuote(req.params.id, quoteData, req.tenantId!);
       if (!quote) {
         return res.status(404).json({ message: "Quote not found" });
       }
@@ -3817,7 +3817,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
 
   app.delete("/api/quotes/:id", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
     try {
-      const deleted = await storage.deleteQuote(req.params.id);
+      const deleted = await storage.deleteQuote(req.params.id, req.tenantId!);
       if (!deleted) {
         return res.status(404).json({ message: "Quote not found" });
       }
@@ -3850,7 +3850,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
       };
       
       const contractData = insertContractSchema.partial().parse(bodyWithDates);
-      const contract = await storage.updateContract(req.params.id, contractData);
+      const contract = await storage.updateContract(req.params.id, contractData, req.tenantId!);
       if (!contract) {
         return res.status(404).json({ message: "Contract not found" });
       }
@@ -3862,7 +3862,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
 
   app.delete("/api/contracts/:id", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
     try {
-      const deleted = await storage.deleteContract(req.params.id);
+      const deleted = await storage.deleteContract(req.params.id, req.tenantId!);
       if (!deleted) {
         return res.status(404).json({ message: "Contract not found" });
       }
@@ -3954,7 +3954,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   app.patch("/api/invoices/:id", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
     try {
       const invoiceData = insertInvoiceSchema.partial().parse(req.body);
-      const invoice = await storage.updateInvoice(req.params.id, invoiceData);
+      const invoice = await storage.updateInvoice(req.params.id, invoiceData, req.tenantId!);
       if (!invoice) {
         return res.status(404).json({ message: "Invoice not found" });
       }
@@ -3966,7 +3966,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
 
   app.delete("/api/invoices/:id", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
     try {
-      const deleted = await storage.deleteInvoice(req.params.id);
+      const deleted = await storage.deleteInvoice(req.params.id, req.tenantId!);
       if (!deleted) {
         return res.status(404).json({ message: "Invoice not found" });
       }
@@ -4529,9 +4529,9 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
         contracts = await storage.getContractsByClient(clientId as string, req.tenantId);
         invoices = await storage.getInvoicesByClient(clientId as string, req.tenantId);
       } else {
-        quotes = await storage.getQuotes();
-        contracts = await storage.getContracts();
-        invoices = await storage.getInvoices();
+        quotes = await storage.getQuotes(req.tenantId!);
+        contracts = await storage.getContracts(req.tenantId!);
+        invoices = await storage.getInvoices(req.tenantId!);
       }
 
       // Filter by type if specified
@@ -5339,7 +5339,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
           clientSignature: signature.trim(),
           clientSignedAt: new Date(),
           status: newStatus,
-        });
+        }, contract.tenantId!);
 
         if (!updatedContract) {
           return res.status(404).json({ message: "Failed to update contract" });
@@ -5364,7 +5364,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
           businessSignature: signature.trim(),
           businessSignedAt: new Date(),
           status: 'signed',
-        });
+        }, contract.tenantId!);
 
         if (!updatedContract) {
           return res.status(404).json({ message: "Failed to update contract" });
@@ -5372,7 +5372,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
 
         // Auto-status: project proposal_sent → booked (if also has paid invoice)
         if (updatedContract.projectId) {
-          projectStatusAutomator.onBookingConditionMet(updatedContract.projectId, tenantId).catch(err =>
+          projectStatusAutomator.onBookingConditionMet(updatedContract.projectId, updatedContract.tenantId!).catch(err =>
             console.error('[ProjectStatusAutomator] contract sign hook:', err)
           );
         }

@@ -302,7 +302,7 @@ const QUESTION_TYPES: { value: QuestionType; label: string; description: string 
   { value: 'select',       label: 'Choose from a List', description: 'One answer from a list' },
   { value: 'checkboxes',   label: 'Checkboxes',         description: 'Multiple answers from a list' },
   { value: 'date',         label: 'Date',               description: 'Pick a date' },
-  { value: 'display_text', label: 'Text / Instructions','description': 'Display-only text block' },
+  { value: 'display_text', label: 'Text / Instructions', description: 'Display-only text block' },
 ];
 
 /* ─── Service Settings Page (full-page, 12 sections) ────────────────────────── */
@@ -1264,10 +1264,14 @@ function ScheduleCard({ schedule, onEdit }: { schedule: AvailabilitySchedule; on
     },
   });
 
-  const copyPublicLink = () => {
+  const copyPublicLink = async () => {
     const link = `${window.location.origin}/book/${schedule.publicLink}`;
-    navigator.clipboard.writeText(link);
-    toast({ description: 'Public booking link copied to clipboard' });
+    try {
+      await navigator.clipboard.writeText(link);
+      toast({ description: 'Public booking link copied to clipboard' });
+    } catch {
+      toast({ description: 'Could not copy — please copy the link manually', variant: 'destructive' });
+    }
   };
 
   const [embedOpen, setEmbedOpen] = useState(false);
@@ -1275,9 +1279,13 @@ function ScheduleCard({ schedule, onEdit }: { schedule: AvailabilitySchedule; on
     ? `<!-- Inline booking widget -->\n<div id="cf-booking-${schedule.publicLink}"></div>\n<script src="${window.location.origin}/embed.js"\n  data-slug="${schedule.publicLink}"\n  data-container="#cf-booking-${schedule.publicLink}">\n</script>\n\n<!-- OR: modal button -->\n<!--\n<script src="${window.location.origin}/embed.js"\n  data-slug="${schedule.publicLink}"\n  data-button-text="Book a Call">\n</script>\n-->`
     : '';
 
-  const copyEmbed = () => {
-    navigator.clipboard.writeText(embedSnippet);
-    toast({ description: 'Embed code copied to clipboard' });
+  const copyEmbed = async () => {
+    try {
+      await navigator.clipboard.writeText(embedSnippet);
+      toast({ description: 'Embed code copied to clipboard' });
+    } catch {
+      toast({ description: 'Could not copy — please copy the code manually', variant: 'destructive' });
+    }
   };
 
   return (

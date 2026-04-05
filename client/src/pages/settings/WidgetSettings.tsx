@@ -137,8 +137,9 @@ export default function WidgetSettings() {
   }
 
   return (
+    <div className="flex-1 overflow-y-auto p-6">
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6" data-testid="page-widget-settings">
+      <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6 max-w-5xl mx-auto" data-testid="page-widget-settings">
         <div>
           <h2 className="text-3xl font-bold tracking-tight" data-testid="title-widget-settings">AI Chat Widget</h2>
           <p className="text-muted-foreground" data-testid="description-widget-settings">
@@ -532,5 +533,6 @@ export default function WidgetSettings() {
         </div>
       </form>
     </Form>
+    </div>
   );
 }

@@ -504,7 +504,7 @@ export default function EmailSettings() {
   };
 
   return (
-    <div className="p-6 overflow-y-auto" data-testid="email-settings-page">
+    <div className="flex-1 p-6 overflow-y-auto" data-testid="email-settings-page">
       <div className="max-w-5xl mx-auto space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">

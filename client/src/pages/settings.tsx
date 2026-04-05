@@ -72,6 +72,9 @@ export default function Settings() {
         toast({ title: "Photo updated", description: "Your profile photo has been saved." });
       } catch {
         toast({ title: "Upload failed", description: "Could not save your photo. Please try again.", variant: "destructive" });
+      } finally {
+        // Reset file input so the same file can be re-selected
+        if (avatarInputRef.current) avatarInputRef.current.value = '';
       }
     };
     reader.readAsDataURL(file);

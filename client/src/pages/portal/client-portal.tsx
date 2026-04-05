@@ -220,6 +220,7 @@ export default function ClientPortal() {
   };
 
   return (
+    <div className="flex-1 overflow-y-auto">
     <div className="container mx-auto py-8">
       {/* Business Logo */}
       {currentUser?.businessLogo && (
@@ -882,6 +883,7 @@ export default function ClientPortal() {
           )}
         </DialogContent>
       </Dialog>
+    </div>
     </div>
   );
 }

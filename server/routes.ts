@@ -2208,10 +2208,15 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
       const updated = await storage.updateUser(userId, updateData, req.tenantId!);
       if (!updated) return res.status(404).json({ error: 'User not found' });
       // When avatar changes, mirror it to tenant settings as the business logo
+      // Wrapped in its own try-catch so a logo-mirror failure never blocks the avatar save
       if (avatar !== undefined) {
-        const tenant = await storage.getTenant(req.tenantId!);
-        const currentSettings = tenant?.settings ? JSON.parse(tenant.settings) : {};
-        await storage.updateTenantSettings(req.tenantId!, JSON.stringify({ ...currentSettings, logoUrl: avatar }));
+        try {
+          const tenant = await storage.getTenant(req.tenantId!);
+          const currentSettings = tenant?.settings ? JSON.parse(tenant.settings) : {};
+          await storage.updateTenantSettings(req.tenantId!, JSON.stringify({ ...currentSettings, logoUrl: avatar }));
+        } catch (logoErr) {
+          console.error('Warning: failed to mirror avatar to tenant logo (avatar still saved):', logoErr);
+        }
       }
       res.json({ user: { id: updated.id, username: updated.username, email: updated.email, firstName: updated.firstName, lastName: updated.lastName, role: updated.role, avatar: updated.avatar } });
     } catch (error: any) {

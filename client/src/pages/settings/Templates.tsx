@@ -167,11 +167,11 @@ export default function TemplatesPage() {
     enabled: !!currentUser,
   });
 
-  // Fetch projects for preview selection
+  // Fetch projects for preview selection (simple mode returns plain array)
   const { data: projects = [] } = useQuery<Project[]>({
-    queryKey: ['/api/projects'],
+    queryKey: ['/api/projects?simple=1&limit=100'],
     queryFn: async () => {
-      const response = await fetch('/api/projects', {
+      const response = await fetch('/api/projects?simple=1&limit=100', {
         credentials: 'include'
       });
       return response.json();

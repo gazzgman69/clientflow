@@ -127,7 +127,7 @@ export default function QuestionEditor({
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Question Type</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl>
                       <SelectTrigger data-testid="select-question-type">
                         <SelectValue placeholder="Select question type" />
@@ -170,7 +170,7 @@ export default function QuestionEditor({
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Map To Field</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl>
                       <SelectTrigger data-testid="select-map-to">
                         <SelectValue placeholder="Select field mapping" />

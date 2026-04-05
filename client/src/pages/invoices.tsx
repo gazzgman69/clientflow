@@ -73,6 +73,7 @@ export default function Invoices() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/invoices"] });
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard/metrics"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/pending-items"] });
       toast({
         title: "Success",
         description: "Invoice created successfully!",
@@ -103,6 +104,7 @@ export default function Invoices() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/invoices"] });
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard/metrics"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/pending-items"] });
       toast({
         title: "Success",
         description: "Invoice updated successfully!",
@@ -182,6 +184,7 @@ export default function Invoices() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/invoices"] });
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard/metrics"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/pending-items"] });
       toast({ title: "Deleted", description: "Invoice deleted successfully." });
     },
     onError: () => {

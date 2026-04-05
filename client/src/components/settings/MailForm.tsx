@@ -519,7 +519,7 @@ export function MailForm({ initialData, onSuccess, onCancel }: MailFormProps) {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>IMAP Security</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <Select onValueChange={field.onChange} value={field.value}>
                           <FormControl>
                             <SelectTrigger data-testid="select-imap-security">
                               <SelectValue placeholder="Select security type" />
@@ -627,7 +627,7 @@ export function MailForm({ initialData, onSuccess, onCancel }: MailFormProps) {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>SMTP Security</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <Select onValueChange={field.onChange} value={field.value}>
                           <FormControl>
                             <SelectTrigger data-testid="select-smtp-security">
                               <SelectValue placeholder="Select security type" />

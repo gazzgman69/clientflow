@@ -6194,7 +6194,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   // Automations
   app.get("/api/automations", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
     try {
-      const automations = await storage.getAutomations();
+      const automations = await storage.getAutomations(req.tenantId!);
       res.json(automations);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch automations" });

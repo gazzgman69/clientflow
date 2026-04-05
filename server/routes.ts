@@ -1088,7 +1088,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
       }
       
       // 3. Check project.portalEnabledOverride
-      const project = await storage.getProject(projectId);
+      const project = await storage.getProject(projectId, tenantId);
       if (!project) {
         return tenantDefault; // Project not found, use tenant default
       }
@@ -2219,7 +2219,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
         return res.status(400).json({ error: 'New password must be at least 8 characters' });
       }
       const userId = req.authenticatedUserId;
-      const user = await storage.getUser(userId);
+      const user = await storage.getUser(userId, req.tenantId!);
       if (!user) return res.status(404).json({ error: 'User not found' });
       const valid = await bcrypt.compare(currentPassword, user.password || '');
       if (!valid) return res.status(400).json({ error: 'Current password is incorrect' });
@@ -2569,7 +2569,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
           return { ...lead, hasConflict: false };
         }
 
-        const project = await storage.getProject(lead.projectId);
+        const project = await storage.getProject(lead.projectId, tenantId);
         if (!project?.startDate) {
           return { ...lead, hasConflict: false };
         }
@@ -3565,7 +3565,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
         updateData.lostReasonNotes = null;
       }
 
-      const project = await storage.updateProject(req.params.id, updateData);
+      const project = await storage.updateProject(req.params.id, updateData, req.tenantId!);
       if (!project) {
         return res.status(404).json({ message: "Project not found" });
       }
@@ -3581,15 +3581,13 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     try {
       const projectId = req.params.id;
       
-      // Get project to determine proper tenant
-      const project = await storage.getProject(projectId);
+      // Get project within the authenticated tenant's scope
+      const project = await storage.getProject(projectId, req.tenantId!);
       if (!project) {
         return res.status(404).json({ message: "Project not found" });
       }
-      
-      // Resolve tenant ID from project assignment or fallback to system default
-      // This matches the same resolution used by auth guards
-      const tenantId = project.assignedTo || 'system-default';
+
+      const tenantId = req.tenantId!;
       
       // Get effective portal status using the isPortalEnabled helper
       const effectiveStatus = await isPortalEnabled(tenantId, projectId);
@@ -6591,7 +6589,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   // Project Files
   app.get("/api/projects/:id/files", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
     try {
-      const files = await storage.getProjectFiles(req.params.id);
+      const files = await storage.getProjectFiles(req.params.id, req.tenantId!);
       res.json(files);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch project files" });
@@ -6623,7 +6621,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
 
   app.delete("/api/files/:id", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
     try {
-      const deleted = await storage.deleteProjectFile(req.params.id);
+      const deleted = await storage.deleteProjectFile(req.params.id, req.tenantId!);
       if (!deleted) {
         return res.status(404).json({ message: "File not found" });
       }
@@ -6670,7 +6668,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
         tenantId: req.tenantId,
         createdBy: req.session.userId!
       });
-      const note = await storage.addProjectNote(noteData);
+      const note = await storage.addProjectNote(noteData, req.tenantId!);
       res.status(201).json(note);
     } catch (error) {
       res.status(400).json({ message: "Invalid note data" });
@@ -6679,7 +6677,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
 
   app.delete("/api/notes/:id", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
     try {
-      const deleted = await storage.deleteProjectNote(req.params.id);
+      const deleted = await storage.deleteProjectNote(req.params.id, req.tenantId!);
       if (!deleted) {
         return res.status(404).json({ message: "Note not found" });
       }
@@ -7273,7 +7271,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
       }));
 
       // Get overdue tasks
-      const tasks = await storage.getTasks();
+      const tasks = await storage.getTasks(tenantId);
       const overdueTasks = tasks.filter(t => 
         t.dueDate && new Date(t.dueDate) < new Date() && t.status !== 'completed'
       ).map(t => ({

@@ -221,6 +221,17 @@ export default function ClientPortal() {
 
   return (
     <div className="container mx-auto py-8">
+      {/* Business Logo */}
+      {currentUser?.businessLogo && (
+        <div className="flex justify-center py-5 px-6 mb-8 bg-white rounded-lg border border-gray-100 shadow-sm">
+          <img
+            src={currentUser.businessLogo}
+            alt={currentUser.businessName || 'Business logo'}
+            className="object-contain"
+            style={{ maxWidth: '160px', maxHeight: '56px' }}
+          />
+        </div>
+      )}
       <div className="mb-8">
         <h1 className="text-3xl font-bold tracking-tight">Client Portal</h1>
         <p className="text-muted-foreground mt-2">

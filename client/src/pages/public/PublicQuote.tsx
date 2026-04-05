@@ -62,6 +62,7 @@ interface QuoteData {
   items: QuoteItem[];
   packages: QuotePackage[];
   addons: QuoteAddon[];
+  businessLogo?: string;
 }
 
 interface PublicQuoteProps {
@@ -264,6 +265,17 @@ export default function PublicQuote({ token }: PublicQuoteProps) {
   return (
     <div className="min-h-screen py-8 px-4 bg-gray-50">
       <div className="max-w-4xl mx-auto">
+        {/* Business Logo */}
+        {quoteData.businessLogo && (
+          <div className="flex justify-center py-5 px-6 mb-6 bg-white rounded-lg border border-gray-100 shadow-sm">
+            <img
+              src={quoteData.businessLogo}
+              alt="Business logo"
+              className="object-contain"
+              style={{ maxWidth: '160px', maxHeight: '56px' }}
+            />
+          </div>
+        )}
         {/* Quote Header */}
         <Card className="mb-6" data-testid="quote-header">
           <CardHeader>

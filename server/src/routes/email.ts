@@ -389,6 +389,27 @@ router.post('/send', requireAuth, upload.array('attachments', 10), async (req: a
       contentType: file.mimetype
     })) || [];
 
+    // Wrap HTML in branded email template with business logo
+    if (finalHtml) {
+      try {
+        const { emailRenderer } = await import('../services/emailRenderer');
+        // Look up business logo from tenant settings
+        let businessLogo: string | undefined;
+        try {
+          const tenant = await storage.getTenant(tenantId);
+          if (tenant?.settings) {
+            const settings = JSON.parse(tenant.settings);
+            businessLogo = settings.logoUrl || undefined;
+          }
+        } catch { /* ignore logo lookup errors */ }
+        const rendered = emailRenderer.render({ subject: finalSubject, html: finalHtml, businessLogo });
+        finalHtml = rendered.htmlInlined;
+        if (!finalText && rendered.text) finalText = rendered.text;
+      } catch (renderErr) {
+        console.warn('⚠️ Email rendering failed, using raw HTML:', renderErr);
+      }
+    }
+
     try {
       // Dispatch email using OAuth provider
       const { emailDispatcher } = await import('../services/email-dispatcher');

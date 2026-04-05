@@ -1,11 +1,12 @@
 import juice from 'juice';
 import { convert as htmlToText } from 'html-to-text';
 
-export type RenderInput = { 
-  subject: string; 
-  html: string; 
-  text?: string; 
-  preheader?: string; 
+export type RenderInput = {
+  subject: string;
+  html: string;
+  text?: string;
+  preheader?: string;
+  businessLogo?: string;
 };
 
 export type RenderOutput = { 
@@ -36,7 +37,7 @@ export class EmailRenderer {
    * Render email with proper HTML structure, CSS inlining, and plaintext fallback
    */
   render(input: RenderInput): RenderOutput {
-    const { subject, html, text, preheader } = input;
+    const { subject, html, text, preheader, businessLogo } = input;
 
     // Generate plaintext if not provided
     let plainText = text;
@@ -45,7 +46,7 @@ export class EmailRenderer {
     }
 
     // Wrap content in email-safe base template
-    const wrappedHtml = this.wrapInBaseTemplate(html, preheader);
+    const wrappedHtml = this.wrapInBaseTemplate(html, preheader, businessLogo);
 
     // Inline CSS for email client compatibility
     const htmlInlined = this.inlineCSS(wrappedHtml);
@@ -70,9 +71,17 @@ export class EmailRenderer {
   /**
    * Wrap content in email-safe base template
    */
-  private wrapInBaseTemplate(content: string, preheader?: string): string {
-    const preheaderSpan = preheader ? 
-      `<span style="display:none;opacity:0;color:transparent;height:0;width:0;line-height:0;overflow:hidden;mso-hide:all;">${this.sanitizeText(preheader)}</span>` : 
+  private wrapInBaseTemplate(content: string, preheader?: string, businessLogo?: string): string {
+    const preheaderSpan = preheader ?
+      `<span style="display:none;opacity:0;color:transparent;height:0;width:0;line-height:0;overflow:hidden;mso-hide:all;">${this.sanitizeText(preheader)}</span>` :
+      '';
+
+    const logoBlock = businessLogo ?
+      `<tr>
+            <td style="padding: 20px 32px; border-bottom: 1px solid #e9ecef; text-align: center;">
+              <img src="${businessLogo}" alt="Logo" style="max-width: 160px; max-height: 56px; width: auto; height: auto; display: block; margin: 0 auto;" />
+            </td>
+          </tr>` :
       '';
 
     return `<!doctype html>
@@ -82,31 +91,31 @@ export class EmailRenderer {
   <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
   <style>
     /* Email-safe reset and base styles */
-    body { 
-      margin: 0; 
-      padding: 0; 
+    body {
+      margin: 0;
+      padding: 0;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
       line-height: 1.6;
       color: #333333;
       background-color: #f8f9fa;
     }
-    table { 
-      border-collapse: collapse; 
-      mso-table-lspace: 0pt; 
-      mso-table-rspace: 0pt; 
+    table {
+      border-collapse: collapse;
+      mso-table-lspace: 0pt;
+      mso-table-rspace: 0pt;
     }
-    img { 
-      border: 0; 
-      outline: none; 
-      text-decoration: none; 
-      -ms-interpolation-mode: bicubic; 
+    img {
+      border: 0;
+      outline: none;
+      text-decoration: none;
+      -ms-interpolation-mode: bicubic;
     }
-    a { 
-      color: #007bff; 
-      text-decoration: none; 
+    a {
+      color: #007bff;
+      text-decoration: none;
     }
-    a:hover { 
-      text-decoration: underline; 
+    a:hover {
+      text-decoration: underline;
     }
     .email-container {
       max-width: 600px;
@@ -135,12 +144,12 @@ export class EmailRenderer {
     .email-content li { margin: 0 0 8px; }
     .email-content strong { font-weight: bold; }
     .email-content em { font-style: italic; }
-    .email-content code { 
-      font-family: 'Monaco', 'Consolas', monospace; 
-      background-color: #f1f3f4; 
-      padding: 2px 4px; 
-      border-radius: 3px; 
-      font-size: 90%; 
+    .email-content code {
+      font-family: 'Monaco', 'Consolas', monospace;
+      background-color: #f1f3f4;
+      padding: 2px 4px;
+      border-radius: 3px;
+      font-size: 90%;
     }
     .email-content blockquote {
       margin: 0 0 16px;
@@ -172,6 +181,7 @@ export class EmailRenderer {
     <tr>
       <td align="center" style="padding: 40px 20px;">
         <table role="presentation" class="email-container" cellpadding="0" cellspacing="0" border="0">
+          ${logoBlock}
           <tr>
             <td class="email-content">
               ${content}

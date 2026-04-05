@@ -42,6 +42,13 @@ export default function MusicianPortal() {
   const [availNotes, setAvailNotes] = useState("");
   const { toast } = useToast();
 
+  // Fetch portal auth info for business branding
+  const { data: portalAuth } = useQuery({
+    queryKey: ["/api/portal/auth/me"],
+    retry: false,
+    staleTime: 5 * 60 * 1000,
+  });
+
   // Fetch current user's member profile to get memberId
   const { data: currentMember, isLoading: memberLoading } = useQuery<Member>({
     queryKey: ["/api/members/me"],
@@ -155,6 +162,17 @@ export default function MusicianPortal() {
 
   return (
     <div className="container mx-auto py-8 space-y-6">
+      {/* Business Logo */}
+      {portalAuth?.businessLogo && (
+        <div className="flex justify-center py-5 px-6 bg-white rounded-lg border border-gray-100 shadow-sm">
+          <img
+            src={portalAuth.businessLogo}
+            alt={portalAuth.businessName || 'Business logo'}
+            className="object-contain"
+            style={{ maxWidth: '160px', maxHeight: '56px' }}
+          />
+        </div>
+      )}
       {/* Header */}
       <div>
         <h1 className="text-3xl font-bold tracking-tight">

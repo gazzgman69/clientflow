@@ -48,6 +48,7 @@ type Venue = {
 
 type Tenant = {
   name: string;
+  logoUrl?: string;
 };
 
 export default function PublicContract({ id }: PublicContractProps) {
@@ -196,6 +197,17 @@ export default function PublicContract({ id }: PublicContractProps) {
   return (
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-4xl mx-auto px-4">
+        {/* Business Logo */}
+        {tenant?.logoUrl && (
+          <div className="flex justify-center py-5 px-6 mb-6 bg-white rounded-lg border border-gray-100 shadow-sm">
+            <img
+              src={tenant.logoUrl}
+              alt="Business logo"
+              className="object-contain"
+              style={{ maxWidth: '160px', maxHeight: '56px' }}
+            />
+          </div>
+        )}
         {/* Status Badge */}
         <div className="mb-6 flex justify-end">
           <Badge className={`${statusColors[contract.status]} text-white`}>

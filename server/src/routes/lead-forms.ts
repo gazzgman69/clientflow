@@ -294,6 +294,20 @@ router.get('/:slug', async (req, res) => {
 
 
 
+    // Include business logo for branding
+    let businessLogo: string | null = null;
+    let businessName: string = '';
+    if (form.tenantId) {
+      try {
+        const tenant = await storage.getTenant(form.tenantId);
+        businessName = tenant?.name || '';
+        if (tenant?.settings) {
+          const settings = JSON.parse(tenant.settings);
+          businessLogo = settings.logoUrl || null;
+        }
+      } catch { /* non-fatal */ }
+    }
+
     res.json({
       form: {
         id: form.id,
@@ -308,7 +322,9 @@ router.get('/:slug', async (req, res) => {
         redirectUrl: form.redirectUrl || null,
         thankYouMessage: form.thankYouMessage || 'Thank you for your enquiry! We will be in touch shortly.',
       },
-      questions: questions
+      questions: questions,
+      businessLogo,
+      businessName,
     });
   } catch (error) {
     console.error('Error fetching public form:', error);

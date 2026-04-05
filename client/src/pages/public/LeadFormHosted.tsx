@@ -38,6 +38,8 @@ interface FormData {
     dataRetentionDays: number;
   };
   questions: Question[];
+  businessLogo?: string;
+  businessName?: string;
 }
 
 interface LeadFormHostedProps {
@@ -402,6 +404,17 @@ export default function LeadFormHosted({ slug }: LeadFormHostedProps) {
   return (
     <div className={`${isDialog ? 'p-4' : 'min-h-screen py-8'} ${isEmbed ? 'p-0' : 'px-4'}`}>
       <div className="max-w-2xl mx-auto">
+        {/* Business Logo */}
+        {formData.businessLogo && !isEmbed && (
+          <div className="flex justify-center py-5 px-6 mb-6 bg-white rounded-lg border border-gray-100 shadow-sm">
+            <img
+              src={formData.businessLogo}
+              alt={formData.businessName || 'Business logo'}
+              className="object-contain"
+              style={{ maxWidth: '160px', maxHeight: '56px' }}
+            />
+          </div>
+        )}
         <Card data-testid="lead-form-card">
           <CardHeader>
             <CardTitle className="text-2xl">{formData.form.title}</CardTitle>

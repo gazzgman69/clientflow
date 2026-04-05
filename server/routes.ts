@@ -1224,7 +1224,13 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
       if (!contact) {
         return res.status(404).json({ error: 'Contact not found' });
       }
-      res.json({ contact: { id: contact.id, name: contact.fullName || contact.firstName, email: contact.email } });
+      const businessLogo = await getTenantLogoUrl(tenantId);
+      const tenant = await storage.getTenant(tenantId);
+      res.json({
+        contact: { id: contact.id, name: contact.fullName || contact.firstName, email: contact.email },
+        businessLogo,
+        businessName: tenant?.name || '',
+      });
     } catch (error: any) {
       console.error('Error fetching contact info:', error);
       res.status(500).json({ error: 'Failed to get contact info' });
@@ -2201,6 +2207,12 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
       if (avatar !== undefined) updateData.avatar = avatar;
       const updated = await storage.updateUser(userId, updateData, req.tenantId!);
       if (!updated) return res.status(404).json({ error: 'User not found' });
+      // When avatar changes, mirror it to tenant settings as the business logo
+      if (avatar !== undefined) {
+        const tenant = await storage.getTenant(req.tenantId!);
+        const currentSettings = tenant?.settings ? JSON.parse(tenant.settings) : {};
+        await storage.updateTenantSettings(req.tenantId!, JSON.stringify({ ...currentSettings, logoUrl: avatar }));
+      }
       res.json({ user: { id: updated.id, username: updated.username, email: updated.email, firstName: updated.firstName, lastName: updated.lastName, role: updated.role, avatar: updated.avatar } });
     } catch (error: any) {
       console.error('Error updating user profile:', error);
@@ -4599,13 +4611,26 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
 
   // Enhanced Quotes System - Public Routes (Rate Limited for Security)
   // Public quote access by token - RATE LIMITED
+  // Helper: get business logo URL from tenant settings
+  async function getTenantLogoUrl(tenantId: string): Promise<string | null> {
+    try {
+      const tenant = await storage.getTenant(tenantId);
+      if (!tenant?.settings) return null;
+      const settings = JSON.parse(tenant.settings);
+      return settings.logoUrl || null;
+    } catch { return null; }
+  }
+
   app.get("/api/public/quotes/:token", authLimiter, async (req, res) => {
     try {
       const quoteData = await storage.getQuoteByToken(req.params.token);
       if (!quoteData) {
         return res.status(404).json({ message: "Quote not found or expired" });
       }
-      res.json(quoteData);
+      // Attach business logo for branding on the public quote page
+      const tenantId = (quoteData as any).quote?.tenantId || (quoteData as any).tenantId;
+      const businessLogo = tenantId ? await getTenantLogoUrl(tenantId) : null;
+      res.json({ ...quoteData, businessLogo });
     } catch (error) {
       console.error("Error fetching public quote:", error);
       res.status(500).json({ message: "Failed to fetch quote" });
@@ -5257,6 +5282,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
         } : null,
         tenant: tenant ? {
           name: tenant.name,
+          logoUrl: await getTenantLogoUrl(contract.tenantId),
         } : null,
       });
     } catch (error) {
@@ -5494,12 +5520,20 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
                 </div>
               `;
               
+              // Wrap email body in branded template with business logo
+              let brandedEmailBody = emailBody;
+              try {
+                const businessLogo = await getTenantLogoUrl(tenantId);
+                const rendered = emailRenderer.render({ subject: renderedSubject, html: emailBody, businessLogo: businessLogo || undefined });
+                brandedEmailBody = rendered.htmlInlined;
+              } catch { /* use raw emailBody on failure */ }
+
               // Send the email
               const emailResult = await emailDispatcher.sendEmail({
                 tenantId,
                 to: contact.email,
                 subject: renderedSubject,
-                html: emailBody
+                html: brandedEmailBody
               });
               
             }

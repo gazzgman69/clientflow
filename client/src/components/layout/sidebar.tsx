@@ -188,12 +188,22 @@ export default function Sidebar() {
         <DropdownMenu>
           <DropdownMenuTrigger className="w-full" data-testid="user-menu">
             <div className="flex items-center space-x-3 rounded-lg p-2 transition-colors" style={{ cursor: 'pointer' }}>
-              <img
-                src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=100&h=100"
-                alt="User avatar"
-                className="w-10 h-10 rounded-full object-cover"
-                data-testid="user-avatar"
-              />
+              {currentUser?.user?.avatar ? (
+                <img
+                  src={currentUser.user.avatar}
+                  alt="User avatar"
+                  className="w-10 h-10 rounded-full object-cover"
+                  data-testid="user-avatar"
+                />
+              ) : (
+                <div
+                  className="w-10 h-10 rounded-full flex items-center justify-center text-white font-medium text-sm"
+                  style={{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6)' }}
+                  data-testid="user-avatar"
+                >
+                  {currentUser?.user ? `${currentUser.user.firstName?.[0] || ''}${currentUser.user.lastName?.[0] || ''}` : 'U'}
+                </div>
+              )}
               <div className="flex-1 min-w-0 text-left">
                 <p className="text-sm font-medium text-white truncate" data-testid="user-name">
                   {currentUser?.user ? `${currentUser.user.firstName} ${currentUser.user.lastName}` : 'John Smith'}

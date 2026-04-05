@@ -1144,10 +1144,44 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
       
       // Generate cryptographically secure access token (expires in 15 minutes, stored in DB)
       const accessToken = await createPortalToken(contact.id, contact.email, contact.tenantId, 15);
-      
-      // TODO: Send email with magic link containing token
-      // For security, never log or return the actual token
-      console.log(`📧 Access link request for ${email} - token sent (expires in 15 minutes)`);
+
+      // Send magic link email to the client
+      const baseUrl = `${req.protocol}://${req.get('host')}`;
+      const magicLinkUrl = `${baseUrl}/portal/access?token=${encodeURIComponent(accessToken)}`;
+
+      try {
+        const emailResult = await emailDispatcher.sendEmail({
+          tenantId: contact.tenantId,
+          to: contact.email,
+          subject: 'Your Client Portal Access Link',
+          html: `
+            <div style="font-family: Arial, sans-serif; max-width: 480px; margin: 0 auto;">
+              <h2 style="color: #1a1a1a;">Access Your Client Portal</h2>
+              <p>Click the button below to securely access your client portal. This link expires in 15 minutes.</p>
+              <p style="margin: 24px 0;">
+                <a href="${magicLinkUrl}" style="background-color: #2563eb; color: white; padding: 12px 24px; border-radius: 6px; text-decoration: none; font-weight: bold;">
+                  Access Client Portal
+                </a>
+              </p>
+              <p style="color: #6b7280; font-size: 14px;">If you didn't request this, you can safely ignore this email.</p>
+              <p style="color: #6b7280; font-size: 12px; margin-top: 16px;">
+                If the button doesn't work, copy this link into your browser:<br/>
+                <a href="${magicLinkUrl}" style="color: #2563eb; word-break: break-all;">${magicLinkUrl}</a>
+              </p>
+            </div>
+          `,
+          text: `Access your client portal here (expires in 15 minutes): ${magicLinkUrl}`,
+        });
+
+        if (!emailResult.success) {
+          console.warn(`⚠️ Portal magic link email could not be sent to ${email} (no email provider configured): ${emailResult.error}`);
+        } else {
+          console.log(`📧 Portal magic link sent to ${email}`);
+        }
+      } catch (emailErr: any) {
+        // Email sending failure should not block the response — client gets the same message
+        console.error(`❌ Failed to send portal magic link to ${email}:`, emailErr.message);
+      }
       
       res.json({ 
         success: true, 
@@ -1226,14 +1260,39 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
       }
       const businessLogo = await getTenantLogoUrl(tenantId);
       const tenant = await storage.getTenant(tenantId);
+      // Get business owner email so the portal client can send messages to the right address
+      const tenantUsers = await storage.getUsers(tenantId);
+      const adminUser = tenantUsers.find(u => u.role === 'admin') || tenantUsers[0];
       res.json({
         contact: { id: contact.id, name: contact.fullName || contact.firstName, email: contact.email },
         businessLogo,
         businessName: tenant?.name || '',
+        businessEmail: adminUser?.email || '',
       });
     } catch (error: any) {
       console.error('Error fetching contact info:', error);
       res.status(500).json({ error: 'Failed to get contact info' });
+    }
+  });
+
+  // Admin portal preview — lets authenticated business owners preview their own portal
+  app.get('/api/portal/preview/me', ensureUserAuth, tenantResolver, requireTenant, async (req: TenantRequest, res) => {
+    try {
+      const tenantId = req.tenantId!;
+      const businessLogo = await getTenantLogoUrl(tenantId);
+      const tenant = await storage.getTenant(tenantId);
+      const users = await storage.getUsers(tenantId);
+      const currentUser = users.find(u => u.id === req.session.userId) || users[0];
+      res.json({
+        contact: { id: currentUser?.id || '', name: `${currentUser?.firstName || ''} ${currentUser?.lastName || ''}`.trim(), email: currentUser?.email || '' },
+        businessLogo,
+        businessName: tenant?.name || '',
+        businessEmail: currentUser?.email || '',
+        isPreviewMode: true,
+      });
+    } catch (error: any) {
+      console.error('Error fetching portal preview info:', error);
+      res.status(500).json({ error: 'Failed to get portal preview info' });
     }
   });
 

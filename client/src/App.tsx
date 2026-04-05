@@ -37,6 +37,7 @@ import PerformerContracts from "@/pages/performer-contracts";
 import Venues from "@/pages/venues";
 import MusicianPortal from "@/pages/portal/musician-portal";
 import ClientPortal from "@/pages/portal/client-portal";
+import PortalAccess from "@/pages/portal/portal-access";
 import LoginPage from "@/pages/login";
 import OnboardingPage from "@/pages/onboarding";
 import MediaLibrary from "@/pages/media-library";
@@ -119,6 +120,10 @@ function Router() {
       
       {/* Portal Routes - No Authentication Required */}
       <Route path="/portal/musician" component={MusicianPortal} />
+      <Route path="/portal/access" component={PortalAccess} />
+      <Route path="/portal/login" component={PortalAccess} />
+      <Route path="/portal/client" component={ClientPortal} />
+      <Route path="/portal" component={ClientPortal} />
       
       {/* Public Form Routes - No Authentication Required */}
       <Route path="/f/:slug">
@@ -193,8 +198,6 @@ function Router() {
                   <Route path="/calendar" component={Calendar} />
                   <Route path="/email" component={EmailPage} />
                   <Route path="/automations" component={Automations} />
-                  <Route path="/portal/client" component={ClientPortal} />
-                  <Route path="/portal" component={ClientPortal} />
                   <Route path="/settings/email" component={EmailSettings} />
                   <Route path="/settings/email-and-calendar" component={EmailSettings} />
                   <Route path="/settings/templates" component={Templates} />

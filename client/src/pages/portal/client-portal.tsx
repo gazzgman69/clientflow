@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 import { 
   Briefcase, Receipt, FileText, Mail, Calendar, 
   Download, Eye, MessageSquare, CreditCard, Clock,
@@ -49,13 +50,26 @@ export default function ClientPortal() {
   const [showProjectDetails, setShowProjectDetails] = useState(false);
   const [showMessageForm, setShowMessageForm] = useState(false);
   const { toast } = useToast();
+  const [, setLocation] = useLocation();
 
-  // Authentication state - using secure session-based auth
-  const { data: currentUser, isLoading: isAuthLoading } = useQuery({
+  // Authentication state - portal client session
+  const { data: portalUser, isLoading: isPortalAuthLoading } = useQuery({
     queryKey: ["/api/portal/auth/me"],
     retry: false,
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 5 * 60 * 1000,
   });
+
+  // Admin preview fallback — lets business owners preview the portal while logged in
+  const { data: previewUser, isLoading: isPreviewLoading } = useQuery({
+    queryKey: ["/api/portal/preview/me"],
+    retry: false,
+    staleTime: 5 * 60 * 1000,
+    enabled: !portalUser && !isPortalAuthLoading, // Only try if portal auth failed
+  });
+
+  const currentUser = portalUser || previewUser;
+  const isAuthLoading = isPortalAuthLoading || (!portalUser && isPreviewLoading);
+  const isPreviewMode = !portalUser && !!previewUser;
 
   const { data: myProjects = [] } = useQuery<Project[]>({
     queryKey: ["/api/portal/client/projects"],
@@ -156,7 +170,7 @@ export default function ClientPortal() {
       apiRequest("POST", "/api/emails", {
         ...data,
         fromEmail: currentUser?.contact?.email || "client@example.com",
-        toEmail: "events@company.com",
+        toEmail: currentUser?.businessEmail || "",
         body: data.message,
       }),
     onSuccess: () => {
@@ -198,9 +212,45 @@ export default function ClientPortal() {
     }
   };
 
+  // Show loading spinner while checking auth
+  if (isAuthLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
+  // Show access page prompt if not authenticated as a portal user
+  if (!currentUser) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
+        <div className="text-center space-y-4 max-w-sm">
+          <h2 className="text-xl font-semibold">Portal Access Required</h2>
+          <p className="text-muted-foreground text-sm">
+            Please use your secure access link to view the client portal.
+          </p>
+          <button
+            className="text-primary underline text-sm"
+            onClick={() => setLocation("/portal/access")}
+          >
+            Request an access link
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex-1 overflow-y-auto">
     <div className="container mx-auto py-8">
+      {/* Preview Mode Banner */}
+      {isPreviewMode && (
+        <div className="mb-6 px-4 py-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800 flex items-center gap-2">
+          <span className="font-semibold">Preview Mode:</span>
+          <span>You're viewing the portal as a business admin. Clients see this page after logging in via magic link.</span>
+        </div>
+      )}
       {/* Business Logo */}
       {currentUser?.businessLogo && (
         <div className="flex justify-center py-5 px-6 mb-8 bg-white rounded-lg border border-gray-100 shadow-sm">

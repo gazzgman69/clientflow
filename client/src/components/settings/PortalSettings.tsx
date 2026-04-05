@@ -6,14 +6,17 @@ import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
-import { 
-  Save, 
-  ExternalLink, 
-  Shield, 
-  Info, 
+import { Input } from "@/components/ui/input";
+import {
+  Save,
+  ExternalLink,
+  Shield,
+  Info,
   CheckCircle,
   AlertTriangle,
-  Users 
+  Users,
+  Copy,
+  Link
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useUserPrefs } from "@/hooks/useUserPrefs";
@@ -121,6 +124,38 @@ export default function PortalSettingsComponent() {
             )}
           </AlertDescription>
         </Alert>
+
+        {/* Portal Login URL */}
+        {portalEnabled && (
+          <div className="space-y-2">
+            <Label className="text-sm font-medium flex items-center gap-2">
+              <Link className="h-4 w-4" />
+              Client Portal Login URL
+            </Label>
+            <div className="flex gap-2">
+              <Input
+                readOnly
+                value={`${window.location.origin}/portal/access`}
+                className="font-mono text-sm bg-muted"
+                data-testid="input-portal-login-url"
+              />
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  navigator.clipboard.writeText(`${window.location.origin}/portal/access`);
+                  toast({ title: "Copied!", description: "Portal login URL copied to clipboard." });
+                }}
+                data-testid="button-copy-portal-url"
+              >
+                <Copy className="h-4 w-4" />
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Share this URL with your clients. They'll enter their email to receive a secure one-time access link.
+            </p>
+          </div>
+        )}
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Card className="p-4">

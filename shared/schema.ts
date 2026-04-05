@@ -1290,7 +1290,7 @@ export const formSubmissions = pgTable("form_submissions", {
   submissionKey: text("submission_key").notNull(), // Hash of form data for deduplication
   ipAddress: text("ip_address"),
   userAgent: text("user_agent"),
-  leadId: varchar("lead_id").references(() => leads.id), // Link to created lead
+  leadId: varchar("lead_id").references(() => leads.id, { onDelete: 'cascade' }), // Link to created lead
   status: text("status").notNull().default('processed'), // processed, failed, spam
   metadata: text("metadata"), // JSON string for additional tracking data
   submittedAt: timestamp("submitted_at").defaultNow(),
@@ -1305,7 +1305,7 @@ export const formSubmissions = pgTable("form_submissions", {
 export const leadConsents = pgTable("lead_consents", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   tenantId: varchar("tenant_id").references(() => tenants.id).notNull(),
-  leadId: varchar("lead_id").references(() => leads.id).notNull(),
+  leadId: varchar("lead_id").references(() => leads.id, { onDelete: 'cascade' }).notNull(),
   formId: varchar("form_id").references(() => leadCaptureForms.id),
   consentType: text("consent_type").notNull().default('marketing'), // marketing, processing, storage
   consentGiven: boolean("consent_given").notNull(),
@@ -1500,7 +1500,7 @@ export const leadCustomFields = pgTable("lead_custom_fields", {
 export const leadCustomFieldResponses = pgTable("lead_custom_field_responses", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   tenantId: varchar("tenant_id").references(() => tenants.id), // Nullable initially for safe migration
-  leadId: varchar("lead_id").references(() => leads.id).notNull(),
+  leadId: varchar("lead_id").references(() => leads.id, { onDelete: 'cascade' }).notNull(),
   fieldKey: text("field_key").notNull(), // References leadCustomFields.key
   value: text("value"), // The user's response value
   fileName: text("file_name"), // For file type fields

@@ -2595,11 +2595,11 @@ export class MemStorage implements IStorage {
   }
 
   // Project Files
-  async getProjectFiles(projectId: string): Promise<ProjectFile[]> {
+  async getProjectFiles(projectId: string, tenantId: string): Promise<ProjectFile[]> {
     return this.projectFiles.get(projectId) || [];
   }
 
-  async addProjectFile(insertFile: InsertProjectFile): Promise<ProjectFile> {
+  async addProjectFile(insertFile: InsertProjectFile, tenantId: string): Promise<ProjectFile> {
     const id = randomUUID();
     const file: ProjectFile = {
       ...insertFile,
@@ -2616,7 +2616,7 @@ export class MemStorage implements IStorage {
     return file;
   }
 
-  async deleteProjectFile(id: string): Promise<boolean> {
+  async deleteProjectFile(id: string, tenantId: string): Promise<boolean> {
     for (const [projectId, files] of Array.from(this.projectFiles.entries())) {
       const index = files.findIndex((f: ProjectFile) => f.id === id);
       if (index !== -1) {
@@ -2628,7 +2628,7 @@ export class MemStorage implements IStorage {
     return false;
   }
 
-  async updateProjectFile(id: string, updates: { clientPortalVisible?: boolean; memberPortalVisible?: boolean }): Promise<ProjectFile | null> {
+  async updateProjectFile(id: string, updates: { clientPortalVisible?: boolean; memberPortalVisible?: boolean }, tenantId?: string): Promise<ProjectFile | null> {
     for (const [projectId, files] of Array.from(this.projectFiles.entries())) {
       const file = files.find((f: ProjectFile) => f.id === id);
       if (file) {
@@ -2644,7 +2644,7 @@ export class MemStorage implements IStorage {
     return this.projectNotes.get(projectId) || [];
   }
 
-  async addProjectNote(insertNote: InsertProjectNote): Promise<ProjectNote> {
+  async addProjectNote(insertNote: InsertProjectNote, tenantId: string): Promise<ProjectNote> {
     const id = randomUUID();
     const note: ProjectNote = {
       ...insertNote,
@@ -2659,7 +2659,7 @@ export class MemStorage implements IStorage {
     return note;
   }
 
-  async deleteProjectNote(id: string): Promise<boolean> {
+  async deleteProjectNote(id: string, tenantId: string): Promise<boolean> {
     for (const [projectId, notes] of Array.from(this.projectNotes.entries())) {
       const index = notes.findIndex((n: ProjectNote) => n.id === id);
       if (index !== -1) {
@@ -6432,27 +6432,34 @@ export class DrizzleStorage implements IStorage {
     const result = await this.db.delete(projectSetlist).where(and(eq(projectSetlist.projectId, projectId), eq(projectSetlist.songId, songId), eq(projectSetlist.tenantId, tenantId)));
     return result.rowCount > 0;
   }
-  async getProjectFiles(projectId: string): Promise<ProjectFile[]> {
+  async getProjectFiles(projectId: string, tenantId: string): Promise<ProjectFile[]> {
     try {
-      return await this.db.select().from(projectFiles).where(eq(projectFiles.projectId, projectId));
+      return await this.db.select().from(projectFiles).where(
+        and(eq(projectFiles.projectId, projectId), eq(projectFiles.tenantId, tenantId))
+      );
     } catch (error: any) {
       console.warn('Note: Project files table may not be fully initialized:', error?.message);
       return [];
     }
   }
 
-  async addProjectFile(file: InsertProjectFile): Promise<ProjectFile> {
-    const result = await this.db.insert(projectFiles).values(file).returning();
+  async addProjectFile(file: InsertProjectFile, tenantId: string): Promise<ProjectFile> {
+    const result = await this.db.insert(projectFiles).values({ ...file, tenantId }).returning();
     return result[0];
   }
 
-  async deleteProjectFile(id: string): Promise<boolean> {
-    const result = await this.db.delete(projectFiles).where(eq(projectFiles.id, id));
+  async deleteProjectFile(id: string, tenantId: string): Promise<boolean> {
+    const result = await this.db.delete(projectFiles).where(
+      and(eq(projectFiles.id, id), eq(projectFiles.tenantId, tenantId))
+    );
     return result.rowCount > 0;
   }
 
-  async updateProjectFile(id: string, updates: { clientPortalVisible?: boolean; memberPortalVisible?: boolean }): Promise<ProjectFile | null> {
-    const result = await this.db.update(projectFiles).set(updates).where(eq(projectFiles.id, id)).returning();
+  async updateProjectFile(id: string, updates: { clientPortalVisible?: boolean; memberPortalVisible?: boolean }, tenantId?: string): Promise<ProjectFile | null> {
+    const conditions = tenantId
+      ? and(eq(projectFiles.id, id), eq(projectFiles.tenantId, tenantId))
+      : eq(projectFiles.id, id);
+    const result = await this.db.update(projectFiles).set(updates).where(conditions).returning();
     return result[0] || null;
   }
 
@@ -6472,8 +6479,8 @@ export class DrizzleStorage implements IStorage {
     }
   }
 
-  async addProjectNote(note: InsertProjectNote): Promise<ProjectNote> {
-    const result = await this.db.insert(projectNotes).values(note).returning();
+  async addProjectNote(note: InsertProjectNote, tenantId: string): Promise<ProjectNote> {
+    const result = await this.db.insert(projectNotes).values({ ...note, tenantId }).returning();
     return result[0];
   }
 
@@ -6482,8 +6489,10 @@ export class DrizzleStorage implements IStorage {
     return result[0];
   }
 
-  async deleteProjectNote(id: string): Promise<boolean> {
-    const result = await this.db.delete(projectNotes).where(eq(projectNotes.id, id));
+  async deleteProjectNote(id: string, tenantId: string): Promise<boolean> {
+    const result = await this.db.delete(projectNotes).where(
+      and(eq(projectNotes.id, id), eq(projectNotes.tenantId, tenantId))
+    );
     return result.rowCount > 0;
   }
 

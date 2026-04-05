@@ -5623,6 +5623,18 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
 
+  app.delete("/api/tasks/:id", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req: TenantRequest, res) => {
+    try {
+      const deleted = await storage.deleteTask(req.params.id, req.tenantId!);
+      if (!deleted) {
+        return res.status(404).json({ message: "Task not found" });
+      }
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ message: "Failed to delete task" });
+    }
+  });
+
   // Emails
   app.get("/api/emails", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
     try {
@@ -6612,7 +6624,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
         fileSize: uploadedFile.size,
         mimeType: uploadedFile.mimetype,
       });
-      const file = await storage.addProjectFile(fileData);
+      const file = await storage.addProjectFile(fileData, req.tenantId!);
       res.status(201).json(file);
     } catch (error) {
       res.status(400).json({ message: "Invalid file data" });

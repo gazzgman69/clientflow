@@ -202,6 +202,7 @@ export interface IStorage {
   getProjectFiles(projectId: string, tenantId: string): Promise<ProjectFile[]>;
   addProjectFile(file: InsertProjectFile, tenantId: string): Promise<ProjectFile>;
   deleteProjectFile(id: string, tenantId: string): Promise<boolean>;
+  updateProjectFile(id: string, updates: { clientPortalVisible?: boolean; memberPortalVisible?: boolean }, tenantId?: string): Promise<ProjectFile | null>;
   
   // Project Notes
   getProjectNotes(projectId: string, tenantId: string): Promise<ProjectNote[]>;

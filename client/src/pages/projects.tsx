@@ -283,6 +283,50 @@ export default function Projects() {
     },
   });
 
+  const updateProjectMutation = useMutation({
+    mutationFn: async (data: z.infer<typeof projectFormSchema>) => {
+      const projectData = {
+        ...data,
+        estimatedValue: data.estimatedValue ? parseFloat(data.estimatedValue) : null,
+      };
+      const response = await apiRequest("PATCH", `/api/projects/${editingProject!.id}`, projectData);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/metrics"] });
+      toast({
+        title: "Success",
+        description: "Project updated successfully!",
+      });
+      form.reset();
+      setEditingProject(null);
+      setSelectedVenue(null);
+      setShowProjectModal(false);
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to update project. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Populate form when editing an existing project
+  useEffect(() => {
+    if (editingProject) {
+      form.reset({
+        name: editingProject.name || "",
+        description: editingProject.description || "",
+        contactId: editingProject.contactId || "",
+        status: editingProject.status || "active",
+        progress: editingProject.progress || 0,
+        estimatedValue: editingProject.estimatedValue?.toString() || "",
+      });
+    }
+  }, [editingProject]);
+
   // Fetch deletion preview when project is selected for deletion
   const { data: previewData, isLoading: previewLoading } = useQuery({
     queryKey: ['/api/projects', previewProjectId, 'deletion-preview'],
@@ -345,7 +389,11 @@ export default function Projects() {
   };
 
   const onSubmit = (data: z.infer<typeof projectFormSchema>) => {
-    createProjectMutation.mutate(data);
+    if (editingProject) {
+      updateProjectMutation.mutate(data);
+    } else {
+      createProjectMutation.mutate(data);
+    }
   };
 
   const handleProjectStatusChange = async (projectId: string, newStatus: string) => {
@@ -638,10 +686,10 @@ export default function Projects() {
                           >
                             <Eye className="h-4 w-4" />
                           </Button>
-                          <Button 
-                            variant="ghost" 
-                            size="sm" 
-                            onClick={(e) => e.stopPropagation()}
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={(e) => { e.stopPropagation(); setEditingProject(project); setShowProjectModal(true); }}
                             data-testid={`edit-project-${project.id}`}
                           >
                             <Edit className="h-4 w-4" />
@@ -806,12 +854,14 @@ export default function Projects() {
                 >
                   Cancel
                 </Button>
-                <Button 
-                  type="submit" 
-                  disabled={createProjectMutation.isPending}
+                <Button
+                  type="submit"
+                  disabled={createProjectMutation.isPending || updateProjectMutation.isPending}
                   data-testid="button-save-project"
                 >
-                  {createProjectMutation.isPending ? "Creating..." : "Create Project"}
+                  {editingProject
+                    ? (updateProjectMutation.isPending ? "Saving..." : "Save Changes")
+                    : (createProjectMutation.isPending ? "Creating..." : "Create Project")}
                 </Button>
               </div>
             </form>

@@ -345,7 +345,7 @@ export default function ClientPortal() {
                           </div>
                         </TableCell>
                         <TableCell>
-                          ${project.estimatedValue || '0.00'}
+                          {formatCurrency(parseFloat(project.estimatedValue?.toString() || '0'), 'GBP')}
                         </TableCell>
                         <TableCell>
                           <Button
@@ -415,7 +415,7 @@ export default function ClientPortal() {
                         </TableCell>
                         <TableCell>
                           <div className="flex gap-2">
-                            <Button size="sm" variant="ghost" data-testid={`button-view-invoice-${invoice.id}`}>
+                            <Button size="sm" variant="ghost" data-testid={`button-view-invoice-${invoice.id}`} onClick={() => toast({ title: "Invoice", description: "Please check your email for a copy of this invoice." })}>
                               <Eye className="h-4 w-4 mr-1" />
                               View
                             </Button>
@@ -492,12 +492,12 @@ export default function ClientPortal() {
                         <TableCell>
                           <div className="flex gap-2">
                             {form.status === 'draft' ? (
-                              <Button size="sm" data-testid={`button-complete-form-${form.id}`}>
+                              <Button size="sm" data-testid={`button-complete-form-${form.id}`} onClick={() => toast({ title: "Form", description: "Please use the link in your email to complete this form." })}>
                                 <FormInput className="h-4 w-4 mr-1" />
                                 Complete
                               </Button>
                             ) : (
-                              <Button size="sm" variant="ghost" data-testid={`button-view-form-${form.id}`}>
+                              <Button size="sm" variant="ghost" data-testid={`button-view-form-${form.id}`} onClick={() => toast({ title: "Form submitted", description: `Your form "${form.title}" was submitted successfully.` })}>
                                 <Eye className="h-4 w-4 mr-1" />
                                 View
                               </Button>
@@ -563,15 +563,16 @@ export default function ClientPortal() {
                         </TableCell>
                         <TableCell>
                           <div className="flex gap-2">
-                            <Button size="sm" variant="ghost" data-testid={`button-view-appointment-${appointment.id}`}>
+                            <Button size="sm" variant="ghost" data-testid={`button-view-appointment-${appointment.id}`} onClick={() => toast({ title: appointment.title, description: `${format(new Date(appointment.startDate), "dd/MM/yyyy 'at' HH:mm")} — ${appointment.status || "confirmed"}` })}>
                               <Eye className="h-4 w-4 mr-1" />
                               View
                             </Button>
                             {new Date(appointment.startDate) > new Date() && (
-                              <Button 
-                                size="sm" 
-                                variant="outline" 
+                              <Button
+                                size="sm"
+                                variant="outline"
                                 data-testid={`button-reschedule-appointment-${appointment.id}`}
+                                onClick={() => toast({ title: "Reschedule", description: "Please contact your coordinator to reschedule this appointment." })}
                               >
                                 <Clock className="h-4 w-4 mr-1" />
                                 Reschedule
@@ -587,7 +588,7 @@ export default function ClientPortal() {
                 <div className="text-center py-8">
                   <Calendar className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
                   <p className="text-muted-foreground mb-4">No appointments scheduled</p>
-                  <Button data-testid="button-book-appointment">
+                  <Button data-testid="button-book-appointment" onClick={() => toast({ title: "Book Appointment", description: "Please contact your coordinator to schedule a new appointment." })}>
                     <Calendar className="h-4 w-4 mr-2" />
                     Book New Appointment
                   </Button>
@@ -636,12 +637,12 @@ export default function ClientPortal() {
                         </TableCell>
                         <TableCell>
                           <div className="flex gap-2">
-                            <Button size="sm" variant="ghost" data-testid={`button-view-contract-${contract.id}`}>
+                            <Button size="sm" variant="ghost" data-testid={`button-view-contract-${contract.id}`} onClick={() => window.open(`/c/${contract.id}`, '_blank')}>
                               <Eye className="h-4 w-4 mr-1" />
                               View
                             </Button>
                             {contract.status === 'sent' && (
-                              <Button size="sm" data-testid={`button-sign-contract-${contract.id}`}>
+                              <Button size="sm" data-testid={`button-sign-contract-${contract.id}`} onClick={() => window.open(`/c/${contract.id}`, '_blank')}>
                                 <FileText className="h-4 w-4 mr-1" />
                                 Sign
                               </Button>
@@ -701,12 +702,12 @@ export default function ClientPortal() {
                         </TableCell>
                         <TableCell>
                           <div className="flex gap-2">
-                            <Button size="sm" variant="ghost" data-testid={`button-view-quote-${quote.id}`}>
+                            <Button size="sm" variant="ghost" data-testid={`button-view-quote-${quote.id}`} onClick={() => window.open(`/api/portal/client/quotes/${quote.id}/view`, '_blank')}>
                               <Eye className="h-4 w-4 mr-1" />
                               View
                             </Button>
                             {quote.status === 'sent' && (
-                              <Button size="sm" data-testid={`button-approve-quote-${quote.id}`}>
+                              <Button size="sm" data-testid={`button-approve-quote-${quote.id}`} onClick={() => window.open(`/api/portal/client/quotes/${quote.id}/view`, '_blank')}>
                                 <FileText className="h-4 w-4 mr-1" />
                                 Approve
                               </Button>

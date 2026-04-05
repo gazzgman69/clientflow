@@ -820,7 +820,7 @@ export default function ProjectDetailModal({ project, isOpen, onClose }: Project
                             </TableCell>
                             <TableCell>{pm.role || "-"}</TableCell>
                             <TableCell>
-                              {pm.fee ? `$${pm.fee}` : "-"}
+                              {pm.fee ? formatCurrency(parseFloat(pm.fee.toString()), 'GBP') : "-"}
                             </TableCell>
                             <TableCell>
                               <Badge variant="outline">{pm.status}</Badge>

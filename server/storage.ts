@@ -269,6 +269,7 @@ export interface IStorage {
   getQuoteByToken(token: string, tenantId: string): Promise<{ quote: Quote; items: QuoteItem[]; packages: QuotePackage[]; addons: QuoteAddon[] } | undefined>;
   createQuoteToken(quoteId: string, tenantId: string, expiresAt?: Date): Promise<QuoteToken>;
   getQuoteToken(token: string, tenantId: string): Promise<QuoteToken | undefined>;
+  getActiveTokenForQuote(quoteId: string, tenantId: string): Promise<string | undefined>;
   deactivateQuoteToken(token: string, tenantId: string): Promise<boolean>;
 
   // Quote Signatures
@@ -7366,6 +7367,17 @@ export class DrizzleStorage implements IStorage {
         eq(quoteTokens.tenantId, tenantId)
       ));
     return result[0];
+  }
+
+  async getActiveTokenForQuote(quoteId: string, tenantId: string): Promise<string | undefined> {
+    const result = await this.db.select({ token: quoteTokens.token }).from(quoteTokens)
+      .where(and(
+        eq(quoteTokens.quoteId, quoteId),
+        eq(quoteTokens.tenantId, tenantId),
+        eq(quoteTokens.isActive, true)
+      ))
+      .limit(1);
+    return result[0]?.token;
   }
 
   async deactivateQuoteToken(token: string, tenantId: string): Promise<boolean> {

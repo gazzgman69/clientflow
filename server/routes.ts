@@ -1297,7 +1297,24 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
       res.status(500).json({ error: 'Failed to fetch quotes' });
     }
   });
-  
+
+  // Portal quote view redirect — verifies ownership then redirects to public quote page
+  app.get('/api/portal/client/quotes/:id/view', ensurePortalAuth, async (req, res) => {
+    try {
+      const contactId = req.session.portalContactId!;
+      const tenantId = req.session.tenantId;
+      if (!tenantId) return res.status(401).json({ error: 'Missing tenant context' });
+      const quotes = await storage.getQuotesByContact(contactId, tenantId);
+      const quote = (quotes as any[]).find((q: any) => q.id === req.params.id);
+      if (!quote) return res.status(404).json({ error: 'Quote not found' });
+      const token = await storage.getActiveTokenForQuote(req.params.id, tenantId);
+      if (!token) return res.status(404).json({ error: 'No active link for this quote. Please contact your coordinator.' });
+      res.redirect(`/q/${token}`);
+    } catch (error: any) {
+      res.status(500).json({ error: 'Failed to get quote link' });
+    }
+  });
+
   // ── Musician Portal Routes ─────────────────────────────────────────────────
   // These use the standard user auth (ensureUserAuth) scoped to a member ID
   // passed as a query param or from session. For now they work for agency-side

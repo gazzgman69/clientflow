@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import Header from "@/components/layout/header";
@@ -52,6 +52,30 @@ export default function Settings() {
   const [profileForm, setProfileForm] = useState({ firstName: "", lastName: "", email: "" });
   const [passwordForm, setPasswordForm] = useState({ currentPassword: "", newPassword: "", confirmPassword: "" });
   const [passwordLoading, setPasswordLoading] = useState(false);
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const avatarInputRef = useRef<HTMLInputElement>(null);
+
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) {
+      toast({ title: "File too large", description: "Avatar must be under 2MB.", variant: "destructive" });
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = async (ev) => {
+      const dataUrl = ev.target?.result as string;
+      setAvatarPreview(dataUrl);
+      try {
+        await apiRequest("PATCH", "/api/auth/me", { avatar: dataUrl });
+        queryClient.invalidateQueries({ queryKey: ['/api/auth/me'] });
+        toast({ title: "Photo updated", description: "Your profile photo has been saved." });
+      } catch {
+        toast({ title: "Upload failed", description: "Could not save your photo. Please try again.", variant: "destructive" });
+      }
+    };
+    reader.readAsDataURL(file);
+  };
   const { toast } = useToast();
 
   // Check for tab parameter in URL and set active tab
@@ -333,10 +357,23 @@ export default function Settings() {
               <CardContent className="space-y-6">
                 <div className="flex items-center space-x-4">
                   <Avatar className="h-20 w-20" data-testid="profile-avatar">
+                    <AvatarImage src={avatarPreview || currentUser?.user?.avatar || undefined} />
                     <AvatarFallback>{(profileForm.firstName?.[0] || "") + (profileForm.lastName?.[0] || "")}</AvatarFallback>
                   </Avatar>
                   <div className="space-y-2">
-                    <Button variant="outline" size="sm" data-testid="button-upload-avatar">
+                    <input
+                      ref={avatarInputRef}
+                      type="file"
+                      accept="image/jpeg,image/png,image/gif"
+                      className="hidden"
+                      onChange={handleAvatarUpload}
+                    />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      data-testid="button-upload-avatar"
+                      onClick={() => avatarInputRef.current?.click()}
+                    >
                       <Upload className="h-4 w-4 mr-2" />
                       Upload Photo
                     </Button>

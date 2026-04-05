@@ -210,6 +210,7 @@ export default function Contacts() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/contacts"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/pending-items"] });
       toast({
         title: "Success",
         description: editingContact ? "Contact updated successfully!" : "Contact added successfully!",

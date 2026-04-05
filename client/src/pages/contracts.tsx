@@ -45,6 +45,7 @@ export default function Contracts() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/contracts"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/pending-items"] });
       toast({ title: "Deleted", description: "Contract deleted successfully." });
     },
     onError: () => {

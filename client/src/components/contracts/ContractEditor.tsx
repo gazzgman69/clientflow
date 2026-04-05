@@ -193,6 +193,7 @@ export default function ContractEditor({
         description: "Contract created successfully",
       });
       queryClient.invalidateQueries({ queryKey: ['/api/contracts'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/dashboard/pending-items'] });
       if (projectId) {
         queryClient.invalidateQueries({ queryKey: ['/api/projects', projectId, 'contracts'] });
       }
@@ -229,6 +230,7 @@ export default function ContractEditor({
         description: "Contract updated successfully",
       });
       queryClient.invalidateQueries({ queryKey: ['/api/contracts'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/dashboard/pending-items'] });
       if (projectId) {
         queryClient.invalidateQueries({ queryKey: ['/api/projects', projectId, 'contracts'] });
       }

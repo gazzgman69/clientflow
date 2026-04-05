@@ -720,6 +720,8 @@ export default function ProjectDetail() {
     onSuccess: () => {
       toast({ title: "Project archived", description: "The project has been archived." });
       setShowArchiveConfirm(false);
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/pending-items"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
       setLocation("/projects");
     },
     onError: () => {

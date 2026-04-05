@@ -127,6 +127,7 @@ export default function Quotes() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/quotes"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/pending-items"] });
       // Also invalidate contact-specific quotes cache
       if (quoteToDelete?.contactId) {
         queryClient.invalidateQueries({ queryKey: ["/api/contacts", quoteToDelete.contactId, "quotes"] });
@@ -195,6 +196,7 @@ export default function Quotes() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/quotes"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/pending-items"] });
       toast({ title: "Quote sent", description: "The quote has been sent to the client." });
     },
     onError: () => {

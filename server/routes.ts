@@ -2194,10 +2194,14 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   app.patch('/api/auth/me', ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
     try {
       const userId = req.authenticatedUserId;
-      const { firstName, lastName } = req.body;
-      const updated = await storage.updateUser(userId, { firstName, lastName }, req.tenantId!);
+      const { firstName, lastName, avatar } = req.body;
+      const updateData: { firstName?: string; lastName?: string; avatar?: string } = {};
+      if (firstName !== undefined) updateData.firstName = firstName;
+      if (lastName !== undefined) updateData.lastName = lastName;
+      if (avatar !== undefined) updateData.avatar = avatar;
+      const updated = await storage.updateUser(userId, updateData, req.tenantId!);
       if (!updated) return res.status(404).json({ error: 'User not found' });
-      res.json({ user: { id: updated.id, username: updated.username, email: updated.email, firstName: updated.firstName, lastName: updated.lastName, role: updated.role } });
+      res.json({ user: { id: updated.id, username: updated.username, email: updated.email, firstName: updated.firstName, lastName: updated.lastName, role: updated.role, avatar: updated.avatar } });
     } catch (error: any) {
       console.error('Error updating user profile:', error);
       res.status(500).json({ error: 'Failed to update profile' });

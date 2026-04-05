@@ -372,7 +372,6 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
 
   // CSRF-free public venue endpoints for lead capture forms (must be before general venue mount)
   app.post('/api/venues/suggest', async (req, res) => {
-    console.log('✅ Direct venue suggest route hit');
     try {
       const { venuesService } = await import('./src/services/venues');
       const autocompleteSchema = z.object({
@@ -408,7 +407,6 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   });
 
   app.post('/api/venues/place-details', async (req, res) => {
-    console.log('✅ Direct venue place-details route hit');
     try {
       const { geocodingService } = await import('./src/services/geocoding');
       const { placeId, sessionToken } = req.body;
@@ -429,7 +427,6 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   });
 
   app.post('/api/venues/:id/track-usage', async (req, res) => {
-    console.log('✅ Direct venue track-usage route hit');
     try {
       const { venuesService } = await import('./src/services/venues');
       await venuesService.trackVenueUsage(req.params.id);
@@ -461,16 +458,12 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
 
   // Venue routes with authentication, tenant resolution and CSRF protection (except for public endpoints used by lead capture forms)
   app.use('/api/venues', ...withTenantSecurity(ensureUserAuth, tenantResolver, requireTenant), (req, res, next) => {
-    console.log(`🔍 VENUES DEBUG: path="${req.path}", method="${req.method}"`);
     // Skip CSRF for public endpoints used by lead capture forms
     const publicEndpoints = ['/suggest', '/place-details'];
     const isTrackUsage = req.method === 'POST' && req.path.includes('/track-usage');
-    
     if (req.method === 'POST' && (publicEndpoints.includes(req.path) || isTrackUsage)) {
-      console.log('✅ VENUES: Skipping CSRF for public endpoint');
       return next();
     }
-    console.log('🛡️ VENUES: Applying CSRF protection');
     return csrf(req, res, next);
   }, venuesRoutes);
 
@@ -3837,7 +3830,6 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
       if (!contract) {
         return res.status(404).json({ message: "Contract not found" });
       }
-      console.log('[CONTRACT GET] Returning contract:', { id: contract.id, dueDate: contract.dueDate, hasDueDate: !!contract.dueDate });
       res.json(contract);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch contract" });
@@ -3879,9 +3871,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   // Contract Templates
   app.get("/api/contract-templates", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
     try {
-      console.log('[CONTRACT TEMPLATES] Fetching templates for tenant:', req.tenantId);
       const templates = await storage.getContractTemplates(req.tenantId!);
-      console.log('[CONTRACT TEMPLATES] Found templates:', templates.length);
       res.json(templates);
     } catch (error) {
       console.error('[CONTRACT TEMPLATES] Error fetching templates:', error);
@@ -3902,19 +3892,12 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   });
 
   app.post("/api/contract-templates", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
-    console.log('[CONTRACT TEMPLATE CREATE] Route handler reached!');
-    console.log('[CONTRACT TEMPLATE CREATE] Request body:', req.body);
-    console.log('[CONTRACT TEMPLATE CREATE] Session userId:', req.session.userId);
-    console.log('[CONTRACT TEMPLATE CREATE] Tenant ID:', req.tenantId);
-    
     try {
       const templateData = insertContractTemplateSchema.parse(req.body);
-      console.log('[CONTRACT TEMPLATE CREATE] Parsed template data:', templateData);
       const template = await storage.createContractTemplate({
         ...templateData,
         createdBy: req.session.userId!,
       }, req.tenantId!);
-      console.log('[CONTRACT TEMPLATE CREATE] Template created:', template);
       res.status(201).json(template);
     } catch (error) {
       console.error('[CONTRACT TEMPLATE CREATE] Error:', error);
@@ -4332,19 +4315,11 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   });
 
   app.post("/api/invoice-items", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
-    console.log('🎯 INVOICE ITEM POST - Handler entered');
-    console.log('📦 Request body:', req.body);
     try {
       const tenantId = req.session.tenantId!;
       const userId = req.session.userId!;
-      console.log('👤 User context:', { tenantId, userId });
-      console.log('📝 Creating invoice item - Request body:', JSON.stringify(req.body, null, 2));
-      
       const itemData = insertInvoiceItemSchema.parse(req.body);
-      console.log('✅ Validation passed - Item data:', JSON.stringify(itemData, null, 2));
-      
       const item = await storage.createInvoiceItem({ ...itemData, tenantId, createdBy: userId }, tenantId);
-      console.log('🎉 Item created successfully:', item.id);
       res.status(201).json(item);
     } catch (error) {
       console.error('❌ Failed to create invoice item:', error);
@@ -5213,26 +5188,22 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   app.get("/api/public/contracts/:id", authLimiter, async (req, res) => {
     try {
       const contractId = req.params.id;
-      console.log('🔓 PUBLIC CONTRACT API CALLED:', contractId);
       const contract = await storage.getContract(contractId);
-      
+
       if (!contract) {
         return res.status(404).json({ message: "Contract not found" });
       }
 
-      // Get contact info
-      const contact = await storage.getContactById(contract.contactId);
-      
+      // Get contact info (use contract.tenantId since this is a public, unauthenticated endpoint)
+      const contact = await storage.getContactById(contract.contactId, contract.tenantId);
+
       // Get project info if available
       let project = null;
       let venue = null;
-      console.log('📋 Contract projectId:', contract.projectId);
       if (contract.projectId) {
         project = await storage.getProject(contract.projectId, contract.tenantId);
-        console.log('🎯 Fetched project:', project ? project.name : 'null');
         if (project && project.venueId) {
           venue = await storage.getVenue(project.venueId, contract.tenantId);
-          console.log('📍 Fetched venue:', venue ? venue.name : 'null');
         }
       }
       
@@ -5461,42 +5432,22 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
         return res.status(404).json({ message: "Contract not found" });
       }
 
-      console.log('[CONTRACT SIGN] Current contract:', { 
-        id: contract.id, 
-        clientSignature: contract.clientSignature,
-        businessSignature: contract.businessSignature,
-        status: contract.status,
-        tenantId: contract.tenantId
-      });
-
       // Business counter-signing (authenticated users only)
       if (signatureType === 'business') {
         if (!contract.clientSignature) {
-          console.log('[CONTRACT SIGN] Error: Client must sign first');
           return res.status(400).json({ message: "Client must sign first" });
         }
 
         if (contract.businessSignature) {
-          console.log('[CONTRACT SIGN] Error: Already counter-signed');
           return res.status(400).json({ message: "Contract has already been counter-signed" });
         }
 
-        // Update contract with business signature
         const updateData = {
           businessSignature: signature.trim(),
           businessSignedAt: new Date(),
           status: 'signed',
         };
-        console.log('[CONTRACT SIGN] Updating with:', updateData);
-        
         const updatedContract = await storage.updateContract(contractId, updateData);
-
-        console.log('[CONTRACT SIGN] Updated contract:', {
-          id: updatedContract?.id,
-          businessSignature: updatedContract?.businessSignature,
-          businessSignedAt: updatedContract?.businessSignedAt,
-          status: updatedContract?.status
-        });
 
         if (!updatedContract) {
           return res.status(404).json({ message: "Failed to update contract" });
@@ -5547,7 +5498,6 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
                 html: emailBody
               });
               
-              console.log('[CONTRACT SIGN] Email confirmation sent:', emailResult);
             }
           }
         } catch (emailError) {
@@ -6164,13 +6114,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
         tenantId: req.tenantId
       };
       
-      console.log('🐛 DEBUG Data before Zod parse:', JSON.stringify(dataToValidate, null, 2));
-      console.log('🐛 DEBUG req.tenantId type:', typeof req.tenantId, 'value:', req.tenantId);
-      
       const templateData = insertMessageTemplateSchema.parse(dataToValidate);
-      
-      console.log('🐛 DEBUG Parsed template data:', templateData);
-      
       const template = await storage.createMessageTemplate(templateData);
       res.status(201).json(template);
     } catch (error) {

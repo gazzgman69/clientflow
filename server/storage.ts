@@ -5625,9 +5625,11 @@ export class DrizzleStorage implements IStorage {
     return result[0];
   }
   async getInvoicesByContactId(contactId: string): Promise<Invoice[]> {
-    return await this.db.select().from(invoices).where(eq(invoices.contactId, contactId));
+    return await this.db.select().from(invoices)
+      .where(eq(invoices.contactId, contactId))
+      .orderBy(desc(invoices.createdAt));
   }
-  
+
   // Income Categories - Drizzle implementation
   async getIncomeCategories(tenantId: string): Promise<IncomeCategory[]> {
     const categories = await this.db.select().from(incomeCategories)
@@ -7171,24 +7173,6 @@ export class DrizzleStorage implements IStorage {
   async updateWebhookEvent(eventId: string, event: Partial<InsertWebhookEvent>): Promise<WebhookEvent | undefined> {
     const result = await this.db.update(webhookEvents).set(event)
       .where(eq(webhookEvents.eventId, eventId)).returning();
-    return result[0];
-  }
-
-  // Additional invoice methods for portal
-  async getInvoiceById(id: string): Promise<Invoice | undefined> {
-    const result = await this.db.select().from(invoices).where(eq(invoices.id, id));
-    return result[0];
-  }
-
-  async getInvoicesByContactId(contactId: string): Promise<Invoice[]> {
-    return await this.db.select().from(invoices)
-      .where(eq(invoices.contactId, contactId))
-      .orderBy(desc(invoices.createdAt));
-  }
-
-  // Additional contact methods for portal
-  async getContactById(id: string): Promise<Contact | undefined> {
-    const result = await this.db.select().from(contacts).where(eq(contacts.id, id));
     return result[0];
   }
 

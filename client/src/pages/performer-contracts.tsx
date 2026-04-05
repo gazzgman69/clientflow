@@ -108,6 +108,7 @@ export default function PerformerContractsPage() {
   if (isLoading) return <div className="container mx-auto py-8">Loading...</div>;
 
   return (
+    <div className="flex-1 overflow-y-auto">
     <div className="container mx-auto py-8 space-y-6">
       <div className="flex justify-between items-center">
         <div>
@@ -230,6 +231,7 @@ export default function PerformerContractsPage() {
           </CardContent>
         </Card>
       )}
+    </div>
     </div>
   );
 }

@@ -472,7 +472,7 @@ export default function VenuesPage() {
   const currentEnrichment = selectedVenue ? parseVenueEnrichment(selectedVenue.meta) : null;
 
   return (
-    <div className="container mx-auto py-8 overflow-y-auto h-full">
+    <div className="container mx-auto py-8 overflow-y-auto flex-1">
       <div className="flex justify-between items-center mb-8">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Venues</h1>

@@ -164,7 +164,7 @@ export default function Documents() {
     (doc.documentType === 'invoice' && doc.status === 'sent');
 
   return (
-    <div className="space-y-6">
+    <div className="flex-1 overflow-y-auto p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-foreground">Documents</h1>

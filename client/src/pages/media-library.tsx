@@ -210,6 +210,7 @@ export default function MediaLibrary() {
   };
 
   return (
+    <div className="flex-1 overflow-y-auto">
     <div className="container mx-auto p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
@@ -505,6 +506,7 @@ export default function MediaLibrary() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+    </div>
     </div>
   );
 }

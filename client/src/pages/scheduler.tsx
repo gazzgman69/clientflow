@@ -25,6 +25,7 @@ export default function Scheduler() {
   const [activeTab, setActiveTab] = useState('services');
 
   return (
+    <div className="flex-1 overflow-y-auto">
     <div className="p-6 max-w-7xl mx-auto">
       <div className="mb-6">
         <h1 className="text-3xl font-bold" data-testid="text-page-title">Scheduler</h1>
@@ -72,6 +73,7 @@ export default function Scheduler() {
           <SchedulerHelpTab />
         </TabsContent>
       </Tabs>
+    </div>
     </div>
   );
 }
@@ -572,7 +574,7 @@ function ServiceSettingsPage({ service, onClose }: { service?: BookableService; 
 
   /* ─────────────────────────── RENDER ──────────────────────────────────────── */
   return (
-    <div className="bg-white rounded-xl border shadow-sm overflow-hidden" data-testid="service-settings-page">
+    <div className="bg-white rounded-xl border shadow-sm" data-testid="service-settings-page">
 
       {/* ── Top bar ── */}
       <div className="flex items-center justify-between px-6 py-4 border-b bg-gray-50">

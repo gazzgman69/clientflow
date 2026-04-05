@@ -3541,10 +3541,12 @@ export class MemStorage implements IStorage {
   }
 
   // Lead Capture Forms
-  async getLeadCaptureForms(): Promise<LeadCaptureForm[]> {
-    return Array.from(this.leadCaptureForms.values()).sort((a, b) => 
-      (b.updatedAt ? new Date(b.updatedAt).getTime() : 0) - (a.updatedAt ? new Date(a.updatedAt).getTime() : 0)
-    );
+  async getLeadCaptureForms(tenantId: string): Promise<LeadCaptureForm[]> {
+    return Array.from(this.leadCaptureForms.values())
+      .filter(f => (f as any).tenantId === tenantId)
+      .sort((a, b) =>
+        (b.updatedAt ? new Date(b.updatedAt).getTime() : 0) - (a.updatedAt ? new Date(a.updatedAt).getTime() : 0)
+      );
   }
 
   async getLeadCaptureForm(id: string): Promise<LeadCaptureForm | undefined> {
@@ -3576,9 +3578,10 @@ export class MemStorage implements IStorage {
     return form;
   }
 
-  async updateLeadCaptureForm(id: string, updateData: Partial<InsertLeadCaptureForm>): Promise<LeadCaptureForm | undefined> {
+  async updateLeadCaptureForm(id: string, updateData: Partial<InsertLeadCaptureForm>, tenantId?: string): Promise<LeadCaptureForm | undefined> {
     const existing = this.leadCaptureForms.get(id);
     if (!existing) return undefined;
+    if (tenantId && (existing as any).tenantId !== tenantId) return undefined;
 
     const updated: LeadCaptureForm = {
       ...existing,
@@ -3589,7 +3592,9 @@ export class MemStorage implements IStorage {
     return updated;
   }
 
-  async deleteLeadCaptureForm(id: string): Promise<boolean> {
+  async deleteLeadCaptureForm(id: string, tenantId?: string): Promise<boolean> {
+    const existing = this.leadCaptureForms.get(id);
+    if (tenantId && existing && (existing as any).tenantId !== tenantId) return false;
     return this.leadCaptureForms.delete(id);
   }
 
@@ -7126,8 +7131,10 @@ export class DrizzleStorage implements IStorage {
   }
 
   // Lead Capture Forms - PostgreSQL implementation
-  async getLeadCaptureForms(): Promise<LeadCaptureForm[]> {
-    return await this.db.select().from(leadCaptureForms).orderBy(desc(leadCaptureForms.updatedAt));
+  async getLeadCaptureForms(tenantId: string): Promise<LeadCaptureForm[]> {
+    return await this.db.select().from(leadCaptureForms)
+      .where(eq(leadCaptureForms.tenantId, tenantId))
+      .orderBy(desc(leadCaptureForms.updatedAt));
   }
 
   async getLeadCaptureForm(id: string): Promise<LeadCaptureForm | undefined> {
@@ -7149,16 +7156,22 @@ export class DrizzleStorage implements IStorage {
     return result[0];
   }
 
-  async updateLeadCaptureForm(id: string, updateData: Partial<InsertLeadCaptureForm>): Promise<LeadCaptureForm | undefined> {
+  async updateLeadCaptureForm(id: string, updateData: Partial<InsertLeadCaptureForm>, tenantId?: string): Promise<LeadCaptureForm | undefined> {
+    const condition = tenantId
+      ? and(eq(leadCaptureForms.id, id), eq(leadCaptureForms.tenantId, tenantId))
+      : eq(leadCaptureForms.id, id);
     const result = await this.db.update(leadCaptureForms).set({
       ...updateData,
       updatedAt: new Date(),
-    }).where(eq(leadCaptureForms.id, id)).returning();
+    }).where(condition).returning();
     return result[0];
   }
 
-  async deleteLeadCaptureForm(id: string): Promise<boolean> {
-    const result = await this.db.delete(leadCaptureForms).where(eq(leadCaptureForms.id, id));
+  async deleteLeadCaptureForm(id: string, tenantId?: string): Promise<boolean> {
+    const condition = tenantId
+      ? and(eq(leadCaptureForms.id, id), eq(leadCaptureForms.tenantId, tenantId))
+      : eq(leadCaptureForms.id, id);
+    const result = await this.db.delete(leadCaptureForms).where(condition);
     return result.rowCount > 0;
   }
 

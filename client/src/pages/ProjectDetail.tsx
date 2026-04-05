@@ -604,6 +604,9 @@ export default function ProjectDetail() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/projects", projectId, "files"] });
     },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to update file visibility.", variant: "destructive" });
+    },
   });
 
   // Create expense mutation
@@ -781,6 +784,9 @@ export default function ProjectDetail() {
       toast({ title: "Template deleted" });
       queryClient.invalidateQueries({ queryKey: ["/api/task-templates"] });
     },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to delete template.", variant: "destructive" });
+    },
   });
 
   // Create form mutation
@@ -814,6 +820,9 @@ export default function ProjectDetail() {
     onSuccess: () => {
       toast({ title: "Form deleted" });
       queryClient.invalidateQueries({ queryKey: ["/api/projects", projectId, "forms"] });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to delete form.", variant: "destructive" });
     },
   });
 

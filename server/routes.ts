@@ -6130,11 +6130,11 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
 
-  app.patch("/api/message-templates/:id", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
+  app.patch("/api/message-templates/:id", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req: TenantRequest, res) => {
     try {
       const { id } = req.params;
       const updateData = req.body;
-      const template = await storage.updateMessageTemplate(id, updateData);
+      const template = await storage.updateMessageTemplate(id, updateData, req.tenantId!);
       
       if (!template) {
         return res.status(404).json({ message: "Template not found" });

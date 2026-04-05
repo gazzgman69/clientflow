@@ -259,8 +259,8 @@ export interface IStorage {
   getLeadCaptureForm(id: string, tenantId: string): Promise<LeadCaptureForm | undefined>;
   getLeadCaptureFormByToken(token: string): Promise<LeadCaptureForm | undefined>;
   createLeadCaptureForm(form: InsertLeadCaptureForm, tenantId: string): Promise<LeadCaptureForm>;
-  updateLeadCaptureForm(id: string, form: Partial<InsertLeadCaptureForm>, tenantId: string): Promise<LeadCaptureForm | undefined>;
-  deleteLeadCaptureForm(id: string, tenantId: string): Promise<boolean>;
+  updateLeadCaptureForm(id: string, form: Partial<InsertLeadCaptureForm>, tenantId?: string): Promise<LeadCaptureForm | undefined>;
+  deleteLeadCaptureForm(id: string, tenantId?: string): Promise<boolean>;
   
   // Lead Status History
   getLeadStatusHistory(leadId: string, tenantId: string): Promise<LeadStatusHistory[]>;

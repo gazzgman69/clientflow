@@ -116,62 +116,7 @@ export default function EmailPage() {
     setShowComposeModal(true);
   };
 
-  // Mock emails for demonstration
-  const mockEmails: Email[] = [
-    {
-      id: "1",
-      subject: "Re: Project Timeline",
-      body: "Thanks for your email. I wanted to follow up on the project timeline we discussed. The initial mockups are ready for review.",
-      fromEmail: "sarah@techsolutions.com",
-      toEmail: "john@company.com",
-      status: "delivered",
-      threadId: "thread-1",
-      sentAt: new Date(Date.now() - 2 * 60 * 60 * 1000),
-      createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000),
-      leadId: null,
-      clientId: null,
-      projectId: null,
-      ccEmails: null,
-      bccEmails: null,
-      sentBy: null,
-    },
-    {
-      id: "2",
-      subject: "Contract Approval",
-      body: "I've reviewed the contract and everything looks good. I'll have it signed and returned by end of day.",
-      fromEmail: "emily@marketingpro.com",
-      toEmail: "john@company.com",
-      status: "delivered",
-      threadId: "thread-2",
-      sentAt: new Date(Date.now() - 4 * 60 * 60 * 1000),
-      createdAt: new Date(Date.now() - 4 * 60 * 60 * 1000),
-      leadId: null,
-      clientId: null,
-      projectId: null,
-      ccEmails: null,
-      bccEmails: null,
-      sentBy: null,
-    },
-    {
-      id: "3",
-      subject: "Quote Request",
-      body: "We're interested in your services for our upcoming brand redesign project. Could you provide a quote?",
-      fromEmail: "mike@creativeagency.com",
-      toEmail: "john@company.com",
-      status: "delivered",
-      threadId: "thread-3",
-      sentAt: new Date(Date.now() - 6 * 60 * 60 * 1000),
-      createdAt: new Date(Date.now() - 6 * 60 * 60 * 1000),
-      leadId: null,
-      clientId: null,
-      projectId: null,
-      ccEmails: null,
-      bccEmails: null,
-      sentBy: null,
-    },
-  ];
-
-  const displayEmails = emails && emails.length > 0 ? emails : mockEmails;
+  const displayEmails = emails || [];
 
   return (
     <>

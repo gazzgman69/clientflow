@@ -2180,15 +2180,16 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
       if (!user) {
         return res.status(404).json({ error: 'User not found' });
       }
-      res.json({ 
-        user: { 
-          id: user.id, 
-          username: user.username, 
-          email: user.email, 
+      res.json({
+        user: {
+          id: user.id,
+          username: user.username,
+          email: user.email,
           firstName: user.firstName,
           lastName: user.lastName,
-          role: user.role
-        } 
+          role: user.role,
+          avatar: user.avatar ?? null
+        }
       });
     } catch (error: any) {
       console.error('Error fetching user info:', error);

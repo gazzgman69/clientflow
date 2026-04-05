@@ -310,6 +310,7 @@ export default function QuoteEditor({
       const { formData } = variables;
       queryClient.invalidateQueries({ queryKey: ["/api/quotes"] });
       queryClient.invalidateQueries({ queryKey: ["/api/contacts", formData.contactId, "quotes"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/pending-items"] });
       
       // If this was a new quote and Extra Info is configured, save the config
       if (!editingQuote && data.quote && extraInfoConfig.isEnabled && extraInfoConfig.enabledFields.length > 0) {
@@ -360,7 +361,8 @@ export default function QuoteEditor({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/quotes"] });
       queryClient.invalidateQueries({ queryKey: ["/api/contacts", contactInfo.id, "quotes"] });
-      
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/pending-items"] });
+
       toast({
         title: "Success",
         description: "Quote deleted successfully!",

@@ -153,7 +153,7 @@ export interface IStorage {
   getVenues(tenantId: string): Promise<Venue[]>;
   getVenue(id: string, tenantId: string): Promise<Venue | undefined>;
   createVenue(venue: InsertVenue, tenantId: string): Promise<Venue>;
-  updateVenue(id: string, venue: Partial<InsertVenue>, tenantId: string): Promise<Venue | undefined>;
+  updateVenue(id: string, venue: Partial<InsertVenue>, tenantId?: string): Promise<Venue | undefined>;
   deleteVenue(id: string, tenantId: string): Promise<boolean>;
   
   // Project Members
@@ -217,9 +217,9 @@ export interface IStorage {
   
   // Message Templates
   getMessageTemplates(tenantId: string): Promise<MessageTemplate[]>;
-  getMessageTemplate(id: string, tenantId: string): Promise<MessageTemplate | undefined>;
-  createMessageTemplate(template: InsertMessageTemplate, tenantId: string): Promise<MessageTemplate>;
-  updateMessageTemplate(id: string, template: Partial<InsertMessageTemplate>, tenantId: string): Promise<MessageTemplate | undefined>;
+  getMessageTemplate(id: string, tenantId?: string): Promise<MessageTemplate | undefined>;
+  createMessageTemplate(template: InsertMessageTemplate, tenantId?: string): Promise<MessageTemplate>;
+  updateMessageTemplate(id: string, template: Partial<InsertMessageTemplate>, tenantId?: string): Promise<MessageTemplate | undefined>;
   deleteMessageTemplate(id: string, tenantId: string): Promise<boolean>;
   
   // Message Threads

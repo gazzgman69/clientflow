@@ -2150,8 +2150,11 @@ export class MemStorage implements IStorage {
     );
   }
 
-  async getMessageTemplate(id: string): Promise<MessageTemplate | undefined> {
-    return this.messageTemplates.get(id);
+  async getMessageTemplate(id: string, tenantId?: string): Promise<MessageTemplate | undefined> {
+    const template = this.messageTemplates.get(id);
+    if (!template) return undefined;
+    if (tenantId && (template as any).tenantId !== tenantId) return undefined;
+    return template;
   }
 
   async getMessageTemplatesByType(type: string): Promise<MessageTemplate[]> {
@@ -2160,7 +2163,7 @@ export class MemStorage implements IStorage {
       .sort((a, b) => new Date(b.createdAt!).getTime() - new Date(a.createdAt!).getTime());
   }
 
-  async createMessageTemplate(insertTemplate: InsertMessageTemplate): Promise<MessageTemplate> {
+  async createMessageTemplate(insertTemplate: InsertMessageTemplate, tenantId?: string): Promise<MessageTemplate> {
     const id = randomUUID();
     const template: MessageTemplate = {
       ...insertTemplate,
@@ -2176,9 +2179,10 @@ export class MemStorage implements IStorage {
     return template;
   }
 
-  async updateMessageTemplate(id: string, templateUpdate: Partial<InsertMessageTemplate>): Promise<MessageTemplate | undefined> {
+  async updateMessageTemplate(id: string, templateUpdate: Partial<InsertMessageTemplate>, tenantId?: string): Promise<MessageTemplate | undefined> {
     const template = this.messageTemplates.get(id);
     if (!template) return undefined;
+    if (tenantId && (template as any).tenantId !== tenantId) return undefined;
     
     const updatedTemplate: MessageTemplate = {
       ...template,
@@ -2477,9 +2481,10 @@ export class MemStorage implements IStorage {
     return venue;
   }
 
-  async updateVenue(id: string, venueUpdate: Partial<InsertVenue>): Promise<Venue | undefined> {
+  async updateVenue(id: string, venueUpdate: Partial<InsertVenue>, tenantId?: string): Promise<Venue | undefined> {
     const venue = this.venues.get(id);
     if (!venue) return undefined;
+    if (tenantId && (venue as any).tenantId !== tenantId) return undefined;
     
     let processedUpdate = { ...venueUpdate };
     
@@ -6303,8 +6308,11 @@ export class DrizzleStorage implements IStorage {
     return result[0];
   }
 
-  async updateVenue(id: string, venue: Partial<InsertVenue>): Promise<Venue | undefined> {
-    const result = await this.db.update(venues).set(venue).where(eq(venues.id, id)).returning();
+  async updateVenue(id: string, venue: Partial<InsertVenue>, tenantId?: string): Promise<Venue | undefined> {
+    const condition = tenantId
+      ? and(eq(venues.id, id), eq(venues.tenantId, tenantId))
+      : eq(venues.id, id);
+    const result = await this.db.update(venues).set(venue).where(condition).returning();
     return result[0];
   }
 
@@ -6806,18 +6814,25 @@ export class DrizzleStorage implements IStorage {
       ));
   }
 
-  async getMessageTemplate(id: string): Promise<MessageTemplate | undefined> {
-    const result = await this.db.select().from(messageTemplates).where(eq(messageTemplates.id, id));
+  async getMessageTemplate(id: string, tenantId?: string): Promise<MessageTemplate | undefined> {
+    const condition = tenantId
+      ? and(eq(messageTemplates.id, id), eq(messageTemplates.tenantId, tenantId))
+      : eq(messageTemplates.id, id);
+    const result = await this.db.select().from(messageTemplates).where(condition);
     return result[0];
   }
 
-  async createMessageTemplate(template: InsertMessageTemplate): Promise<MessageTemplate> {
-    const result = await this.db.insert(messageTemplates).values(template).returning();
+  async createMessageTemplate(template: InsertMessageTemplate, tenantId?: string): Promise<MessageTemplate> {
+    const values = tenantId ? { ...template, tenantId } : template;
+    const result = await this.db.insert(messageTemplates).values(values).returning();
     return result[0];
   }
 
-  async updateMessageTemplate(id: string, template: Partial<InsertMessageTemplate>): Promise<MessageTemplate | undefined> {
-    const result = await this.db.update(messageTemplates).set(template).where(eq(messageTemplates.id, id)).returning();
+  async updateMessageTemplate(id: string, template: Partial<InsertMessageTemplate>, tenantId?: string): Promise<MessageTemplate | undefined> {
+    const condition = tenantId
+      ? and(eq(messageTemplates.id, id), eq(messageTemplates.tenantId, tenantId))
+      : eq(messageTemplates.id, id);
+    const result = await this.db.update(messageTemplates).set(template).where(condition).returning();
     return result[0];
   }
 

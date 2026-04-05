@@ -370,7 +370,8 @@ export default function InvoiceEditor({
     onSuccess: ({ invoice, sendToContact }) => {
       queryClient.invalidateQueries({ queryKey: ["/api/invoices"] });
       queryClient.invalidateQueries({ queryKey: ["/api/invoices", invoice.id] });
-      
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/pending-items"] });
+
       toast({
         title: sendToContact ? "Invoice sent" : "Invoice saved",
         description: sendToContact 
@@ -397,6 +398,7 @@ export default function InvoiceEditor({
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/invoices"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/pending-items"] });
       toast({
         title: "Invoice deleted",
         description: "The invoice has been deleted successfully",

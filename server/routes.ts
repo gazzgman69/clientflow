@@ -4567,12 +4567,12 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   });
 
   // Status workflow actions
-  app.post("/api/quotes/:id/send", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
+  app.post("/api/quotes/:id/send", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req: TenantRequest, res) => {
     try {
       const quote = await storage.updateQuote(req.params.id, {
         status: 'sent',
         sentAt: new Date()
-      });
+      }, req.tenantId!);
       if (!quote) {
         return res.status(404).json({ message: "Quote not found" });
       }
@@ -4582,12 +4582,12 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
 
-  app.post("/api/quotes/:id/approve", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
+  app.post("/api/quotes/:id/approve", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req: TenantRequest, res) => {
     try {
       const quote = await storage.updateQuote(req.params.id, {
         status: 'approved',
         approvedAt: new Date()
-      });
+      }, req.tenantId!);
       if (!quote) {
         return res.status(404).json({ message: "Quote not found" });
       }
@@ -5391,11 +5391,11 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
 
-  app.post("/api/contracts/:id/send", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
+  app.post("/api/contracts/:id/send", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req: TenantRequest, res) => {
     try {
       const contract = await storage.updateContract(req.params.id, {
         status: 'sent'
-      });
+      }, req.tenantId!);
       if (!contract) {
         return res.status(404).json({ message: "Contract not found" });
       }
@@ -5451,7 +5451,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
           businessSignedAt: new Date(),
           status: 'signed',
         };
-        const updatedContract = await storage.updateContract(contractId, updateData);
+        const updatedContract = await storage.updateContract(contractId, updateData, tenantId || undefined);
 
         if (!updatedContract) {
           return res.status(404).json({ message: "Failed to update contract" });
@@ -5522,12 +5522,12 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
 
-  app.post("/api/invoices/:id/send", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
+  app.post("/api/invoices/:id/send", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req: TenantRequest, res) => {
     try {
       const invoice = await storage.updateInvoice(req.params.id, {
         status: 'sent',
         sentAt: new Date()
-      });
+      }, req.tenantId!);
       if (!invoice) {
         return res.status(404).json({ message: "Invoice not found" });
       }
@@ -5543,12 +5543,12 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
 
-  app.post("/api/invoices/:id/pay", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
+  app.post("/api/invoices/:id/pay", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req: TenantRequest, res) => {
     try {
       const invoice = await storage.updateInvoice(req.params.id, {
         status: 'paid',
         paidAt: new Date()
-      });
+      }, req.tenantId!);
       if (!invoice) {
         return res.status(404).json({ message: "Invoice not found" });
       }

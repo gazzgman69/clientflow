@@ -401,14 +401,18 @@ export default function Projects() {
     try {
       const csrfRes = await fetch('/api/csrf-token');
       const { csrfToken } = await csrfRes.json();
-      await fetch(`/api/projects/${projectId}`, {
+      const res = await fetch(`/api/projects/${projectId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken },
         body: JSON.stringify({ status: newStatus }),
       });
+      if (!res.ok) throw new Error('Status update failed');
       queryClient.invalidateQueries({ queryKey: ['/api/projects'] });
       queryClient.invalidateQueries({ queryKey: ['/api/projects/status-counts'] });
-    } catch (e) { console.error('Status update failed', e); }
+    } catch (e) {
+      console.error('Status update failed', e);
+      toast({ title: "Error", description: "Failed to update project status.", variant: "destructive" });
+    }
   };
 
   const getStatusColor = (status: string) => {

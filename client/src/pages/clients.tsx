@@ -203,7 +203,7 @@ export default function Contacts() {
 
   const createContactMutation = useMutation({
     mutationFn: async (data: z.infer<typeof insertContactSchema>) => {
-      const method = editingContact ? "PUT" : "POST";
+      const method = editingContact ? "PATCH" : "POST";
       const url = editingContact ? `/api/contacts/${editingContact.id}` : "/api/contacts";
       const response = await apiRequest(method, url, data);
       return response.json();

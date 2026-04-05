@@ -1536,10 +1536,10 @@ export class MemStorage implements IStorage {
   }
 
   // Quotes
-  async getQuotes(): Promise<Quote[]> {
-    return Array.from(this.quotes.values()).sort((a, b) => 
-      new Date(b.createdAt!).getTime() - new Date(a.createdAt!).getTime()
-    );
+  async getQuotes(tenantId: string): Promise<Quote[]> {
+    return Array.from(this.quotes.values())
+      .filter(q => q.tenantId === tenantId)
+      .sort((a, b) => new Date(b.createdAt!).getTime() - new Date(a.createdAt!).getTime());
   }
 
   async getQuote(id: string): Promise<Quote | undefined> {
@@ -1574,9 +1574,10 @@ export class MemStorage implements IStorage {
     return quote;
   }
 
-  async updateQuote(id: string, quoteUpdate: Partial<InsertQuote>): Promise<Quote | undefined> {
+  async updateQuote(id: string, quoteUpdate: Partial<InsertQuote>, tenantId?: string): Promise<Quote | undefined> {
     const quote = this.quotes.get(id);
     if (!quote) return undefined;
+    if (tenantId && quote.tenantId !== tenantId) return undefined;
     
     const updatedQuote: Quote = {
       ...quote,
@@ -1592,10 +1593,10 @@ export class MemStorage implements IStorage {
   }
 
   // Contracts
-  async getContracts(): Promise<Contract[]> {
-    return Array.from(this.contracts.values()).sort((a, b) => 
-      new Date(b.createdAt!).getTime() - new Date(a.createdAt!).getTime()
-    );
+  async getContracts(tenantId: string): Promise<Contract[]> {
+    return Array.from(this.contracts.values())
+      .filter(c => c.tenantId === tenantId)
+      .sort((a, b) => new Date(b.createdAt!).getTime() - new Date(a.createdAt!).getTime());
   }
 
   async getContract(id: string): Promise<Contract | undefined> {
@@ -1633,9 +1634,10 @@ export class MemStorage implements IStorage {
     return contract;
   }
 
-  async updateContract(id: string, contractUpdate: Partial<InsertContract>): Promise<Contract | undefined> {
+  async updateContract(id: string, contractUpdate: Partial<InsertContract>, tenantId?: string): Promise<Contract | undefined> {
     const contract = this.contracts.get(id);
     if (!contract) return undefined;
+    if (tenantId && contract.tenantId !== tenantId) return undefined;
     
     const updatedContract: Contract = {
       ...contract,
@@ -1703,10 +1705,10 @@ export class MemStorage implements IStorage {
   }
 
   // Invoices
-  async getInvoices(): Promise<Invoice[]> {
-    return Array.from(this.invoices.values()).sort((a, b) => 
-      new Date(b.createdAt!).getTime() - new Date(a.createdAt!).getTime()
-    );
+  async getInvoices(tenantId: string): Promise<Invoice[]> {
+    return Array.from(this.invoices.values())
+      .filter(i => i.tenantId === tenantId)
+      .sort((a, b) => new Date(b.createdAt!).getTime() - new Date(a.createdAt!).getTime());
   }
 
   async getInvoice(id: string): Promise<Invoice | undefined> {
@@ -1739,9 +1741,10 @@ export class MemStorage implements IStorage {
     return invoice;
   }
 
-  async updateInvoice(id: string, invoiceUpdate: Partial<InsertInvoice>): Promise<Invoice | undefined> {
+  async updateInvoice(id: string, invoiceUpdate: Partial<InsertInvoice>, tenantId?: string): Promise<Invoice | undefined> {
     const invoice = this.invoices.get(id);
     if (!invoice) return undefined;
+    if (tenantId && invoice.tenantId !== tenantId) return undefined;
     
     const updatedInvoice: Invoice = {
       ...invoice,
@@ -2065,9 +2068,10 @@ export class MemStorage implements IStorage {
     return email;
   }
 
-  async updateEmail(id: string, emailUpdate: Partial<InsertEmail>): Promise<Email | undefined> {
+  async updateEmail(id: string, emailUpdate: Partial<InsertEmail>, tenantId?: string): Promise<Email | undefined> {
     const email = this.emails.get(id);
     if (!email) return undefined;
+    if (tenantId && (email as any).tenantId !== tenantId) return undefined;
     
     const updatedEmail: Email = {
       ...email,
@@ -2236,14 +2240,14 @@ export class MemStorage implements IStorage {
   }
 
   // Activities
-  async getActivities(): Promise<Activity[]> {
-    return Array.from(this.activities.values()).sort((a, b) => 
-      new Date(b.createdAt!).getTime() - new Date(a.createdAt!).getTime()
-    );
+  async getActivities(tenantId: string): Promise<Activity[]> {
+    return Array.from(this.activities.values())
+      .filter(a => (a as any).tenantId === tenantId)
+      .sort((a, b) => new Date(b.createdAt!).getTime() - new Date(a.createdAt!).getTime());
   }
 
   async getRecentActivities(tenantId: string, limit: number = 10): Promise<Activity[]> {
-    const activities = await this.getActivities();
+    const activities = await this.getActivities(tenantId);
     return activities
       .filter(a => (a as any).tenantId === tenantId)
       .slice(0, limit);
@@ -2292,17 +2296,20 @@ export class MemStorage implements IStorage {
   async deleteProjectForm(id: string, tenantId: string): Promise<boolean> { return false; }
 
   // Automations
-  async getAutomations(): Promise<Automation[]> {
-    return Array.from(this.automations.values()).sort((a, b) => 
-      new Date(b.createdAt!).getTime() - new Date(a.createdAt!).getTime()
-    );
+  async getAutomations(tenantId: string): Promise<Automation[]> {
+    return Array.from(this.automations.values())
+      .filter(a => a.tenantId === tenantId)
+      .sort((a, b) => new Date(b.createdAt!).getTime() - new Date(a.createdAt!).getTime());
   }
 
-  async getAutomation(id: string): Promise<Automation | undefined> {
-    return this.automations.get(id);
+  async getAutomation(id: string, tenantId?: string): Promise<Automation | undefined> {
+    const automation = this.automations.get(id);
+    if (!automation) return undefined;
+    if (tenantId && automation.tenantId !== tenantId) return undefined;
+    return automation;
   }
 
-  async createAutomation(insertAutomation: InsertAutomation): Promise<Automation> {
+  async createAutomation(insertAutomation: InsertAutomation, tenantId?: string): Promise<Automation> {
     const id = randomUUID();
     const automation: Automation = {
       ...insertAutomation,
@@ -2316,10 +2323,11 @@ export class MemStorage implements IStorage {
     return automation;
   }
 
-  async updateAutomation(id: string, automationUpdate: Partial<InsertAutomation>): Promise<Automation | undefined> {
+  async updateAutomation(id: string, automationUpdate: Partial<InsertAutomation>, tenantId?: string): Promise<Automation | undefined> {
     const automation = this.automations.get(id);
     if (!automation) return undefined;
-    
+    if (tenantId && automation.tenantId !== tenantId) return undefined;
+
     const updatedAutomation: Automation = {
       ...automation,
       ...automationUpdate,
@@ -3203,12 +3211,12 @@ export class MemStorage implements IStorage {
   }> {
     const leads = await this.getLeads(tenantId, userId);
     const projects = await this.getProjects(tenantId, userId);
-    const invoices = await this.getInvoices();
-    
+    const invoices = await this.getInvoices(tenantId);
+
     const activeProjects = projects.filter(p => p.status === 'active').length;
     const paidInvoices = invoices.filter(i => i.status === 'paid');
     const pendingInvoices = invoices.filter(i => i.status === 'sent' || i.status === 'overdue').length;
-    
+
     const revenue = paidInvoices.reduce((sum, invoice) => {
       return sum + parseFloat(invoice.total || '0');
     }, 0);
@@ -5402,8 +5410,10 @@ export class DrizzleStorage implements IStorage {
   }
   
   // Quotes - PostgreSQL implementation
-  async getQuotes() { 
-    return await this.db.select().from(quotes).orderBy(desc(quotes.createdAt));
+  async getQuotes(tenantId: string) {
+    return await this.db.select().from(quotes)
+      .where(eq(quotes.tenantId, tenantId))
+      .orderBy(desc(quotes.createdAt));
   }
   async getQuote(id: string, tenantId?: string) {
     const condition = tenantId
@@ -5432,11 +5442,14 @@ export class DrizzleStorage implements IStorage {
     
     return result[0];
   }
-  async updateQuote(id: string, quote: Partial<InsertQuote>) { 
+  async updateQuote(id: string, quote: Partial<InsertQuote>, tenantId?: string) {
+    const condition = tenantId
+      ? and(eq(quotes.id, id), eq(quotes.tenantId, tenantId))
+      : eq(quotes.id, id);
     const result = await this.db.update(quotes).set({
       ...quote,
       updatedAt: new Date(),
-    }).where(eq(quotes.id, id)).returning();
+    }).where(condition).returning();
     
     // Update project timestamp
     if (result[0]?.projectId && result[0]?.tenantId) {
@@ -5458,9 +5471,11 @@ export class DrizzleStorage implements IStorage {
     return await this.db.select().from(quotes).where(and(...conditions));
   }
   
-  // Contracts - PostgreSQL implementation  
-  async getContracts() { 
-    return await this.db.select().from(contracts).orderBy(desc(contracts.createdAt));
+  // Contracts - PostgreSQL implementation
+  async getContracts(tenantId: string) {
+    return await this.db.select().from(contracts)
+      .where(eq(contracts.tenantId, tenantId))
+      .orderBy(desc(contracts.createdAt));
   }
   async getContract(id: string, tenantId?: string) {
     const condition = tenantId
@@ -5494,11 +5509,14 @@ export class DrizzleStorage implements IStorage {
     
     return result[0];
   }
-  async updateContract(id: string, contract: Partial<InsertContract>) { 
+  async updateContract(id: string, contract: Partial<InsertContract>, tenantId?: string) {
+    const condition = tenantId
+      ? and(eq(contracts.id, id), eq(contracts.tenantId, tenantId))
+      : eq(contracts.id, id);
     const result = await this.db.update(contracts).set({
       ...contract,
       updatedAt: new Date(),
-    }).where(eq(contracts.id, id)).returning();
+    }).where(condition).returning();
     
     // Update project timestamp
     if (result[0]?.projectId && result[0]?.tenantId) {
@@ -5571,8 +5589,10 @@ export class DrizzleStorage implements IStorage {
   }
   
   // Invoices - PostgreSQL implementation
-  async getInvoices() { 
-    return await this.db.select().from(invoices).orderBy(desc(invoices.createdAt));
+  async getInvoices(tenantId: string) {
+    return await this.db.select().from(invoices)
+      .where(eq(invoices.tenantId, tenantId))
+      .orderBy(desc(invoices.createdAt));
   }
   async getInvoice(id: string, tenantId?: string) {
     const condition = tenantId
@@ -5601,11 +5621,14 @@ export class DrizzleStorage implements IStorage {
     
     return result[0];
   }
-  async updateInvoice(id: string, invoice: Partial<InsertInvoice>) { 
+  async updateInvoice(id: string, invoice: Partial<InsertInvoice>, tenantId?: string) {
+    const condition = tenantId
+      ? and(eq(invoices.id, id), eq(invoices.tenantId, tenantId))
+      : eq(invoices.id, id);
     const result = await this.db.update(invoices).set({
       ...invoice,
       updatedAt: new Date(),
-    }).where(eq(invoices.id, id)).returning();
+    }).where(condition).returning();
     
     // Update project timestamp
     if (result[0]?.projectId && result[0]?.tenantId) {
@@ -6105,25 +6128,39 @@ export class DrizzleStorage implements IStorage {
     
     return result[0];
   }
-  async updateEmail(id: string, email: Partial<InsertEmail>) { 
-    const result = await this.db.update(emails).set(email).where(eq(emails.id, id)).returning();
+  async updateEmail(id: string, email: Partial<InsertEmail>, tenantId?: string) {
+    const condition = tenantId
+      ? and(eq(emails.id, id), eq(emails.tenantId, tenantId))
+      : eq(emails.id, id);
+    const result = await this.db.update(emails).set(email).where(condition).returning();
     return result[0];
   }
-  async deleteEmail(id: string) { 
-    const result = await this.db.delete(emails).where(eq(emails.id, id));
+  async deleteEmail(id: string, tenantId?: string) {
+    const condition = tenantId
+      ? and(eq(emails.id, id), eq(emails.tenantId, tenantId))
+      : eq(emails.id, id);
+    const result = await this.db.delete(emails).where(condition);
     return result.rowCount > 0;
   }
   
   // Activities - PostgreSQL implementation
-  async getActivities() { 
-    return await this.db.select().from(activities).orderBy(desc(activities.createdAt));
+  async getActivities(tenantId: string) {
+    return await this.db.select().from(activities)
+      .where(eq(activities.tenantId, tenantId))
+      .orderBy(desc(activities.createdAt));
   }
-  async getActivity(id: string) { 
-    const result = await this.db.select().from(activities).where(eq(activities.id, id));
+  async getActivity(id: string, tenantId?: string) {
+    const condition = tenantId
+      ? and(eq(activities.id, id), eq(activities.tenantId, tenantId))
+      : eq(activities.id, id);
+    const result = await this.db.select().from(activities).where(condition);
     return result[0];
   }
-  async getActivitiesByClient(clientId: string) { 
-    return await this.db.select().from(activities).where(eq(activities.contactId, clientId));
+  async getActivitiesByClient(clientId: string, tenantId?: string) {
+    const condition = tenantId
+      ? and(eq(activities.contactId, clientId), eq(activities.tenantId, tenantId))
+      : eq(activities.contactId, clientId);
+    return await this.db.select().from(activities).where(condition);
   }
   async createActivity(activity: InsertActivity) {
     const result = await this.db.insert(activities).values(activity).returning();
@@ -6135,32 +6172,46 @@ export class DrizzleStorage implements IStorage {
     
     return result[0];
   }
-  async updateActivity(id: string, activity: Partial<InsertActivity>) { 
-    const result = await this.db.update(activities).set(activity).where(eq(activities.id, id)).returning();
+  async updateActivity(id: string, activity: Partial<InsertActivity>, tenantId?: string) {
+    const condition = tenantId
+      ? and(eq(activities.id, id), eq(activities.tenantId, tenantId))
+      : eq(activities.id, id);
+    const result = await this.db.update(activities).set(activity).where(condition).returning();
     return result[0];
   }
-  async deleteActivity(id: string) { 
-    const result = await this.db.delete(activities).where(eq(activities.id, id));
+  async deleteActivity(id: string, tenantId?: string) {
+    const condition = tenantId
+      ? and(eq(activities.id, id), eq(activities.tenantId, tenantId))
+      : eq(activities.id, id);
+    const result = await this.db.delete(activities).where(condition);
     return result.rowCount > 0;
   }
   
   // Automations - PostgreSQL implementation
-  async getAutomations(): Promise<Automation[]> {
-    return await this.db.select().from(automations);
+  async getAutomations(tenantId: string): Promise<Automation[]> {
+    return await this.db.select().from(automations)
+      .where(eq(automations.tenantId, tenantId));
   }
 
-  async getAutomation(id: string): Promise<Automation | undefined> {
-    const result = await this.db.select().from(automations).where(eq(automations.id, id));
+  async getAutomation(id: string, tenantId?: string): Promise<Automation | undefined> {
+    const condition = tenantId
+      ? and(eq(automations.id, id), eq(automations.tenantId, tenantId))
+      : eq(automations.id, id);
+    const result = await this.db.select().from(automations).where(condition);
     return result[0];
   }
 
-  async createAutomation(automation: InsertAutomation): Promise<Automation> {
-    const result = await this.db.insert(automations).values(automation).returning();
+  async createAutomation(automation: InsertAutomation, tenantId?: string): Promise<Automation> {
+    const values = tenantId ? { ...automation, tenantId } : automation;
+    const result = await this.db.insert(automations).values(values).returning();
     return result[0];
   }
 
-  async updateAutomation(id: string, automation: Partial<InsertAutomation>): Promise<Automation | undefined> {
-    const result = await this.db.update(automations).set(automation).where(eq(automations.id, id)).returning();
+  async updateAutomation(id: string, automation: Partial<InsertAutomation>, tenantId?: string): Promise<Automation | undefined> {
+    const condition = tenantId
+      ? and(eq(automations.id, id), eq(automations.tenantId, tenantId))
+      : eq(automations.id, id);
+    const result = await this.db.update(automations).set(automation).where(condition).returning();
     return result[0];
   }
 
@@ -6916,12 +6967,12 @@ export class DrizzleStorage implements IStorage {
     // Calculate metrics from PostgreSQL data
     const leads = await this.getLeads(tenantId, userId);
     const projects = await this.getProjects(tenantId, userId);
-    const invoices = await this.getInvoices();
-    
+    const invoices = await this.getInvoices(tenantId);
+
     const activeProjects = projects.filter(p => p.status === 'active').length;
     const paidInvoices = invoices.filter(i => i.status === 'paid');
     const pendingInvoices = invoices.filter(i => i.status === 'sent' || i.status === 'overdue').length;
-    
+
     const revenue = paidInvoices.reduce((sum, invoice) => {
       return sum + parseFloat(invoice.total || '0');
     }, 0);

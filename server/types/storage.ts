@@ -97,21 +97,21 @@ export interface IStorage {
   getQuote(id: string, tenantId: string): Promise<Quote | undefined>;
   getQuoteByNumber(quoteNumber: string, tenantId: string): Promise<Quote | undefined>;
   createQuote(quote: InsertQuote, tenantId: string): Promise<Quote>;
-  updateQuote(id: string, quote: Partial<InsertQuote>, tenantId: string): Promise<Quote | undefined>;
+  updateQuote(id: string, quote: Partial<InsertQuote>, tenantId?: string): Promise<Quote | undefined>;
   deleteQuote(id: string, tenantId: string): Promise<boolean>;
   
   // Contracts
   getContracts(tenantId: string): Promise<Contract[]>;
   getContract(id: string, tenantId: string): Promise<Contract | undefined>;
   createContract(contract: InsertContract, tenantId: string): Promise<Contract>;
-  updateContract(id: string, contract: Partial<InsertContract>, tenantId: string): Promise<Contract | undefined>;
+  updateContract(id: string, contract: Partial<InsertContract>, tenantId?: string): Promise<Contract | undefined>;
   deleteContract(id: string, tenantId: string): Promise<boolean>;
   
   // Invoices
   getInvoices(tenantId: string): Promise<Invoice[]>;
   getInvoice(id: string, tenantId: string): Promise<Invoice | undefined>;
   createInvoice(invoice: InsertInvoice, tenantId: string): Promise<Invoice>;
-  updateInvoice(id: string, invoice: Partial<InsertInvoice>, tenantId: string): Promise<Invoice | undefined>;
+  updateInvoice(id: string, invoice: Partial<InsertInvoice>, tenantId?: string): Promise<Invoice | undefined>;
   deleteInvoice(id: string, tenantId: string): Promise<boolean>;
   
   // Tasks
@@ -125,21 +125,21 @@ export interface IStorage {
   getEmails(tenantId: string): Promise<Email[]>;
   getEmail(id: string, tenantId: string): Promise<Email | undefined>;
   createEmail(email: InsertEmail, tenantId: string): Promise<Email>;
-  updateEmail(id: string, email: Partial<InsertEmail>, tenantId: string): Promise<Email | undefined>;
-  deleteEmail(id: string, tenantId: string): Promise<boolean>;
+  updateEmail(id: string, email: Partial<InsertEmail>, tenantId?: string): Promise<Email | undefined>;
+  deleteEmail(id: string, tenantId?: string): Promise<boolean>;
   
   // Activities
   getActivities(tenantId: string): Promise<Activity[]>;
-  getActivity(id: string, tenantId: string): Promise<Activity | undefined>;
-  createActivity(activity: InsertActivity, tenantId: string): Promise<Activity>;
-  updateActivity(id: string, activity: Partial<InsertActivity>, tenantId: string): Promise<Activity | undefined>;
-  deleteActivity(id: string, tenantId: string): Promise<boolean>;
+  getActivity(id: string, tenantId?: string): Promise<Activity | undefined>;
+  createActivity(activity: InsertActivity, tenantId?: string): Promise<Activity>;
+  updateActivity(id: string, activity: Partial<InsertActivity>, tenantId?: string): Promise<Activity | undefined>;
+  deleteActivity(id: string, tenantId?: string): Promise<boolean>;
   
   // Automations
   getAutomations(tenantId: string): Promise<Automation[]>;
-  getAutomation(id: string, tenantId: string): Promise<Automation | undefined>;
-  createAutomation(automation: InsertAutomation, tenantId: string): Promise<Automation>;
-  updateAutomation(id: string, automation: Partial<InsertAutomation>, tenantId: string): Promise<Automation | undefined>;
+  getAutomation(id: string, tenantId?: string): Promise<Automation | undefined>;
+  createAutomation(automation: InsertAutomation, tenantId?: string): Promise<Automation>;
+  updateAutomation(id: string, automation: Partial<InsertAutomation>, tenantId?: string): Promise<Automation | undefined>;
   deleteAutomation(id: string, tenantId: string): Promise<boolean>;
   
   // Members

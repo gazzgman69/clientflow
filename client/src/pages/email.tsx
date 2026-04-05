@@ -96,6 +96,26 @@ export default function EmailPage() {
     setShowComposeModal(true);
   };
 
+  const handleReply = (email: Email) => {
+    form.reset({
+      toEmail: email.fromEmail || "",
+      subject: email.subject?.startsWith("Re:") ? email.subject : `Re: ${email.subject || ""}`,
+      body: "",
+      fromEmail: (currentUser as any)?.user?.email || "",
+    });
+    setShowComposeModal(true);
+  };
+
+  const handleForward = (email: Email) => {
+    form.reset({
+      toEmail: "",
+      subject: email.subject?.startsWith("Fwd:") ? email.subject : `Fwd: ${email.subject || ""}`,
+      body: `\n\n--- Forwarded Message ---\nFrom: ${email.fromEmail || ""}\n\n${email.body || ""}`,
+      fromEmail: (currentUser as any)?.user?.email || "",
+    });
+    setShowComposeModal(true);
+  };
+
   // Mock emails for demonstration
   const mockEmails: Email[] = [
     {
@@ -181,7 +201,7 @@ export default function EmailPage() {
               >
                 <Inbox className="h-4 w-4 mr-2" />
                 Inbox
-                <Badge variant="secondary" className="ml-auto">5</Badge>
+                <Badge variant="secondary" className="ml-auto">{displayEmails.filter(e => e.status !== 'sent').length || 0}</Badge>
               </Button>
               <Button
                 variant={activeTab === 'sent' ? 'default' : 'ghost'}
@@ -283,13 +303,13 @@ export default function EmailPage() {
                       </p>
                     </div>
                     <div className="flex items-center space-x-2">
-                      <Button variant="ghost" size="sm" data-testid="button-reply">
+                      <Button variant="ghost" size="sm" data-testid="button-reply" onClick={() => handleReply(selectedEmail)}>
                         <Reply className="h-4 w-4" />
                       </Button>
-                      <Button variant="ghost" size="sm" data-testid="button-forward">
+                      <Button variant="ghost" size="sm" data-testid="button-forward" onClick={() => handleForward(selectedEmail)}>
                         <Forward className="h-4 w-4" />
                       </Button>
-                      <Button variant="ghost" size="sm" data-testid="button-delete">
+                      <Button variant="ghost" size="sm" data-testid="button-delete" onClick={() => toast({ title: "Delete email", description: "Email deletion is not yet available.", variant: "destructive" })}>
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>

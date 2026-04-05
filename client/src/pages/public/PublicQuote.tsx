@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
 import { CheckCircle2, Package, Plus, Star } from 'lucide-react';
+import { formatCurrency, type CurrencyCode } from '@/lib/currency';
 
 interface QuotePackage {
   id: string;
@@ -123,6 +124,9 @@ export default function PublicQuote({ token }: PublicQuoteProps) {
       });
     },
   });
+
+  // Derive currency from the quote data (falls back to GBP)
+  const quoteCurrency = ((quoteData?.quote as any)?.currency || 'GBP') as CurrencyCode;
 
   // Calculate totals based on selections
   const calculateTotals = () => {
@@ -248,7 +252,7 @@ export default function PublicQuote({ token }: PublicQuoteProps) {
             </p>
             <div className="text-sm text-muted-foreground bg-muted p-3 rounded">
               <p><strong>Quote:</strong> {quoteData.quote.title}</p>
-              <p><strong>Total:</strong> £{total.toFixed(2)}</p>
+              <p><strong>Total:</strong> {formatCurrency(total, quoteCurrency)}</p>
               <p><strong>Signed by:</strong> {signatureName}</p>
             </div>
           </CardContent>
@@ -331,7 +335,7 @@ export default function PublicQuote({ token }: PublicQuoteProps) {
                                 <Label htmlFor={pkg.id} className="font-semibold cursor-pointer">
                                   {pkg.name}
                                 </Label>
-                                <span className="text-lg font-bold">£{parseFloat(pkg.price).toFixed(2)}</span>
+                                <span className="text-lg font-bold">{formatCurrency(parseFloat(pkg.price), quoteCurrency)}</span>
                               </div>
                               {pkg.description && (
                                 <p className="text-sm text-muted-foreground mt-1">{pkg.description}</p>
@@ -400,7 +404,7 @@ export default function PublicQuote({ token }: PublicQuoteProps) {
                                 <Label htmlFor={addon.id} className="font-medium cursor-pointer">
                                   {addon.name}
                                 </Label>
-                                <span className="font-semibold">+£{parseFloat(addon.price).toFixed(2)}</span>
+                                <span className="font-semibold">+{formatCurrency(parseFloat(addon.price), quoteCurrency)}</span>
                               </div>
                               {addon.description && (
                                 <p className="text-sm text-muted-foreground mt-1">{addon.description}</p>
@@ -435,7 +439,7 @@ export default function PublicQuote({ token }: PublicQuoteProps) {
                       return pkg ? (
                         <div className="flex justify-between text-sm">
                           <span>{pkg.name}</span>
-                          <span>£{parseFloat(pkg.price).toFixed(2)}</span>
+                          <span>{formatCurrency(parseFloat(pkg.price), quoteCurrency)}</span>
                         </div>
                       ) : null;
                     })()}
@@ -451,7 +455,7 @@ export default function PublicQuote({ token }: PublicQuoteProps) {
                         return addon ? (
                           <div key={addon.id} className="flex justify-between text-sm">
                             <span>{addon.name}</span>
-                            <span>£{parseFloat(addon.price).toFixed(2)}</span>
+                            <span>{formatCurrency(parseFloat(addon.price), quoteCurrency)}</span>
                           </div>
                         ) : null;
                       })}
@@ -464,18 +468,18 @@ export default function PublicQuote({ token }: PublicQuoteProps) {
                 <div className="space-y-2">
                   <div className="flex justify-between">
                     <span>Subtotal</span>
-                    <span>£{subtotal.toFixed(2)}</span>
+                    <span>{formatCurrency(subtotal, quoteCurrency)}</span>
                   </div>
                   {vatAmount > 0 && (
                     <div className="flex justify-between text-sm text-muted-foreground">
                       <span>VAT ({parseFloat(quoteData.quote.vatRate)}%)</span>
-                      <span>£{vatAmount.toFixed(2)}</span>
+                      <span>{formatCurrency(vatAmount, quoteCurrency)}</span>
                     </div>
                   )}
                   <Separator />
                   <div className="flex justify-between text-lg font-bold">
                     <span>Total</span>
-                    <span>£{total.toFixed(2)}</span>
+                    <span>{formatCurrency(total, quoteCurrency)}</span>
                   </div>
                 </div>
 

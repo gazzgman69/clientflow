@@ -1,4 +1,4 @@
-import { FileText, FileCheck, FileX, DollarSign, CheckCircle2, XCircle, Clock } from 'lucide-react';
+import { FileText, FileCheck, FileX, Receipt, CheckCircle2, XCircle, Clock } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface DocumentStatusIndicatorsProps {
@@ -131,7 +131,7 @@ export function DocumentStatusIndicators({ projectId, documentStatuses }: Docume
         <Tooltip>
           <TooltipTrigger asChild>
             <div className={`flex items-center ${getInvoiceColor()}`} data-testid={`invoice-indicator-${projectId}`}>
-              <DollarSign className="h-4 w-4" />
+              <Receipt className="h-4 w-4" />
               {invoiceTotal > 0 && (
                 <span className="ml-1 text-xs font-medium">{invoiceTotal}</span>
               )}

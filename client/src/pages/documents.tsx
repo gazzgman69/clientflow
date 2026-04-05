@@ -36,18 +36,9 @@ export default function Documents() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Build documents URL with proper query params
-  const documentsUrl = (() => {
-    const params = new URLSearchParams();
-    if (statusFilter !== "all") params.set("status", statusFilter);
-    if (typeFilter !== "all") params.set("type", typeFilter);
-    const qs = params.toString();
-    return qs ? `/api/documents?${qs}` : "/api/documents";
-  })();
-
-  // Fetch all documents
-  const { data: documents = [], isLoading } = useQuery<Document[]>({
-    queryKey: [documentsUrl],
+  // Fetch all documents (unfiltered from server, filter client-side so invalidation works cleanly)
+  const { data: allDocuments = [], isLoading } = useQuery<Document[]>({
+    queryKey: ["/api/documents"],
   });
 
   // Fetch contacts for name display
@@ -120,13 +111,13 @@ export default function Documents() {
     },
   });
 
-  // Filter documents based on search and filters
-  const filteredDocuments = documents.filter(doc => {
+  // Filter documents client-side (all docs fetched from server so invalidation always works)
+  const filteredDocuments = allDocuments.filter(doc => {
     const matchesSearch = doc.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          getClientName(doc.contactId ?? doc.clientId ?? "").toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === "all" || doc.status === statusFilter;
     const matchesType = typeFilter === "all" || doc.documentType === typeFilter.replace('s', '');
-    
+
     return matchesSearch && matchesStatus && matchesType;
   });
 

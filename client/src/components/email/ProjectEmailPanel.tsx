@@ -456,12 +456,6 @@ export default function ProjectEmailPanel({ projectId, emails, autoOpenComposer 
     // Get HTML content from the Rich Text Editor
     const emailBody = messageEditorRef.current?.getHTML() || message;
     
-    // Debug: Log what we're sending
-    console.log('🔍 EMAIL SEND DEBUG:');
-    console.log('  message state:', message.substring(0, 100));
-    console.log('  getHTML():', messageEditorRef.current?.getHTML()?.substring(0, 100));
-    console.log('  emailBody (final):', emailBody.substring(0, 100));
-    
     // Update template if checkbox is checked and a template is selected
     if (updateTemplate && selectedTemplate) {
       updateTemplateMutation.mutate({
@@ -492,13 +486,10 @@ export default function ProjectEmailPanel({ projectId, emails, autoOpenComposer 
     queryKey: [`/api/email-threads/${selectedThreadId}/messages`],
     queryFn: async () => {
       if (!selectedThreadId) return null;
-      console.log(`🔍 Fetching thread details for: ${selectedThreadId}`);
       const response = await fetch(`/api/email-threads/${selectedThreadId}/messages`, {
         credentials: 'include'
       });
       const data = await response.json();
-      console.log(`📧 Thread details response:`, data);
-      console.log(`📧 Messages count:`, data?.messages?.length || 0);
       return data;
     },
     enabled: !!selectedThreadId && !!currentUser,
@@ -1001,7 +992,6 @@ export default function ProjectEmailPanel({ projectId, emails, autoOpenComposer 
                   apiRequest('POST', '/api/email/sync', {})
                     .then(response => response.json())
                     .then(result => {
-                      console.log('Email sync result:', result);
                       if (result.success !== false && result.ok !== false) {
                         // Refresh again after sync completes
                         queryClient.invalidateQueries({ queryKey: [`/api/email/projects/${projectId}/email-messages`] });

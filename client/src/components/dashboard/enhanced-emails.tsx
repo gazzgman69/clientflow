@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { formatDistanceToNow, format } from "date-fns";
 import { useState } from "react";
+import { useLocation } from "wouter";
 
 interface EmailItem {
   id: string;
@@ -36,6 +37,7 @@ interface EmailItem {
 
 export default function EnhancedEmails() {
   const [selectedEmail, setSelectedEmail] = useState<EmailItem | null>(null);
+  const [, setLocation] = useLocation();
 
   // Mock recent emails - in real app, this would come from API
   const recentEmails: EmailItem[] = [
@@ -169,8 +171,8 @@ export default function EnhancedEmails() {
     }
   };
 
-  const handleProjectClick = (projectId: string, clientId: string) => {
-    console.log(`Navigate to project ${projectId} for client ${clientId}`);
+  const handleProjectClick = (projectId: string, _clientId: string) => {
+    setLocation(`/projects/${projectId}`);
   };
 
   const handleEmailClick = (email: EmailItem) => {

@@ -35,11 +35,6 @@ export default function CalendarWeekView() {
           throw new Error(`HTTP error! status: ${response.status}`);
         }
         const data = await response.json();
-        console.log('📅 Calendar events fetched:', {
-          eventsCount: Array.isArray(data) ? data.length : 0,
-          eventsWithTenantId: Array.isArray(data) ? data.filter((e: any) => e.tenantId).length : 0,
-          timestamp: new Date().toISOString()
-        });
         // Ensure we always return an array
         return Array.isArray(data) ? data : [];
       } catch (error) {

@@ -108,17 +108,6 @@ export default function CreateContractDialog({
     enabled: !!templateId && open,
   });
 
-  console.log('Templates query state:', { 
-    templates, 
-    isLoadingTemplates, 
-    templatesError, 
-    open,
-    templateId,
-    editingTemplate,
-    hasTemplates: templates && templates.length > 0,
-    errorMessage: templatesError?.message || 'No error message'
-  });
-
   const form = useForm<z.infer<typeof createContractFormSchema>>({
     resolver: zodResolver(createContractFormSchema),
     defaultValues: {
@@ -444,7 +433,6 @@ export default function CreateContractDialog({
                     id="save-as-template" 
                     checked={saveAsTemplate}
                     onCheckedChange={(checked) => {
-                      console.log('Save as template checked:', checked, 'selectedTemplateId:', selectedTemplateId);
                       setSaveAsTemplate(checked === true);
                       if (!checked) {
                         setTemplateName('');

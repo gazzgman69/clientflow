@@ -5933,11 +5933,19 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
         return res.status(404).json({ message: "Email provider configuration not found" });
       }
 
-      // TODO: Implement actual connection testing based on provider type
-      // For now, just return success to allow UI testing
-      res.json({ 
-        success: true, 
-        message: "Connection test passed (mock implementation)" 
+      // Validate required config fields are present
+      const requiredFields = ['host', 'port', 'username', 'password'].filter(f => !config[f as keyof typeof config]);
+      if (requiredFields.length > 0) {
+        return res.json({
+          success: false,
+          message: `Missing required fields: ${requiredFields.join(', ')}. Please complete your configuration before testing.`
+        });
+      }
+      // Config exists and required fields are present — direct SMTP/API testing
+      // is not yet implemented server-side. Advise the user to send a test email.
+      res.json({
+        success: true,
+        message: "Configuration looks complete. Send a test email to verify delivery is working."
       });
     } catch (error) {
       console.error('Error testing email provider config:', error);
@@ -5959,11 +5967,17 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
         });
       }
 
-      // TODO: Implement actual credential verification based on provider type
-      // For now, just return success to allow UI testing
-      res.json({ 
-        success: true, 
-        message: "Credentials verified successfully (mock implementation)" 
+      // Basic credential presence check — full API verification not yet implemented
+      const { apiKey, username, password } = credentials as any;
+      if (!apiKey && !(username && password)) {
+        return res.json({
+          success: false,
+          message: "Please provide either an API key or username and password to verify credentials."
+        });
+      }
+      res.json({
+        success: true,
+        message: "Credentials look complete. Save your configuration and send a test email to confirm they work."
       });
     } catch (error) {
       console.error('Error verifying email provider credentials:', error);

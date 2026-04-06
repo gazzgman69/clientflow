@@ -366,6 +366,20 @@ app.use('/auth', (req, res, next) => {
 
     // Initialize jobs service for background task management
     try {
+      // Ensure the 'system' tenant record exists — required by the jobs FK constraint
+      // System-level recurring jobs (calendar-sync, email-sync etc.) are not owned by
+      // any real tenant; they iterate all tenants internally. We use a dedicated
+      // 'system' row so the FK is satisfied without loosening the constraint.
+      const { db: dbInstance } = await import('./db');
+      const { tenants: tenantsTable } = await import('../shared/schema');
+      const { eq } = await import('drizzle-orm');
+      const [existingSystemTenant] = await dbInstance.select({ id: tenantsTable.id })
+        .from(tenantsTable).where(eq(tenantsTable.id, 'system')).limit(1);
+      if (!existingSystemTenant) {
+        await dbInstance.insert(tenantsTable).values({ id: 'system', name: 'System', slug: 'system' });
+        console.log('✅ System tenant record created for background job scheduling');
+      }
+
       console.log('📋 Initializing job queue service...');
       const { jobs } = await import('./src/services/jobsService');
       await jobs.initialize();

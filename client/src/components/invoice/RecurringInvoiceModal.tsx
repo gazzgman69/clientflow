@@ -27,7 +27,7 @@ export default function RecurringInvoiceModal({
   onClose,
   invoiceId
 }: RecurringInvoiceModalProps) {
-  const [frequency: number, setFrequency] = useState(1);
+  const [frequency, setFrequency] = useState<number>(1);
   const [frequencyUnit, setFrequencyUnit] = useState<FrequencyUnit>("month");
   const [startDate, setStartDate] = useState<Date>(new Date());
   const [endDate, setEndDate] = useState<Date | undefined>();

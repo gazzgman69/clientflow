@@ -1,5 +1,6 @@
 import type { Express } from "express";
 import express from "express";
+import { exec as execCmd } from 'child_process';
 import { createServer, type Server } from "http";
 import session from "express-session";
 import ConnectPgSimple from "connect-pg-simple";
@@ -152,8 +153,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     if (!secret || req.query.key !== secret) {
       return res.status(403).json({ error: 'forbidden' });
     }
-    const { exec } = require('child_process');
-    exec('git fetch origin && git reset --hard origin/main', (err: any, stdout: string, stderr: string) => {
+    execCmd('git fetch origin && git reset --hard origin/main', (err: any, stdout: string, stderr: string) => {
       if (err) {
         return res.status(500).json({ error: 'git pull failed', detail: stderr });
       }

@@ -1658,14 +1658,7 @@ router.post('/api/auth/google/disconnect', requireAuth, async (req: any, res) =>
 router.post('/api/auth/google/sync', requireAuth, async (req: any, res) => {
   try {
     const userId = req.authenticatedUserId;
-    
-      action: 'manual_sync_triggered',
-      userId,
-      tenantId: req.tenantId,
-      featureFlag: 'CAL_SYNC_NOW_ENABLED=1',
-      timestamp: new Date().toISOString()
-    });
-    
+
     // Get active Google integrations for this user
     const integrations = await storage.getCalendarIntegrationsByUser(userId, req.tenantId);
     const activeGoogleIntegrations = integrations.filter(i => 

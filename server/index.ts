@@ -436,7 +436,5 @@ app.use((req, res, next) => {
       followUpEngine.start();
       console.log('✅ Follow-up sequence engine started (fallback)');
     }
-  };
-
   });
 })();

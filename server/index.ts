@@ -336,12 +336,25 @@ app.use((req, res, next) => {
   // this serves both the API and the client.
   // It is the only port that is not firewalled.
   const port = parseInt(process.env.PORT || '5000', 10);
-  server.listen({
-    port,
-    host: "0.0.0.0",
-    reusePort: true,
-  }, async () => {
-    log(`serving on port ${port}`);
+
+  // Retry listen on EADDRINUSE — tsx watch can restart before the OS releases the port.
+  const startServer = (attempt = 1) => {
+    server.listen({ port, host: "0.0.0.0", reusePort: true }, async () => {
+      log(`serving on port ${port}`);
+      await onServerReady();
+    });
+    server.once('error', (err: any) => {
+      if (err.code === 'EADDRINUSE' && attempt <= 5) {
+        log(`Port ${port} busy, retrying in ${attempt * 500}ms (attempt ${attempt}/5)…`);
+        server.close();
+        setTimeout(() => startServer(attempt + 1), attempt * 500);
+      } else {
+        throw err;
+      }
+    });
+  };
+
+  const onServerReady = async () => {
     
     // Initialize file storage system
     try {
@@ -435,5 +448,7 @@ app.use((req, res, next) => {
       followUpEngine.start();
       console.log('✅ Follow-up sequence engine started (fallback)');
     }
-  });
+  };
+
+  startServer();
 })();

@@ -1,5 +1,7 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
+import { RichTextEditor } from '@/components/ui/rich-text-editor';
+import type { RichTextEditorRef } from '@/components/ui/rich-text-editor';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -306,6 +308,182 @@ const QUESTION_TYPES: { value: QuestionType; label: string; description: string 
   { value: 'date',         label: 'Date',               description: 'Pick a date' },
   { value: 'display_text', label: 'Text / Instructions', description: 'Display-only text block' },
 ];
+
+/* ─── Booking Message Select (inline create / edit / delete) ────────────────── */
+
+interface BookingMessageSelectProps {
+  label: string;
+  /** API type stored on the message template record */
+  templateType: 'service_policy' | 'confirmation_message';
+  /** Human-readable name used in modal title and button label */
+  createLabel: string;
+  /** Currently selected template ID ('' = none) */
+  value: string;
+  onChange: (id: string) => void;
+}
+
+function BookingMessageSelect({ label, templateType, createLabel, value, onChange }: BookingMessageSelectProps) {
+  const { toast } = useToast();
+  const editorRef = useRef<RichTextEditorRef>(null);
+
+  const [showModal, setShowModal] = useState(false);
+  const [editingTemplate, setEditingTemplate] = useState<any>(null); // null = create mode
+  const [modalName, setModalName] = useState('');
+  const [editorKey, setEditorKey] = useState(0); // force editor remount on open
+
+  // Fetch templates of this specific type
+  const { data: templates = [] } = useQuery<any[]>({
+    queryKey: ['/api/message-templates', templateType],
+    queryFn: async () => {
+      const res = await fetch(`/api/message-templates?type=${templateType}`, { credentials: 'include' });
+      if (!res.ok) throw new Error('Failed to load');
+      return res.json();
+    },
+    staleTime: 30_000,
+  });
+
+  const selectedTemplate = templates.find((t: any) => t.id === value) || null;
+
+  const saveMutation = useMutation({
+    mutationFn: async (data: { name: string; body: string }) => {
+      if (editingTemplate) {
+        const res = await apiRequest('PATCH', `/api/message-templates/${editingTemplate.id}`, data);
+        return res.json();
+      } else {
+        const res = await apiRequest('POST', '/api/message-templates', { ...data, type: templateType });
+        return res.json();
+      }
+    },
+    onSuccess: (saved: any) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/message-templates', templateType] });
+      if (!editingTemplate) {
+        onChange(saved.id); // auto-select newly created template
+      }
+      setShowModal(false);
+      toast({ description: editingTemplate ? `${createLabel} updated` : `${createLabel} created` });
+    },
+    onError: () => toast({ title: 'Error', description: `Failed to save ${createLabel.toLowerCase()}`, variant: 'destructive' }),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest('DELETE', `/api/message-templates/${value}`);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/message-templates', templateType] });
+      onChange(''); // reset selection
+      toast({ description: `${createLabel} deleted` });
+    },
+    onError: () => toast({ title: 'Error', description: `Failed to delete ${createLabel.toLowerCase()}`, variant: 'destructive' }),
+  });
+
+  const openCreate = () => {
+    setEditingTemplate(null);
+    setModalName('');
+    setEditorKey(k => k + 1);
+    setShowModal(true);
+  };
+
+  const openEdit = () => {
+    setEditingTemplate(selectedTemplate);
+    setModalName(selectedTemplate?.name || '');
+    setEditorKey(k => k + 1);
+    setShowModal(true);
+  };
+
+  const handleSave = () => {
+    const body = editorRef.current?.getHTML() || '';
+    if (!modalName.trim()) return;
+    saveMutation.mutate({ name: modalName.trim(), body });
+  };
+
+  const modalTitle = editingTemplate
+    ? `Edit ${createLabel}`
+    : `Add ${createLabel}`;
+
+  return (
+    <div>
+      <Label className="text-sm font-semibold">{label}</Label>
+      <div className="flex gap-2 mt-1">
+        <Select value={value || 'none'} onValueChange={v => onChange(v === 'none' ? '' : v)}>
+          <SelectTrigger className="flex-1">
+            <SelectValue placeholder="None" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="none">None</SelectItem>
+            {templates.map((t: any) => (
+              <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        {!value ? (
+          <Button type="button" variant="outline" onClick={openCreate}>
+            Create {createLabel}
+          </Button>
+        ) : (
+          <>
+            <Button type="button" variant="outline" size="sm" onClick={openEdit}>
+              <Pencil className="h-4 w-4 mr-1" /> Edit
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="text-destructive border-destructive/30 hover:bg-destructive/10"
+              disabled={deleteMutation.isPending}
+              onClick={() => deleteMutation.mutate()}
+            >
+              <Trash2 className="h-4 w-4 mr-1" /> Delete
+            </Button>
+          </>
+        )}
+      </div>
+
+      {/* Create / Edit modal */}
+      <Dialog open={showModal} onOpenChange={open => { if (!open) setShowModal(false); }}>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{modalTitle}</DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4 mt-2">
+            <div>
+              <Label htmlFor={`bm-name-${templateType}`}>Name</Label>
+              <Input
+                id={`bm-name-${templateType}`}
+                value={modalName}
+                onChange={e => setModalName(e.target.value)}
+                placeholder={createLabel}
+                className="mt-1"
+                autoFocus
+              />
+            </div>
+
+            <RichTextEditor
+              key={editorKey}
+              ref={editorRef}
+              content={editingTemplate?.body || ''}
+              placeholder="Enter content..."
+              minHeight="250px"
+            />
+          </div>
+
+          <DialogFooter className="mt-4">
+            <Button variant="outline" onClick={() => setShowModal(false)}>Cancel</Button>
+            <Button
+              onClick={handleSave}
+              disabled={!modalName.trim() || saveMutation.isPending}
+            >
+              {saveMutation.isPending ? 'Saving…' : 'Save'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
 
 /* ─── Service Settings Page (full-page, 12 sections) ────────────────────────── */
 
@@ -959,27 +1137,21 @@ function ServiceSettingsPage({ service, onClose }: { service?: BookableService; 
         <div>
           <SectionHeader n={6} title="Booking Messaging" isOpen={openSections[6]} />
           {openSections[6] && (
-            <div className="px-6 pb-6 space-y-4 max-w-md">
-              <TemplateSelect
-                id="svc-tos"
+            <div className="px-6 pb-6 space-y-4 max-w-xl">
+              <BookingMessageSelect
                 label="Terms of Service"
+                templateType="service_policy"
+                createLabel="Service Policy"
                 value={formData.termsOfServiceTemplateId}
                 onChange={v => update({ termsOfServiceTemplateId: v })}
-                templates={emailTemplates}
-                emptyLabel="No terms of service"
               />
-              <TemplateSelect
-                id="svc-conf-msg"
+              <BookingMessageSelect
                 label="Confirmation Message"
+                templateType="confirmation_message"
+                createLabel="Confirmation Message"
                 value={formData.confirmationMessageTemplateId}
                 onChange={v => update({ confirmationMessageTemplateId: v })}
-                templates={emailTemplates}
-                emptyLabel="Default confirmation"
               />
-              <p className="text-xs text-muted-foreground">
-                Manage email templates in the{' '}
-                <span className="font-medium">Templates</span> section of your account.
-              </p>
             </div>
           )}
         </div>

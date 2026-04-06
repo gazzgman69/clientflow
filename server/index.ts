@@ -337,24 +337,12 @@ app.use((req, res, next) => {
   // It is the only port that is not firewalled.
   const port = parseInt(process.env.PORT || '5000', 10);
 
-  // Retry listen on EADDRINUSE — tsx watch can restart before the OS releases the port.
-  const startServer = (attempt = 1) => {
-    server.listen({ port, host: "0.0.0.0", reusePort: true }, async () => {
-      log(`serving on port ${port}`);
-      await onServerReady();
-    });
-    server.once('error', (err: any) => {
-      if (err.code === 'EADDRINUSE' && attempt <= 5) {
-        log(`Port ${port} busy, retrying in ${attempt * 500}ms (attempt ${attempt}/5)…`);
-        server.close();
-        setTimeout(() => startServer(attempt + 1), attempt * 500);
-      } else {
-        throw err;
-      }
-    });
-  };
+  // Brief delay so the OS releases the port before we bind — prevents EADDRINUSE
+  // when tsx watch restarts the server after file changes.
+  await new Promise(resolve => setTimeout(resolve, 1500));
 
-  const onServerReady = async () => {
+  server.listen({ port, host: "0.0.0.0", reusePort: true }, async () => {
+    log(`serving on port ${port}`);
     
     // Initialize file storage system
     try {
@@ -450,5 +438,5 @@ app.use((req, res, next) => {
     }
   };
 
-  startServer();
+  });
 })();

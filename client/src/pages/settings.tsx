@@ -359,8 +359,8 @@ export default function Settings() {
               </CardHeader>
               <CardContent className="space-y-6">
                 <div className="flex items-center space-x-4">
-                  <Avatar className="h-20 w-20" data-testid="profile-avatar">
-                    <AvatarImage src={avatarPreview || currentUser?.user?.avatar || undefined} />
+                  <Avatar className="h-20 w-20 bg-white" data-testid="profile-avatar">
+                    <AvatarImage src={avatarPreview || currentUser?.user?.avatar || undefined} className="object-contain p-1" />
                     <AvatarFallback>{(profileForm.firstName?.[0] || "") + (profileForm.lastName?.[0] || "")}</AvatarFallback>
                   </Avatar>
                   <div className="space-y-2">

@@ -143,6 +143,25 @@ import {
 } from "@shared/schema";
 
 export async function registerRoutes(app: Express, csrfProtection?: any): Promise<Server> {
+
+  // ── Admin reload endpoint ─────────────────────────────────────────────────
+  // Called by CI after each git push to pull latest code; tsx watch restarts automatically.
+  // Requires RELOAD_SECRET env var to be set in Replit Secrets.
+  app.get('/api/admin/reload', (req: any, res: any) => {
+    const secret = process.env.RELOAD_SECRET;
+    if (!secret || req.query.key !== secret) {
+      return res.status(403).json({ error: 'forbidden' });
+    }
+    const { exec } = require('child_process');
+    exec('git fetch origin && git reset --hard origin/main', (err: any, stdout: string, stderr: string) => {
+      if (err) {
+        return res.status(500).json({ error: 'git pull failed', detail: stderr });
+      }
+      res.json({ ok: true, output: stdout.trim() });
+    });
+  });
+  // ─────────────────────────────────────────────────────────────────────────
+
   // CRITICAL DEBUG: Log app instance and verify route registration
   console.log('🔧 REGISTER ROUTES CALLED:', {
     appType: typeof app,

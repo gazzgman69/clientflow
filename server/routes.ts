@@ -202,18 +202,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   });
 
   // Debug endpoint: identify runtime storage type and git commit
-  app.get('/api/debug/info', (req, res) => {
-    const { execSync } = require('child_process');
-    let gitHash = 'unknown';
-    try { gitHash = execSync('git rev-parse HEAD', { timeout: 3000 }).toString().trim(); } catch {}
-    res.set('Cache-Control', 'no-store');
-    res.status(200).json({
-      storageClass: storage.constructor.name,
-      gitHash,
-      nodeEnv: process.env.NODE_ENV,
-      timestamp: new Date().toISOString()
-    });
-  });
+  // /api/debug/info removed — exposed internal infrastructure details (storage class, git hash)
 
 
   // Readiness check - comprehensive dependency verification
@@ -769,7 +758,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
 
             // Enqueue for async Google Calendar push
             const { googleOutbox } = await import('../services/googleOutbox');
-            googleOutbox.enqueue({ eventId: createdEvent.id });
+            googleOutbox.enqueue({ eventId: createdEvent.id, tenantId: req.tenantId ?? undefined });
           }
         } catch (calError) {
           console.error('Failed to auto-create calendar event for lead:', calError);
@@ -1541,10 +1530,6 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   });
 
   // Test route to verify routing is working
-  app.get('/api/auth/test', (req, res) => {
-    res.json({ message: 'Route registration is working' });
-  });
-
   app.post('/api/auth/login', authLimiter, async (req, res) => {
     try {
       console.log('🔐 LOGIN ATTEMPT:', {
@@ -2224,11 +2209,6 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
         message: error?.message || 'Unable to replay webhook event' 
       });
     }
-  });
-
-  // CRITICAL TEST: Place test route right next to working route
-  app.get('/api/auth/debug-test', (req, res) => {
-    res.json({ message: 'Test route next to working route works!', timestamp: new Date().toISOString() });
   });
 
   app.get('/api/auth/me', ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {

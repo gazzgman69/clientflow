@@ -578,16 +578,16 @@ export class GoogleOAuthService {
               console.info('INFO google.sync.protect_crm', { eventId: crmEvent.id, reason: 'crm-owned-or-lead' });
               // Optionally repush if it was previously linked but now missing:
               if ((process.env.GOOGLE_SYNC_REPUSH_ON_MISSING ?? 'true') === 'true') {
-                googleOutbox.enqueue({ eventId: crmEvent.id });
+                googleOutbox.enqueue({ eventId: crmEvent.id, tenantId: integration.tenantId ?? undefined });
                 repushScheduled++;
                 console.info('INFO google.sync.repush_scheduled', { eventId: crmEvent.id });
               }
               continue;
             }
-            
+
             // Google-owned & not lead → unlink or repush (but DO NOT delete CRM row)
             if ((process.env.GOOGLE_SYNC_REPUSH_ON_MISSING ?? 'true') === 'true') {
-              googleOutbox.enqueue({ eventId: crmEvent.id });
+              googleOutbox.enqueue({ eventId: crmEvent.id, tenantId: integration.tenantId ?? undefined });
               repushScheduled++;
               console.info('INFO google.sync.repush_scheduled', { eventId: crmEvent.id });
             } else {

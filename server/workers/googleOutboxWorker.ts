@@ -5,7 +5,7 @@ import { googleOAuthService } from '../src/services/google-oauth';
 function sleep(ms: number) { return new Promise(r => setTimeout(r, ms)); }
 
 async function handleJob(job: { eventId: string; attempt: number }) {
-  const ev = await storage.getEvent(job.eventId, 'default-tenant'); // TODO: get tenantId from event
+  const ev = await storage.getEvent(job.eventId, job.tenantId ?? 'default-tenant');
   if (!ev) return;
 
   try {
@@ -32,7 +32,7 @@ async function handleJob(job: { eventId: string; attempt: number }) {
     if (next <= 5) {
       console.warn('WARN google.outbox.retry', { eventId: ev.id, attempt: next, reason: err?.message });
       await sleep(2 ** next * 250);
-      googleOutbox.enqueue({ eventId: ev.id, attempt: next });
+      googleOutbox.enqueue({ eventId: ev.id, tenantId: job.tenantId, attempt: next });
     } else {
       console.warn('WARN google.outbox.gave_up', { eventId: ev.id, reason: err?.message });
     }

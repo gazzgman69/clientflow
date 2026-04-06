@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { 
@@ -112,22 +112,13 @@ export default function ClientPortal() {
     }
   });
 
-  const { data: accountSummary = {
-    activeProjects: 0,
-    totalInvoiced: 0,
-    pendingPayments: 0,
-    upcomingEvents: 0
-  } } = useQuery({
-    queryKey: ["/api/portal/client/summary"],
-    queryFn: async () => {
-      return {
-        activeProjects: myProjects.filter(p => p.status === 'active').length,
-        totalInvoiced: myInvoices.reduce((sum, inv) => sum + parseFloat(inv.total || '0'), 0),
-        pendingPayments: myInvoices.filter(i => i.status === 'sent' || i.status === 'overdue').length,
-        upcomingEvents: myProjects.filter(p => p.startDate && new Date(p.startDate) > new Date()).length
-      };
-    }
-  });
+  // Account summary computed reactively from already-fetched data (useMemo so it updates when data loads)
+  const accountSummary = useMemo(() => ({
+    activeProjects: myProjects.filter(p => p.status === 'active').length,
+    totalInvoiced: myInvoices.reduce((sum, inv) => sum + parseFloat(inv.total || '0'), 0),
+    pendingPayments: myInvoices.filter(i => i.status === 'sent' || i.status === 'overdue').length,
+    upcomingEvents: myProjects.filter(p => p.startDate && new Date(p.startDate) > new Date()).length
+  }), [myProjects, myInvoices]);
 
   const messageForm = useForm<MessageFormData>({
     resolver: zodResolver(messageSchema),
@@ -169,7 +160,7 @@ export default function ClientPortal() {
     mutationFn: (data: MessageFormData) =>
       apiRequest("POST", "/api/emails", {
         ...data,
-        fromEmail: currentUser?.contact?.email || "client@example.com",
+        fromEmail: currentUser?.contact?.email || "",
         toEmail: currentUser?.businessEmail || "",
         body: data.message,
       }),

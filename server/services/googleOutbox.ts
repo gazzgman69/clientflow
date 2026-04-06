@@ -1,4 +1,4 @@
-type Job = { eventId: string; attempt?: number };
+type Job = { eventId: string; tenantId?: string; attempt?: number };
 const q: Job[] = [];
 
 export const googleOutbox = {

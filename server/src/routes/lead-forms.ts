@@ -779,7 +779,7 @@ router.post('/:slug/submit', formSubmissionLimiter, async (req, res) => {
 
                   // Enqueue for async Google Calendar push
                   const { googleOutbox } = await import('../../services/googleOutbox');
-                  googleOutbox.enqueue({ eventId: createdEvent.id });
+                  googleOutbox.enqueue({ eventId: createdEvent.id, tenantId: form.tenantId ?? undefined });
                 } catch (calError) {
                   console.error('❌ CALENDAR EVENT CREATION FAILED (duplicate submission path):', {
                     leadId: lead.id,
@@ -1296,7 +1296,7 @@ router.post('/:slug/submit', formSubmissionLimiter, async (req, res) => {
 
           // Enqueue for async Google Calendar push
           const { googleOutbox } = await import('../../services/googleOutbox');
-          googleOutbox.enqueue({ eventId: created.id });
+          googleOutbox.enqueue({ eventId: created.id, tenantId: form.tenantId ?? undefined });
         }
       } catch (calError) {
         console.error('❌ CALENDAR EVENT CREATION FAILED:', {

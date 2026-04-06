@@ -270,17 +270,6 @@ app.use((req, res, next) => {
   next();
 });
 
-// DEBUG: Catch ALL requests to /auth/ routes before registerRoutes
-app.use('/auth', (req, res, next) => {
-  console.log('🔴 SERVER/INDEX.TS: /auth/* HIT BEFORE registerRoutes', {
-    method: req.method,
-    path: req.path,
-    url: req.url,
-    hasBody: !!req.body,
-    bodyKeys: req.body ? Object.keys(req.body) : []
-  });
-  next();
-});
 
 (async () => {
   const server = await registerRoutes(app, csrfMiddleware);

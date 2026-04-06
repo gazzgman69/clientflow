@@ -171,8 +171,6 @@ router.post('/send', requireAuth, upload.array('attachments', 10), async (req: a
     
     if (req.files && req.files.length > 0) {
       // Multipart/form-data with files
-      console.log(`📎 Received ${req.files.length} file attachment(s)`);
-      
       // Parse JSON fields from FormData
       emailData = {
         to: req.body.to,
@@ -190,14 +188,8 @@ router.post('/send', requireAuth, upload.array('attachments', 10), async (req: a
       emailData = req.body;
     }
     
-    // Debug: Log raw request body before Zod parsing
-    console.log('📧 RAW req.body.html (first 100 chars):', emailData.html?.substring(0, 100));
-    console.log('📧 RAW req.body type:', typeof emailData.html);
-    
     const validatedEmailData = sendEmailSchema.parse(emailData);
     const userId = req.user.id;
-    
-    console.log('📧 AFTER ZOD validatedEmailData.html (first 100 chars):', validatedEmailData.html?.substring(0, 100));
     
     let finalSubject = validatedEmailData.subject || '';
     let finalText = validatedEmailData.text || '';
@@ -206,9 +198,7 @@ router.post('/send', requireAuth, upload.array('attachments', 10), async (req: a
     // CRITICAL FIX: Decode HTML entities that may have been escaped during HTTP transmission
     // (Replit proxy or security middleware may escape HTML in JSON payloads)
     if (finalHtml) {
-      const decodedHtml = decodeHtmlEntities(finalHtml);
-      console.log('🔓 DECODED HTML (first 100 chars):', decodedHtml.substring(0, 100));
-      finalHtml = decodedHtml;
+      finalHtml = decodeHtmlEntities(finalHtml);
     }
     
     // Build context for token resolution - auto-enrich from email address
@@ -237,7 +227,6 @@ router.post('/send', requireAuth, upload.array('attachments', 10), async (req: a
           contactId = contact.id;
         }
       } catch (error) {
-        console.log('Could not auto-detect contact from email:', validatedEmailData.to);
       }
     }
     
@@ -258,7 +247,6 @@ router.post('/send', requireAuth, upload.array('attachments', 10), async (req: a
           projectId = project.id;
         }
       } catch (error) {
-        console.log('Could not auto-detect project from contact:', contactId);
       }
     }
     
@@ -278,7 +266,6 @@ router.post('/send', requireAuth, upload.array('attachments', 10), async (req: a
           contactId = proj.contactId;
         }
       } catch (error) {
-        console.log('Could not auto-detect contact from project:', projectId);
       }
     }
 
@@ -298,10 +285,6 @@ router.post('/send', requireAuth, upload.array('attachments', 10), async (req: a
       finalSubject = rendered.subject || 'No Subject';
       finalText = rendered.body;
       
-      console.log(`📧 Template rendered: ${rendered.unresolved.length} unresolved tokens`);
-      if (rendered.unresolved.length > 0) {
-        console.log('⚠️ Unresolved tokens:', rendered.unresolved);
-      }
     } else {
       // Direct email composition - apply token resolution to subject and body (both text and html)
       const subjectResult = finalSubject ? 
@@ -320,15 +303,6 @@ router.post('/send', requireAuth, upload.array('attachments', 10), async (req: a
       finalText = textResult.rendered;
       finalHtml = htmlResult.rendered;
       
-      const unresolved = [...subjectResult.unresolved, ...textResult.unresolved, ...htmlResult.unresolved];
-      
-      // Debug logging as specified in task (first 120 chars + unresolved tokens)
-      const debugContent = (validatedEmailData.html || validatedEmailData.text || '').substring(0, 120);
-      console.log(`📧 Token resolution DEBUG - Before: "${debugContent}${debugContent.length >= 120 ? '...' : ''}"`);
-      console.log(`📧 Direct email rendered: ${unresolved.length} unresolved tokens`);
-      if (unresolved.length > 0) {
-        console.log('⚠️ Unresolved tokens:', unresolved);
-      }
     }
     
     // Use the projectId we already determined above
@@ -361,7 +335,6 @@ router.post('/send', requireAuth, upload.array('attachments', 10), async (req: a
           }
         }
       } catch (error) {
-        console.log('Could not auto-detect project for email sending');
       }
     }
     
@@ -431,7 +404,6 @@ router.post('/send', requireAuth, upload.array('attachments', 10), async (req: a
       // Store sent email in database for thread tracking
       if (projectId && result.messageId) {
         try {
-          console.log(`💾 Storing sent email in database: projectId=${projectId}, subject="${finalSubject?.substring(0, 50)}"`);
           await storage.createEmail({
             tenantId,
             userId,
@@ -454,7 +426,6 @@ router.post('/send', requireAuth, upload.array('attachments', 10), async (req: a
             direction: 'outbound',
             snippet: finalText?.substring(0, 100)
           }, tenantId);
-          console.log(`✅ Sent email stored successfully in database for project ${projectId}`);
 
           // Trigger lead status automator if email was sent to a lead
           if (contactId) {
@@ -481,7 +452,6 @@ router.post('/send', requireAuth, upload.array('attachments', 10), async (req: a
           // Continue - email was sent successfully
         }
       } else {
-        console.log(`⚠️ Sent email NOT stored: projectId=${projectId}, messageId=${result.messageId}`);
       }
       
       res.json({ 
@@ -842,7 +812,6 @@ router.get('/projects/:projectId/email-threads', requireAuth, async (req: any, r
       // Filter out null entries  
       const validThreads = threads.filter(thread => thread !== null);
 
-      console.log(`📧 Loaded ${validThreads.length} email threads from database for project ${projectId}`);
 
       res.json({
         threads: validThreads,
@@ -950,7 +919,6 @@ router.get('/projects/:projectId/email-messages', requireAuth, async (req: any, 
       .orderBy(desc(emails.sentAt))
       .limit(Number(limit));
 
-    console.log(`📧 Found ${messages.length} individual messages for project ${projectId}`);
 
     res.json({
       messages,
@@ -1031,14 +999,7 @@ router.get('/email-threads/:threadId/messages', requireAuth, async (req: any, re
 
     const emailsWithAttachments = Array.from(emailsMap.values());
     
-    console.log(`📧 Thread ${threadId} returning ${emailsWithAttachments.length} messages`);
     if (emailsWithAttachments.length > 0) {
-      console.log('📧 Sample message:', {
-        id: emailsWithAttachments[0].id,
-        subject: emailsWithAttachments[0].subject,
-        from: emailsWithAttachments[0].fromEmail,
-        bodyText: emailsWithAttachments[0].bodyText?.substring(0, 50) + '...'
-      });
     }
 
     res.json({ messages: emailsWithAttachments });
@@ -1157,7 +1118,6 @@ router.post('/email-threads/:threadId/reply', requireAuth, upload.array('attachm
           context.contactId = project.contactId;
         }
       } catch (error) {
-        console.log('Could not auto-detect contact for token resolution');
       }
     }
 
@@ -1170,9 +1130,7 @@ router.post('/email-threads/:threadId/reply', requireAuth, upload.array('attachm
         resolvedSubject = subjectResolution.rendered;
         resolvedBody = bodyResolution.rendered;
         
-        console.log(`📧 Reply token resolution: ${subjectResolution.unresolved.length + bodyResolution.unresolved.length} unresolved tokens`);
         if (subjectResolution.unresolved.length > 0 || bodyResolution.unresolved.length > 0) {
-          console.log('⚠️ Unresolved tokens:', [...subjectResolution.unresolved, ...bodyResolution.unresolved]);
         }
       } catch (error) {
         console.error('Token resolution failed for reply:', error);
@@ -1262,7 +1220,6 @@ router.post('/projects/:projectId/compose-email', upload.array('attachments'), a
       finalSubject = rendered.subject || 'No Subject';
       finalBody = rendered.body;
       
-      console.log(`📧 Project email template rendered: ${rendered.unresolved.length} unresolved tokens`);
     } else {
       // No template provided, but check for tokens in subject/body and resolve them
       const context: any = { 
@@ -1280,9 +1237,7 @@ router.post('/projects/:projectId/compose-email', upload.array('attachments'), a
         finalSubject = subjectResolution.rendered;
         finalBody = bodyResolution.rendered;
         
-        console.log(`📧 Project email token resolution: ${subjectResolution.unresolved.length + bodyResolution.unresolved.length} unresolved tokens`);
         if (subjectResolution.unresolved.length > 0 || bodyResolution.unresolved.length > 0) {
-          console.log('⚠️ Unresolved tokens:', [...subjectResolution.unresolved, ...bodyResolution.unresolved]);
         }
       } catch (error) {
         console.error('Token resolution failed for compose email:', error);
@@ -1431,7 +1386,6 @@ router.post('/sync', requireAuth, async (req: any, res) => {
     const { imapService } = await import('../services/imap');
     const { storage } = await import('../../storage');
     
-    console.log('🔄 Manual email sync requested (Gmail + IMAP)');
     
     // Find active Gmail OAuth connections in email_accounts table
     const gmailAccounts = await db
@@ -1451,16 +1405,13 @@ router.post('/sync', requireAuth, async (req: any, res) => {
         .filter((userId): userId is string => userId !== null)
     ));
 
-    console.log(`🎯 Found ${uniqueUserIds.length} users with Gmail OAuth in email_accounts for manual sync`);
     
     // Sync Gmail for each user with Google integration
     let gmailResult: { synced: number; skipped: number; errors: string[] } = { synced: 0, skipped: 0, errors: [] };
     for (const userId of uniqueUserIds) {
       try {
-        console.log(`🔄 Manual sync for user: ${userId}`);
         // SECURITY FIX: Pass session tenantId for proper tenant isolation
         const tenantId = req.tenantId || 'default-tenant';
-        console.log(`🔐 ROUTE DEBUG: req.tenantId=${req.tenantId}, passing tenantId=${tenantId} to sync`);
         const userResult = await emailSyncService.syncGmailThreadsToDatabase(userId, undefined, tenantId);
         gmailResult.synced += userResult.synced;
         gmailResult.skipped += userResult.skipped;

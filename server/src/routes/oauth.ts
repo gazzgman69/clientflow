@@ -23,31 +23,6 @@ declare module 'express-session' {
 
 const router = Router();
 
-// DEBUG: Router-level logging to track if requests reach the router
-router.use((req, res, next) => {
-  console.log('🔄 OAUTH ROUTER HIT:', {
-    method: req.method,
-    path: req.path,
-    url: req.url,
-    originalUrl: req.originalUrl,
-    baseUrl: req.baseUrl
-  });
-  next();
-});
-
-// DEBUG: Safe state decoder for logging
-function decodeStateSafe(s?: string) {
-  try { 
-    return JSON.parse(Buffer.from(String(s), "base64url").toString("utf8")); 
-  } catch { 
-    try { 
-      return JSON.parse(Buffer.from(String(s || ""), "base64").toString("utf8")); 
-    } catch { 
-      return null; 
-    } 
-  }
-}
-
 // DEBUG: Probe endpoints (only when DEBUG_OAUTH=1)
 if (process.env.DEBUG_OAUTH === '1') {
   router.get("/auth/google/callback-probe", (req, res) => {
@@ -93,14 +68,6 @@ router.get('/api/auth/google/start', (req, res) => {
       returnTo: '/settings/email-and-calendar'
     };
     
-    console.log('🔐 Google OAuth START:', { 
-      popupQuery: req.query.popup, 
-      popupValue,
-      userId, 
-      tenantId,
-      stateObj: JSON.stringify(stateObj)
-    });
-    
     // Create OAuth2 client with correct redirect URI
     const getRedirectUri = () => {
       if (process.env.REPLIT_DOMAINS) {
@@ -124,7 +91,6 @@ router.get('/api/auth/google/start', (req, res) => {
       state: encodeState(stateObj)
     });
     
-    console.log('🔐 Redirecting to Google OAuth with encoded state');
     res.redirect(url);
   } catch (error: any) {
     console.error('Error starting Google OAuth:', error);
@@ -169,7 +135,6 @@ router.get('/api/auth/microsoft/start', (req, res) => {
       state: encodeState(stateObj)
     });
     
-    console.log('🔐 Microsoft OAuth start:', { popup: stateObj.popup, userId, tenantId, provider });
     res.redirect(`https://login.microsoftonline.com/common/oauth2/v2.0/authorize?${params.toString()}`);
   } catch (error: any) {
     console.error('Error starting Microsoft OAuth:', error);
@@ -212,7 +177,6 @@ router.get('/auth/google', (req, res) => {
       returnTo
     );
     
-    console.log('🔐 SECURITY: GET /auth/google now using signed state and PKCE protection with all services');
     
     // Redirect to Google OAuth
     res.redirect(authUrl);
@@ -257,7 +221,6 @@ router.get('/auth/google/gmail', (req, res) => {
       returnTo
     );
     
-    console.log('🔐 SECURITY: GET /auth/google/gmail using signed state and PKCE protection with Gmail scopes only');
     
     // Redirect to Google OAuth
     res.redirect(authUrl);
@@ -277,23 +240,6 @@ router.get('/auth/google/calendar', async (req, res) => {
     const returnTo = (req.query.returnTo as string) || '/calendar';
     const origin = (req.query.origin as string) || '';
     
-    console.log('🚨🚨🚨 CALENDAR OAUTH START - RAW PARAMS:', {
-      rawPopup: req.query.popup,
-      popupType: typeof req.query.popup,
-      booleanPopup: popup,
-      booleanType: typeof popup,
-      returnTo,
-      origin
-    });
-    
-    console.log('🔐 OAUTH START /auth/google/calendar:', {
-      popup,
-      hasSession: !!req.session,
-      sessionId: req.session?.id,
-      userId: req.session?.userId,
-      tenantId: req.session?.tenantId
-    });
-    
     // Try to get userId and tenantId from session
     let userId = req.session.userId;
     let tenantId = req.session.tenantId;
@@ -301,7 +247,6 @@ router.get('/auth/google/calendar', async (req, res) => {
     
     // If session is empty (popup scenario), try to reload it
     if (!userId && req.session.id) {
-      console.log('📱 POPUP: No userId in popup session, attempting to reload session');
       try {
         await new Promise((resolve, reject) => {
           req.session.reload((err) => {
@@ -313,8 +258,6 @@ router.get('/auth/google/calendar', async (req, res) => {
         userId = req.session.userId;
         tenantId = req.session.tenantId;
         userEmail = req.session.user?.email;
-        
-        console.log('✅ POPUP: Session reloaded, userId:', userId);
       } catch (err) {
         console.error('❌ POPUP: Failed to reload session:', err);
       }
@@ -347,8 +290,6 @@ router.get('/auth/google/calendar', async (req, res) => {
       returnTo,
       popup
     );
-    
-    console.log('🔐 SECURITY: GET /auth/google/calendar using signed state and PKCE protection with Calendar scopes only');
     
     // Redirect to Google OAuth
     res.redirect(authUrl);
@@ -389,9 +330,6 @@ router.get('/auth/microsoft/mail', (req, res) => {
       ? `https://${process.env.REPLIT_CONNECTORS_HOSTNAME}/outlook`
       : '/settings';
     
-    console.log('🔐 SECURITY: GET /auth/microsoft/mail redirecting to Microsoft connector setup');
-    console.log('🔐 NOTE: Full Microsoft OAuth implementation pending - using connector approach');
-    
     // For development, show a message about Microsoft OAuth
     res.redirect(`${returnTo}?message=${encodeURIComponent('Microsoft re-authentication requires setup through Microsoft connector')}`);
     
@@ -403,30 +341,20 @@ router.get('/auth/microsoft/mail', (req, res) => {
 
 // Authentication middleware for OAuth routes
 const requireAuth = async (req: any, res: any, next: any) => {
-  console.log('🔐 requireAuth middleware:', { 
-    hasSession: !!req.session,
-    userId: req.session?.userId,
-    tenantId: req.session?.tenantId,
-    path: req.path
-  });
-  
   if (!req.session?.userId) {
-    console.log('❌ requireAuth: No userId in session');
-    return res.status(401).json({ 
-      error: 'Authentication required', 
+    return res.status(401).json({
+      error: 'Authentication required',
       message: 'Please log in to access this endpoint'
     });
   }
   if (!req.session?.tenantId) {
-    console.log('❌ requireAuth: No tenantId in session');
-    return res.status(400).json({ 
-      error: 'Tenant context required', 
+    return res.status(400).json({
+      error: 'Tenant context required',
       message: 'Session missing tenant information'
     });
   }
   req.authenticatedUserId = req.session.userId;
   req.tenantId = req.session.tenantId;
-  console.log('✅ requireAuth: Authenticated', { userId: req.authenticatedUserId, tenantId: req.tenantId });
   next();
 };
 
@@ -458,8 +386,6 @@ router.post('/auth/google/start', requireAuth, async (req: any, res) => {
     // The service will create PKCE challenge/verifier and save to session
     const authUrl = googleOAuthService.generateAuthUrl(email, userId, req.tenantId, req.session, 'all', returnTo);
     
-    console.log('🔐 SECURITY: POST /auth/google/start now using PKCE protection with all services');
-    
     res.json({ authUrl });
   } catch (error: any) {
     console.error('Error starting OAuth:', error);
@@ -470,20 +396,10 @@ router.post('/auth/google/start', requireAuth, async (req: any, res) => {
 /**
  * Start Gmail OAuth flow - Generate auth URL for Gmail-specific scopes
  */
-router.post('/auth/google/gmail/start', (req, res, next) => {
-  console.log('🎯 PRE-MIDDLEWARE: /auth/google/gmail/start', {
-    hasSession: !!req.session,
-    sessionKeys: req.session ? Object.keys(req.session) : [],
-    userId: req.session?.userId,
-    tenantId: req.session?.tenantId
-  });
-  next();
-}, requireAuth, async (req: any, res) => {
-  console.log('🎯 ROUTE HIT: /auth/google/gmail/start');
+router.post('/auth/google/gmail/start', requireAuth, async (req: any, res) => {
   try {
     const { email, popup, origin, returnTo } = req.body;
     const userId = req.authenticatedUserId;
-    console.log('📧 Gmail OAuth start:', { email, popup, userId, tenantId: req.tenantId });
     
     // Email is optional for OAuth - user authenticates through OAuth provider
     // If email is provided and account exists, skip re-auth
@@ -512,7 +428,6 @@ router.post('/auth/google/gmail/start', (req, res, next) => {
     // Pass popup flag so it's encoded in the state and available in the callback
     const authUrl = googleOAuthService.generateAuthUrl(email, userId, req.tenantId, req.session, 'gmail', returnTo, popup);
     
-    console.log('🔐 SECURITY: POST /auth/google/gmail/start using Gmail-specific scopes');
     
     res.json({ authUrl });
   } catch (error: any) {
@@ -557,7 +472,6 @@ router.post('/auth/google/calendar/start', requireAuth, async (req: any, res) =>
     // Pass popup flag so it's encoded in the state and available in the callback
     const authUrl = googleOAuthService.generateAuthUrl(email, userId, req.tenantId, req.session, 'calendar', returnTo, popup);
     
-    console.log('🔐 SECURITY: POST /auth/google/calendar/start using Calendar-specific scopes');
     
     res.json({ authUrl });
   } catch (error: any) {
@@ -618,7 +532,6 @@ router.post('/auth/microsoft/start', requireAuth, async (req: any, res) => {
     
     const authUrl = `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?${params.toString()}`;
     
-    console.log('🔐 SECURITY: POST /auth/microsoft/start - popup:', popup, 'userId:', userId);
     
     res.json({ authUrl });
   } catch (error: any) {
@@ -643,11 +556,6 @@ router.get('/auth/google/scope-check', async (req, res) => {
     const integrations = await storage.getCalendarIntegrationsByUser(userId, tenantId);
     const googleIntegrations = integrations.filter(i => i.provider === 'google' && i.isActive);
 
-    console.log('🔍 SCOPE CHECK: Checking scope sufficiency for integrations', {
-      userId,
-      tenantId,
-      integrationCount: googleIntegrations.length
-    });
 
     const result = {
       needsRepair: false,
@@ -668,11 +576,6 @@ router.get('/auth/google/scope-check', async (req, res) => {
           status: 'sufficient'
         });
       } catch (error: any) {
-        console.log('⚠️ SCOPE CHECK: Insufficient scopes detected', {
-          integrationId: integration.id,
-          email: integration.providerAccountId,
-          error: error.message
-        });
 
         result.needsRepair = true;
         result.integrations.push({
@@ -703,7 +606,6 @@ async function googleCallbackHandler(req: any, res: any) {
   // DEBUG: Log callback hit
   if (process.env.DEBUG_OAUTH === '1') {
     console.info("[OAUTH] google callback HIT", req.method, req.url, req.query);
-    console.info("[OAUTH] google callback STATE", decodeStateSafe(req.query.state as any));
   }
   
   try {
@@ -718,25 +620,17 @@ async function googleCallbackHandler(req: any, res: any) {
     // Decode and verify state parameter using GoogleOAuthService
     let parsed;
     try {
-      console.log('🔐 DEBUG OAUTH CALLBACK: About to call verifyCallbackState with state:', state);
       parsed = googleOAuthService.verifyCallbackState(state as string);
-      console.log('🔐 Google OAuth callback - State decoded:', JSON.stringify(parsed, null, 2));
     } catch (error) {
       console.error('❌ SECURITY: State verification failed:', error);
       return res.status(400).send('Invalid state');
     }
-    
+
     if (!parsed) {
       return res.status(400).send('Invalid state');
     }
-    
+
     const { tenantId, userId, returnTo, serviceType, popup } = parsed;
-    
-    console.log('🔐 Google OAuth callback - Popup:', { 
-      popupFromState: popup,
-      parsed: JSON.stringify(parsed),
-      serviceType
-    });
     
     if (!userId || !tenantId) {
       return res.status(401).send('Authentication required');
@@ -782,25 +676,8 @@ async function googleCallbackHandler(req: any, res: any) {
       email: userInfo.email || ''
     };
     
-    // Log token scopes for verification
-    console.log('📝 OAUTH CALLBACK: Token exchange completed', {
-      email: tokens.email,
-      hasAccessToken: !!tokens.access_token,
-      hasRefreshToken: !!tokens.refresh_token,
-      userId,
-      tenantId,
-      serviceType
-    });
-    
     // Route to correct table based on serviceType
     if (serviceType === 'calendar') {
-      // Save to calendar_integrations table
-      console.log('📅 CALENDAR OAUTH: Saving to calendar_integrations table', {
-        email: tokens.email,
-        userId,
-        tenantId
-      });
-      
       await storage.upsertCalendarIntegration({
         userId,
         provider: 'google',
@@ -813,21 +690,16 @@ async function googleCallbackHandler(req: any, res: any) {
         syncDirection: 'bidirectional'
       }, tenantId);
       
-      console.log('✅ CALENDAR OAUTH: Successfully saved to calendar_integrations');
-      
       // Trigger immediate first sync (like Gmail does)
       try {
-        console.log('🔄 CALENDAR OAUTH: Triggering immediate first sync...');
         const { GoogleCalendarService } = await import('../services/google-calendar');
         const calendarService = new GoogleCalendarService(userId, tenantId);
         
         // Run sync in background without blocking the response
         calendarService.syncCalendar()
-          .then(result => {
-            console.log('✅ CALENDAR OAUTH: First sync completed', result);
-          })
+          .then(() => {})
           .catch(error => {
-            console.error('❌ CALENDAR OAUTH: First sync failed', error);
+            console.error('Calendar first sync failed:', error);
           });
       } catch (syncError) {
         console.error('⚠️ CALENDAR OAUTH: Could not trigger immediate sync', syncError);
@@ -835,12 +707,6 @@ async function googleCallbackHandler(req: any, res: any) {
       }
     } else {
       // Save to email_accounts table for Gmail
-      console.log('📧 GMAIL OAUTH: Saving to email_accounts table', {
-        email: tokens.email,
-        userId,
-        tenantId
-      });
-      
       await storage.upsertEmailProviderIntegration({
         userId,
         provider: 'google',
@@ -854,21 +720,16 @@ async function googleCallbackHandler(req: any, res: any) {
         })
       }, tenantId);
       
-      console.log('✅ GMAIL OAUTH: Successfully saved to email_accounts');
-      
       // Trigger immediate first sync
       try {
-        console.log('🔄 GMAIL OAUTH: Triggering immediate first sync...');
         const { EmailSyncService } = await import('../services/emailSync');
         const emailSyncService = new EmailSyncService(tenantId, userId);
         
         // Run sync in background without blocking the response
         emailSyncService.syncGmailThreadsToDatabase(userId, undefined, tenantId)
-          .then(result => {
-            console.log('✅ GMAIL OAUTH: First sync completed', result);
-          })
+          .then(() => {})
           .catch(error => {
-            console.error('❌ GMAIL OAUTH: First sync failed', error);
+            console.error('Gmail first sync failed:', error);
           });
       } catch (syncError) {
         console.error('⚠️ GMAIL OAUTH: Could not trigger immediate sync', syncError);
@@ -878,31 +739,18 @@ async function googleCallbackHandler(req: any, res: any) {
     
     // Handle popup response
     if (popup) {
-      console.log('🪟 POPUP MODE DETECTED - Sending postMessage and closing popup');
       res.setHeader('Content-Type', 'text/html; charset=utf-8');
       return res.send(`<!doctype html><html><body><script>
         (function(){
-          console.log('🪟 POPUP: Attempting to post message to opener');
-          try { 
+          try {
             if (window.opener) {
-              console.log('✅ window.opener exists, sending message');
               window.opener.postMessage({type:'oauth:connected', provider:'google', serviceType:'${serviceType || 'gmail'}', ok:true}, '*');
-            } else {
-              console.error('❌ window.opener is null');
             }
-          } catch(e) { 
-            console.error('❌ postMessage error:', e);
-          }
-          try { 
-            console.log('🪟 Attempting to close popup');
-            window.close(); 
-          } catch(e) { 
-            console.error('❌ window.close error:', e);
-          }
-          setTimeout(function(){ 
+          } catch(e) {}
+          try { window.close(); } catch(e) {}
+          setTimeout(function(){
             if (!window.closed) {
-              console.log('⚠️ Popup did not close, showing fallback message');
-              document.body.innerHTML='<h1>Connected</h1><p>You can close this window.</p>'; 
+              document.body.innerHTML='<h1>Connected</h1><p>You can close this window.</p>';
             }
           }, 150);
         })();
@@ -930,7 +778,6 @@ router.get('/api/auth/microsoft/callback', async (req, res) => {
   // DEBUG: Log callback hit
   if (process.env.DEBUG_OAUTH === '1') {
     console.info("[OAUTH] microsoft callback HIT", req.method, req.url, req.query);
-    console.info("[OAUTH] microsoft callback STATE", decodeStateSafe(req.query.state as any));
   }
   
   try {
@@ -942,22 +789,12 @@ router.get('/api/auth/microsoft/callback', async (req, res) => {
     }
     
     const parsed = decodeState<any>(state);
-    console.log('🔐 Microsoft OAuth callback - State decoded:', JSON.stringify(parsed, null, 2));
-    
     if (!parsed) {
       return res.status(400).send('Invalid state');
     }
-    
+
     const { tenantId, userId, popup: popupRaw, returnTo, provider } = parsed;
     const popup = popupRaw === true || popupRaw === 'true' || popupRaw === '1';
-    
-    console.log('🔐 Microsoft OAuth callback - Popup:', { 
-      popupRaw, 
-      popupType: typeof popupRaw,
-      popupFinal: popup,
-      provider,
-      parsed: JSON.stringify(parsed)
-    });
     
     if (!userId || !tenantId) {
       return res.status(401).send('Authentication required');
@@ -1006,23 +843,6 @@ router.get('/api/auth/microsoft/callback', async (req, res) => {
     const profile = await profileResponse.json();
     const email = profile.mail || profile.userPrincipalName || '';
     
-    console.log('📝 MICROSOFT OAUTH CALLBACK: Token exchange completed', {
-      email,
-      hasAccessToken: !!tokenData.access_token,
-      hasRefreshToken: !!tokenData.refresh_token,
-      userId,
-      tenantId,
-      provider
-    });
-    
-    // Save to email_accounts table
-    console.log('📧 MICROSOFT OAUTH: Saving to email_accounts table', {
-      email,
-      userId,
-      tenantId,
-      provider
-    });
-    
     await storage.upsertEmailProvider(tenantId, {
       userId,
       provider: provider || 'microsoft',
@@ -1037,21 +857,16 @@ router.get('/api/auth/microsoft/callback', async (req, res) => {
       }
     });
     
-    console.log('✅ MICROSOFT OAUTH: Successfully saved to email_accounts');
-    
     // Trigger immediate first sync
     try {
-      console.log('🔄 MICROSOFT OAUTH: Triggering immediate first sync...');
       const { EmailSyncService } = await import('../services/emailSync');
       const emailSyncService = new EmailSyncService(tenantId, userId);
       
       // Run sync in background without blocking the response
       emailSyncService.syncGmailThreadsToDatabase(userId, undefined, tenantId)
-        .then(result => {
-          console.log('✅ MICROSOFT OAUTH: First sync completed', result);
-        })
+        .then(() => {})
         .catch(error => {
-          console.error('❌ MICROSOFT OAUTH: First sync failed', error);
+          console.error('Microsoft first sync failed:', error);
         });
     } catch (syncError) {
       console.error('⚠️ MICROSOFT OAUTH: Could not trigger immediate sync', syncError);
@@ -1844,7 +1659,6 @@ router.post('/api/auth/google/sync', requireAuth, async (req: any, res) => {
   try {
     const userId = req.authenticatedUserId;
     
-    console.log('🔄 SYNC NOW: Manual sync triggered', {
       action: 'manual_sync_triggered',
       userId,
       tenantId: req.tenantId,

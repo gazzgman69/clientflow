@@ -522,7 +522,7 @@ export default function VenuesPage() {
                     <FormItem>
                       <FormLabel>Venue Name</FormLabel>
                       <FormControl>
-                        <Input {...field} data-testid="input-venue-name" />
+                        <Input {...field} data-testid="input-venue-name" onFocus={(e) => { const len = e.target.value.length; e.target.setSelectionRange(len, len); }} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>

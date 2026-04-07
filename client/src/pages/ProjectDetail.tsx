@@ -1564,16 +1564,16 @@ export default function ProjectDetail() {
               <TabsTrigger value="schedule" className="flex items-center gap-2">
                 <Timer className="h-4 w-4" />
                 <span className="hidden sm:inline">Schedule</span>
-                <span className="text-[10px] bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded font-semibold ml-1">NEW</span>
+               
               </TabsTrigger>
               <TabsTrigger value="tasks" className="flex items-center gap-2">
                 <span className="hidden sm:inline">Tasks</span>
-                <span className="text-[10px] bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded font-semibold ml-1">NEW</span>
+               
               </TabsTrigger>
               <TabsTrigger value="timeline" className="flex items-center gap-2">
                 <Activity className="h-4 w-4" />
                 <span className="hidden sm:inline">Timeline</span>
-                <span className="text-[10px] bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded font-semibold ml-1">NEW</span>
+               
               </TabsTrigger>
               <TabsTrigger value="members" className="flex items-center gap-2">
                 <Users className="h-4 w-4" />
@@ -1591,7 +1591,7 @@ export default function ProjectDetail() {
               <TabsTrigger value="financials" className="flex items-center gap-2">
                 <TrendingUp className="h-4 w-4" />
                 <span className="hidden sm:inline">Financials</span>
-                <span className="text-[10px] bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded font-semibold ml-1">NEW</span>
+               
               </TabsTrigger>
             </TabsList>
 
@@ -1825,11 +1825,11 @@ export default function ProjectDetail() {
                             </p>
                           </div>
                           <div>
-                            <p className="text-sm text-muted-foreground">START TIME <span className="text-[10px] bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded font-semibold ml-1">NEW</span></p>
+                            <p className="text-sm text-muted-foreground">START TIME</p>
                             <p className="font-medium">{(project as any).startTime || "Not specified"}</p>
                           </div>
                           <div>
-                            <p className="text-sm text-muted-foreground">END TIME <span className="text-[10px] bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded font-semibold ml-1">NEW</span></p>
+                            <p className="text-sm text-muted-foreground">END TIME</p>
                             <p className="font-medium">{(project as any).endTime || "Not specified"}</p>
                           </div>
                           <div>
@@ -1923,11 +1923,11 @@ export default function ProjectDetail() {
                               <p className="font-medium text-sm">{projectVenue.address || "Not specified"}</p>
                             </div>
                             <div>
-                              <p className="text-sm text-muted-foreground">PARKING DETAILS <span className="text-[10px] bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded font-semibold ml-1">NEW</span></p>
+                              <p className="text-sm text-muted-foreground">PARKING DETAILS</p>
                               <p className="font-medium text-sm">{(project as any).parkingDetails || "Not specified"}</p>
                             </div>
                             <div>
-                              <p className="text-sm text-muted-foreground">LOAD-IN DETAILS <span className="text-[10px] bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded font-semibold ml-1">NEW</span></p>
+                              <p className="text-sm text-muted-foreground">LOAD-IN DETAILS</p>
                               <p className="font-medium text-sm">{(project as any).loadInDetails || "Not specified"}</p>
                             </div>
                             <div>
@@ -2064,7 +2064,7 @@ export default function ProjectDetail() {
                             <>
                               <Separator />
                               <div>
-                                <p className="text-sm text-muted-foreground">SECOND CONTACT <span className="text-[10px] bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded font-semibold ml-1">NEW</span></p>
+                                <p className="text-sm text-muted-foreground">SECOND CONTACT</p>
                                 <p className="font-medium">{(project as any).secondContactName}</p>
                                 {(project as any).secondContactPhone && (
                                   <>
@@ -2079,7 +2079,7 @@ export default function ProjectDetail() {
                             <>
                               <Separator />
                               <div>
-                                <p className="text-sm text-muted-foreground">DAY-OF CONTACT <span className="text-[10px] bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded font-semibold ml-1">NEW</span></p>
+                                <p className="text-sm text-muted-foreground">DAY-OF CONTACT</p>
                                 <p className="font-medium">{(project as any).dayOfContactName}</p>
                                 {(project as any).dayOfContactPhone && (
                                   <>
@@ -2097,7 +2097,7 @@ export default function ProjectDetail() {
                     {/* Financial Summary Card */}
                     <Card>
                       <CardHeader>
-                        <CardTitle className="flex items-center gap-2 text-base">💰 Financial Summary <span className="text-[10px] bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded font-semibold ml-1">NEW</span></CardTitle>
+                        <CardTitle className="flex items-center gap-2 text-base">💰 Financial Summary</CardTitle>
                       </CardHeader>
                       <CardContent className="space-y-3">
                         <div>

@@ -110,24 +110,18 @@ class AutoResponderWorker {
       const subject = this.resolveTokens(template.subject || template.title, context);
       let htmlBody = this.resolveTokens(template.body, context);
 
-      // Fetch tenant branding (logo) and prepend to email if available
-      try {
-        const tenant = await storage.getTenant(log.tenantId);
-        if (tenant?.settings) {
-          const settings = JSON.parse(tenant.settings);
-          const logoUrl: string | undefined = settings.logoUrl;
-          const companyName: string = tenant.name || '';
-          if (logoUrl) {
-            const logoHeader = `
-<div style="text-align:center;padding:24px 0 16px;background:#ffffff;border-bottom:1px solid #e5e7eb;margin-bottom:24px;">
-  <img src="${logoUrl}" alt="${companyName}" style="max-height:64px;max-width:240px;width:auto;height:auto;display:inline-block;" />
-</div>`;
-            htmlBody = logoHeader + htmlBody;
-          }
-        }
-      } catch (brandingErr) {
-        // Non-fatal — send without logo
-        console.warn('[AutoResponderWorker] Could not load tenant branding:', brandingErr);
+      // Strip the trailing footer logo image from the template HTML.
+      // Templates often include a large decorative logo at the bottom as a footer brand
+      // element — we remove it here so there's only one logo (in the template header).
+      // Pattern covers: <p><img /></p>, <div><img /></div>, or nested <a><img /></a> wrappers.
+      const beforeStrip = htmlBody;
+      htmlBody = htmlBody.replace(
+        /(<(?:p|div)[^>]*>\s*(?:<(?:a|span)[^>]*>\s*)?<img[^>]*\/?>\s*(?:<\/(?:a|span)>)?\s*<\/(?:p|div)>)\s*$/i,
+        ''
+      );
+      // Fallback: bare <img> at the very end (no wrapper element)
+      if (htmlBody === beforeStrip) {
+        htmlBody = htmlBody.replace(/<img[^>]*\/?>\s*$/, '');
       }
 
       // Convert HTML to plain text for fallback

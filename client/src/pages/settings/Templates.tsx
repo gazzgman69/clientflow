@@ -599,7 +599,7 @@ export default function TemplatesPage() {
                                   <div className="py-1">
                                     <div className="px-2 py-1.5 text-sm text-muted-foreground">No signatures found</div>
                                     <DropdownMenuItem
-                                      onClick={() => setLocation('/settings/email?tab=signatures')}
+                                      onClick={() => setLocation('/settings/email?tab=signatures&returnTo=/settings/templates')}
                                       className="text-primary cursor-pointer"
                                       data-testid="dropdown-create-signature"
                                     >

@@ -528,7 +528,7 @@ export default function EmailSettings() {
         )}
 
         {/* Tabs */}
-        <Tabs defaultValue="settings" className="space-y-6">
+        <Tabs defaultValue={new URLSearchParams(window.location.search).get('tab') || 'settings'} className="space-y-6">
           <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="settings" data-testid="tab-settings">Settings</TabsTrigger>
             <TabsTrigger value="signatures" data-testid="tab-signatures">Signatures</TabsTrigger>

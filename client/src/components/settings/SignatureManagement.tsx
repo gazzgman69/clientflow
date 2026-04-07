@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useLocation } from 'wouter';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -10,11 +11,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { apiRequest } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
-import { 
-  Edit3, 
-  Plus, 
-  Trash2, 
-  Star, 
+import {
+  Edit3,
+  Plus,
+  Trash2,
+  Star,
   StarOff,
   Loader2
 } from 'lucide-react';
@@ -34,6 +35,10 @@ export default function SignatureManagement() {
   const [formData, setFormData] = useState({ name: '', content: '' });
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [, setLocation] = useLocation();
+
+  // Read returnTo URL param — navigate back after creating a signature if set
+  const returnToPath = new URLSearchParams(window.location.search).get('returnTo');
 
   // Get current authenticated user
   const { data: currentUser } = useQuery({
@@ -65,6 +70,9 @@ export default function SignatureManagement() {
       queryClient.invalidateQueries({ queryKey: ['/api/signatures'] });
       setShowCreateForm(false);
       setFormData({ name: '', content: '' });
+      if (returnToPath) {
+        setLocation(returnToPath);
+      }
     },
     onError: () => {
       toast({ 

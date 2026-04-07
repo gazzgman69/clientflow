@@ -82,6 +82,13 @@ export default function QuestionEditor({
   const selectedType = form.watch('type');
   const needsOptions = ['select', 'radio', 'checkbox'].includes(selectedType);
 
+  // Auto-set mapTo when question type has a natural mapping
+  useEffect(() => {
+    if (selectedType === 'venue' && form.getValues('mapTo') === 'custom') {
+      form.setValue('mapTo', 'eventLocation');
+    }
+  }, [selectedType, form]);
+
   const handleSave = (data: Question) => {
     // Validate the mapTo field against the registry (allow "custom" as a special case)
     if (data.mapTo !== 'custom') {

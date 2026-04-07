@@ -712,15 +712,37 @@ router.post('/:slug/submit', formSubmissionLimiter, async (req, res) => {
               }
               
               // Skip contact creation, use existing contact for project creation
+              // Still create venue record if address was provided
+              let dupVenueId: string | null = null;
+              if (mappingResult.contactData.venueAddress) {
+                try {
+                  const dupVenueData = {
+                    name: mappingResult.contactData.venueAddress.split(',')[0].trim() || 'Venue',
+                    address: mappingResult.contactData.venueAddress,
+                    city: mappingResult.contactData.venueCity || raw.eventLocationCity || '',
+                    state: mappingResult.contactData.venueState || raw.eventLocationState || '',
+                    zipCode: mappingResult.contactData.venueZipCode || raw.eventLocationZipCode || '',
+                    country: mappingResult.contactData.venueCountry || raw.eventLocationCountry || 'GB',
+                    useCount: 1,
+                    lastUsedAt: new Date(),
+                    tenantId: form.tenantId,
+                  };
+                  const dupVenue = await venuesService.findOrCreateVenue(dupVenueData, form.tenantId);
+                  dupVenueId = dupVenue.id;
+                } catch (venueErr) {
+                  console.error('❌ DUPLICATE PATH: venue creation failed:', venueErr);
+                }
+              }
+
               const projectData = {
                 ...mappingResult.projectData,
                 name: `${existingContact.firstName} ${existingContact.lastName} - ${mappingResult.leadData.event_type || 'Event'}`,
                 contactId: existingContact.id,
-                venueAddress: mappingResult.contactData.venueAddress || null,
+                venueId: dupVenueId,
                 status: 'new' as const,
                 userId
               };
-              
+
               const project = await tenantStorage.createProject(projectData);
               
               console.log('✅ NEW PROJECT CREATED FOR EXISTING CONTACT:', {
@@ -1012,20 +1034,19 @@ router.post('/:slug/submit', formSubmissionLimiter, async (req, res) => {
       if (mappingResult.contactData.venueAddress) {
         try {
           // Build venue details using structured address fields  
-          // FIXED: Use the correctly mapped venue fields from contactData
+          // Use raw (req.body.data) for eventLocation sub-fields — they are NOT in req.body directly
           const venueDetails = {
-            placeId: formData.eventLocationPlaceId || null,
+            placeId: raw.eventLocationPlaceId || null,
             name: mappingResult.contactData.venueAddress?.split(',')[0]?.trim() || 'Venue',
             address1: mappingResult.contactData.venueAddress, // Keep full address for reference
             address2: undefined, // Use undefined instead of null for PlaceDetails interface
-            city: mappingResult.contactData.venue_city || formData.eventLocationCity || '',
-            state: mappingResult.contactData.venue_state || formData.eventLocationState || '',
-            postalCode: mappingResult.contactData.venue_zip_code || formData.eventLocationZipCode || '',
-            countryCode: mappingResult.contactData.venue_country || formData.eventLocationCountry || 'GB',
-            latitude: formData.eventLocationLat ? parseFloat(formData.eventLocationLat) : 0,
-            longitude: formData.eventLocationLng ? parseFloat(formData.eventLocationLng) : 0,
-            // Include phone number if provided in form (use mapped field first, then fallback)
-            contactPhone: mappingResult.contactData.venue_phone || formData.eventLocationPhone || null,
+            city: mappingResult.contactData.venueCity || raw.eventLocationCity || '',
+            state: mappingResult.contactData.venueState || raw.eventLocationState || '',
+            postalCode: mappingResult.contactData.venueZipCode || raw.eventLocationZipCode || '',
+            countryCode: mappingResult.contactData.venueCountry || raw.eventLocationCountry || 'GB',
+            latitude: raw.eventLocationLat ? parseFloat(raw.eventLocationLat) : 0,
+            longitude: raw.eventLocationLng ? parseFloat(raw.eventLocationLng) : 0,
+            contactPhone: raw.eventLocationPhone || null,
           };
 
           console.log('🏢 VENUE CREATION DEBUG:', {

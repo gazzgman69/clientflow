@@ -135,12 +135,19 @@ export default function LeadFormHosted({ slug }: LeadFormHostedProps) {
       return response.json();
     },
     onSuccess: (data) => {
-      setSubmitted(true);
       // Invalidate all related caches for instant updates (like leads do)
       queryClient.invalidateQueries({ queryKey: ["/api/leads"] });
       queryClient.invalidateQueries({ queryKey: ["/api/contacts"] });
       queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard/metrics"] });
+
+      // If a redirect URL is configured, use it instead of the thank you screen
+      if (data.afterSubmit?.redirectUrl) {
+        window.location.href = data.afterSubmit.redirectUrl;
+        return;
+      }
+
+      setSubmitted(true);
       toast({
         title: 'Form submitted successfully!',
         description: data.afterSubmit?.message || 'Thank you for your submission.',
@@ -384,7 +391,7 @@ export default function LeadFormHosted({ slug }: LeadFormHostedProps) {
             </div>
             <h2 className="text-xl font-semibold mb-2">Thank You!</h2>
             <p className="text-muted-foreground">
-              Your form has been submitted successfully. We'll be in touch soon.
+              {formData?.form?.thankYouMessage || 'Thank you for your enquiry! We will be in touch shortly.'}
             </p>
             {isDialog && (
               <Button 

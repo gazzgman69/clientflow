@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Separator } from "@/components/ui/separator";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Plus, Settings, Eye, Copy, Trash2, FileText, GripVertical, Code, ExternalLink } from "lucide-react";
+import { Plus, Pencil, Eye, Copy, Trash2, FileText, GripVertical, Code, ExternalLink } from "lucide-react";
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest } from '@/lib/queryClient';
 import InstallFormMenu from '@/components/leads/InstallFormMenu';
@@ -508,7 +508,7 @@ export default function LeadCaptureBuilder() {
                     data-testid="button-create-form"
                   >
                     <Plus className="h-4 w-4 mr-2" />
-                    {createFormMutation.isPending ? 'Creating...' : 'Add Method'}
+                    {createFormMutation.isPending ? 'Creating...' : 'Add Form'}
                   </Button>
                 </div>
               </CardHeader>
@@ -593,7 +593,7 @@ export default function LeadCaptureBuilder() {
                     </p>
                     <Button onClick={handleCreateForm} data-testid="button-create-first-form">
                       <Plus className="h-4 w-4 mr-2" />
-                      Create Your First Form
+                      Add Form
                     </Button>
                   </div>
                 </CardContent>
@@ -703,7 +703,7 @@ export default function LeadCaptureBuilder() {
                             value={formDetails?.autoResponderTemplateId || 'none'}
                             onValueChange={(value) => {
                               if (value === 'new_template') {
-                                setLocation('/settings/templates?create=auto_responder');
+                                setLocation('/settings/templates?create=auto_responder&returnTo=/lead-forms');
                               } else {
                                 setFormDetails(prev => prev ? {
                                   ...prev, 
@@ -745,8 +745,7 @@ export default function LeadCaptureBuilder() {
                                 autoResponderDelaySeconds: parseInt(value)
                               } : null)
                             }
-                            disabled={!formDetails?.autoResponderTemplateId}
-                          >
+                            >
                             <SelectTrigger data-testid="select-auto-responder-delay">
                               <SelectValue />
                             </SelectTrigger>
@@ -788,7 +787,7 @@ export default function LeadCaptureBuilder() {
                         <Input
                           id="thank-you-message"
                           placeholder="Thank you for your enquiry! We will be in touch shortly."
-                          value={(formDetails as any)?.thankYouMessage || ''}
+                          value={(formDetails as any)?.thankYouMessage ?? 'Thank you for your enquiry! We will be in touch shortly.'}
                           onChange={(e) => setFormDetails((prev: any) => prev ? {...prev, thankYouMessage: e.target.value} : null)}
                           data-testid="input-thank-you-message"
                         />
@@ -796,6 +795,32 @@ export default function LeadCaptureBuilder() {
                           Shown when no redirect URL is set.
                         </p>
                       </div>
+                    </div>
+
+                    <Separator />
+
+                    <div>
+                      <Label htmlFor="transparency-text">Privacy Notice</Label>
+                      <Input
+                        id="transparency-text"
+                        placeholder="We will use this information to contact you about our services."
+                        value={(formDetails as any)?.transparency ?? 'We will use this information to contact you about our services.'}
+                        onChange={(e) => setFormDetails((prev: any) => prev ? {...prev, transparency: e.target.value} : null)}
+                        data-testid="input-transparency-text"
+                      />
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Shown at the bottom of the form. Visible to enquirers.
+                      </p>
+                    </div>
+
+                    <div className="flex justify-end">
+                      <Button
+                        onClick={handleSaveForm}
+                        disabled={saveFormMutation.isPending || !formDetails}
+                        data-testid="button-save-form-settings-bottom"
+                      >
+                        {saveFormMutation.isPending ? 'Saving...' : 'Save'}
+                      </Button>
                     </div>
                   </CardContent>
                 </Card>
@@ -879,7 +904,7 @@ export default function LeadCaptureBuilder() {
                                     onClick={() => handleEditQuestion(question)}
                                     data-testid={`button-edit-question-${question.id}`}
                                   >
-                                    <Settings className="h-3 w-3" />
+                                    <Pencil className="h-3 w-3" />
                                   </Button>
                                   <Button
                                     variant="outline"
@@ -911,6 +936,17 @@ export default function LeadCaptureBuilder() {
                     )}
                   </CardContent>
                 </Card>
+              </div>
+
+              {/* Bottom Save Button */}
+              <div className="flex justify-end">
+                <Button
+                  onClick={handleSaveForm}
+                  disabled={saveFormMutation.isPending || !formDetails}
+                  data-testid="button-save-form-bottom"
+                >
+                  {saveFormMutation.isPending ? 'Saving...' : 'Save Form'}
+                </Button>
               </div>
             )}
           </div>

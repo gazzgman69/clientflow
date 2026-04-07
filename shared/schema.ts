@@ -1271,6 +1271,7 @@ export const leadCaptureForms = pgTable("lead_capture_forms", {
   consentRequired: boolean("consent_required").default(false), // Optional by default
   dataRetentionDays: integer("data_retention_days").default(730), // 2+ years for events far in future
   privacyPolicyUrl: text("privacy_policy_url"),
+  transparency: text("transparency").default('We will use this information to contact you about our services.'), // Privacy notice shown at bottom of form
   redirectUrl: text("redirect_url"), // Post-submission redirect URL (optional - if null, shows thank you message)
   thankYouMessage: text("thank_you_message").default('Thank you for your enquiry! We will be in touch shortly.'), // Shown when no redirect URL
   fromAddress: text("from_address"), // Tenant-specific from address for notifications

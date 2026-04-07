@@ -205,6 +205,10 @@ export default function TemplatesPage() {
       toast({ title: 'Template created successfully' });
       setShowEditor(false);
       form.reset();
+      if (returnToPath) {
+        setLocation(returnToPath);
+        setReturnToPath(null);
+      }
     },
     onError: () => {
       toast({ title: 'Failed to create template', variant: 'destructive' });
@@ -223,6 +227,10 @@ export default function TemplatesPage() {
       setShowEditor(false);
       setEditingTemplate(null);
       form.reset();
+      if (returnToPath) {
+        setLocation(returnToPath);
+        setReturnToPath(null);
+      }
     },
     onError: () => {
       toast({ title: 'Failed to update template', variant: 'destructive' });
@@ -243,11 +251,19 @@ export default function TemplatesPage() {
     },
   });
 
+  // Store returnTo destination from URL params
+  const [returnToPath, setReturnToPath] = useState<string | null>(null);
+
   // Check for URL parameters to auto-open template creation
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const createType = params.get('create');
-    
+    const returnTo = params.get('returnTo');
+
+    if (returnTo) {
+      setReturnToPath(returnTo);
+    }
+
     if (createType === 'auto_responder' || createType === 'email' || createType === 'invoice' || createType === 'contract') {
       setActiveType(createType);
       setEditingTemplate(null);
@@ -258,7 +274,7 @@ export default function TemplatesPage() {
         body: '',
       });
       setShowEditor(true);
-      
+
       // Clear the URL parameter
       window.history.replaceState({}, '', '/settings/templates');
     }
@@ -407,7 +423,12 @@ export default function TemplatesPage() {
                   ) : (
                     <div className="space-y-4">
                       {filteredTemplates.map((template) => (
-                        <div key={template.id} className="flex items-center justify-between p-4 border rounded-lg" data-testid={`template-${template.id}`}>
+                        <div
+                          key={template.id}
+                          className="flex items-center justify-between p-4 border rounded-lg cursor-pointer hover:bg-muted/40 transition-colors"
+                          onClick={() => handleEditTemplate(template)}
+                          data-testid={`template-${template.id}`}
+                        >
                           <div className="flex-1">
                             <h3 className="font-medium mb-2">{template.title}</h3>
                             <p className="text-sm text-muted-foreground">
@@ -418,7 +439,7 @@ export default function TemplatesPage() {
                             <Button
                               variant="outline"
                               size="sm"
-                              onClick={() => handleEditTemplate(template)}
+                              onClick={(e) => { e.stopPropagation(); handleEditTemplate(template); }}
                               data-testid={`button-edit-${template.id}`}
                             >
                               <Edit2 className="h-4 w-4" />
@@ -426,7 +447,7 @@ export default function TemplatesPage() {
                             <Button
                               variant="outline"
                               size="sm"
-                              onClick={() => deleteMutation.mutate(template.id)}
+                              onClick={(e) => { e.stopPropagation(); deleteMutation.mutate(template.id); }}
                               disabled={deleteMutation.isPending}
                               data-testid={`button-delete-${template.id}`}
                             >
@@ -529,8 +550,17 @@ export default function TemplatesPage() {
                     <FormItem>
                       <FormLabel>Template Body</FormLabel>
                       <div className="space-y-2">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
+                        <FormControl>
+                          <RichTextEditor
+                            ref={bodyEditorRef}
+                            content={field.value || ''}
+                            onChange={field.onChange}
+                            placeholder="Enter your template content here. Use [Token] for dynamic values."
+                            minHeight="300px"
+                            data-testid="editor-template-body"
+                          />
+                        </FormControl>
+                        <div className="flex items-center gap-2">
                             <TokenDropdown
                               onTokenSelect={(token) => {
                                 if (bodyEditorRef.current) {
@@ -547,7 +577,7 @@ export default function TemplatesPage() {
                             />
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
-                                <Button 
+                                <Button
                                   type="button"
                                   variant="outline"
                                   size="sm"
@@ -566,19 +596,26 @@ export default function TemplatesPage() {
                                     Loading...
                                   </div>
                                 ) : emailSignatures?.length === 0 ? (
-                                  <div className="text-center py-2 text-muted-foreground text-sm">
-                                    No signatures found
+                                  <div className="py-1">
+                                    <div className="px-2 py-1.5 text-sm text-muted-foreground">No signatures found</div>
+                                    <DropdownMenuItem
+                                      onClick={() => setLocation('/settings/email?tab=signatures')}
+                                      className="text-primary cursor-pointer"
+                                      data-testid="dropdown-create-signature"
+                                    >
+                                      + Create a Signature
+                                    </DropdownMenuItem>
                                   </div>
                                 ) : (
                                   emailSignatures?.map((signature: EmailSignature) => (
-                                    <DropdownMenuItem 
+                                    <DropdownMenuItem
                                       key={signature.id}
                                       onClick={() => {
                                         if (bodyEditorRef.current) {
                                           const added = bodyEditorRef.current.appendSignature(signature.content);
                                           if (!added) {
-                                            toast({ 
-                                              title: 'Signature already added', 
+                                            toast({
+                                              title: 'Signature already added',
                                               description: 'This signature is already present in the template body.',
                                               variant: 'destructive'
                                             });
@@ -599,18 +636,7 @@ export default function TemplatesPage() {
                               </DropdownMenuContent>
                             </DropdownMenu>
                           </div>
-                          <div></div>
                         </div>
-                        <FormControl>
-                          <RichTextEditor
-                            ref={bodyEditorRef}
-                            content={field.value || ''}
-                            onChange={field.onChange}
-                            placeholder="Enter your template content here. Use [Token] for dynamic values."
-                            minHeight="300px"
-                            data-testid="editor-template-body"
-                          />
-                        </FormControl>
                       </div>
                       <FormMessage />
                     </FormItem>

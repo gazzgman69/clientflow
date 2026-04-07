@@ -184,7 +184,9 @@ router.get('/:id', async (req, res) => {
         projectTags: form.projectTags,
         recaptchaEnabled: form.recaptchaEnabled,
         isActive: form.isActive,
-        transparency: 'We will use this information to contact you about our services.',
+        transparency: (form as any).transparency || 'We will use this information to contact you about our services.',
+        redirectUrl: form.redirectUrl || null,
+        thankYouMessage: form.thankYouMessage || 'Thank you for your enquiry! We will be in touch shortly.',
         updatedAt: form.updatedAt
       },
       questions: questions
@@ -237,6 +239,7 @@ router.patch('/:id', async (req, res) => {
     if (form.privacyPolicyUrl !== undefined) updateData.privacyPolicyUrl = form.privacyPolicyUrl;
     if (form.redirectUrl !== undefined) updateData.redirectUrl = form.redirectUrl;
     if (form.thankYouMessage !== undefined) updateData.thankYouMessage = form.thankYouMessage;
+    if (form.transparency !== undefined) updateData.transparency = form.transparency;
 
     // Handle questions update
     if (questions) {
@@ -314,7 +317,7 @@ router.get('/:slug', async (req, res) => {
         title: form.name,
         slug: form.slug,
         recaptchaEnabled: form.recaptchaEnabled,
-        transparency: 'We will use this information to contact you about our services.',
+        transparency: (form as any).transparency || 'We will use this information to contact you about our services.',
         consentRequired: form.consentRequired,
         consentText: form.consentText,
         privacyPolicyUrl: form.privacyPolicyUrl,
@@ -862,8 +865,9 @@ router.post('/:slug/submit', formSubmissionLimiter, async (req, res) => {
                 ok: true,
                 leadId: lead.id,
                 afterSubmit: {
-                  type: 'message',
-                  message: 'Thank you! We have logged another project for you.'
+                  type: form.redirectUrl ? 'redirect' : 'message',
+                  redirectUrl: form.redirectUrl || null,
+                  message: form.thankYouMessage || 'Thank you for your enquiry! We will be in touch shortly.'
                 }
               });
             } else {
@@ -1418,8 +1422,9 @@ router.post('/:slug/submit', formSubmissionLimiter, async (req, res) => {
       leadId: lead.id,
       _debug: { formTenantId: form.tenantId, resolvedTenantId, leadTenantId: lead.tenantId, reqTenantId: (req as any).tenantId || null },
       afterSubmit: {
-        type: 'message',
-        message: 'Thank you! We will be in touch soon.'
+        type: form.redirectUrl ? 'redirect' : 'message',
+        redirectUrl: form.redirectUrl || null,
+        message: form.thankYouMessage || 'Thank you for your enquiry! We will be in touch shortly.'
       }
     });
   } catch (error) {

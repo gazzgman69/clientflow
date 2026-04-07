@@ -263,104 +263,95 @@ export class VenuesService {
   }
 
   /**
-   * Attempt to automatically enrich a venue by searching Google Places
+   * Attempt to automatically enrich a venue with full Google Places data.
+   *
+   * Fast path: if the venue already has a placeId (e.g. from a form submission),
+   * call getPlaceDetails directly — no fuzzy name search needed.
+   * Slow path: no placeId, search by name + address and verify name similarity.
+   *
+   * Only fills empty fields — manual edits are always preserved.
    */
   async tryAutoEnrichVenue(venueId: string, tenantId: string): Promise<Venue | null> {
     const venue = await storage.getVenue(venueId, tenantId);
-    if (!venue || venue.placeId) {
-      return null; // Already has Google Places data or doesn't exist
-    }
+    if (!venue) return null;
 
-    // Don't try to enrich if we already have enrichment data
+    // Check if already fully enriched (has lastEnriched timestamp in meta)
     if (venue.meta) {
       try {
         const metaData = JSON.parse(venue.meta);
         if (metaData.lastEnriched) {
-          console.log(`🔍 Venue ${venue.name} already enriched, skipping`);
+          console.log(`🔍 Venue "${venue.name}" already enriched, skipping`);
           return venue;
         }
       } catch (e) {
-        // Invalid JSON in meta, continue with enrichment
+        // Corrupted meta JSON — proceed with enrichment
       }
-    }
-
-    // Build search query from venue data, avoiding duplication
-    const searchParts = [];
-    
-    // Add venue name if available
-    if (venue.name) {
-      searchParts.push(venue.name);
-    }
-    
-    // Add location info, but skip if venue name is already part of address
-    let locationInfo = '';
-    if (venue.address) {
-      // Check if venue name is already in the address to avoid duplication
-      if (venue.name && venue.address.toLowerCase().includes(venue.name.toLowerCase())) {
-        locationInfo = venue.address;
-      } else {
-        locationInfo = `${venue.name ? venue.name + ', ' : ''}${venue.address}`;
-      }
-    }
-    
-    // Add city, state, country if not already in address
-    const additionalLocation = [venue.city, venue.state, venue.country]
-      .filter(Boolean)
-      .join(', ');
-    
-    if (additionalLocation && !locationInfo.includes(additionalLocation)) {
-      locationInfo = locationInfo ? `${locationInfo}, ${additionalLocation}` : additionalLocation;
-    }
-    
-    const searchTerms = locationInfo || venue.name || '';
-    
-    if (!searchTerms || searchTerms.length < 5) {
-      console.log(`🔍 Insufficient data to enrich venue: ${venue.name}`);
-      return venue;
     }
 
     try {
-      console.log(`🔍 Auto-enriching venue: ${venue.name} with query: "${searchTerms}"`);
-      
-      // Search for the venue on Google Places (fix: use only 'establishment' type)
-      const predictions = await geocodingService.getPlacePredictions(searchTerms, {
-        types: ['establishment']
-      });
+      let placeDetails: any = null;
 
-      if (!predictions || predictions.length === 0) {
-        console.log(`🔍 No Google Places results found for: ${venue.name}`);
-        return venue;
+      if (venue.placeId) {
+        // Fast path: venue was created from Google Places autocomplete — fetch full
+        // details directly using the placeId we already have
+        console.log(`🔍 Enriching venue "${venue.name}" using existing placeId: ${venue.placeId}`);
+        placeDetails = await geocodingService.getPlaceDetails(venue.placeId);
+      } else {
+        // Slow path: no placeId — search Google Places by name + address
+        let locationInfo = '';
+        if (venue.address) {
+          locationInfo = venue.name && venue.address.toLowerCase().includes(venue.name.toLowerCase())
+            ? venue.address
+            : `${venue.name ? venue.name + ', ' : ''}${venue.address}`;
+        }
+        const additionalLocation = [venue.city, venue.state, venue.country].filter(Boolean).join(', ');
+        if (additionalLocation && !locationInfo.includes(additionalLocation)) {
+          locationInfo = locationInfo ? `${locationInfo}, ${additionalLocation}` : additionalLocation;
+        }
+        const searchTerms = locationInfo || venue.name || '';
+
+        if (!searchTerms || searchTerms.length < 5) {
+          console.log(`🔍 Insufficient data to search for venue: "${venue.name}"`);
+          return venue;
+        }
+
+        console.log(`🔍 Enriching venue "${venue.name}" via Places search: "${searchTerms}"`);
+        const predictions = await geocodingService.getPlacePredictions(searchTerms, {
+          types: ['establishment']
+        });
+
+        if (!predictions || predictions.length === 0) {
+          console.log(`🔍 No Google Places results for: "${venue.name}"`);
+          return venue;
+        }
+
+        placeDetails = await geocodingService.getPlaceDetails(predictions[0].place_id);
+
+        // Verify it's the same venue — name must be ≥60% similar
+        const nameSimilarity = this.calculateNameSimilarity(venue.name, placeDetails.name);
+        if (nameSimilarity < 0.6) {
+          console.log(`🔍 Name match too low (${(nameSimilarity * 100).toFixed(0)}%) — "${venue.name}" vs "${placeDetails.name}"`);
+          return venue;
+        }
       }
 
-      // Try the first result that seems to match
-      const bestMatch = predictions[0];
-      const placeDetails = await geocodingService.getPlaceDetails(bestMatch.place_id);
+      if (!placeDetails) return venue;
 
-      // Verify it's actually the same venue by checking name similarity
-      const nameSimilarity = this.calculateNameSimilarity(venue.name, placeDetails.name);
-      if (nameSimilarity < 0.6) {
-        console.log(`🔍 Name similarity too low (${nameSimilarity}) for ${venue.name} vs ${placeDetails.name}`);
-        return venue;
-      }
-
-      // Update venue with enriched data, preserving manual edits
+      // Build update — only fill empty fields so manual edits are preserved
       const updates: Partial<InsertVenue> = {};
-      
-      // Only update fields that are empty - preserve manual edits
+
       if (!venue.contactPhone && placeDetails.phone) updates.contactPhone = placeDetails.phone;
       if (!venue.website && placeDetails.website) updates.website = placeDetails.website;
-      if (!venue.placeId) updates.placeId = placeDetails.placeId;
-      
-      // Update structured address fields if empty (Google Places API provides these)
+      if (!venue.placeId && placeDetails.placeId) updates.placeId = placeDetails.placeId;
       if (!venue.city && placeDetails.city) updates.city = placeDetails.city;
       if (!venue.state && placeDetails.state) updates.state = placeDetails.state;
       if (!venue.zipCode && placeDetails.postalCode) updates.zipCode = placeDetails.postalCode;
-      // Google Places provides country as countryCode, not country
       if (!venue.country && placeDetails.countryCode) updates.country = placeDetails.countryCode;
-      // Use formatted_address from Google Places
-      if (!venue.address && placeDetails.formatted_address) updates.address = placeDetails.formatted_address;
-      
-      // Store enrichment data in meta
+      if (!venue.address && placeDetails.address1) updates.address = placeDetails.address1;
+      if (!venue.latitude && placeDetails.latitude) updates.latitude = String(placeDetails.latitude);
+      if (!venue.longitude && placeDetails.longitude) updates.longitude = String(placeDetails.longitude);
+
+      // Always update enrichment metadata in meta field
       const enrichmentData = {
         rating: placeDetails.rating,
         userRatingsTotal: placeDetails.userRatingsTotal,
@@ -369,19 +360,16 @@ export class VenuesService {
         openingHours: placeDetails.openingHours,
         lastEnriched: new Date().toISOString(),
         autoEnriched: true,
-        confidence: nameSimilarity
+        source: venue.placeId ? 'placeId' : 'nameSearch'
       };
       updates.meta = JSON.stringify(enrichmentData);
 
-      if (Object.keys(updates).length > 0) {
-        const updatedVenue = await storage.updateVenue(venueId, updates, tenantId);
-        console.log(`✅ Successfully enriched venue: ${venue.name} with phone: ${placeDetails.phone}, website: ${placeDetails.website}`);
-        return updatedVenue || venue;
-      }
+      const updatedVenue = await storage.updateVenue(venueId, updates, tenantId);
+      console.log(`✅ Enriched venue "${venue.name}" — phone: ${placeDetails.phone || 'none'}, website: ${placeDetails.website || 'none'}, rating: ${placeDetails.rating || 'none'}`);
+      return updatedVenue || venue;
 
-      return venue;
     } catch (error) {
-      console.warn(`❌ Failed to auto-enrich venue ${venue.name}:`, error);
+      console.warn(`❌ Failed to enrich venue "${venue.name}":`, error);
       return venue;
     }
   }

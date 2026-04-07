@@ -1081,22 +1081,32 @@ router.post('/:slug/submit', formSubmissionLimiter, async (req, res) => {
                 lastUsedAt: new Date(),
                 tenantId: form.tenantId // Add required tenantId
               };
-              
-              console.log('🔍 CREATING VENUE FROM MANUAL ENTRY:', { 
-                venueData, 
+
+              console.log('🔍 CREATING VENUE FROM MANUAL ENTRY:', {
+                venueData,
                 tenantId: form.tenantId,
                 hasNameAndAddress: !!(venueData.name && venueData.address)
               });
-              
+
               // Use findOrCreateVenue which has robust normalization-based deduplication
               createdVenue = await venuesService.findOrCreateVenue(venueData, form.tenantId);
-              
+
               console.log('✅ VENUE CREATED/FOUND (Manual):', {
                 venueId: createdVenue.id,
                 venueName: createdVenue.name,
                 venueAddress: createdVenue.address,
                 tenantId: form.tenantId
               });
+            }
+
+            // Auto-enrich the venue with full Google Places data (phone, website, rating,
+            // opening hours etc.) — runs in the background so it never delays the response.
+            if (createdVenue) {
+              venuesService.tryAutoEnrichVenue(createdVenue.id, form.tenantId)
+                .then(enriched => {
+                  if (enriched) console.log(`✅ AUTO-ENRICHED venue "${enriched.name}" from form submission`);
+                })
+                .catch(err => console.warn('⚠️ Background venue enrichment failed (non-fatal):', err));
             }
           } else {
             console.log('⚠️ VENUE CREATION SKIPPED - NO ADDRESS DATA:', {

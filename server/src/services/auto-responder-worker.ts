@@ -110,18 +110,40 @@ class AutoResponderWorker {
       const subject = this.resolveTokens(template.subject || template.title, context);
       let htmlBody = this.resolveTokens(template.body, context);
 
-      // Strip the trailing footer logo image from the template HTML.
-      // Templates often include a large decorative logo at the bottom as a footer brand
-      // element — we remove it here so there's only one logo (in the template header).
-      // Pattern covers: <p><img /></p>, <div><img /></div>, or nested <a><img /></a> wrappers.
-      const beforeStrip = htmlBody;
-      htmlBody = htmlBody.replace(
-        /(<(?:p|div)[^>]*>\s*(?:<(?:a|span)[^>]*>\s*)?<img[^>]*\/?>\s*(?:<\/(?:a|span)>)?\s*<\/(?:p|div)>)\s*$/i,
-        ''
-      );
-      // Fallback: bare <img> at the very end (no wrapper element)
-      if (htmlBody === beforeStrip) {
-        htmlBody = htmlBody.replace(/<img[^>]*\/?>\s*$/, '');
+      // Inject company logo at the top of the email — no background so it renders
+      // cleanly on both light and dark email clients.
+      // Also strip any duplicate standalone logo image at the end of the template body.
+      try {
+        const tenant = await storage.getTenant(log.tenantId);
+        if (tenant?.settings) {
+          const settings = JSON.parse(tenant.settings);
+          const logoUrl: string | undefined = settings.logoUrl;
+          const companyName: string = tenant.name || '';
+          if (logoUrl) {
+            // Prepend logo with no background — transparent in all email clients
+            const logoHeader = `<div style="text-align:center;padding:20px 0 16px;">` +
+              `<img src="${logoUrl}" alt="${companyName}" ` +
+              `style="max-height:80px;max-width:280px;width:auto;height:auto;display:inline-block;" />` +
+              `</div>`;
+
+            // Strip trailing standalone image block from template (the duplicate footer logo)
+            // Covers: <p><img/></p>, <div><img/></div>, with optional <a> or <span> wrappers
+            const beforeStrip = htmlBody;
+            htmlBody = htmlBody.replace(
+              /(<(?:p|div)[^>]*>\s*(?:<(?:a|span)[^>]*>\s*)?<img[^>]*\/?>\s*(?:<\/(?:a|span)>)?\s*<\/(?:p|div)>)\s*$/i,
+              ''
+            );
+            // Fallback: bare <img> with no wrapper at very end
+            if (htmlBody === beforeStrip) {
+              htmlBody = htmlBody.replace(/<img[^>]*\/?>\s*$/, '');
+            }
+
+            htmlBody = logoHeader + htmlBody;
+          }
+        }
+      } catch (brandingErr) {
+        // Non-fatal — send without logo
+        console.warn('[AutoResponderWorker] Could not load tenant branding:', brandingErr);
       }
 
       // Convert HTML to plain text for fallback

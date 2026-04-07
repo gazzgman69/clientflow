@@ -65,41 +65,69 @@ export function buildMimeRaw(opts: {
   html?: string;
   text?: string;
   attachments?: Array<{ filename: string; content: string; contentType?: string; isBase64?: boolean }>;
+  inlineImages?: Array<{ cid: string; contentType: string; base64: string }>;
 }) {
   const CRLF = '\r\n';
   const alt = `alt_${Date.now().toString(36)}`;
-  const mix = `mix_${(Date.now()+1).toString(36)}`;
+  const rel = `rel_${(Date.now()+1).toString(36)}`;
+  const mix = `mix_${(Date.now()+2).toString(36)}`;
 
-  const altParts: string[] = [];
-  if ((opts.text || '').trim()) {
-    altParts.push(
-      [
-        `Content-Type: text/plain; charset=UTF-8`,
-        `Content-Transfer-Encoding: quoted-printable`,
-        ``,
-        qp(opts.text!.trim()),
-        ``
-      ].join(CRLF)
-    );
-  }
-  if ((opts.html || '').trim()) {
-    altParts.push(
-      [
-        `Content-Type: text/html; charset=UTF-8`,
-        `Content-Transfer-Encoding: quoted-printable`,
-        ``,
-        qp(opts.html!.trim()),
-        ``
-      ].join(CRLF)
-    );
-  }
-
+  const inlines = opts.inlineImages || [];
   const atts = opts.attachments || [];
+
+  // Build plain text part
+  const textPart = (opts.text || '').trim() ? [
+    `Content-Type: text/plain; charset=UTF-8`,
+    `Content-Transfer-Encoding: quoted-printable`,
+    ``,
+    qp(opts.text!.trim()),
+    ``
+  ].join(CRLF) : null;
+
+  // Build HTML part
+  const htmlRaw = (opts.html || '').trim();
+  const htmlPart = htmlRaw ? [
+    `Content-Type: text/html; charset=UTF-8`,
+    `Content-Transfer-Encoding: quoted-printable`,
+    ``,
+    qp(htmlRaw),
+    ``
+  ].join(CRLF) : null;
+
+  // If inline images, wrap HTML in multipart/related so CID references resolve
+  let htmlOrRelatedPart: string | null = htmlPart;
+  if (inlines.length > 0 && htmlPart) {
+    const inlineParts = inlines.map(img => [
+      `Content-Type: ${img.contentType}`,
+      `Content-Transfer-Encoding: base64`,
+      `Content-ID: <${img.cid}>`,
+      `Content-Disposition: inline`,
+      ``,
+      wrap76(img.base64),
+      ``
+    ].join(CRLF));
+
+    htmlOrRelatedPart = [
+      `Content-Type: multipart/related; boundary="${rel}"`,
+      ``,
+      `--${rel}`,
+      htmlPart,
+      ...inlineParts.map(p => `--${rel}${CRLF}${p}`),
+      `--${rel}--`,
+      ``
+    ].join(CRLF);
+  }
+
+  // Build the multipart/alternative parts list
+  const altParts: string[] = [];
+  if (textPart) altParts.push(textPart);
+  if (htmlOrRelatedPart) altParts.push(htmlOrRelatedPart);
+
   let headers: string;
   let body: string;
 
   if (atts.length) {
-    // With attachments: use multipart/mixed at top level
+    // With file attachments: multipart/mixed at top level
     headers = [
       'MIME-Version: 1.0',
       opts.from ? `From: ${opts.from}` : null,
@@ -111,7 +139,6 @@ export function buildMimeRaw(opts: {
       `Content-Type: multipart/mixed; boundary="${mix}"`
     ].filter(Boolean).join(CRLF);
 
-    // Nested multipart/alternative for text/html
     const altBody = [
       `Content-Type: multipart/alternative; boundary="${alt}"`,
       ``,
@@ -137,7 +164,7 @@ export function buildMimeRaw(opts: {
     parts.push(`--${mix}--`, ``);
     body = parts.join(CRLF);
   } else {
-    // No attachments: use multipart/alternative at top level
+    // No file attachments: multipart/alternative at top level
     headers = [
       'MIME-Version: 1.0',
       opts.from ? `From: ${opts.from}` : null,
@@ -168,11 +195,13 @@ export async function sendViaGmail(opts: {
   subject: string;
   html?: string; text?: string;
   attachments?: Array<{ filename: string; content: string; contentType?: string; isBase64?: boolean }>;
+  inlineImages?: Array<{ cid: string; contentType: string; base64: string }>;
 }) {
   const gmail = google.gmail({ version: 'v1', auth: opts.oauth });
   const raw = buildMimeRaw({
     from: opts.from, to: opts.to, cc: opts.cc, bcc: opts.bcc,
-    subject: opts.subject, html: opts.html, text: opts.text, attachments: opts.attachments
+    subject: opts.subject, html: opts.html, text: opts.text,
+    attachments: opts.attachments, inlineImages: opts.inlineImages
   });
   return gmail.users.messages.send({ userId: 'me', requestBody: { raw } });
 }

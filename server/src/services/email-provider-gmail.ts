@@ -18,6 +18,7 @@ export interface SendEmailParams {
     path: string;
     contentType?: string;
   }>;
+  inlineImages?: Array<{ cid: string; contentType: string; base64: string }>;
 }
 
 export interface SyncContactsOnlyParams {
@@ -226,7 +227,8 @@ export class GmailEmailProvider {
         subject: params.subject,
         html: htmlBody,
         text: textBody,
-        attachments: gmailAttachments.length > 0 ? gmailAttachments : undefined
+        attachments: gmailAttachments.length > 0 ? gmailAttachments : undefined,
+        inlineImages: params.inlineImages
       });
 
       console.log('📧 Gmail: Email sent successfully:', response.data.id);

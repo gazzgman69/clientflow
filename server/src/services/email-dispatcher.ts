@@ -10,6 +10,7 @@ export interface DispatchEmailParams {
   cc?: string | string[];
   bcc?: string | string[];
   replyTo?: string;
+  inlineImages?: Array<{ cid: string; contentType: string; base64: string }>;
 }
 
 export interface DispatchEmailResult {

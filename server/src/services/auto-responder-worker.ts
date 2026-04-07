@@ -110,9 +110,12 @@ class AutoResponderWorker {
       const subject = this.resolveTokens(template.subject || template.title, context);
       let htmlBody = this.resolveTokens(template.body, context);
 
-      // Inject company logo at the top of the email — no background so it renders
-      // cleanly on both light and dark email clients.
-      // Also strip any duplicate standalone logo image at the end of the template body.
+      // Inject company logo at the top of the email.
+      // Logos stored as base64 data URLs are embedded as CID inline attachments (the
+      // email-standard approach) so they render in the header rather than appearing as
+      // a file attachment. External URLs are used directly in the <img src>.
+      // Also strip any duplicate standalone image block from the end of the template body.
+      const inlineImages: Array<{ cid: string; contentType: string; base64: string }> = [];
       try {
         const tenant = await storage.getTenant(log.tenantId);
         if (tenant?.settings) {
@@ -120,24 +123,34 @@ class AutoResponderWorker {
           const logoUrl: string | undefined = settings.logoUrl;
           const companyName: string = tenant.name || '';
           if (logoUrl) {
-            // Prepend logo with no background — transparent in all email clients
-            const logoHeader = `<div style="text-align:center;padding:20px 0 16px;">` +
-              `<img src="${logoUrl}" alt="${companyName}" ` +
-              `style="max-height:80px;max-width:280px;width:auto;height:auto;display:inline-block;" />` +
-              `</div>`;
-
-            // Strip trailing standalone image block from template (the duplicate footer logo)
-            // Covers: <p><img/></p>, <div><img/></div>, with optional <a> or <span> wrappers
+            // Strip trailing standalone image block (duplicate footer logo) before injecting
             const beforeStrip = htmlBody;
             htmlBody = htmlBody.replace(
               /(<(?:p|div)[^>]*>\s*(?:<(?:a|span)[^>]*>\s*)?<img[^>]*\/?>\s*(?:<\/(?:a|span)>)?\s*<\/(?:p|div)>)\s*$/i,
               ''
             );
-            // Fallback: bare <img> with no wrapper at very end
             if (htmlBody === beforeStrip) {
               htmlBody = htmlBody.replace(/<img[^>]*\/?>\s*$/, '');
             }
 
+            let imgSrc: string;
+            const dataUrlMatch = logoUrl.match(/^data:([^;]+);base64,(.+)$/s);
+            if (dataUrlMatch) {
+              // Base64 data URL — embed as CID inline attachment to avoid attachment rendering
+              const contentType = dataUrlMatch[1];
+              const base64Data = dataUrlMatch[2].replace(/\s/g, '');
+              const cid = 'brand-logo@clientflow';
+              inlineImages.push({ cid, contentType, base64: base64Data });
+              imgSrc = `cid:${cid}`;
+            } else {
+              // Already a hosted URL — use directly
+              imgSrc = logoUrl;
+            }
+
+            const logoHeader = `<div style="text-align:center;padding:20px 0 16px;">` +
+              `<img src="${imgSrc}" alt="${companyName}" ` +
+              `style="max-height:80px;max-width:280px;width:auto;height:auto;display:inline-block;" />` +
+              `</div>`;
             htmlBody = logoHeader + htmlBody;
           }
         }
@@ -175,7 +188,8 @@ class AutoResponderWorker {
         subject,
         text: textBody,
         html: htmlBody,
-        tenantId: log.tenantId
+        tenantId: log.tenantId,
+        inlineImages: inlineImages.length > 0 ? inlineImages : undefined
       });
 
       if (!result.success) {

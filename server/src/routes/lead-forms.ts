@@ -1119,13 +1119,22 @@ router.post('/:slug/submit', formSubmissionLimiter, async (req, res) => {
             });
           }
         } catch (error) {
+          const errorMsg = error instanceof Error ? error.message : String(error);
+          const errorStack = error instanceof Error ? error.stack : '';
           console.error('❌ Failed to create/update venue:', {
-            error: error instanceof Error ? error.message : String(error),
+            error: errorMsg,
+            stack: errorStack,
             venueData: mappingResult.contactData,
             tenantId: form.tenantId,
             slug,
             timestamp: new Date().toISOString()
           });
+          // Write to file so error is visible even with noisy console
+          try {
+            const fs = await import('fs');
+            const logEntry = `[${new Date().toISOString()}] VENUE ERROR: ${errorMsg}\nStack: ${errorStack}\nVenueAddress: ${mappingResult.contactData.venueAddress}\nTenantId: ${form.tenantId}\n---\n`;
+            fs.appendFileSync('/tmp/venue-errors.log', logEntry);
+          } catch { /* ignore file logging errors */ }
           // Continue with form submission even if venue creation fails
         }
       }

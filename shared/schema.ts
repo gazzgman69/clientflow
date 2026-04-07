@@ -41,6 +41,20 @@ export const authTokens = pgTable("auth_tokens", {
   expiresAtIdx: index("auth_tokens_expires_at_idx").on(table.expiresAt),
 }));
 
+// Portal OTP tokens table — for one-time password login system
+export const portalTokens = pgTable("portal_tokens", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").notNull().references(() => tenants.id),
+  contactEmail: text("contact_email").notNull(),
+  token: varchar("token", { length: 6 }).notNull(), // 6-digit numeric code
+  expiresAt: timestamp("expires_at").notNull(),
+  usedAt: timestamp("used_at"), // Set when OTP is consumed
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  tenantEmailIdx: index("portal_tokens_tenant_email_idx").on(table.tenantId, table.contactEmail),
+  expiresAtIdx: index("portal_tokens_expires_at_idx").on(table.expiresAt),
+}));
+
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   tenantId: varchar("tenant_id").references(() => tenants.id).notNull(), // SECURITY FIX: Made NOT NULL for tenant isolation
@@ -3292,3 +3306,12 @@ export const insertBookingSchema = createInsertSchema(bookings).omit({
 
 export type Booking = typeof bookings.$inferSelect;
 export type InsertBooking = z.infer<typeof insertBookingSchema>;
+
+export const insertPortalTokenSchema = createInsertSchema(portalTokens).omit({
+  id: true,
+  usedAt: true,
+  createdAt: true,
+});
+
+export type PortalToken = typeof portalTokens.$inferSelect;
+export type InsertPortalToken = z.infer<typeof insertPortalTokenSchema>;

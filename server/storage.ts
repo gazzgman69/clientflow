@@ -108,6 +108,7 @@ import {
   type ScheduleCalendarCheck, type InsertScheduleCalendarCheck,
   type ScheduleTeamMember, type InsertScheduleTeamMember,
   type Booking, type InsertBooking,
+  type PortalToken, type InsertPortalToken,
   users, leads, contacts, projects, quotes, contracts, contractTemplates, invoices, incomeCategories, invoiceItems, invoiceLineItems, paymentSchedules, paymentInstallments, recurringInvoiceSettings, paymentTransactions, taxSettings, tasks, emails, emailThreads, activities, automations,
   members, venues, projectMembers, memberAvailability, memberGroups, memberGroupMembers, performerContracts, repertoire, projectSetlist, projectFiles, projectNotes, projectTasks, projectScheduleItems, projectExpenses, projectMealsBreaks, taskTemplates, smsMessages,
   messageTemplates, messageThreads, calendars, events, calendarIntegrations, calendarSyncLog, templates, leadCaptureForms,
@@ -141,12 +142,12 @@ import {
   // AI Onboarding, Media Library, Chat Widget, Scheduler tables
   tenantOnboardingProgress, mediaLibrary, widgetSettings, chatConversations, chatMessages,
   bookableServices, availabilitySchedules, scheduleServices, availabilityRules, bookings,
-  scheduleCalendarChecks, scheduleTeamMembers
+  scheduleCalendarChecks, scheduleTeamMembers, portalTokens
 } from "@shared/schema";
 import crypto from "crypto";
 import { TenantScopedStorage } from './utils/tenantScopedStorage';
 import { db as poolDb, pool } from './db';
-import { eq, and, desc, or, isNull, isNotNull, leftJoin, sql, lte, inArray } from 'drizzle-orm';
+import { eq, and, desc, or, isNull, isNotNull, leftJoin, sql, lte, lt, gt, inArray } from 'drizzle-orm';
 import { secureStore } from './src/services/secureStore';
 import { validateAndCleanVenueAddress } from '@shared/addressUtils';
 import { IStorage } from './types/storage';
@@ -9712,6 +9713,54 @@ export class DrizzleStorage implements IStorage {
         eq(bookings.tenantId, tenantId)
       ));
     return (result.rowCount ?? 0) > 0;
+  }
+
+  // Portal OTP tokens
+  async createPortalToken(data: {
+    tenantId: string;
+    contactEmail: string;
+    token: string;
+    expiresAt: Date;
+  }): Promise<PortalToken> {
+    const [created] = await this.db
+      .insert(portalTokens)
+      .values(data)
+      .returning();
+    return created;
+  }
+
+  async getPortalTokenByCode(
+    token: string,
+    contactEmail: string,
+    tenantId: string
+  ): Promise<PortalToken | undefined> {
+    const [found] = await this.db
+      .select()
+      .from(portalTokens)
+      .where(
+        and(
+          eq(portalTokens.tenantId, tenantId),
+          eq(portalTokens.contactEmail, contactEmail),
+          eq(portalTokens.token, token),
+          isNull(portalTokens.usedAt),
+          gt(portalTokens.expiresAt, new Date())
+        )
+      );
+    return found;
+  }
+
+  async markPortalTokenUsed(id: string): Promise<void> {
+    await this.db
+      .update(portalTokens)
+      .set({ usedAt: new Date() })
+      .where(eq(portalTokens.id, id));
+  }
+
+  async cleanupExpiredPortalTokens(): Promise<number> {
+    const result = await this.db
+      .delete(portalTokens)
+      .where(lt(portalTokens.expiresAt, new Date()));
+    return result.rowCount ?? 0;
   }
 
   // Tenant-scoped storage wrapper

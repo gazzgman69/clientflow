@@ -63,6 +63,7 @@ import leadAutomationSimpleRoutes from "./src/routes/lead-automation-simple";
 import signaturesRoutes from "./src/routes/signatures";
 import venuesRoutes from "./src/routes/venues";
 import tokensRoutes from "./src/routes/tokens";
+import portalAuthRoutes from "./src/routes/portal-auth";
 import portalPaymentsRoutes from "./src/routes/portal-payments";
 import portalFormsRoutes from "./src/routes/portal-forms";
 import portalAppointmentsRoutes from "./src/routes/portal-appointments";
@@ -1011,6 +1012,9 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
 
   // Tenant Cleanup routes - apply ADMIN auth, tenant resolution, CSRF to cleanup management endpoints
   app.use('/api/tenant-cleanup', ensureAdminAuth, tenantResolver, requireTenant, csrf, tenantCleanupRoutes);
+
+  // Portal authentication routes (OTP login) - NO auth required for request/verify, YES for logout
+  app.use('/api/portal/auth', tenantResolver, portalAuthRoutes);
 
   // Portal routes (client portal features) - all secured with session auth + CSRF
   app.use('/api/portal/payments', ensurePortalAuth, csrf, portalPaymentsRoutes);

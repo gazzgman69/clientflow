@@ -54,7 +54,7 @@ export default function ClientPortal() {
 
   // Authentication state - portal client session
   const { data: portalUser, isLoading: isPortalAuthLoading } = useQuery({
-    queryKey: ["/api/portal/auth/me"],
+    queryKey: ["/api/portal/auth/session"],
     retry: false,
     staleTime: 5 * 60 * 1000,
   });

@@ -19,17 +19,7 @@ const staticNavigationItems = [
   { href: "/", icon: BarChart3, label: "Dashboard", emoji: "📊", badge: null },
   { href: "/projects", icon: Briefcase, label: "Projects", emoji: "📋", badge: null },
   { href: "/contacts", icon: Users, label: "Contacts", emoji: "👥", badge: null },
-  {
-    href: "/members",
-    icon: Music,
-    label: "Members",
-    emoji: "🎵",
-    badge: null,
-    subItems: [
-      { href: "/repertoire", icon: ListMusic, label: "Repertoire", emoji: "🎶", badge: null },
-      { href: "/performer-contracts", icon: FileText, label: "Performer Contracts", emoji: "📄", badge: null },
-    ]
-  },
+  { href: "/members", icon: Music, label: "Members", emoji: "🎵", badge: null },
   {
     href: "/documents",
     icon: FolderOpen,

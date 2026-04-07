@@ -19,15 +19,31 @@ const staticNavigationItems = [
   { href: "/", icon: BarChart3, label: "Dashboard", emoji: "📊", badge: null },
   { href: "/projects", icon: Briefcase, label: "Projects", emoji: "📋", badge: null },
   { href: "/contacts", icon: Users, label: "Contacts", emoji: "👥", badge: null },
-  { href: "/members", icon: Music, label: "Members", emoji: "🎵", badge: null },
-  { href: "/repertoire", icon: ListMusic, label: "Repertoire", emoji: "🎶", badge: null },
-  { href: "/performer-contracts", icon: FileText, label: "Performer Contracts", emoji: "📄", badge: null },
-  { href: "/contracts", icon: File, label: "Contracts", emoji: "📑", badge: null },
+  {
+    href: "/members",
+    icon: Music,
+    label: "Members",
+    emoji: "🎵",
+    badge: null,
+    subItems: [
+      { href: "/repertoire", icon: ListMusic, label: "Repertoire", emoji: "🎶", badge: null },
+      { href: "/performer-contracts", icon: FileText, label: "Performer Contracts", emoji: "📄", badge: null },
+    ]
+  },
+  {
+    href: "/documents",
+    icon: FolderOpen,
+    label: "Documents",
+    emoji: "📁",
+    badge: null,
+    subItems: [
+      { href: "/contracts", icon: File, label: "Contracts", emoji: "📑", badge: null },
+    ]
+  },
   { href: "/venues", icon: MapPin, label: "Venues", emoji: "📍", badge: null },
-  { href: "/documents", icon: FolderOpen, label: "Documents", emoji: "📁", badge: null },
   { href: "/scheduler", icon: Calendar, label: "Scheduler", emoji: "📅", badge: null },
   { href: "/calendar", icon: Calendar, label: "Calendar", emoji: "🗓️", badge: null },
-  { href: "/portal/client", icon: ExternalLink, label: "Client Portal", emoji: "🔗", badge: null },
+  { href: "/portal/client", icon: ExternalLink, label: "Client Portal", emoji: "🔗", badge: null, openInNewTab: true },
   { href: "/automations", icon: Bot, label: "Automations", emoji: "🤖", badge: null },
   {
     href: "/settings",
@@ -120,21 +136,35 @@ export default function Sidebar() {
           const isActive = location === item.href;
           const hasSubItems = item.subItems && item.subItems.length > 0;
 
+          const linkClass = cn(
+            "sidebar-link flex items-center space-x-3 px-3 py-2 rounded-lg text-sm",
+            isActive ? "active" : ""
+          );
+          const linkStyle = {
+            color: isActive ? '#fff' : '#9ca3af',
+            background: isActive ? '#1f2937' : 'transparent',
+            fontWeight: isActive ? 500 : 400,
+          };
+
           return (
             <div key={item.href}>
+              {(item as any).openInNewTab ? (
+                <a
+                  href={item.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={linkClass}
+                  style={linkStyle}
+                  data-testid={`nav-${item.label.toLowerCase()}`}
+                >
+                  <span className="text-base leading-none">{item.emoji}</span>
+                  <span>{item.label}</span>
+                </a>
+              ) : (
               <Link
                 href={item.href}
-                className={cn(
-                  "sidebar-link flex items-center space-x-3 px-3 py-2 rounded-lg text-sm",
-                  isActive
-                    ? "active"
-                    : ""
-                )}
-                style={{
-                  color: isActive ? '#fff' : '#9ca3af',
-                  background: isActive ? '#1f2937' : 'transparent',
-                  fontWeight: isActive ? 500 : 400,
-                }}
+                className={linkClass}
+                style={linkStyle}
                 data-testid={`nav-${item.label.toLowerCase()}`}
                 onClick={() => {}}
               >
@@ -146,6 +176,7 @@ export default function Sidebar() {
                   </span>
                 )}
               </Link>
+              )}
               {/* Sub-items */}
               {hasSubItems && (
                 <div className="ml-7 mt-1 space-y-1">

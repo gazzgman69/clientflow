@@ -543,7 +543,18 @@ export default function VenuesPage() {
                             <div className="text-xs text-muted-foreground">Phone</div>
                             <div className="flex items-center gap-2">
                               <Phone className="h-4 w-4 text-blue-600" />
-                              <span className="font-medium text-sm">{selectedVenue.contactPhone}</span>
+                              <a href={`tel:${selectedVenue.contactPhone}`} className="font-medium text-sm text-blue-600 hover:underline">{selectedVenue.contactPhone}</a>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Contact Email */}
+                        {selectedVenue.contactEmail && (
+                          <div className="space-y-1">
+                            <div className="text-xs text-muted-foreground">Email</div>
+                            <div className="flex items-center gap-2">
+                              <Mail className="h-4 w-4 text-blue-600" />
+                              <a href={`mailto:${selectedVenue.contactEmail}`} className="font-medium text-sm text-blue-600 hover:underline">{selectedVenue.contactEmail}</a>
                             </div>
                           </div>
                         )}
@@ -1010,13 +1021,13 @@ export default function VenuesPage() {
                         {venue.contactPhone && (
                           <div className="flex items-center gap-1 text-sm">
                             <Phone className="h-3 w-3" />
-                            <span data-testid={`text-contact-phone-${venue.id}`}>{venue.contactPhone}</span>
+                            <a href={`tel:${venue.contactPhone}`} className="hover:underline text-blue-600" data-testid={`text-contact-phone-${venue.id}`}>{venue.contactPhone}</a>
                           </div>
                         )}
                         {venue.contactEmail && (
                           <div className="flex items-center gap-1 text-sm">
                             <Mail className="h-3 w-3" />
-                            <span data-testid={`text-contact-email-${venue.id}`}>{venue.contactEmail}</span>
+                            <a href={`mailto:${venue.contactEmail}`} className="hover:underline text-blue-600" data-testid={`text-contact-email-${venue.id}`}>{venue.contactEmail}</a>
                           </div>
                         )}
                         {/* Manager Contact */}

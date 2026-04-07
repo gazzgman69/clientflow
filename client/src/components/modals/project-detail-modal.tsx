@@ -165,9 +165,11 @@ export default function ProjectDetailModal({ project, isOpen, onClose }: Project
   });
 
   // Fetch venue information if project has a venue
+  // Handle both camelCase (Drizzle) and snake_case (raw SQL) field names
+  const projectVenueId = project?.venueId || (project as any)?.venue_id;
   const { data: projectVenue } = useQuery<Venue>({
-    queryKey: ["/api/venues", project?.venueId],
-    enabled: isOpen && !!project && !!project.venueId,
+    queryKey: ["/api/venues", projectVenueId],
+    enabled: isOpen && !!project && !!projectVenueId,
   });
 
   // Fetch contact information for the project
@@ -627,6 +629,7 @@ export default function ProjectDetailModal({ project, isOpen, onClose }: Project
   };
 
   const getVenueName = (venueId: string) => {
+    if (!venueId) return "No venue selected";
     const venue = venues.find(v => v.id === venueId);
     return venue ? venue.name : "No venue selected";
   };
@@ -701,38 +704,54 @@ export default function ProjectDetailModal({ project, isOpen, onClose }: Project
                 </div>
               )}
               
-              {/* Venue Information */}
-              {project.venueId && projectVenue && (
-                <div>
-                  <Label className="text-sm font-medium flex items-center gap-2">
-                    <MapPin className="h-4 w-4" />
-                    Venue
-                  </Label>
-                  <div className="mt-2">
-                    <div className="text-sm font-medium">{projectVenue.name}</div>
-                    {projectVenue.formattedAddress && (
-                      <div className="text-sm text-muted-foreground">
-                        {projectVenue.formattedAddress}
-                      </div>
-                    )}
-                    {projectVenue.latitude && projectVenue.longitude && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="mt-2"
-                        onClick={() => {
-                          const url = `https://www.google.com/maps/search/?api=1&query=${projectVenue.latitude},${projectVenue.longitude}`;
-                          window.open(url, '_blank');
-                        }}
-                        data-testid={`button-venue-maps-${project.id}`}
-                      >
-                        <MapPin className="h-4 w-4 mr-2" />
-                        Open in Maps
-                      </Button>
-                    )}
+              {/* Venue Information — handle both camelCase and snake_case project fields */}
+              {(() => {
+                const venueId = project.venueId || (project as any)?.venue_id;
+                // Inline venue data from projects list API (snake_case from raw SQL)
+                const inlineVenueName = (project as any)?.venue_name || (project as any)?.venueName;
+                const inlineVenueAddress = (project as any)?.venue_address || (project as any)?.venueAddress;
+                const inlineVenueCity = (project as any)?.venue_city || (project as any)?.venueCity;
+
+                if (!venueId && !inlineVenueName) return null;
+
+                // Use fetched venue data if available, fall back to inline data
+                const venueName = projectVenue?.name || inlineVenueName;
+                const venueAddress = projectVenue?.address || inlineVenueAddress;
+                const venueCity = projectVenue?.city || inlineVenueCity;
+                const displayAddress = [venueAddress, venueCity].filter(Boolean).join(', ');
+
+                return (
+                  <div>
+                    <Label className="text-sm font-medium flex items-center gap-2">
+                      <MapPin className="h-4 w-4" />
+                      Venue
+                    </Label>
+                    <div className="mt-2">
+                      <div className="text-sm font-medium">{venueName}</div>
+                      {displayAddress && (
+                        <div className="text-sm text-muted-foreground">
+                          {displayAddress}
+                        </div>
+                      )}
+                      {projectVenue?.latitude && projectVenue?.longitude && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="mt-2"
+                          onClick={() => {
+                            const url = `https://www.google.com/maps/search/?api=1&query=${projectVenue.latitude},${projectVenue.longitude}`;
+                            window.open(url, '_blank');
+                          }}
+                          data-testid={`button-venue-maps-${project.id}`}
+                        >
+                          <MapPin className="h-4 w-4 mr-2" />
+                          Open in Maps
+                        </Button>
+                      )}
+                    </div>
                   </div>
-                </div>
-              )}
+                );
+              })()}
             </CardContent>
           </Card>
 

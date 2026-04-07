@@ -922,7 +922,11 @@ export default function EmailSettings() {
                       </div>
                     </div>
 
-                    <Button variant="outline" data-testid="button-change-server">
+                    <Button
+                      variant="outline"
+                      data-testid="button-change-server"
+                      onClick={() => setShowConnectDialog(true)}
+                    >
                       <Server className="h-4 w-4 mr-2" />
                       Change Outgoing Server
                     </Button>

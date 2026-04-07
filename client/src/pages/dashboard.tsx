@@ -1,3 +1,4 @@
+import { useQuery } from "@tanstack/react-query";
 import Header from "@/components/layout/header";
 import DashboardCalendar from "@/components/dashboard/dashboard-calendar";
 import RecentClientActivity from "@/components/dashboard/recent-client-activity";
@@ -6,6 +7,11 @@ import EmailThreadsWidget from "@/components/dashboard/email-threads-widget";
 import CompactMetrics from "@/components/dashboard/compact-metrics";
 
 export default function Dashboard() {
+  // Fetch email preferences to determine if email widget should show
+  const { data: emailPrefs } = useQuery<{ showOnDashboard?: boolean }>({
+    queryKey: ['/api/email/tenant-prefs'],
+  });
+
   return (
     <>
       <Header
@@ -33,8 +39,8 @@ export default function Dashboard() {
 
         </div>
 
-        {/* Row 3: Email Threads — full width */}
-        <EmailThreadsWidget />
+        {/* Row 3: Email Threads — full width (conditional on settings) */}
+        {emailPrefs?.showOnDashboard !== false && <EmailThreadsWidget />}
       </main>
     </>
   );

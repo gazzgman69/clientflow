@@ -7,6 +7,7 @@ import { tokenResolverService } from '../services/token-resolver';
 import { microsoftMailService } from '../services/microsoft-mail';
 import { imapService } from '../services/imap';
 import { leadStatusAutomator } from '../services/lead-status-automator';
+import { secureStore } from '../services/secureStore';
 import { z } from 'zod';
 import { storage } from '../../storage';
 import { db } from '../../db';
@@ -1781,18 +1782,90 @@ router.put('/tenant-prefs', requireAuth, async (req: any, res) => {
     }
 
     const { bccSelf, readReceipts, showOnDashboard, contactsOnly } = req.body;
-    
+
     const prefs = await storage.upsertTenantEmailPrefs(tenantId, {
       bccSelf,
       readReceipts,
       showOnDashboard,
       contactsOnly
     });
-    
+
     res.json({ ok: true, prefs });
   } catch (error: any) {
     console.error('Error updating tenant email prefs:', error);
     res.status(500).json({ ok: false, error: 'Failed to update preferences' });
+  }
+});
+
+/**
+ * POST /api/email/accounts
+ * Connect an IMAP/SMTP email account
+ */
+router.post('/accounts', requireAuth, async (req: any, res) => {
+  try {
+    const tenantId = req.tenantId;
+    const userId = req.user?.id;
+
+    if (!tenantId || !userId) {
+      return res.status(400).json({ ok: false, error: 'Tenant and user context required' });
+    }
+
+    const { type, providerKey, settings } = req.body;
+
+    // Validate required fields
+    if (!type || type !== 'imap_smtp') {
+      return res.status(400).json({ ok: false, error: 'Invalid account type' });
+    }
+
+    if (!settings?.imap?.host || !settings?.imap?.user || !settings?.imap?.pass) {
+      return res.status(400).json({ ok: false, error: 'Missing required IMAP settings' });
+    }
+
+    const imapSettings = settings.imap;
+
+    // Build secrets object with IMAP settings (SMTP is optional)
+    const secrets = {
+      username: imapSettings.user,
+      password: imapSettings.pass,
+      imapHost: imapSettings.host,
+      imapPort: imapSettings.port || 993,
+      imapSecure: imapSettings.secure !== false,
+      smtpHost: settings.smtp?.host,
+      smtpPort: settings.smtp?.port || 465,
+      smtpSecure: settings.smtp?.secure !== false
+    };
+
+    const secretsEnc = secureStore.encrypt(JSON.stringify(secrets));
+
+    // Insert or update email account
+    await db
+      .insert(emailAccounts)
+      .values({
+        tenantId,
+        userId,
+        providerKey: providerKey || 'imap_smtp',
+        status: 'connected',
+        accountEmail: imapSettings.user,
+        authType: 'basic',
+        secretsEnc,
+        lastSyncAt: new Date(),
+        updatedAt: new Date()
+      })
+      .onConflictDoUpdate({
+        target: [emailAccounts.tenantId, emailAccounts.userId, emailAccounts.providerKey],
+        set: {
+          status: 'connected',
+          secretsEnc,
+          accountEmail: imapSettings.user,
+          updatedAt: new Date(),
+          lastSyncAt: new Date()
+        }
+      });
+
+    res.json({ ok: true, success: true });
+  } catch (error: any) {
+    console.error('Error connecting email account:', error);
+    res.status(500).json({ ok: false, error: error.message || 'Failed to connect email account' });
   }
 });
 

@@ -1,6 +1,8 @@
 import { storage } from '../../storage';
 import { GmailEmailProvider } from './email-provider-gmail';
 import { MicrosoftEmailProvider } from './email-provider-microsoft';
+import { SmtpEmailProvider } from './email-provider-smtp';
+import { secureStore } from './secureStore';
 
 export interface DispatchEmailParams {
   to: string | string[];
@@ -17,7 +19,7 @@ export interface DispatchEmailResult {
   ok: boolean;
   messageId?: string;
   threadId?: string;
-  provider?: 'google' | 'microsoft';
+  provider?: 'google' | 'microsoft' | 'smtp';
   warning?: string;
   error?: string;
   fromEmail?: string;
@@ -69,7 +71,7 @@ export class EmailDispatcher {
   }
 
   /**
-   * Dispatch email using the user's connected OAuth provider
+   * Dispatch email using the user's connected OAuth provider or SMTP account
    */
   async dispatchEmail(
     userId: string,
@@ -77,6 +79,29 @@ export class EmailDispatcher {
     params: DispatchEmailParams
   ): Promise<DispatchEmailResult> {
     try {
+      // Get tenant email preferences for BCC and read receipts
+      const tenantPrefs = await storage.getTenantEmailPrefs(tenantId);
+      let dispatchParams = params;
+
+      // Apply BCC self preference — get sender's own email from their connected account
+      if (tenantPrefs?.bccSelf) {
+        const allAccounts = await storage.getEmailAccountsByUser(userId, tenantId);
+        const senderAccount = allAccounts.find(acc => acc.status === 'connected');
+        const senderEmail = senderAccount?.accountEmail;
+        if (senderEmail) {
+          const currentBcc = Array.isArray(params.bcc) ? params.bcc : (params.bcc ? [params.bcc] : []);
+          if (!currentBcc.includes(senderEmail)) {
+            dispatchParams = { ...params, bcc: [...currentBcc, senderEmail] };
+          }
+        }
+      }
+
+      // Apply read receipts preference
+      if (tenantPrefs?.readReceipts && params.html) {
+        const token = Buffer.from(`${tenantId}:${Date.now()}`).toString('base64url');
+        dispatchParams = { ...dispatchParams, html: params.html + `\n<img src="/api/email/track/${token}" width="1" height="1" style="display:none;width:1px;height:1px;" alt="">` };
+      }
+
       // Check for Google integration using new email_accounts table
       const emailAccounts = await storage.getEmailAccountsByUser(userId, tenantId);
       const googleAccount = emailAccounts.find(acc => acc.providerKey === 'google' && acc.status === 'connected');
@@ -104,7 +129,7 @@ export class EmailDispatcher {
 
       if (googleIntegration && googleIntegration.status === 'connected') {
         try {
-          const result = await this.gmailProvider.sendEmail(googleIntegration, params);
+          const result = await this.gmailProvider.sendEmail(googleIntegration, dispatchParams);
           
           console.log(JSON.stringify({
             event: 'email_dispatched',
@@ -151,7 +176,7 @@ export class EmailDispatcher {
           
           if (microsoftIntegration && microsoftIntegration.status === 'connected') {
             try {
-              const result = await this.microsoftProvider.sendEmail(microsoftIntegration, params);
+              const result = await this.microsoftProvider.sendEmail(microsoftIntegration, dispatchParams);
               
               console.log(JSON.stringify({
                 event: 'email_dispatched',
@@ -213,7 +238,7 @@ export class EmailDispatcher {
 
       if (microsoftIntegration && microsoftIntegration.status === 'connected') {
         try {
-          const result = await this.microsoftProvider.sendEmail(microsoftIntegration, params);
+          const result = await this.microsoftProvider.sendEmail(microsoftIntegration, dispatchParams);
           
           console.log(JSON.stringify({
             event: 'email_dispatched',
@@ -240,10 +265,63 @@ export class EmailDispatcher {
         }
       }
 
+      // Check for SMTP account (authType === 'basic')
+      const smtpAccount = emailAccounts.find(acc => acc.authType === 'basic' && acc.status === 'connected');
+      if (smtpAccount && smtpAccount.secretsEnc) {
+        try {
+          const smtpProvider = new SmtpEmailProvider();
+
+          // Decrypt SMTP credentials
+          const decryptedSecrets = secureStore.decrypt(smtpAccount.secretsEnc);
+          const secrets = JSON.parse(decryptedSecrets);
+
+          const smtpConfig = {
+            host: secrets.smtpHost,
+            port: secrets.smtpPort,
+            secure: secrets.smtpSecure,
+            user: secrets.username,
+            pass: secrets.password,
+            fromEmail: smtpAccount.accountEmail
+          };
+
+          const result = await smtpProvider.sendEmail(smtpConfig, dispatchParams);
+
+          if (result.success) {
+            console.log(JSON.stringify({
+              event: 'email_dispatched',
+              provider: 'smtp',
+              tenantId,
+              userId,
+              messageId: result.messageId,
+              timestamp: new Date().toISOString()
+            }));
+
+            return {
+              ok: true,
+              messageId: result.messageId,
+              provider: 'smtp',
+              fromEmail: smtpAccount.accountEmail || ''
+            };
+          } else {
+            console.error('❌ SMTP dispatch failed:', result.error);
+            return {
+              ok: false,
+              error: `SMTP email send failed: ${result.error}. Please check your SMTP settings in settings.`
+            };
+          }
+        } catch (smtpError: any) {
+          console.error('❌ SMTP dispatch error:', smtpError);
+          return {
+            ok: false,
+            error: `SMTP dispatch error: ${smtpError.message}. Please check your SMTP settings in settings.`
+          };
+        }
+      }
+
       // No provider connected
       return {
         ok: false,
-        error: 'No email provider connected. Please connect Gmail or Microsoft in settings.'
+        error: 'No email provider connected. Please connect Gmail, Microsoft, or SMTP in settings.'
       };
     } catch (error: any) {
       console.error('❌ Email dispatch error:', error);

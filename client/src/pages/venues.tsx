@@ -500,18 +500,20 @@ export default function VenuesPage() {
             </DialogHeader>
             <Form {...form}>
               <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
-                {/* Google Places Search Integration */}
-                <div>
-                  <FormLabel className="text-base font-medium">Search for Venue</FormLabel>
-                  <p className="text-sm text-muted-foreground mb-2">
-                    Search Google Places to automatically fill venue details
-                  </p>
-                  <VenueAutocomplete
-                    onVenueSelect={handleVenueSelect}
-                    placeholder="Search for venues, restaurants, theaters, etc..."
-                    className="w-full"
-                  />
-                </div>
+                {/* Google Places Search Integration — only shown when adding a new venue */}
+                {!selectedVenue && (
+                  <div>
+                    <FormLabel className="text-base font-medium">Search for Venue</FormLabel>
+                    <p className="text-sm text-muted-foreground mb-2">
+                      Search Google Places to automatically fill venue details
+                    </p>
+                    <VenueAutocomplete
+                      onVenueSelect={handleVenueSelect}
+                      placeholder="Search for venues, restaurants, theaters, etc..."
+                      className="w-full"
+                    />
+                  </div>
+                )}
                 
                 <FormField
                   control={form.control}

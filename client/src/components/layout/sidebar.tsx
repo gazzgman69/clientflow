@@ -24,7 +24,7 @@ const staticNavigationItems = [
   { href: "/venues", icon: MapPin, label: "Venues", emoji: "📍", badge: null },
   { href: "/scheduler", icon: Calendar, label: "Scheduler", emoji: "📅", badge: null },
   { href: "/calendar", icon: Calendar, label: "Calendar", emoji: "🗓️", badge: null },
-  { href: "/portal/client", icon: ExternalLink, label: "Client Portal", emoji: "🔗", badge: null, openInNewTab: true },
+  { href: "/portal/client", icon: ExternalLink, label: "Client Portal", emoji: "🔗", badge: null },
   { href: "/automations", icon: Bot, label: "Automations", emoji: "🤖", badge: null },
   {
     href: "/settings",
@@ -129,19 +129,6 @@ export default function Sidebar() {
 
           return (
             <div key={item.href}>
-              {(item as any).openInNewTab ? (
-                <a
-                  href={item.href}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className={linkClass}
-                  style={linkStyle}
-                  data-testid={`nav-${item.label.toLowerCase()}`}
-                >
-                  <span className="text-base leading-none">{item.emoji}</span>
-                  <span>{item.label}</span>
-                </a>
-              ) : (
               <Link
                 href={item.href}
                 className={linkClass}
@@ -157,7 +144,6 @@ export default function Sidebar() {
                   </span>
                 )}
               </Link>
-              )}
               {/* Sub-items */}
               {hasSubItems && (
                 <div className="ml-7 mt-1 space-y-1">

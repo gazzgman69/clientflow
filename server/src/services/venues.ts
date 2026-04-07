@@ -3,7 +3,7 @@ import { geocodingService, type PlaceDetails } from './geocoding';
 import type { Venue, InsertVenue } from '@shared/schema';
 import { withTenantData } from '../../utils/tenantQueries';
 import { validateAndCleanVenueAddress, hasAddressDuplication } from '@shared/addressUtils';
-import { neon } from '@neondatabase/serverless';
+// neon HTTP driver removed — broken in Replit (processQueryResult null crash). Use pool instead.
 import { pool } from '../../db';
 
 export interface CreateVenueFromGoogleRequest {
@@ -480,23 +480,60 @@ export class VenuesService {
   async findExactVenueMatch(name: string, address: string, tenantId: string): Promise<Venue | null> {
     const { normalizedName, normalizedAddress } = this.generateNormalizedFields(name, address);
 
-    // Try direct database query using normalized fields (columns may not exist yet)
+    // Try direct database query using normalized fields via pool (neon HTTP driver is broken)
     try {
-      const sql = neon(process.env.DATABASE_URL!);
-      const result = await sql`
-        SELECT * FROM venues
-        WHERE tenant_id = ${tenantId}
-          AND normalized_name = ${normalizedName}
-          AND normalized_address = ${normalizedAddress}
-        LIMIT 1
-      `;
+      const result = await pool.query(
+        `SELECT * FROM venues
+         WHERE tenant_id = $1
+           AND normalized_name = $2
+           AND normalized_address = $3
+         LIMIT 1`,
+        [tenantId, normalizedName, normalizedAddress]
+      );
 
-      if (result.length > 0) {
-        return result[0] as Venue;
+      if (result.rows.length > 0) {
+        // Map snake_case to camelCase (same as getVenues)
+        const row = result.rows[0];
+        return {
+          id: row.id,
+          tenantId: row.tenant_id,
+          userId: row.user_id,
+          name: row.name,
+          address: row.address,
+          address2: row.address2,
+          city: row.city,
+          state: row.state,
+          zipCode: row.zip_code,
+          country: row.country,
+          countryCode: row.country_code,
+          latitude: row.latitude,
+          longitude: row.longitude,
+          placeId: row.place_id,
+          capacity: row.capacity,
+          contactName: row.contact_name,
+          contactPhone: row.contact_phone,
+          contactEmail: row.contact_email,
+          website: row.website,
+          restrictions: row.restrictions,
+          accessNotes: row.access_notes,
+          managerName: row.manager_name,
+          managerPhone: row.manager_phone,
+          managerEmail: row.manager_email,
+          preferred: row.preferred,
+          useCount: row.use_count,
+          lastUsedAt: row.last_used_at,
+          tags: row.tags,
+          meta: row.meta,
+          notes: row.notes,
+          normalizedName: row.normalized_name,
+          normalizedAddress: row.normalized_address,
+          createdAt: row.created_at,
+          updatedAt: row.updated_at,
+        } as Venue;
       }
     } catch (dbError) {
-      // normalized_name/normalized_address columns may not exist yet — fall through to in-memory search
-      console.warn('⚠️ Normalized venue column query failed (columns may not exist):', dbError instanceof Error ? dbError.message : String(dbError));
+      // Columns may not exist — fall through to in-memory search
+      console.warn('⚠️ Normalized venue query failed:', dbError instanceof Error ? dbError.message : String(dbError));
     }
 
     // Fallback to in-memory search using all venues for this tenant
@@ -505,7 +542,6 @@ export class VenuesService {
       const normalizedVenueName = this.normalizeForMatching(venue.name || '');
       const normalizedVenueAddress = this.normalizeForMatching(venue.address || '');
 
-      // Exact match on both name and address (normalized)
       if (normalizedVenueName === normalizedName && normalizedVenueAddress === normalizedAddress) {
         return venue;
       }

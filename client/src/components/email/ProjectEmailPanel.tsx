@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { useLocation } from 'wouter';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Send, Mail, Loader2, AlertCircle, X, Reply, RefreshCw, FileText, Edit3, ChevronDown, Paperclip } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
@@ -43,6 +44,7 @@ interface EmailThread {
 }
 
 export default function ProjectEmailPanel({ projectId, emails, autoOpenComposer }: ProjectEmailPanelProps) {
+  const [, setLocation] = useLocation();
   const [to, setTo] = useState('');
   const [subject, setSubject] = useState('');
   const [message, setMessage] = useState('');
@@ -761,8 +763,14 @@ export default function ProjectEmailPanel({ projectId, emails, autoOpenComposer 
                             Loading...
                           </div>
                         ) : emailSignatures?.length === 0 ? (
-                          <div className="text-center py-2 text-muted-foreground text-sm">
-                            No signatures found
+                          <div className="py-1">
+                            <div className="px-2 py-1.5 text-sm text-muted-foreground">No signatures found</div>
+                            <DropdownMenuItem
+                              onClick={() => setLocation(`/settings/email?tab=signatures&returnTo=${encodeURIComponent(window.location.pathname + window.location.search)}`)}
+                              className="text-primary cursor-pointer"
+                            >
+                              + Create a Signature
+                            </DropdownMenuItem>
                           </div>
                         ) : (
                           emailSignatures?.map((signature: any) => (

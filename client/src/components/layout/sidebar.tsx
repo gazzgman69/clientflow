@@ -98,17 +98,7 @@ export default function Sidebar() {
       {/* Logo/Brand */}
       <div className="px-4 py-5" style={{ borderBottom: '1px solid #1f2937' }}>
         <div className="flex items-center gap-2.5">
-          {/* Purple logo mark */}
-          <div
-            className="flex items-center justify-center rounded-lg flex-shrink-0"
-            style={{ width: 30, height: 30, background: 'linear-gradient(135deg, #7c3aed 0%, #a855f7 100%)' }}
-          >
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-              <path d="M3 12 L8 4 L13 12" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-              <path d="M5.5 9 L10.5 9" stroke="white" strokeWidth="1.5" strokeLinecap="round"/>
-            </svg>
-          </div>
-          <span className="font-bold text-base tracking-tight">
+<span className="font-bold text-base tracking-tight">
             <span className="text-white">Client</span><span style={{ color: '#a855f7' }}>Flow</span>
           </span>
         </div>

@@ -33,6 +33,46 @@ async function runDiagnostics() {
       console.log(`TENANT: ${tenant.name} (${tenantId}) slug="${tenant.slug}"`);
       console.log('='.repeat(70));
 
+      // 1b. Check contacts
+      const contacts = await pool.query(
+        'SELECT id, first_name, last_name, email, venue_id, venue_address, created_at FROM contacts WHERE tenant_id = $1 ORDER BY created_at DESC LIMIT 5',
+        [tenantId]
+      );
+      console.log(`\n  CONTACTS (${contacts.rows.length} found):`);
+      for (const c of contacts.rows as any[]) {
+        console.log(`    ${c.id.slice(0,8)}... | ${c.first_name} ${c.last_name} | ${c.email} | venue_id: ${c.venue_id || 'NULL'} | venue_addr: ${c.venue_address || 'NULL'}`);
+      }
+
+      // 1c. Check form submissions (idempotency records)
+      const subs = await pool.query(`
+        SELECT id, form_id, submission_key, status, metadata, created_at
+        FROM form_submissions
+        WHERE tenant_id = $1
+        ORDER BY created_at DESC
+        LIMIT 5
+      `, [tenantId]);
+      console.log(`\n  FORM SUBMISSIONS (${subs.rows.length} found):`);
+      for (const s of subs.rows as any[]) {
+        let meta: any = {};
+        try { meta = typeof s.metadata === 'string' ? JSON.parse(s.metadata) : (s.metadata || {}); } catch {}
+        console.log(`    ${s.id.slice(0,8)}... | status: ${s.status || 'N/A'} | contactId: ${meta.contactId || 'NONE'} | projectId: ${meta.projectId || 'NONE'} | venueId: ${meta.venueId || 'NONE'}`);
+      }
+
+      // 1d. Check the form's createdBy user
+      const formCheck = await pool.query(`
+        SELECT f.id, f.name, f.slug, f.created_by, f.tenant_id,
+               u.id as user_id, u.email as user_email
+        FROM lead_capture_forms f
+        LEFT JOIN users u ON f.created_by = u.id
+        WHERE f.tenant_id = $1
+        LIMIT 3
+      `, [tenantId]);
+      console.log(`\n  FORM OWNERSHIP:`);
+      for (const f of formCheck.rows as any[]) {
+        const userOk = f.user_id ? '✅' : '❌';
+        console.log(`    ${userOk} Form "${f.name}" | createdBy: ${f.created_by || 'NULL'} | user exists: ${!!f.user_id} | user email: ${f.user_email || 'NONE'}`);
+      }
+
       // 2. Check venues
       const venues = await pool.query(
         'SELECT id, name, address, city, created_at, use_count FROM venues WHERE tenant_id = $1 ORDER BY created_at DESC LIMIT 5',

@@ -1561,19 +1561,22 @@ export default function ProjectDetail() {
                 <Briefcase className="h-4 w-4" />
                 <span className="hidden sm:inline">Overview</span>
               </TabsTrigger>
+              <TabsTrigger value="email">
+                <span className="hidden sm:inline">Email</span>
+              </TabsTrigger>
               <TabsTrigger value="schedule" className="flex items-center gap-2">
                 <Timer className="h-4 w-4" />
                 <span className="hidden sm:inline">Schedule</span>
-               
+
               </TabsTrigger>
               <TabsTrigger value="tasks" className="flex items-center gap-2">
                 <span className="hidden sm:inline">Tasks</span>
-               
+
               </TabsTrigger>
               <TabsTrigger value="timeline" className="flex items-center gap-2">
                 <Activity className="h-4 w-4" />
                 <span className="hidden sm:inline">Timeline</span>
-               
+
               </TabsTrigger>
               <TabsTrigger value="members" className="flex items-center gap-2">
                 <Users className="h-4 w-4" />
@@ -1585,13 +1588,10 @@ export default function ProjectDetail() {
               </TabsTrigger>
               <TabsTrigger value="files">Files</TabsTrigger>
               <TabsTrigger value="notes">Notes</TabsTrigger>
-              <TabsTrigger value="email">
-                <span className="hidden sm:inline">Email</span>
-              </TabsTrigger>
               <TabsTrigger value="financials" className="flex items-center gap-2">
                 <TrendingUp className="h-4 w-4" />
                 <span className="hidden sm:inline">Financials</span>
-               
+
               </TabsTrigger>
             </TabsList>
 

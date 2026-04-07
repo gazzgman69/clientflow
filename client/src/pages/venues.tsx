@@ -73,6 +73,8 @@ const venueSchema = z.object({
   website: z.string().url().optional().or(z.literal("")),
   restrictions: z.string().optional(),
   accessNotes: z.string().optional(),
+  parkingDetails: z.string().optional(),
+  loadInDetails: z.string().optional(),
   managerName: z.string().optional(),
   managerPhone: z.string().optional(),
   managerEmail: z.string().email().optional().or(z.literal("")),
@@ -159,6 +161,8 @@ export default function VenuesPage() {
       website: "",
       restrictions: "",
       accessNotes: "",
+      parkingDetails: "",
+      loadInDetails: "",
       managerName: "",
       managerPhone: "",
       managerEmail: "",
@@ -187,6 +191,8 @@ export default function VenuesPage() {
         website: data.website || undefined,
         restrictions: data.restrictions || undefined,
         accessNotes: data.accessNotes || undefined,
+        parkingDetails: data.parkingDetails || undefined,
+        loadInDetails: data.loadInDetails || undefined,
         managerName: data.managerName || undefined,
         managerPhone: data.managerPhone || undefined,
         managerEmail: data.managerEmail || undefined,
@@ -243,6 +249,8 @@ export default function VenuesPage() {
         website: data.website || undefined,
         restrictions: data.restrictions || undefined,
         accessNotes: data.accessNotes || undefined,
+        parkingDetails: data.parkingDetails || undefined,
+        loadInDetails: data.loadInDetails || undefined,
         managerName: data.managerName || undefined,
         managerPhone: data.managerPhone || undefined,
         managerEmail: data.managerEmail || undefined,
@@ -382,6 +390,8 @@ export default function VenuesPage() {
       website: venue.website || "",
       restrictions: venue.restrictions || "",
       accessNotes: venue.accessNotes || "",
+      parkingDetails: (venue as any).parkingDetails || "",
+      loadInDetails: (venue as any).loadInDetails || "",
       managerName: venue.managerName || "",
       managerPhone: venue.managerPhone || "",
       managerEmail: venue.managerEmail || "",
@@ -860,6 +870,34 @@ export default function VenuesPage() {
                       </FormItem>
                     )}
                   />
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="parkingDetails"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Parking Details</FormLabel>
+                          <FormControl>
+                            <Textarea {...field} rows={2} placeholder="Parking info for this venue" data-testid="textarea-parking-details" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="loadInDetails"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Load-in Details</FormLabel>
+                          <FormControl>
+                            <Textarea {...field} rows={2} placeholder="Load-in access for this venue" data-testid="textarea-load-in-details" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
                   <FormField
                     control={form.control}
                     name="tags"

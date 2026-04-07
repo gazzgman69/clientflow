@@ -848,6 +848,8 @@ export const venues = pgTable("venues", {
   website: text("website"),
   restrictions: text("restrictions"), // e.g., "noise limiter 92dB"
   accessNotes: text("access_notes"), // load-in/parking/wifi/etc.
+  parkingDetails: text("parking_details"), // Default parking info for this venue
+  loadInDetails: text("load_in_details"), // Default load-in access for this venue
   managerName: text("manager_name"),
   managerPhone: text("manager_phone"),
   managerEmail: text("manager_email"),

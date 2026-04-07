@@ -289,34 +289,17 @@ router.get('/', async (req, res) => {
     if (req.query.simple === '1') {
       const simpleLimit = Math.min(50, Math.max(1, parseInt(req.query.limit as string) || 10));
       const venues = await venuesService.getVenues((req as any).tenantId, simpleLimit);
-      // Map database field names to frontend expected names
-      const mappedVenues = venues.map(venue => ({
-        ...venue,
-        zipCode: venue.zipCode || venue.zip_code, // Handle both camelCase and snake_case
-        contactPhone: venue.contactPhone || venue.contact_phone, // Map contact_phone to contactPhone
-        website: venue.website, // Include website field
-        meta: venue.meta // Include meta field for rating/enrichment data
-      }));
-      return res.json(mappedVenues);
+      return res.json(venues);
     }
 
     const venues = await venuesService.getVenues((req as any).tenantId, limit, offset);
-    
-    // Map database field names to frontend expected names
-    const mappedVenues = venues.map(venue => ({
-      ...venue,
-      zipCode: venue.zipCode || venue.zip_code, // Handle both camelCase and snake_case
-      contactPhone: venue.contactPhone || venue.contact_phone, // Map contact_phone to contactPhone
-      website: venue.website, // Include website field
-      meta: venue.meta // Include meta field for rating/enrichment data
-    }));
     
     // Get total count for pagination info
     const totalCount = await venuesService.getVenuesCount((req as any).tenantId);
     const totalPages = Math.ceil(totalCount / limit);
     
     res.json({
-      venues: mappedVenues,
+      venues: venues,
       pagination: {
         page,
         limit,

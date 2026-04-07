@@ -129,7 +129,7 @@ export default function ProjectDetailModal({ project, isOpen, onClose }: Project
   });
 
   const { data: venues = [] } = useQuery<Venue[]>({
-    queryKey: ["/api/venues"],
+    queryKey: ["/api/venues?simple=1"],
     enabled: isOpen && !!project,
   });
 

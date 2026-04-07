@@ -730,7 +730,43 @@ export class VenuesService {
       ${offset !== undefined ? `OFFSET ${offset}` : ''}
     `;
     const result = await pool.query(query, [tenantId]);
-    return result.rows as Venue[];
+    // Raw SQL returns snake_case columns — map to camelCase to match Drizzle Venue type
+    return result.rows.map((row: any) => ({
+      id: row.id,
+      tenantId: row.tenant_id,
+      userId: row.user_id,
+      name: row.name,
+      address: row.address,
+      address2: row.address2,
+      city: row.city,
+      state: row.state,
+      zipCode: row.zip_code,
+      country: row.country,
+      countryCode: row.country_code,
+      latitude: row.latitude,
+      longitude: row.longitude,
+      placeId: row.place_id,
+      capacity: row.capacity,
+      contactName: row.contact_name,
+      contactPhone: row.contact_phone,
+      contactEmail: row.contact_email,
+      website: row.website,
+      restrictions: row.restrictions,
+      accessNotes: row.access_notes,
+      managerName: row.manager_name,
+      managerPhone: row.manager_phone,
+      managerEmail: row.manager_email,
+      preferred: row.preferred,
+      useCount: row.use_count,
+      lastUsedAt: row.last_used_at,
+      tags: row.tags,
+      meta: row.meta,
+      notes: row.notes,
+      normalizedName: row.normalized_name,
+      normalizedAddress: row.normalized_address,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    })) as Venue[];
   }
 
   async getVenuesCount(tenantId: string): Promise<number> {

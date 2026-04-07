@@ -38,6 +38,8 @@ interface RichTextEditorProps {
   onTokenInsert?: (insertToken: (token: string) => void) => React.ReactNode;
   onSignatureSelect?: () => React.ReactNode;
   onTemplateSelect?: () => React.ReactNode;
+  // Extra row rendered between the formatting toolbar and the text area
+  subToolbar?: React.ReactNode;
 }
 
 export interface RichTextEditorRef {
@@ -51,7 +53,7 @@ export interface RichTextEditorRef {
 
 const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(
   (props, ref) => {
-    const { content = '', onChange, placeholder = 'Start typing...', className = '', minHeight = '200px', disabled = false, onFocus, onBlur, onTokenInsert, onSignatureSelect, onTemplateSelect } = props;
+    const { content = '', onChange, placeholder = 'Start typing...', className = '', minHeight = '200px', disabled = false, onFocus, onBlur, onTokenInsert, onSignatureSelect, onTemplateSelect, subToolbar } = props;
     const contentId = useId();
     const editor = useEditor({
       extensions: [
@@ -516,10 +518,17 @@ const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(
           </div>
         </div>
 
+        {/* Sub-toolbar: rendered between the formatting bar and the text area */}
+        {subToolbar && (
+          <div className="flex items-center gap-2 px-2 py-1.5 border-x border-b border-input bg-muted/20">
+            {subToolbar}
+          </div>
+        )}
+
         {/* Editor content */}
         <EditorContent
           editor={editor}
-          className="rounded-b-md border-x border-b border-input dark:border-input"
+          className={`border-x border-b border-input dark:border-input ${subToolbar ? '' : 'rounded-b-md'}`}
         />
       </div>
       </TooltipProvider>

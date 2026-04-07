@@ -549,8 +549,7 @@ export default function TemplatesPage() {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Template Body</FormLabel>
-                      <div className="space-y-2">
-                        <FormControl>
+                      <FormControl>
                           <RichTextEditor
                             ref={bodyEditorRef}
                             content={field.value || ''}
@@ -558,85 +557,86 @@ export default function TemplatesPage() {
                             placeholder="Enter your template content here. Use [Token] for dynamic values."
                             minHeight="300px"
                             data-testid="editor-template-body"
-                          />
-                        </FormControl>
-                        <div className="flex items-center gap-2">
-                            <TokenDropdown
-                              onTokenSelect={(token) => {
-                                if (bodyEditorRef.current) {
-                                  bodyEditorRef.current.insertToken(token);
-                                }
-                              }}
-                              onAfterInsert={() => {
-                                if (bodyEditorRef.current) {
-                                  bodyEditorRef.current.focus();
-                                }
-                              }}
-                              size="sm"
-                              className="h-7 px-2 text-xs"
-                            />
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button
-                                  type="button"
-                                  variant="outline"
+                            subToolbar={
+                              <>
+                                <TokenDropdown
+                                  onTokenSelect={(token) => {
+                                    if (bodyEditorRef.current) {
+                                      bodyEditorRef.current.insertToken(token);
+                                    }
+                                  }}
+                                  onAfterInsert={() => {
+                                    if (bodyEditorRef.current) {
+                                      bodyEditorRef.current.focus();
+                                    }
+                                  }}
                                   size="sm"
                                   className="h-7 px-2 text-xs"
-                                  data-testid="button-insert-signature"
-                                >
-                                  <PenTool className="h-2.5 w-2.5 mr-1" />
-                                  Signature
-                                  <ChevronDown className="h-2.5 w-2.5 ml-1" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="start" className="w-56">
-                                {signaturesLoading ? (
-                                  <div className="flex items-center justify-center py-2">
-                                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                                    Loading...
-                                  </div>
-                                ) : emailSignatures?.length === 0 ? (
-                                  <div className="py-1">
-                                    <div className="px-2 py-1.5 text-sm text-muted-foreground">No signatures found</div>
-                                    <DropdownMenuItem
-                                      onClick={() => setLocation('/settings/email?tab=signatures&returnTo=/settings/templates')}
-                                      className="text-primary cursor-pointer"
-                                      data-testid="dropdown-create-signature"
+                                />
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      size="sm"
+                                      className="h-7 px-2 text-xs"
+                                      data-testid="button-insert-signature"
                                     >
-                                      + Create a Signature
-                                    </DropdownMenuItem>
-                                  </div>
-                                ) : (
-                                  emailSignatures?.map((signature: EmailSignature) => (
-                                    <DropdownMenuItem
-                                      key={signature.id}
-                                      onClick={() => {
-                                        if (bodyEditorRef.current) {
-                                          const added = bodyEditorRef.current.appendSignature(signature.content);
-                                          if (!added) {
-                                            toast({
-                                              title: 'Signature already added',
-                                              description: 'This signature is already present in the template body.',
-                                              variant: 'destructive'
-                                            });
-                                          }
-                                        }
-                                      }}
-                                      data-testid={`dropdown-signature-${signature.id}`}
-                                    >
-                                      <div className="flex flex-col">
-                                        <span className="font-medium">{signature.name}</span>
-                                        {signature.isDefault && (
-                                          <span className="text-xs text-muted-foreground">Default</span>
-                                        )}
+                                      <PenTool className="h-2.5 w-2.5 mr-1" />
+                                      Signature
+                                      <ChevronDown className="h-2.5 w-2.5 ml-1" />
+                                    </Button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent align="start" className="w-56">
+                                    {signaturesLoading ? (
+                                      <div className="flex items-center justify-center py-2">
+                                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                                        Loading...
                                       </div>
-                                    </DropdownMenuItem>
-                                  ))
-                                )}
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          </div>
-                        </div>
+                                    ) : emailSignatures?.length === 0 ? (
+                                      <div className="py-1">
+                                        <div className="px-2 py-1.5 text-sm text-muted-foreground">No signatures found</div>
+                                        <DropdownMenuItem
+                                          onClick={() => setLocation('/settings/email?tab=signatures&returnTo=/settings/templates')}
+                                          className="text-primary cursor-pointer"
+                                          data-testid="dropdown-create-signature"
+                                        >
+                                          + Create a Signature
+                                        </DropdownMenuItem>
+                                      </div>
+                                    ) : (
+                                      emailSignatures?.map((signature: EmailSignature) => (
+                                        <DropdownMenuItem
+                                          key={signature.id}
+                                          onClick={() => {
+                                            if (bodyEditorRef.current) {
+                                              const added = bodyEditorRef.current.appendSignature(signature.content);
+                                              if (!added) {
+                                                toast({
+                                                  title: 'Signature already added',
+                                                  description: 'This signature is already present in the template body.',
+                                                  variant: 'destructive'
+                                                });
+                                              }
+                                            }
+                                          }}
+                                          data-testid={`dropdown-signature-${signature.id}`}
+                                        >
+                                          <div className="flex flex-col">
+                                            <span className="font-medium">{signature.name}</span>
+                                            {signature.isDefault && (
+                                              <span className="text-xs text-muted-foreground">Default</span>
+                                            )}
+                                          </div>
+                                        </DropdownMenuItem>
+                                      ))
+                                    )}
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
+                              </>
+                            }
+                          />
+                        </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}

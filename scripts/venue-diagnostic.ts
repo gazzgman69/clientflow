@@ -9,7 +9,10 @@
  * 4. Whether leads have event_location set
  */
 
-import { Pool } from '@neondatabase/serverless';
+import { Pool, neonConfig } from '@neondatabase/serverless';
+import ws from 'ws';
+
+neonConfig.webSocketConstructor = ws;
 
 async function runDiagnostics() {
   if (!process.env.DATABASE_URL) {

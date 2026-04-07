@@ -1392,22 +1392,7 @@ router.post('/:slug/submit', formSubmissionLimiter, async (req, res) => {
     
     // TODO: Trigger workflows if configured
 
-    const totalTime = Date.now() - startTime;
-    console.log('⏱️ PERFORMANCE SUMMARY:', {
-      totalTime: totalTime + 'ms',
-      leadTime: (leadEndTime - leadStartTime) + 'ms',
-      contactTime: (contactEndTime - contactStartTime) + 'ms',
-      venueTime: (venueEndTime - venueStartTime) + 'ms',
-      projectTime: (projectEndTime - projectStartTime) + 'ms',
-      breakdown: {
-        leadPercentage: Math.round(((leadEndTime - leadStartTime) / totalTime) * 100) + '%',
-        contactPercentage: Math.round(((contactEndTime - contactStartTime) / totalTime) * 100) + '%',
-        venuePercentage: Math.round(((venueEndTime - venueStartTime) / totalTime) * 100) + '%',
-        projectPercentage: Math.round(((projectEndTime - projectStartTime) / totalTime) * 100) + '%'
-      },
-      slug,
-      tenantId: form.tenantId
-    });
+    console.log('⏱️ Form submission completed in', Date.now() - startTime, 'ms', { slug, tenantId: form.tenantId });
 
     res.json({
       ok: true,

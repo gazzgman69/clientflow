@@ -275,29 +275,29 @@ export class VenuesService {
     const venue = await storage.getVenue(venueId, tenantId);
     if (!venue) return null;
 
-    // Check if already fully enriched (has lastEnriched timestamp in meta)
-    if (venue.meta) {
-      try {
-        const metaData = JSON.parse(venue.meta);
-        if (metaData.lastEnriched) {
-          console.log(`🔍 Venue "${venue.name}" already enriched, skipping`);
-          return venue;
-        }
-      } catch (e) {
-        // Corrupted meta JSON — proceed with enrichment
-      }
-    }
-
     try {
       let placeDetails: any = null;
 
       if (venue.placeId) {
-        // Fast path: venue was created from Google Places autocomplete — fetch full
-        // details directly using the placeId we already have
+        // Fast path: venue has a placeId — fetch full details directly.
+        // We deliberately skip the lastEnriched check here because upsertFromPlace
+        // sets lastEnriched even when it only stores basic form data (no phone/website/
+        // rating), so we always want to do a real API call when we have a placeId.
         console.log(`🔍 Enriching venue "${venue.name}" using existing placeId: ${venue.placeId}`);
         placeDetails = await geocodingService.getPlaceDetails(venue.placeId);
       } else {
-        // Slow path: no placeId — search Google Places by name + address
+        // Slow path: no placeId — search Google Places by name + address.
+        // Only skip if already enriched via this path (avoids repeated fuzzy searches).
+        if (venue.meta) {
+          try {
+            const metaData = JSON.parse(venue.meta);
+            if (metaData.lastEnriched) {
+              console.log(`🔍 Venue "${venue.name}" already enriched via name search, skipping`);
+              return venue;
+            }
+          } catch (e) { /* corrupted meta — continue */ }
+        }
+
         let locationInfo = '';
         if (venue.address) {
           locationInfo = venue.name && venue.address.toLowerCase().includes(venue.name.toLowerCase())

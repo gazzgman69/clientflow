@@ -3244,6 +3244,65 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     res.json([]);
   });
 
+  // =============================================================
+  // TEMPORARY DIAGNOSTIC ENDPOINT — remove after venue bug is fixed
+  // =============================================================
+  app.get("/api/debug/venues", ensureUserAuth, tenantResolver, requireTenant, async (req: any, res) => {
+    try {
+      const tenantId = req.tenantId;
+
+      // Get 5 most recent projects with venue info
+      const projectsResult = await pool.query(`
+        SELECT p.id, p.name, p.venue_id, p.status, p.created_at,
+               v.id as joined_venue_id, v.name as venue_name, v.address as venue_address
+        FROM projects p
+        LEFT JOIN venues v ON p.venue_id = v.id
+        WHERE p.tenant_id = $1
+        ORDER BY p.created_at DESC
+        LIMIT 5
+      `, [tenantId]);
+
+      // Get all venues for this tenant
+      const venuesResult = await pool.query(`
+        SELECT id, name, address, city, created_at, use_count
+        FROM venues
+        WHERE tenant_id = $1
+        ORDER BY created_at DESC
+        LIMIT 10
+      `, [tenantId]);
+
+      // Get the form questions with mapTo for eventLocation
+      const formsResult = await pool.query(`
+        SELECT f.id, f.name, f.slug,
+               json_agg(json_build_object(
+                 'id', fq.id, 'label', fq.label, 'mapTo', fq.map_to, 'orderIndex', fq.order_index
+               ) ORDER BY fq.order_index) as questions
+        FROM lead_capture_forms f
+        LEFT JOIN lead_capture_form_questions fq ON f.id = fq.form_id
+        WHERE f.tenant_id = $1
+        GROUP BY f.id
+        LIMIT 3
+      `, [tenantId]);
+
+      res.json({
+        tenantId,
+        recentProjects: projectsResult.rows,
+        venues: venuesResult.rows,
+        forms: formsResult.rows,
+        diagnosis: {
+          totalVenues: venuesResult.rows.length,
+          projectsWithVenue: projectsResult.rows.filter((p: any) => p.venue_id).length,
+          projectsWithoutVenue: projectsResult.rows.filter((p: any) => !p.venue_id).length,
+          hasEventLocationMapping: formsResult.rows.some((f: any) =>
+            f.questions?.some((q: any) => q.mapTo === 'eventLocation')
+          ),
+        }
+      });
+    } catch (error) {
+      res.status(500).json({ error: String(error) });
+    }
+  });
+
   // Projects
   app.get("/api/projects", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
     try {

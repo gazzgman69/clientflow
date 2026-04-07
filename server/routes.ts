@@ -1597,50 +1597,48 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
         console.error('🚨 User has no tenant assigned:', { userId: user.id, username: user.username });
         return res.status(500).json({ error: 'User account configuration error' });
       }
-      
-      // Regenerate session ID for security
-      req.session.regenerate((err: any) => {
-        if (err) {
-          console.error('Session regeneration error:', err);
-          return res.status(500).json({ error: 'Login failed' });
-        }
-        
-        // Store user ID and tenant ID in session - validate tenant exists
-        req.session.userId = user.id;
-        if (!user.tenantId) {
-          return res.status(500).json({ error: 'User tenant context is invalid' });
-        }
-        req.session.tenantId = user.tenantId;
-        
-        console.log('🔐 SESSION DATA SAVED:', {
-          sessionId: req.session.id,
-          userId: req.session.userId,
-          tenantId: req.session.tenantId,
-          userTenantId: user.tenantId,
-          cookieSecure: req.session.cookie.secure,
-          cookieHttpOnly: req.session.cookie.httpOnly,
-          sessionSaved: !!req.session.userId
+
+      // 2FA: Generate a 6-digit MFA code and send via email
+      const mfaCode = String(Math.floor(100000 + Math.random() * 900000));
+      const mfaExpiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+      const mfaToken = await storage.createCrmMfaToken({
+        userId: user.id,
+        tenantId: user.tenantId,
+        code: mfaCode,
+        expiresAt: mfaExpiresAt,
+      });
+
+      console.log('🔐 MFA code generated for user:', { userId: user.id, mfaTokenId: mfaToken.id });
+
+      // Send the MFA code via email
+      try {
+        await emailDispatcher.sendEmail({
+          tenantId: user.tenantId,
+          to: user.email,
+          subject: 'Your Login Verification Code',
+          html: `
+            <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto; padding: 32px;">
+              <h2 style="color: #1f2937; margin-bottom: 8px;">Two-Factor Authentication</h2>
+              <p style="color: #6b7280; margin-bottom: 24px;">Enter the code below to complete your sign-in. It expires in 10 minutes.</p>
+              <div style="background: #f3f4f6; border-radius: 8px; padding: 24px; text-align: center; margin-bottom: 24px;">
+                <span style="font-size: 36px; font-weight: 700; letter-spacing: 8px; color: #111827;">${mfaCode}</span>
+              </div>
+              <p style="color: #9ca3af; font-size: 13px;">If you didn't attempt to sign in, you can safely ignore this email.</p>
+            </div>
+          `,
         });
-        
-        // Explicitly save session to ensure persistence
-        req.session.save((saveErr: any) => {
-          if (saveErr) {
-            console.error('Session save error:', saveErr);
-            return res.status(500).json({ error: 'Session save failed' });
-          }
-          
-          res.json({ 
-            success: true, 
-            user: { 
-              id: user.id, 
-              username: user.username, 
-              email: user.email, 
-              firstName: user.firstName,
-              lastName: user.lastName,
-              role: user.role
-            } 
-          });
-        });
+        console.log('🔐 MFA email sent to:', user.email);
+      } catch (emailErr) {
+        console.error('🔐 Failed to send MFA email:', emailErr);
+        return res.status(500).json({ error: 'Failed to send verification code. Please try again.' });
+      }
+
+      // Return MFA challenge — do NOT create a session yet
+      return res.json({
+        requiresMfa: true,
+        mfaTokenId: mfaToken.id,
+        email: user.email,
       });
     } catch (error: any) {
       console.error('Login error:', error);
@@ -1658,6 +1656,72 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
       
       // Handle other errors with 500 status
       res.status(500).json({ error: 'Authentication failed' });
+    }
+  });
+
+  // 2FA verify endpoint — validates the MFA code and creates a full session
+  app.post('/api/auth/verify-mfa', async (req, res) => {
+    try {
+      const { mfaTokenId, code } = req.body;
+
+      if (!mfaTokenId || !code) {
+        return res.status(400).json({ error: 'mfaTokenId and code are required' });
+      }
+
+      // Validate the MFA token
+      const mfaToken = await storage.getCrmMfaToken(mfaTokenId, String(code));
+      if (!mfaToken) {
+        console.log('🔐 Invalid or expired MFA token:', { mfaTokenId });
+        return res.status(401).json({ error: 'Invalid or expired verification code' });
+      }
+
+      // Mark the token as used immediately
+      await storage.markCrmMfaTokenUsed(mfaToken.id);
+
+      // Look up the user
+      const user = await storage.getUserGlobal(mfaToken.userId);
+      if (!user) {
+        return res.status(401).json({ error: 'User not found' });
+      }
+
+      // Regenerate session ID for security and create full session
+      req.session.regenerate((err: any) => {
+        if (err) {
+          console.error('Session regeneration error:', err);
+          return res.status(500).json({ error: 'Login failed' });
+        }
+
+        req.session.userId = user.id;
+        req.session.tenantId = user.tenantId!;
+
+        console.log('🔐 MFA verified — session created:', {
+          sessionId: req.session.id,
+          userId: user.id,
+          tenantId: user.tenantId,
+        });
+
+        req.session.save((saveErr: any) => {
+          if (saveErr) {
+            console.error('Session save error:', saveErr);
+            return res.status(500).json({ error: 'Session save failed' });
+          }
+
+          res.json({
+            success: true,
+            user: {
+              id: user.id,
+              username: user.username,
+              email: user.email,
+              firstName: user.firstName,
+              lastName: user.lastName,
+              role: user.role,
+            },
+          });
+        });
+      });
+    } catch (error: any) {
+      console.error('MFA verification error:', error);
+      res.status(500).json({ error: 'Verification failed' });
     }
   });
 

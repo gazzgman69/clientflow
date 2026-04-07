@@ -109,6 +109,7 @@ import {
   type ScheduleTeamMember, type InsertScheduleTeamMember,
   type Booking, type InsertBooking,
   type PortalToken, type InsertPortalToken,
+  type CrmMfaToken, type InsertCrmMfaToken,
   users, leads, contacts, projects, quotes, contracts, contractTemplates, invoices, incomeCategories, invoiceItems, invoiceLineItems, paymentSchedules, paymentInstallments, recurringInvoiceSettings, paymentTransactions, taxSettings, tasks, emails, emailThreads, activities, automations,
   members, venues, projectMembers, memberAvailability, memberGroups, memberGroupMembers, performerContracts, repertoire, projectSetlist, projectFiles, projectNotes, projectTasks, projectScheduleItems, projectExpenses, projectMealsBreaks, taskTemplates, smsMessages,
   messageTemplates, messageThreads, calendars, events, calendarIntegrations, calendarSyncLog, templates, leadCaptureForms,
@@ -142,7 +143,7 @@ import {
   // AI Onboarding, Media Library, Chat Widget, Scheduler tables
   tenantOnboardingProgress, mediaLibrary, widgetSettings, chatConversations, chatMessages,
   bookableServices, availabilitySchedules, scheduleServices, availabilityRules, bookings,
-  scheduleCalendarChecks, scheduleTeamMembers, portalTokens
+  scheduleCalendarChecks, scheduleTeamMembers, portalTokens, crmMfaTokens
 } from "@shared/schema";
 import crypto from "crypto";
 import { TenantScopedStorage } from './utils/tenantScopedStorage';
@@ -9760,6 +9761,52 @@ export class DrizzleStorage implements IStorage {
     const result = await this.db
       .delete(portalTokens)
       .where(lt(portalTokens.expiresAt, new Date()));
+    return result.rowCount ?? 0;
+  }
+
+  // CRM Admin 2FA MFA tokens
+  async createCrmMfaToken(data: {
+    userId: string;
+    tenantId: string;
+    code: string;
+    expiresAt: Date;
+  }): Promise<CrmMfaToken> {
+    const [created] = await this.db
+      .insert(crmMfaTokens)
+      .values(data)
+      .returning();
+    return created;
+  }
+
+  async getCrmMfaToken(
+    id: string,
+    code: string
+  ): Promise<CrmMfaToken | undefined> {
+    const [found] = await this.db
+      .select()
+      .from(crmMfaTokens)
+      .where(
+        and(
+          eq(crmMfaTokens.id, id),
+          eq(crmMfaTokens.code, code),
+          isNull(crmMfaTokens.usedAt),
+          gt(crmMfaTokens.expiresAt, new Date())
+        )
+      );
+    return found;
+  }
+
+  async markCrmMfaTokenUsed(id: string): Promise<void> {
+    await this.db
+      .update(crmMfaTokens)
+      .set({ usedAt: new Date() })
+      .where(eq(crmMfaTokens.id, id));
+  }
+
+  async cleanupExpiredCrmMfaTokens(): Promise<number> {
+    const result = await this.db
+      .delete(crmMfaTokens)
+      .where(lt(crmMfaTokens.expiresAt, new Date()));
     return result.rowCount ?? 0;
   }
 

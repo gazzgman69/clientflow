@@ -55,6 +55,20 @@ export const portalTokens = pgTable("portal_tokens", {
   expiresAtIdx: index("portal_tokens_expires_at_idx").on(table.expiresAt),
 }));
 
+// CRM admin 2FA tokens — issued after password check, consumed to create a full session
+export const crmMfaTokens = pgTable("crm_mfa_tokens", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  tenantId: varchar("tenant_id").notNull(),
+  code: varchar("code", { length: 6 }).notNull(), // 6-digit numeric code
+  expiresAt: timestamp("expires_at").notNull(),
+  usedAt: timestamp("used_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  userIdIdx: index("crm_mfa_tokens_user_id_idx").on(table.userId),
+  expiresAtIdx: index("crm_mfa_tokens_expires_at_idx").on(table.expiresAt),
+}));
+
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   tenantId: varchar("tenant_id").references(() => tenants.id).notNull(), // SECURITY FIX: Made NOT NULL for tenant isolation
@@ -3315,3 +3329,11 @@ export const insertPortalTokenSchema = createInsertSchema(portalTokens).omit({
 
 export type PortalToken = typeof portalTokens.$inferSelect;
 export type InsertPortalToken = z.infer<typeof insertPortalTokenSchema>;
+
+export const insertCrmMfaTokenSchema = createInsertSchema(crmMfaTokens).omit({
+  id: true,
+  usedAt: true,
+  createdAt: true,
+});
+export type CrmMfaToken = typeof crmMfaTokens.$inferSelect;
+export type InsertCrmMfaToken = z.infer<typeof insertCrmMfaTokenSchema>;

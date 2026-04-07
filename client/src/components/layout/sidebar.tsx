@@ -20,16 +20,7 @@ const staticNavigationItems = [
   { href: "/projects", icon: Briefcase, label: "Projects", emoji: "📋", badge: null },
   { href: "/contacts", icon: Users, label: "Contacts", emoji: "👥", badge: null },
   { href: "/members", icon: Music, label: "Members", emoji: "🎵", badge: null },
-  {
-    href: "/documents",
-    icon: FolderOpen,
-    label: "Documents",
-    emoji: "📁",
-    badge: null,
-    subItems: [
-      { href: "/contracts", icon: File, label: "Contracts", emoji: "📑", badge: null },
-    ]
-  },
+  { href: "/documents", icon: FolderOpen, label: "Documents", emoji: "📁", badge: null },
   { href: "/venues", icon: MapPin, label: "Venues", emoji: "📍", badge: null },
   { href: "/scheduler", icon: Calendar, label: "Scheduler", emoji: "📅", badge: null },
   { href: "/calendar", icon: Calendar, label: "Calendar", emoji: "🗓️", badge: null },

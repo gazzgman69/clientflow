@@ -108,11 +108,31 @@ class AutoResponderWorker {
 
       // Resolve tokens in subject and body
       const subject = this.resolveTokens(template.subject || template.title, context);
-      const htmlBody = this.resolveTokens(template.body, context);
+      let htmlBody = this.resolveTokens(template.body, context);
+
+      // Fetch tenant branding (logo) and prepend to email if available
+      try {
+        const tenant = await storage.getTenant(log.tenantId);
+        if (tenant?.settings) {
+          const settings = JSON.parse(tenant.settings);
+          const logoUrl: string | undefined = settings.logoUrl;
+          const companyName: string = tenant.name || '';
+          if (logoUrl) {
+            const logoHeader = `
+<div style="text-align:center;padding:24px 0 16px;background:#ffffff;border-bottom:1px solid #e5e7eb;margin-bottom:24px;">
+  <img src="${logoUrl}" alt="${companyName}" style="max-height:64px;max-width:240px;width:auto;height:auto;display:inline-block;" />
+</div>`;
+            htmlBody = logoHeader + htmlBody;
+          }
+        }
+      } catch (brandingErr) {
+        // Non-fatal — send without logo
+        console.warn('[AutoResponderWorker] Could not load tenant branding:', brandingErr);
+      }
 
       // Convert HTML to plain text for fallback
       const { convert } = await import('html-to-text');
-      
+
       // First normalize smart quotes and special characters in HTML
       let normalizedHtml = htmlBody
         .replace(/&#8217;/g, "'")  // Right single quotation mark

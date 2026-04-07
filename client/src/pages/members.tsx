@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Plus, Phone, Mail, Music, DollarSign, Star, Edit, Trash, Users, ListMusic } from "lucide-react";
+import { Plus, Phone, Mail, Music, DollarSign, Star, Edit, Trash, Users, ListMusic, FileText } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -229,6 +229,9 @@ export default function MembersPage() {
         <div className="flex gap-2">
           <Link href="/repertoire">
             <Button variant="outline"><ListMusic className="mr-2 h-4 w-4" />Repertoire</Button>
+          </Link>
+          <Link href="/performer-contracts">
+            <Button variant="outline"><FileText className="mr-2 h-4 w-4" />Performer Contracts</Button>
           </Link>
 
           {/* Group dialog */}

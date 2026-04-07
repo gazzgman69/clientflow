@@ -487,7 +487,7 @@ export default function VenuesPage() {
               Add Venue
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto" onOpenAutoFocus={(e) => e.preventDefault()}>
             <DialogHeader>
               <DialogTitle>
                 {selectedVenue ? "Edit Venue" : "Add New Venue"}
@@ -522,7 +522,7 @@ export default function VenuesPage() {
                     <FormItem>
                       <FormLabel>Venue Name</FormLabel>
                       <FormControl>
-                        <Input {...field} data-testid="input-venue-name" onFocus={(e) => { const len = e.target.value.length; e.target.setSelectionRange(len, len); }} />
+                        <Input {...field} data-testid="input-venue-name" />
                       </FormControl>
                       <FormMessage />
                     </FormItem>

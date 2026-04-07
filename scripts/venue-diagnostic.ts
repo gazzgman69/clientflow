@@ -147,7 +147,40 @@ async function runDiagnostics() {
       }
     }
 
-    // 6. Summary
+    // 6. CRITICAL CHECK: Find the "missing" contacts and projects referenced in form submissions
+    console.log(`\n${'='.repeat(70)}`);
+    console.log('MISSING DATA CHECK — tracing form submission metadata');
+    console.log('='.repeat(70));
+
+    const allSubs = await pool.query(`SELECT metadata, tenant_id FROM form_submissions WHERE tenant_id != 'system'`);
+    for (const s of allSubs.rows as any[]) {
+      let meta: any = {};
+      try { meta = typeof s.metadata === 'string' ? JSON.parse(s.metadata) : (s.metadata || {}); } catch { continue; }
+      if (!meta.contactId) continue;
+
+      // Check if contact exists
+      const contactCheck = await pool.query('SELECT id, tenant_id, first_name, last_name, email FROM contacts WHERE id = $1', [meta.contactId]);
+      const contactExists = contactCheck.rows.length > 0;
+      const contactTenant = contactExists ? (contactCheck.rows[0] as any).tenant_id : 'NOT FOUND';
+
+      // Check if project exists
+      const projectCheck = await pool.query('SELECT id, tenant_id, name, venue_id FROM projects WHERE id = $1', [meta.projectId]);
+      const projectExists = projectCheck.rows.length > 0;
+      const projectTenant = projectExists ? (projectCheck.rows[0] as any).tenant_id : 'NOT FOUND';
+
+      const icon = contactExists && projectExists ? '✅' : '❌';
+      console.log(`  ${icon} sub tenant=${s.tenant_id.slice(0,8)}... | contact ${meta.contactId.slice(0,8)}... → ${contactExists ? `EXISTS (tenant: ${contactTenant.slice(0,8)}...)` : 'MISSING!'} | project ${meta.projectId.slice(0,8)}... → ${projectExists ? `EXISTS (tenant: ${projectTenant.slice(0,8)}..., venue_id: ${(projectCheck.rows[0] as any)?.venue_id || 'NULL'})` : 'MISSING!'}`);
+    }
+
+    // Also check: total contacts and projects across ALL tenants
+    const totalContacts = await pool.query('SELECT tenant_id, COUNT(*) as cnt FROM contacts GROUP BY tenant_id');
+    const totalProjects = await pool.query('SELECT tenant_id, COUNT(*) as cnt FROM projects GROUP BY tenant_id');
+    console.log(`\n  Contacts by tenant:`);
+    for (const r of totalContacts.rows as any[]) console.log(`    ${r.tenant_id.slice(0,8)}...: ${r.cnt}`);
+    console.log(`  Projects by tenant:`);
+    for (const r of totalProjects.rows as any[]) console.log(`    ${r.tenant_id.slice(0,8)}...: ${r.cnt}`);
+
+    // 7. Summary
     console.log(`\n${'='.repeat(70)}`);
     console.log('DIAGNOSIS SUMMARY');
     console.log('='.repeat(70));

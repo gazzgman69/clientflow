@@ -1195,10 +1195,24 @@ router.post('/:slug/submit', formSubmissionLimiter, async (req, res) => {
       startDate: mappingResult.leadData.projectDate || null
     };
 
+    console.log('🔍 VENUE DEBUG (pre-project-create):', {
+      createdVenueExists: !!createdVenue,
+      createdVenueId: createdVenue?.id || null,
+      createdVenueName: createdVenue?.name || null,
+      projectDataVenueId: projectData.venueId,
+      venueAddressFromMapping: mappingResult.contactData.venueAddress,
+      eventLocationFromMapping: mappingResult.leadData.eventLocation,
+    });
+
     const project = await tenantStorage.createProject(projectData);
     const projectEndTime = Date.now();
-    
+
     console.log('⏱️ PERFORMANCE: Project creation completed in', projectEndTime - projectStartTime, 'ms');
+    console.log('🔍 VENUE DEBUG (post-project-create):', {
+      projectId: project.id,
+      projectVenueId: project.venueId,
+      projectVenueIdSnake: (project as any).venue_id,
+    });
     console.log('✅ PROJECT CREATED:', {
       projectId: project.id,
       projectName: project.name,

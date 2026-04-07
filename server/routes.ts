@@ -3387,6 +3387,21 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
         console.error('Error fetching document statuses (projects will still load):', docError);
       }
       
+      // DEBUG: Log first project's venue-related fields
+      if (projects.rows.length > 0) {
+        const firstProject = projects.rows[0] as any;
+        console.log('🔍 VENUE DEBUG (projects list API):', {
+          projectId: firstProject.id,
+          projectName: firstProject.name,
+          venue_id: firstProject.venue_id,
+          venueId: firstProject.venueId,
+          venue_name: firstProject.venue_name,
+          venueName: firstProject.venueName,
+          venue_address: firstProject.venue_address,
+          allKeys: Object.keys(firstProject).filter(k => k.includes('venue')),
+        });
+      }
+
       res.json({
         projects: projects.rows,
         pagination: {

@@ -167,6 +167,23 @@ export default function ProjectDetailModal({ project, isOpen, onClose }: Project
   // Fetch venue information if project has a venue
   // Handle both camelCase (Drizzle) and snake_case (raw SQL) field names
   const projectVenueId = project?.venueId || (project as any)?.venue_id;
+
+  // DEBUG: Log all venue-related fields on the project object
+  if (isOpen && project) {
+    console.log('🔍 VENUE DEBUG (project-detail-modal):', {
+      projectId: project.id,
+      projectName: project.name,
+      'project.venueId': project.venueId,
+      'project.venue_id': (project as any)?.venue_id,
+      'resolved projectVenueId': projectVenueId,
+      'project.venue_name': (project as any)?.venue_name,
+      'project.venueName': (project as any)?.venueName,
+      'project.venue_address': (project as any)?.venue_address,
+      'project.venueAddress': (project as any)?.venueAddress,
+      allProjectKeys: Object.keys(project),
+    });
+  }
+
   const { data: projectVenue } = useQuery<Venue>({
     queryKey: ["/api/venues", projectVenueId],
     enabled: isOpen && !!project && !!projectVenueId,

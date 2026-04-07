@@ -95,7 +95,7 @@ export default function PortalLogin() {
       });
       // Redirect to portal client after a brief delay
       setTimeout(() => {
-        setLocation('/portal/client');
+        setLocation('/portal');
       }, 500);
     },
     onError: (error: Error) => {

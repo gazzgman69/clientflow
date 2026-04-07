@@ -123,7 +123,6 @@ function Router() {
       <Route path="/portal/musician" component={MusicianPortal} />
       <Route path="/portal/access" component={PortalAccess} />
       <Route path="/portal/login" component={PortalLogin} />
-      <Route path="/portal/client" component={ClientPortal} />
       <Route path="/portal" component={ClientPortal} />
       
       {/* Public Form Routes - No Authentication Required */}
@@ -206,6 +205,7 @@ function Router() {
                   <Route path="/settings/widget" component={WidgetSettings} />
                   <Route path="/settings/enquiry-forms" component={LeadCaptureBuilder} />
                   <Route path="/settings" component={Settings} />
+                  <Route path="/portal/client" component={ClientPortal} />
                   <Route component={NotFound} />
                 </Switch>
               </div>

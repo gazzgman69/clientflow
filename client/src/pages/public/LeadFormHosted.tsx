@@ -213,9 +213,10 @@ export default function LeadFormHosted({ slug }: LeadFormHostedProps) {
       }
     });
 
-    // Include venue address components even if they're not explicit form questions
+    // Always include canonical eventLocation keys — these are written by every venue question
+    // regardless of what mapTo is set to, so the server can reliably find venue data.
     Object.keys(formValues).forEach(key => {
-      if (key.includes('eventLocation') && !submissionData[key]) {
+      if (key.startsWith('eventLocation') && !submissionData[key]) {
         submissionData[key] = formValues[key];
       }
     });
@@ -330,17 +331,22 @@ export default function LeadFormHosted({ slug }: LeadFormHostedProps) {
               if (venue.city) addressParts.push(venue.city);
               if (venue.state) addressParts.push(venue.state);
               if (venue.zipCode) addressParts.push(venue.zipCode);
-              
+
               const fullAddress = addressParts.join(', ');
-                
-              // Store the full address as the main value
+
+              // Store the full address under the question's mapTo key (for form display)
               handleInputChange(question.mapTo, fullAddress);
-              // Also store detailed venue information for server-side processing
-              if (venue.placeId) handleInputChange(`${question.mapTo}PlaceId`, venue.placeId);
-              if (venue.city) handleInputChange(`${question.mapTo}City`, venue.city);
-              if (venue.state) handleInputChange(`${question.mapTo}State`, venue.state);
-              if (venue.zipCode) handleInputChange(`${question.mapTo}ZipCode`, venue.zipCode);
-              if (venue.country) handleInputChange(`${question.mapTo}Country`, venue.country);
+
+              // ALWAYS store under canonical 'eventLocation' keys so the server can reliably
+              // find venue data regardless of what mapTo is set to on this form question.
+              handleInputChange('eventLocation', fullAddress);
+              if (venue.placeId) handleInputChange('eventLocationPlaceId', venue.placeId);
+              if (venue.city) handleInputChange('eventLocationCity', venue.city);
+              if (venue.state) handleInputChange('eventLocationState', venue.state);
+              if (venue.zipCode) handleInputChange('eventLocationZipCode', venue.zipCode);
+              if (venue.country) handleInputChange('eventLocationCountry', venue.country);
+              if (venue.latitude) handleInputChange('eventLocationLat', String(venue.latitude));
+              if (venue.longitude) handleInputChange('eventLocationLng', String(venue.longitude));
             }}
             placeholder="Search for venues and locations..."
             initialValue={value}

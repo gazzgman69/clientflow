@@ -11,6 +11,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { apiRequest } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
 import { RichTextEditor, RichTextEditorRef } from '@/components/ui/rich-text-editor';
+import { TokenDropdown } from '@/components/ui/token-dropdown';
 import {
   Edit3,
   Plus,
@@ -340,6 +341,14 @@ export default function SignatureManagement() {
                   placeholder="Enter your signature content..."
                   minHeight="180px"
                   data-testid="rte-signature-content"
+                  subToolbar={
+                    <TokenDropdown
+                      onTokenSelect={(token) => editorRef.current?.insertToken(token)}
+                      onAfterInsert={() => editorRef.current?.focus()}
+                      size="sm"
+                      className="h-7 px-2 text-xs"
+                    />
+                  }
                 />
               </div>
               <p className="text-xs text-muted-foreground mt-1">

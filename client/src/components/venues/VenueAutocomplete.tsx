@@ -418,12 +418,12 @@ export function VenueAutocomplete({
                 >
                   <MapPin className="mr-3 h-4 w-4 text-muted-foreground shrink-0" />
                   <div className="min-w-0 flex-1">
-                    <div className="font-medium text-sm truncate">
+                    <div className="font-medium text-sm truncate text-foreground">
                       {prediction.structured_formatting?.main_text || prediction.description.split(', ')[0]}
                     </div>
                     <div className="text-xs text-muted-foreground truncate mt-0.5">
                       {/* Show the most complete address information available */}
-                      {prediction.structured_formatting?.secondary_text || 
+                      {prediction.structured_formatting?.secondary_text ||
                        prediction.description.split(', ').slice(1).join(', ') ||
                        'No address available'}
                     </div>

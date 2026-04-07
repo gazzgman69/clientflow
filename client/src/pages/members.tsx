@@ -220,11 +220,11 @@ export default function MembersPage() {
 
   return (
     <div className="flex-1 overflow-y-auto">
-    <div className="container mx-auto py-8 space-y-6">
-      <div className="flex justify-between items-center">
+    <div className="px-6 py-5 space-y-6">
+      <div className="flex justify-between items-center border-b border-border pb-5">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Members</h1>
-          <p className="text-muted-foreground mt-1">Manage your musicians, band members and groups</p>
+          <h1 className="text-2xl font-bold text-foreground">Members</h1>
+          <p className="text-sm text-muted-foreground mt-0.5">Manage your musicians, band members and groups</p>
         </div>
         <div className="flex gap-2">
           <Link href="/repertoire">

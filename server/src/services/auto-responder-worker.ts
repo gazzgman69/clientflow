@@ -48,20 +48,24 @@ class AutoResponderWorker {
     this.isProcessing = true;
 
     try {
-      // Get all tenants (in a production system, you'd query the tenants table)
-      // For now, we'll just use 'default-tenant' or get all due logs
-      const tenantId = 'default-tenant';
-      
-      const dueLogs = await storage.getDueAutoResponderLogs(tenantId);
-      
-      if (dueLogs.length === 0) {
-        return;
+      // Fetch all tenants so auto-responders are processed for every account
+      const tenants = await storage.getAllTenants();
+
+      let totalProcessed = 0;
+      for (const tenant of tenants) {
+        const dueLogs = await storage.getDueAutoResponderLogs(tenant.id);
+        if (dueLogs.length === 0) continue;
+
+        console.log(`[AutoResponderWorker] Processing ${dueLogs.length} due auto-responders for tenant ${tenant.id}`);
+        totalProcessed += dueLogs.length;
+
+        for (const log of dueLogs) {
+          await this.processAutoResponder(log);
+        }
       }
 
-      console.log(`[AutoResponderWorker] Processing ${dueLogs.length} due auto-responders`);
-
-      for (const log of dueLogs) {
-        await this.processAutoResponder(log);
+      if (totalProcessed === 0) {
+        return;
       }
     } catch (error) {
       console.error('[AutoResponderWorker] Error processing queue:', error);

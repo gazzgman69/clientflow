@@ -270,11 +270,11 @@ export default function LeadCaptureBuilder() {
   const queryClient = useQueryClient();
   const [, setLocation] = useLocation();
 
-  // Fetch auto-responder templates
+  // Fetch auto-responder templates (uses same query key as Templates settings page so cache stays in sync)
   const { data: autoResponderTemplates = [] } = useQuery({
-    queryKey: ['/api/templates/admin/templates'],
+    queryKey: ['/api/templates'],
     queryFn: async () => {
-      const response = await fetch('/api/templates/admin/templates?type=auto_responder', {
+      const response = await fetch('/api/templates', {
         credentials: 'include'
       });
       if (!response.ok) return [];

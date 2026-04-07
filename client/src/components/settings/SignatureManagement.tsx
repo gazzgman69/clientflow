@@ -252,9 +252,10 @@ export default function SignatureManagement() {
                         </Badge>
                       )}
                     </div>
-                    <div className="bg-gray-50 p-3 rounded border text-sm whitespace-pre-wrap max-h-32 overflow-y-auto">
-                      {signature.content}
-                    </div>
+                    <div
+                      className="bg-gray-50 p-3 rounded border text-sm max-h-32 overflow-y-auto prose prose-sm max-w-none"
+                      dangerouslySetInnerHTML={{ __html: signature.content }}
+                    />
                     <p className="text-xs text-muted-foreground mt-2">
                       Created: {new Date(signature.createdAt).toLocaleDateString()}
                     </p>

@@ -6311,8 +6311,20 @@ export class DrizzleStorage implements IStorage {
   }
 
   async createVenue(venue: InsertVenue): Promise<Venue> {
-    const result = await this.db.insert(venues).values(venue).returning();
-    return result[0];
+    try {
+      const result = await this.db.insert(venues).values(venue).returning();
+      return result[0];
+    } catch (error) {
+      // If insert fails (e.g. normalized columns don't exist), retry without them
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      if (errorMsg.includes('normalized_name') || errorMsg.includes('normalized_address') || errorMsg.includes('column')) {
+        console.warn('⚠️ Venue insert failed, retrying without normalized fields:', errorMsg);
+        const { normalizedName, normalizedAddress, ...venueWithout } = venue as any;
+        const result = await this.db.insert(venues).values(venueWithout).returning();
+        return result[0];
+      }
+      throw error;
+    }
   }
 
   async updateVenue(id: string, venue: Partial<InsertVenue>, tenantId?: string): Promise<Venue | undefined> {

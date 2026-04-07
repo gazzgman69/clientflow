@@ -479,36 +479,38 @@ export class VenuesService {
    */
   async findExactVenueMatch(name: string, address: string, tenantId: string): Promise<Venue | null> {
     const { normalizedName, normalizedAddress } = this.generateNormalizedFields(name, address);
-    
-    // First try direct database query using normalized fields
-    const sql = neon(process.env.DATABASE_URL!);
-    const result = await sql`
-      SELECT * FROM venues 
-      WHERE tenant_id = ${tenantId} 
-        AND normalized_name = ${normalizedName} 
-        AND normalized_address = ${normalizedAddress}
-      LIMIT 1
-    `;
-    
-    if (result.length > 0) {
-      return result[0] as Venue;
+
+    // Try direct database query using normalized fields (columns may not exist yet)
+    try {
+      const sql = neon(process.env.DATABASE_URL!);
+      const result = await sql`
+        SELECT * FROM venues
+        WHERE tenant_id = ${tenantId}
+          AND normalized_name = ${normalizedName}
+          AND normalized_address = ${normalizedAddress}
+        LIMIT 1
+      `;
+
+      if (result.length > 0) {
+        return result[0] as Venue;
+      }
+    } catch (dbError) {
+      // normalized_name/normalized_address columns may not exist yet — fall through to in-memory search
+      console.warn('⚠️ Normalized venue column query failed (columns may not exist):', dbError instanceof Error ? dbError.message : String(dbError));
     }
-    
-    // Fallback to in-memory search for venues that don't have normalized fields populated yet
+
+    // Fallback to in-memory search using all venues for this tenant
     const venues = await this.getVenues(tenantId);
     for (const venue of venues) {
-      // Skip venues that already have normalized fields (they were checked above)
-      if (venue.normalizedName || venue.normalizedAddress) continue;
-      
       const normalizedVenueName = this.normalizeForMatching(venue.name || '');
       const normalizedVenueAddress = this.normalizeForMatching(venue.address || '');
-      
+
       // Exact match on both name and address (normalized)
       if (normalizedVenueName === normalizedName && normalizedVenueAddress === normalizedAddress) {
         return venue;
       }
     }
-    
+
     return null;
   }
 

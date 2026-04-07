@@ -545,13 +545,8 @@ router.post('/:slug/submit', formSubmissionLimiter, async (req, res) => {
       transformedData[key] = value;
     }
     
-    console.log('🔄 FIELD TRANSFORMATION DEBUG:', {
-      originalKeys: Object.keys(raw),
-      adapterTranslations: adapterResult.translatedKeys.length,
-      questionMappings: questionIdToMapTo,
-      transformedKeys: Object.keys(transformedData),
-      transformedData: JSON.stringify(transformedData, null, 2)
-    });
+    // Compact transformation log (verbose debug removed)
+    console.log('📋 Form data mapped:', { keys: Object.keys(transformedData), tenantId: form.tenantId });
     
     // Apply mapping registry to transform form data to database models
     const mappingResult = applyMapping(transformedData, {
@@ -617,14 +612,7 @@ router.post('/:slug/submit', formSubmissionLimiter, async (req, res) => {
       timestamp: new Date().toDateString(), // Same day submissions considered duplicates
     };
     
-    console.log('🔍 SUBMISSION FINGERPRINT DEBUG:', {
-      slug,
-      formId: form.id,
-      extractedEmail: submissionFingerprint.email,
-      extractedPhone: submissionFingerprint.phone,
-      mappingResult: JSON.stringify(mappingResult, null, 2),
-      fingerprintData: submissionFingerprint
-    });
+    console.log('🔍 Submission fingerprint:', { slug, email: submissionFingerprint.email });
     
     const submissionKey = crypto
       .createHash('sha256')
@@ -828,7 +816,7 @@ router.post('/:slug/submit', formSubmissionLimiter, async (req, res) => {
                 metadata: JSON.stringify({
                   contactId: existingContact.id,
                   projectId: project.id,
-                  venueId: null
+                  venueId: dupVenueId || null
                 }),
                 submittedAt: new Date(),
                 expiresAt: new Date(Date.now() + (30 * 24 * 60 * 60 * 1000)) // 30 days
@@ -1148,22 +1136,7 @@ router.post('/:slug/submit', formSubmissionLimiter, async (req, res) => {
       tenantStorage.createContact(contactData),
       venueProcessingPromise
     ]);
-    const contactEndTime = Date.now();
-    const venueEndTime = Date.now();
-    
-    console.log('⏱️ PERFORMANCE: Venue processing completed in', venueEndTime - venueStartTime, 'ms');
-    const parallelEndTime = Date.now();
-    
-    console.log('⏱️ PERFORMANCE: Contact creation completed in', contactEndTime - contactStartTime, 'ms');
-    console.log('⏱️ PERFORMANCE: Parallel processing (contact + venue) completed in', parallelEndTime - parallelStartTime, 'ms');
-    console.log('✅ CONTACT CREATED:', {
-      contactId: contact.id,
-      contactEmail: contact.email,
-      contactName: contact.fullName,
-      tenantId: form.tenantId,
-      slug,
-      timestamp: new Date().toISOString()
-    });
+    console.log('✅ Contact created:', { id: contact.id, email: contact.email, ms: Date.now() - parallelStartTime });
 
     // DISABLED: Old immediate auto-reply system (replaced by template-based auto-responder with delays)
     // if (contact.email) {
@@ -1204,32 +1177,12 @@ router.post('/:slug/submit', formSubmissionLimiter, async (req, res) => {
       startDate: mappingResult.leadData.projectDate || null
     };
 
-    console.log('🔍 VENUE DEBUG (pre-project-create):', {
-      createdVenueExists: !!createdVenue,
-      createdVenueId: createdVenue?.id || null,
-      createdVenueName: createdVenue?.name || null,
-      projectDataVenueId: projectData.venueId,
-      venueAddressFromMapping: mappingResult.contactData.venueAddress,
-      eventLocationFromMapping: mappingResult.leadData.eventLocation,
-    });
+    console.log('🏢 Venue → Project:', { venueId: createdVenue?.id || null, venueAddress: mappingResult.contactData.venueAddress || null });
 
     const project = await tenantStorage.createProject(projectData);
     const projectEndTime = Date.now();
 
-    console.log('⏱️ PERFORMANCE: Project creation completed in', projectEndTime - projectStartTime, 'ms');
-    console.log('🔍 VENUE DEBUG (post-project-create):', {
-      projectId: project.id,
-      projectVenueId: project.venueId,
-      projectVenueIdSnake: (project as any).venue_id,
-    });
-    console.log('✅ PROJECT CREATED:', {
-      projectId: project.id,
-      projectName: project.name,
-      contactId: contact.id,
-      tenantId: form.tenantId,
-      slug,
-      timestamp: new Date().toISOString()
-    });
+    console.log('✅ Project created:', { id: project.id, venueId: project.venueId, ms: projectEndTime - projectStartTime });
 
     // Update lead to link it to the created contact and project using TENANT-SCOPED storage
     await tenantStorage.updateLead(lead.id, { 
@@ -1249,12 +1202,7 @@ router.post('/:slug/submit', formSubmissionLimiter, async (req, res) => {
     // Auto-create calendar event if lead has a projectDate (now that we have projectId)
     // Use original lead object since updateLead only returns updated fields
     
-    console.log('🔍 CALENDAR EVENT CHECK:', {
-      leadId: lead.id,
-      hasProjectDate: !!lead.projectDate,
-      projectDate: lead.projectDate,
-      fullLead: lead
-    });
+    // Calendar event auto-creation check
     
     if (lead && lead.projectDate) {
       console.log('✅ Starting calendar event creation for lead:', lead.id);

@@ -1,12 +1,6 @@
 /**
- * Venue Diagnostic Script
+ * Venue Diagnostic Script v2
  * Run from Replit Shell: npx tsx scripts/venue-diagnostic.ts
- *
- * Checks the database for:
- * 1. Whether venues exist for this tenant
- * 2. Whether projects have venue_id set
- * 3. Whether form questions are mapped to eventLocation
- * 4. Whether leads have event_location set
  */
 
 import { Pool, neonConfig } from '@neondatabase/serverless';
@@ -23,128 +17,122 @@ async function runDiagnostics() {
   const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 
   try {
-    // 1. Find the tenant
-    const tenants = await pool.query('SELECT id, name, slug FROM tenants LIMIT 5');
+    // 1. Find ALL tenants
+    const tenants = await pool.query('SELECT id, name, slug FROM tenants ORDER BY created_at');
     console.log('\n=== TENANTS ===');
-    for (const t of tenants.rows) {
-      console.log(`  ${t.id} | ${t.name} | slug: ${t.slug}`);
+    for (const t of tenants.rows as any[]) {
+      console.log(`  ${t.id} | ${t.name} | slug: "${t.slug}"`);
     }
 
-    const tenantId = tenants.rows[0]?.id;
-    if (!tenantId) {
-      console.error('❌ No tenants found');
-      return;
-    }
-    console.log(`\nUsing tenant: ${tenantId}\n`);
+    // Check ALL non-system tenants
+    for (const tenant of tenants.rows as any[]) {
+      if (tenant.id === 'system') continue;
 
-    // 2. Check venues
-    const venues = await pool.query(
-      'SELECT id, name, address, city, created_at, use_count FROM venues WHERE tenant_id = $1 ORDER BY created_at DESC LIMIT 10',
-      [tenantId]
-    );
-    console.log(`=== VENUES (${venues.rows.length} found) ===`);
-    for (const v of venues.rows as any[]) {
-      console.log(`  ${v.id} | ${v.name} | ${v.address} | ${v.city} | created: ${v.created_at} | uses: ${v.use_count}`);
-    }
+      const tenantId = tenant.id;
+      console.log(`\n${'='.repeat(70)}`);
+      console.log(`TENANT: ${tenant.name} (${tenantId}) slug="${tenant.slug}"`);
+      console.log('='.repeat(70));
 
-    // 3. Check recent projects and their venue_id
-    const projects = await pool.query(`
-      SELECT p.id, p.name, p.venue_id, p.status, p.created_at,
-             v.name as venue_name, v.address as venue_address
-      FROM projects p
-      LEFT JOIN venues v ON p.venue_id = v.id
-      WHERE p.tenant_id = $1
-      ORDER BY p.created_at DESC
-      LIMIT 10
-    `, [tenantId]);
-    console.log(`\n=== PROJECTS (${projects.rows.length} found) ===`);
-    for (const p of projects.rows as any[]) {
-      const hasVenue = p.venue_id ? '✅' : '❌';
-      console.log(`  ${hasVenue} ${p.id.slice(0,8)}... | ${p.name} | venue_id: ${p.venue_id || 'NULL'} | venue_name: ${p.venue_name || 'NULL'} | status: ${p.status} | created: ${p.created_at}`);
-    }
+      // 2. Check venues
+      const venues = await pool.query(
+        'SELECT id, name, address, city, created_at, use_count FROM venues WHERE tenant_id = $1 ORDER BY created_at DESC LIMIT 5',
+        [tenantId]
+      );
+      console.log(`\n  VENUES (${venues.rows.length} found):`);
+      for (const v of venues.rows as any[]) {
+        console.log(`    ${v.id.slice(0,8)}... | ${v.name} | addr: ${v.address || 'NULL'} | city: ${v.city || 'NULL'} | uses: ${v.use_count}`);
+      }
 
-    // 4. Check leads for event_location
-    const leads = await pool.query(`
-      SELECT id, full_name, email, event_location, event_type, created_at
-      FROM leads
-      WHERE tenant_id = $1
-      ORDER BY created_at DESC
-      LIMIT 10
-    `, [tenantId]);
-    console.log(`\n=== LEADS (${leads.rows.length} found) ===`);
-    for (const l of leads.rows as any[]) {
-      const hasLocation = l.event_location ? '✅' : '❌';
-      console.log(`  ${hasLocation} ${l.id.slice(0,8)}... | ${l.full_name} | ${l.email} | event_location: ${l.event_location || 'NULL'} | event_type: ${l.event_type || 'NULL'}`);
-    }
+      // 3. Check recent projects
+      const projects = await pool.query(`
+        SELECT p.id, p.name, p.venue_id, p.status, p.created_at,
+               v.name as venue_name
+        FROM projects p
+        LEFT JOIN venues v ON p.venue_id = v.id
+        WHERE p.tenant_id = $1
+        ORDER BY p.created_at DESC
+        LIMIT 5
+      `, [tenantId]);
+      console.log(`\n  PROJECTS (${projects.rows.length} found):`);
+      for (const p of projects.rows as any[]) {
+        const icon = p.venue_id ? '✅' : '❌';
+        console.log(`    ${icon} ${p.name} | venue_id: ${p.venue_id || 'NULL'} | venue: ${p.venue_name || 'NONE'} | status: ${p.status}`);
+      }
 
-    // 5. Check form questions for eventLocation mapping
-    const forms = await pool.query(`
-      SELECT id, name, slug, questions
-      FROM lead_capture_forms
-      WHERE tenant_id = $1
-      LIMIT 5
-    `, [tenantId]);
-    console.log(`\n=== FORM QUESTIONS (eventLocation mapping check) ===`);
-    for (const f of forms.rows as any[]) {
-      console.log(`  Form: ${f.name} (${f.slug})`);
-      try {
-        const questions = JSON.parse(f.questions || '[]');
-        for (const q of questions) {
-          if (q.mapTo === 'eventLocation' || q.label?.toLowerCase().includes('venue') || q.label?.toLowerCase().includes('location')) {
-            console.log(`    ✅ Question "${q.label}" → mapTo: "${q.mapTo}" (type: ${q.type}, id: ${q.id})`);
+      // 4. Check leads
+      const leads = await pool.query(`
+        SELECT id, full_name, email, event_location, event_type, created_at
+        FROM leads WHERE tenant_id = $1 ORDER BY created_at DESC LIMIT 5
+      `, [tenantId]);
+      console.log(`\n  LEADS (${leads.rows.length} found):`);
+      for (const l of leads.rows as any[]) {
+        const icon = l.event_location ? '✅' : '❌';
+        console.log(`    ${icon} ${l.full_name} | location: ${l.event_location || 'NULL'} | type: ${l.event_type || 'NULL'}`);
+      }
+
+      // 5. Check form questions — SHOW RAW DATA
+      const forms = await pool.query(`
+        SELECT id, name, slug, questions
+        FROM lead_capture_forms
+        WHERE tenant_id = $1
+        LIMIT 5
+      `, [tenantId]);
+      console.log(`\n  FORMS (${forms.rows.length} found):`);
+      for (const f of forms.rows as any[]) {
+        console.log(`\n    Form: "${f.name}" (slug: ${f.slug})`);
+        try {
+          const raw = f.questions;
+          if (!raw) {
+            console.log(`      ⚠️ questions field is NULL/empty`);
+            continue;
           }
+          const questions = typeof raw === 'string' ? JSON.parse(raw) : raw;
+          if (!Array.isArray(questions) || questions.length === 0) {
+            console.log(`      ⚠️ questions is empty array or not an array. Raw type: ${typeof raw}`);
+            console.log(`      Raw value (first 200 chars): ${JSON.stringify(raw).slice(0, 200)}`);
+            continue;
+          }
+          console.log(`      ${questions.length} questions:`);
+          for (const q of questions) {
+            const mapIcon = q.mapTo === 'eventLocation' ? '🎯' : (q.mapTo ? '  ' : '⚠️');
+            console.log(`        ${mapIcon} [${q.id}] "${q.label}" → mapTo: "${q.mapTo || 'NONE'}" (type: ${q.type})`);
+          }
+          const hasLocationMapping = questions.some((q: any) => q.mapTo === 'eventLocation');
+          if (!hasLocationMapping) {
+            console.log(`      🔴 NO question mapped to "eventLocation" — venues will NEVER be created from this form!`);
+          }
+        } catch (e) {
+          console.log(`      ⚠️ Could not parse questions: ${e}`);
+          console.log(`      Raw (first 300 chars): ${JSON.stringify(f.questions).slice(0, 300)}`);
         }
-        const hasLocationQ = questions.some((q: any) => q.mapTo === 'eventLocation');
-        if (!hasLocationQ) {
-          console.log(`    ❌ NO question mapped to "eventLocation"!`);
-          console.log(`    All mappings: ${questions.map((q: any) => `${q.label}→${q.mapTo}`).join(', ')}`);
-        }
-      } catch (e) {
-        console.log(`    ⚠️ Could not parse questions: ${e}`);
       }
     }
 
-    // 6. Check form submissions for venue data
-    const submissions = await pool.query(`
-      SELECT id, form_id, data, metadata, created_at
-      FROM form_submissions
-      WHERE tenant_id = $1
-      ORDER BY created_at DESC
-      LIMIT 3
-    `, [tenantId]);
-    console.log(`\n=== RECENT FORM SUBMISSIONS (${submissions.rows.length} found) ===`);
-    for (const s of submissions.rows as any[]) {
-      console.log(`  Submission ${s.id.slice(0,8)}... | form: ${s.form_id?.slice(0,8) || 'N/A'} | created: ${s.created_at}`);
+    // 6. Summary
+    console.log(`\n${'='.repeat(70)}`);
+    console.log('DIAGNOSIS SUMMARY');
+    console.log('='.repeat(70));
+
+    // Check all forms across all tenants for the mapping
+    const allForms = await pool.query(`SELECT id, name, slug, tenant_id, questions FROM lead_capture_forms`);
+    let formsWithMapping = 0;
+    let formsWithoutMapping = 0;
+    for (const f of allForms.rows as any[]) {
       try {
-        const data = typeof s.data === 'string' ? JSON.parse(s.data) : s.data;
-        const meta = typeof s.metadata === 'string' ? JSON.parse(s.metadata) : s.metadata;
-        console.log(`    Data keys: ${Object.keys(data || {}).join(', ')}`);
-        console.log(`    Metadata: projectId=${meta?.projectId || 'N/A'}, contactId=${meta?.contactId || 'N/A'}, venueId=${meta?.venueId || 'N/A'}`);
-      } catch (e) {
-        console.log(`    ⚠️ Could not parse data/metadata`);
-      }
+        const qs = typeof f.questions === 'string' ? JSON.parse(f.questions || '[]') : (f.questions || []);
+        if (Array.isArray(qs) && qs.some((q: any) => q.mapTo === 'eventLocation')) {
+          formsWithMapping++;
+        } else {
+          formsWithoutMapping++;
+          console.log(`  🔴 Form "${f.name}" (tenant: ${f.tenant_id.slice(0,8)}...) is MISSING eventLocation mapping`);
+        }
+      } catch { formsWithoutMapping++; }
     }
+    console.log(`\n  Forms with eventLocation mapping: ${formsWithMapping}`);
+    console.log(`  Forms WITHOUT eventLocation mapping: ${formsWithoutMapping}`);
 
-    console.log('\n=== DIAGNOSIS SUMMARY ===');
-    const venueCount = venues.rows.length;
-    const projectsWithVenue = (projects.rows as any[]).filter(p => p.venue_id).length;
-    const leadsWithLocation = (leads.rows as any[]).filter(l => l.event_location).length;
-
-    console.log(`  Venues in DB: ${venueCount}`);
-    console.log(`  Projects with venue_id: ${projectsWithVenue}/${projects.rows.length}`);
-    console.log(`  Leads with event_location: ${leadsWithLocation}/${leads.rows.length}`);
-
-    if (venueCount === 0) {
-      console.log('\n  🔴 ROOT CAUSE: No venues exist in the database!');
-      console.log('  This means venue creation during form submission is failing silently.');
-    }
-    if (projectsWithVenue === 0 && venueCount > 0) {
-      console.log('\n  🔴 ROOT CAUSE: Venues exist but projects don\'t link to them!');
-      console.log('  The venueId is not being set on the project during creation.');
-    }
-    if (leadsWithLocation === 0) {
-      console.log('\n  🔴 ROOT CAUSE: Leads have no event_location!');
-      console.log('  The form question is likely not mapped to "eventLocation".');
+    if (formsWithoutMapping > 0) {
+      console.log(`\n  🔧 FIX NEEDED: Update form questions to include a question with mapTo="eventLocation"`);
     }
 
   } catch (error) {

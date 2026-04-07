@@ -45,10 +45,9 @@ async function runDiagnostics() {
 
       // 1c. Check form submissions (idempotency records)
       const subs = await pool.query(`
-        SELECT id, form_id, submission_key, status, metadata, created_at
+        SELECT id, form_id, submission_key, status, metadata
         FROM form_submissions
         WHERE tenant_id = $1
-        ORDER BY created_at DESC
         LIMIT 5
       `, [tenantId]);
       console.log(`\n  FORM SUBMISSIONS (${subs.rows.length} found):`);

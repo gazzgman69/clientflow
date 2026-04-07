@@ -340,7 +340,8 @@ export default function LeadFormHosted({ slug }: LeadFormHostedProps) {
               // ALWAYS store under canonical 'eventLocation' keys so the server can reliably
               // find venue data regardless of what mapTo is set to on this form question.
               handleInputChange('eventLocation', fullAddress);
-              if (venue.placeId) handleInputChange('eventLocationPlaceId', venue.placeId);
+              // Only store real Google Place IDs (not manual-xxx synthetic ones)
+              if (venue.placeId && !venue.placeId.startsWith('manual-')) handleInputChange('eventLocationPlaceId', venue.placeId);
               if (venue.city) handleInputChange('eventLocationCity', venue.city);
               if (venue.state) handleInputChange('eventLocationState', venue.state);
               if (venue.zipCode) handleInputChange('eventLocationZipCode', venue.zipCode);

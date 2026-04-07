@@ -936,17 +936,16 @@ export default function LeadCaptureBuilder() {
                     )}
                   </CardContent>
                 </Card>
-              </div>
-
-              {/* Bottom Save Button */}
-              <div className="flex justify-end">
-                <Button
-                  onClick={handleSaveForm}
-                  disabled={saveFormMutation.isPending || !formDetails}
-                  data-testid="button-save-form-bottom"
-                >
-                  {saveFormMutation.isPending ? 'Saving...' : 'Save Form'}
-                </Button>
+                {/* Bottom Save Button */}
+                <div className="flex justify-end">
+                  <Button
+                    onClick={handleSaveForm}
+                    disabled={saveFormMutation.isPending || !formDetails}
+                    data-testid="button-save-form-bottom"
+                  >
+                    {saveFormMutation.isPending ? 'Saving...' : 'Save Form'}
+                  </Button>
+                </div>
               </div>
             )}
           </div>

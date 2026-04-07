@@ -637,7 +637,6 @@ export default function TemplatesPage() {
                             </DropdownMenu>
                           </div>
                         </div>
-                      </div>
                       <FormMessage />
                     </FormItem>
                   )}

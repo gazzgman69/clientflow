@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useLocation } from 'wouter';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
@@ -6,11 +6,11 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { apiRequest } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
+import { RichTextEditor, RichTextEditorRef } from '@/components/ui/rich-text-editor';
 import {
   Edit3,
   Plus,
@@ -33,6 +33,7 @@ export default function SignatureManagement() {
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [editingSignature, setEditingSignature] = useState<EmailSignature | null>(null);
   const [formData, setFormData] = useState({ name: '', content: '' });
+  const editorRef = useRef<RichTextEditorRef>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [, setLocation] = useLocation();
@@ -161,6 +162,8 @@ export default function SignatureManagement() {
   const handleEdit = (signature: EmailSignature) => {
     setEditingSignature(signature);
     setFormData({ name: signature.name, content: signature.content });
+    // Seed the rich text editor once it mounts
+    setTimeout(() => editorRef.current?.setContent(signature.content), 50);
   };
 
   const handleUpdate = () => {
@@ -187,6 +190,7 @@ export default function SignatureManagement() {
 
   const resetForm = () => {
     setFormData({ name: '', content: '' });
+    setTimeout(() => editorRef.current?.setContent(''), 50);
     setShowCreateForm(false);
     setEditingSignature(null);
   };
@@ -327,15 +331,17 @@ export default function SignatureManagement() {
             </div>
             
             <div>
-              <Label htmlFor="signature-content">Signature Content</Label>
-              <Textarea
-                id="signature-content"
-                value={formData.content}
-                onChange={(e) => setFormData({ ...formData, content: e.target.value })}
-                placeholder="Enter your signature content..."
-                rows={8}
-                data-testid="textarea-signature-content"
-              />
+              <Label>Signature Content</Label>
+              <div className="mt-1">
+                <RichTextEditor
+                  ref={editorRef}
+                  content={formData.content}
+                  onChange={(html) => setFormData(prev => ({ ...prev, content: html }))}
+                  placeholder="Enter your signature content..."
+                  minHeight="180px"
+                  data-testid="rte-signature-content"
+                />
+              </div>
               <p className="text-xs text-muted-foreground mt-1">
                 You can include your name, title, contact information, and any other details
               </p>

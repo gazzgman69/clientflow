@@ -109,6 +109,7 @@ router.post('/', async (req, res) => {
     const validatedData = validationSchema.parse({
       ...req.body,
       userId,
+      tenantId,
     });
 
     const signature = await signaturesService.createSignature(validatedData, tenantId);

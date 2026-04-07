@@ -108,7 +108,9 @@ export default function Sidebar() {
               <path d="M5.5 9 L10.5 9" stroke="white" strokeWidth="1.5" strokeLinecap="round"/>
             </svg>
           </div>
-          <span className="font-bold text-base text-white tracking-tight">ClientFlow</span>
+          <span className="font-bold text-base tracking-tight">
+            <span className="text-white">Client</span><span style={{ color: '#a855f7' }}>Flow</span>
+          </span>
         </div>
       </div>
       {/* Navigation Menu */}

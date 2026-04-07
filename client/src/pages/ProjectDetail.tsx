@@ -1654,14 +1654,6 @@ export default function ProjectDetail() {
                         />
                       </div>
                       <div>
-                        <Label>Lead Source</Label>
-                        <Input
-                          value={overviewForm.leadSource}
-                          onChange={(e) => setOverviewForm({ ...overviewForm, leadSource: e.target.value })}
-                          placeholder="e.g., Referral, Website"
-                        />
-                      </div>
-                      <div>
                         <Label>Budget Range</Label>
                         <Input
                           value={overviewForm.budgetRange}
@@ -1674,7 +1666,7 @@ export default function ProjectDetail() {
                         <Input
                           value={overviewForm.referralSource}
                           onChange={(e) => setOverviewForm({ ...overviewForm, referralSource: e.target.value })}
-                          placeholder="Referral source"
+                          placeholder="e.g., Instagram, Google, Word of mouth"
                         />
                       </div>
                       <div>
@@ -1835,10 +1827,6 @@ export default function ProjectDetail() {
                           <div>
                             <p className="text-sm text-muted-foreground">ESTIMATED VALUE</p>
                             <p className="font-medium">{formatCurrency(parseFloat(project.estimatedValue || "0"), (project.currency as any) || 'GBP')}</p>
-                          </div>
-                          <div>
-                            <p className="text-sm text-muted-foreground">LEAD SOURCE</p>
-                            <p className="font-medium">{(project as any).leadSource || "Not specified"}</p>
                           </div>
                           <div className="col-span-2">
                             <p className="text-sm text-muted-foreground">BUDGET RANGE</p>

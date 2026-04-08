@@ -560,7 +560,7 @@ router.delete('/:id', async (req, res) => {
       [id, tenantId]
     );
     await pool.query(
-      `UPDATE projects SET venue_id = NULL, venue_address = NULL WHERE venue_id = $1 AND tenant_id = $2`,
+      `UPDATE projects SET venue_id = NULL WHERE venue_id = $1 AND tenant_id = $2`,
       [id, tenantId]
     );
     

@@ -2,11 +2,12 @@ import { storage } from '../../storage';
 import { emailSyncService } from './emailSync';
 import { log } from '../../vite';
 import { db } from '../../db';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, desc, isNotNull, notInArray } from 'drizzle-orm';
+import { emails as emailsTable, emailThreads as emailThreadsTable, contacts as contactsTable, projects as projectsTable } from '@shared/schema';
 
 /**
- * Auto-sync service for Gmail email synchronization across all tenants
- * This service enumerates all active tenants and processes email sync per tenant
+ * Auto-sync service for email synchronization across all tenants and providers
+ * Supports Gmail (OAuth), Microsoft/Outlook (OAuth), and IMAP/SMTP (credentials)
  * with proper isolation, jitter/backoff, and feature flag support
  */
 export class EmailAutoSyncService {
@@ -177,7 +178,6 @@ export class EmailAutoSyncService {
                   const { microsoftEmailProvider } = await import('./email-provider-microsoft');
 
                   for (const msAccount of userMsAccounts) {
-                    // Build integration object from email_accounts row
                     const msIntegration = {
                       id: msAccount.id,
                       tenantId: msAccount.tenantId,
@@ -217,6 +217,153 @@ export class EmailAutoSyncService {
                 } catch (msErr) {
                   const msg = msErr instanceof Error ? msErr.message : 'Unknown error';
                   console.error(`❌ Microsoft sync failed for ${userId}: ${msg}`);
+                  tenantErrorCount++;
+                }
+              }
+
+              // --- IMAP/SMTP sync (any provider that isn't google or microsoft) ---
+              const userImapAccounts = allAccounts.filter(
+                a => a.userId === userId && a.providerKey !== 'google' && a.providerKey !== 'microsoft' && a.status === 'connected'
+              );
+              if (userImapAccounts.length > 0) {
+                // Build contact→project maps for IMAP matching
+                const projectsWithContacts = await db
+                  .select({
+                    projectId: projectsTable.id,
+                    contactEmail: contactsTable.email,
+                    contactId: contactsTable.id,
+                  })
+                  .from(projectsTable)
+                  .leftJoin(contactsTable, and(eq(contactsTable.id, projectsTable.contactId), eq(contactsTable.tenantId, tenant.id)))
+                  .where(and(eq(projectsTable.tenantId, tenant.id), isNotNull(contactsTable.email)));
+
+                const emailToProjectMap = new Map<string, string>();
+                const emailToContactMap = new Map<string, string>();
+                projectsWithContacts.forEach(p => {
+                  if (p.contactEmail) {
+                    emailToProjectMap.set(p.contactEmail.toLowerCase(), p.projectId);
+                    if (p.contactId) emailToContactMap.set(p.contactEmail.toLowerCase(), p.contactId);
+                  }
+                });
+
+                try {
+                  console.log(`🔄 Syncing IMAP for user ${userId} in tenant ${tenant.id}`);
+                  const { ImapSmtpAdapter } = await import('../adapters/ImapSmtpAdapter');
+                  const { secureStore } = await import('./secureStore');
+
+                  for (const imapAccount of userImapAccounts) {
+                    try {
+                      if (!imapAccount.secretsEnc) continue;
+
+                      // Decrypt credentials
+                      const decrypted = secureStore.decrypt(imapAccount.secretsEnc);
+                      const secrets = JSON.parse(decrypted);
+
+                      if (!secrets.imapHost || !secrets.username || !secrets.password) {
+                        console.log(`⚠️ IMAP account ${imapAccount.id} missing credentials, skipping`);
+                        continue;
+                      }
+
+                      const adapter = new ImapSmtpAdapter();
+                      await adapter.connect({
+                        username: secrets.username,
+                        password: secrets.password,
+                        imapHost: secrets.imapHost,
+                        imapPort: secrets.imapPort || 993,
+                        imapSecure: secrets.imapSecure !== false,
+                        smtpHost: secrets.smtpHost || '',
+                        smtpPort: secrets.smtpPort || 587,
+                        smtpSecure: secrets.smtpSecure || false,
+                      } as any, { tenantId: tenant.id, userId } as any);
+
+                      const messages = await adapter.fetchMessages({ limit: 50 });
+                      console.log(`📬 IMAP ${tenant.id}/${userId}: Fetched ${messages.length} messages`);
+
+                      // Store messages using same contact-matching logic
+                      let imapSynced = 0;
+                      for (const msg of messages) {
+                        try {
+                          const fromEmail = (msg.from || '').toLowerCase();
+                          const matchedContactEmail = [fromEmail, ...(msg.to || []).map(e => e.toLowerCase())]
+                            .find(e => emailToContactMap.has(e));
+
+                          if (!matchedContactEmail) continue;
+
+                          const contactId = emailToContactMap.get(matchedContactEmail) || null;
+                          if (!contactId) continue;
+
+                          const matchedProjectId = emailToProjectMap.get(matchedContactEmail) || null;
+                          const threadId = msg.threadId || msg.subject?.replace(/^(Re:|Fwd?:)\s*/i, '').trim() || msg.id;
+                          const emailId = `imap_${msg.id}`;
+
+                          // Upsert thread
+                          const [existingThread] = await db
+                            .select({ id: emailThreadsTable.id })
+                            .from(emailThreadsTable)
+                            .where(eq(emailThreadsTable.id, threadId))
+                            .limit(1);
+
+                          if (!existingThread) {
+                            await db.insert(emailThreadsTable).values({
+                              id: threadId,
+                              userId,
+                              tenantId: tenant.id,
+                              subject: msg.subject || 'No Subject',
+                              projectId: matchedProjectId,
+                              lastMessageAt: msg.date || new Date(),
+                              createdAt: new Date(),
+                              updatedAt: new Date(),
+                            });
+                          }
+
+                          const direction = fromEmail.includes(imapAccount.accountEmail?.toLowerCase() || '') ? 'outbound' : 'inbound';
+
+                          await db.insert(emailsTable).values({
+                            id: emailId,
+                            threadId,
+                            userId,
+                            tenantId: tenant.id,
+                            provider: imapAccount.providerKey || 'imap_smtp',
+                            providerMessageId: msg.id,
+                            direction,
+                            fromEmail: msg.from,
+                            toEmails: msg.to || [],
+                            subject: msg.subject || 'No Subject',
+                            bodyText: msg.text || '',
+                            bodyHtml: msg.html || null,
+                            snippet: (msg.snippet || msg.text || '').substring(0, 200),
+                            sentAt: msg.date || new Date(),
+                            hasAttachments: msg.hasAttachments || false,
+                            contactId,
+                            projectId: matchedProjectId,
+                            createdAt: new Date(),
+                            updatedAt: new Date(),
+                          }).onConflictDoNothing();
+
+                          imapSynced++;
+                        } catch (msgErr) {
+                          // Skip individual message errors
+                        }
+                      }
+
+                      if (imapSynced > 0) {
+                        console.log(`✅ IMAP ${tenant.id}/${userId}: ${imapSynced} synced`);
+                      }
+
+                      await db.update(emailAccountsTable)
+                        .set({ lastSyncedAt: new Date() })
+                        .where(eq(emailAccountsTable.id, imapAccount.id));
+
+                      await adapter.disconnect();
+                    } catch (acctErr) {
+                      const msg = acctErr instanceof Error ? acctErr.message : 'Unknown error';
+                      console.error(`❌ IMAP account ${imapAccount.id} sync failed: ${msg}`);
+                    }
+                  }
+                  tenantSuccessCount++;
+                } catch (imapErr) {
+                  const msg = imapErr instanceof Error ? imapErr.message : 'Unknown error';
+                  console.error(`❌ IMAP sync failed for ${userId}: ${msg}`);
                   tenantErrorCount++;
                 }
               }

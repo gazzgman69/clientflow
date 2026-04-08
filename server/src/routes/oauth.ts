@@ -1392,97 +1392,114 @@ router.get('/api/auth/microsoft/status', requireAuth, async (req: any, res) => {
     if (!tenantId) {
       return res.status(400).json({ error: 'Tenant context required' });
     }
-    
-    // Check if user has active Microsoft integrations for this tenant
-    const integrations = await storage.getCalendarIntegrationsByUser(userId, tenantId);
-    const microsoftIntegration = integrations.find(i => 
-      i.provider === 'microsoft' && 
-      i.isActive &&
-      i.tenantId === tenantId
-    );
-    
-    if (!microsoftIntegration) {
-      return res.json({ 
-        ok: true, 
-        connected: false, 
+
+    // First check email_accounts table (where email OAuth tokens are stored)
+    const emailIntegration = await storage.getEmailProviderIntegration(userId, tenantId, 'microsoft');
+
+    if (emailIntegration && emailIntegration.status === 'connected') {
+      return res.json({
+        ok: true,
+        connected: true,
         provider: 'microsoft',
-        error: 'No active Microsoft integration found for this tenant',
-        scopes: [] 
+        email: emailIntegration.accountEmail,
+        accountEmail: emailIntegration.accountEmail,
+        lastSyncedAt: emailIntegration.lastSyncedAt,
+        scopes: emailIntegration.scopes || ['Mail.Read', 'Mail.Send', 'Contacts.Read'],
+        needsReconnect: false
       });
     }
 
-    // SECURITY HARDENING: Microsoft OAuth now requires explicit connection validation
-    // No auto-linking from connector system without explicit user consent
+    // Also check calendar integrations table for backward compatibility
+    const integrations = await storage.getCalendarIntegrationsByUser(userId, tenantId);
+    const microsoftIntegration = integrations.find(i =>
+      i.provider === 'microsoft' &&
+      i.isActive &&
+      i.tenantId === tenantId
+    );
+
+    if (!microsoftIntegration) {
+      // Check if email integration exists but needs reconnect
+      if (emailIntegration && emailIntegration.status === 'error') {
+        return res.json({
+          ok: true,
+          connected: false,
+          needsReconnect: true,
+          provider: 'microsoft',
+          accountEmail: emailIntegration.accountEmail,
+          error: 'Token expired or revoked',
+          scopes: []
+        });
+      }
+
+      return res.json({
+        ok: true,
+        connected: false,
+        provider: 'microsoft',
+        scopes: []
+      });
+    }
+
+    // Calendar integration found - verify connection
     try {
       const connectionTest = await microsoftOAuthService.testConnection({
         tenantId,
         userId,
-        requireExplicitConnection: true, // Security: Block auto-linking
+        requireExplicitConnection: true,
         isSystemOperation: false
       });
-      
+
       if (connectionTest.success) {
         try {
-          // Verify we can get user profile (tests permissions)
           const profile = await microsoftOAuthService.getUserProfile({
             tenantId,
             userId,
-            requireExplicitConnection: true, // Security: Block auto-linking
+            requireExplicitConnection: true,
             isSystemOperation: false
           });
-          
-          res.json({ 
-            ok: true, 
-            connected: true, 
+
+          res.json({
+            ok: true,
+            connected: true,
             provider: 'microsoft',
-            email: profile.email || microsoftIntegration.providerAccountId,
+            accountEmail: profile.email || microsoftIntegration.providerAccountId,
             name: profile.name,
-            scopes: [
-              'https://graph.microsoft.com/User.Read',
-              'https://graph.microsoft.com/Calendars.ReadWrite',
-              'https://graph.microsoft.com/Mail.ReadWrite'
-            ],
+            scopes: ['Mail.Read', 'Mail.Send', 'Contacts.Read'],
             lastSyncAt: microsoftIntegration.lastSyncAt
           });
         } catch (profileError: any) {
           console.log(`🔒 Microsoft profile fetch failed for user ${userId}, tenant ${tenantId}:`, profileError.message);
-          
-          // Profile failed - likely token issue or insufficient permissions
-          res.json({ 
-            ok: true, 
-            connected: false, 
+          res.json({
+            ok: true,
+            connected: false,
             needsReconnect: true,
             error: 'Token expired or insufficient permissions',
             provider: 'microsoft',
-            scopes: [] 
+            scopes: []
           });
         }
       } else {
-        // Connection test failed
-        res.json({ 
-          ok: true, 
-          connected: false, 
+        res.json({
+          ok: true,
+          connected: false,
           provider: 'microsoft',
           error: connectionTest.error || 'Microsoft OAuth not connected',
           needsReconnect: true,
-          scopes: [] 
+          scopes: []
         });
       }
-      
+
     } catch (tokenError: any) {
-      // Token validation failed - user needs to reconnect
       console.log(`🔒 Microsoft token validation failed for user ${userId}, tenant ${tenantId}:`, tokenError.message);
-      
-      res.json({ 
-        ok: true, 
-        connected: false, 
+      res.json({
+        ok: true,
+        connected: false,
         needsReconnect: true,
         error: 'Token expired or revoked',
         provider: 'microsoft',
-        scopes: [] 
+        scopes: []
       });
     }
-    
+
   } catch (error: any) {
     console.error('Error fetching Microsoft OAuth status:', error);
     res.status(500).json({ ok: false, connected: false, error: 'Failed to fetch status', scopes: [] });

@@ -445,6 +445,18 @@ router.post('/send', requireAuth, upload.array('attachments', 10), async (req: a
           }, tenantId);
           console.log('📧 Email stored in DB for project thread:', { threadId, projectId });
 
+          // Trigger a background email sync 15s after sending so the sent email
+          // (and any quick reply) shows up promptly without waiting for the next poll cycle
+          setTimeout(async () => {
+            try {
+              const { emailAutoSyncService } = await import('../services/email-auto-sync');
+              console.log('🔄 Post-send sync triggered for user:', userId);
+              await emailAutoSyncService.syncEmailsForUser(userId);
+            } catch (syncErr) {
+              console.warn('⚠️ Post-send sync failed (non-fatal):', syncErr);
+            }
+          }, 15000);
+
           // Trigger lead status automator if email was sent to a lead
           if (contactId) {
             try {

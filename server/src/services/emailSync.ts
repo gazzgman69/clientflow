@@ -274,22 +274,24 @@ export class EmailSyncService {
           }
           
           // AUTO-LINK PROJECTS: When contact has active projects, link to most recent
+          // Active statuses = anything that isn't terminal (lost/cancelled/archived/completed)
           if (contactId && !matchedProjectId) {
             const { db } = await import('../../db');
             const { projects } = await import('../../../shared/schema');
-            const { eq, and, desc } = await import('drizzle-orm');
-            
+            const { eq, and, desc, notInArray } = await import('drizzle-orm');
+
+            const terminalStatuses = ['lost', 'cancelled', 'archived', 'completed'];
             const activeProjects = await db
               .select({ id: projects.id, createdAt: projects.createdAt })
               .from(projects)
               .where(and(
                 eq(projects.contactId, contactId),
                 eq(projects.tenantId, tenantId),
-                eq(projects.status, 'active')
+                notInArray(projects.status, terminalStatuses)
               ))
               .orderBy(desc(projects.createdAt))
               .limit(1);
-              
+
             if (activeProjects.length > 0) {
               matchedProjectId = activeProjects[0].id;
             }

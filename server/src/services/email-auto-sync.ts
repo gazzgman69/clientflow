@@ -11,7 +11,7 @@ import { and, eq } from 'drizzle-orm';
  */
 export class EmailAutoSyncService {
   private intervalId: NodeJS.Timeout | null = null;
-  private readonly SYNC_INTERVAL = 3 * 60 * 1000; // 3 minutes in milliseconds
+  private readonly SYNC_INTERVAL = 60 * 1000; // 60 seconds — matches industry-standard CRM sync cadence
   private isRunning = false;
   private inProgressByUser = new Set<string>();
   private lastSyncByTenant = new Map<string, number>();
@@ -28,7 +28,7 @@ export class EmailAutoSyncService {
       return;
     }
 
-    console.log('🚀 Starting email auto-sync service (every 3 minutes)');
+    console.log('🚀 Starting email auto-sync service (every 60 seconds)');
     
     // Run initial sync after 30 seconds to let the server fully initialize
     setTimeout(() => {

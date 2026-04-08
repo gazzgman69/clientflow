@@ -1,11 +1,9 @@
 /**
  * Cleanup script: Remove Google Calendar events that were imported into the CRM.
  *
- * Targets events that:
- * - Were imported from Google (not CRM-created)
- * - Are NOT linked to any lead or project (i.e. personal calendar events)
- *
- * Safe: CRM-created events (lead events, project events) are always preserved.
+ * Identifies imported events by: has an external_event_id (Google Calendar ID)
+ * but NOT linked to any lead or project. CRM-created events that were pushed
+ * to Google will always have a lead_id or project_id, so they're safe.
  */
 
 import { pool } from '../server/db';
@@ -16,25 +14,25 @@ async function cleanup() {
   // First, count what we're dealing with
   const countResult = await pool.query(`
     SELECT
-      COUNT(*) FILTER (WHERE source = 'google' OR source = 'ical') as imported_count,
-      COUNT(*) FILTER (WHERE source = 'crm' OR source IS NULL) as crm_count,
-      COUNT(*) FILTER (WHERE lead_id IS NOT NULL OR project_id IS NOT NULL) as linked_count,
+      COUNT(*) FILTER (WHERE external_event_id IS NOT NULL) as has_google_id,
+      COUNT(*) FILTER (WHERE lead_id IS NOT NULL OR project_id IS NOT NULL) as linked_to_crm,
+      COUNT(*) FILTER (WHERE external_event_id IS NOT NULL AND lead_id IS NULL AND project_id IS NULL) as imported_personal,
       COUNT(*) as total_count
     FROM events
   `);
 
   const counts = countResult.rows[0];
   console.log(`Total events: ${counts.total_count}`);
-  console.log(`CRM-created events: ${counts.crm_count}`);
-  console.log(`Imported events (Google/iCal): ${counts.imported_count}`);
-  console.log(`Events linked to leads/projects: ${counts.linked_count}`);
+  console.log(`Events with Google Calendar ID: ${counts.has_google_id}`);
+  console.log(`Events linked to leads/projects (CRM): ${counts.linked_to_crm}`);
+  console.log(`Imported personal events (to delete): ${counts.imported_personal}`);
   console.log('');
 
-  // Find imported events that are NOT linked to any lead or project
+  // Find imported events: have external_event_id but no lead_id/project_id
   const toDeleteResult = await pool.query(`
-    SELECT id, title, start_date, source, lead_id, project_id, contact_id
+    SELECT id, title, start_date, source, external_event_id
     FROM events
-    WHERE (source = 'google' OR source = 'ical' OR (source != 'crm' AND source IS NOT NULL))
+    WHERE external_event_id IS NOT NULL
       AND lead_id IS NULL
       AND project_id IS NULL
     ORDER BY start_date DESC
@@ -48,22 +46,22 @@ async function cleanup() {
 
   console.log(`Found ${toDeleteResult.rows.length} imported events to remove:\n`);
 
-  // Show first 10 as a sample
-  const sample = toDeleteResult.rows.slice(0, 10);
+  // Show first 15 as a sample
+  const sample = toDeleteResult.rows.slice(0, 15);
   for (const event of sample) {
     const date = new Date(event.start_date).toLocaleDateString('en-GB');
-    console.log(`  - "${event.title}" (${date}) [source: ${event.source}]`);
+    console.log(`  - "${event.title}" (${date})`);
   }
-  if (toDeleteResult.rows.length > 10) {
-    console.log(`  ... and ${toDeleteResult.rows.length - 10} more`);
+  if (toDeleteResult.rows.length > 15) {
+    console.log(`  ... and ${toDeleteResult.rows.length - 15} more`);
   }
 
-  console.log('');
+  console.log('\n🗑️  Deleting...');
 
   // Delete them
   const deleteResult = await pool.query(`
     DELETE FROM events
-    WHERE (source = 'google' OR source = 'ical' OR (source != 'crm' AND source IS NOT NULL))
+    WHERE external_event_id IS NOT NULL
       AND lead_id IS NULL
       AND project_id IS NULL
   `);

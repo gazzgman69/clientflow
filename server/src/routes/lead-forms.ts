@@ -921,6 +921,45 @@ router.post('/:slug/submit', formSubmissionLimiter, async (req, res) => {
       // Continue with submission if idempotency check fails
     }
 
+    // ============================================================================
+    // RACE CONDITION GUARD: Claim the submission key BEFORE creating any records.
+    // If two requests arrive simultaneously, only one will succeed inserting
+    // the pending record — the other hits the unique constraint and aborts.
+    // ============================================================================
+    try {
+      await tenantStorage.createFormSubmission({
+        formId: form.id,
+        submissionKey,
+        ipAddress: req.ip?.slice(0, 15) || 'unknown',
+        userAgent: req.get('User-Agent')?.slice(0, 200) || 'unknown',
+        leadId: null,
+        status: 'pending' as any,
+        metadata: JSON.stringify({ claimedAt: new Date().toISOString() }),
+        submittedAt: new Date(),
+        expiresAt: new Date(Date.now() + (30 * 24 * 60 * 60 * 1000))
+      });
+    } catch (claimError: any) {
+      // Unique constraint violation = another request already claimed this submission
+      if (claimError?.code === '23505' || claimError?.message?.includes('unique') || claimError?.message?.includes('duplicate')) {
+        console.log('🛡️ RACE CONDITION BLOCKED: duplicate simultaneous submission', {
+          submissionKey: submissionKey.slice(0, 8) + '***',
+          slug,
+          tenantId: form.tenantId,
+          timestamp: new Date().toISOString()
+        });
+        return res.json({
+          ok: true,
+          afterSubmit: {
+            type: form.redirectUrl ? 'redirect' : 'message',
+            redirectUrl: form.redirectUrl || null,
+            message: form.thankYouMessage || 'Thank you for your enquiry! We will be in touch shortly.'
+          }
+        });
+      }
+      // Non-constraint error — log and continue
+      console.warn('⚠️ Submission claim failed (non-constraint):', claimError);
+    }
+
     // Create lead from mapped data using TENANT-SCOPED storage
     const startTime = Date.now();
     const nameParts = splitFullName(mappingResult.leadData.fullName || '');
@@ -1327,32 +1366,28 @@ router.post('/:slug/submit', formSubmissionLimiter, async (req, res) => {
       });
     }
 
-    // SECURITY: Record successful submission for idempotency tracking - Use tenant-scoped storage
+    // Update the pending submission record with final details (created in race-guard above)
     try {
-      const submissionRecord = {
-        formId: form.id,
-        submissionKey,
-        ipAddress: req.ip,
-        userAgent: req.get('User-Agent')?.slice(0, 500), // Limit length
-        leadId: lead.id,
-        status: 'processed' as const,
-        metadata: JSON.stringify({
-          contactId: contact.id,
-          projectId: project.id,
-          venueId: createdVenue?.id || null
-        }),
-        expiresAt: new Date(Date.now() + (30 * 24 * 60 * 60 * 1000)), // 30 days TTL
-      };
-      
-      await tenantStorage.createFormSubmission(submissionRecord);
-      console.log('✅ IDEMPOTENCY RECORDED:', { 
-        submissionKey: submissionKey.slice(0, 8) + '***', 
+      const pendingSubmission = await tenantStorage.getFormSubmissionByKey(submissionKey);
+      if (pendingSubmission) {
+        await storage.updateFormSubmission(pendingSubmission.id, {
+          leadId: lead.id,
+          status: 'processed' as any,
+          metadata: JSON.stringify({
+            contactId: contact.id,
+            projectId: project.id,
+            venueId: createdVenue?.id || null
+          }),
+        }, resolvedTenantId);
+      }
+      console.log('✅ IDEMPOTENCY RECORDED:', {
+        submissionKey: submissionKey.slice(0, 8) + '***',
         leadId: lead.id,
         tenantId: form.tenantId
       });
     } catch (idempotencyRecordError) {
-      console.error('❌ Failed to record idempotency:', { 
-        leadId: lead.id, 
+      console.error('❌ Failed to record idempotency:', {
+        leadId: lead.id,
         tenantId: form.tenantId,
         error: idempotencyRecordError 
       });

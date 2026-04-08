@@ -623,12 +623,12 @@ router.post('/:slug/submit', formSubmissionLimiter, async (req, res) => {
       timestamp: new Date().toDateString(), // Same day submissions considered duplicates
     };
     
-    console.log(`🔍 [${reqId}] Submission fingerprint:`, { slug, email: submissionFingerprint.email, key: submissionKey.slice(0, 8) + '***' });
-    
     const submissionKey = crypto
       .createHash('sha256')
       .update(JSON.stringify(submissionFingerprint))
       .digest('hex');
+
+    console.log(`🔍 [${reqId}] Submission fingerprint:`, { slug, email: submissionFingerprint.email, key: submissionKey.slice(0, 8) + '***' });
 
     // Check for duplicate submission using idempotency key - SECURITY: Use tenant-scoped storage
     try {

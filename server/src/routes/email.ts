@@ -369,6 +369,7 @@ router.post('/send', requireAuth, upload.array('attachments', 10), async (req: a
 
     try {
       // Dispatch email using OAuth provider
+      console.log('📧 Dispatching email:', { to: validatedEmailData.to, subject: finalSubject, hasHtml: !!finalHtml, hasText: !!finalText, projectId });
       const { emailDispatcher } = await import('../services/email-dispatcher');
       const result = await emailDispatcher.dispatchEmail(userId, tenantId, {
         to: validatedEmailData.to,
@@ -386,17 +387,17 @@ router.post('/send', requireAuth, upload.array('attachments', 10), async (req: a
       }
       
       // Store sent email in database for thread tracking
-      console.log('📧 Email send result:', { ok: result.ok, messageId: result.messageId, threadId: result.threadId, projectId, contactId });
+      console.log('📧 Email send result:', { ok: result.ok, messageId: result.messageId, threadId: result.threadId, provider: result.provider, projectId, contactId, subject: finalSubject });
       if (projectId) {
         try {
           await storage.createEmail({
             tenantId,
             userId,
-            // Use Gmail threadId for proper threading; fall back to messageId
-            threadId: result.threadId || result.messageId,
-            // Store Gmail messageId as providerMessageId so background sync can deduplicate
+            // Use provider threadId for proper threading; fall back to messageId
+            threadId: result.threadId || result.messageId || `sent-${Date.now()}`,
+            // Store provider messageId so background sync can deduplicate
             providerMessageId: result.messageId,
-            provider: 'gmail',
+            provider: result.provider || 'unknown',
             fromEmail: result.fromEmail || req.user?.email || '',
             toEmails: [validatedEmailData.to],
             ccEmails: validatedEmailData.cc ? [validatedEmailData.cc] : [],

@@ -235,6 +235,7 @@ export class MicrosoftEmailProvider {
     };
 
     try {
+      console.log('📧 Microsoft Graph sendMail:', { subject: message.subject, to: message.toRecipients?.map((r: any) => r.emailAddress?.address), contentType: message.body?.contentType, hasBody: !!message.body?.content });
       // Send email using Graph API
       const response = await client
         .api('/me/sendMail')

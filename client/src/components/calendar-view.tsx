@@ -362,6 +362,51 @@ export default function CalendarView({ viewMode = 'month' }: CalendarViewProps) 
            today.getDate() === day;
   };
 
+  // Map event title prefix → status colour (matches project status colours)
+  const getEventStatusColor = (event: Event & { isBooking?: boolean }) => {
+    if (event.isCancelled) {
+      return 'bg-muted/50 text-muted-foreground dark:bg-muted/20 dark:text-muted-foreground';
+    }
+    if ((event as any).isBooking) {
+      return 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300';
+    }
+    const title = event.title || '';
+    if (title.startsWith('Booked ✓') || title.startsWith('Booked ✓')) {
+      return 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300';
+    }
+    if (title.startsWith('Proposal Sent')) {
+      return 'bg-violet-100 text-violet-800 dark:bg-violet-900/30 dark:text-violet-300';
+    }
+    if (title.startsWith('Contacted')) {
+      return 'bg-sky-100 text-sky-800 dark:bg-sky-900/30 dark:text-sky-300';
+    }
+    if (title.startsWith('On Hold')) {
+      return 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300';
+    }
+    if (title.startsWith('Enquiry') || title.startsWith('New Lead Project')) {
+      return 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300';
+    }
+    if (title.startsWith('(CANCELLED)')) {
+      return 'bg-rose-100 text-rose-800 dark:bg-rose-900/30 dark:text-rose-300';
+    }
+    // Default for manually created events
+    return 'bg-primary/10 text-primary';
+  };
+
+  // Colour for the left border accent on list-style event items
+  const getEventBorderColor = (event: Event & { isBooking?: boolean }) => {
+    if (event.isCancelled) return 'border-l-muted-foreground';
+    const title = event.title || '';
+    if ((event as any).isBooking) return 'border-l-green-500';
+    if (title.startsWith('Booked ✓') || title.startsWith('Booked ✓')) return 'border-l-green-500';
+    if (title.startsWith('Proposal Sent')) return 'border-l-violet-500';
+    if (title.startsWith('Contacted')) return 'border-l-sky-500';
+    if (title.startsWith('On Hold')) return 'border-l-amber-500';
+    if (title.startsWith('Enquiry') || title.startsWith('New Lead Project')) return 'border-l-emerald-500';
+    if (title.startsWith('(CANCELLED)')) return 'border-l-rose-500';
+    return 'border-l-primary';
+  };
+
   const getEventsForDay = (day: number) => {
     const dayDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), day);
 
@@ -429,9 +474,9 @@ export default function CalendarView({ viewMode = 'month' }: CalendarViewProps) 
               {!eventsLoading && getUpcomingEvents().length > 0 && (
                 <>
                   {getUpcomingEvents().slice(0, 3).map((event, index) => (
-                    <div 
-                      key={event.id} 
-                      className="text-xs px-2 py-1 bg-primary/10 text-primary rounded cursor-pointer hover:bg-primary/20 transition-colors flex items-center gap-1"
+                    <div
+                      key={event.id}
+                      className={`text-xs px-2 py-1 rounded cursor-pointer hover:opacity-80 transition-colors flex items-center gap-1 ${getEventStatusColor(event)}`}
                       onClick={() => handleEditEvent(event)}
                       data-testid={`upcoming-event-${index + 1}`}
                       title={`${event.title} - ${new Date(event.startDate).toLocaleDateString()} at ${formatEventTime(event.startDate, event.endDate, event.allDay)}`}
@@ -536,21 +581,10 @@ export default function CalendarView({ viewMode = 'month' }: CalendarViewProps) 
                             <div className="font-medium mb-1">{day}</div>
                             <div className="space-y-1">
                               {dayEvents.map((event, eventIndex) => {
-                                const isNewLead = event.title.includes('New Lead Project •');
-                                const isCancelled = event.isCancelled;
-                                const isBooking = (event as any).isBooking;
                                 return (
                                 <div
                                   key={event.id}
-                                  className={`text-xs p-1 rounded cursor-pointer hover:opacity-80 ${
-                                    isCancelled
-                                      ? 'bg-muted/50 text-muted-foreground dark:bg-muted/20 dark:text-muted-foreground'
-                                      : isBooking
-                                        ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300'
-                                        : isNewLead
-                                          ? 'bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-300'
-                                          : 'bg-primary/10 text-primary'
-                                  }`}
+                                  className={`text-xs p-1 rounded cursor-pointer hover:opacity-80 ${getEventStatusColor(event)}`}
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     handleEditEvent(event);
@@ -789,7 +823,7 @@ export default function CalendarView({ viewMode = 'month' }: CalendarViewProps) 
                       {getUpcomingEvents().map((event, index) => (
                         <div
                           key={event.id}
-                          className="p-3 rounded-lg cursor-pointer border transition-colors hover:bg-muted/50"
+                          className={`p-3 rounded-lg cursor-pointer border border-l-4 ${getEventBorderColor(event)} transition-colors hover:bg-muted/50`}
                           onClick={() => {
                             setShowAllEventsModal(false);
                             handleEditEvent(event);
@@ -830,7 +864,7 @@ export default function CalendarView({ viewMode = 'month' }: CalendarViewProps) 
                         .map((event, index) => (
                           <div
                             key={event.id}
-                            className="p-3 rounded-lg cursor-pointer border transition-colors hover:bg-muted/50 opacity-75"
+                            className={`p-3 rounded-lg cursor-pointer border border-l-4 ${getEventBorderColor(event)} transition-colors hover:bg-muted/50 opacity-75`}
                             onClick={() => {
                               setShowAllEventsModal(false);
                               handleEditEvent(event);
@@ -910,7 +944,7 @@ export default function CalendarView({ viewMode = 'month' }: CalendarViewProps) 
             {selectedDayEvents?.events.map((event, index) => (
               <div
                 key={event.id}
-                className="p-3 rounded-lg cursor-pointer border transition-colors hover:bg-muted/50"
+                className={`p-3 rounded-lg cursor-pointer border border-l-4 ${getEventBorderColor(event)} transition-colors hover:bg-muted/50`}
                 onClick={() => {
                   setShowDayEventsModal(false);
                   handleEditEvent(event);

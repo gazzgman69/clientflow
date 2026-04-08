@@ -11,13 +11,13 @@ const MODEL = "claude-haiku-4-5-20251001";
 const FUNCTIONS = [
   {
     name: "get_projects_count",
-    description: "Get the total number of projects, optionally filtered by status or date range",
+    description: "Get the total number of projects/bookings, optionally filtered by status or date range. Project statuses follow a lifecycle: new → contacted → hold → proposal_sent → booked → completed (or lost/cancelled/archived).",
     parameters: {
       type: "object",
       properties: {
         status: {
           type: "string",
-          enum: ["active", "completed", "cancelled", "pending"],
+          enum: ["new", "contacted", "hold", "proposal_sent", "booked", "completed", "lost", "cancelled", "archived"],
           description: "Filter by project status"
         },
         startDate: {
@@ -111,7 +111,7 @@ const FUNCTIONS = [
   },
   {
     name: "get_project_details",
-    description: "PRIMARY source for ALL project/booking information. Returns complete event details including: venue (name, address, city), event dates, budget, lineup, status, contact info, notes. ALWAYS use this function FIRST when questions mention a contact name and ask about venue/location/date/booking details.",
+    description: "PRIMARY source for ALL project/booking information. Returns complete event details including: venue (name, address, city), event dates, budget, lineup, status, contact info, notes, project type. ALWAYS use this function FIRST when questions mention a contact name and ask about venue/location/date/booking details. Project statuses: new, contacted, hold, proposal_sent, booked, completed, lost, cancelled, archived.",
     parameters: {
       type: "object",
       properties: {
@@ -125,7 +125,7 @@ const FUNCTIONS = [
         },
         status: {
           type: "string",
-          enum: ["active", "completed", "cancelled", "pending"],
+          enum: ["new", "contacted", "hold", "proposal_sent", "booked", "completed", "lost", "cancelled", "archived"],
           description: "Filter by status"
         },
         limit: {
@@ -137,13 +137,13 @@ const FUNCTIONS = [
   },
   {
     name: "get_leads_summary",
-    description: "Get summary of leads including count by status and conversion metrics",
+    description: "Get summary of leads including count by status and conversion metrics. Lead statuses: new, contacted, hold, proposal_sent, lost, converted, archived.",
     parameters: {
       type: "object",
       properties: {
         status: {
           type: "string",
-          enum: ["new", "contacted", "qualified", "proposal", "negotiation", "won", "lost"],
+          enum: ["new", "contacted", "hold", "proposal_sent", "lost", "converted", "archived"],
           description: "Filter by lead status"
         },
         startDate: {
@@ -382,10 +382,15 @@ async function executeFunction(
       return {
         total: filtered.length,
         breakdown: {
-          active: projects.filter(p => p.status === 'active').length,
+          new: projects.filter(p => p.status === 'new').length,
+          contacted: projects.filter(p => p.status === 'contacted').length,
+          hold: projects.filter(p => p.status === 'hold').length,
+          proposal_sent: projects.filter(p => p.status === 'proposal_sent').length,
+          booked: projects.filter(p => p.status === 'booked').length,
           completed: projects.filter(p => p.status === 'completed').length,
+          lost: projects.filter(p => p.status === 'lost').length,
           cancelled: projects.filter(p => p.status === 'cancelled').length,
-          pending: projects.filter(p => p.status === 'pending').length
+          archived: projects.filter(p => p.status === 'archived').length,
         }
       };
     }
@@ -452,7 +457,11 @@ async function executeFunction(
         .map(p => ({
           name: p.name,
           date: p.startDate,
-          status: p.status
+          endDate: p.endDate,
+          status: p.status,
+          eventType: (p as any).eventType || (p as any).event_type || null,
+          estimatedValue: (p as any).estimatedValue || (p as any).estimated_value || null,
+          venueName: (p as any).venueName || (p as any).venue_name || null,
         }));
 
       return {
@@ -519,9 +528,13 @@ async function executeFunction(
       return {
         count: sorted.length,
         clients: sorted.map((c: any) => ({
+          id: c.id,
           name: c.fullName || c.full_name || `${c.firstName || c.first_name || ''} ${c.lastName || c.last_name || ''}`.trim(),
           email: c.email,
-          phone: c.phone
+          phone: c.phone,
+          company: c.company || null,
+          source: c.source || c.leadSource || c.lead_source || null,
+          createdAt: c.createdAt || c.created_at,
         }))
       };
     }
@@ -577,19 +590,43 @@ async function executeFunction(
             id: p.id,
             name: p.name,
             status: p.status,
+            eventType: p.eventType || p.event_type || null,
             startDate: p.startDate || p.start_date,
             endDate: p.endDate || p.end_date,
+            startTime: p.startTime || p.start_time || null,
+            endTime: p.endTime || p.end_time || null,
             estimatedValue: p.estimatedValue || p.estimated_value,
             actualValue: p.actualValue || p.actual_value,
+            currency: p.currency || 'GBP',
+            budgetRange: p.budgetRange || p.budget_range || null,
             contactId,
             contactName,
+            leadSource: p.leadSource || p.lead_source || null,
+            lineupSummary: p.lineupSummary || p.lineup_summary || null,
+            dressCode: p.dressCode || p.dress_code || null,
+            parkingDetails: p.parkingDetails || p.parking_details || null,
+            loadInDetails: p.loadInDetails || p.load_in_details || null,
+            accommodation: p.accommodation || null,
+            mealDetails: p.mealDetails || p.meal_details || null,
+            backlineProduction: p.backlineProduction || p.backline_production || null,
+            description: p.description || null,
+            progress: p.progress || 0,
+            secondContactName: p.secondContactName || p.second_contact_name || null,
+            dayOfContactName: p.dayOfContactName || p.day_of_contact_name || null,
+            dayOfContactPhone: p.dayOfContactPhone || p.day_of_contact_phone || null,
+            lostReason: p.lostReason || p.lost_reason || null,
+            lastContactAt: p.lastContactAt || p.last_contact_at || null,
+            createdAt: p.createdAt || p.created_at,
             venue: venue ? {
               name: venue.name,
               address: venue.address,
               city: venue.city,
               state: venue.state,
               zipCode: venue.zipCode || venue.zip_code
-            } : null
+            } : (p.venueName || p.venue_name ? {
+              name: p.venueName || p.venue_name,
+              address: p.venueAddress || p.venue_address,
+            } : null)
           };
         })
       };
@@ -616,11 +653,11 @@ async function executeFunction(
       const statusBreakdown = {
         new: leads.filter(l => l.status === 'new').length,
         contacted: leads.filter(l => l.status === 'contacted').length,
-        qualified: leads.filter(l => l.status === 'qualified').length,
-        proposal: leads.filter(l => l.status === 'proposal').length,
-        negotiation: leads.filter(l => l.status === 'negotiation').length,
-        won: leads.filter(l => l.status === 'won').length,
-        lost: leads.filter(l => l.status === 'lost').length
+        hold: leads.filter(l => l.status === 'hold').length,
+        proposal_sent: leads.filter(l => l.status === 'proposal_sent').length,
+        lost: leads.filter(l => l.status === 'lost').length,
+        converted: leads.filter(l => l.status === 'converted').length,
+        archived: leads.filter(l => l.status === 'archived').length
       };
 
       return {
@@ -1132,8 +1169,18 @@ When users ask about music-related topics, draw on this knowledge to provide inf
     }
 
     // Add standard capabilities
-    systemMessage += `\n\n## CRM Capabilities\nYou can answer questions about:
-- Projects & Gigs (count, details, upcoming events, **venue information**)
+    systemMessage += `\n\n## CRM Data Model
+
+### Project Status Lifecycle
+Projects follow this pipeline: new → contacted → hold → proposal_sent → booked → completed
+Terminal statuses: lost, cancelled, archived
+Every project ALWAYS has a status assigned. When reporting on projects, always include their current status.
+
+### Lead Status Lifecycle
+Leads follow: new → contacted → hold → proposal_sent → converted (or lost/archived)
+
+## CRM Capabilities\nYou can answer questions about:
+- Projects & Gigs (count, details, upcoming events, **venue information**, event type, lineup, dress code, parking, load-in, accommodation, meals, backline/production)
   - **Project details always include venue information** (name, address, city, location)
   - When users ask about venues or event locations, use get_project_details first
 - Leads (status, conversion metrics)

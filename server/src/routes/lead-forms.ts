@@ -704,19 +704,40 @@ router.post('/:slug/submit', formSubmissionLimiter, async (req, res) => {
               let dupVenueId: string | null = null;
               if (mappingResult.contactData.venueAddress) {
                 try {
-                  const dupVenueData = {
-                    name: mappingResult.contactData.venueAddress.split(',')[0].trim() || 'Venue',
-                    address: mappingResult.contactData.venueAddress,
-                    city: mappingResult.contactData.venueCity || raw.eventLocationCity || '',
-                    state: mappingResult.contactData.venueState || raw.eventLocationState || '',
-                    zipCode: mappingResult.contactData.venueZipCode || raw.eventLocationZipCode || '',
-                    country: mappingResult.contactData.venueCountry || raw.eventLocationCountry || 'GB',
-                    useCount: 1,
-                    lastUsedAt: new Date(),
-                    tenantId: form.tenantId,
-                  };
-                  const dupVenue = await venuesService.findOrCreateVenue(dupVenueData, form.tenantId);
-                  dupVenueId = dupVenue.id;
+                  const dupPlaceId = raw.eventLocationPlaceId || null;
+                  if (dupPlaceId) {
+                    // Google Places venue — use upsertFromPlace for proper deduplication by placeId
+                    const dupVenueDetails = {
+                      placeId: dupPlaceId,
+                      name: mappingResult.contactData.venueAddress?.split(',')[0]?.trim() || 'Venue',
+                      address1: mappingResult.contactData.venueAddress,
+                      address2: undefined,
+                      city: mappingResult.contactData.venueCity || raw.eventLocationCity || '',
+                      state: mappingResult.contactData.venueState || raw.eventLocationState || '',
+                      postalCode: mappingResult.contactData.venueZipCode || raw.eventLocationZipCode || '',
+                      countryCode: mappingResult.contactData.venueCountry || raw.eventLocationCountry || 'GB',
+                      latitude: raw.eventLocationLat ? parseFloat(raw.eventLocationLat) : 0,
+                      longitude: raw.eventLocationLng ? parseFloat(raw.eventLocationLng) : 0,
+                      contactPhone: raw.eventLocationPhone || null,
+                    };
+                    const dupVenue = await venuesService.upsertFromPlace(dupVenueDetails, form.tenantId);
+                    dupVenueId = dupVenue.id;
+                  } else {
+                    // Manual venue — use findOrCreateVenue with normalized name+address dedup
+                    const dupVenueData = {
+                      name: mappingResult.contactData.venueAddress.split(',')[0].trim() || 'Venue',
+                      address: mappingResult.contactData.venueAddress,
+                      city: mappingResult.contactData.venueCity || raw.eventLocationCity || '',
+                      state: mappingResult.contactData.venueState || raw.eventLocationState || '',
+                      zipCode: mappingResult.contactData.venueZipCode || raw.eventLocationZipCode || '',
+                      country: mappingResult.contactData.venueCountry || raw.eventLocationCountry || 'GB',
+                      useCount: 1,
+                      lastUsedAt: new Date(),
+                      tenantId: form.tenantId,
+                    };
+                    const dupVenue = await venuesService.findOrCreateVenue(dupVenueData, form.tenantId);
+                    dupVenueId = dupVenue.id;
+                  }
                 } catch (venueErr) {
                   console.error('❌ DUPLICATE PATH: venue creation failed:', venueErr);
                 }

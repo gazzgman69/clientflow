@@ -100,7 +100,9 @@ export class CalendarAutoSyncService {
         try {
           let result;
           if (integration.provider === 'google') {
-            result = await googleOAuthService.syncFromGoogle(integration);
+            // One-way export: push CRM events to Google Calendar only
+            // Google → CRM import is disabled to keep personal calendar events out of ClientFlow
+            result = await googleOAuthService.syncToGoogleAll(integration);
           } else if (integration.provider === 'ical') {
             // For iCal, we need to get a userId. Since this is auto-sync, we'll use the integration's userId
             result = await icalService.syncFromICal(integration);

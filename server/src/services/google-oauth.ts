@@ -647,27 +647,33 @@ export class GoogleOAuthService {
             .map((email: string) => ({ email: email.trim() }))
         : [];
 
-      const googleEvent = {
+      const googleEvent: Record<string, any> = {
         summary: event.title,
         description: event.description || '',
         location: event.location || '',
-        start: event.allDay 
+        start: event.allDay
           ? { date: new Date(event.startDate).toISOString().split('T')[0] }
-          : { 
-              dateTime: event.startDate instanceof Date 
+          : {
+              dateTime: event.startDate instanceof Date
                 ? event.startDate.toISOString()
                 : new Date(event.startDate + 'Z').toISOString(), // Treat DB time as UTC
               timeZone: 'Europe/London'
             },
         end: event.allDay
           ? { date: new Date(event.endDate).toISOString().split('T')[0] }
-          : { 
-              dateTime: event.endDate instanceof Date 
+          : {
+              dateTime: event.endDate instanceof Date
                 ? event.endDate.toISOString()
                 : new Date(event.endDate + 'Z').toISOString(), // Treat DB time as UTC
               timeZone: 'Europe/London'
             },
-        ...(attendees.length > 0 && { attendees })
+        ...(attendees.length > 0 && { attendees }),
+        // Map CRM status → Google status (tentative/confirmed/cancelled)
+        ...(event.status && { status: event.status }),
+        // Map CRM transparency → Google transparency (opaque = busy, transparent = free)
+        ...(event.transparency && {
+          transparency: event.transparency === 'busy' ? 'opaque' : 'transparent'
+        }),
       };
       
       console.log('Creating Google Calendar event:', JSON.stringify(googleEvent, null, 2));

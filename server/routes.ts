@@ -3728,6 +3728,19 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
         return res.status(404).json({ message: "Project not found" });
       }
 
+      // Sync calendar events with the new project status
+      try {
+        if (['lost', 'cancelled'].includes(status)) {
+          // Cancel events when project is lost or cancelled
+          await storage.markEventsCancelledForProject(req.params.id, req.tenantId!, req.userId);
+        } else {
+          const { syncCalendarEventsForStatusChange } = await import('./src/services/calendar-event-sync');
+          await syncCalendarEventsForStatusChange(req.params.id, req.tenantId!, status, previousStatus);
+        }
+      } catch (calSyncErr) {
+        console.warn('⚠️ Calendar event sync failed (non-fatal):', calSyncErr);
+      }
+
       // Update venue booked count when project status changes to/from booked
       if (existingProject.venueId && previousStatus !== status) {
         try {

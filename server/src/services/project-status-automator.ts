@@ -1,4 +1,5 @@
 import { storage } from '../../storage';
+import { syncCalendarEventsForStatusChange } from './calendar-event-sync';
 
 const STATUS_ORDER = ['new', 'contacted', 'hold', 'proposal_sent', 'booked', 'completed'];
 const MANUAL_OVERRIDE_WINDOW_MINUTES = 30;
@@ -31,6 +32,10 @@ class ProjectStatusAutomator {
       }
 
       await storage.updateProject(projectId, updates, tenantId);
+
+      if (updates.status) {
+        await syncCalendarEventsForStatusChange(projectId, tenantId, updates.status, project.status);
+      }
     } catch (error) {
       console.error(`[ProjectStatusAutomator] onEmailSent error for project ${projectId}:`, error);
     }
@@ -55,6 +60,7 @@ class ProjectStatusAutomator {
           lastContactAt: new Date(),
         }, tenantId);
         console.log(`[ProjectStatusAutomator] Document sent — Project ${projectId}: ${prevStatus} → proposal_sent`);
+        await syncCalendarEventsForStatusChange(projectId, tenantId, 'proposal_sent', prevStatus);
       }
     } catch (error) {
       console.error(`[ProjectStatusAutomator] onDocumentSent error for project ${projectId}:`, error);
@@ -82,8 +88,10 @@ class ProjectStatusAutomator {
       const hasPaid = projectInvoices.some((inv: any) => inv.status === 'paid');
 
       if (hasSigned && hasPaid) {
+        const prevStatus = project.status;
         await storage.updateProject(projectId, { status: 'booked' }, tenantId);
-        console.log(`[ProjectStatusAutomator] Booked — Project ${projectId}: ${project.status} → booked`);
+        console.log(`[ProjectStatusAutomator] Booked — Project ${projectId}: ${prevStatus} → booked`);
+        await syncCalendarEventsForStatusChange(projectId, tenantId, 'booked', prevStatus);
       }
     } catch (error) {
       console.error(`[ProjectStatusAutomator] onBookingConditionMet error for project ${projectId}:`, error);
@@ -105,6 +113,7 @@ class ProjectStatusAutomator {
         lostReason: 'Hold expired',
       }, tenantId);
       console.log(`[ProjectStatusAutomator] Hold expired — Project ${projectId}: hold → lost`);
+      // lost status → events will be cancelled by markEventsCancelledForProject if project is deleted
     } catch (error) {
       console.error(`[ProjectStatusAutomator] onHoldExpired error for project ${projectId}:`, error);
     }

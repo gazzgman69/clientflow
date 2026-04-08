@@ -836,9 +836,9 @@ router.post('/:slug/submit', formSubmissionLimiter, async (req, res) => {
                     eventEnd.setHours(eventEnd.getHours() + 1); // Timed event: 1-hour duration
                   }
                   
-                  // Create event with 17hats-style title: "New Lead Project • [Name]"
+                  // Create event with status-aware title: "Enquiry • [Name]"
                   const leadName = lead.fullName || lead.email || 'Unknown';
-                  const eventTitle = `New Lead Project • ${leadName}`;
+                  const eventTitle = `Enquiry • ${leadName}`;
                   
                   // Build description with form details
                   let eventDescription = lead.notes || '';
@@ -856,7 +856,8 @@ router.post('/:slug/submit', formSubmissionLimiter, async (req, res) => {
                     contactId: null, // Explicitly set to null to avoid CASCADE delete when contact is deleted
                     type: 'lead',
                     allDay: isDateOnly,
-                    transparency: isDateOnly ? 'free' : 'busy',
+                    status: 'tentative', // Pre-booked = tentative
+                    transparency: 'free', // Pre-booked = free (don't block calendar)
                     createdBy: userId || form.createdBy
                   });
                   
@@ -1382,9 +1383,9 @@ router.post('/:slug/submit', formSubmissionLimiter, async (req, res) => {
           eventEnd.setHours(eventEnd.getHours() + 1); // Timed event: 1-hour duration
         }
         
-        // Create event with 17hats-style title: "New Lead Project • [Name]"
+        // Create event with status-aware title: "Enquiry • [Name]"
         const leadName = lead.fullName || lead.email || 'Unknown';
-        const eventTitle = `New Lead Project • ${leadName}`;
+        const eventTitle = `Enquiry • ${leadName}`;
         
         // Build description with form details
         let eventDescription = lead.notes || '';
@@ -1440,7 +1441,8 @@ router.post('/:slug/submit', formSubmissionLimiter, async (req, res) => {
             contactId: null, // Explicitly set to null to avoid CASCADE delete when contact is deleted
             type: 'lead',
             allDay: isDateOnly,
-            transparency: isDateOnly ? 'free' : 'busy',
+            status: 'tentative', // Pre-booked = tentative
+            transparency: 'free', // Pre-booked = free (don't block calendar)
             createdBy: userId || form.createdBy
           });
           

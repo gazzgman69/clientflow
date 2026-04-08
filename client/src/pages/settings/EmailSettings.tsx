@@ -869,96 +869,114 @@ export default function EmailSettings() {
                                 </>
                               )}
 
-                              {/* Step 2b: Manual Config (unknown domain) */}
+                              {/* Step 2b: Custom domain — OAuth-first, manual as fallback */}
                               {detectStep === 'manual' && (
                                 <>
-                                  <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 space-y-1">
-                                    <p className="font-medium text-amber-800 text-sm">Custom email domain</p>
-                                    <p className="text-xs text-amber-700">
-                                      We couldn't auto-detect settings for <strong>{connectEmail.split('@')[1]}</strong>. If your email is hosted by Google or Microsoft (e.g., GoDaddy Office 365), use the buttons below. Otherwise, enter your server details manually.
+                                  <div className="space-y-1">
+                                    <p className="font-medium">How is <strong>{connectEmail.split('@')[1]}</strong> hosted?</p>
+                                    <p className="text-sm text-muted-foreground">
+                                      Most business email runs on Google or Microsoft. If yours does (e.g., GoDaddy Office 365, Google Workspace), just pick the right one below.
                                     </p>
                                   </div>
 
-                                  {/* Quick OAuth shortcuts for custom domains hosted by Google/Microsoft */}
-                                  <div className="flex gap-2">
+                                  {/* Primary OAuth buttons — big and prominent */}
+                                  <div className="space-y-2">
                                     <Button
+                                      className="w-full justify-start h-14 text-left"
                                       variant="outline"
-                                      className="flex-1 text-sm"
-                                      onClick={() => { setShowConnectDialog(false); connectGoogleWithPopup(); }}
-                                    >
-                                      <Mail className="h-4 w-4 mr-2" />
-                                      Sign in with Google
-                                    </Button>
-                                    <Button
-                                      variant="outline"
-                                      className="flex-1 text-sm"
                                       onClick={() => { setShowConnectDialog(false); connectMicrosoftWithPopup(); }}
                                     >
-                                      <Mail className="h-4 w-4 mr-2" />
-                                      Sign in with Microsoft
-                                    </Button>
-                                  </div>
-
-                                  <div className="relative">
-                                    <div className="absolute inset-0 flex items-center"><span className="w-full border-t" /></div>
-                                    <div className="relative flex justify-center text-xs uppercase"><span className="bg-background px-2 text-muted-foreground">or enter manually</span></div>
-                                  </div>
-
-                                  <div className="space-y-2">
-                                    <Label htmlFor="manual-password" className="font-semibold">Password</Label>
-                                    <Input
-                                      id="manual-password"
-                                      type="password"
-                                      value={emailSyncForm.password}
-                                      onChange={(e) => setEmailSyncForm(prev => ({ ...prev, password: e.target.value }))}
-                                    />
-                                  </div>
-
-                                  <div className="grid grid-cols-2 gap-3">
-                                    <div className="space-y-3">
-                                      <p className="text-sm font-semibold text-muted-foreground">Incoming (IMAP)</p>
-                                      <Input placeholder="imap.example.com" value={emailSyncForm.imapServer} onChange={(e) => setEmailSyncForm(prev => ({ ...prev, imapServer: e.target.value }))} />
-                                      <div className="flex gap-2">
-                                        <Input placeholder="993" className="w-20" value={emailSyncForm.imapPort} onChange={(e) => setEmailSyncForm(prev => ({ ...prev, imapPort: e.target.value }))} />
-                                        <label className="flex items-center gap-1.5 text-sm">
-                                          <input type="checkbox" checked={emailSyncForm.ssl} onChange={(e) => setEmailSyncForm(prev => ({ ...prev, ssl: e.target.checked }))} className="h-4 w-4 rounded" />
-                                          SSL
-                                        </label>
+                                      <div className="flex items-center gap-3">
+                                        <div className="w-8 h-8 rounded bg-blue-100 flex items-center justify-center">
+                                          <Mail className="h-4 w-4 text-blue-600" />
+                                        </div>
+                                        <div>
+                                          <p className="font-medium">Microsoft / Office 365</p>
+                                          <p className="text-xs text-muted-foreground">Outlook, GoDaddy O365, Exchange Online</p>
+                                        </div>
                                       </div>
-                                    </div>
-                                    <div className="space-y-3">
-                                      <p className="text-sm font-semibold text-muted-foreground">Outgoing (SMTP)</p>
-                                      <Input placeholder="smtp.example.com" value={emailSyncForm.smtpServer} onChange={(e) => setEmailSyncForm(prev => ({ ...prev, smtpServer: e.target.value }))} />
-                                      <div className="flex gap-2">
-                                        <Input placeholder="465" className="w-20" value={emailSyncForm.smtpPort} onChange={(e) => setEmailSyncForm(prev => ({ ...prev, smtpPort: e.target.value }))} />
-                                        <label className="flex items-center gap-1.5 text-sm">
-                                          <input type="checkbox" checked={emailSyncForm.smtpSsl} onChange={(e) => setEmailSyncForm(prev => ({ ...prev, smtpSsl: e.target.checked }))} className="h-4 w-4 rounded" />
-                                          SSL
-                                        </label>
-                                      </div>
-                                    </div>
-                                  </div>
-
-                                  <div className="flex gap-3 pt-2">
-                                    <Button variant="outline" size="sm" onClick={() => { setDetectStep('email'); setDetected(null); }}>
-                                      Back
                                     </Button>
                                     <Button
-                                      className="flex-1 bg-green-700 hover:bg-green-800"
-                                      disabled={!emailSyncForm.password || !emailSyncForm.imapServer || !emailSyncForm.smtpServer}
-                                      onClick={() => {
-                                        connectEmailAccountMutation.mutate({
-                                          type: 'imap_smtp',
-                                          providerKey: 'other',
-                                          settings: {
-                                            imap: { host: emailSyncForm.imapServer, port: parseInt(emailSyncForm.imapPort), secure: emailSyncForm.ssl, user: connectEmail, pass: emailSyncForm.password },
-                                            smtp: { host: emailSyncForm.smtpServer, port: parseInt(emailSyncForm.smtpPort), secure: emailSyncForm.smtpSsl, user: connectEmail, pass: emailSyncForm.password }
-                                          }
-                                        });
-                                      }}
-                                      data-testid="button-connect-manual"
+                                      className="w-full justify-start h-14 text-left"
+                                      variant="outline"
+                                      onClick={() => { setShowConnectDialog(false); connectGoogleWithPopup(); }}
                                     >
-                                      Connect
+                                      <div className="flex items-center gap-3">
+                                        <div className="w-8 h-8 rounded bg-red-100 flex items-center justify-center">
+                                          <Mail className="h-4 w-4 text-red-600" />
+                                        </div>
+                                        <div>
+                                          <p className="font-medium">Google Workspace</p>
+                                          <p className="text-xs text-muted-foreground">Gmail for business, G Suite</p>
+                                        </div>
+                                      </div>
+                                    </Button>
+                                  </div>
+
+                                  {/* Manual IMAP/SMTP — collapsed by default */}
+                                  <details className="group">
+                                    <summary className="cursor-pointer text-sm text-muted-foreground hover:text-foreground flex items-center gap-1">
+                                      <span className="group-open:hidden">&#9654;</span>
+                                      <span className="hidden group-open:inline">&#9660;</span>
+                                      Other provider — enter IMAP/SMTP manually
+                                    </summary>
+                                    <div className="mt-4 space-y-4">
+                                      <div className="space-y-2">
+                                        <Label htmlFor="manual-password" className="font-semibold">Password</Label>
+                                        <Input
+                                          id="manual-password"
+                                          type="password"
+                                          value={emailSyncForm.password}
+                                          onChange={(e) => setEmailSyncForm(prev => ({ ...prev, password: e.target.value }))}
+                                        />
+                                      </div>
+                                      <div className="grid grid-cols-2 gap-3">
+                                        <div className="space-y-3">
+                                          <p className="text-sm font-semibold text-muted-foreground">Incoming (IMAP)</p>
+                                          <Input placeholder="imap.example.com" value={emailSyncForm.imapServer} onChange={(e) => setEmailSyncForm(prev => ({ ...prev, imapServer: e.target.value }))} />
+                                          <div className="flex gap-2">
+                                            <Input placeholder="993" className="w-20" value={emailSyncForm.imapPort} onChange={(e) => setEmailSyncForm(prev => ({ ...prev, imapPort: e.target.value }))} />
+                                            <label className="flex items-center gap-1.5 text-sm">
+                                              <input type="checkbox" checked={emailSyncForm.ssl} onChange={(e) => setEmailSyncForm(prev => ({ ...prev, ssl: e.target.checked }))} className="h-4 w-4 rounded" />
+                                              SSL
+                                            </label>
+                                          </div>
+                                        </div>
+                                        <div className="space-y-3">
+                                          <p className="text-sm font-semibold text-muted-foreground">Outgoing (SMTP)</p>
+                                          <Input placeholder="smtp.example.com" value={emailSyncForm.smtpServer} onChange={(e) => setEmailSyncForm(prev => ({ ...prev, smtpServer: e.target.value }))} />
+                                          <div className="flex gap-2">
+                                            <Input placeholder="465" className="w-20" value={emailSyncForm.smtpPort} onChange={(e) => setEmailSyncForm(prev => ({ ...prev, smtpPort: e.target.value }))} />
+                                            <label className="flex items-center gap-1.5 text-sm">
+                                              <input type="checkbox" checked={emailSyncForm.smtpSsl} onChange={(e) => setEmailSyncForm(prev => ({ ...prev, smtpSsl: e.target.checked }))} className="h-4 w-4 rounded" />
+                                              SSL
+                                            </label>
+                                          </div>
+                                        </div>
+                                      </div>
+                                      <Button
+                                        className="w-full bg-green-700 hover:bg-green-800"
+                                        disabled={!emailSyncForm.password || !emailSyncForm.imapServer || !emailSyncForm.smtpServer}
+                                        onClick={() => {
+                                          connectEmailAccountMutation.mutate({
+                                            type: 'imap_smtp',
+                                            providerKey: 'other',
+                                            settings: {
+                                              imap: { host: emailSyncForm.imapServer, port: parseInt(emailSyncForm.imapPort), secure: emailSyncForm.ssl, user: connectEmail, pass: emailSyncForm.password },
+                                              smtp: { host: emailSyncForm.smtpServer, port: parseInt(emailSyncForm.smtpPort), secure: emailSyncForm.smtpSsl, user: connectEmail, pass: emailSyncForm.password }
+                                            }
+                                          });
+                                        }}
+                                        data-testid="button-connect-manual"
+                                      >
+                                        Connect
+                                      </Button>
+                                    </div>
+                                  </details>
+
+                                  <div className="flex pt-1">
+                                    <Button variant="outline" size="sm" onClick={() => { setDetectStep('email'); setDetected(null); }}>
+                                      Back
                                     </Button>
                                   </div>
                                 </>

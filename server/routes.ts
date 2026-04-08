@@ -414,19 +414,10 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
 
-  app.post('/api/venues/:id/track-usage', async (req, res) => {
-    try {
-      const { venuesService } = await import('./src/services/venues');
-      await venuesService.trackVenueUsage(req.params.id);
-      res.json({ success: true });
-    } catch (error) {
-      console.error('Error tracking venue usage:', error);
-      res.status(500).json({ 
-        message: 'Failed to track venue usage',
-        error: error instanceof Error ? error.message : 'Unknown error'
-      });
-    }
-  });
+  // REMOVED: Public track-usage endpoint had no tenant isolation (missing tenantId).
+  // Venue useCount is already tracked securely in findOrCreateVenue during form submission,
+  // so this redundant endpoint is not needed. The authenticated venue router below
+  // also has a tenant-safe track-usage endpoint.
 
   // Public venue details endpoint for lead capture forms (no auth required)
   // Needed when a visitor selects a cached venue from the autocomplete dropdown

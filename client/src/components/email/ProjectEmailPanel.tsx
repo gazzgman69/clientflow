@@ -67,6 +67,7 @@ export default function ProjectEmailPanel({ projectId, emails, autoOpenComposer 
   const [attachments, setAttachments] = useState<File[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const replySubjectRef = useRef<HTMLInputElement>(null);
+  const composeSubjectRef = useRef<HTMLInputElement>(null);
   const [selectedTemplate, setSelectedTemplate] = useState<any>(null);
   const [updateTemplate, setUpdateTemplate] = useState(false);
   const messageEditorRef = useRef<RichTextEditorRef>(null);
@@ -701,6 +702,7 @@ export default function ProjectEmailPanel({ projectId, emails, autoOpenComposer 
               <div className="flex items-center gap-3">
                 <Label htmlFor="email-subject" className="w-20 text-right text-sm font-medium">Subject:</Label>
                 <Input
+                  ref={composeSubjectRef}
                   id="email-subject"
                   value={subject}
                   onChange={(e) => setSubject(e.target.value)}
@@ -710,13 +712,25 @@ export default function ProjectEmailPanel({ projectId, emails, autoOpenComposer 
                 />
                 <TokenDropdown
                   onTokenSelect={(token) => {
-                    // Insert token at the end of the subject
-                    setSubject(prev => prev + (prev ? ' ' : '') + token);
+                    const input = composeSubjectRef.current;
+                    if (!input) {
+                      setSubject(prev => prev + token);
+                      return;
+                    }
+                    const start = input.selectionStart ?? subject.length;
+                    const end = input.selectionEnd ?? subject.length;
+                    const newValue = subject.slice(0, start) + token + subject.slice(end);
+                    setSubject(newValue);
+                    requestAnimationFrame(() => {
+                      input.focus();
+                      const pos = start + token.length;
+                      input.setSelectionRange(pos, pos);
+                    });
                   }}
-                  variant="link"
+                  onAfterInsert={() => composeSubjectRef.current?.focus()}
+                  variant="outline"
                   size="sm"
-                  className="h-auto p-0 text-xs text-primary hover:text-primary/80"
-                  data-testid="link-insert-subject-token"
+                  data-testid="button-insert-subject-token"
                 />
               </div>
 

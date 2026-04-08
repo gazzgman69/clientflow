@@ -496,25 +496,17 @@ router.get('/:id/deletion-preview', async (req, res) => {
     }
 
     // Count associated projects and contacts
-    const { default: storage } = await import('../../storage');
-    const neon = await import('@neondatabase/serverless');
-    const neonClient = neon.neon(process.env.DATABASE_URL!);
-    
-    // Count projects using this venue
-    const projectCountResult = await neonClient(`
-      SELECT COUNT(*) as count 
-      FROM projects 
-      WHERE venue_id = $1 AND tenant_id = $2
-    `, [id, tenantId]);
-    const projectCount = parseInt((projectCountResult[0] as any).count);
-    
-    // Count contacts using this venue  
-    const contactCountResult = await neonClient(`
-      SELECT COUNT(*) as count 
-      FROM contacts 
-      WHERE venue_id = $1 AND tenant_id = $2
-    `, [id, tenantId]);
-    const contactCount = parseInt((contactCountResult[0] as any).count);
+    const projectCountResult = await pool.query(
+      `SELECT COUNT(*) as count FROM projects WHERE venue_id = $1 AND tenant_id = $2`,
+      [id, tenantId]
+    );
+    const projectCount = parseInt(projectCountResult.rows[0].count);
+
+    const contactCountResult = await pool.query(
+      `SELECT COUNT(*) as count FROM contacts WHERE venue_id = $1 AND tenant_id = $2`,
+      [id, tenantId]
+    );
+    const contactCount = parseInt(contactCountResult.rows[0].count);
     
     res.json({
       venue: {

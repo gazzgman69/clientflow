@@ -1934,6 +1934,27 @@ export default function ProjectDetail() {
                         ) : (
                           <div>
                             {!showVenuePicker ? (
+                              (project as any).venueAddress ? (
+                                <div className="space-y-3">
+                                  <div className="grid grid-cols-2 gap-x-6 gap-y-3">
+                                    <div>
+                                      <p className="text-sm text-muted-foreground">VENUE ADDRESS</p>
+                                      <p className="font-medium text-sm">{(project as any).venueAddress}</p>
+                                    </div>
+                                    <div>
+                                      <p className="text-sm text-muted-foreground">PARKING DETAILS</p>
+                                      <p className="font-medium text-sm">{(project as any).parkingDetails || "Not specified"}</p>
+                                    </div>
+                                    <div>
+                                      <p className="text-sm text-muted-foreground">LOAD-IN DETAILS</p>
+                                      <p className="font-medium text-sm">{(project as any).loadInDetails || "Not specified"}</p>
+                                    </div>
+                                  </div>
+                                  <Button variant="outline" size="sm" onClick={() => setShowVenuePicker(true)}>
+                                    <Plus className="h-4 w-4 mr-1" /> Link to Venue Record
+                                  </Button>
+                                </div>
+                              ) : (
                               <div className="text-center py-4">
                                 <MapPin className="h-8 w-8 mx-auto mb-2 text-muted-foreground opacity-50" />
                                 <p className="text-sm text-muted-foreground">No venue assigned yet.</p>
@@ -1941,6 +1962,7 @@ export default function ProjectDetail() {
                                   <Plus className="h-4 w-4 mr-1" /> Assign Venue
                                 </Button>
                               </div>
+                              )
                             ) : (
                               <div className="space-y-2">
                                 <Input

@@ -676,7 +676,8 @@ export interface IStorage {
   // Form Submissions - Idempotency tracking for security
   getFormSubmissionByKey(tenantId: string, submissionKey: string): Promise<FormSubmission | undefined>;
   createFormSubmission(submission: InsertFormSubmission): Promise<FormSubmission>;
-  
+  updateFormSubmission(id: string, submission: Partial<InsertFormSubmission>, tenantId: string): Promise<FormSubmission | undefined>;
+
   // Lead Consent - GDPR compliance tracking
   createLeadConsent(consent: InsertLeadConsent): Promise<LeadConsent>;
   getLeadConsents(leadId: string, tenantId: string): Promise<LeadConsent[]>;
@@ -7859,6 +7860,18 @@ export class DrizzleStorage implements IStorage {
     const result = await this.db
       .insert(formSubmissions)
       .values(submission)
+      .returning();
+    return result[0];
+  }
+
+  async updateFormSubmission(id: string, submission: Partial<InsertFormSubmission>, tenantId: string): Promise<FormSubmission | undefined> {
+    const result = await this.db
+      .update(formSubmissions)
+      .set(submission)
+      .where(and(
+        eq(formSubmissions.id, id),
+        eq(formSubmissions.tenantId, tenantId)
+      ))
       .returning();
     return result[0];
   }

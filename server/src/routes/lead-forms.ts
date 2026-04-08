@@ -724,11 +724,15 @@ router.post('/:slug/submit', formSubmissionLimiter, async (req, res) => {
 
               const projectData = {
                 ...mappingResult.projectData,
-                name: `${existingContact.firstName} ${existingContact.lastName} - ${mappingResult.leadData.event_type || 'Event'}`,
+                name: `${existingContact.firstName} ${existingContact.lastName} - ${mappingResult.leadData.eventType || 'Event'}`,
+                description: `${mappingResult.leadData.eventType || 'Event'} at ${mappingResult.contactData.venueAddress || 'TBD'}`,
                 contactId: existingContact.id,
                 venueId: dupVenueId,
+                venueAddress: mappingResult.contactData.venueAddress || null,
                 status: 'new' as const,
-                userId
+                progress: 0,
+                userId,
+                startDate: mappingResult.leadData.projectDate || null
               };
 
               const project = await tenantStorage.createProject(projectData);

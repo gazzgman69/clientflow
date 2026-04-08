@@ -199,34 +199,44 @@ class AutoResponderWorker {
       // Store the sent email in the database for project email tracking
       if (result.messageId && lead.projectId) {
         try {
-          const createdBy = template.createdBy || log.tenantId;
-          await storage.createEmail({
-            tenantId: log.tenantId,
-            userId: createdBy,
-            threadId: result.messageId,
-            fromEmail: result.fromEmail || '',
-            toEmails: [lead.email],
-            ccEmails: [],
-            bccEmails: [],
-            subject,
-            bodyText: textBody,
-            bodyHtml: htmlBody,
-            sentAt: new Date(),
-            projectId: lead.projectId,
-            isSent: true,
-            direction: 'outbound',
-            snippet: textBody?.substring(0, 100)
-          }, log.tenantId);
-          console.log(`[AutoResponderWorker] Stored auto-responder email in database for project ${lead.projectId}`);
+          // Resolve a valid userId — template.createdBy may be null, and tenantId is NOT a user ID
+          let createdBy = template.createdBy;
+          if (!createdBy) {
+            const tenantUsers = await storage.getUsers(log.tenantId);
+            createdBy = tenantUsers[0]?.id || null;
+          }
+          if (!createdBy) {
+            console.warn('[AutoResponderWorker] No valid userId found for email storage — skipping');
+            // Don't throw — email was sent successfully, just can't store the record
+          } else {
+            await storage.createEmail({
+              tenantId: log.tenantId,
+              userId: createdBy,
+              threadId: result.messageId,
+              fromEmail: result.fromEmail || '',
+              toEmails: [lead.email],
+              ccEmails: [],
+              bccEmails: [],
+              subject,
+              bodyText: textBody,
+              bodyHtml: htmlBody,
+              sentAt: new Date(),
+              projectId: lead.projectId,
+              isSent: true,
+              direction: 'outbound',
+              snippet: textBody?.substring(0, 100)
+            }, log.tenantId);
+            console.log(`[AutoResponderWorker] Stored auto-responder email in database for project ${lead.projectId}`);
 
-          // Trigger lead status automator for auto-responder email sent
-          try {
-            if (log.leadId) {
-              await leadStatusAutomator.onEmailSent(log.leadId, log.tenantId);
+            // Trigger lead status automator for auto-responder email sent
+            try {
+              if (log.leadId) {
+                await leadStatusAutomator.onEmailSent(log.leadId, log.tenantId);
+              }
+            } catch (automatorError) {
+              console.error('[AutoResponderWorker] Lead status automator error after auto-responder send:', automatorError);
+              // Continue - email was sent successfully regardless
             }
-          } catch (automatorError) {
-            console.error('[AutoResponderWorker] Lead status automator error after auto-responder send:', automatorError);
-            // Continue - email was sent successfully regardless
           }
         } catch (dbError) {
           console.error(`[AutoResponderWorker] Failed to store email in database:`, dbError);
@@ -284,8 +294,8 @@ class AutoResponderWorker {
   private resolveTokens(text: string, context: any): string {
     let resolved = text;
 
-    // Replace [FirstName] with lead firstName
-    resolved = resolved.replace(/\[FirstName\]/gi, context.lead.firstName || '[FirstName]');
+    // Replace [FirstName] with lead firstName (fall back to 'there' for a natural greeting)
+    resolved = resolved.replace(/\[FirstName\]/gi, context.lead.firstName || 'there');
     
     // Replace [LastName] with lead lastName
     resolved = resolved.replace(/\[LastName\]/gi, context.lead.lastName || '[LastName]');

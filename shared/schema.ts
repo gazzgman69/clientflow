@@ -217,6 +217,8 @@ export const projects = pgTable("projects", {
   description: text("description"),
   contactId: varchar("contact_id").notNull().references(() => contacts.id, { onDelete: 'cascade' }),
   venueId: varchar("venue_id"),
+  venueName: text("venue_name"), // Denormalized — preserved when linked venue is deleted
+  venueAddress: text("venue_address"), // Denormalized — preserved when linked venue is deleted
   status: text("status").notNull().default('new'), // Unified lifecycle: new, contacted, hold, proposal_sent, booked, completed, lost, cancelled, archived
   progress: integer("progress").default(0), // 0-100
   primaryEventId: varchar("primary_event_id"), // Link to the primary calendar event for this project

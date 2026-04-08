@@ -546,13 +546,20 @@ router.delete('/:id', async (req, res) => {
       });
     }
 
-    // Clear venue references from contacts and projects before deleting
+    // Preserve venue name/address on projects before clearing the FK,
+    // so the venue info survives deletion of the venue record.
+    await pool.query(
+      `UPDATE projects
+         SET venue_name    = COALESCE(venue_name, $3),
+             venue_address = COALESCE(venue_address, $4),
+             venue_id      = NULL
+       WHERE venue_id = $1 AND tenant_id = $2`,
+      [id, tenantId, venue.name || null, venue.address || null]
+    );
+
+    // Clear venue references from contacts
     await pool.query(
       `UPDATE contacts SET venue_id = NULL WHERE venue_id = $1 AND tenant_id = $2`,
-      [id, tenantId]
-    );
-    await pool.query(
-      `UPDATE projects SET venue_id = NULL WHERE venue_id = $1 AND tenant_id = $2`,
       [id, tenantId]
     );
     

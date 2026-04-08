@@ -5012,10 +5012,10 @@ export class DrizzleStorage implements IStorage {
     // WORKAROUND: Use pool directly to bypass Drizzle orderSelectedFields recursion issue
     if (userId) {
       const query = `
-        SELECT 
+        SELECT
           p.*,
-          v.name as venue_name,
-          v.address as venue_address,
+          COALESCE(v.name, p.venue_name) as venue_name,
+          COALESCE(v.address, p.venue_address) as venue_address,
           v.city as venue_city,
           v.state as venue_state,
           v.zip_code as venue_zip_code,
@@ -5036,10 +5036,10 @@ export class DrizzleStorage implements IStorage {
       return result as Project[];
     } else {
       const query = `
-        SELECT 
+        SELECT
           p.*,
-          v.name as venue_name,
-          v.address as venue_address,
+          COALESCE(v.name, p.venue_name) as venue_name,
+          COALESCE(v.address, p.venue_address) as venue_address,
           v.city as venue_city,
           v.state as venue_state,
           v.zip_code as venue_zip_code,

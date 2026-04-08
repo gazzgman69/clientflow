@@ -3271,8 +3271,8 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
         const projects = await pool.query(`
           SELECT
             p.*,
-            v.name as venue_name,
-            v.address as linked_venue_address,
+            COALESCE(v.name, p.venue_name) as venue_name,
+            COALESCE(v.address, p.venue_address) as linked_venue_address,
             v.city as linked_venue_city,
             v.state as linked_venue_state,
             v.zip_code as linked_venue_zip,
@@ -3290,8 +3290,8 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
       const projects = await pool.query(`
         SELECT
           p.*,
-          v.name as venue_name,
-          v.address as linked_venue_address,
+          COALESCE(v.name, p.venue_name) as venue_name,
+          COALESCE(v.address, p.venue_address) as linked_venue_address,
           v.city as linked_venue_city,
           v.state as linked_venue_state,
           v.zip_code as linked_venue_zip,

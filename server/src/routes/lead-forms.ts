@@ -693,7 +693,7 @@ router.post('/:slug/submit', formSubmissionLimiter, async (req, res) => {
 
               // Reuse contact, create new lead and project
               // Continue with modified submission flow using existingContact
-              const nameParts = splitFullName(mappingResult.leadData.full_name || '');
+              const nameParts = splitFullName(mappingResult.leadData.fullName || '');
               const leadData = {
                 ...mappingResult.leadData,
                 email: mappingResult.leadData.email || mappingResult.contactData.email,
@@ -783,6 +783,7 @@ router.post('/:slug/submit', formSubmissionLimiter, async (req, res) => {
                 description: `${mappingResult.leadData.eventType || 'Event'} at ${mappingResult.contactData.venueAddress || 'TBD'}`,
                 contactId: existingContact.id,
                 venueId: dupVenueId,
+                venueName: mappingResult.contactData.venueAddress?.split(',')[0]?.trim() || null,
                 venueAddress: mappingResult.contactData.venueAddress || null,
                 status: 'new' as const,
                 progress: 0,
@@ -1303,7 +1304,8 @@ router.post('/:slug/submit', formSubmissionLimiter, async (req, res) => {
       description: `${mappingResult.leadData.eventType || 'Event'} at ${mappingResult.contactData.venueAddress || 'TBD'}`,
       contactId: contact.id,
       venueId: createdVenue?.id || null, // Link project to venue if created
-      // Always copy venueAddress directly so it's preserved even if venue record creation fails
+      // Always copy venue name/address directly — preserved even if venue is later deleted
+      venueName: createdVenue?.name || mappingResult.contactData.venueAddress?.split(',')[0]?.trim() || null,
       venueAddress: mappingResult.contactData.venueAddress || null,
       status: 'new' as const,  // 'pending' is not a valid status — must be 'new' so it appears in the CRM
       progress: 0,

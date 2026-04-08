@@ -4,6 +4,7 @@ import { geocodingService } from '../services/geocoding';
 import { insertVenueSchema } from '@shared/schema';
 import { z } from 'zod';
 import { cleanupAllVenueAddresses, findVenuesWithAddressIssues } from '../scripts/cleanupVenueAddresses';
+import { pool } from '../../db';
 
 const router = Router();
 
@@ -553,23 +554,15 @@ router.delete('/:id', async (req, res) => {
       });
     }
 
-    // Clear venue references from contacts and projects to avoid foreign key constraint errors
-    const neon = await import('@neondatabase/serverless');
-    const neonClient = neon.neon(process.env.DATABASE_URL!);
-    
-    // Clear venue_id from contacts
-    await neonClient(`
-      UPDATE contacts 
-      SET venue_id = NULL 
-      WHERE venue_id = $1 AND tenant_id = $2
-    `, [id, tenantId]);
-    
-    // Clear venue_id from projects
-    await neonClient(`
-      UPDATE projects 
-      SET venue_id = NULL 
-      WHERE venue_id = $1 AND tenant_id = $2
-    `, [id, tenantId]);
+    // Clear venue references from contacts and projects before deleting
+    await pool.query(
+      `UPDATE contacts SET venue_id = NULL WHERE venue_id = $1 AND tenant_id = $2`,
+      [id, tenantId]
+    );
+    await pool.query(
+      `UPDATE projects SET venue_id = NULL, venue_address = NULL WHERE venue_id = $1 AND tenant_id = $2`,
+      [id, tenantId]
+    );
     
     // Now delete the venue
     const deleted = await venuesService.deleteVenue(id, tenantId);

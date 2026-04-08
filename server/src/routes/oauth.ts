@@ -844,7 +844,7 @@ router.get('/api/auth/microsoft/callback', async (req, res) => {
     const profile = await profileResponse.json();
     const email = profile.mail || profile.userPrincipalName || '';
     
-    await storage.upsertEmailProvider(tenantId, {
+    await storage.upsertEmailProviderIntegration({
       userId,
       provider: provider || 'microsoft',
       providerKey: provider || 'microsoft',
@@ -853,10 +853,11 @@ router.get('/api/auth/microsoft/callback', async (req, res) => {
       accessTokenEnc: tokenData.access_token,
       refreshTokenEnc: tokenData.refresh_token || undefined,
       scopes: ['openid', 'email', 'profile', 'offline_access', 'Mail.Read', 'Mail.Send', 'Contacts.Read'],
-      metadata: {
+      metadata: JSON.stringify({
         connectedAt: new Date().toISOString()
-      }
-    });
+      }),
+      expiresAt: tokenData.expires_in ? new Date(Date.now() + tokenData.expires_in * 1000) : null,
+    }, tenantId);
     
     // Trigger immediate first sync
     try {

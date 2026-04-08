@@ -3272,10 +3272,10 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
           SELECT
             p.*,
             v.name as venue_name,
-            v.address as venue_address,
-            v.city as venue_city,
-            v.state as venue_state,
-            v.zip_code as venue_zip,
+            v.address as linked_venue_address,
+            v.city as linked_venue_city,
+            v.state as linked_venue_state,
+            v.zip_code as linked_venue_zip,
             v.contact_phone as venue_phone
           FROM projects p
           LEFT JOIN venues v ON p.venue_id = v.id
@@ -3291,10 +3291,10 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
         SELECT
           p.*,
           v.name as venue_name,
-          v.address as venue_address,
-          v.city as venue_city,
-          v.state as venue_state,
-          v.zip_code as venue_zip,
+          v.address as linked_venue_address,
+          v.city as linked_venue_city,
+          v.state as linked_venue_state,
+          v.zip_code as linked_venue_zip,
           v.contact_phone as venue_phone
         FROM projects p
         LEFT JOIN venues v ON p.venue_id = v.id

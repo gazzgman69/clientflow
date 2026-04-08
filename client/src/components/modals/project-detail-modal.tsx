@@ -726,8 +726,8 @@ export default function ProjectDetailModal({ project, isOpen, onClose }: Project
                 const venueId = project.venueId || (project as any)?.venue_id;
                 // Inline venue data from projects list API (snake_case from raw SQL)
                 const inlineVenueName = (project as any)?.venue_name || (project as any)?.venueName;
-                const inlineVenueAddress = (project as any)?.venue_address || (project as any)?.venueAddress;
-                const inlineVenueCity = (project as any)?.venue_city || (project as any)?.venueCity;
+                const inlineVenueAddress = (project as any)?.linked_venue_address || (project as any)?.venue_address || (project as any)?.venueAddress;
+                const inlineVenueCity = (project as any)?.linked_venue_city || (project as any)?.venue_city || (project as any)?.venueCity;
 
                 if (!venueId && !inlineVenueName) return null;
 

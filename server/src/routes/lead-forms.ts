@@ -476,7 +476,18 @@ router.post('/:slug/submit', formSubmissionLimiter, async (req, res) => {
     
     // Public submissions: assign to form owner so they can access the resulting projects
     const userId = form.createdBy;
-    
+
+    // Unique request ID for tracing this specific request through the logs
+    const reqId = crypto.randomBytes(4).toString('hex');
+    console.log(`🔵 [${reqId}] === NEW FORM SUBMISSION REQUEST ===`, {
+      slug,
+      formId: form.id,
+      tenantId: form.tenantId,
+      ip: req.ip?.slice(0, 15),
+      userAgent: req.get('User-Agent')?.slice(0, 80),
+      timestamp: new Date().toISOString()
+    });
+
     // ============================================================================
     // ADAPTER LAYER: Map numeric/q-style keys to canonical question IDs
     // ============================================================================
@@ -612,7 +623,7 @@ router.post('/:slug/submit', formSubmissionLimiter, async (req, res) => {
       timestamp: new Date().toDateString(), // Same day submissions considered duplicates
     };
     
-    console.log('🔍 Submission fingerprint:', { slug, email: submissionFingerprint.email });
+    console.log(`🔍 [${reqId}] Submission fingerprint:`, { slug, email: submissionFingerprint.email, key: submissionKey.slice(0, 8) + '***' });
     
     const submissionKey = crypto
       .createHash('sha256')
@@ -623,9 +634,11 @@ router.post('/:slug/submit', formSubmissionLimiter, async (req, res) => {
     try {
       const existingSubmission = await tenantStorage.getFormSubmissionByKey(submissionKey);
       if (existingSubmission) {
-        console.log('🔍 DUPLICATE SUBMISSION DETECTED:', {
+        console.log(`🔍 [${reqId}] DUPLICATE SUBMISSION DETECTED:`, {
           submissionKey: submissionKey.slice(0, 8) + '***',
           existingSubmissionId: existingSubmission.id,
+          existingStatus: existingSubmission.status,
+          existingMetadata: existingSubmission.metadata,
           slug,
           tenantId: form.tenantId,
           timestamp: new Date().toISOString()
@@ -652,7 +665,7 @@ router.post('/:slug/submit', formSubmissionLimiter, async (req, res) => {
             const submissionAge = (Date.now() - submittedAt) / 1000;
 
             if (submittedAt && submissionAge < 30) {
-              console.log('🛡️ DUPLICATE CLICK DETECTED (' + Math.round(submissionAge) + 's since last submission), returning existing result:', {
+              console.log(`🛡️ [${reqId}] DUPLICATE CLICK DETECTED (` + Math.round(submissionAge) + 's since last submission), returning existing result:', {
                 submissionId: existingSubmission.id,
                 slug,
                 tenantId: form.tenantId
@@ -779,7 +792,7 @@ router.post('/:slug/submit', formSubmissionLimiter, async (req, res) => {
 
               const project = await tenantStorage.createProject(projectData);
               
-              console.log('✅ NEW PROJECT CREATED FOR EXISTING CONTACT:', {
+              console.log(`✅ [${reqId}] NEW PROJECT CREATED FOR EXISTING CONTACT (DUPLICATE PATH):`, {
                 projectId: project.id,
                 projectName: project.name,
                 contactId: existingContact.id,
@@ -958,7 +971,7 @@ router.post('/:slug/submit', formSubmissionLimiter, async (req, res) => {
           const ageSeconds = (Date.now() - claimedAt) / 1000;
 
           if (claimedAt && ageSeconds < 60) {
-            console.log('⏳ SUBMISSION STILL PROCESSING (claimed ' + Math.round(ageSeconds) + 's ago), returning success:', {
+            console.log(`⏳ [${reqId}] SUBMISSION STILL PROCESSING (claimed ` + Math.round(ageSeconds) + 's ago), returning success:', {
               submissionId: existingSubmission.id,
               slug,
               tenantId: form.tenantId
@@ -975,7 +988,7 @@ router.post('/:slug/submit', formSubmissionLimiter, async (req, res) => {
           }
 
           // Genuinely stale/broken record (older than 60s with no contactId) — clean it up
-          console.log('🧹 CLEANING UP BROKEN SUBMISSION RECORD (no contactId, ' + Math.round(ageSeconds) + 's old):', {
+          console.log(`🧹 [${reqId}] CLEANING UP BROKEN SUBMISSION RECORD (no contactId, ` + Math.round(ageSeconds) + 's old):', {
             submissionId: existingSubmission.id,
             slug,
             tenantId: form.tenantId
@@ -1013,7 +1026,7 @@ router.post('/:slug/submit', formSubmissionLimiter, async (req, res) => {
     } catch (claimError: any) {
       // Unique constraint violation = another request already claimed this submission
       if (claimError?.code === '23505' || claimError?.message?.includes('unique') || claimError?.message?.includes('duplicate')) {
-        console.log('🛡️ RACE CONDITION BLOCKED: duplicate simultaneous submission', {
+        console.log(`🛡️ [${reqId}] RACE CONDITION BLOCKED: duplicate simultaneous submission`, {
           submissionKey: submissionKey.slice(0, 8) + '***',
           slug,
           tenantId: form.tenantId,
@@ -1306,7 +1319,7 @@ router.post('/:slug/submit', formSubmissionLimiter, async (req, res) => {
     const project = await tenantStorage.createProject(projectData);
     const projectEndTime = Date.now();
 
-    console.log('✅ Project created:', { id: project.id, venueId: project.venueId, ms: projectEndTime - projectStartTime });
+    console.log(`✅ [${reqId}] PROJECT CREATED (NORMAL PATH):`, { id: project.id, venueId: project.venueId, ms: projectEndTime - projectStartTime });
 
     // Update lead to link it to the created contact and project using TENANT-SCOPED storage
     await tenantStorage.updateLead(lead.id, { 
@@ -1512,7 +1525,14 @@ router.post('/:slug/submit', formSubmissionLimiter, async (req, res) => {
     
     // TODO: Trigger workflows if configured
 
-    console.log('⏱️ Form submission completed in', Date.now() - startTime, 'ms', { slug, tenantId: form.tenantId });
+    console.log(`✅ [${reqId}] === FORM SUBMISSION COMPLETE (NORMAL PATH) ===`, {
+      ms: Date.now() - startTime,
+      leadId: lead.id,
+      projectId: project.id,
+      contactId: contact.id,
+      slug,
+      tenantId: form.tenantId
+    });
 
     res.json({
       ok: true,

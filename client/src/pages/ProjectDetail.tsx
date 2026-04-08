@@ -725,6 +725,7 @@ export default function ProjectDetail() {
       setShowArchiveConfirm(false);
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard/pending-items"] });
       queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/events"] }); // Refresh calendar instantly
       setLocation("/projects");
     },
     onError: () => {

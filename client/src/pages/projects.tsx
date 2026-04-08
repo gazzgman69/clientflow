@@ -409,6 +409,7 @@ export default function Projects() {
       if (!res.ok) throw new Error('Status update failed');
       queryClient.invalidateQueries({ queryKey: ['/api/projects'] });
       queryClient.invalidateQueries({ queryKey: ['/api/projects/status-counts'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/events'] }); // Refresh calendar instantly
     } catch (e) {
       console.error('Status update failed', e);
       toast({ title: "Error", description: "Failed to update project status.", variant: "destructive" });

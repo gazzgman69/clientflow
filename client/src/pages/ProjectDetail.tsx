@@ -1911,11 +1911,11 @@ export default function ProjectDetail() {
                               <p className="font-medium text-sm">{projectVenue.address || "Not specified"}</p>
                             </div>
                             <div>
-                              <p className="text-sm text-muted-foreground">PARKING DETAILS{!(project as any).parkingDetails && (projectVenue as any)?.parkingDetails && <span className="text-xs text-muted-foreground ml-1">(from venue)</span>}</p>
+                              <p className="text-sm text-muted-foreground">PARKING DETAILS</p>
                               <p className="font-medium text-sm">{(project as any).parkingDetails || (projectVenue as any)?.parkingDetails || "Not specified"}</p>
                             </div>
                             <div>
-                              <p className="text-sm text-muted-foreground">LOAD-IN DETAILS{!(project as any).loadInDetails && (projectVenue as any)?.loadInDetails && <span className="text-xs text-muted-foreground ml-1">(from venue)</span>}</p>
+                              <p className="text-sm text-muted-foreground">LOAD-IN DETAILS</p>
                               <p className="font-medium text-sm">{(project as any).loadInDetails || (projectVenue as any)?.loadInDetails || "Not specified"}</p>
                             </div>
                             <div>

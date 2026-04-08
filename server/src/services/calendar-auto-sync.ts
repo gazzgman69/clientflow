@@ -58,47 +58,39 @@ export class CalendarAutoSyncService {
 
     this.isRunning = true;
     const startTime = Date.now();
-    
+
     try {
-      console.log('🔄 Starting calendar auto-sync...');
-      
       // CRITICAL FIX: Get active tenants and process per tenant to ensure isolation
       const activeTenants = await storage.getActiveTenants();
-      
+
       if (activeTenants.length === 0) {
-        console.log('🏢 No active tenants found for calendar auto-sync');
         return;
       }
-      
-      console.log(`🏢 Processing calendar sync for ${activeTenants.length} active tenants`);
-      
+
       let allActiveIntegrations: any[] = [];
-      
+
       // Collect integrations from all tenants
       for (const tenant of activeTenants) {
         const tenantIntegrations = await storage.getCalendarIntegrationsByTenant(tenant.id);
-        const activeTenantIntegrations = tenantIntegrations.filter(integration => 
-          integration.isActive && 
+        const activeTenantIntegrations = tenantIntegrations.filter(integration =>
+          integration.isActive &&
           (integration.provider === 'google' || integration.provider === 'ical')
         );
-        
+
         // Add tenant context to each integration for later use
         const integrationsWithTenant = activeTenantIntegrations.map(integration => ({
           ...integration,
           _tenantContext: tenant.id
         }));
-        
+
         allActiveIntegrations.push(...integrationsWithTenant);
       }
-      
+
       const activeIntegrations = allActiveIntegrations;
 
       if (activeIntegrations.length === 0) {
-        console.log('📭 No active calendar integrations found for auto-sync');
         return;
       }
-
-      console.log(`🎯 Found ${activeIntegrations.length} active integrations to sync`);
 
       let successCount = 0;
       let errorCount = 0;
@@ -106,8 +98,6 @@ export class CalendarAutoSyncService {
       // Sync each integration
       for (const integration of activeIntegrations) {
         try {
-          console.log(`🔄 Auto-syncing ${integration.provider} integration: ${integration.calendarName}`);
-          
           let result;
           if (integration.provider === 'google') {
             result = await googleOAuthService.syncFromGoogle(integration);
@@ -123,17 +113,16 @@ export class CalendarAutoSyncService {
           }, integration.tenantId);
 
           successCount++;
-          console.log(`✅ Successfully auto-synced ${integration.calendarName}`);
-          
+
         } catch (error: any) {
           errorCount++;
           const errorMessage = error.message || 'Unknown error occurred during auto-sync';
           console.error(`❌ Auto-sync failed for ${integration.calendarName}:`, errorMessage);
-          
+
           // Log the error to the integration
           await storage.updateCalendarIntegration(integration.id, {
-            syncErrors: JSON.stringify({ 
-              error: errorMessage, 
+            syncErrors: JSON.stringify({
+              error: errorMessage,
               timestamp: new Date(),
               type: 'auto-sync'
             })
@@ -142,7 +131,7 @@ export class CalendarAutoSyncService {
       }
 
       const duration = Date.now() - startTime;
-      console.log(`🎉 Calendar auto-sync completed in ${duration}ms - Success: ${successCount}, Errors: ${errorCount}`);
+      console.log(`🎉 Calendar auto-sync completed in ${duration}ms`);
 
     } catch (error: any) {
       console.error('💥 Critical error in calendar auto-sync service:', error);

@@ -154,7 +154,7 @@ class JobsService {
   private registerBuiltInHandlers(): void {
     // Email sync job handler
     this.registerHandler('email-sync', async (payload) => {
-      console.log('📧 Processing email sync job:', payload);
+      // Email sync job starting
       
       // Import email sync service dynamically to avoid circular dependencies
       const { emailAutoSyncService } = await import('./email-auto-sync');
@@ -172,7 +172,7 @@ class JobsService {
 
     // Calendar sync job handler
     this.registerHandler('calendar-sync', async (payload) => {
-      console.log('📅 Processing calendar sync job:', payload);
+      // Calendar sync job starting
       
       // Import calendar service dynamically
       const { calendarAutoSyncService } = await import('./calendar-auto-sync');

@@ -340,11 +340,8 @@ export class GoogleOAuthService {
    */
   async syncToGoogleAll(integration: CalendarIntegration) {
     try {
-      console.log('Starting CRM → Google Calendar sync...');
-
       // Get all CRM events for this user (tenant-scoped)
       const crmEvents = await storage.getEventsByUser(integration.userId, integration.tenantId);
-      console.log(`Found ${crmEvents.length} CRM events to potentially sync`);
 
       let syncedCount = 0;
       let skippedCount = 0;
@@ -360,31 +357,27 @@ export class GoogleOAuthService {
               calendarId: 'primary',
               eventId: event.externalEventId
             });
-            
+
             // Check if event is cancelled/deleted (Google marks as status: 'cancelled')
             if (googleEvent.data.status === 'cancelled') {
               const { SyncPolicy } = await import('../../services/syncPolicy');
               // NEVER delete CRM-owned events (lead events, etc.)
               if (SyncPolicy.isCrmOwned({ external_event_id: event.externalEventId, type: event.type })) {
-                console.log(`⚠️ Event "${event.title}" was cancelled in Google Calendar but preserving in CRM (CRM-owned event)`);
                 skippedCount++;
                 continue;
               }
-              console.log(`🗑️ Event "${event.title}" was cancelled in Google Calendar, deleting from CRM...`);
               await storage.deleteEvent(event.id, integration.tenantId);
               skippedCount++;
               continue;
-            } 
-            
+            }
+
             // Check if CRM event status has changed (especially if cancelled)
             if (event.status === 'cancelled' || event.isCancelled) {
               // CRM event is cancelled but Google event is not - update Google Calendar
               if (googleEvent.data.status !== 'cancelled') {
-                console.log(`📅 Updating cancelled event "${event.title}" in Google Calendar...`);
                 try {
                   await this.syncToGoogle(integration, event.id);
                   syncedCount++;
-                  console.log(`✅ Successfully updated cancelled event "${event.title}" in Google Calendar`);
                 } catch (syncError) {
                   console.error(`❌ Failed to update cancelled event "${event.title}":`, syncError);
                   skippedCount++;
@@ -392,7 +385,7 @@ export class GoogleOAuthService {
                 continue;
               }
             }
-            
+
             // Event exists and is in sync, skip it
             skippedCount++;
             continue;
@@ -400,24 +393,21 @@ export class GoogleOAuthService {
             if (error.code === 404 || error.status === 404) {
               // Event doesn't exist in Google Calendar anymore
               const { SyncPolicy } = await import('../../services/syncPolicy');
-              
+
               // NEVER delete CRM-owned events
               if (SyncPolicy.isCrmOwned({ external_event_id: event.externalEventId, type: event.type })) {
-                console.log(`⚠️ Event "${event.title}" (type: ${event.type}) missing from Google Calendar but preserving in CRM (CRM-owned event)`);
                 // Re-sync to Google Calendar
                 try {
                   await this.syncToGoogle(integration, event.id);
                   syncedCount++;
-                  console.log(`✅ Re-synced CRM-owned event "${event.title}" to Google Calendar`);
                 } catch (syncError) {
                   console.error(`❌ Failed to re-sync "${event.title}":`, syncError);
                   skippedCount++;
                 }
                 continue;
               }
-              
+
               // Google-owned event missing from Google - delete from CRM
-              console.log(`🗑️ Event "${event.title}" (type: meeting) missing from Google Calendar, deleting from CRM...`);
               await storage.deleteEvent(event.id, integration.tenantId);
               skippedCount++;
               continue;
@@ -428,18 +418,16 @@ export class GoogleOAuthService {
             }
           }
         }
-        
+
         try {
-          console.log(`Syncing CRM event "${event.title}" to Google Calendar...`);
           await this.syncToGoogle(integration, event.id);
           syncedCount++;
-          console.log(`✅ Successfully synced "${event.title}"`);
         } catch (error) {
           console.error(`❌ Failed to sync "${event.title}":`, error);
         }
       }
-      
-      console.log(`CRM → Google sync complete: ${syncedCount} synced, ${skippedCount} skipped`);
+
+      console.log(`📅 Calendar sync: ${syncedCount} synced, ${skippedCount} skipped`);
       return { success: true, syncedCount, skippedCount };
     } catch (error: any) {
       console.error('Error in CRM → Google sync:', error);
@@ -452,83 +440,67 @@ export class GoogleOAuthService {
    */
   async syncFromGoogle(integration: CalendarIntegration) {
     try {
-      console.log('Starting Google → CRM sync...');
       const calendar = await this.getCalendarService(integration);
-      
+
       // Build calendar request parameters
       const requestParams: any = {
         calendarId: 'primary',
         singleEvents: true,
         maxResults: 1000
       };
-      
+
       // Use incremental sync if sync token is available, otherwise full sync
       if (integration.syncToken) {
-        console.log('🔄 Using incremental sync with sync token');
         requestParams.syncToken = integration.syncToken;
       } else {
-        console.log('🔄 Performing full sync (no sync token)');
         requestParams.timeMin = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString(); // Last 90 days
         requestParams.timeMax = new Date(Date.now() + 180 * 24 * 60 * 60 * 1000).toISOString(); // Next 180 days
         requestParams.orderBy = 'startTime';
       }
-      
+
       // CRITICAL: Sync CRM events TO Google Calendar FIRST
       // This ensures CRM events (like lead events) get their externalEventId before we import
       // Otherwise we create duplicates when importing from Google
       await this.syncToGoogleAll(integration);
-      
+
       const response = await calendar.events.list(requestParams);
-      
+
       const events = response.data.items || [];
       const isIncrementalSync = !!integration.syncToken;
-      
-      if (isIncrementalSync) {
-        console.log(`Found ${events.length} changed events since last sync (incremental)`);
-      } else {
-        console.log(`Found ${events.length} events in Google Calendar (full sync)`);
-      }
-      
+
       // For deletion checking: only during full sync can we safely determine deletions
       // During incremental sync, we only have changes, not the complete event list
       let currentGoogleEventIds: Set<string> | null = null;
       if (!isIncrementalSync) {
         currentGoogleEventIds = new Set(events.map(e => e.id).filter(id => id));
-        console.log('Full sync: Will check for deleted events');
-      } else {
-        console.log('Incremental sync: Skipping deletion check (not safe with partial data)');
       }
 
       for (const googleEvent of events) {
         if (!googleEvent.id || !googleEvent.summary) continue;
-        
+
         // Handle cancelled events (deletions)
         if (googleEvent.status === 'cancelled') {
-          console.log(`Google Calendar event "${googleEvent.summary}" was cancelled`);
           const existing = await storage.getEventByExternalId(googleEvent.id, integration.tenantId);
           if (existing) {
             const { SyncPolicy } = await import('../../services/syncPolicy');
             // NEVER delete CRM-owned events
             if (SyncPolicy.isCrmOwned({ external_event_id: existing.externalEventId, type: existing.type })) {
-              console.log(`⚠️ Event "${existing.title}" was cancelled in Google but preserving in CRM (CRM-owned event)`);
               continue;
             }
             await storage.deleteEvent(existing.id, integration.tenantId);
-            console.log(`Deleted CRM event: ${existing.title}`);
           }
           continue;
         }
-        
+
         // Check if event exists
         const existing = await storage.getEventByExternalId(googleEvent.id, integration.tenantId);
-        
+
         // CRITICAL: NEVER overwrite cancelled events
         // If an event is cancelled in CRM (e.g., project deleted), preserve the cancellation
         if (existing && existing.isCancelled) {
-          console.log(`⚠️ Skipping sync for cancelled event: "${existing.title}" - preserving CRM cancellation status`);
           continue;
         }
-        
+
         const eventData = {
           title: googleEvent.summary,
           description: googleEvent.description || '',
@@ -545,7 +517,7 @@ export class GoogleOAuthService {
           providerData: JSON.stringify(googleEvent),
           attendees: googleEvent.attendees?.map(attendee => attendee.email).filter(email => email) as string[] || []
         };
-        
+
         if (existing) {
           await storage.updateEvent(existing.id, eventData, integration.tenantId);
         } else {
@@ -556,23 +528,19 @@ export class GoogleOAuthService {
       // Check for events that were completely removed from Google Calendar
       // CRITICAL: Only during full sync - incremental sync only shows changes!
       if (currentGoogleEventIds !== null) {
-        console.log('Checking for events deleted from Google Calendar (full sync only)...');
-        
         // Get ALL CRM events that have a Google Calendar ID, filtered by tenant
         const allCrmEventsWithGoogleId = await storage.getEventsByUser(integration.userId, integration.tenantId!);
         const eventsToCheck = allCrmEventsWithGoogleId.filter(e => e.externalEventId);
-        
-        console.log(`Checking ${eventsToCheck.length} CRM events for deletion from Google Calendar...`);
-        
+
         const { SyncPolicy } = await import('../../services/syncPolicy');
         const { googleOutbox } = await import('../../services/googleOutbox');
         let repushScheduled = 0;
         let unlinked = 0;
-        
+
         for (const crmEvent of eventsToCheck) {
           if (crmEvent.externalEventId && !currentGoogleEventIds.has(crmEvent.externalEventId)) {
             console.info('INFO google.sync.provider_missing', { eventId: crmEvent.id, gEventId: crmEvent.externalEventId });
-            
+
             // NEVER delete CRM if it's CRM-owned or a lead
             if (SyncPolicy.isCrmOwned({ external_event_id: crmEvent.externalEventId, type: crmEvent.type })) {
               console.info('INFO google.sync.protect_crm', { eventId: crmEvent.id, reason: 'crm-owned-or-lead' });
@@ -597,14 +565,12 @@ export class GoogleOAuthService {
             }
           }
         }
-        
+
         console.info('INFO google.sync.summary', {
           repush_scheduled: repushScheduled,
           unlinked: unlinked,
           protected: eventsToCheck.length - repushScheduled - unlinked
         });
-      } else {
-        console.log('Skipping deletion check - incremental sync only shows changes, not complete event list');
       }
       
       // Update last sync

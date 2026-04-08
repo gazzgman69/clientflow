@@ -103,7 +103,7 @@ export class EmailSyncService {
   }> {
     // SECURITY FIX: Use session-provided tenantId for authenticated sync
     const originalTenantId = this.tenantId;
-    console.log(`🔐 SYNC DEBUG: sessionTenantId=${sessionTenantId}, originalTenantId=${originalTenantId}`);
+    // Sync debug info (quiet in production)
     if (sessionTenantId) {
       this.tenantId = sessionTenantId;
       console.log(`🔐 SYNC DEBUG: Set this.tenantId to ${this.tenantId}`);
@@ -111,8 +111,7 @@ export class EmailSyncService {
     
     try {
       this.gmailService = await this.initializeGmailService();
-      console.log(`🔄 Syncing Gmail threads to database with tenantId: ${this.tenantId}...`);
-      
+
       // Get all projects and their contact emails for this tenant only
       const tenantId = this.tenantId;
       const projectsWithContacts = await withDbRetry(() =>
@@ -137,46 +136,26 @@ export class EmailSyncService {
         }
       });
 
-      console.log(`📧 Found ${emailToProjectMap.size} project email mappings:`, 
-        Array.from(emailToProjectMap.keys()));
-      
       // Get contact email addresses to search for
       const contactEmails = Array.from(emailToProjectMap.keys());
-      
+
       // PRIVACY FIX: Only sync if there are known CRM contact emails
       // Don't sync if no contacts - prevents syncing ALL personal emails
       const userBusinessEmail = await this.getUserBusinessEmail(userId);
-      
+
       if (contactEmails.length === 0) {
-        console.log('📭 No CRM contacts with email addresses found - skipping email sync to protect privacy');
         return { synced: 0, skipped: 0, errors: [] };
       }
-      
-      console.log('🔍 Searching for emails from/to CRM contacts only:', {
-        businessEmail: userBusinessEmail,
-        contactCount: contactEmails.length,
-        contacts: contactEmails
-      });
       
       const gmailThreads = await this.gmailService.listThreadsForAddresses(userId, {
         limit: 100,
         addresses: contactEmails // Only contact emails, NOT business email
       });
-      
+
       if (!gmailThreads.ok || !gmailThreads.threads) {
         console.error('❌ Failed to fetch Gmail threads:', gmailThreads.error);
         return { synced: 0, skipped: 0, errors: [gmailThreads.error || 'Unknown Gmail API error'] };
       }
-
-      console.log(`📧 Found ${gmailThreads.threads.length} Gmail threads, syncing to database...`);
-      
-      // Log the first few threads for debugging
-      if (gmailThreads.threads.length > 0) {
-        console.log('📧 Sample threads found:');
-        gmailThreads.threads.slice(0, 3).forEach((thread: any, i: number) => {
-          console.log(`  ${i+1}. Subject: "${thread.latest.subject}" | From: ${thread.latest.from} | To: ${thread.latest.to}`);
-        });
-      };
       
       let synced = 0;
       let skipped = 0;
@@ -313,7 +292,6 @@ export class EmailSyncService {
               
             if (activeProjects.length > 0) {
               matchedProjectId = activeProjects[0].id;
-              console.log(`📧 AUTO-LINKED: Email to contact ${contactId} → project ${matchedProjectId}`);
             }
           }
           
@@ -326,9 +304,6 @@ export class EmailSyncService {
             });
             matchedProjectId = null; // Detach instead of failing
           }
-          
-          // PII-SAFE LOGGING: Use direction info only
-          console.log(`📧 THREAD DIRECTION: ${direction} message (contactId: ${contactId})`);
           
           // Only persist if we have a valid contact
           if (contactId) {
@@ -400,8 +375,10 @@ export class EmailSyncService {
         }
       }
 
-      console.log(`✅ Gmail sync complete: ${synced} synced, ${skipped} skipped${errors.length > 0 ? `, ${errors.length} errors` : ''}`);
-      
+      if (synced > 0) {
+        console.log(`📧 Email sync: ${synced} new threads found`);
+      }
+
       // Update last_synced_at timestamp in email_accounts table
       try {
         await db
@@ -414,12 +391,11 @@ export class EmailSyncService {
               eq(emailAccounts.tenantId, this.tenantId || 'default-tenant')
             )
           );
-        console.log('✅ Updated last_synced_at timestamp for Gmail account');
       } catch (updateError) {
         console.error('⚠️ Failed to update last_synced_at timestamp:', updateError);
         // Don't fail the sync if timestamp update fails
       }
-      
+
       return { synced, skipped, errors };
     } catch (error: any) {
       console.error('❌ Gmail sync failed:', error);
@@ -1182,9 +1158,7 @@ export class EmailSyncService {
 
     // Sync Gmail
     try {
-      console.log('🔄 Running background Gmail sync...');
       gmailResult = await this.syncGmailThreadsToDatabase(userId);
-      console.log(`✅ Gmail sync complete: ${gmailResult.synced} synced, ${gmailResult.skipped} skipped`);
     } catch (error) {
       console.error('❌ Background Gmail sync failed:', error);
       gmailResult.errors.push(error as any);
@@ -1194,9 +1168,7 @@ export class EmailSyncService {
     try {
       const { imapService } = await import('./imap');
       if (imapService.isImapConfigured()) {
-        console.log('🔄 Running background IMAP sync...');
         imapResult = await imapService.fetchNewMessages(userId);
-        console.log(`✅ IMAP sync complete: ${imapResult.synced} synced, ${imapResult.skipped} skipped`);
       }
     } catch (error) {
       console.error('❌ Background IMAP sync failed:', error);
@@ -1206,7 +1178,9 @@ export class EmailSyncService {
     // Combined summary
     const totalSynced = gmailResult.synced + imapResult.synced;
     const totalSkipped = gmailResult.skipped + imapResult.skipped;
-    console.log(`📧 Background sync complete: ${totalSynced} synced, ${totalSkipped} skipped`);
+    if (totalSynced > 0) {
+      console.log(`📧 Email sync: ${totalSynced} new threads found`);
+    }
   }
 
   /**

@@ -70,17 +70,12 @@ export class EmailAutoSyncService {
     const startTime = Date.now();
     
     try {
-      log('🔄 Starting tenant-aware email auto-sync...');
-      
       // Get active tenants and process per tenant to ensure isolation
       const activeTenants = await storage.getActiveTenants();
-      
+
       if (activeTenants.length === 0) {
-        log('📭 No active tenants found for email auto-sync');
         return;
       }
-      
-      console.log(`🏢 Processing email sync for ${activeTenants.length} active tenants`);
       
       let totalSuccessCount = 0;
       let totalErrorCount = 0;
@@ -111,7 +106,7 @@ export class EmailAutoSyncService {
             }
           }
           
-          console.log(`🔄 Processing email sync for tenant: ${tenant.name} (${tenant.id})`);
+          // Process tenant email sync
           
           // Get Gmail OAuth connections from email_accounts for this tenant only
           const { emailAccounts: emailAccountsTable } = await import('@shared/schema');
@@ -133,7 +128,7 @@ export class EmailAutoSyncService {
           
           // Get unique user IDs for this tenant
           const userIds = [...new Set(gmailAccounts.map(account => account.userId).filter(Boolean))];
-          console.log(`👥 Found ${userIds.length} users with Gmail OAuth in tenant ${tenant.id}`);
+          // Process each user's Gmail sync
           
           let tenantSuccessCount = 0;
           let tenantErrorCount = 0;

@@ -114,7 +114,7 @@ export class PostgreSQLJobQueue implements IJobQueue {
       });
     }
 
-    console.log(`📋 Job enqueued: ${type} (${jobId}) priority:${options.priority || 'normal'}`);
+    // Job enqueued (quiet in production)
     return jobId;
   }
 
@@ -396,7 +396,7 @@ export class PostgreSQLJobQueue implements IJobQueue {
     });
 
     try {
-      console.log(`📋 Executing job: ${job.type} (${job.id}) attempt ${attempt}`);
+      // Executing job (quiet in production)
 
       const handler = this.handlers.get(job.type);
       if (!handler) {
@@ -429,7 +429,7 @@ export class PostgreSQLJobQueue implements IJobQueue {
           .where(eq(jobExecutions.id, executionId))
       ]);
 
-      console.log(`📋 Job completed: ${job.type} (${job.id})`);
+      // Job completed (quiet in production)
 
     } catch (error: any) {
       console.error(`📋 Job failed: ${job.type} (${job.id})`, error);

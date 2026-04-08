@@ -4215,14 +4215,6 @@ export class DrizzleStorage implements IStorage {
       throw new Error(error);
     }
     
-    console.log('📅 EVENT UPDATE', {
-      action: 'updateEvent',
-      tenantId,
-      eventId: id,
-      updateFields: Object.keys(updates),
-      timestamp: new Date().toISOString()
-    });
-    
     const result = await this.db.update(events)
       .set(updates)
       .where(and(
@@ -4230,16 +4222,6 @@ export class DrizzleStorage implements IStorage {
         eq(events.tenantId, tenantId)
       ))
       .returning();
-      
-    if (result[0]) {
-      console.log('✅ EVENT UPDATED', {
-        action: 'updateEvent',
-        tenantId,
-        eventId: result[0].id,
-        eventTitle: result[0].title,
-        timestamp: new Date().toISOString()
-      });
-    }
     
     return result[0];
   }

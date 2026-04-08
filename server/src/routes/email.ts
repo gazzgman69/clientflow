@@ -363,26 +363,9 @@ router.post('/send', requireAuth, upload.array('attachments', 10), async (req: a
       contentType: file.mimetype
     })) || [];
 
-    // Wrap HTML in branded email template with business logo
-    if (finalHtml) {
-      try {
-        const { emailRenderer } = await import('../services/emailRenderer');
-        // Look up business logo from tenant settings
-        let businessLogo: string | undefined;
-        try {
-          const tenant = await storage.getTenant(tenantId);
-          if (tenant?.settings) {
-            const settings = JSON.parse(tenant.settings);
-            businessLogo = settings.logoUrl || undefined;
-          }
-        } catch { /* ignore logo lookup errors */ }
-        const rendered = emailRenderer.render({ subject: finalSubject, html: finalHtml, businessLogo });
-        finalHtml = rendered.htmlInlined;
-        if (!finalText && rendered.text) finalText = rendered.text;
-      } catch (renderErr) {
-        console.warn('⚠️ Email rendering failed, using raw HTML:', renderErr);
-      }
-    }
+    // Send emails as plain HTML — no branded template wrapping.
+    // The user composes the email content directly; no logo or template chrome is added.
+    // (Previously wrapped in emailRenderer.render() with business logo — removed per user preference)
 
     try {
       // Dispatch email using OAuth provider
@@ -403,7 +386,8 @@ router.post('/send', requireAuth, upload.array('attachments', 10), async (req: a
       }
       
       // Store sent email in database for thread tracking
-      if (projectId && result.messageId) {
+      console.log('📧 Email send result:', { ok: result.ok, messageId: result.messageId, threadId: result.threadId, projectId, contactId });
+      if (projectId) {
         try {
           await storage.createEmail({
             tenantId,

@@ -117,13 +117,9 @@ async function buildBookedDescription(
       }
     }
 
-    // Event type from description (format: "EventType at Venue")
-    if (project.description) {
-      const atIdx = project.description.indexOf(' at ');
-      if (atIdx > 0) {
-        const eventType = project.description.substring(0, atIdx).trim();
-        if (eventType) lines.push(`🎯 Event type: ${eventType}`);
-      }
+    // Event type (now stored as its own field on the project)
+    if ((project as any).eventType) {
+      lines.push(`🎯 Event type: ${(project as any).eventType}`);
     }
 
     // Project date

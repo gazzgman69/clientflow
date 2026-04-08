@@ -777,10 +777,12 @@ router.post('/:slug/submit', formSubmissionLimiter, async (req, res) => {
                 }
               }
 
+              const dupProjectNotes = mappingResult.leadData.notes || mappingResult.leadData.message || '';
               const projectData = {
                 ...mappingResult.projectData,
                 name: `${existingContact.firstName} ${existingContact.lastName} - ${mappingResult.leadData.eventType || 'Event'}`,
-                description: `${mappingResult.leadData.eventType || 'Event'} at ${mappingResult.contactData.venueAddress || 'TBD'}`,
+                description: dupProjectNotes || null,
+                eventType: mappingResult.leadData.eventType || null,
                 contactId: existingContact.id,
                 venueId: dupVenueId,
                 venueName: mappingResult.contactData.venueAddress?.split(',')[0]?.trim() || null,
@@ -1311,10 +1313,14 @@ router.post('/:slug/submit', formSubmissionLimiter, async (req, res) => {
 
     // Create project from mapped data using TENANT-SCOPED storage
     const projectStartTime = Date.now();
+    // Build description: use any extra notes/message from the form, not the event type + venue
+    // (event type and venue are stored in their own fields on the project)
+    const projectNotes = mappingResult.leadData.notes || mappingResult.leadData.message || '';
     const projectData = {
       ...mappingResult.projectData,
       name: `${nameParts.fullName || 'Unknown'} - ${mappingResult.leadData.eventType || 'Event'}`,
-      description: `${mappingResult.leadData.eventType || 'Event'} at ${mappingResult.contactData.venueAddress || 'TBD'}`,
+      description: projectNotes || null,
+      eventType: mappingResult.leadData.eventType || null,
       contactId: contact.id,
       venueId: createdVenue?.id || null, // Link project to venue if created
       // Always copy venue name/address directly — preserved even if venue is later deleted

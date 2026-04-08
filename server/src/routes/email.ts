@@ -390,11 +390,42 @@ router.post('/send', requireAuth, upload.array('attachments', 10), async (req: a
       console.log('📧 Email send result:', { ok: result.ok, messageId: result.messageId, threadId: result.threadId, provider: result.provider, projectId, contactId, subject: finalSubject });
       if (projectId) {
         try {
+          // The emails table has a FK to email_threads — we must create a thread first
+          const providerThreadId = result.threadId || result.messageId || `sent-${Date.now()}`;
+
+          // Check if thread already exists (e.g. from email sync)
+          const existingThread = await db.select({ id: emailThreads.id })
+            .from(emailThreads)
+            .where(eq(emailThreads.id, providerThreadId))
+            .limit(1);
+
+          let threadId: string;
+          if (existingThread.length > 0) {
+            threadId = existingThread[0].id;
+            // Update lastMessageAt
+            await db.update(emailThreads)
+              .set({ lastMessageAt: new Date(), updatedAt: new Date() })
+              .where(eq(emailThreads.id, threadId));
+          } else {
+            // Create new thread record
+            const [newThread] = await db.insert(emailThreads).values({
+              id: providerThreadId,
+              tenantId,
+              userId,
+              projectId,
+              subject: finalSubject,
+              lastMessageAt: new Date(),
+              createdAt: new Date(),
+              updatedAt: new Date(),
+            }).returning();
+            threadId = newThread.id;
+            console.log('📧 Created email thread:', threadId);
+          }
+
           await storage.createEmail({
             tenantId,
             userId,
-            // Use provider threadId for proper threading; fall back to messageId
-            threadId: result.threadId || result.messageId || `sent-${Date.now()}`,
+            threadId,
             // Store provider messageId so background sync can deduplicate
             providerMessageId: result.messageId,
             provider: result.provider || 'unknown',
@@ -412,6 +443,7 @@ router.post('/send', requireAuth, upload.array('attachments', 10), async (req: a
             direction: 'outbound',
             snippet: finalText?.substring(0, 100)
           }, tenantId);
+          console.log('📧 Email stored in DB for project thread:', { threadId, projectId });
 
           // Trigger lead status automator if email was sent to a lead
           if (contactId) {

@@ -1438,7 +1438,11 @@ export default function ProjectEmailPanel({ projectId, emails, autoOpenComposer 
                           .join('');
                         
                         setReplyMessage(htmlContent);
-                        setReplyTo(selectedEmail.fromEmail);
+                        // Extract bare email from "Name <email>" format
+                        const cleanEmail = selectedEmail.fromEmail.includes('<')
+                          ? selectedEmail.fromEmail.match(/<(.+)>/)?.[1] || selectedEmail.fromEmail
+                          : selectedEmail.fromEmail;
+                        setReplyTo(cleanEmail);
                         setReplySubject(`Re: ${selectedEmail.subject || ''}`);
                         setReplyingToEmailId(selectedEmail.id);
                         setShowReplyDialog(true);

@@ -189,6 +189,12 @@ router.post('/send', requireAuth, upload.array('attachments', 10), async (req: a
       emailData = req.body;
     }
     
+    // Clean "Name <email>" format to bare email before validation
+    if (emailData.to && typeof emailData.to === 'string' && emailData.to.includes('<')) {
+      const match = emailData.to.match(/<(.+?)>/);
+      if (match) emailData.to = match[1];
+    }
+
     const validatedEmailData = sendEmailSchema.parse(emailData);
     const userId = req.user.id;
     

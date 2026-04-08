@@ -2476,7 +2476,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
 
       // Pipeline value (active/booked projects + sent quotes)
       const pipelineResult = await pool.query(
-        `SELECT COALESCE(SUM(CAST(estimated_value AS DECIMAL)), 0) as total
+        `SELECT COALESCE(SUM(CASE WHEN estimated_value ~ '^[0-9]+(\\.[0-9]+)?$' THEN CAST(estimated_value AS DECIMAL) ELSE 0 END), 0) as total
          FROM projects
          WHERE tenant_id = $1 AND status IN ('lead', 'booked', 'active')
            AND estimated_value IS NOT NULL AND estimated_value != ''`,
@@ -2524,7 +2524,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
       // Get all contacts and projects in tenant for business metrics
       const clientsResult = await pool.query('SELECT COUNT(*) as count FROM contacts WHERE tenant_id = $1', [tenantId]);
       const clientsCount = parseInt((clientsResult.rows[0] as any).count);
-      const projectsResult = await pool.query('SELECT COUNT(*) as count, COALESCE(SUM(CAST(estimated_value AS DECIMAL)), 0) as total_value FROM projects WHERE tenant_id = $1', [tenantId]);
+      const projectsResult = await pool.query(`SELECT COUNT(*) as count, COALESCE(SUM(CASE WHEN estimated_value ~ '^[0-9]+(\\.[0-9]+)?$' THEN CAST(estimated_value AS DECIMAL) ELSE 0 END), 0) as total_value FROM projects WHERE tenant_id = $1`, [tenantId]);
       const projectsCount = parseInt((projectsResult.rows[0] as any).count);
       const totalProjectValue = parseFloat((projectsResult.rows[0] as any).total_value || '0');
       const quotesResult = await pool.query('SELECT COUNT(*) as count, COALESCE(SUM(CAST(subtotal AS DECIMAL)), 0) as total_value FROM quotes WHERE tenant_id = $1', [tenantId]);

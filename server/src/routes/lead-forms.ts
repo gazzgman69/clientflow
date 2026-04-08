@@ -864,22 +864,20 @@ router.post('/:slug/submit', formSubmissionLimiter, async (req, res) => {
                 }
               }
               
-              // Record new form submission
-              await tenantStorage.createFormSubmission({
-                formId: form.id,
-                submissionKey: submissionKey, 
-                ipAddress: req.ip?.slice(0, 15) || 'unknown',
-                userAgent: req.get('User-Agent')?.slice(0, 200) || 'unknown',
-                leadId: lead.id,
-                status: 'processed',
-                metadata: JSON.stringify({
-                  contactId: existingContact.id,
-                  projectId: project.id,
-                  venueId: dupVenueId || null
-                }),
-                submittedAt: new Date(),
-                expiresAt: new Date(Date.now() + (30 * 24 * 60 * 60 * 1000)) // 30 days
-              });
+              // Update existing submission record with new project info (don't create — record already exists)
+              try {
+                await storage.updateFormSubmission(existingSubmission.id, {
+                  leadId: lead.id,
+                  status: 'processed' as any,
+                  metadata: JSON.stringify({
+                    contactId: existingContact.id,
+                    projectId: project.id,
+                    venueId: dupVenueId || null
+                  }),
+                }, form.tenantId);
+              } catch (submissionUpdateErr) {
+                console.warn('⚠️ Failed to update submission record (non-fatal):', submissionUpdateErr);
+              }
               
               console.log('✅ DUPLICATE SUBMISSION HANDLED - REUSED CONTACT, CREATED NEW PROJECT:', {
                 leadId: lead.id,
@@ -1555,8 +1553,7 @@ router.post('/:slug/submit', formSubmissionLimiter, async (req, res) => {
       formDataKeys: req.body ? Object.keys(req.body) : [],
       timestamp: new Date().toISOString()
     });
-    // TEMPORARY: expose error detail for debugging (remove after fix)
-    res.status(500).json({ error: 'Failed to submit form', _debug: errMsg });
+    res.status(500).json({ error: 'Failed to submit form' });
   }
 });
 

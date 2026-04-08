@@ -875,8 +875,33 @@ export default function EmailSettings() {
                                   <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 space-y-1">
                                     <p className="font-medium text-amber-800 text-sm">Custom email domain</p>
                                     <p className="text-xs text-amber-700">
-                                      We couldn't auto-detect settings for <strong>{connectEmail.split('@')[1]}</strong>. Enter your IMAP and SMTP server details below, or check with your email provider.
+                                      We couldn't auto-detect settings for <strong>{connectEmail.split('@')[1]}</strong>. If your email is hosted by Google or Microsoft (e.g., GoDaddy Office 365), use the buttons below. Otherwise, enter your server details manually.
                                     </p>
+                                  </div>
+
+                                  {/* Quick OAuth shortcuts for custom domains hosted by Google/Microsoft */}
+                                  <div className="flex gap-2">
+                                    <Button
+                                      variant="outline"
+                                      className="flex-1 text-sm"
+                                      onClick={() => { setShowConnectDialog(false); connectGoogleWithPopup(); }}
+                                    >
+                                      <Mail className="h-4 w-4 mr-2" />
+                                      Sign in with Google
+                                    </Button>
+                                    <Button
+                                      variant="outline"
+                                      className="flex-1 text-sm"
+                                      onClick={() => { setShowConnectDialog(false); connectMicrosoftWithPopup(); }}
+                                    >
+                                      <Mail className="h-4 w-4 mr-2" />
+                                      Sign in with Microsoft
+                                    </Button>
+                                  </div>
+
+                                  <div className="relative">
+                                    <div className="absolute inset-0 flex items-center"><span className="w-full border-t" /></div>
+                                    <div className="relative flex justify-center text-xs uppercase"><span className="bg-background px-2 text-muted-foreground">or enter manually</span></div>
                                   </div>
 
                                   <div className="space-y-2">

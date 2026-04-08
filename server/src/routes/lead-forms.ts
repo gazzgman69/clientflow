@@ -646,6 +646,28 @@ router.post('/:slug/submit', formSubmissionLimiter, async (req, res) => {
         // Check if the referenced contact still exists
         if (metadata.contactId) {
           try {
+            // Guard: if this submission was completed very recently (within 30s),
+            // it's a duplicate click — return success without creating anything new.
+            const submittedAt = existingSubmission.submittedAt ? new Date(existingSubmission.submittedAt).getTime() : 0;
+            const submissionAge = (Date.now() - submittedAt) / 1000;
+
+            if (submittedAt && submissionAge < 30) {
+              console.log('🛡️ DUPLICATE CLICK DETECTED (' + Math.round(submissionAge) + 's since last submission), returning existing result:', {
+                submissionId: existingSubmission.id,
+                slug,
+                tenantId: form.tenantId
+              });
+              return res.json({
+                ok: true,
+                duplicate: true,
+                afterSubmit: {
+                  type: form.redirectUrl ? 'redirect' : 'message',
+                  redirectUrl: form.redirectUrl || null,
+                  message: form.thankYouMessage || 'Thank you for your enquiry! We will be in touch shortly.'
+                }
+              });
+            }
+
             const existingContact = await tenantStorage.getContactById(metadata.contactId);
             if (existingContact) {
               console.log('♻️ REUSING EXISTING CONTACT:', {
@@ -655,7 +677,7 @@ router.post('/:slug/submit', formSubmissionLimiter, async (req, res) => {
                 slug,
                 tenantId: form.tenantId
               });
-              
+
               // Reuse contact, create new lead and project
               // Continue with modified submission flow using existingContact
               const nameParts = splitFullName(mappingResult.leadData.full_name || '');
@@ -731,7 +753,6 @@ router.post('/:slug/submit', formSubmissionLimiter, async (req, res) => {
                       state: mappingResult.contactData.venueState || raw.eventLocationState || '',
                       zipCode: mappingResult.contactData.venueZipCode || raw.eventLocationZipCode || '',
                       country: mappingResult.contactData.venueCountry || raw.eventLocationCountry || 'GB',
-                      useCount: 1,
                       lastUsedAt: new Date(),
                       tenantId: form.tenantId,
                     };
@@ -931,8 +952,30 @@ router.post('/:slug/submit', formSubmissionLimiter, async (req, res) => {
             } catch { /* ignore */ }
           }
         } else {
-          // No contactId in metadata - stale/broken record, clean it up so we can proceed
-          console.log('🧹 CLEANING UP BROKEN SUBMISSION RECORD (no contactId):', {
+          // No contactId in metadata — could be still processing or genuinely broken.
+          // Check claimedAt: if less than 60 seconds old, still processing — return success.
+          const claimedAt = metadata.claimedAt ? new Date(metadata.claimedAt).getTime() : 0;
+          const ageSeconds = (Date.now() - claimedAt) / 1000;
+
+          if (claimedAt && ageSeconds < 60) {
+            console.log('⏳ SUBMISSION STILL PROCESSING (claimed ' + Math.round(ageSeconds) + 's ago), returning success:', {
+              submissionId: existingSubmission.id,
+              slug,
+              tenantId: form.tenantId
+            });
+            return res.json({
+              ok: true,
+              duplicate: true,
+              afterSubmit: {
+                type: form.redirectUrl ? 'redirect' : 'message',
+                redirectUrl: form.redirectUrl || null,
+                message: form.thankYouMessage || 'Thank you for your enquiry! We will be in touch shortly.'
+              }
+            });
+          }
+
+          // Genuinely stale/broken record (older than 60s with no contactId) — clean it up
+          console.log('🧹 CLEANING UP BROKEN SUBMISSION RECORD (no contactId, ' + Math.round(ageSeconds) + 's old):', {
             submissionId: existingSubmission.id,
             slug,
             tenantId: form.tenantId
@@ -1149,7 +1192,6 @@ router.post('/:slug/submit', formSubmissionLimiter, async (req, res) => {
                 contactPhone: venueDetails.contactPhone || null, // Include phone number
                 latitude: venueDetails.latitude ? venueDetails.latitude.toString() : null,
                 longitude: venueDetails.longitude ? venueDetails.longitude.toString() : null,
-                useCount: 1, // Start with count of 1 since it's being used immediately
                 lastUsedAt: new Date(),
                 tenantId: form.tenantId // Add required tenantId
               };

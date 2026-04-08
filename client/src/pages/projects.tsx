@@ -459,8 +459,15 @@ export default function Projects() {
   };
 
   const formatVenueAddress = (project: any) => {
-    // Show just the venue name in the table for cleaner display
-    return project.venue_name || 'No venue';
+    // Show venue name from linked record, fall back to project's stored address
+    if (project.venue_name) return project.venue_name;
+    // If venue was deleted, use the address saved on the project from the original enquiry
+    if (project.venueAddress || project.venue_address) {
+      const addr = project.venueAddress || project.venue_address;
+      // Show just the first part (venue name) from the full address string
+      return addr.split(',')[0].trim();
+    }
+    return 'No venue';
   };
 
   const getVenuePhone = (project: any) => {

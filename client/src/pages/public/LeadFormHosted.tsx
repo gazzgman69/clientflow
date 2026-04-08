@@ -172,6 +172,11 @@ export default function LeadFormHosted({ slug }: LeadFormHostedProps) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    // Prevent double-submit from rapid clicks
+    if (submitMutation.isPending || isSubmitting) {
+      return;
+    }
+
     if (!formData) {
       return;
     }

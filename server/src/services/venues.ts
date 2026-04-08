@@ -33,6 +33,10 @@ export class VenuesService {
     if (existingVenue) {
       // Update only empty/null fields to preserve manual edits
       const updates: Partial<InsertVenue> = {};
+
+      // Increment use count on every reuse
+      updates.useCount = (existingVenue.useCount || 0) + 1;
+      updates.lastUsedAt = new Date();
       
       if (!existingVenue.name) updates.name = details.name;
       
@@ -205,7 +209,8 @@ export class VenuesService {
     const normalizedFields = this.generateNormalizedFields(venueData.name || '', venueData.address || '');
     const venueDataWithNormalized = {
       ...venueData,
-      ...normalizedFields
+      ...normalizedFields,
+      useCount: 1, // First use — start at 1
     };
     
     console.log('✅ VENUE CREATED (New):', { 

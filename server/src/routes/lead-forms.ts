@@ -925,16 +925,24 @@ router.post('/:slug/submit', formSubmissionLimiter, async (req, res) => {
               // Continue as new submission (fall through to normal creation logic)
             }
           } catch (contactCheckError) {
-            console.warn('⚠️ Failed to check existing contact, continuing as new submission:', contactCheckError);
-            // Continue as new submission if contact check fails
+            console.warn('⚠️ Failed to check existing contact, cleaning up and continuing:', contactCheckError);
+            try {
+              await storage.deleteFormSubmission(existingSubmission.id);
+            } catch { /* ignore */ }
           }
         } else {
-          // No contactId in metadata - treat as new submission
-          console.log('🔄 NO CONTACT ID IN METADATA - CONTINUING AS NEW SUBMISSION:', {
+          // No contactId in metadata - stale/broken record, clean it up so we can proceed
+          console.log('🧹 CLEANING UP BROKEN SUBMISSION RECORD (no contactId):', {
             submissionId: existingSubmission.id,
             slug,
             tenantId: form.tenantId
           });
+          try {
+            await storage.deleteFormSubmission(existingSubmission.id);
+          } catch (cleanupError) {
+            console.warn('⚠️ Failed to clean up broken submission:', cleanupError);
+          }
+          // Continue as new submission (fall through to normal creation logic)
         }
       }
     } catch (idempotencyError) {

@@ -16,6 +16,11 @@ export interface SendEmailParams {
     path: string;
     contentType?: string;
   }>;
+  inlineImages?: Array<{
+    cid: string;
+    contentType: string;
+    base64: string;
+  }>;
 }
 
 export interface SyncContactsOnlyParams {
@@ -198,6 +203,20 @@ export class MicrosoftEmailProvider {
         } catch (err) {
           console.error(`Failed to read attachment ${att.filename}:`, err);
         }
+      }
+    }
+
+    // Process inline images (CID-referenced, e.g. logo) as inline attachments
+    if (params.inlineImages && params.inlineImages.length > 0) {
+      for (const img of params.inlineImages) {
+        msAttachments.push({
+          '@odata.type': '#microsoft.graph.fileAttachment',
+          name: `${img.cid.replace('@', '_')}.${img.contentType.split('/')[1] || 'png'}`,
+          contentType: img.contentType,
+          contentBytes: img.base64,
+          contentId: img.cid,
+          isInline: true
+        });
       }
     }
 

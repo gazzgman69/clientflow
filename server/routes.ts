@@ -3677,10 +3677,33 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
         holdExpiresAt: req.body.holdExpiresAt ? new Date(req.body.holdExpiresAt) : undefined,
       };
       const projectData = insertProjectSchema.partial().parse(bodyWithDates);
+
+      // If status is changing, grab previous status for calendar sync
+      let previousStatus: string | undefined;
+      if (projectData.status) {
+        const existing = await storage.getProject(req.params.id, req.tenantId!);
+        previousStatus = existing?.status;
+      }
+
       const project = await storage.updateProject(req.params.id, projectData, req.tenantId!);
       if (!project) {
         return res.status(404).json({ message: "Project not found" });
       }
+
+      // Sync calendar events when status changes via general update
+      if (projectData.status && previousStatus && projectData.status !== previousStatus) {
+        try {
+          if (['lost', 'cancelled'].includes(projectData.status)) {
+            await storage.markEventsCancelledForProject(req.params.id, req.tenantId!, req.userId);
+          } else {
+            const { syncCalendarEventsForStatusChange } = await import('./src/services/calendar-event-sync');
+            await syncCalendarEventsForStatusChange(req.params.id, req.tenantId!, projectData.status, previousStatus);
+          }
+        } catch (calSyncErr) {
+          console.warn('⚠️ Calendar event sync failed (non-fatal):', calSyncErr);
+        }
+      }
+
       res.json(project);
     } catch (error) {
       console.error('Error updating project:', error);

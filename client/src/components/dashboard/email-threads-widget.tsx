@@ -490,8 +490,9 @@ export default function EmailThreadsWidget() {
                       <TokenDropdown
                         onTokenSelect={(token) => insertTokenIntoSubject(token)}
                         onAfterInsert={() => subjectInputRef.current?.focus()}
-                        variant="outline"
+                        variant="link"
                         size="sm"
+                        className="h-auto p-0 text-xs text-primary hover:text-primary/80"
                       />
                     </div>
                     <Input

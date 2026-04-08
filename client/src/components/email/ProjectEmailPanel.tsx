@@ -728,9 +728,10 @@ export default function ProjectEmailPanel({ projectId, emails, autoOpenComposer 
                     });
                   }}
                   onAfterInsert={() => composeSubjectRef.current?.focus()}
-                  variant="outline"
+                  variant="link"
                   size="sm"
-                  data-testid="button-insert-subject-token"
+                  className="h-auto p-0 text-xs text-primary hover:text-primary/80"
+                  data-testid="link-insert-subject-token"
                 />
               </div>
 
@@ -1588,8 +1589,9 @@ export default function ProjectEmailPanel({ projectId, emails, autoOpenComposer 
                     });
                   }}
                   onAfterInsert={() => replySubjectRef.current?.focus()}
-                  variant="outline"
+                  variant="link"
                   size="sm"
+                  className="h-auto p-0 text-xs text-primary hover:text-primary/80"
                 />
               </div>
               <Input

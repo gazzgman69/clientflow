@@ -12,6 +12,7 @@ async function addMissingColumns() {
     `ALTER TABLE venues ADD COLUMN IF NOT EXISTS parking_details TEXT`,
     `ALTER TABLE venues ADD COLUMN IF NOT EXISTS load_in_details TEXT`,
     // Venues table — other potentially missing columns
+    `ALTER TABLE venues ADD COLUMN IF NOT EXISTS booked_count INTEGER DEFAULT 0`,
     `ALTER TABLE venues ADD COLUMN IF NOT EXISTS normalized_name TEXT`,
     `ALTER TABLE venues ADD COLUMN IF NOT EXISTS normalized_address TEXT`,
     `ALTER TABLE venues ADD COLUMN IF NOT EXISTS manager_name TEXT`,

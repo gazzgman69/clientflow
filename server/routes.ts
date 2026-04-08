@@ -3725,10 +3725,41 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
         updateData.lostReasonNotes = null;
       }
 
+      // Get current project to check previous status and venueId
+      const existingProject = await storage.getProject(req.params.id, req.tenantId!);
+      if (!existingProject) {
+        return res.status(404).json({ message: "Project not found" });
+      }
+      const previousStatus = existingProject.status;
+
       const project = await storage.updateProject(req.params.id, updateData, req.tenantId!);
       if (!project) {
         return res.status(404).json({ message: "Project not found" });
       }
+
+      // Update venue booked count when project status changes to/from booked
+      if (existingProject.venueId && previousStatus !== status) {
+        try {
+          const venue = await storage.getVenue(existingProject.venueId, req.tenantId!);
+          if (venue) {
+            if (status === 'booked' && previousStatus !== 'booked') {
+              // Moving TO booked — increment
+              await storage.updateVenue(existingProject.venueId, {
+                bookedCount: (venue.bookedCount || 0) + 1
+              }, req.tenantId!);
+            } else if (previousStatus === 'booked' && status !== 'booked') {
+              // Moving AWAY from booked — decrement (min 0)
+              await storage.updateVenue(existingProject.venueId, {
+                bookedCount: Math.max(0, (venue.bookedCount || 0) - 1)
+              }, req.tenantId!);
+            }
+          }
+        } catch (venueErr) {
+          console.warn('⚠️ Failed to update venue booked count:', venueErr);
+          // Non-fatal — don't block the status update
+        }
+      }
+
       res.json(project);
     } catch (error) {
       console.error('Error updating project status:', error);

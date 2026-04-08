@@ -1158,7 +1158,11 @@ export default function VenuesPage() {
                       <div className="space-y-1 text-sm">
                         <div className="flex items-center gap-1">
                           <BarChart3 className="h-3 w-3" />
-                          <span data-testid={`text-use-count-${venue.id}`}>{venue.useCount || 0} uses</span>
+                          <span data-testid={`text-use-count-${venue.id}`}>{venue.useCount || 0} enquiries</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <CheckCircle className="h-3 w-3 text-green-600" />
+                          <span>{venue.bookedCount || 0} booked</span>
                         </div>
                         {venue.lastUsedAt && (
                           <div className="flex items-center gap-1 text-xs text-muted-foreground">

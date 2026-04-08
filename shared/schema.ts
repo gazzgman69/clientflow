@@ -854,7 +854,8 @@ export const venues = pgTable("venues", {
   managerPhone: text("manager_phone"),
   managerEmail: text("manager_email"),
   preferred: boolean("preferred").default(false),
-  useCount: integer("use_count").default(0), // increments when linked to a project
+  useCount: integer("use_count").default(0), // increments on each enquiry/form submission
+  bookedCount: integer("booked_count").default(0), // increments when a linked project is confirmed/booked
   lastUsedAt: timestamp("last_used_at"), // timestamptz equivalent
   tags: text("tags").array(), // venue tags
   meta: text("meta"), // JSON string for free-form extras from Google or custom

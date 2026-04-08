@@ -286,7 +286,7 @@ router.get('/diagnostic', async (req, res) => {
     // Get recent projects to check venue linking
     const { pool } = await import('../../db');
     const recentProjects = await pool.query(
-      `SELECT id, name, venue_id, venue_address, created_at
+      `SELECT id, name, venue_id, created_at
        FROM projects WHERE tenant_id = $1
        ORDER BY created_at DESC LIMIT 5`,
       [tenantId]
@@ -313,7 +313,6 @@ router.get('/diagnostic', async (req, res) => {
         id: p.id,
         name: p.name,
         venueId: p.venue_id,
-        venueAddress: p.venue_address,
         createdAt: p.created_at
       })),
       poolStatus,

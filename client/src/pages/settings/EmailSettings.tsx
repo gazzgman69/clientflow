@@ -117,11 +117,85 @@ function getProviderMode(p?: Provider | null): Mode {
   return 'generic';
 }
 
+// Auto-detect email provider from domain
+type DetectedProvider = {
+  key: string;
+  name: string;
+  method: 'oauth' | 'imap_smtp' | 'manual';
+  imap?: { host: string; port: number; secure: boolean };
+  smtp?: { host: string; port: number; secure: boolean };
+  helpText?: string;
+};
+
+const DOMAIN_MAP: Record<string, DetectedProvider> = {
+  // Google
+  'gmail.com': { key: 'google', name: 'Gmail', method: 'oauth' },
+  'googlemail.com': { key: 'google', name: 'Gmail', method: 'oauth' },
+  // Microsoft OAuth
+  'outlook.com': { key: 'microsoft', name: 'Microsoft', method: 'oauth' },
+  'hotmail.com': { key: 'microsoft', name: 'Microsoft', method: 'oauth' },
+  'hotmail.co.uk': { key: 'microsoft', name: 'Microsoft', method: 'oauth' },
+  'live.com': { key: 'microsoft', name: 'Microsoft', method: 'oauth' },
+  'live.co.uk': { key: 'microsoft', name: 'Microsoft', method: 'oauth' },
+  'msn.com': { key: 'microsoft', name: 'Microsoft', method: 'oauth' },
+  'outlook.co.uk': { key: 'microsoft', name: 'Microsoft', method: 'oauth' },
+  // Yahoo
+  'yahoo.com': { key: 'yahoo', name: 'Yahoo', method: 'imap_smtp',
+    imap: { host: 'imap.mail.yahoo.com', port: 993, secure: true },
+    smtp: { host: 'smtp.mail.yahoo.com', port: 465, secure: true },
+    helpText: 'Enable 2FA and generate an app password in your Yahoo account settings.' },
+  'yahoo.co.uk': { key: 'yahoo', name: 'Yahoo', method: 'imap_smtp',
+    imap: { host: 'imap.mail.yahoo.com', port: 993, secure: true },
+    smtp: { host: 'smtp.mail.yahoo.com', port: 465, secure: true },
+    helpText: 'Enable 2FA and generate an app password in your Yahoo account settings.' },
+  // iCloud
+  'icloud.com': { key: 'icloud', name: 'iCloud', method: 'imap_smtp',
+    imap: { host: 'imap.mail.me.com', port: 993, secure: true },
+    smtp: { host: 'smtp.mail.me.com', port: 587, secure: false },
+    helpText: 'Generate an app-specific password at appleid.apple.com → Sign-In and Security → App-Specific Passwords.' },
+  'me.com': { key: 'icloud', name: 'iCloud', method: 'imap_smtp',
+    imap: { host: 'imap.mail.me.com', port: 993, secure: true },
+    smtp: { host: 'smtp.mail.me.com', port: 587, secure: false },
+    helpText: 'Generate an app-specific password at appleid.apple.com → Sign-In and Security → App-Specific Passwords.' },
+  'mac.com': { key: 'icloud', name: 'iCloud', method: 'imap_smtp',
+    imap: { host: 'imap.mail.me.com', port: 993, secure: true },
+    smtp: { host: 'smtp.mail.me.com', port: 587, secure: false },
+    helpText: 'Generate an app-specific password at appleid.apple.com → Sign-In and Security → App-Specific Passwords.' },
+  // AOL
+  'aol.com': { key: 'aol', name: 'AOL', method: 'imap_smtp',
+    imap: { host: 'imap.aol.com', port: 993, secure: true },
+    smtp: { host: 'smtp.aol.com', port: 465, secure: true },
+    helpText: 'Generate an app password in your AOL account security settings.' },
+  // Sky (UK)
+  'sky.com': { key: 'sky', name: 'Sky', method: 'imap_smtp',
+    imap: { host: 'imap.tools.sky.com', port: 993, secure: true },
+    smtp: { host: 'smtp.tools.sky.com', port: 465, secure: true } },
+  // BT (UK)
+  'btinternet.com': { key: 'bt', name: 'BT', method: 'imap_smtp',
+    imap: { host: 'imap.btinternet.com', port: 993, secure: true },
+    smtp: { host: 'smtp.btinternet.com', port: 465, secure: true } },
+  // Zoho
+  'zoho.com': { key: 'zoho', name: 'Zoho', method: 'imap_smtp',
+    imap: { host: 'imap.zoho.com', port: 993, secure: true },
+    smtp: { host: 'smtp.zoho.com', port: 465, secure: true } },
+};
+
+function detectProviderFromEmail(email: string): DetectedProvider | null {
+  const domain = email.split('@')[1]?.toLowerCase();
+  if (!domain) return null;
+  return DOMAIN_MAP[domain] || null;
+}
+
 export default function EmailSettings() {
   const [alertMessage, setAlertMessage] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [selectedProvider, setSelectedProvider] = useState<string>('');
   const [showConnectDialog, setShowConnectDialog] = useState(false);
-  
+
+  // Smart email-first detection state
+  const [connectEmail, setConnectEmail] = useState('');
+  const [detected, setDetected] = useState<DetectedProvider | null>(null);
+  const [detectStep, setDetectStep] = useState<'email' | 'detected' | 'manual'>('email');
+
   // Normalized providers state
   const [providers, setProviders] = useState<Provider[]>([]);
   const [selectedKey, setSelectedKey] = useState<string>('');
@@ -277,6 +351,9 @@ export default function EmailSettings() {
       queryClient.invalidateQueries({ queryKey: ['/api/auth/google/gmail/status'] });
       queryClient.invalidateQueries({ queryKey: ['/api/auth/microsoft/status'] });
       setShowConnectDialog(false);
+      setConnectEmail('');
+      setDetectStep('email');
+      setDetected(null);
       setEmailSyncForm({
         login: '',
         password: '',
@@ -638,7 +715,7 @@ export default function EmailSettings() {
                           </Button>
                         </>
                       ) : (
-                        <Dialog open={showConnectDialog} onOpenChange={setShowConnectDialog}>
+                        <Dialog open={showConnectDialog} onOpenChange={(open) => { setShowConnectDialog(open); if (!open) { setConnectEmail(''); setDetectStep('email'); setDetected(null); } }}>
                           <DialogTrigger asChild>
                             <Button size="sm" data-testid="button-connect-provider">
                               <LinkIcon className="h-4 w-4 mr-2" />
@@ -649,130 +726,219 @@ export default function EmailSettings() {
                             <DialogHeader>
                               <div className="flex items-center gap-3">
                                 <Mail className="h-6 w-6 text-muted-foreground" />
-                                <DialogTitle className="text-2xl">Email Sync</DialogTitle>
+                                <DialogTitle className="text-2xl">Connect Email</DialogTitle>
                               </div>
                             </DialogHeader>
-                            
-                            {providersLoading ? (
-                              <div className="py-8 text-center text-muted-foreground">Loading providers...</div>
-                            ) : (
-                              <div className="space-y-6">
-                                {/* Email Provider Selector */}
-                                <div className="space-y-2">
-                                  <Label htmlFor="email-provider" className="text-base font-semibold">Email Provider</Label>
-                                  <select
-                                    id="email-provider"
-                                    aria-label="Email Provider"
-                                    value={selectedKey}
-                                    onChange={(e) => setSelectedKey(e.target.value)}
-                                    className="w-full h-10 px-3 py-2 text-sm bg-background border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
-                                    data-testid="select-email-provider"
-                                  >
-                                    {providers.map(p => (
-                                      <option key={p.key} value={p.key}>{p.display_name}</option>
-                                    ))}
-                                  </select>
-                                </div>
 
-                                {/* Login Field (shown in all modes) */}
-                                <div className="space-y-2">
-                                  <Label htmlFor="login" className="text-base font-semibold">Login</Label>
-                                  <Input 
-                                    id="login" 
-                                    type="email" 
-                                    placeholder={mode === 'oauth' ? 'Optional' : 'This is usually your email address'}
-                                    value={emailSyncForm.login}
-                                    onChange={(e) => setEmailSyncForm({ ...emailSyncForm, login: e.target.value })}
-                                    data-testid="input-login"
-                                  />
-                                </div>
-
-                                {/* Password Field (shown in preconfigured and generic modes) */}
-                                {(mode === 'preconfigured' || mode === 'generic') && (
+                            <div className="space-y-5">
+                              {/* Step 1: Email Address Input */}
+                              {detectStep === 'email' && (
+                                <>
                                   <div className="space-y-2">
-                                    <Label htmlFor="password" className="text-base font-semibold">Password</Label>
-                                    <Input 
-                                      id="password" 
+                                    <Label htmlFor="connect-email" className="text-base font-semibold">Email Address</Label>
+                                    <Input
+                                      id="connect-email"
+                                      type="email"
+                                      placeholder="you@example.com"
+                                      value={connectEmail}
+                                      onChange={(e) => setConnectEmail(e.target.value)}
+                                      onKeyDown={(e) => {
+                                        if (e.key === 'Enter' && connectEmail.includes('@')) {
+                                          const d = detectProviderFromEmail(connectEmail);
+                                          setDetected(d);
+                                          setEmailSyncForm(prev => ({ ...prev, login: connectEmail }));
+                                          if (d) {
+                                            // Auto-detected — go to detected step
+                                            setDetectStep('detected');
+                                          } else {
+                                            // Unknown domain — show manual config
+                                            setDetectStep('manual');
+                                          }
+                                        }
+                                      }}
+                                      autoFocus
+                                      data-testid="input-connect-email"
+                                    />
+                                    <p className="text-xs text-muted-foreground">We'll automatically detect your email provider</p>
+                                  </div>
+                                  <div className="flex gap-3 pt-2">
+                                    <Button variant="outline" className="flex-1" onClick={() => { setShowConnectDialog(false); setConnectEmail(''); setDetectStep('email'); setDetected(null); }}>
+                                      Cancel
+                                    </Button>
+                                    <Button
+                                      className="flex-1"
+                                      disabled={!connectEmail.includes('@')}
+                                      onClick={() => {
+                                        const d = detectProviderFromEmail(connectEmail);
+                                        setDetected(d);
+                                        setEmailSyncForm(prev => ({ ...prev, login: connectEmail }));
+                                        if (d) {
+                                          setDetectStep('detected');
+                                        } else {
+                                          setDetectStep('manual');
+                                        }
+                                      }}
+                                      data-testid="button-next"
+                                    >
+                                      Next
+                                    </Button>
+                                  </div>
+                                </>
+                              )}
+
+                              {/* Step 2a: Detected Provider */}
+                              {detectStep === 'detected' && detected && (
+                                <>
+                                  <div className="rounded-lg border bg-muted/30 p-4 space-y-2">
+                                    <div className="flex items-center justify-between">
+                                      <div>
+                                        <p className="font-medium">{detected.name} detected</p>
+                                        <p className="text-sm text-muted-foreground">{connectEmail}</p>
+                                      </div>
+                                      <Badge variant="outline" className="text-green-700 border-green-300">
+                                        <CheckCircle className="h-3 w-3 mr-1" /> Auto-detected
+                                      </Badge>
+                                    </div>
+                                  </div>
+
+                                  {/* OAuth providers — just click Connect */}
+                                  {detected.method === 'oauth' && (
+                                    <p className="text-sm text-muted-foreground">
+                                      Click Connect to sign in securely with {detected.name}. You'll be redirected to {detected.name === 'Gmail' ? 'Google' : 'Microsoft'} to authorize access.
+                                    </p>
+                                  )}
+
+                                  {/* IMAP/SMTP providers — need password */}
+                                  {detected.method === 'imap_smtp' && (
+                                    <>
+                                      {detected.helpText && (
+                                        <Alert>
+                                          <Info className="h-4 w-4" />
+                                          <AlertDescription className="text-sm">{detected.helpText}</AlertDescription>
+                                        </Alert>
+                                      )}
+                                      <div className="space-y-2">
+                                        <Label htmlFor="detected-password" className="text-base font-semibold">
+                                          {detected.key === 'icloud' ? 'App-Specific Password' : detected.key === 'yahoo' ? 'App Password' : 'Password'}
+                                        </Label>
+                                        <Input
+                                          id="detected-password"
+                                          type="password"
+                                          placeholder={detected.key === 'icloud' ? 'xxxx-xxxx-xxxx-xxxx' : 'Enter password'}
+                                          value={emailSyncForm.password}
+                                          onChange={(e) => setEmailSyncForm(prev => ({ ...prev, password: e.target.value }))}
+                                          data-testid="input-detected-password"
+                                        />
+                                      </div>
+                                    </>
+                                  )}
+
+                                  <div className="flex gap-3 pt-2">
+                                    <Button variant="outline" size="sm" onClick={() => { setDetectStep('email'); setDetected(null); }}>
+                                      Back
+                                    </Button>
+                                    <Button
+                                      className="flex-1 bg-green-700 hover:bg-green-800"
+                                      disabled={detected.method === 'imap_smtp' && !emailSyncForm.password}
+                                      onClick={() => {
+                                        if (detected.method === 'oauth') {
+                                          // Trigger OAuth popup
+                                          setShowConnectDialog(false);
+                                          if (detected.key === 'google') {
+                                            connectGoogleWithPopup();
+                                          } else {
+                                            connectMicrosoftWithPopup();
+                                          }
+                                        } else if (detected.method === 'imap_smtp' && detected.imap && detected.smtp) {
+                                          // Connect with pre-filled IMAP/SMTP
+                                          connectEmailAccountMutation.mutate({
+                                            type: 'imap_smtp',
+                                            providerKey: detected.key,
+                                            settings: {
+                                              imap: { host: detected.imap.host, port: detected.imap.port, secure: detected.imap.secure, user: connectEmail, pass: emailSyncForm.password },
+                                              smtp: { host: detected.smtp.host, port: detected.smtp.port, secure: detected.smtp.secure, user: connectEmail, pass: emailSyncForm.password }
+                                            }
+                                          });
+                                        }
+                                      }}
+                                      data-testid="button-connect"
+                                    >
+                                      {detected.method === 'oauth' ? `Sign in with ${detected.name === 'Gmail' ? 'Google' : 'Microsoft'}` : 'Connect'}
+                                    </Button>
+                                  </div>
+                                </>
+                              )}
+
+                              {/* Step 2b: Manual Config (unknown domain) */}
+                              {detectStep === 'manual' && (
+                                <>
+                                  <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 space-y-1">
+                                    <p className="font-medium text-amber-800 text-sm">Custom email domain</p>
+                                    <p className="text-xs text-amber-700">
+                                      We couldn't auto-detect settings for <strong>{connectEmail.split('@')[1]}</strong>. Enter your IMAP and SMTP server details below, or check with your email provider.
+                                    </p>
+                                  </div>
+
+                                  <div className="space-y-2">
+                                    <Label htmlFor="manual-password" className="font-semibold">Password</Label>
+                                    <Input
+                                      id="manual-password"
                                       type="password"
                                       value={emailSyncForm.password}
-                                      onChange={(e) => setEmailSyncForm({ ...emailSyncForm, password: e.target.value })}
-                                      data-testid="input-password"
+                                      onChange={(e) => setEmailSyncForm(prev => ({ ...prev, password: e.target.value }))}
                                     />
                                   </div>
-                                )}
 
-                                {/* Manual IMAP/SMTP Fields (shown only in 'generic' mode) */}
-                                {mode === 'generic' && (
-                                  <>
-                                    <div className="space-y-2">
-                                      <Label htmlFor="imap-server" className="text-base font-semibold">IMAP Server</Label>
-                                      <Input 
-                                        id="imap-server" 
-                                        placeholder="imap.mail.yahoo.com"
-                                        value={emailSyncForm.imapServer}
-                                        onChange={(e) => setEmailSyncForm({ ...emailSyncForm, imapServer: e.target.value })}
-                                        data-testid="input-imap-server"
-                                      />
+                                  <div className="grid grid-cols-2 gap-3">
+                                    <div className="space-y-3">
+                                      <p className="text-sm font-semibold text-muted-foreground">Incoming (IMAP)</p>
+                                      <Input placeholder="imap.example.com" value={emailSyncForm.imapServer} onChange={(e) => setEmailSyncForm(prev => ({ ...prev, imapServer: e.target.value }))} />
+                                      <div className="flex gap-2">
+                                        <Input placeholder="993" className="w-20" value={emailSyncForm.imapPort} onChange={(e) => setEmailSyncForm(prev => ({ ...prev, imapPort: e.target.value }))} />
+                                        <label className="flex items-center gap-1.5 text-sm">
+                                          <input type="checkbox" checked={emailSyncForm.ssl} onChange={(e) => setEmailSyncForm(prev => ({ ...prev, ssl: e.target.checked }))} className="h-4 w-4 rounded" />
+                                          SSL
+                                        </label>
+                                      </div>
                                     </div>
-
-                                    <div className="space-y-2">
-                                      <Label htmlFor="port" className="text-base font-semibold">Port</Label>
-                                      <Input 
-                                        id="port" 
-                                        placeholder="993"
-                                        value={emailSyncForm.imapPort}
-                                        onChange={(e) => setEmailSyncForm({ ...emailSyncForm, imapPort: e.target.value })}
-                                        data-testid="input-port"
-                                      />
+                                    <div className="space-y-3">
+                                      <p className="text-sm font-semibold text-muted-foreground">Outgoing (SMTP)</p>
+                                      <Input placeholder="smtp.example.com" value={emailSyncForm.smtpServer} onChange={(e) => setEmailSyncForm(prev => ({ ...prev, smtpServer: e.target.value }))} />
+                                      <div className="flex gap-2">
+                                        <Input placeholder="465" className="w-20" value={emailSyncForm.smtpPort} onChange={(e) => setEmailSyncForm(prev => ({ ...prev, smtpPort: e.target.value }))} />
+                                        <label className="flex items-center gap-1.5 text-sm">
+                                          <input type="checkbox" checked={emailSyncForm.smtpSsl} onChange={(e) => setEmailSyncForm(prev => ({ ...prev, smtpSsl: e.target.checked }))} className="h-4 w-4 rounded" />
+                                          SSL
+                                        </label>
+                                      </div>
                                     </div>
+                                  </div>
 
-                                    <div className="flex items-center space-x-2">
-                                      <input
-                                        type="checkbox"
-                                        id="ssl"
-                                        checked={emailSyncForm.ssl}
-                                        onChange={(e) => setEmailSyncForm({ ...emailSyncForm, ssl: e.target.checked })}
-                                        className="h-4 w-4 rounded border-gray-300"
-                                        data-testid="input-ssl"
-                                      />
-                                      <Label htmlFor="ssl" className="text-base font-semibold cursor-pointer">SSL</Label>
-                                    </div>
-                                  </>
-                                )}
-
-                                {/* Action Buttons */}
-                                <div className="flex gap-3 pt-4">
-                                  <Button 
-                                    variant="outline" 
-                                    className="flex-1" 
-                                    onClick={() => {
-                                      setShowConnectDialog(false);
-                                      setEmailSyncForm({
-                                        login: '',
-                                        password: '',
-                                        imapServer: '',
-                                        imapPort: '993',
-                                        ssl: true,
-                                        smtpServer: '',
-                                        smtpPort: '465',
-                                        smtpSsl: true
-                                      });
-                                    }}
-                                    data-testid="button-cancel"
-                                  >
-                                    Cancel
-                                  </Button>
-                                  <Button 
-                                    className="flex-1 bg-green-700 hover:bg-green-800" 
-                                    onClick={handleEmailSyncConnect}
-                                    disabled={connectEmailAccountMutation.isPending}
-                                    data-testid="button-connect"
-                                  >
-                                    Connect
-                                  </Button>
-                                </div>
-                              </div>
-                            )}
+                                  <div className="flex gap-3 pt-2">
+                                    <Button variant="outline" size="sm" onClick={() => { setDetectStep('email'); setDetected(null); }}>
+                                      Back
+                                    </Button>
+                                    <Button
+                                      className="flex-1 bg-green-700 hover:bg-green-800"
+                                      disabled={!emailSyncForm.password || !emailSyncForm.imapServer || !emailSyncForm.smtpServer}
+                                      onClick={() => {
+                                        connectEmailAccountMutation.mutate({
+                                          type: 'imap_smtp',
+                                          providerKey: 'other',
+                                          settings: {
+                                            imap: { host: emailSyncForm.imapServer, port: parseInt(emailSyncForm.imapPort), secure: emailSyncForm.ssl, user: connectEmail, pass: emailSyncForm.password },
+                                            smtp: { host: emailSyncForm.smtpServer, port: parseInt(emailSyncForm.smtpPort), secure: emailSyncForm.smtpSsl, user: connectEmail, pass: emailSyncForm.password }
+                                          }
+                                        });
+                                      }}
+                                      data-testid="button-connect-manual"
+                                    >
+                                      Connect
+                                    </Button>
+                                  </div>
+                                </>
+                              )}
+                            </div>
                           </DialogContent>
                         </Dialog>
                       )}

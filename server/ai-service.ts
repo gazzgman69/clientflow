@@ -9,20 +9,23 @@ const sql = neon(process.env.DATABASE_URL!);
 const db = drizzle(sql);
 
 /*
-Using Replit AI Integrations:
-- Provides OpenAI-compatible API access without requiring your own OpenAI API key
-- Charges are billed to Replit credits
-- Note: the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
+Using Anthropic Claude via OpenAI-compatible endpoint:
+- Uses the OpenAI SDK pointed at Anthropic's API for minimal code changes
+- Requires ANTHROPIC_API_KEY environment variable
+- Claude Haiku 4.5 is fast and cost-effective for CRM tasks
 */
 
-// Initialize OpenAI client with Replit AI Integrations
+// Initialize OpenAI-compatible client pointed at Anthropic's API
 const openai = new OpenAI({
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY
+  baseURL: "https://api.anthropic.com/v1/",
+  apiKey: process.env.ANTHROPIC_API_KEY,
+  defaultHeaders: {
+    "anthropic-version": "2023-06-01",
+  },
 });
 
 // Default model to use for AI operations
-const DEFAULT_MODEL = "gpt-4o-mini"; // Fast and cost-effective for CRM tasks
+const DEFAULT_MODEL = "claude-haiku-4-5-20251001"; // Claude Haiku 4.5 — fast and cost-effective for CRM tasks
 
 export interface EmailForSummary {
   id: string;
@@ -89,7 +92,7 @@ Provide your summary:`;
           content: prompt
         }
       ],
-      max_completion_tokens: 300
+      max_tokens: 300
     });
 
     const summary = response.choices[0]?.message?.content?.trim() || 'Unable to generate summary';
@@ -177,7 +180,7 @@ Draft reply (body text only, no subject, no signature):`;
           content: prompt
         }
       ],
-      max_completion_tokens: 500
+      max_tokens: 500
     });
 
     const draft = response.choices[0]?.message?.content?.trim() || 'Unable to generate draft';
@@ -236,15 +239,14 @@ If no action items are found, return: {"actionItems": []}`;
       messages: [
         {
           role: 'system',
-          content: 'You are a helpful assistant that extracts action items from emails. Always return valid JSON.'
+          content: 'You are a helpful assistant that extracts action items from emails. Always return valid JSON and nothing else — no markdown, no explanation, just the JSON object.'
         },
         {
           role: 'user',
           content: prompt
         }
       ],
-      max_completion_tokens: 500,
-      response_format: { type: "json_object" }
+      max_tokens: 500
     });
 
     const content = response.choices[0]?.message?.content?.trim() || '{"actionItems": []}';
@@ -411,15 +413,14 @@ Respond with a JSON object containing:
       messages: [
         {
           role: 'system',
-          content: 'You are a helpful assistant that writes professional business emails. Always return valid JSON.'
+          content: 'You are a helpful assistant that writes professional business emails. Always return valid JSON and nothing else — no markdown, no explanation, just the JSON object.'
         },
         {
           role: 'user',
           content: prompt
         }
       ],
-      max_completion_tokens: 600,
-      response_format: { type: "json_object" }
+      max_tokens: 600
     });
 
     const content = response.choices[0]?.message?.content?.trim() || '{"draft": "", "subject": ""}';

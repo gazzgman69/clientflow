@@ -1,12 +1,16 @@
 import OpenAI from 'openai';
 import type { IStorage } from './storage';
 
+// Anthropic Claude via OpenAI-compatible endpoint
 const openai = new OpenAI({
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY
+  baseURL: "https://api.anthropic.com/v1/",
+  apiKey: process.env.ANTHROPIC_API_KEY,
+  defaultHeaders: {
+    "anthropic-version": "2023-06-01",
+  },
 });
 
-const MODEL = "gpt-4o-mini";
+const MODEL = "claude-haiku-4-5-20251001";
 
 // Define available functions for AI to call
 const FUNCTIONS = [
@@ -1214,22 +1218,31 @@ The system will automatically provide action buttons for common tasks, so feel f
       content: query
     });
 
-    // First completion - AI decides which function to call
+    // Convert FUNCTIONS to tools format for Anthropic compatibility
+    const tools = FUNCTIONS.map(fn => ({
+      type: "function" as const,
+      function: fn
+    }));
+
+    // First completion - AI decides which tool to call
     const response = await openai.chat.completions.create({
       model: MODEL,
       messages,
-      functions: FUNCTIONS as any,
-      function_call: "auto"
+      tools: tools as any,
+      tool_choice: "auto"
     });
 
     const message = response.choices[0].message;
     let finalResponse = message.content || "I'm not sure how to answer that.";
     let functionData: any = null;
+    let calledFunctionName: string | undefined;
 
-    // If AI wants to call a function
-    if (message.function_call) {
-      const functionName = message.function_call.name;
-      const functionArgs = JSON.parse(message.function_call.arguments || '{}');
+    // If AI wants to call a tool
+    if (message.tool_calls && message.tool_calls.length > 0) {
+      const toolCall = message.tool_calls[0];
+      const functionName = toolCall.function.name;
+      const functionArgs = JSON.parse(toolCall.function.arguments || '{}');
+      calledFunctionName = functionName;
 
       console.log(`🔧 Calling function: ${functionName} with args:`, functionArgs);
 
@@ -1238,12 +1251,12 @@ The system will automatically provide action buttons for common tasks, so feel f
 
       console.log(`📊 Function ${functionName} returned ${JSON.stringify(functionData).length} characters of data`);
 
-      // Add function result to conversation and get final response
+      // Add tool call result to conversation and get final response
       messages.push(message as any);
       const functionResultContent = JSON.stringify(functionData);
       messages.push({
-        role: "function",
-        name: functionName,
+        role: "tool",
+        tool_call_id: toolCall.id,
         content: functionResultContent
       } as any);
 
@@ -1258,7 +1271,7 @@ The system will automatically provide action buttons for common tasks, so feel f
     }
 
     // Generate suggested actions based on query context and function results
-    const suggestedActions = generateSuggestedActions(query, message.function_call?.name, functionData);
+    const suggestedActions = generateSuggestedActions(query, calledFunctionName, functionData);
 
     return {
       response: finalResponse,

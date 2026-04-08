@@ -316,20 +316,19 @@ export class GoogleOAuthService {
     userOAuth2Client.setCredentials(tokens);
     
     // Handle token refresh - CRITICAL: Encrypt tokens before storing
+    // Only log once per refresh, not per-event
     userOAuth2Client.on('tokens', async (tokens) => {
-      console.log('🔄 Token refresh detected, encrypting before storage');
-      
       if (tokens.refresh_token) {
         await storage.updateCalendarIntegration(integration.id, {
           refreshToken: secureStore.encrypt(tokens.refresh_token),
           accessToken: secureStore.encrypt(tokens.access_token!)
         }, integration.tenantId);
-        console.log('🔐 SECURITY: Refresh and access tokens encrypted and updated');
+        console.log('🔐 Token refreshed and encrypted (refresh + access)');
       } else if (tokens.access_token) {
         await storage.updateCalendarIntegration(integration.id, {
           accessToken: secureStore.encrypt(tokens.access_token)
         }, integration.tenantId);
-        console.log('🔐 SECURITY: Access token encrypted and updated');
+        console.log('🔐 Token refreshed and encrypted (access only)');
       }
     });
     
@@ -342,19 +341,21 @@ export class GoogleOAuthService {
   async syncToGoogleAll(integration: CalendarIntegration) {
     try {
       console.log('Starting CRM → Google Calendar sync...');
-      
+
       // Get all CRM events for this user (tenant-scoped)
       const crmEvents = await storage.getEventsByUser(integration.userId, integration.tenantId);
       console.log(`Found ${crmEvents.length} CRM events to potentially sync`);
-      
+
       let syncedCount = 0;
       let skippedCount = 0;
-      
+
+      // Create calendar service ONCE outside the loop to avoid token refresh spam
+      const calendar = await this.getCalendarService(integration);
+
       for (const event of crmEvents) {
         // If already has Google ID, verify it still exists
         if (event.externalEventId) {
           try {
-            const calendar = await this.getCalendarService(integration);
             const googleEvent = await calendar.events.get({
               calendarId: 'primary',
               eventId: event.externalEventId
@@ -394,7 +395,6 @@ export class GoogleOAuthService {
             
             // Event exists and is in sync, skip it
             skippedCount++;
-            console.log(`✓ Event "${event.title}" exists in Google Calendar at: ${googleEvent.data.start?.dateTime || googleEvent.data.start?.date}`);
             continue;
           } catch (error: any) {
             if (error.code === 404 || error.status === 404) {

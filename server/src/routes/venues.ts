@@ -277,6 +277,53 @@ router.post('/', async (req, res) => {
   }
 });
 
+// GET /api/venues/diagnostic - Quick diagnostic for venue issues
+router.get('/diagnostic', async (req, res) => {
+  try {
+    const tenantId = (req as any).tenantId;
+    const venues = await venuesService.getVenues(tenantId, 50);
+
+    // Get recent projects to check venue linking
+    const { pool } = await import('../../db');
+    const recentProjects = await pool.query(
+      `SELECT id, name, venue_id, venue_address, created_at
+       FROM projects WHERE tenant_id = $1
+       ORDER BY created_at DESC LIMIT 5`,
+      [tenantId]
+    );
+
+    // Check venue error log
+    let venueErrors = 'No error log found';
+    try {
+      const fs = await import('fs');
+      venueErrors = fs.readFileSync('/tmp/venue-errors.log', 'utf8').slice(-2000);
+    } catch { /* no log file */ }
+
+    // Check pool status
+    const poolStatus = {
+      totalCount: pool.totalCount,
+      idleCount: pool.idleCount,
+      waitingCount: pool.waitingCount
+    };
+
+    res.json({
+      venueCount: venues.length,
+      venues: venues.map(v => ({ id: v.id, name: v.name, address: v.address })),
+      recentProjects: recentProjects.rows.map(p => ({
+        id: p.id,
+        name: p.name,
+        venueId: p.venue_id,
+        venueAddress: p.venue_address,
+        createdAt: p.created_at
+      })),
+      poolStatus,
+      recentVenueErrors: venueErrors
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // GET /api/venues - Get all venues with pagination
 router.get('/', async (req, res) => {
   try {

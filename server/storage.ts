@@ -5142,9 +5142,9 @@ export class DrizzleStorage implements IStorage {
         contactAddress: contacts.address,
         contactJobTitle: contacts.jobTitle,
         contactWebsite: contacts.website,
-        // Venue fields
-        venueName: venues.name,
-        venueAddress: venues.address,
+        // Venue fields — COALESCE so denormalized project copy survives venue deletion
+        venueName: sql`COALESCE(${venues.name}, ${projects.venueName})`.as('venueName'),
+        venueAddress: sql`COALESCE(${venues.address}, ${projects.venueAddress})`.as('venueAddress'),
         venueCity: venues.city,
         venueState: venues.state,
       })
@@ -5211,13 +5211,26 @@ export class DrizzleStorage implements IStorage {
     if (!tenantId) {
       throw new Error("Tenant ID is required for multi-tenant project creation");
     }
-    const result = await this.db.insert(projects).values({
+    const valuesToInsert = {
       ...project,
       tenantId,
       userId: project.userId,  // Explicitly ensure userId is included
       createdAt: new Date(),
       updatedAt: new Date(),
-    }).returning();
+    };
+    console.log('📝 createProject INSERT values:', {
+      venueId: valuesToInsert.venueId,
+      venueName: (valuesToInsert as any).venueName,
+      venueAddress: (valuesToInsert as any).venueAddress,
+      name: valuesToInsert.name,
+    });
+    const result = await this.db.insert(projects).values(valuesToInsert).returning();
+    console.log('📝 createProject RETURNED:', {
+      id: result[0]?.id,
+      venueId: result[0]?.venueId,
+      venueName: (result[0] as any)?.venueName,
+      venueAddress: (result[0] as any)?.venueAddress,
+    });
     return result[0];
   }
   async updateProject(id: string, projectUpdate: Partial<InsertProject>, tenantId: string): Promise<Project | undefined> {

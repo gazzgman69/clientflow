@@ -467,6 +467,13 @@ export default function Projects() {
       // Show just the first part (venue name) from the full address string
       return addr.split(',')[0].trim();
     }
+    // Last resort: extract venue from description (format: "EventType at VenueAddress")
+    if (project.description && project.description.includes(' at ') && !project.description.endsWith(' at TBD')) {
+      const venueAddr = project.description.split(' at ').slice(1).join(' at ');
+      if (venueAddr && venueAddr.trim()) {
+        return venueAddr.split(',')[0].trim();
+      }
+    }
     return 'No venue';
   };
 

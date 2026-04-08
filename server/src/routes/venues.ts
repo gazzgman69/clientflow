@@ -548,14 +548,32 @@ router.delete('/:id', async (req, res) => {
 
     // Preserve venue name/address on projects before clearing the FK,
     // so the venue info survives deletion of the venue record.
-    await pool.query(
+    console.log('🗑️ VENUE DELETE — preserving data on projects:', {
+      venueId: id,
+      venueName: venue.name,
+      venueAddress: venue.address,
+      tenantId,
+    });
+
+    const preserveResult = await pool.query(
       `UPDATE projects
          SET venue_name    = COALESCE(venue_name, $3),
              venue_address = COALESCE(venue_address, $4),
              venue_id      = NULL
-       WHERE venue_id = $1 AND tenant_id = $2`,
+       WHERE venue_id = $1 AND tenant_id = $2
+       RETURNING id, venue_name, venue_address, venue_id`,
       [id, tenantId, venue.name || null, venue.address || null]
     );
+
+    console.log('🗑️ VENUE DELETE — projects updated:', {
+      rowCount: preserveResult.rowCount,
+      updatedProjects: preserveResult.rows.map((r: any) => ({
+        id: r.id,
+        venue_name: r.venue_name,
+        venue_address: r.venue_address,
+        venue_id: r.venue_id,
+      })),
+    });
 
     // Clear venue references from contacts
     await pool.query(

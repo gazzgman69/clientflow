@@ -1934,12 +1934,18 @@ export default function ProjectDetail() {
                         ) : (
                           <div>
                             {!showVenuePicker ? (
-                              (project as any).venueAddress ? (
+                              ((project as any).venueAddress || (project as any).venueName || (project as any).venue_address || (project as any).venue_name) ? (
                                 <div className="space-y-3">
                                   <div className="grid grid-cols-2 gap-x-6 gap-y-3">
+                                    {((project as any).venueName || (project as any).venue_name) && (
+                                    <div>
+                                      <p className="text-sm text-muted-foreground">VENUE NAME</p>
+                                      <p className="font-medium text-sm">{(project as any).venueName || (project as any).venue_name}</p>
+                                    </div>
+                                    )}
                                     <div>
                                       <p className="text-sm text-muted-foreground">VENUE ADDRESS</p>
-                                      <p className="font-medium text-sm">{(project as any).venueAddress}</p>
+                                      <p className="font-medium text-sm">{(project as any).venueAddress || (project as any).venue_address || 'Not specified'}</p>
                                     </div>
                                     <div>
                                       <p className="text-sm text-muted-foreground">PARKING DETAILS</p>

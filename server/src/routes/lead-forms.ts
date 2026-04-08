@@ -791,11 +791,23 @@ router.post('/:slug/submit', formSubmissionLimiter, async (req, res) => {
                 startDate: mappingResult.leadData.projectDate || null
               };
 
+              console.log(`🏢 [${reqId}] DUPLICATE PATH projectData BEFORE createProject:`, {
+                venueId: projectData.venueId,
+                venueName: projectData.venueName,
+                venueAddress: projectData.venueAddress,
+                contactVenueAddress: mappingResult.contactData.venueAddress,
+                dupVenueId,
+                projectDataKeys: Object.keys(projectData),
+              });
+
               const project = await tenantStorage.createProject(projectData);
-              
+
               console.log(`✅ [${reqId}] NEW PROJECT CREATED FOR EXISTING CONTACT (DUPLICATE PATH):`, {
                 projectId: project.id,
                 projectName: project.name,
+                projectVenueId: project.venueId,
+                projectVenueName: (project as any).venueName,
+                projectVenueAddress: (project as any).venueAddress,
                 contactId: existingContact.id,
                 tenantId: form.tenantId,
                 slug
@@ -1314,12 +1326,25 @@ router.post('/:slug/submit', formSubmissionLimiter, async (req, res) => {
       startDate: mappingResult.leadData.projectDate || null
     };
 
-    console.log('🏢 Venue → Project:', { venueId: createdVenue?.id || null, venueAddress: mappingResult.contactData.venueAddress || null });
+    console.log(`🏢 [${reqId}] NORMAL PATH projectData BEFORE createProject:`, {
+      venueId: projectData.venueId,
+      venueName: projectData.venueName,
+      venueAddress: projectData.venueAddress,
+      contactVenueAddress: mappingResult.contactData.venueAddress,
+      createdVenueName: createdVenue?.name || null,
+      projectDataKeys: Object.keys(projectData),
+    });
 
     const project = await tenantStorage.createProject(projectData);
     const projectEndTime = Date.now();
 
-    console.log(`✅ [${reqId}] PROJECT CREATED (NORMAL PATH):`, { id: project.id, venueId: project.venueId, ms: projectEndTime - projectStartTime });
+    console.log(`✅ [${reqId}] PROJECT CREATED (NORMAL PATH):`, {
+      id: project.id,
+      venueId: project.venueId,
+      venueName: (project as any).venueName,
+      venueAddress: (project as any).venueAddress,
+      ms: projectEndTime - projectStartTime
+    });
 
     // Update lead to link it to the created contact and project using TENANT-SCOPED storage
     await tenantStorage.updateLead(lead.id, { 

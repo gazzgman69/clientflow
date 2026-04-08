@@ -3,7 +3,7 @@ import { Mail, AlertCircle, Loader2, ChevronDown, Inbox } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useLocation } from 'wouter';
-import { useState, useRef } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import ProjectDetailModal from '@/components/modals/project-detail-modal';
 import type { Project } from '@shared/schema';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -72,6 +72,7 @@ export default function EmailThreadsWidget() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const replyEditorRef = useRef<RichTextEditorRef>(null);
+  const subjectInputRef = useRef<HTMLInputElement>(null);
 
   // Get current authenticated user
   const { data: currentUser } = useQuery({
@@ -121,6 +122,25 @@ export default function EmailThreadsWidget() {
     },
     enabled: !!currentUser,
   });
+
+  // Insert a token into the subject field at cursor position
+  const insertTokenIntoSubject = useCallback((token: string) => {
+    const input = subjectInputRef.current;
+    if (!input) {
+      setReplySubject(prev => prev + token);
+      return;
+    }
+    const start = input.selectionStart ?? replySubject.length;
+    const end = input.selectionEnd ?? replySubject.length;
+    const newValue = replySubject.slice(0, start) + token + replySubject.slice(end);
+    setReplySubject(newValue);
+    // Restore cursor after the inserted token
+    requestAnimationFrame(() => {
+      input.focus();
+      const pos = start + token.length;
+      input.setSelectionRange(pos, pos);
+    });
+  }, [replySubject]);
 
   // Helper functions for email composition
   const applySignature = (signature: any) => {
@@ -465,8 +485,17 @@ export default function EmailThreadsWidget() {
                 <div className="space-y-4">
                   {/* Subject Line */}
                   <div className="space-y-2">
-                    <Label htmlFor="reply-subject">Subject</Label>
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="reply-subject">Subject</Label>
+                      <TokenDropdown
+                        onTokenSelect={(token) => insertTokenIntoSubject(token)}
+                        onAfterInsert={() => subjectInputRef.current?.focus()}
+                        variant="outline"
+                        size="sm"
+                      />
+                    </div>
                     <Input
+                      ref={subjectInputRef}
                       id="reply-subject"
                       value={replySubject}
                       onChange={(e) => setReplySubject(e.target.value)}

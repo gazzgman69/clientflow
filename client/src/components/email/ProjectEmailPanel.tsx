@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useLocation } from 'wouter';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Send, Mail, Loader2, AlertCircle, X, Reply, RefreshCw, FileText, Edit3, ChevronDown, Paperclip } from 'lucide-react';
@@ -66,6 +66,7 @@ export default function ProjectEmailPanel({ projectId, emails, autoOpenComposer 
   const [showSignatureDropdown, setShowSignatureDropdown] = useState(false);
   const [attachments, setAttachments] = useState<File[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const replySubjectRef = useRef<HTMLInputElement>(null);
   const [selectedTemplate, setSelectedTemplate] = useState<any>(null);
   const [updateTemplate, setUpdateTemplate] = useState(false);
   const messageEditorRef = useRef<RichTextEditorRef>(null);
@@ -1550,8 +1551,32 @@ export default function ProjectEmailPanel({ projectId, emails, autoOpenComposer 
               />
             </div>
             <div>
-              <Label htmlFor="reply-subject">Subject</Label>
+              <div className="flex items-center justify-between mb-1">
+                <Label htmlFor="reply-subject">Subject</Label>
+                <TokenDropdown
+                  onTokenSelect={(token) => {
+                    const input = replySubjectRef.current;
+                    if (!input) {
+                      setReplySubject(prev => prev + token);
+                      return;
+                    }
+                    const start = input.selectionStart ?? replySubject.length;
+                    const end = input.selectionEnd ?? replySubject.length;
+                    const newValue = replySubject.slice(0, start) + token + replySubject.slice(end);
+                    setReplySubject(newValue);
+                    requestAnimationFrame(() => {
+                      input.focus();
+                      const pos = start + token.length;
+                      input.setSelectionRange(pos, pos);
+                    });
+                  }}
+                  onAfterInsert={() => replySubjectRef.current?.focus()}
+                  variant="outline"
+                  size="sm"
+                />
+              </div>
               <Input
+                ref={replySubjectRef}
                 id="reply-subject"
                 value={replySubject}
                 onChange={(e) => setReplySubject(e.target.value)}

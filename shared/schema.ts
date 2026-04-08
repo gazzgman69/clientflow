@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, integer, boolean, timestamp, decimal, index, unique, uniqueIndex, bigint, json } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, integer, boolean, timestamp, decimal, index, unique, uniqueIndex, bigint, json, jsonb } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -863,10 +863,10 @@ export const venues = pgTable("venues", {
   meta: text("meta"), // JSON string for free-form extras from Google or custom
   notes: text("notes"),
   // Google enrichment fields
-  googleRating: decimal("google_rating", { precision: 3, scale: 1 }),
+  googleRating: decimal("google_rating", { precision: 3, scale: 2 }),
   googleReviewsCount: integer("google_reviews_count"),
-  openingHours: text("opening_hours"), // JSON string
-  lastEnrichedAt: timestamp("last_enriched_at"),
+  openingHours: jsonb("opening_hours"),
+  lastEnrichedAt: timestamp("last_enriched_at", { withTimezone: true }),
   enrichmentSource: text("enrichment_source"),
   // Normalized fields for deduplication
   normalizedName: text("normalized_name"), // Lowercase, trimmed, punctuation-free name

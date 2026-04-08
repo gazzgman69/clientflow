@@ -106,76 +106,125 @@ export class EmailAutoSyncService {
             }
           }
           
-          // Process tenant email sync
-          
-          // Get Gmail OAuth connections from email_accounts for this tenant only
+          // Process tenant email sync — all connected providers (Gmail, Microsoft, etc.)
+
           const { emailAccounts: emailAccountsTable } = await import('@shared/schema');
-          const gmailAccounts = await db
+          const allAccounts = await db
             .select()
             .from(emailAccountsTable)
             .where(
               and(
                 eq(emailAccountsTable.tenantId, tenant.id),
-                eq(emailAccountsTable.providerKey, 'google'),
                 eq(emailAccountsTable.status, 'connected')
               )
             );
-          
-          if (gmailAccounts.length === 0) {
-            log(`📭 No active Gmail OAuth connections for tenant ${tenant.id}`);
+
+          if (allAccounts.length === 0) {
+            log(`📭 No active email connections for tenant ${tenant.id}`);
             continue;
           }
-          
-          // Get unique user IDs for this tenant
-          const userIds = [...new Set(gmailAccounts.map(account => account.userId).filter(Boolean))];
-          // Process each user's Gmail sync
-          
+
+          const gmailAccounts = allAccounts.filter(a => a.providerKey === 'google');
+          const microsoftAccounts = allAccounts.filter(a => a.providerKey === 'microsoft');
+
+          // Get unique user IDs across all providers
+          const userIds = [...new Set(allAccounts.map(account => account.userId).filter(Boolean))];
+
           let tenantSuccessCount = 0;
           let tenantErrorCount = 0;
-          
+
           // Add jitter to avoid thundering herd
-          const jitterMs = Math.random() * 2000; // 0-2 seconds jitter
+          const jitterMs = Math.random() * 2000;
           await new Promise(resolve => setTimeout(resolve, jitterMs));
-          
-          // Process each user with tenant context
+
+          // Process each user across all their connected providers
           for (const userId of userIds) {
             if (this.inProgressByUser.has(userId)) {
               console.log(`⚠️  Email sync already in progress for user ${userId}, skipping...`);
               continue;
             }
-            
+
             try {
               this.inProgressByUser.add(userId);
-              console.log(`🔄 Syncing emails for user ${userId} in tenant ${tenant.id}`);
-              
-              // Use tenant-scoped email sync
-              const result = await this.syncEmailsForTenant(userId, tenant.id);
-              
-              if (result.synced > 0 || result.skipped > 0) {
-                console.log(`✅ Tenant ${tenant.id} user ${userId}: ${result.synced} synced, ${result.skipped} skipped`);
-                
-                // Update last sync time for email accounts
-                const userAccounts = gmailAccounts.filter(account => account.userId === userId);
-                const { emailAccounts: emailAccountsTable } = await import('@shared/schema');
-                for (const account of userAccounts) {
-                  await db
-                    .update(emailAccountsTable)
-                    .set({ lastSyncedAt: new Date() })
-                    .where(eq(emailAccountsTable.id, account.id));
+
+              // --- Gmail sync ---
+              const userGmailAccounts = gmailAccounts.filter(a => a.userId === userId);
+              if (userGmailAccounts.length > 0) {
+                try {
+                  console.log(`🔄 Syncing Gmail for user ${userId} in tenant ${tenant.id}`);
+                  const result = await this.syncEmailsForTenant(userId, tenant.id);
+                  if (result.synced > 0 || result.skipped > 0) {
+                    console.log(`✅ Gmail ${tenant.id}/${userId}: ${result.synced} synced, ${result.skipped} skipped`);
+                  }
+                  for (const account of userGmailAccounts) {
+                    await db.update(emailAccountsTable)
+                      .set({ lastSyncedAt: new Date() })
+                      .where(eq(emailAccountsTable.id, account.id));
+                  }
+                  tenantSuccessCount++;
+                } catch (gmailErr) {
+                  const msg = gmailErr instanceof Error ? gmailErr.message : 'Unknown error';
+                  console.error(`❌ Gmail sync failed for ${userId}: ${msg}`);
+                  tenantErrorCount++;
                 }
-                
-                tenantSuccessCount++;
-              } else if (result.errors.length > 0) {
-                throw new Error(result.errors.join('; '));
               }
-              
+
+              // --- Microsoft sync ---
+              const userMsAccounts = microsoftAccounts.filter(a => a.userId === userId);
+              if (userMsAccounts.length > 0) {
+                try {
+                  console.log(`🔄 Syncing Microsoft for user ${userId} in tenant ${tenant.id}`);
+                  const { microsoftEmailProvider } = await import('./email-provider-microsoft');
+
+                  for (const msAccount of userMsAccounts) {
+                    // Build integration object from email_accounts row
+                    const msIntegration = {
+                      id: msAccount.id,
+                      tenantId: msAccount.tenantId,
+                      userId: msAccount.userId,
+                      provider: 'microsoft' as const,
+                      providerKey: msAccount.providerKey,
+                      accountEmail: msAccount.accountEmail,
+                      status: msAccount.status as 'connected',
+                      authType: msAccount.authType,
+                      accessTokenEnc: '',
+                      refreshTokenEnc: '',
+                      scopes: [],
+                      secretsEnc: msAccount.secretsEnc,
+                      expiresAt: msAccount.expiresAt,
+                      metadata: msAccount.metadata,
+                      createdAt: null,
+                      updatedAt: null,
+                      lastSyncedAt: msAccount.lastSyncedAt,
+                      nextSyncCursor: null,
+                    };
+
+                    const result = await microsoftEmailProvider.syncInbox({
+                      tenantId: tenant.id,
+                      userId,
+                      integration: msIntegration as any,
+                    });
+
+                    if (result.synced > 0 || result.skipped > 0) {
+                      console.log(`✅ Microsoft ${tenant.id}/${userId}: ${result.synced} synced, ${result.skipped} skipped`);
+                    }
+
+                    await db.update(emailAccountsTable)
+                      .set({ lastSyncedAt: new Date() })
+                      .where(eq(emailAccountsTable.id, msAccount.id));
+                  }
+                  tenantSuccessCount++;
+                } catch (msErr) {
+                  const msg = msErr instanceof Error ? msErr.message : 'Unknown error';
+                  console.error(`❌ Microsoft sync failed for ${userId}: ${msg}`);
+                  tenantErrorCount++;
+                }
+              }
+
             } catch (error) {
               tenantErrorCount++;
               const errorMessage = error instanceof Error ? error.message : 'Unknown error';
               console.error(`❌ Failed to sync emails for user ${userId} in tenant ${tenant.id}:`, errorMessage);
-              
-              // Log errors for email accounts (we don't update account status on sync errors)
-              console.log(`📝 Email sync error logged for user ${userId}: ${errorMessage}`);
             } finally {
               this.inProgressByUser.delete(userId);
             }
@@ -225,7 +274,7 @@ export class EmailAutoSyncService {
   }
 
   /**
-   * Sync emails for a specific user (safe for job handlers)
+   * Sync emails for a specific user across ALL connected providers (safe for job handlers / post-send trigger)
    */
   async syncEmailsForUser(userId: string): Promise<{ synced: number; skipped: number; errors: string[] }> {
     if (this.inProgressByUser.has(userId)) {
@@ -235,17 +284,88 @@ export class EmailAutoSyncService {
     try {
       this.inProgressByUser.add(userId);
       console.log(`🔄 Job-triggered email sync for user: ${userId}`);
-      
-      // We need to get the user's tenant to provide proper context
+
       const user = await storage.getUserGlobal(userId);
       if (!user || !user.tenantId) {
         throw new Error(`Cannot find tenant context for user ${userId}`);
       }
-      
-      const { EmailSyncService } = await import('./emailSync');
-      const emailSyncService = new EmailSyncService(user.tenantId);
-      return await emailSyncService.syncGmailThreadsToDatabase(userId);
-      
+      const tenantId = user.tenantId;
+
+      let totalSynced = 0;
+      let totalSkipped = 0;
+      const allErrors: string[] = [];
+
+      // Get all connected accounts for this user
+      const { emailAccounts: emailAccountsTable } = await import('@shared/schema');
+      const accounts = await db
+        .select()
+        .from(emailAccountsTable)
+        .where(
+          and(
+            eq(emailAccountsTable.userId, userId),
+            eq(emailAccountsTable.tenantId, tenantId),
+            eq(emailAccountsTable.status, 'connected')
+          )
+        );
+
+      // Gmail sync
+      const hasGmail = accounts.some(a => a.providerKey === 'google');
+      if (hasGmail) {
+        try {
+          const { EmailSyncService } = await import('./emailSync');
+          const emailSyncService = new EmailSyncService(tenantId);
+          const result = await emailSyncService.syncGmailThreadsToDatabase(userId);
+          totalSynced += result.synced;
+          totalSkipped += result.skipped;
+          allErrors.push(...result.errors);
+        } catch (err) {
+          allErrors.push(`Gmail: ${err instanceof Error ? err.message : 'Unknown error'}`);
+        }
+      }
+
+      // Microsoft sync
+      const msAccounts = accounts.filter(a => a.providerKey === 'microsoft');
+      if (msAccounts.length > 0) {
+        try {
+          const { microsoftEmailProvider } = await import('./email-provider-microsoft');
+          for (const msAccount of msAccounts) {
+            const msIntegration = {
+              id: msAccount.id,
+              tenantId: msAccount.tenantId,
+              userId: msAccount.userId,
+              provider: 'microsoft' as const,
+              providerKey: msAccount.providerKey,
+              accountEmail: msAccount.accountEmail,
+              status: msAccount.status as 'connected',
+              authType: msAccount.authType,
+              accessTokenEnc: '',
+              refreshTokenEnc: '',
+              scopes: [],
+              secretsEnc: msAccount.secretsEnc,
+              expiresAt: msAccount.expiresAt,
+              metadata: msAccount.metadata,
+              createdAt: null,
+              updatedAt: null,
+              lastSyncedAt: msAccount.lastSyncedAt,
+              nextSyncCursor: null,
+            };
+
+            const result = await microsoftEmailProvider.syncInbox({
+              tenantId,
+              userId,
+              integration: msIntegration as any,
+            });
+            totalSynced += result.synced;
+            totalSkipped += result.skipped;
+            allErrors.push(...result.errors);
+          }
+        } catch (err) {
+          allErrors.push(`Microsoft: ${err instanceof Error ? err.message : 'Unknown error'}`);
+        }
+      }
+
+      return { synced: totalSynced, skipped: totalSkipped, errors: allErrors };
+
     } finally {
       this.inProgressByUser.delete(userId);
     }

@@ -1,6 +1,9 @@
 import { Client } from '@microsoft/microsoft-graph-client';
 import type { EmailProviderIntegration } from '@shared/schema';
 import { storage } from '../../storage';
+import { db } from '../../db';
+import { emails, emailThreads, contacts, projects } from '@shared/schema';
+import { eq, and, desc, isNotNull, notInArray } from 'drizzle-orm';
 import * as fs from 'fs/promises';
 
 export interface SendEmailParams {
@@ -237,18 +240,42 @@ export class MicrosoftEmailProvider {
     try {
       console.log('📧 Microsoft Graph sendMail:', { subject: message.subject, to: message.toRecipients?.map((r: any) => r.emailAddress?.address), contentType: message.body?.contentType, hasBody: !!message.body?.content });
       // Send email using Graph API
-      const response = await client
+      await client
         .api('/me/sendMail')
         .post({
           message,
           saveToSentItems: true
         });
 
-      // Note: sendMail doesn't return a message ID directly
-      // We'll use a timestamp-based ID for logging
-      const messageId = `microsoft-${Date.now()}`;
-
       console.log('📧 Microsoft: Email sent successfully');
+
+      // sendMail returns void — fetch the actual message from Sent Items
+      // to get the real messageId and conversationId for proper threading
+      let messageId = `microsoft-${Date.now()}`;
+      let conversationId: string | undefined;
+
+      try {
+        // Small delay to let Microsoft process the send
+        await new Promise(resolve => setTimeout(resolve, 1500));
+
+        const sentItems = await client
+          .api('/me/mailFolders/SentItems/messages')
+          .select('id,conversationId,internetMessageId')
+          .filter(`subject eq '${(params.subject || '').replace(/'/g, "''")}'`)
+          .top(1)
+          .orderby('sentDateTime desc')
+          .get();
+
+        if (sentItems?.value?.length > 0) {
+          const sentMsg = sentItems.value[0];
+          messageId = sentMsg.internetMessageId || sentMsg.id || messageId;
+          conversationId = sentMsg.conversationId;
+          console.log('📧 Microsoft: Retrieved sent message IDs:', { messageId, conversationId });
+        }
+      } catch (lookupErr) {
+        console.warn('⚠️ Microsoft: Could not retrieve sent message ID (non-fatal):', lookupErr);
+        // Continue with fallback IDs — sync will reconcile later
+      }
 
       // Log structured event
       console.log(JSON.stringify({
@@ -257,11 +284,14 @@ export class MicrosoftEmailProvider {
         tenantId: activeIntegration.tenantId,
         userId: activeIntegration.userId,
         messageId,
+        conversationId,
         timestamp: new Date().toISOString()
       }));
 
       return {
         messageId,
+        threadId: conversationId,
+        provider: 'microsoft',
         warning
       };
     } catch (error: any) {
@@ -282,117 +312,248 @@ export class MicrosoftEmailProvider {
   }
 
   /**
-   * Sync contacts-only emails (only ingest emails from/to known contacts)
+   * Sync inbox emails from Microsoft Graph — mirrors the Gmail sync pattern.
+   * Only ingests messages from/to known CRM contacts, creates threads, and links to projects.
    */
-  async syncContactsOnly(params: SyncContactsOnlyParams): Promise<{ ingested: number; skipped: number }> {
+  async syncInbox(params: SyncContactsOnlyParams): Promise<{ synced: number; skipped: number; errors: string[] }> {
     const { tenantId, userId, integration } = params;
+    let synced = 0;
+    let skipped = 0;
+    const errors: string[] = [];
 
     // Refresh token if needed
     const activeIntegration = await this.refreshTokenIfNeeded(integration);
 
-    // Get all contacts for this tenant to build email map
-    const contacts = await storage.getContacts(tenantId, userId);
-    const contactEmailMap = new Map<string, string>(); // email -> contactId
-    
-    contacts.forEach(contact => {
-      if (contact.email) {
-        contactEmailMap.set(contact.email.toLowerCase(), contact.id);
+    // Decrypt access token
+    let accessToken = activeIntegration.accessTokenEnc || '';
+    if ((activeIntegration as any).secretsEnc) {
+      const decrypted = await storage.decryptEmailAccountSecrets((activeIntegration as any).secretsEnc);
+      accessToken = decrypted?.accessToken || accessToken;
+    }
+    if (!accessToken) {
+      return { synced: 0, skipped: 0, errors: ['No access token for Microsoft account'] };
+    }
+
+    // Build contact→project and contact→contactId maps (same approach as Gmail sync)
+    const projectsWithContacts = await db
+      .select({
+        projectId: projects.id,
+        contactEmail: contacts.email,
+        contactId: contacts.id,
+      })
+      .from(projects)
+      .leftJoin(contacts, and(eq(contacts.id, projects.contactId), eq(contacts.tenantId, tenantId)))
+      .where(and(eq(projects.tenantId, tenantId), isNotNull(contacts.email)));
+
+    const emailToProjectMap = new Map<string, string>();
+    const emailToContactMap = new Map<string, string>();
+    projectsWithContacts.forEach(p => {
+      if (p.contactEmail) {
+        emailToProjectMap.set(p.contactEmail.toLowerCase(), p.projectId);
+        if (p.contactId) emailToContactMap.set(p.contactEmail.toLowerCase(), p.contactId);
       }
     });
 
-    console.log(`📬 Microsoft: Found ${contactEmailMap.size} contact emails for tenant ${tenantId}`);
+    const contactEmails = Array.from(emailToProjectMap.keys());
+    if (contactEmails.length === 0) {
+      return { synced: 0, skipped: 0, errors: [] };
+    }
+
+    // Get the authenticated user's email so we can determine direction
+    const userEmail = activeIntegration.accountEmail?.toLowerCase() || '';
 
     // Create Graph client
     const client = Client.init({
-      authProvider: (done) => {
-        done(null, activeIntegration.accessTokenEnc || '');
-      }
+      authProvider: (done) => { done(null, accessToken); }
     });
 
-    let ingested = 0;
-    let skipped = 0;
-
     try {
-      // List messages (limit to recent 50 for now)
+      // Build OData filter to only fetch messages involving known contacts
+      // Microsoft Graph $filter supports 'from/emailAddress/address eq ...' and 'toRecipients/any(...)'
+      // But complex OR across from/to isn't well-supported, so we fetch recent messages and filter in-app
       const response = await client
         .api('/me/messages')
-        .select('id,from,toRecipients,ccRecipients,subject,receivedDateTime')
-        .top(50)
+        .select('id,conversationId,from,toRecipients,ccRecipients,subject,bodyPreview,receivedDateTime,body')
+        .top(100)
+        .orderby('receivedDateTime desc')
         .get();
 
       const messages = response.value || [];
-      console.log(`📬 Microsoft: Found ${messages.length} messages to process`);
+      console.log(`📬 Microsoft sync: Fetched ${messages.length} recent messages for tenant ${tenantId}`);
 
-      // Process each message
       for (const message of messages) {
         try {
-          // Extract email addresses
-          const fromEmail = message.from?.emailAddress?.address?.toLowerCase() || '';
-          const toEmails = (message.toRecipients || []).map((r: any) => r.emailAddress?.address?.toLowerCase() || '');
-          const ccEmails = (message.ccRecipients || []).map((r: any) => r.emailAddress?.address?.toLowerCase() || '');
+          const fromEmail = (message.from?.emailAddress?.address || '').toLowerCase();
+          const fromName = message.from?.emailAddress?.name || fromEmail;
+          const toEmailsList = (message.toRecipients || []).map((r: any) => (r.emailAddress?.address || '').toLowerCase());
+          const allRecipients = [...toEmailsList];
+          const ccEmailsList = (message.ccRecipients || []).map((r: any) => (r.emailAddress?.address || '').toLowerCase());
 
-          const allEmails = [fromEmail, ...toEmails, ...ccEmails].filter(e => e);
-
-          // Check if any email matches a contact
-          const matchingEmails = allEmails.filter(email => 
-            contactEmailMap.has(email)
-          );
-
-          if (matchingEmails.length === 0) {
-            // Skip this message - no matching contacts
+          // Check if any participant is a known contact
+          const allParticipants = [fromEmail, ...allRecipients, ...ccEmailsList];
+          const hasKnownContact = allParticipants.some(e => emailToContactMap.has(e));
+          if (!hasKnownContact) {
             skipped++;
             continue;
           }
 
-          // Find matching contact ID
-          const contactId = contactEmailMap.get(matchingEmails[0]);
-          
-          // TODO: Store email in database (this will be handled by main agent separately)
-          // For now, just log that we would ingest this
-          console.log(`✅ Microsoft: Would ingest message ${message.id} for contact ${contactId}`);
-          ingested++;
+          // Determine direction
+          const direction = fromEmail === userEmail ? 'outbound' : 'inbound';
 
-          // Log structured event
-          console.log(JSON.stringify({
-            event: 'email_sync_ingested',
-            provider: 'microsoft',
-            tenantId,
-            userId,
-            messageId: message.id,
-            contactId,
-            timestamp: new Date().toISOString()
-          }));
+          // Find contact ID
+          let contactId: string | null = null;
+          if (direction === 'inbound') {
+            contactId = emailToContactMap.get(fromEmail) || null;
+            if (!contactId) {
+              // Try DB lookup for contacts not linked to projects
+              const [existingContact] = await db
+                .select({ id: contacts.id })
+                .from(contacts)
+                .where(and(eq(contacts.tenantId, tenantId), eq(contacts.email, fromEmail)))
+                .limit(1);
+              contactId = existingContact?.id || null;
+            }
+            if (!contactId) {
+              skipped++;
+              continue; // Ingestion guard: skip unknown senders
+            }
+          } else {
+            // Outbound: match recipient to contact
+            for (const toEmail of allRecipients) {
+              contactId = emailToContactMap.get(toEmail) || null;
+              if (contactId) break;
+            }
+            if (!contactId) {
+              skipped++;
+              continue;
+            }
+          }
 
-        } catch (error: any) {
-          console.error(`❌ Microsoft: Failed to process message ${message.id}:`, error);
+          // Find matching project
+          let matchedProjectId: string | null = null;
+          if (direction === 'inbound' && emailToProjectMap.has(fromEmail)) {
+            matchedProjectId = emailToProjectMap.get(fromEmail)!;
+          } else {
+            for (const e of allRecipients) {
+              if (emailToProjectMap.has(e)) {
+                matchedProjectId = emailToProjectMap.get(e)!;
+                break;
+              }
+            }
+          }
+
+          // Auto-link to most recent non-terminal project for this contact
+          if (contactId && !matchedProjectId) {
+            const terminalStatuses = ['lost', 'cancelled', 'archived', 'completed'];
+            const [activeProject] = await db
+              .select({ id: projects.id })
+              .from(projects)
+              .where(and(
+                eq(projects.contactId, contactId),
+                eq(projects.tenantId, tenantId),
+                notInArray(projects.status, terminalStatuses)
+              ))
+              .orderBy(desc(projects.createdAt))
+              .limit(1);
+            if (activeProject) {
+              matchedProjectId = activeProject.id;
+            }
+          }
+
+          // Use Microsoft conversationId as thread grouping (analogous to Gmail threadId)
+          const threadId = message.conversationId || message.id;
+          const emailId = `ms_${message.id}`;
+
+          // Upsert thread
+          const [existingThread] = await db
+            .select({ id: emailThreads.id })
+            .from(emailThreads)
+            .where(eq(emailThreads.id, threadId))
+            .limit(1);
+
+          if (!existingThread) {
+            await db.insert(emailThreads).values({
+              id: threadId,
+              userId,
+              tenantId,
+              subject: message.subject || 'No Subject',
+              projectId: matchedProjectId,
+              lastMessageAt: new Date(message.receivedDateTime),
+              createdAt: new Date(),
+              updatedAt: new Date(),
+            });
+          } else {
+            const updateData: any = {
+              lastMessageAt: new Date(message.receivedDateTime),
+              updatedAt: new Date(),
+            };
+            if (matchedProjectId && !existingThread) {
+              updateData.projectId = matchedProjectId;
+            }
+            await db.update(emailThreads)
+              .set(updateData)
+              .where(eq(emailThreads.id, threadId));
+          }
+
+          // Upsert email record
+          await db
+            .insert(emails)
+            .values({
+              id: emailId,
+              threadId,
+              userId,
+              tenantId,
+              provider: 'microsoft',
+              providerMessageId: message.id,
+              direction,
+              fromEmail: `${fromName} <${fromEmail}>`,
+              toEmails: toEmailsList,
+              ccEmails: ccEmailsList,
+              subject: message.subject || 'No Subject',
+              bodyText: message.bodyPreview || '',
+              bodyHtml: message.body?.contentType === 'html' ? message.body.content : null,
+              snippet: (message.bodyPreview || '').substring(0, 200),
+              sentAt: new Date(message.receivedDateTime),
+              hasAttachments: false,
+              contactId,
+              projectId: matchedProjectId,
+              createdAt: new Date(),
+              updatedAt: new Date(),
+            })
+            .onConflictDoUpdate({
+              target: [emails.provider, emails.providerMessageId],
+              set: {
+                updatedAt: new Date(),
+                subject: message.subject || 'No Subject',
+                bodyText: message.bodyPreview || '',
+                snippet: (message.bodyPreview || '').substring(0, 200),
+                projectId: matchedProjectId,
+                contactId,
+              },
+            });
+
+          synced++;
+        } catch (msgError: any) {
+          errors.push(`Message ${message.id}: ${msgError.message}`);
           skipped++;
         }
       }
 
-      // Update sync cursor
-      await storage.upsertEmailProviderIntegration({
-        tenantId: activeIntegration.tenantId,
-        userId: activeIntegration.userId,
-        provider: 'microsoft',
-        status: 'connected',
-        accountEmail: activeIntegration.accountEmail,
-        scopes: activeIntegration.scopes,
-        accessTokenEnc: activeIntegration.accessTokenEnc,
-        refreshTokenEnc: activeIntegration.refreshTokenEnc,
-        expiresAt: activeIntegration.expiresAt,
-        metadata: activeIntegration.metadata,
-        lastSyncedAt: new Date(),
-        nextSyncCursor: messages[0]?.id || activeIntegration.nextSyncCursor
-      }, tenantId);
-
-      console.log(`📬 Microsoft: Sync complete - ingested: ${ingested}, skipped: ${skipped}`);
-
-      return { ingested, skipped };
+      console.log(`📬 Microsoft sync complete: ${synced} synced, ${skipped} skipped, ${errors.length} errors`);
+      return { synced, skipped, errors };
 
     } catch (error: any) {
-      console.error('❌ Microsoft: Sync failed:', error);
-      throw new Error(`Failed to sync Microsoft contacts: ${error.message}`);
+      console.error('❌ Microsoft inbox sync failed:', error);
+      return { synced: 0, skipped: 0, errors: [error.message] };
     }
+  }
+
+  /**
+   * Legacy wrapper for backward compatibility
+   */
+  async syncContactsOnly(params: SyncContactsOnlyParams): Promise<{ ingested: number; skipped: number }> {
+    const result = await this.syncInbox(params);
+    return { ingested: result.synced, skipped: result.skipped };
   }
 
   /**

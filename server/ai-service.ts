@@ -96,9 +96,10 @@ Provide your summary:`;
     const tokensUsed = totalTokens(response);
 
     return { summary, tokensUsed };
-  } catch (error) {
-    console.error('Error generating email summary:', error);
-    throw new Error('Failed to generate email summary');
+  } catch (error: any) {
+    console.error('Error generating email summary:', error?.message || error);
+    console.error('Full error details:', JSON.stringify(error, null, 2));
+    throw new Error(error?.message || 'Failed to generate email summary');
   }
 }
 
@@ -176,9 +177,10 @@ Draft reply (body text only, no subject, no signature):`;
     const tokensUsed = totalTokens(response);
 
     return { draft, tokensUsed };
-  } catch (error) {
-    console.error('Error generating email draft:', error);
-    throw new Error('Failed to generate email draft');
+  } catch (error: any) {
+    console.error('Error generating email draft:', error?.message || error);
+    console.error('Full error details:', JSON.stringify(error, null, 2));
+    throw new Error(error?.message || 'Failed to generate email draft');
   }
 }
 

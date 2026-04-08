@@ -8243,9 +8243,19 @@ export class DrizzleStorage implements IStorage {
       throw new Error('tenantId is required for email provider integration operations');
     }
 
-    // NOTE: Previously this disconnected ALL other providers when connecting a new one.
-    // Removed: users can have multiple providers connected simultaneously (e.g. Gmail + Microsoft).
-    // The email dispatcher will pick the best available provider when sending.
+    // When connecting a new provider, set all other providers for this user/tenant to 'disconnected'
+    if (integration.status === 'connected') {
+      await this.db
+        .update(emailAccounts)
+        .set({
+          status: 'disconnected',
+          updatedAt: new Date()
+        })
+        .where(and(
+          eq(emailAccounts.tenantId, tenantId),
+          eq(emailAccounts.userId, integration.userId)
+        ));
+    }
 
     // Prepare account data with encrypted secrets
     const accountData: any = {

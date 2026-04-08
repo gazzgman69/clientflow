@@ -49,13 +49,24 @@ export class MicrosoftEmailProvider {
     }
 
     try {
+      // Decrypt secrets if using new encrypted format (email_accounts table)
+      let refresh_token = integration.refreshTokenEnc || '';
+      if ((integration as any).secretsEnc) {
+        const decrypted = await storage.decryptEmailAccountSecrets((integration as any).secretsEnc);
+        refresh_token = decrypted?.refreshToken || refresh_token;
+      }
+
+      if (!refresh_token) {
+        throw new Error('No refresh token available for Microsoft. Please reconnect your account.');
+      }
+
       // Microsoft token refresh endpoint
       const tokenUrl = 'https://login.microsoftonline.com/common/oauth2/v2.0/token';
-      
+
       const params = new URLSearchParams({
         client_id: MICROSOFT_CLIENT_ID,
         client_secret: MICROSOFT_CLIENT_SECRET,
-        refresh_token: integration.refreshTokenEnc || '',
+        refresh_token,
         grant_type: 'refresh_token'
       });
 
@@ -121,10 +132,21 @@ export class MicrosoftEmailProvider {
     // Refresh token if needed
     const activeIntegration = await this.refreshTokenIfNeeded(integration);
 
+    // Decrypt secrets if using new encrypted format (email_accounts table)
+    let access_token = activeIntegration.accessTokenEnc || '';
+    if ((activeIntegration as any).secretsEnc) {
+      const decrypted = await storage.decryptEmailAccountSecrets((activeIntegration as any).secretsEnc);
+      access_token = decrypted?.accessToken || access_token;
+    }
+
+    if (!access_token) {
+      throw new Error('No access token available for Microsoft email. Please reconnect your Microsoft account.');
+    }
+
     // Create Graph client
     const client = Client.init({
       authProvider: (done) => {
-        done(null, activeIntegration.accessTokenEnc || '');
+        done(null, access_token);
       }
     });
 

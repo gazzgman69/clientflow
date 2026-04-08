@@ -573,6 +573,66 @@ router.get('/threads', requireAuth, async (req: any, res) => {
 });
 
 /**
+ * GET /api/email/inbox
+ * Returns individual recent inbound emails from contacts, ordered chronologically.
+ * Used by the dashboard "Recent Emails" widget as an inbox-style list.
+ */
+router.get('/inbox', requireAuth, async (req: any, res) => {
+  try {
+    const limit = parseInt(req.query.limit as string) || 30;
+    const tenantId = req.tenantId;
+    if (!tenantId) {
+      return res.status(400).json({ ok: false, error: 'Tenant context required' });
+    }
+
+    // Fetch individual inbound emails with contact info, ordered by date desc
+    const inboxEmails = await db
+      .select({
+        id: emails.id,
+        subject: emails.subject,
+        snippet: emails.snippet,
+        fromEmail: emails.fromEmail,
+        sentAt: emails.sentAt,
+        direction: emails.direction,
+        projectId: emails.projectId,
+        contactId: emails.contactId,
+        threadId: emails.threadId,
+        contactFirstName: contacts.firstName,
+        contactLastName: contacts.lastName,
+        contactFullName: contacts.fullName,
+      })
+      .from(emails)
+      .leftJoin(contacts, eq(emails.contactId, contacts.id))
+      .where(
+        and(
+          eq(emails.tenantId, tenantId),
+          eq(emails.direction, 'inbound'),
+          sql`${emails.contactId} IS NOT NULL`
+        )
+      )
+      .orderBy(desc(emails.sentAt))
+      .limit(limit);
+
+    const formattedEmails = inboxEmails.map(email => ({
+      id: email.id,
+      from: email.contactFullName || `${email.contactFirstName || ''} ${email.contactLastName || ''}`.trim() || email.fromEmail,
+      fromEmail: email.fromEmail,
+      subject: email.subject || 'No Subject',
+      snippet: email.snippet || '',
+      date: email.sentAt?.toISOString() || new Date().toISOString(),
+      projectId: email.projectId,
+      contactId: email.contactId,
+      threadId: email.threadId,
+    }));
+
+    res.json({ ok: true, emails: formattedEmails });
+  } catch (error: any) {
+    console.error('Error fetching inbox emails:', error);
+    res.status(500).json({ ok: false, error: 'Failed to retrieve inbox emails' });
+  }
+});
+
+/**
  * Get email threads by project
  * Filters by project contact emails or fallback to query param emails
  */

@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { Mail, AlertCircle, Loader2, ChevronDown } from 'lucide-react';
+import { Mail, AlertCircle, Loader2, ChevronDown, Inbox } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useLocation } from 'wouter';
@@ -20,17 +20,16 @@ import { RichTextEditor, RichTextEditorRef } from '@/components/ui/rich-text-edi
 import { TokenDropdown } from '@/components/ui/token-dropdown';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 
-interface EmailThread {
+interface InboxEmail {
+  id: string;
+  from: string;
+  fromEmail: string;
+  subject: string;
+  snippet: string;
+  date: string;
+  projectId: string | null;
+  contactId: string | null;
   threadId: string;
-  latest: {
-    id: string;
-    from: string;
-    to: string;
-    subject: string;
-    dateISO: string;
-    snippet: string;
-  };
-  count: number;
 }
 
 interface EmailMessage {
@@ -73,26 +72,28 @@ export default function EmailThreadsWidget() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const replyEditorRef = useRef<RichTextEditorRef>(null);
-  
+
   // Get current authenticated user
   const { data: currentUser } = useQuery({
     queryKey: ['/api/auth/me'],
     retry: false,
   });
-  
+
   // Email composition state
   const [showSignatureDropdown, setShowSignatureDropdown] = useState(false);
   const [showTemplateDropdown, setShowTemplateDropdown] = useState(false);
-  
-  const { data: threadsResponse, isLoading, error } = useQuery({
-    queryKey: ['/api/email/threads'],
+
+  // Fetch individual inbound emails chronologically
+  const { data: inboxResponse, isLoading, error } = useQuery({
+    queryKey: ['/api/email/inbox'],
     queryFn: async () => {
-      const response = await fetch('/api/email/threads?limit=20', {
+      const response = await fetch('/api/email/inbox?limit=30', {
         credentials: 'include'
       });
       return response.json();
     },
     enabled: !!currentUser,
+    refetchInterval: 60000, // Refresh every 60 seconds
   });
 
   // Fetch signatures for email composition
@@ -142,33 +143,46 @@ export default function EmailThreadsWidget() {
   };
 
   // Function to find project by contact email and open modal
-  const findProjectByEmail = async (email: string) => {
+  const openProjectForEmail = async (email: InboxEmail) => {
+    if (email.projectId) {
+      try {
+        const response = await fetch(`/api/projects/${email.projectId}`, {
+          credentials: 'include'
+        });
+        const project = await response.json();
+        if (project && project.id) {
+          setSelectedProject(project);
+          setShowDetailModal(true);
+          return;
+        }
+      } catch (err) {
+        console.error('Error fetching project:', err);
+      }
+    }
+    // Fallback: search by contact email
     try {
-      // Extract email from "Name <email@domain.com>" format
-      const emailMatch = email.match(/<(.+)>/);
-      const cleanEmail = emailMatch ? emailMatch[1] : email;
-      
+      const emailMatch = email.fromEmail.match(/<(.+)>/);
+      const cleanEmail = emailMatch ? emailMatch[1] : email.fromEmail;
+
       const response = await fetch(`/api/contacts?email=${encodeURIComponent(cleanEmail)}`, {
         credentials: 'include'
       });
-      const contacts = await response.json();
-      
-      if (contacts && contacts.length > 0) {
-        const contact = contacts[0];
+      const contactsList = await response.json();
+
+      if (contactsList && contactsList.length > 0) {
+        const contact = contactsList[0];
         let projectId = contact.projectId;
-        
-        // If no direct project, look for projects with this contact
+
         if (!projectId) {
           const projectsResponse = await fetch(`/api/projects?contactId=${contact.id}`, {
             credentials: 'include'
           });
-          const projects = await projectsResponse.json();
-          if (projects && projects.length > 0) {
-            projectId = projects[0].id;
+          const projectsList = await projectsResponse.json();
+          if (projectsList && projectsList.length > 0) {
+            projectId = projectsList[0].id;
           }
         }
-        
-        // Fetch the full project data and open modal
+
         if (projectId) {
           const projectResponse = await fetch(`/api/projects/${projectId}`, {
             credentials: 'include'
@@ -178,47 +192,51 @@ export default function EmailThreadsWidget() {
           setShowDetailModal(true);
         }
       }
-    } catch (error) {
-      console.error('Error finding project:', error);
+    } catch (err) {
+      console.error('Error finding project:', err);
     }
   };
 
-  const handleEmailClick = async (threadId: string) => {
+  const handleEmailClick = async (email: InboxEmail) => {
     setLoadingThread(true);
     setShowReplyForm(false);
     setReplySubject('');
     setReplyMessage('');
     try {
-      const response = await fetch(`/api/email/thread/${threadId}`, {
+      const response = await fetch(`/api/email/thread/${email.threadId}`, {
         credentials: 'include'
       });
       const threadDetails = await response.json();
       setSelectedThread(threadDetails);
       setShowEmailModal(true);
-      
+
       // Set default reply subject with Re: prefix
       if (threadDetails?.thread?.subject) {
         const subject = threadDetails.thread.subject;
-        const replySubject = subject.startsWith('Re:') ? subject : `Re: ${subject}`;
-        setReplySubject(replySubject);
+        const replySub = subject.startsWith('Re:') ? subject : `Re: ${subject}`;
+        setReplySubject(replySub);
       }
-    } catch (error) {
-      console.error('Error fetching thread details:', error);
+    } catch (err) {
+      console.error('Error fetching thread details:', err);
     } finally {
       setLoadingThread(false);
     }
   };
 
-  const handleContactClick = (fromEmail: string) => {
-    findProjectByEmail(fromEmail);
-  };
-
   const formatDate = (dateISO: string) => {
-    return new Date(dateISO).toLocaleDateString('en-GB');
+    const date = new Date(dateISO);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffHours = diffMs / (1000 * 60 * 60);
+
+    if (diffHours < 24) {
+      return formatDistanceToNow(date, { addSuffix: true });
+    }
+    return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: date.getFullYear() !== now.getFullYear() ? 'numeric' : undefined });
   };
 
-  const threads = threadsResponse?.threads || [];
-  const needsReconnect = error || threadsResponse?.error?.includes?.('insufficientPermissions');
+  const inboxEmails: InboxEmail[] = inboxResponse?.emails || [];
+  const needsReconnect = error || inboxResponse?.error?.includes?.('insufficientPermissions');
 
   const handleCloseDetailModal = () => {
     setShowDetailModal(false);
@@ -252,6 +270,8 @@ export default function EmailThreadsWidget() {
         replyEditorRef.current.setContent('');
       }
       setShowReplyForm(false);
+      // Refresh inbox
+      queryClient.invalidateQueries({ queryKey: ['/api/email/inbox'] });
     },
     onError: () => {
       toast({
@@ -264,14 +284,14 @@ export default function EmailThreadsWidget() {
 
   const handleSendReply = () => {
     if (!selectedThread?.thread?.messages || !replySubject.trim()) return;
-    
+
     const htmlContent = replyEditorRef.current?.getHTML() || '';
     if (!htmlContent.trim()) return;
 
     // Extract sender email from the latest message
     const latestMessage = selectedThread.thread.messages[selectedThread.thread.messages.length - 1];
     let replyToEmail = latestMessage.from;
-    
+
     // Clean up email format (remove display name if present)
     const emailMatch = replyToEmail.match(/<(.+?)>/) || replyToEmail.match(/(\S+@\S+)/);
     if (emailMatch) {
@@ -297,8 +317,8 @@ export default function EmailThreadsWidget() {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <Mail className="h-5 w-5" />
-          Recent Email Threads
+          <Inbox className="h-5 w-5" />
+          Recent Emails
         </CardTitle>
       </CardHeader>
       <CardContent>
@@ -306,10 +326,10 @@ export default function EmailThreadsWidget() {
           <Alert className="mb-4">
             <AlertCircle className="h-4 w-4" />
             <AlertDescription>
-              Gmail access is required to view email threads. 
-              <Button 
-                variant="link" 
-                className="px-2" 
+              Email access is required to view your inbox.
+              <Button
+                variant="link"
+                className="px-2"
                 onClick={() => window.location.href = '/auth/google'}
                 data-testid="button-reconnect-google-dashboard"
               >
@@ -322,54 +342,50 @@ export default function EmailThreadsWidget() {
         {isLoading ? (
           <div className="flex items-center justify-center py-8">
             <Loader2 className="h-6 w-6 animate-spin mr-2" />
-            Loading email threads...
+            Loading emails...
           </div>
-        ) : threads.length === 0 ? (
+        ) : inboxEmails.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground">
-            <Mail className="h-8 w-8 mx-auto mb-2 opacity-50" />
-            <p>No email threads found</p>
-            <p className="text-sm">Connect Gmail to see recent email conversations</p>
+            <Inbox className="h-8 w-8 mx-auto mb-2 opacity-50" />
+            <p>No emails found</p>
+            <p className="text-sm">Incoming client emails will appear here</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {threads.map((thread: EmailThread) => (
-              <div 
-                key={thread.threadId}
-                className="border rounded-lg p-4 hover:bg-muted/50 cursor-pointer transition-colors space-y-2"
-                data-testid={`thread-${thread.threadId}`}
+          <div className="divide-y">
+            {inboxEmails.map((email: InboxEmail) => (
+              <div
+                key={email.id}
+                className="flex items-start gap-3 py-3 px-2 hover:bg-muted/50 cursor-pointer transition-colors rounded-md -mx-2"
+                onClick={() => handleEmailClick(email)}
+                data-testid={`inbox-email-${email.id}`}
               >
-                <div className="flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-3 min-w-0 flex-1">
-                    <span 
-                      className="text-sm font-medium truncate hover:text-primary cursor-pointer transition-colors"
+                {/* Sender name / avatar area */}
+                <div className="flex-shrink-0 w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-medium text-sm">
+                  {(email.from || '?')[0].toUpperCase()}
+                </div>
+
+                {/* Email content */}
+                <div className="flex-1 min-w-0 space-y-0.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <span
+                      className="text-sm font-medium truncate hover:text-primary transition-colors"
                       onClick={(e) => {
                         e.stopPropagation();
-                        handleContactClick(thread.latest.from);
+                        openProjectForEmail(email);
                       }}
-                      data-testid={`contact-${thread.threadId}`}
+                      data-testid={`contact-${email.id}`}
                     >
-                      {thread.latest.from}
+                      {email.from}
                     </span>
                     <span className="text-xs text-muted-foreground whitespace-nowrap flex-shrink-0">
-                      {formatDate(thread.latest.dateISO)}
+                      {formatDate(email.date)}
                     </span>
                   </div>
-                  {thread.count > 1 && (
-                    <span className="text-xs bg-muted px-2 py-1 rounded-full flex-shrink-0">
-                      {thread.count}
-                    </span>
-                  )}
-                </div>
-                <div 
-                  className="group cursor-pointer hover:bg-muted/30 rounded p-2 -mx-2 transition-colors space-y-1"
-                  onClick={() => handleEmailClick(thread.threadId)}
-                  data-testid={`email-content-${thread.threadId}`}
-                >
-                  <div className="text-sm font-medium truncate group-hover:text-primary transition-colors">
-                    {decodeHtmlEntities(thread.latest.subject)}
+                  <div className="text-sm truncate">
+                    {decodeHtmlEntities(email.subject)}
                   </div>
-                  <div className="text-xs text-muted-foreground truncate group-hover:text-primary transition-colors">
-                    {decodeHtmlEntities(thread.latest.snippet)}
+                  <div className="text-xs text-muted-foreground truncate">
+                    {decodeHtmlEntities(email.snippet)}
                   </div>
                 </div>
               </div>
@@ -395,7 +411,7 @@ export default function EmailThreadsWidget() {
               {selectedThread?.thread?.subject || 'Email Thread'}
             </DialogTitle>
             {!showReplyForm && (
-              <Button 
+              <Button
                 onClick={() => setShowReplyForm(true)}
                 size="sm"
                 className="mr-8"
@@ -407,7 +423,7 @@ export default function EmailThreadsWidget() {
             )}
           </div>
         </DialogHeader>
-        
+
         {loadingThread ? (
           <div className="flex items-center justify-center py-8">
             <Loader2 className="h-6 w-6 animate-spin mr-2" />
@@ -431,18 +447,18 @@ export default function EmailThreadsWidget() {
                     </div>
                   </div>
                 </div>
-                
+
                 <div className="prose prose-sm max-w-none dark:prose-invert">
-                  <div 
+                  <div
                     className="email-content break-words"
-                    dangerouslySetInnerHTML={{ 
+                    dangerouslySetInnerHTML={{
                       __html: message.body || message.snippet
                     }}
                   />
                 </div>
               </div>
             ))}
-            
+
             {/* Reply Section */}
             {showReplyForm && (
               <div className="border-t pt-4">
@@ -479,7 +495,7 @@ export default function EmailThreadsWidget() {
                           variant="outline"
                           size="sm"
                         />
-                        
+
                         {/* Template Selection */}
                         <DropdownMenu open={showTemplateDropdown} onOpenChange={setShowTemplateDropdown}>
                           <DropdownMenuTrigger asChild>
@@ -538,7 +554,7 @@ export default function EmailThreadsWidget() {
                         </DropdownMenu>
                       </div>
                     </div>
-                    
+
                     <RichTextEditor
                       ref={replyEditorRef}
                       content={replyMessage}
@@ -551,8 +567,8 @@ export default function EmailThreadsWidget() {
 
                   {/* Action Buttons */}
                   <div className="flex gap-2 justify-end pt-2">
-                    <Button 
-                      variant="outline" 
+                    <Button
+                      variant="outline"
                       onClick={() => {
                         setShowReplyForm(false);
                         setReplySubject('');
@@ -565,7 +581,7 @@ export default function EmailThreadsWidget() {
                     >
                       Cancel
                     </Button>
-                    <Button 
+                    <Button
                       onClick={handleSendReply}
                       disabled={!replySubject.trim() || sendReplyMutation.isPending}
                       data-testid="button-send-reply"

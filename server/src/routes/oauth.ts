@@ -820,8 +820,9 @@ router.get('/api/auth/microsoft/callback', async (req, res) => {
     
     if (!tokenResponse.ok) {
       const errorText = await tokenResponse.text();
-      console.error('Microsoft token exchange failed:', errorText);
-      return res.status(400).send('Failed to exchange code for tokens');
+      console.error('Microsoft token exchange failed:', tokenResponse.status, errorText);
+      console.error('Microsoft token exchange details:', { redirectUri, clientIdSet: !!process.env.MICROSOFT_CLIENT_ID, clientSecretSet: !!process.env.MICROSOFT_CLIENT_SECRET, clientSecretLength: process.env.MICROSOFT_CLIENT_SECRET?.length });
+      return res.status(400).send(`Failed to exchange code for tokens: ${errorText}`);
     }
     
     const tokenData = await tokenResponse.json();
@@ -888,8 +889,8 @@ router.get('/api/auth/microsoft/callback', async (req, res) => {
       return res.redirect(returnTo || '/settings/email-and-calendar');
     }
   } catch (error: any) {
-    console.error('Microsoft OAuth callback error:', error);
-    res.status(500).send('OAuth failed');
+    console.error('Microsoft OAuth callback error:', error?.message || error, error?.stack);
+    res.status(500).send(`OAuth failed: ${error?.message || 'Unknown error'}`);
   }
 });
 

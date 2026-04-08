@@ -1,13 +1,8 @@
-import OpenAI from 'openai';
+import Anthropic from '@anthropic-ai/sdk';
 import type { IStorage } from './storage';
 
-// Anthropic Claude via OpenAI-compatible endpoint
-const openai = new OpenAI({
-  baseURL: "https://api.anthropic.com/v1/",
+const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
-  defaultHeaders: {
-    "anthropic-version": "2023-06-01",
-  },
 });
 
 const MODEL = "claude-haiku-4-5-20251001";
@@ -1200,48 +1195,49 @@ The system will automatically provide action buttons for common tasks, so feel f
     console.log(`📝 System message length: ${systemMessage.length} characters`);
     console.log(`💬 Conversation history: ${conversationHistory?.length || 0} messages`);
 
-    const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [
-      {
-        role: "system",
-        content: systemMessage
-      }
-    ];
+    const messages: Anthropic.MessageParam[] = [];
 
     // Add conversation history if provided
     if (conversationHistory && conversationHistory.length > 0) {
-      messages.push(...conversationHistory);
+      for (const msg of conversationHistory) {
+        if ((msg as any).role === 'user' || (msg as any).role === 'assistant') {
+          messages.push({ role: (msg as any).role, content: (msg as any).content });
+        }
+      }
     }
 
     // Add current user query
-    messages.push({
-      role: "user",
-      content: query
-    });
+    messages.push({ role: "user", content: query });
 
-    // Convert FUNCTIONS to tools format for Anthropic compatibility
-    const tools = FUNCTIONS.map(fn => ({
-      type: "function" as const,
-      function: fn
+    // Convert FUNCTIONS to Anthropic tools format
+    const tools: Anthropic.Tool[] = FUNCTIONS.map(fn => ({
+      name: fn.name,
+      description: fn.description,
+      input_schema: fn.parameters as Anthropic.Tool.InputSchema,
     }));
 
     // First completion - AI decides which tool to call
-    const response = await openai.chat.completions.create({
+    const response = await anthropic.messages.create({
       model: MODEL,
+      max_tokens: 1024,
+      system: systemMessage,
       messages,
-      tools: tools as any,
-      tool_choice: "auto"
+      tools,
     });
 
-    const message = response.choices[0].message;
-    let finalResponse = message.content || "I'm not sure how to answer that.";
+    // Extract text content from response
+    const textBlock = response.content.find((b): b is Anthropic.TextBlock => b.type === 'text');
+    let finalResponse = textBlock?.text || "I'm not sure how to answer that.";
     let functionData: any = null;
     let calledFunctionName: string | undefined;
+    const inputTokens = response.usage?.input_tokens || 0;
+    const outputTokens = response.usage?.output_tokens || 0;
 
     // If AI wants to call a tool
-    if (message.tool_calls && message.tool_calls.length > 0) {
-      const toolCall = message.tool_calls[0];
-      const functionName = toolCall.function.name;
-      const functionArgs = JSON.parse(toolCall.function.arguments || '{}');
+    const toolUseBlock = response.content.find((b): b is Anthropic.ToolUseBlock => b.type === 'tool_use');
+    if (toolUseBlock) {
+      const functionName = toolUseBlock.name;
+      const functionArgs = toolUseBlock.input as Record<string, any>;
       calledFunctionName = functionName;
 
       console.log(`🔧 Calling function: ${functionName} with args:`, functionArgs);
@@ -1251,23 +1247,31 @@ The system will automatically provide action buttons for common tasks, so feel f
 
       console.log(`📊 Function ${functionName} returned ${JSON.stringify(functionData).length} characters of data`);
 
-      // Add tool call result to conversation and get final response
-      messages.push(message as any);
-      const functionResultContent = JSON.stringify(functionData);
-      messages.push({
-        role: "tool",
-        tool_call_id: toolCall.id,
-        content: functionResultContent
-      } as any);
+      // Send tool result back and get final response
+      const followUpMessages: Anthropic.MessageParam[] = [
+        ...messages,
+        { role: "assistant", content: response.content },
+        {
+          role: "user",
+          content: [{
+            type: "tool_result",
+            tool_use_id: toolUseBlock.id,
+            content: JSON.stringify(functionData),
+          }],
+        },
+      ];
 
-      console.log(`🤖 Sending ${messages.length} messages to AI (${messages.reduce((acc, m: any) => acc + (m.content?.length || 0), 0)} total chars)`);
+      console.log(`🤖 Sending ${followUpMessages.length} messages to AI for final response`);
 
-      const finalCompletion = await openai.chat.completions.create({
+      const finalCompletion = await anthropic.messages.create({
         model: MODEL,
-        messages
+        max_tokens: 1024,
+        system: systemMessage,
+        messages: followUpMessages,
       });
 
-      finalResponse = finalCompletion.choices[0].message.content || finalResponse;
+      const finalTextBlock = finalCompletion.content.find((b): b is Anthropic.TextBlock => b.type === 'text');
+      finalResponse = finalTextBlock?.text || finalResponse;
     }
 
     // Generate suggested actions based on query context and function results
@@ -1277,7 +1281,7 @@ The system will automatically provide action buttons for common tasks, so feel f
       response: finalResponse,
       data: functionData,
       actions: suggestedActions,
-      tokensUsed: response.usage?.total_tokens
+      tokensUsed: inputTokens + outputTokens
     };
 
   } catch (error: any) {

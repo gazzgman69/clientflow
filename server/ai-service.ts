@@ -1,4 +1,4 @@
-import OpenAI from "openai";
+import Anthropic from "@anthropic-ai/sdk";
 import { drizzle } from 'drizzle-orm/neon-http';
 import { neon } from '@neondatabase/serverless';
 import { emails, users, userStyleSamples } from "@shared/schema";
@@ -9,23 +9,28 @@ const sql = neon(process.env.DATABASE_URL!);
 const db = drizzle(sql);
 
 /*
-Using Anthropic Claude via OpenAI-compatible endpoint:
-- Uses the OpenAI SDK pointed at Anthropic's API for minimal code changes
+Using Anthropic Claude (native SDK):
 - Requires ANTHROPIC_API_KEY environment variable
 - Claude Haiku 4.5 is fast and cost-effective for CRM tasks
 */
 
-// Initialize OpenAI-compatible client pointed at Anthropic's API
-const openai = new OpenAI({
-  baseURL: "https://api.anthropic.com/v1/",
+const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
-  defaultHeaders: {
-    "anthropic-version": "2023-06-01",
-  },
 });
 
 // Default model to use for AI operations
 const DEFAULT_MODEL = "claude-haiku-4-5-20251001"; // Claude Haiku 4.5 — fast and cost-effective for CRM tasks
+
+// Helper to extract text from Anthropic response
+function extractText(response: Anthropic.Message): string {
+  const textBlock = response.content.find((b): b is Anthropic.TextBlock => b.type === 'text');
+  return textBlock?.text?.trim() || '';
+}
+
+// Helper to get total tokens used
+function totalTokens(response: Anthropic.Message): number {
+  return (response.usage?.input_tokens || 0) + (response.usage?.output_tokens || 0);
+}
 
 export interface EmailForSummary {
   id: string;
@@ -80,23 +85,15 @@ ${emailContext}
 Provide your summary:`;
 
   try {
-    const response = await openai.chat.completions.create({
+    const response = await anthropic.messages.create({
       model: DEFAULT_MODEL,
-      messages: [
-        {
-          role: 'system',
-          content: 'You are a helpful assistant that summarizes email threads for business CRM systems. Be concise and focus on actionable information.'
-        },
-        {
-          role: 'user',
-          content: prompt
-        }
-      ],
-      max_tokens: 300
+      max_tokens: 300,
+      system: 'You are a helpful assistant that summarizes email threads for business CRM systems. Be concise and focus on actionable information.',
+      messages: [{ role: 'user', content: prompt }],
     });
 
-    const summary = response.choices[0]?.message?.content?.trim() || 'Unable to generate summary';
-    const tokensUsed = response.usage?.total_tokens || 0;
+    const summary = extractText(response) || 'Unable to generate summary';
+    const tokensUsed = totalTokens(response);
 
     return { summary, tokensUsed };
   } catch (error) {
@@ -168,23 +165,15 @@ Generate a professional, friendly reply that:
 Draft reply (body text only, no subject, no signature):`;
 
   try {
-    const response = await openai.chat.completions.create({
+    const response = await anthropic.messages.create({
       model: DEFAULT_MODEL,
-      messages: [
-        {
-          role: 'system',
-          content: 'You are a helpful assistant that drafts professional business email replies. Be warm, clear, and professional.'
-        },
-        {
-          role: 'user',
-          content: prompt
-        }
-      ],
-      max_tokens: 500
+      max_tokens: 500,
+      system: 'You are a helpful assistant that drafts professional business email replies. Be warm, clear, and professional.',
+      messages: [{ role: 'user', content: prompt }],
     });
 
-    const draft = response.choices[0]?.message?.content?.trim() || 'Unable to generate draft';
-    const tokensUsed = response.usage?.total_tokens || 0;
+    const draft = extractText(response) || 'Unable to generate draft';
+    const tokensUsed = totalTokens(response);
 
     return { draft, tokensUsed };
   } catch (error) {
@@ -234,23 +223,15 @@ Return ONLY a JSON object with this structure:
 If no action items are found, return: {"actionItems": []}`;
 
   try {
-    const response = await openai.chat.completions.create({
+    const response = await anthropic.messages.create({
       model: DEFAULT_MODEL,
-      messages: [
-        {
-          role: 'system',
-          content: 'You are a helpful assistant that extracts action items from emails. Always return valid JSON and nothing else — no markdown, no explanation, just the JSON object.'
-        },
-        {
-          role: 'user',
-          content: prompt
-        }
-      ],
-      max_tokens: 500
+      max_tokens: 500,
+      system: 'You are a helpful assistant that extracts action items from emails. Always return valid JSON and nothing else — no markdown, no explanation, just the JSON object.',
+      messages: [{ role: 'user', content: prompt }],
     });
 
-    const content = response.choices[0]?.message?.content?.trim() || '{"actionItems": []}';
-    const tokensUsed = response.usage?.total_tokens || 0;
+    const content = extractText(response) || '{"actionItems": []}';
+    const tokensUsed = totalTokens(response);
 
     try {
       const parsed = JSON.parse(content);
@@ -408,23 +389,15 @@ Respond with a JSON object containing:
 }`;
 
   try {
-    const response = await openai.chat.completions.create({
+    const response = await anthropic.messages.create({
       model: DEFAULT_MODEL,
-      messages: [
-        {
-          role: 'system',
-          content: 'You are a helpful assistant that writes professional business emails. Always return valid JSON and nothing else — no markdown, no explanation, just the JSON object.'
-        },
-        {
-          role: 'user',
-          content: prompt
-        }
-      ],
-      max_tokens: 600
+      max_tokens: 600,
+      system: 'You are a helpful assistant that writes professional business emails. Always return valid JSON and nothing else — no markdown, no explanation, just the JSON object.',
+      messages: [{ role: 'user', content: prompt }],
     });
 
-    const content = response.choices[0]?.message?.content?.trim() || '{"draft": "", "subject": ""}';
-    const tokensUsed = response.usage?.total_tokens || 0;
+    const content = extractText(response) || '{"draft": "", "subject": ""}';
+    const tokensUsed = totalTokens(response);
 
     try {
       const parsed = JSON.parse(content);

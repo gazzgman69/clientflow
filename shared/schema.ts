@@ -862,6 +862,12 @@ export const venues = pgTable("venues", {
   tags: text("tags").array(), // venue tags
   meta: text("meta"), // JSON string for free-form extras from Google or custom
   notes: text("notes"),
+  // Google enrichment fields
+  googleRating: decimal("google_rating", { precision: 3, scale: 1 }),
+  googleReviewsCount: integer("google_reviews_count"),
+  openingHours: text("opening_hours"), // JSON string
+  lastEnrichedAt: timestamp("last_enriched_at"),
+  enrichmentSource: text("enrichment_source"),
   // Normalized fields for deduplication
   normalizedName: text("normalized_name"), // Lowercase, trimmed, punctuation-free name
   normalizedAddress: text("normalized_address"), // Lowercase, trimmed, punctuation-free address

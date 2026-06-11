@@ -9463,12 +9463,13 @@ export class DrizzleStorage implements IStorage {
       .values({ ...message, tenantId })
       .returning();
     
-    // Update conversation's last message timestamp
+    // Update conversation's last message timestamp (scoped so a guessed conversationId
+    // from another tenant can't nudge their row).
     await this.db
       .update(chatConversations)
       .set({ lastMessageAt: new Date() })
-      .where(eq(chatConversations.id, message.conversationId));
-    
+      .where(and(eq(chatConversations.id, message.conversationId), eq(chatConversations.tenantId, tenantId)));
+
     return created;
   }
 

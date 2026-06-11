@@ -231,7 +231,7 @@ class ICalService {
       // Update last sync time
       await storage.updateCalendarIntegration(integration.id, {
         lastSyncAt: new Date()
-      });
+      }, integration.tenantId);
       
       return {
         eventsCreated,
@@ -245,7 +245,7 @@ class ICalService {
       // Log sync error
       await storage.updateCalendarIntegration(integration.id, {
         syncErrors: JSON.stringify({ error: errorMessage, timestamp: new Date() })
-      });
+      }, integration.tenantId);
       
       throw error;
     }

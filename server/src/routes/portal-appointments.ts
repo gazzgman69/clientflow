@@ -76,8 +76,8 @@ router.get("/appointments", async (req, res) => {
       return res.status(400).json({ error: 'Contact not found or missing email' });
     }
 
-    // Get appointments where contact is involved
-    const events: Event[] = await storage.getEventsByContactEmail(contact.email);
+    // Get appointments where contact is involved (scoped to the contact's tenant)
+    const events: Event[] = await storage.getEventsByContactEmail(contact.email, contact.tenantId);
     
     const formatted = events.map(event => ({
       ...event,
@@ -166,14 +166,14 @@ router.put("/appointments/:eventId/reschedule", async (req, res) => {
       return res.status(400).json({ error: 'Start date and end date required' });
     }
 
-    const event = await storage.getEventById(eventId);
-    if (!event) {
-      return res.status(404).json({ error: 'Appointment not found' });
-    }
-
     const contact = await storage.getContactById(contactId);
     if (!contact) {
       return res.status(400).json({ error: 'Contact not found' });
+    }
+
+    const event = await storage.getEventById(eventId, contact.tenantId);
+    if (!event) {
+      return res.status(404).json({ error: 'Appointment not found' });
     }
 
     // Verify contact has permission to reschedule this appointment
@@ -226,14 +226,14 @@ router.delete("/appointments/:eventId", async (req, res) => {
     const { eventId } = req.params;
     const contactId = (req as any).session.portalContactId!; // ensurePortalAuth middleware guarantees this exists
 
-    const event = await storage.getEventById(eventId);
-    if (!event) {
-      return res.status(404).json({ error: 'Appointment not found' });
-    }
-
     const contact = await storage.getContactById(contactId);
     if (!contact) {
       return res.status(400).json({ error: 'Contact not found' });
+    }
+
+    const event = await storage.getEventById(eventId, contact.tenantId);
+    if (!event) {
+      return res.status(404).json({ error: 'Appointment not found' });
     }
 
     // Verify contact has permission to cancel this appointment

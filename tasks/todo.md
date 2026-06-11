@@ -31,16 +31,20 @@ Tables: quote_packages, quote_addons, quote_signatures, quote_extra_info_fields,
 - [ ] Mount `tenantResolver, requireTenant` on the `/api/admin/...` routes; stop using global `getUser` as de-facto cross-tenant access
 - [ ] Verify: tenant A's admin cannot read/modify tenant B's packages/addons/signatures
 
-## Batch D — Eliminate the id-only-WHERE class wholesale (item 4) — HIGH, the structural one
-Decision needed: (a) route storage calls through `storage.withTenant(req.tenantId)` everywhere, or (b) make every `tenantId` param non-optional + add predicate. Leaning (b) for the listed sites + (a) as the default going forward.
-- [ ] sms_messages: getSmsMessage/updateSmsMessage/deleteSmsMessage (storage.ts:6799/6810/6814) + routes 6304/6207/6290
-- [ ] member_availability: getMemberAvailability (storage.ts:6377) + routes 6566, 1400
-- [ ] project_members: removeProjectMember (storage.ts:6362) + route 6613
-- [ ] project_files: updateProjectFile (storage.ts:6532) + route 6904
-- [ ] events: getEventsByClient/getEventById/etc (storage.ts:6960-6968, 7279, 7284) + route 7605 (`?clientId=`)
-- [ ] calendar_sync_log: getCalendarSyncLog/updateCalendarSyncLog (storage.ts:6974/6985) + route 7890
-- [ ] Add a test asserting each DrizzleStorage method's arity matches its IStorage declaration (prevents regression of this whole class)
-- [ ] Verify: tenant tests green
+## Batch D — Eliminate the id-only-WHERE class wholesale (item 4) — HIGH, the structural one  ✅ DONE
+Chose (b): non-optional `tenantId` + `if (!tenantId) throw` fail-closed guard + predicate, on the live `DrizzleStorage` methods, and threaded the tenant at every call site.
+- [x] sms_messages: getSmsMessage/updateSmsMessage/deleteSmsMessage now scoped + guarded; routes 6207/6290/6307/6320 pass `req.tenantId!`. (by-thread/client/phone reads were stubs returning [] — no leak.)
+- [x] member_availability: getMemberAvailability scoped; route 6568 passes tenant (1404 already did)
+- [x] project_members: removeProjectMember scoped; route 6615 passes tenant (updateProjectMember already scoped)
+- [x] project_files: updateProjectFile tenantId now required; route 6904 passes tenant
+- [x] events: getEventsByClient/ByIntegration/ByProject/ById/ByContactEmail all scoped + guarded. Threaded tenant through portal-appointments (3 sites, reordered contact-before-event) and calendar-event-sync background fn (had tenantId in scope)
+- [x] calendar_sync_log: getCalendarSyncLog/updateCalendarSyncLog scoped; createCalendarSyncLog stamps tenant; route 7893 passes tenant
+- [x] calendar_integrations: updateCalendarIntegration impl already scoped+required; fixed 7 call sites that silently no-op'd by omitting the tenant (3 google-calendar, 2 ical, 2 routes) — also a latent write fix
+- [x] Regression guard: `server/__tests__/tenant-guard.test.ts` — 19 cases assert each guarded method throws without a tenant. DB-free, **all green**.
+- [x] Made the jest suite runnable at all: added ts-jest, fixed `moduleNameMapping`→`moduleNameMapper` typo, `setup.ts` jest import, `@shared`/`@` path aliases, isolatedModules, `npm test` script. (Closes audit's "tests not in CI" finding.)
+
+## Batch F — deleteLead destroys child rows before the tenant check (item 6) — CRITICAL  ✅ DONE
+- [x] storage.ts deleteLead — now verifies lead ownership FIRST (returns false if not owned), wraps the 3 child ops + lead delete in a single `db.transaction`, and scopes lead_consents/form_submissions child deletes by tenant (lead_status_history has no tenant column, safe by leadId after ownership check)
 
 ## Batch E — Apply the parent-ownership check uniformly (item 5) — HIGH
 - [ ] ai-features.ts schedule services routes (600/612/630) + rules routes (646/658/678/699): add `getAvailabilitySchedule(scheduleId, req.tenantId)` 404-guard

@@ -6208,7 +6208,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     try {
       const { id } = req.params;
       const updateData = req.body;
-      const sms = await storage.updateSmsMessage(id, updateData);
+      const sms = await storage.updateSmsMessage(id, updateData, req.tenantId!);
       
       if (!sms) {
         return res.status(404).json({ message: "SMS message not found" });
@@ -6287,7 +6287,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
         updateData.errorCode = ErrorCode;
       }
       
-      const sms = await storage.updateSmsMessage(id, updateData);
+      const sms = await storage.updateSmsMessage(id, updateData, req.tenantId!);
       
       if (!sms) {
         return res.status(404).json({ message: "SMS message not found" });
@@ -6304,12 +6304,12 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   app.get("/api/sms/:id/status", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
     try {
       const { id } = req.params;
-      const sms = await storage.getSmsMessage(id);
-      
+      const sms = await storage.getSmsMessage(id, req.tenantId!);
+
       if (!sms) {
         return res.status(404).json({ message: "SMS message not found" });
       }
-      
+
       // Get latest status from Twilio if we have a SID
       if (sms.twilioSid && twilioService.isConfigured()) {
         try {
@@ -6317,7 +6317,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
           
           // Update status in database if it changed
           if (latestStatus !== sms.status) {
-            await storage.updateSmsMessage(id, { status: latestStatus });
+            await storage.updateSmsMessage(id, { status: latestStatus }, req.tenantId!);
             sms.status = latestStatus;
           }
         } catch (error) {
@@ -6565,7 +6565,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   // Member Availability
   app.get("/api/members/:id/availability", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
     try {
-      const availability = await storage.getMemberAvailability(req.params.id);
+      const availability = await storage.getMemberAvailability(req.params.id, req.tenantId!);
       res.json(availability);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch availability" });
@@ -6612,7 +6612,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
 
   app.delete("/api/projects/:projectId/members/:memberId", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
     try {
-      const deleted = await storage.removeProjectMember(req.params.projectId, req.params.memberId);
+      const deleted = await storage.removeProjectMember(req.params.projectId, req.params.memberId, req.tenantId!);
       if (!deleted) {
         return res.status(404).json({ message: "Project member not found" });
       }
@@ -6904,7 +6904,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
       const updated = await storage.updateProjectFile(req.params.id, {
         clientPortalVisible,
         memberPortalVisible,
-      });
+      }, req.tenantId!);
       if (!updated) {
         return res.status(404).json({ message: "File not found" });
       }
@@ -7797,7 +7797,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   app.patch("/api/calendar-integrations/:id", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
     try {
       const validatedData = insertCalendarIntegrationSchema.partial().parse(req.body);
-      const integration = await storage.updateCalendarIntegration(req.params.id, validatedData);
+      const integration = await storage.updateCalendarIntegration(req.params.id, validatedData, req.tenantId!);
       if (!integration) {
         return res.status(404).json({ message: "Calendar integration not found" });
       }
@@ -7857,7 +7857,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
       
       await storage.updateCalendarIntegration(integrationId, {
         lastSyncAt: new Date()
-      });
+      }, req.tenantId!);
 
       res.json(result);
     } catch (error: any) {
@@ -7890,7 +7890,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   app.patch("/api/calendar-sync-logs/:id", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
     try {
       const validatedData = insertCalendarSyncLogSchema.partial().parse(req.body);
-      const log = await storage.updateCalendarSyncLog(req.params.id, validatedData);
+      const log = await storage.updateCalendarSyncLog(req.params.id, validatedData, req.tenantId!);
       if (!log) {
         return res.status(404).json({ message: "Sync log not found" });
       }

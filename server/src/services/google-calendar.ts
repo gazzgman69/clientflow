@@ -384,7 +384,7 @@ class GoogleCalendarService {
         await storage.updateCalendarIntegration(integration.id, {
           syncToken: nextSyncToken,
           lastSyncAt: new Date()
-        });
+        }, integration.tenantId);
       }
       
       return {
@@ -400,7 +400,7 @@ class GoogleCalendarService {
       // Log sync error
       await storage.updateCalendarIntegration(integration.id, {
         syncErrors: JSON.stringify({ error: errorMessage, timestamp: new Date() })
-      });
+      }, integration.tenantId);
       
       throw error;
     }
@@ -481,7 +481,7 @@ class GoogleCalendarService {
       // Log sync error
       await storage.updateCalendarIntegration(integration.id, {
         syncErrors: JSON.stringify({ error: errorMessage, timestamp: new Date() })
-      });
+      }, integration.tenantId);
       
       throw error;
     }

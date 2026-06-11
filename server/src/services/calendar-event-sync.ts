@@ -166,7 +166,7 @@ export async function syncCalendarEventsForStatusChange(
   }
 
   try {
-    const projectEvents = await storage.getEventsByProject(projectId);
+    const projectEvents = await storage.getEventsByProject(projectId, tenantId);
     if (!projectEvents || projectEvents.length === 0) {
       console.log(`[CalendarEventSync] No events found for project ${projectId} — skipping`);
       return;

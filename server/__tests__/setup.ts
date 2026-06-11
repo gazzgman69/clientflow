@@ -1,5 +1,5 @@
 // Test setup file
-import { beforeAll, afterAll } from '@jest/globals';
+import { beforeAll, afterAll, jest } from '@jest/globals';
 
 // Global test setup
 beforeAll(() => {

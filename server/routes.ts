@@ -4957,9 +4957,9 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
 
   // Enhanced Quotes System - Admin Routes (Authentication Required)
   // Quote Packages CRUD
-  app.get("/api/admin/quote-packages", ensureAdminAuth, csrf, async (req, res) => {
+  app.get("/api/admin/quote-packages", ensureAdminAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
     try {
-      const packages = await storage.getQuotePackages();
+      const packages = await storage.getQuotePackages(req.tenantId!);
       res.json(packages);
     } catch (error) {
       console.error("Error fetching quote packages:", error);
@@ -4969,7 +4969,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
 
   app.get("/api/admin/quote-packages/:id", ensureAdminAuth, csrf, async (req, res) => {
     try {
-      const pkg = await storage.getQuotePackage(req.params.id);
+      const pkg = await storage.getQuotePackage(req.params.id, req.tenantId!);
       if (!pkg) {
         return res.status(404).json({ message: "Quote package not found" });
       }
@@ -4980,7 +4980,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
 
-  app.post("/api/admin/quote-packages", ensureAdminAuth, csrf, async (req, res) => {
+  app.post("/api/admin/quote-packages", ensureAdminAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
     try {
       const packageData = insertQuotePackageSchema.parse(req.body);
       const pkg = await storage.createQuotePackage(packageData, req.tenantId);
@@ -4994,7 +4994,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   app.patch("/api/admin/quote-packages/:id", ensureAdminAuth, csrf, async (req, res) => {
     try {
       const packageData = insertQuotePackageSchema.partial().parse(req.body);
-      const pkg = await storage.updateQuotePackage(req.params.id, packageData);
+      const pkg = await storage.updateQuotePackage(req.params.id, packageData, req.tenantId!);
       if (!pkg) {
         return res.status(404).json({ message: "Quote package not found" });
       }
@@ -5007,7 +5007,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
 
   app.delete("/api/admin/quote-packages/:id", ensureAdminAuth, csrf, async (req, res) => {
     try {
-      const success = await storage.deleteQuotePackage(req.params.id);
+      const success = await storage.deleteQuotePackage(req.params.id, req.tenantId!);
       if (!success) {
         return res.status(404).json({ message: "Quote package not found" });
       }
@@ -5019,9 +5019,9 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   });
 
   // Quote Add-ons CRUD
-  app.get("/api/admin/quote-addons", ensureAdminAuth, csrf, async (req, res) => {
+  app.get("/api/admin/quote-addons", ensureAdminAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
     try {
-      const addons = await storage.getQuoteAddons();
+      const addons = await storage.getQuoteAddons(req.tenantId!);
       res.json(addons);
     } catch (error) {
       console.error("Error fetching quote addons:", error);
@@ -5031,7 +5031,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
 
   app.get("/api/admin/quote-addons/:id", ensureAdminAuth, csrf, async (req, res) => {
     try {
-      const addon = await storage.getQuoteAddon(req.params.id);
+      const addon = await storage.getQuoteAddon(req.params.id, req.tenantId!);
       if (!addon) {
         return res.status(404).json({ message: "Quote addon not found" });
       }
@@ -5042,7 +5042,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
 
-  app.post("/api/admin/quote-addons", ensureAdminAuth, csrf, async (req, res) => {
+  app.post("/api/admin/quote-addons", ensureAdminAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
     try {
       const addonData = insertQuoteAddonSchema.parse(req.body);
       const addon = await storage.createQuoteAddon(addonData, req.tenantId);
@@ -5056,7 +5056,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   app.patch("/api/admin/quote-addons/:id", ensureAdminAuth, csrf, async (req, res) => {
     try {
       const addonData = insertQuoteAddonSchema.partial().parse(req.body);
-      const addon = await storage.updateQuoteAddon(req.params.id, addonData);
+      const addon = await storage.updateQuoteAddon(req.params.id, addonData, req.tenantId!);
       if (!addon) {
         return res.status(404).json({ message: "Quote addon not found" });
       }
@@ -5069,7 +5069,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
 
   app.delete("/api/admin/quote-addons/:id", ensureAdminAuth, csrf, async (req, res) => {
     try {
-      const success = await storage.deleteQuoteAddon(req.params.id);
+      const success = await storage.deleteQuoteAddon(req.params.id, req.tenantId!);
       if (!success) {
         return res.status(404).json({ message: "Quote addon not found" });
       }
@@ -5162,9 +5162,9 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   });
 
   // Quote Signatures (Admin view)
-  app.get("/api/admin/quotes/:id/signatures", ensureAdminAuth, csrf, async (req, res) => {
+  app.get("/api/admin/quotes/:id/signatures", ensureAdminAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
     try {
-      const signatures = await storage.getQuoteSignatures(req.params.id);
+      const signatures = await storage.getQuoteSignatures(req.params.id, req.tenantId!);
       res.json(signatures);
     } catch (error) {
       console.error("Error fetching quote signatures:", error);
@@ -5177,7 +5177,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   // ================================
   
   // Admin: Extra Info Field Definitions (Standard + Custom Fields)
-  app.get("/api/admin/extra-info-fields", ensureAdminAuth, csrf, async (req, res) => {
+  app.get("/api/admin/extra-info-fields", ensureAdminAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
     try {
       const userId = req.authenticatedUserId;
       const fields = await storage.getQuoteExtraInfoFields(userId);
@@ -5190,7 +5190,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
 
   app.get("/api/admin/extra-info-fields/:id", ensureAdminAuth, csrf, async (req, res) => {
     try {
-      const field = await storage.getQuoteExtraInfoField(req.params.id);
+      const field = await storage.getQuoteExtraInfoField(req.params.id, req.tenantId!);
       if (!field) {
         return res.status(404).json({ message: "Extra info field not found" });
       }
@@ -5201,7 +5201,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
 
-  app.post("/api/admin/extra-info-fields", ensureAdminAuth, csrf, async (req, res) => {
+  app.post("/api/admin/extra-info-fields", ensureAdminAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
     try {
       const userId = req.authenticatedUserId;
       
@@ -5225,7 +5225,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   app.patch("/api/admin/extra-info-fields/:id", ensureAdminAuth, csrf, async (req, res) => {
     try {
       // SECURITY: First check if this is a standard field before allowing modification
-      const existingField = await storage.getQuoteExtraInfoField(req.params.id);
+      const existingField = await storage.getQuoteExtraInfoField(req.params.id, req.tenantId!);
       if (!existingField) {
         return res.status(404).json({ message: "Extra info field not found" });
       }
@@ -5236,7 +5236,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
       }
       
       const fieldData = insertQuoteExtraInfoFieldSchema.partial().parse(req.body);
-      const field = await storage.updateQuoteExtraInfoField(req.params.id, fieldData);
+      const field = await storage.updateQuoteExtraInfoField(req.params.id, fieldData, req.tenantId!);
       if (!field) {
         return res.status(404).json({ message: "Extra info field not found" });
       }
@@ -5250,7 +5250,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   app.delete("/api/admin/extra-info-fields/:id", ensureAdminAuth, csrf, async (req, res) => {
     try {
       // SECURITY: First check if this is a standard field before allowing deletion
-      const existingField = await storage.getQuoteExtraInfoField(req.params.id);
+      const existingField = await storage.getQuoteExtraInfoField(req.params.id, req.tenantId!);
       if (!existingField) {
         return res.status(404).json({ message: "Extra info field not found" });
       }
@@ -5260,7 +5260,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
         return res.status(403).json({ message: "Cannot delete standard fields in production" });
       }
       
-      const success = await storage.deleteQuoteExtraInfoField(req.params.id);
+      const success = await storage.deleteQuoteExtraInfoField(req.params.id, req.tenantId!);
       if (!success) {
         return res.status(404).json({ message: "Extra info field not found" });
       }
@@ -5272,9 +5272,9 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   });
 
   // Admin: Per-Quote Extra Info Configuration
-  app.get("/api/admin/quotes/:id/extra-info-config", ensureAdminAuth, csrf, async (req, res) => {
+  app.get("/api/admin/quotes/:id/extra-info-config", ensureAdminAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
     try {
-      const config = await storage.getQuoteExtraInfoConfig(req.params.id);
+      const config = await storage.getQuoteExtraInfoConfig(req.params.id, req.tenantId!);
       res.json(config || null);
     } catch (error) {
       console.error("Error fetching quote extra info config:", error);
@@ -5282,7 +5282,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
 
-  app.post("/api/admin/quotes/:id/extra-info-config", ensureAdminAuth, csrf, async (req, res) => {
+  app.post("/api/admin/quotes/:id/extra-info-config", ensureAdminAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
     try {
       const configData = insertQuoteExtraInfoConfigSchema.parse({
         ...req.body,
@@ -5296,10 +5296,10 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
 
-  app.patch("/api/admin/quotes/:id/extra-info-config", ensureAdminAuth, csrf, async (req, res) => {
+  app.patch("/api/admin/quotes/:id/extra-info-config", ensureAdminAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
     try {
       const configData = insertQuoteExtraInfoConfigSchema.partial().parse(req.body);
-      const config = await storage.updateQuoteExtraInfoConfig(req.params.id, configData);
+      const config = await storage.updateQuoteExtraInfoConfig(req.params.id, configData, req.tenantId!);
       if (!config) {
         return res.status(404).json({ message: "Quote extra info config not found" });
       }
@@ -5310,9 +5310,9 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
 
-  app.delete("/api/admin/quotes/:id/extra-info-config", ensureAdminAuth, csrf, async (req, res) => {
+  app.delete("/api/admin/quotes/:id/extra-info-config", ensureAdminAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
     try {
-      const success = await storage.deleteQuoteExtraInfoConfig(req.params.id);
+      const success = await storage.deleteQuoteExtraInfoConfig(req.params.id, req.tenantId!);
       if (!success) {
         return res.status(404).json({ message: "Quote extra info config not found" });
       }
@@ -5337,8 +5337,14 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
         return res.status(404).json({ message: "Token has expired" });
       }
 
+      // Resolve the owning tenant from the token's quote (the secret token is the authz boundary).
+      const ownerTenantId = await storage.getQuoteTenantId(tokenData.quoteId);
+      if (!ownerTenantId) {
+        return res.status(404).json({ message: "Invalid or expired token" });
+      }
+
       // Get extra info configuration for this quote
-      const config = await storage.getQuoteExtraInfoConfig(tokenData.quoteId);
+      const config = await storage.getQuoteExtraInfoConfig(tokenData.quoteId, ownerTenantId);
       if (!config || !config.isEnabled) {
         return res.status(404).json({ message: "Extra info not enabled for this quote" });
       }
@@ -5352,7 +5358,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
       const enabledFields = allFields.filter(field => enabledFieldKeys.includes(field.key));
 
       // Get existing responses
-      const responses = await storage.getQuoteExtraInfoResponses(tokenData.quoteId);
+      const responses = await storage.getQuoteExtraInfoResponses(tokenData.quoteId, ownerTenantId);
 
       res.json({
         config,
@@ -5378,8 +5384,14 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
         return res.status(404).json({ message: "Token has expired" });
       }
 
+      // Resolve the owning tenant from the token's quote (the secret token is the authz boundary).
+      const ownerTenantId = await storage.getQuoteTenantId(tokenData.quoteId);
+      if (!ownerTenantId) {
+        return res.status(404).json({ message: "Invalid or expired token" });
+      }
+
       // Get extra info configuration
-      const config = await storage.getQuoteExtraInfoConfig(tokenData.quoteId);
+      const config = await storage.getQuoteExtraInfoConfig(tokenData.quoteId, ownerTenantId);
       if (!config || !config.isEnabled) {
         return res.status(404).json({ message: "Extra info not enabled for this quote" });
       }
@@ -5411,9 +5423,9 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   });
 
   // Admin: View Extra Info Responses for a Quote
-  app.get("/api/admin/quotes/:id/extra-info-responses", ensureAdminAuth, csrf, async (req, res) => {
+  app.get("/api/admin/quotes/:id/extra-info-responses", ensureAdminAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
     try {
-      const responses = await storage.getQuoteExtraInfoResponses(req.params.id);
+      const responses = await storage.getQuoteExtraInfoResponses(req.params.id, req.tenantId!);
       res.json(responses);
     } catch (error) {
       console.error("Error fetching quote extra info responses:", error);

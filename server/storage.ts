@@ -269,6 +269,9 @@ export interface IStorage {
 
   // Quote Tokens (for public access)
   getQuoteByToken(token: string, tenantId: string): Promise<{ quote: Quote; items: QuoteItem[]; packages: QuotePackage[]; addons: QuoteAddon[] } | undefined>;
+  // Token/webhook-gated resolvers: derive the owning tenant when there is no session tenant.
+  getQuoteTenantId(quoteId: string): Promise<string | undefined>;
+  getTenantIdByContactPhone(phone: string): Promise<string | undefined>;
   createQuoteToken(quoteId: string, tenantId: string, expiresAt?: Date): Promise<QuoteToken>;
   getQuoteToken(token: string, tenantId: string): Promise<QuoteToken | undefined>;
   getActiveTokenForQuote(quoteId: string, tenantId: string): Promise<string | undefined>;
@@ -7362,76 +7365,90 @@ export class DrizzleStorage implements IStorage {
 
   // Enhanced Quotes System - PostgreSQL implementation
   // Quote Packages
-  async getQuotePackages(): Promise<QuotePackage[]> {
+  async getQuotePackages(tenantId: string): Promise<QuotePackage[]> {
+    if (!tenantId) throw new Error('getQuotePackages requires a tenantId');
     return await this.db.select().from(quotePackages)
-      .where(eq(quotePackages.isActive, true))
+      .where(and(eq(quotePackages.tenantId, tenantId), eq(quotePackages.isActive, true)))
       .orderBy(quotePackages.sortOrder);
   }
 
-  async getQuotePackage(id: string): Promise<QuotePackage | undefined> {
-    const result = await this.db.select().from(quotePackages).where(eq(quotePackages.id, id));
+  async getQuotePackage(id: string, tenantId: string): Promise<QuotePackage | undefined> {
+    if (!tenantId) throw new Error('getQuotePackage requires a tenantId');
+    const result = await this.db.select().from(quotePackages)
+      .where(and(eq(quotePackages.id, id), eq(quotePackages.tenantId, tenantId)));
     return result[0];
   }
 
-  async createQuotePackage(pkg: InsertQuotePackage): Promise<QuotePackage> {
+  async createQuotePackage(pkg: InsertQuotePackage, tenantId: string): Promise<QuotePackage> {
+    if (!tenantId) throw new Error('createQuotePackage requires a tenantId');
     const result = await this.db.insert(quotePackages).values({
       ...pkg,
+      tenantId, // stamp from trusted argument
       createdAt: new Date(),
       updatedAt: new Date(),
     }).returning();
     return result[0];
   }
 
-  async updateQuotePackage(id: string, pkg: Partial<InsertQuotePackage>): Promise<QuotePackage | undefined> {
+  async updateQuotePackage(id: string, pkg: Partial<InsertQuotePackage>, tenantId: string): Promise<QuotePackage | undefined> {
+    if (!tenantId) throw new Error('updateQuotePackage requires a tenantId');
     const result = await this.db.update(quotePackages).set({
       ...pkg,
       updatedAt: new Date(),
-    }).where(eq(quotePackages.id, id)).returning();
+    }).where(and(eq(quotePackages.id, id), eq(quotePackages.tenantId, tenantId))).returning();
     return result[0];
   }
 
-  async deleteQuotePackage(id: string): Promise<boolean> {
+  async deleteQuotePackage(id: string, tenantId: string): Promise<boolean> {
+    if (!tenantId) throw new Error('deleteQuotePackage requires a tenantId');
     const result = await this.db.update(quotePackages).set({
       isActive: false,
       updatedAt: new Date(),
-    }).where(eq(quotePackages.id, id));
+    }).where(and(eq(quotePackages.id, id), eq(quotePackages.tenantId, tenantId)));
     return result.rowCount > 0;
   }
 
   // Quote Add-ons
-  async getQuoteAddons(): Promise<QuoteAddon[]> {
+  async getQuoteAddons(tenantId: string): Promise<QuoteAddon[]> {
+    if (!tenantId) throw new Error('getQuoteAddons requires a tenantId');
     return await this.db.select().from(quoteAddons)
-      .where(eq(quoteAddons.isActive, true))
+      .where(and(eq(quoteAddons.tenantId, tenantId), eq(quoteAddons.isActive, true)))
       .orderBy(quoteAddons.sortOrder);
   }
 
-  async getQuoteAddon(id: string): Promise<QuoteAddon | undefined> {
-    const result = await this.db.select().from(quoteAddons).where(eq(quoteAddons.id, id));
+  async getQuoteAddon(id: string, tenantId: string): Promise<QuoteAddon | undefined> {
+    if (!tenantId) throw new Error('getQuoteAddon requires a tenantId');
+    const result = await this.db.select().from(quoteAddons)
+      .where(and(eq(quoteAddons.id, id), eq(quoteAddons.tenantId, tenantId)));
     return result[0];
   }
 
-  async createQuoteAddon(addon: InsertQuoteAddon): Promise<QuoteAddon> {
+  async createQuoteAddon(addon: InsertQuoteAddon, tenantId: string): Promise<QuoteAddon> {
+    if (!tenantId) throw new Error('createQuoteAddon requires a tenantId');
     const result = await this.db.insert(quoteAddons).values({
       ...addon,
+      tenantId, // stamp from trusted argument
       createdAt: new Date(),
       updatedAt: new Date(),
     }).returning();
     return result[0];
   }
 
-  async updateQuoteAddon(id: string, addon: Partial<InsertQuoteAddon>): Promise<QuoteAddon | undefined> {
+  async updateQuoteAddon(id: string, addon: Partial<InsertQuoteAddon>, tenantId: string): Promise<QuoteAddon | undefined> {
+    if (!tenantId) throw new Error('updateQuoteAddon requires a tenantId');
     const result = await this.db.update(quoteAddons).set({
       ...addon,
       updatedAt: new Date(),
-    }).where(eq(quoteAddons.id, id)).returning();
+    }).where(and(eq(quoteAddons.id, id), eq(quoteAddons.tenantId, tenantId))).returning();
     return result[0];
   }
 
-  async deleteQuoteAddon(id: string): Promise<boolean> {
+  async deleteQuoteAddon(id: string, tenantId: string): Promise<boolean> {
+    if (!tenantId) throw new Error('deleteQuoteAddon requires a tenantId');
     const result = await this.db.update(quoteAddons).set({
       isActive: false,
       updatedAt: new Date(),
-    }).where(eq(quoteAddons.id, id));
+    }).where(and(eq(quoteAddons.id, id), eq(quoteAddons.tenantId, tenantId)));
     return result.rowCount > 0;
   }
 
@@ -7606,9 +7623,20 @@ export class DrizzleStorage implements IStorage {
       .orderBy(quoteExtraInfoFields.displayOrder);
   }
 
-  async getQuoteExtraInfoField(id: string): Promise<QuoteExtraInfoField | undefined> {
-    const result = await this.db.select().from(quoteExtraInfoFields).where(eq(quoteExtraInfoFields.id, id));
+  async getQuoteExtraInfoField(id: string, tenantId: string): Promise<QuoteExtraInfoField | undefined> {
+    if (!tenantId) throw new Error('getQuoteExtraInfoField requires a tenantId');
+    const result = await this.db.select().from(quoteExtraInfoFields)
+      .where(and(eq(quoteExtraInfoFields.id, id), eq(quoteExtraInfoFields.tenantId, tenantId)));
     return result[0];
+  }
+
+  // Token-gated resolver: the secret quote token authorises the public request; resolve
+  // the owning tenant from the token's quote so downstream reads can be tenant-scoped.
+  async getQuoteTenantId(quoteId: string): Promise<string | undefined> {
+    if (!quoteId) return undefined;
+    const result = await this.db.select({ tenantId: quotes.tenantId }).from(quotes)
+      .where(eq(quotes.id, quoteId)).limit(1);
+    return result[0]?.tenantId;
   }
 
   async getQuoteExtraInfoFieldByKey(key: string, userId?: string): Promise<QuoteExtraInfoField | undefined> {
@@ -7632,25 +7660,31 @@ export class DrizzleStorage implements IStorage {
     return result[0];
   }
 
-  async createQuoteExtraInfoField(field: InsertQuoteExtraInfoField): Promise<QuoteExtraInfoField> {
+  async createQuoteExtraInfoField(field: InsertQuoteExtraInfoField, tenantId: string): Promise<QuoteExtraInfoField> {
+    if (!tenantId) throw new Error('createQuoteExtraInfoField requires a tenantId');
     const result = await this.db.insert(quoteExtraInfoFields).values({
       ...field,
+      tenantId, // stamp from trusted argument
       createdAt: new Date(),
       updatedAt: new Date(),
     }).returning();
     return result[0];
   }
 
-  async updateQuoteExtraInfoField(id: string, field: Partial<InsertQuoteExtraInfoField>): Promise<QuoteExtraInfoField | undefined> {
+  async updateQuoteExtraInfoField(id: string, field: Partial<InsertQuoteExtraInfoField>, tenantId: string): Promise<QuoteExtraInfoField | undefined> {
+    // Only a tenant's own custom fields are editable (global standard fields have a NULL tenantId).
+    if (!tenantId) throw new Error('updateQuoteExtraInfoField requires a tenantId');
     const result = await this.db.update(quoteExtraInfoFields).set({
       ...field,
       updatedAt: new Date(),
-    }).where(eq(quoteExtraInfoFields.id, id)).returning();
+    }).where(and(eq(quoteExtraInfoFields.id, id), eq(quoteExtraInfoFields.tenantId, tenantId))).returning();
     return result[0];
   }
 
-  async deleteQuoteExtraInfoField(id: string): Promise<boolean> {
-    const result = await this.db.delete(quoteExtraInfoFields).where(eq(quoteExtraInfoFields.id, id));
+  async deleteQuoteExtraInfoField(id: string, tenantId: string): Promise<boolean> {
+    if (!tenantId) throw new Error('deleteQuoteExtraInfoField requires a tenantId');
+    const result = await this.db.delete(quoteExtraInfoFields)
+      .where(and(eq(quoteExtraInfoFields.id, id), eq(quoteExtraInfoFields.tenantId, tenantId)));
     return result.rowCount > 0;
   }
 

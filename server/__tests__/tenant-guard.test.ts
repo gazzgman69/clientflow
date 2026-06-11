@@ -45,6 +45,21 @@ const GUARDED: Array<[string, unknown[]]> = [
   ['createSmsMessage', [{ body: 'x' }, '']],
   ['addProjectMember', [{ projectId: 'proj-1', memberId: 'mem-1' }, '']],
   ['setMemberAvailability', [{ memberId: 'mem-1' }, '']],
+  // Batch C: quote/admin tables that gained a tenant column
+  ['getQuotePackages', ['']],
+  ['getQuotePackage', ['pkg-1', '']],
+  ['createQuotePackage', [{ name: 'x', basePrice: '1' }, '']],
+  ['updateQuotePackage', ['pkg-1', {}, '']],
+  ['deleteQuotePackage', ['pkg-1', '']],
+  ['getQuoteAddons', ['']],
+  ['getQuoteAddon', ['addon-1', '']],
+  ['createQuoteAddon', [{ name: 'x', price: '1' }, '']],
+  ['updateQuoteAddon', ['addon-1', {}, '']],
+  ['deleteQuoteAddon', ['addon-1', '']],
+  ['getQuoteExtraInfoField', ['field-1', '']],
+  ['createQuoteExtraInfoField', [{ key: 'k', label: 'l', type: 'text' }, '']],
+  ['updateQuoteExtraInfoField', ['field-1', {}, '']],
+  ['deleteQuoteExtraInfoField', ['field-1', '']],
 ];
 
 describe('storage tenant fail-closed guards', () => {

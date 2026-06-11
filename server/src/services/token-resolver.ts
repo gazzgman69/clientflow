@@ -355,7 +355,10 @@ export class TokenResolverService {
         return this.entityCache.get(cacheKey);
       }
 
-      const responses = await this.storage.getQuoteExtraInfoResponses(quoteId);
+      const ownerTenantId = await this.storage.getQuoteTenantId(quoteId);
+      const responses = ownerTenantId
+        ? await this.storage.getQuoteExtraInfoResponses(quoteId, ownerTenantId)
+        : [];
       const response = responses.find(r => r.fieldKey === fieldKey);
       const value = response?.value || '';
 

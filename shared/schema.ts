@@ -1386,6 +1386,7 @@ export const autoResponderLogs = pgTable("auto_responder_logs", {
 // Enhanced Quotes System - Package-based quoting with public access
 export const quotePackages = pgTable("quote_packages", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").references(() => tenants.id).notNull(),
   name: text("name").notNull(), // Bronze, Silver, Gold, etc.
   description: text("description"),
   basePrice: decimal("base_price", { precision: 10, scale: 2 }).notNull(),
@@ -1398,6 +1399,7 @@ export const quotePackages = pgTable("quote_packages", {
 
 export const quoteAddons = pgTable("quote_addons", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").references(() => tenants.id).notNull(),
   name: text("name").notNull(), // Uplights, Saxophone, Percussion, etc.
   description: text("description"),
   price: decimal("price", { precision: 10, scale: 2 }).notNull(),
@@ -1444,6 +1446,7 @@ export const quoteTokens = pgTable("quote_tokens", {
 
 export const quoteSignatures = pgTable("quote_signatures", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").references(() => tenants.id).notNull(),
   quoteId: varchar("quote_id").references(() => quotes.id).notNull(),
   signerName: text("signer_name").notNull(),
   signerEmail: text("signer_email"),
@@ -1459,6 +1462,10 @@ export const quoteSignatures = pgTable("quote_signatures", {
 // Quote Extra Info System - for configurable contract details collection
 export const quoteExtraInfoFields = pgTable("quote_extra_info_fields", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  // Nullable on purpose: NULL tenantId marks a global standard field shared by all
+  // tenants. Tenant-owned custom fields carry their tenantId. Queries must match
+  // (tenantId = $tenant OR tenantId IS NULL).
+  tenantId: varchar("tenant_id").references(() => tenants.id),
   userId: varchar("user_id").references(() => users.id), // Owner of this custom field, NULL for global standard fields
   key: text("key").notNull(), // Unique key for this field (e.g., 'contact_full_name', 'custom_music_style')
   label: text("label").notNull(), // Display label for the field
@@ -1483,6 +1490,7 @@ export const quoteExtraInfoFields = pgTable("quote_extra_info_fields", {
 
 export const quoteExtraInfoConfig = pgTable("quote_extra_info_config", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").references(() => tenants.id).notNull(),
   quoteId: varchar("quote_id").references(() => quotes.id).notNull(),
   isEnabled: boolean("is_enabled").default(false), // Master toggle for this quote
   enabledFields: text("enabled_fields").array().notNull().default([]), // Array of field keys enabled for this quote
@@ -1497,6 +1505,7 @@ export const quoteExtraInfoConfig = pgTable("quote_extra_info_config", {
 
 export const quoteExtraInfoResponses = pgTable("quote_extra_info_responses", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").references(() => tenants.id).notNull(),
   quoteId: varchar("quote_id").references(() => quotes.id).notNull(),
   fieldKey: text("field_key").notNull(), // References quoteExtraInfoFields.key
   value: text("value"), // The user's response value

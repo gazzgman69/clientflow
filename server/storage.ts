@@ -6779,12 +6779,24 @@ export class DrizzleStorage implements IStorage {
 
   // Project Forms (admin-side) - PostgreSQL implementation
   async getProjectForms(projectId: string, tenantId: string): Promise<any[]> {
+    // portal_forms has no tenant column — scope via the parent project's tenant.
+    if (!tenantId) throw new Error('getProjectForms requires a tenantId');
     return await this.db.select().from(portalForms)
-      .where(eq(portalForms.projectId, projectId))
+      .where(and(
+        eq(portalForms.projectId, projectId),
+        inArray(portalForms.projectId,
+          this.db.select({ id: projects.id }).from(projects).where(eq(projects.tenantId, tenantId)))
+      ))
       .orderBy(desc(portalForms.createdAt));
   }
 
   async createProjectForm(form: any, tenantId: string): Promise<any> {
+    // portal_forms has no tenant column — verify the parent project belongs to this
+    // tenant before inserting, so a form can't be planted under another tenant's project.
+    if (!tenantId) throw new Error('createProjectForm requires a tenantId');
+    const owned = await this.db.select({ id: projects.id }).from(projects)
+      .where(and(eq(projects.id, form.projectId), eq(projects.tenantId, tenantId)));
+    if (!owned[0]) throw new Error('createProjectForm: project not found for tenant');
     const result = await this.db.insert(portalForms).values({
       ...form,
       createdAt: new Date(),
@@ -6794,8 +6806,14 @@ export class DrizzleStorage implements IStorage {
   }
 
   async deleteProjectForm(id: string, tenantId: string): Promise<boolean> {
+    // portal_forms has no tenant column — scope the delete via the parent project's tenant.
+    if (!tenantId) throw new Error('deleteProjectForm requires a tenantId');
     const result = await this.db.delete(portalForms)
-      .where(eq(portalForms.id, id));
+      .where(and(
+        eq(portalForms.id, id),
+        inArray(portalForms.projectId,
+          this.db.select({ id: projects.id }).from(projects).where(eq(projects.tenantId, tenantId)))
+      ));
     return result.rowCount > 0;
   }
 
@@ -9594,21 +9612,35 @@ export class DrizzleStorage implements IStorage {
     return created;
   }
 
-  async updateAvailabilityRule(id: string, rule: Partial<InsertAvailabilityRule>): Promise<AvailabilityRule | undefined> {
+  async updateAvailabilityRule(id: string, rule: Partial<InsertAvailabilityRule>, tenantId: string): Promise<AvailabilityRule | undefined> {
+    // availability_rules has no tenant column — scope via the parent schedule's tenant.
+    if (!tenantId) throw new Error('updateAvailabilityRule requires a tenantId');
     const [updated] = await this.db
       .update(availabilityRules)
       .set(rule)
-      .where(eq(availabilityRules.id, id))
+      .where(and(
+        eq(availabilityRules.id, id),
+        inArray(availabilityRules.scheduleId,
+          this.db.select({ id: availabilitySchedules.id }).from(availabilitySchedules)
+            .where(eq(availabilitySchedules.tenantId, tenantId)))
+      ))
       .returning();
-    
+
     return updated;
   }
 
-  async deleteAvailabilityRule(id: string): Promise<boolean> {
+  async deleteAvailabilityRule(id: string, tenantId: string): Promise<boolean> {
+    // availability_rules has no tenant column — scope via the parent schedule's tenant.
+    if (!tenantId) throw new Error('deleteAvailabilityRule requires a tenantId');
     const result = await this.db
       .delete(availabilityRules)
-      .where(eq(availabilityRules.id, id));
-    
+      .where(and(
+        eq(availabilityRules.id, id),
+        inArray(availabilityRules.scheduleId,
+          this.db.select({ id: availabilitySchedules.id }).from(availabilitySchedules)
+            .where(eq(availabilitySchedules.tenantId, tenantId)))
+      ));
+
     return result.rowCount !== null && result.rowCount > 0;
   }
 

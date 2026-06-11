@@ -600,6 +600,8 @@ router.delete('/schedules/:id', async (req, res) => {
 router.get('/schedules/:scheduleId/services', async (req, res) => {
   try {
     const { scheduleId } = req.params;
+    const schedule = await storage.getAvailabilitySchedule(scheduleId, req.tenantId!);
+    if (!schedule) { res.status(404).json({ error: 'Schedule not found' }); return; }
     const services = await storage.getScheduleServices(scheduleId);
     res.json(services);
   } catch (error) {
@@ -613,6 +615,8 @@ router.post('/schedules/:scheduleId/services', async (req, res) => {
   try {
     const { scheduleId } = req.params;
     const { serviceId } = req.body;
+    const schedule = await storage.getAvailabilitySchedule(scheduleId, req.tenantId!);
+    if (!schedule) { res.status(404).json({ error: 'Schedule not found' }); return; }
     const data = insertScheduleServiceSchema.parse({ scheduleId, serviceId });
     const link = await storage.addServiceToSchedule(data);
     res.json(link);
@@ -630,6 +634,8 @@ router.post('/schedules/:scheduleId/services', async (req, res) => {
 router.delete('/schedules/:scheduleId/services/:serviceId', async (req, res) => {
   try {
     const { scheduleId, serviceId } = req.params;
+    const schedule = await storage.getAvailabilitySchedule(scheduleId, req.tenantId!);
+    if (!schedule) { res.status(404).json({ error: 'Schedule not found' }); return; }
     const success = await storage.removeServiceFromSchedule(scheduleId, serviceId);
     if (!success) {
       res.status(404).json({ error: 'Link not found' });
@@ -646,6 +652,8 @@ router.delete('/schedules/:scheduleId/services/:serviceId', async (req, res) => 
 router.get('/schedules/:scheduleId/rules', async (req, res) => {
   try {
     const { scheduleId } = req.params;
+    const schedule = await storage.getAvailabilitySchedule(scheduleId, req.tenantId!);
+    if (!schedule) { res.status(404).json({ error: 'Schedule not found' }); return; }
     const rules = await storage.getAvailabilityRules(scheduleId);
     res.json(rules);
   } catch (error) {
@@ -658,6 +666,8 @@ router.get('/schedules/:scheduleId/rules', async (req, res) => {
 router.post('/schedules/:scheduleId/rules', async (req, res) => {
   try {
     const { scheduleId } = req.params;
+    const schedule = await storage.getAvailabilitySchedule(scheduleId, req.tenantId!);
+    if (!schedule) { res.status(404).json({ error: 'Schedule not found' }); return; }
     const data = insertAvailabilityRuleSchema.parse({
       ...req.body,
       scheduleId
@@ -679,7 +689,7 @@ router.patch('/rules/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const validatedData = updateAvailabilityRuleSchema.parse(req.body);
-    const rule = await storage.updateAvailabilityRule(id, validatedData);
+    const rule = await storage.updateAvailabilityRule(id, validatedData, req.tenantId!);
     if (!rule) {
       res.status(404).json({ error: 'Rule not found' });
       return;
@@ -699,7 +709,7 @@ router.patch('/rules/:id', async (req, res) => {
 router.delete('/rules/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const success = await storage.deleteAvailabilityRule(id);
+    const success = await storage.deleteAvailabilityRule(id, req.tenantId!);
     if (!success) {
       res.status(404).json({ error: 'Rule not found' });
       return;

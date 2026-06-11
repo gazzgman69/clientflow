@@ -37,6 +37,11 @@ const GUARDED: Array<[string, unknown[]]> = [
   ['getEventById', ['evt-1', '']],
   ['getEventsByContactEmail', ['a@b.com', '']],
   ['updateProjectFile', ['file-1', {}, '']],
+  ['updateAvailabilityRule', ['rule-1', {}, '']],
+  ['deleteAvailabilityRule', ['rule-1', '']],
+  ['getProjectForms', ['proj-1', '']],
+  ['createProjectForm', [{ projectId: 'proj-1' }, '']],
+  ['deleteProjectForm', ['form-1', '']],
 ];
 
 describe('storage tenant fail-closed guards', () => {

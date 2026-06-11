@@ -46,10 +46,11 @@ Chose (b): non-optional `tenantId` + `if (!tenantId) throw` fail-closed guard + 
 ## Batch F — deleteLead destroys child rows before the tenant check (item 6) — CRITICAL  ✅ DONE
 - [x] storage.ts deleteLead — now verifies lead ownership FIRST (returns false if not owned), wraps the 3 child ops + lead delete in a single `db.transaction`, and scopes lead_consents/form_submissions child deletes by tenant (lead_status_history has no tenant column, safe by leadId after ownership check)
 
-## Batch E — Apply the parent-ownership check uniformly (item 5) — HIGH
-- [ ] ai-features.ts schedule services routes (600/612/630) + rules routes (646/658/678/699): add `getAvailabilitySchedule(scheduleId, req.tenantId)` 404-guard
-- [ ] portal_forms routes (routes.ts:7303/7313/7331): add `getProject(id, req.tenantId)` guard
-- [ ] Verify: cross-tenant scheduleId/projectId returns 404
+## Batch E — Apply the parent-ownership check uniformly (item 5) — HIGH  ✅ DONE
+- [x] ai-features.ts schedule services routes (services GET/POST/DELETE, rules GET/POST): added `getAvailabilitySchedule(scheduleId, req.tenantId!)` 404-guard
+- [x] ai-features.ts rule-by-id routes (PATCH/DELETE /rules/:id): scoped updateAvailabilityRule/deleteAvailabilityRule in storage via parent-schedule `inArray` subquery (availability_rules has no tenant column)
+- [x] portal_forms (getProjectForms/createProjectForm/deleteProjectForm): scoped via parent-project subquery; createProjectForm verifies project ownership before insert (portal_forms has no tenant column)
+- [x] Verify: bundle passes; 5 new guards added to tenant-guard test (24/24 green)
 
 ## Batch F — deleteLead destroys child rows before the tenant check (item 6) — CRITICAL
 - [ ] storage.ts:4719 — verify lead ownership first; wrap all 4 statements in a transaction; scope child deletes by tenant

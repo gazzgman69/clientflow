@@ -3959,13 +3959,13 @@ export class DrizzleStorage implements IStorage {
     }));
   }
 
-  async getCalendarIntegration(id: string, tenantId?: string): Promise<CalendarIntegration | undefined> {
-    const conditions = [eq(calendarIntegrations.id, id)];
-    if (tenantId) {
-      conditions.push(eq(calendarIntegrations.tenantId, tenantId));
-    }
-    const result = await this.db.select().from(calendarIntegrations).where(and(...conditions));
-    
+  async getCalendarIntegration(id: string, tenantId: string): Promise<CalendarIntegration | undefined> {
+    // TENANT GUARD: fail closed. This returns DECRYPTED OAuth tokens, so an absent
+    // tenant must never resolve another tenant's integration by id alone (IDOR).
+    if (!tenantId) throw new Error('getCalendarIntegration requires a tenantId');
+    const result = await this.db.select().from(calendarIntegrations)
+      .where(and(eq(calendarIntegrations.id, id), eq(calendarIntegrations.tenantId, tenantId)));
+
     if (!result[0]) return undefined;
     
     // Decrypt tokens for use
@@ -6088,12 +6088,11 @@ export class DrizzleStorage implements IStorage {
   }
   
   // Emails - PostgreSQL implementation with tenant isolation
-  async getEmails(tenantId?: string) { 
-    // QUERY GUARD: Only return emails with valid contact links AND proper tenant isolation
+  async getEmails(tenantId: string) {
+    // TENANT GUARD: fail closed — an absent tenant must never return all tenants' emails
+    if (!tenantId) throw new Error('getEmails requires a tenantId');
     const { withTenantAnd } = await import('./utils/tenantQueries');
-    const whereCondition = tenantId 
-      ? withTenantAnd(emails.tenantId, tenantId, isNotNull(emails.contactId))
-      : isNotNull(emails.contactId);
+    const whereCondition = withTenantAnd(emails.tenantId, tenantId, isNotNull(emails.contactId));
     return await this.db.select().from(emails)
       .where(whereCondition)
       .orderBy(desc(emails.createdAt));
@@ -6107,12 +6106,11 @@ export class DrizzleStorage implements IStorage {
     const result = await this.db.select().from(emails).where(whereCondition);
     return result[0];
   }
-  async getEmailsByClient(clientId: string, tenantId?: string) { 
-    // QUERY GUARD: contactId filter ensures valid contact links AND proper tenant isolation
+  async getEmailsByClient(clientId: string, tenantId: string) {
+    // TENANT GUARD: fail closed — an absent tenant must never return cross-tenant emails
+    if (!tenantId) throw new Error('getEmailsByClient requires a tenantId');
     const { withTenantAnd } = await import('./utils/tenantQueries');
-    const whereCondition = tenantId 
-      ? withTenantAnd(emails.tenantId, tenantId, eq(emails.contactId, clientId))
-      : eq(emails.contactId, clientId);
+    const whereCondition = withTenantAnd(emails.tenantId, tenantId, eq(emails.contactId, clientId));
     return await this.db.select().from(emails).where(whereCondition);
   }
   async getEmailsByProject(projectId: string, tenantId?: string) { 
@@ -6793,8 +6791,12 @@ export class DrizzleStorage implements IStorage {
   }
 
   // SMS Messages - PostgreSQL implementation
-  async getSmsMessages() {
-    return await this.db.select().from(smsMessages).orderBy(desc(smsMessages.createdAt));
+  async getSmsMessages(tenantId: string) {
+    // TENANT GUARD: fail closed — an absent tenant must never return all tenants' SMS
+    if (!tenantId) throw new Error('getSmsMessages requires a tenantId');
+    return await this.db.select().from(smsMessages)
+      .where(eq(smsMessages.tenantId, tenantId))
+      .orderBy(desc(smsMessages.createdAt));
   }
   async getSmsMessage(id: string) { 
     const result = await this.db.select().from(smsMessages).where(eq(smsMessages.id, id));
@@ -6968,8 +6970,15 @@ export class DrizzleStorage implements IStorage {
   }
   
   // Calendar Sync Logs - PostgreSQL implementation
-  async getCalendarSyncLogs() { 
-    return await this.db.select().from(calendarSyncLog).orderBy(desc(calendarSyncLog.createdAt));
+  async getCalendarSyncLogs(tenantId: string, integrationId?: string) {
+    // TENANT GUARD: fail closed — an absent tenant must never return all tenants' sync logs
+    if (!tenantId) throw new Error('getCalendarSyncLogs requires a tenantId');
+    const whereCondition = integrationId
+      ? and(eq(calendarSyncLog.tenantId, tenantId), eq(calendarSyncLog.integrationId, integrationId))
+      : eq(calendarSyncLog.tenantId, tenantId);
+    return await this.db.select().from(calendarSyncLog)
+      .where(whereCondition)
+      .orderBy(desc(calendarSyncLog.createdAt));
   }
   async getCalendarSyncLog(id: string) { 
     const result = await this.db.select().from(calendarSyncLog).where(eq(calendarSyncLog.id, id));

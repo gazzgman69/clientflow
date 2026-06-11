@@ -5882,11 +5882,11 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
       let emails;
       
       if (threadId) {
-        emails = await storage.getEmailsByThread(threadId as string);
+        emails = await storage.getEmailsByThread(threadId as string, req.tenantId!);
       } else if (clientId) {
-        emails = await storage.getEmailsByClient(clientId as string);
+        emails = await storage.getEmailsByClient(clientId as string, req.tenantId!);
       } else {
-        emails = await storage.getEmails();
+        emails = await storage.getEmails(req.tenantId!);
       }
       
       res.json(emails);
@@ -6143,7 +6143,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
       } else if (phone) {
         smsMessages = await storage.getSmsMessagesByPhone(phone as string);
       } else {
-        smsMessages = await storage.getSmsMessages();
+        smsMessages = await storage.getSmsMessages(req.tenantId!);
       }
       
       res.json(smsMessages);
@@ -7561,7 +7561,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
 
   app.get("/api/dashboard/recent-emails", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
     try {
-      const emails = await storage.getEmails();
+      const emails = await storage.getEmails(req.tenantId!);
       const recentEmails = emails
         .filter(e => e.createdAt !== null)
         .sort((a, b) => new Date(b.createdAt!).getTime() - new Date(a.createdAt!).getTime())
@@ -7824,8 +7824,8 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     try {
 
       const integrationId = req.params.id;
-      const integration = await storage.getCalendarIntegration(integrationId);
-      
+      const integration = await storage.getCalendarIntegration(integrationId, req.tenantId!);
+
       if (!integration) {
         return res.status(404).json({ message: "Calendar integration not found" });
       }
@@ -7835,7 +7835,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
       }
 
       let result;
-      
+
       if (integration.provider === 'google') {
         try {
           // One-way export: push CRM events to Google Calendar only
@@ -7870,7 +7870,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   app.get("/api/calendar-sync-logs", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
     try {
       const { integrationId } = req.query;
-      const logs = await storage.getCalendarSyncLogs(integrationId as string || undefined);
+      const logs = await storage.getCalendarSyncLogs(req.tenantId!, integrationId as string || undefined);
       res.json(logs);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch sync logs" });
@@ -7957,100 +7957,6 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
 
-  // Enhanced sync endpoint with Google Calendar integration
-  app.post("/api/calendar-integrations/:id/sync", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
-    try {
-      const integrationId = req.params.id;
-      const integration = await storage.getCalendarIntegration(integrationId);
-      
-      if (!integration) {
-        return res.status(404).json({ message: "Calendar integration not found" });
-      }
-
-      if (!integration.isActive) {
-        return res.status(400).json({ message: "Calendar integration is not active" });
-      }
-
-      // Create sync log
-      const syncLog = await storage.createCalendarSyncLog({
-        integrationId,
-        syncType: 'manual',
-        direction: integration.syncDirection === 'export' ? 'export' : 'import',
-      });
-
-      let syncResult = {
-        eventsCreated: 0,
-        eventsUpdated: 0,
-        eventsDeleted: 0
-      };
-
-      try {
-        if (integration.provider === 'google') {
-          // Note: In a real app, you'd get the userId from the session/JWT
-          const users = await storage.getUsers();
-          const defaultUserId = users[0]?.id || 'default-user';
-          
-          if (integration.syncDirection === 'import' || integration.syncDirection === 'bidirectional') {
-            // Sync from Google to CRM
-            const importResult = await googleCalendarService.syncFromGoogle(integration, defaultUserId);
-            syncResult.eventsCreated += importResult.eventsCreated;
-            syncResult.eventsUpdated += importResult.eventsUpdated;
-            syncResult.eventsDeleted += importResult.eventsDeleted;
-          }
-          
-          if (integration.syncDirection === 'export' || integration.syncDirection === 'bidirectional') {
-            // Sync from CRM to Google
-            const exportResult = await googleCalendarService.syncToGoogle(integration);
-            syncResult.eventsCreated += exportResult.eventsCreated;
-            syncResult.eventsUpdated += exportResult.eventsUpdated;
-            syncResult.eventsDeleted += exportResult.eventsDeleted;
-          }
-        } else if (integration.provider === 'ical') {
-          // iCal integration (import only)
-          if (integration.syncDirection === 'import' || integration.syncDirection === 'bidirectional') {
-            const users = await storage.getUsers();
-            const defaultUserId = users[0]?.id || 'default-user';
-            
-            const importResult = await icalService.importFromICal(integration, defaultUserId);
-            syncResult.eventsCreated += importResult.eventsCreated;
-            syncResult.eventsUpdated += importResult.eventsUpdated;
-            syncResult.eventsDeleted += importResult.eventsDeleted;
-          }
-        }
-        
-        // Update sync log as completed
-        await storage.updateCalendarSyncLog(syncLog.id, {
-          status: 'completed',
-          completedAt: new Date(),
-          eventsProcessed: syncResult.eventsCreated + syncResult.eventsUpdated + syncResult.eventsDeleted,
-          eventsCreated: syncResult.eventsCreated,
-          eventsUpdated: syncResult.eventsUpdated,
-          eventsDeleted: syncResult.eventsDeleted,
-        });
-
-        res.json({ 
-          message: "Sync completed", 
-          syncLogId: syncLog.id,
-          ...syncResult
-        });
-      } catch (syncError) {
-        const errorMessage = syncError instanceof Error ? syncError.message : 'Unknown sync error';
-        // Update sync log as failed
-        await storage.updateCalendarSyncLog(syncLog.id, {
-          status: 'failed',
-          completedAt: new Date(),
-          errors: JSON.stringify({ error: errorMessage, timestamp: new Date() })
-        });
-        
-        throw syncError;
-      }
-    } catch (error: any) {
-      const errorMessage = error?.message || 'Unknown error';
-      console.error('Sync error:', error);
-      res.status(500).json({ message: "Failed to sync calendar", error: errorMessage });
-    }
-  });
-
   // Cleanup orphaned Google Calendar events
   app.post("/api/calendar-integrations/:id/cleanup", ensureUserAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
     try {
@@ -8115,9 +8021,9 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   app.get("/api/calendar/ical/:integrationId", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
     try {
       const integrationId = req.params.integrationId;
-      
+
       // Get integration to verify access
-      const integration = await storage.getCalendarIntegration(integrationId);
+      const integration = await storage.getCalendarIntegration(integrationId, req.tenantId!);
       if (!integration) {
         return res.status(404).json({ message: "Calendar integration not found" });
       }
@@ -8126,11 +8032,11 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
       let events;
       if (integration.provider === 'google' || integration.provider === 'ical') {
         // Export events from this integration
-        const allEvents = await storage.getEvents();
+        const allEvents = await storage.getEvents(req.tenantId!);
         events = allEvents.filter(e => e.calendarIntegrationId === integrationId);
       } else {
         // Export all CRM events
-        events = await storage.getEvents();
+        events = await storage.getEvents(req.tenantId!);
       }
       
       // Generate iCal feed
@@ -8148,7 +8054,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   // Export all CRM events as iCal feed
   app.get("/api/calendar/ical", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
     try {
-      const events = await storage.getEvents();
+      const events = await storage.getEvents(req.tenantId!);
       const icalFeed = await icalService.generateICalFeed(events, 'CRM Calendar');
       
       res.setHeader('Content-Type', 'text/calendar; charset=utf-8');

@@ -750,8 +750,8 @@ router.post('/schedules/:scheduleId/calendar-checks', async (req, res) => {
       return;
     }
     
-    // Verify calendar belongs to tenant
-    const calendar = await storage.getCalendarIntegration(calendarIntegrationId);
+    // Verify calendar belongs to tenant (query is now tenant-scoped; the check below is defense in depth)
+    const calendar = await storage.getCalendarIntegration(calendarIntegrationId, tenantId);
     if (!calendar || calendar.tenantId !== tenantId) {
       res.status(403).json({ error: 'Calendar not found or access denied' });
       return;

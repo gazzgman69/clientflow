@@ -6351,8 +6351,9 @@ export class DrizzleStorage implements IStorage {
     return await this.db.select().from(projectMembers).where(eq(projectMembers.projectId, projectId));
   }
 
-  async addProjectMember(projectMember: InsertProjectMember): Promise<ProjectMember> {
-    const result = await this.db.insert(projectMembers).values(projectMember).returning();
+  async addProjectMember(projectMember: InsertProjectMember, tenantId: string): Promise<ProjectMember> {
+    if (!tenantId) throw new Error('addProjectMember requires a tenantId');
+    const result = await this.db.insert(projectMembers).values({ ...projectMember, tenantId }).returning();
     return result[0];
   }
 
@@ -6831,9 +6832,11 @@ export class DrizzleStorage implements IStorage {
       .where(and(eq(smsMessages.id, id), eq(smsMessages.tenantId, tenantId)));
     return result[0];
   }
-  async createSmsMessage(message: InsertSmsMessage) {
+  async createSmsMessage(message: InsertSmsMessage, tenantId: string) {
+    if (!tenantId) throw new Error('createSmsMessage requires a tenantId');
     const result = await this.db.insert(smsMessages).values({
       ...message,
+      tenantId, // stamp from trusted argument, never trust a body-supplied tenantId
       createdAt: new Date(),
     }).returning();
     return result[0];
@@ -6849,6 +6852,15 @@ export class DrizzleStorage implements IStorage {
     const result = await this.db.delete(smsMessages)
       .where(and(eq(smsMessages.id, id), eq(smsMessages.tenantId, tenantId)));
     return result.rowCount > 0;
+  }
+  // Webhook routing helper: resolve which tenant an inbound SMS belongs to by matching
+  // the sender's phone against contacts. Intentionally cross-tenant (that is the routing
+  // job); callers must only use the result to stamp the row, never to return data.
+  async getTenantIdByContactPhone(phone: string): Promise<string | undefined> {
+    if (!phone) return undefined;
+    const result = await this.db.select({ tenantId: contacts.tenantId }).from(contacts)
+      .where(eq(contacts.phone, phone)).limit(1);
+    return result[0]?.tenantId;
   }
   
   // Message Templates - PostgreSQL implementation
@@ -7106,8 +7118,9 @@ export class DrizzleStorage implements IStorage {
     ));
     return result[0];
   }
-  async setMemberAvailability(availability: InsertMemberAvailability): Promise<MemberAvailability> {
-    const result = await this.db.insert(memberAvailability).values(availability).returning();
+  async setMemberAvailability(availability: InsertMemberAvailability, tenantId: string): Promise<MemberAvailability> {
+    if (!tenantId) throw new Error('setMemberAvailability requires a tenantId');
+    const result = await this.db.insert(memberAvailability).values({ ...availability, tenantId }).returning();
     return result[0];
   }
   async getEventsByDateRange(startDate: Date, endDate: Date) { return []; }

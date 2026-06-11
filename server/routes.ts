@@ -6195,7 +6195,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
         status,
         direction: 'outbound',
         twilioSid
-      });
+      }, req.tenantId!);
       
       res.status(201).json(sms);
     } catch (error) {
@@ -6254,18 +6254,25 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
       
       // Parse incoming Twilio webhook
       const incomingMessage = await twilioService.handleIncomingWebhook(req.body);
-      
-      // Store incoming SMS in database
-      const sms = await storage.createSmsMessage({
-        body: incomingMessage.body,
-        fromPhone: incomingMessage.from,
-        toPhone: incomingMessage.to,
-        status: 'delivered',
-        direction: 'inbound',
-        twilioSid: incomingMessage.messageSid,
-        sentAt: new Date()
-      });
-      
+
+      // Route the inbound SMS to the tenant that owns the sender's contact record.
+      // Without a tenant we cannot attribute the message; skip storing rather than
+      // creating an orphaned/cross-tenant row (matches prior low-risk behaviour).
+      const inboundTenantId = await storage.getTenantIdByContactPhone(incomingMessage.from);
+      if (inboundTenantId) {
+        await storage.createSmsMessage({
+          body: incomingMessage.body,
+          fromPhone: incomingMessage.from,
+          toPhone: incomingMessage.to,
+          status: 'delivered',
+          direction: 'inbound',
+          twilioSid: incomingMessage.messageSid,
+          sentAt: new Date()
+        }, inboundTenantId);
+      } else {
+        console.warn('[SMS Webhook] No contact matches inbound number; not storing:', incomingMessage.from);
+      }
+
       // Respond with TwiML (Twilio Markup Language) if needed
       res.set('Content-Type', 'text/xml');
       res.send('<?xml version="1.0" encoding="UTF-8"?><Response></Response>');
@@ -6578,7 +6585,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
         ...req.body,
         memberId: req.params.id
       });
-      const availability = await storage.setMemberAvailability(availabilityData);
+      const availability = await storage.setMemberAvailability(availabilityData, req.tenantId!);
       res.status(201).json(availability);
     } catch (error) {
       res.status(400).json({ message: "Invalid availability data" });
@@ -6603,7 +6610,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
         ...req.body,
         projectId: req.params.id
       });
-      const member = await storage.addProjectMember(memberData);
+      const member = await storage.addProjectMember(memberData, req.tenantId!);
       res.status(201).json(member);
     } catch (error) {
       res.status(400).json({ message: "Invalid project member data" });

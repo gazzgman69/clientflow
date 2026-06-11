@@ -23,9 +23,13 @@ export function orphanPreventionMiddleware(req: Request, res: Response, next: Ne
     '/api/project-files'
   ];
 
+  // The middleware is mounted at '/api', so req.path has that prefix stripped. Rebuild
+  // the full path (req.baseUrl + req.path) so the '/api/...' route patterns match.
+  const fullPath = req.baseUrl + req.path;
+
   // Check if this route handles tenant-aware data
-  const isTenantAwareRoute = tenantAwareRoutes.some(route => 
-    req.path.startsWith(route)
+  const isTenantAwareRoute = tenantAwareRoutes.some(route =>
+    fullPath.startsWith(route)
   );
 
   if (isTenantAwareRoute && ['POST', 'PUT', 'PATCH'].includes(req.method)) {
@@ -50,7 +54,7 @@ export function orphanPreventionMiddleware(req: Request, res: Response, next: Ne
 
     // Validate request body for tenant-aware operations
     if (req.body && typeof req.body === 'object') {
-      const violations = validateRequestBody(req.body, req.session.tenantId, req.path);
+      const violations = validateRequestBody(req.body, req.session.tenantId, fullPath);
       
       if (violations.length > 0) {
         console.error('🚨 ORPHAN PREVENTION: Request validation failed', {

@@ -73,6 +73,10 @@ const GUARDED: Array<[string, unknown[]]> = [
   ['updateProjectNote', ['note-1', {}, '']],
   ['createCalendarIntegration', [{ provider: 'google' }, '']],
   ['updateCalendarIntegration', ['int-1', {}, '']],
+  // Final sweep: templates + member-availability writes
+  ['updateTemplate', ['tmpl-1', {}, '']],
+  ['deleteTemplate', ['tmpl-1', '']],
+  ['updateMemberAvailability', ['avail-1', {}, '']],
 ];
 
 describe('storage tenant fail-closed guards', () => {

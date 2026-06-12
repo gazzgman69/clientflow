@@ -97,7 +97,7 @@ export class TemplatesService {
     if (data.body !== undefined) updateData.body = data.body;
     if (data.isActive !== undefined) updateData.isActive = data.isActive;
 
-    const updated = await storage.updateTemplate(id, updateData);
+    const updated = await storage.updateTemplate(id, updateData, tenantId);
     return updated || null;
   }
 
@@ -112,7 +112,7 @@ export class TemplatesService {
       return false;
     }
 
-    await storage.updateTemplate(id, { isActive: false });
+    await storage.updateTemplate(id, { isActive: false }, tenantId);
     return true;
   }
 

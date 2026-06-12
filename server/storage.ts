@@ -6401,8 +6401,10 @@ export class DrizzleStorage implements IStorage {
     return result[0];
   }
 
-  async updateMemberAvailability(id: string, availability: Partial<InsertMemberAvailability>): Promise<MemberAvailability | undefined> {
-    const result = await this.db.update(memberAvailability).set(availability).where(eq(memberAvailability.id, id)).returning();
+  async updateMemberAvailability(id: string, availability: Partial<InsertMemberAvailability>, tenantId: string): Promise<MemberAvailability | undefined> {
+    if (!tenantId) throw new Error('updateMemberAvailability requires a tenantId');
+    const result = await this.db.update(memberAvailability).set(availability)
+      .where(and(eq(memberAvailability.id, id), eq(memberAvailability.tenantId, tenantId))).returning();
     return result[0];
   }
 
@@ -7166,13 +7168,17 @@ export class DrizzleStorage implements IStorage {
     return result[0];
   }
 
-  async updateTemplate(id: string, template: Partial<InsertTemplate>): Promise<Template | undefined> {
-    const result = await this.db.update(templates).set(template).where(eq(templates.id, id)).returning();
+  async updateTemplate(id: string, template: Partial<InsertTemplate>, tenantId: string): Promise<Template | undefined> {
+    if (!tenantId) throw new Error('updateTemplate requires a tenantId');
+    const result = await this.db.update(templates).set(template)
+      .where(and(eq(templates.id, id), eq(templates.tenantId, tenantId))).returning();
     return result[0];
   }
 
-  async deleteTemplate(id: string): Promise<boolean> {
-    const result = await this.db.delete(templates).where(eq(templates.id, id));
+  async deleteTemplate(id: string, tenantId: string): Promise<boolean> {
+    if (!tenantId) throw new Error('deleteTemplate requires a tenantId');
+    const result = await this.db.delete(templates)
+      .where(and(eq(templates.id, id), eq(templates.tenantId, tenantId)));
     return result.rowCount > 0;
   }
 

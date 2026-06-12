@@ -695,7 +695,8 @@ export class TokenResolverService {
         return this.entityCache.get(cacheKey);
       }
       
-      const quotes = await this.storage.getQuotesByContact(contactId);
+      const ownerTenantId = await this.storage.getContactTenantId(contactId);
+      const quotes = ownerTenantId ? await this.storage.getQuotesByContact(contactId, ownerTenantId) : [];
       this.entityCache.set(cacheKey, quotes);
       return quotes;
     } catch {

@@ -198,11 +198,11 @@ router.put("/appointments/:eventId/reschedule", async (req, res) => {
       return res.status(400).json({ error: 'New time slot is not available' });
     }
 
-    // Update appointment
+    // Update appointment (scoped to the contact's tenant)
     const updatedEvent = await storage.updateEvent(eventId, {
       startDate: start,
       endDate: end,
-    });
+    }, contact.tenantId);
 
     // Note: Google Calendar sync functionality would be implemented here
     // when proper individual event sync is available

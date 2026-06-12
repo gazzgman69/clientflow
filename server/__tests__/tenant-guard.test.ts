@@ -60,6 +60,19 @@ const GUARDED: Array<[string, unknown[]]> = [
   ['createQuoteExtraInfoField', [{ key: 'k', label: 'l', type: 'text' }, '']],
   ['updateQuoteExtraInfoField', ['field-1', {}, '']],
   ['deleteQuoteExtraInfoField', ['field-1', '']],
+  // Batch K: sites the re-audit found were missed
+  ['getLeadCaptureForm', ['form-1', '']],
+  ['updateLeadCaptureForm', ['form-1', {}, '']],
+  ['deleteLeadCaptureForm', ['form-1', '']],
+  ['getQuotesByContact', ['contact-1', '']],
+  ['getInvoicesByContactId', ['contact-1', '']],
+  ['deleteRepertoireItem', ['song-1', '']],
+  ['addMemberAvailability', [{ memberId: 'mem-1' }, '']],
+  ['deleteMemberAvailability', ['avail-1', '']],
+  ['updateProjectMemberRole', ['proj-1', 'mem-1', 'lead', '']],
+  ['updateProjectNote', ['note-1', {}, '']],
+  ['createCalendarIntegration', [{ provider: 'google' }, '']],
+  ['updateCalendarIntegration', ['int-1', {}, '']],
 ];
 
 describe('storage tenant fail-closed guards', () => {

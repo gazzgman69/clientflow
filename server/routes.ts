@@ -4709,7 +4709,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   // Documents by contact (frontend expects these routes)
   app.get("/api/contacts/:contactId/quotes", ensureUserAuth, tenantResolver, requireTenant, async (req, res) => {
     try {
-      const quotes = await storage.getQuotesByContact(req.params.contactId);
+      const quotes = await storage.getQuotesByContact(req.params.contactId, req.tenantId!);
       res.json(quotes);
     } catch (error) {
       console.error("Error fetching quotes for contact:", error);
@@ -4967,7 +4967,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
 
-  app.get("/api/admin/quote-packages/:id", ensureAdminAuth, csrf, async (req, res) => {
+  app.get("/api/admin/quote-packages/:id", ensureAdminAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
     try {
       const pkg = await storage.getQuotePackage(req.params.id, req.tenantId!);
       if (!pkg) {
@@ -4991,7 +4991,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
 
-  app.patch("/api/admin/quote-packages/:id", ensureAdminAuth, csrf, async (req, res) => {
+  app.patch("/api/admin/quote-packages/:id", ensureAdminAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
     try {
       const packageData = insertQuotePackageSchema.partial().parse(req.body);
       const pkg = await storage.updateQuotePackage(req.params.id, packageData, req.tenantId!);
@@ -5005,7 +5005,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
 
-  app.delete("/api/admin/quote-packages/:id", ensureAdminAuth, csrf, async (req, res) => {
+  app.delete("/api/admin/quote-packages/:id", ensureAdminAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
     try {
       const success = await storage.deleteQuotePackage(req.params.id, req.tenantId!);
       if (!success) {
@@ -5029,7 +5029,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
 
-  app.get("/api/admin/quote-addons/:id", ensureAdminAuth, csrf, async (req, res) => {
+  app.get("/api/admin/quote-addons/:id", ensureAdminAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
     try {
       const addon = await storage.getQuoteAddon(req.params.id, req.tenantId!);
       if (!addon) {
@@ -5053,7 +5053,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
 
-  app.patch("/api/admin/quote-addons/:id", ensureAdminAuth, csrf, async (req, res) => {
+  app.patch("/api/admin/quote-addons/:id", ensureAdminAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
     try {
       const addonData = insertQuoteAddonSchema.partial().parse(req.body);
       const addon = await storage.updateQuoteAddon(req.params.id, addonData, req.tenantId!);
@@ -5067,7 +5067,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
 
-  app.delete("/api/admin/quote-addons/:id", ensureAdminAuth, csrf, async (req, res) => {
+  app.delete("/api/admin/quote-addons/:id", ensureAdminAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
     try {
       const success = await storage.deleteQuoteAddon(req.params.id, req.tenantId!);
       if (!success) {
@@ -5081,7 +5081,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
   });
 
   // Quote Items CRUD (line items for quotes)
-  app.get("/api/admin/quotes/:quoteId/items", ensureAdminAuth, csrf, async (req, res) => {
+  app.get("/api/admin/quotes/:quoteId/items", ensureAdminAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
     try {
       const items = await storage.getQuoteItems(req.params.quoteId);
       res.json(items);
@@ -5091,7 +5091,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
 
-  app.post("/api/admin/quotes/:quoteId/items", ensureAdminAuth, csrf, async (req, res) => {
+  app.post("/api/admin/quotes/:quoteId/items", ensureAdminAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
     try {
       const itemData = insertQuoteItemSchema.parse({
         ...req.body,
@@ -5188,7 +5188,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
 
-  app.get("/api/admin/extra-info-fields/:id", ensureAdminAuth, csrf, async (req, res) => {
+  app.get("/api/admin/extra-info-fields/:id", ensureAdminAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
     try {
       const field = await storage.getQuoteExtraInfoField(req.params.id, req.tenantId!);
       if (!field) {
@@ -5222,7 +5222,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
 
-  app.patch("/api/admin/extra-info-fields/:id", ensureAdminAuth, csrf, async (req, res) => {
+  app.patch("/api/admin/extra-info-fields/:id", ensureAdminAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
     try {
       // SECURITY: First check if this is a standard field before allowing modification
       const existingField = await storage.getQuoteExtraInfoField(req.params.id, req.tenantId!);
@@ -5247,7 +5247,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     }
   });
 
-  app.delete("/api/admin/extra-info-fields/:id", ensureAdminAuth, csrf, async (req, res) => {
+  app.delete("/api/admin/extra-info-fields/:id", ensureAdminAuth, tenantResolver, requireTenant, csrf, async (req, res) => {
     try {
       // SECURITY: First check if this is a standard field before allowing deletion
       const existingField = await storage.getQuoteExtraInfoField(req.params.id, req.tenantId!);
@@ -8027,7 +8027,7 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
         isActive: true,
         syncDirection: 'import',
         settings: JSON.stringify({ icalUrl })
-      });
+      }, req.tenantId!);
       
       res.json(integration);
     } catch (error) {

@@ -4000,6 +4000,7 @@ export class DrizzleStorage implements IStorage {
   }
 
   async createCalendarIntegration(integration: InsertCalendarIntegration, tenantId: string): Promise<CalendarIntegration> {
+    if (!tenantId) throw new Error('createCalendarIntegration requires a tenantId');
     // Validate tenant isolation - ensure tenantId in integration matches the parameter
     if (integration.tenantId && integration.tenantId !== tenantId) {
       throw new Error(`Tenant ID mismatch: integration.tenantId (${integration.tenantId}) !== tenantId parameter (${tenantId})`);
@@ -4025,6 +4026,7 @@ export class DrizzleStorage implements IStorage {
   }
 
   async updateCalendarIntegration(id: string, updates: Partial<InsertCalendarIntegration>, tenantId: string): Promise<CalendarIntegration | undefined> {
+    if (!tenantId) throw new Error('updateCalendarIntegration requires a tenantId');
     // Encrypt sensitive OAuth tokens if they're being updated
     const secureUpdates: any = { 
       ...updates,
@@ -5483,10 +5485,10 @@ export class DrizzleStorage implements IStorage {
   async getQuotesByProject(projectId: string) { 
     return await this.db.select().from(quotes).where(eq(quotes.leadId, projectId));
   }
-  async getQuotesByContact(contactId: string, tenantId?: string) { 
-    const conditions = [eq(quotes.contactId, contactId)];
-    if (tenantId) conditions.push(eq(quotes.tenantId, tenantId));
-    return await this.db.select().from(quotes).where(and(...conditions));
+  async getQuotesByContact(contactId: string, tenantId: string) {
+    if (!tenantId) throw new Error('getQuotesByContact requires a tenantId');
+    return await this.db.select().from(quotes)
+      .where(and(eq(quotes.contactId, contactId), eq(quotes.tenantId, tenantId)));
   }
   
   // Contracts - PostgreSQL implementation
@@ -5666,9 +5668,10 @@ export class DrizzleStorage implements IStorage {
     const result = await this.db.select().from(invoices).where(eq(invoices.id, id));
     return result[0];
   }
-  async getInvoicesByContactId(contactId: string): Promise<Invoice[]> {
+  async getInvoicesByContactId(contactId: string, tenantId: string): Promise<Invoice[]> {
+    if (!tenantId) throw new Error('getInvoicesByContactId requires a tenantId');
     return await this.db.select().from(invoices)
-      .where(eq(invoices.contactId, contactId))
+      .where(and(eq(invoices.contactId, contactId), eq(invoices.tenantId, tenantId)))
       .orderBy(desc(invoices.createdAt));
   }
 
@@ -6375,10 +6378,11 @@ export class DrizzleStorage implements IStorage {
     return result.rowCount > 0;
   }
 
-  async updateProjectMemberRole(projectId: string, memberId: string, role: string): Promise<ProjectMember | undefined> {
+  async updateProjectMemberRole(projectId: string, memberId: string, role: string, tenantId: string): Promise<ProjectMember | undefined> {
+    if (!tenantId) throw new Error('updateProjectMemberRole requires a tenantId');
     const result = await this.db.update(projectMembers)
       .set({ role })
-      .where(and(eq(projectMembers.projectId, projectId), eq(projectMembers.memberId, memberId)))
+      .where(and(eq(projectMembers.projectId, projectId), eq(projectMembers.memberId, memberId), eq(projectMembers.tenantId, tenantId)))
       .returning();
     return result[0];
   }
@@ -6390,8 +6394,10 @@ export class DrizzleStorage implements IStorage {
       .where(and(eq(memberAvailability.memberId, memberId), eq(memberAvailability.tenantId, tenantId)));
   }
 
-  async addMemberAvailability(availability: InsertMemberAvailability, tenantId?: string): Promise<MemberAvailability> {
-    const result = await this.db.insert(memberAvailability).values({ ...availability, tenantId: tenantId || availability.tenantId }).returning();
+  async addMemberAvailability(availability: InsertMemberAvailability, tenantId: string): Promise<MemberAvailability> {
+    if (!tenantId) throw new Error('addMemberAvailability requires a tenantId');
+    const result = await this.db.insert(memberAvailability)
+      .values({ ...availability, tenantId }).returning(); // stamp from trusted arg, never the body
     return result[0];
   }
 
@@ -6400,8 +6406,10 @@ export class DrizzleStorage implements IStorage {
     return result[0];
   }
 
-  async deleteMemberAvailability(id: string): Promise<boolean> {
-    const result = await this.db.delete(memberAvailability).where(eq(memberAvailability.id, id));
+  async deleteMemberAvailability(id: string, tenantId: string): Promise<boolean> {
+    if (!tenantId) throw new Error('deleteMemberAvailability requires a tenantId');
+    const result = await this.db.delete(memberAvailability)
+      .where(and(eq(memberAvailability.id, id), eq(memberAvailability.tenantId, tenantId)));
     return result.rowCount > 0;
   }
 
@@ -6494,7 +6502,11 @@ export class DrizzleStorage implements IStorage {
   }
 
   async deleteRepertoireItem(id: string, tenantId: string): Promise<boolean> {
-    await this.db.delete(projectSetlist).where(eq(projectSetlist.songId, id));
+    if (!tenantId) throw new Error('deleteRepertoireItem requires a tenantId');
+    // Scope the cascade delete too — an unscoped delete-by-songId removed other tenants'
+    // setlist rows referencing the same song id.
+    await this.db.delete(projectSetlist)
+      .where(and(eq(projectSetlist.songId, id), eq(projectSetlist.tenantId, tenantId)));
     const result = await this.db.delete(repertoire).where(and(eq(repertoire.id, id), eq(repertoire.tenantId, tenantId)));
     return result.rowCount > 0;
   }
@@ -6569,8 +6581,10 @@ export class DrizzleStorage implements IStorage {
     return result[0];
   }
 
-  async updateProjectNote(id: string, note: Partial<InsertProjectNote>): Promise<ProjectNote | undefined> {
-    const result = await this.db.update(projectNotes).set(note).where(eq(projectNotes.id, id)).returning();
+  async updateProjectNote(id: string, note: Partial<InsertProjectNote>, tenantId: string): Promise<ProjectNote | undefined> {
+    if (!tenantId) throw new Error('updateProjectNote requires a tenantId');
+    const result = await this.db.update(projectNotes)
+      .set(note).where(and(eq(projectNotes.id, id), eq(projectNotes.tenantId, tenantId))).returning();
     return result[0];
   }
 
@@ -7217,8 +7231,11 @@ export class DrizzleStorage implements IStorage {
       .orderBy(desc(leadCaptureForms.updatedAt));
   }
 
-  async getLeadCaptureForm(id: string): Promise<LeadCaptureForm | undefined> {
-    const result = await this.db.select().from(leadCaptureForms).where(eq(leadCaptureForms.id, id));
+  async getLeadCaptureForm(id: string, tenantId: string): Promise<LeadCaptureForm | undefined> {
+    // by-id read is tenant-scoped; public rendering uses getLeadCaptureFormBySlug instead.
+    if (!tenantId) throw new Error('getLeadCaptureForm requires a tenantId');
+    const result = await this.db.select().from(leadCaptureForms)
+      .where(and(eq(leadCaptureForms.id, id), eq(leadCaptureForms.tenantId, tenantId)));
     return result[0];
   }
 
@@ -7236,22 +7253,19 @@ export class DrizzleStorage implements IStorage {
     return result[0];
   }
 
-  async updateLeadCaptureForm(id: string, updateData: Partial<InsertLeadCaptureForm>, tenantId?: string): Promise<LeadCaptureForm | undefined> {
-    const condition = tenantId
-      ? and(eq(leadCaptureForms.id, id), eq(leadCaptureForms.tenantId, tenantId))
-      : eq(leadCaptureForms.id, id);
+  async updateLeadCaptureForm(id: string, updateData: Partial<InsertLeadCaptureForm>, tenantId: string): Promise<LeadCaptureForm | undefined> {
+    if (!tenantId) throw new Error('updateLeadCaptureForm requires a tenantId');
     const result = await this.db.update(leadCaptureForms).set({
       ...updateData,
       updatedAt: new Date(),
-    }).where(condition).returning();
+    }).where(and(eq(leadCaptureForms.id, id), eq(leadCaptureForms.tenantId, tenantId))).returning();
     return result[0];
   }
 
-  async deleteLeadCaptureForm(id: string, tenantId?: string): Promise<boolean> {
-    const condition = tenantId
-      ? and(eq(leadCaptureForms.id, id), eq(leadCaptureForms.tenantId, tenantId))
-      : eq(leadCaptureForms.id, id);
-    const result = await this.db.delete(leadCaptureForms).where(condition);
+  async deleteLeadCaptureForm(id: string, tenantId: string): Promise<boolean> {
+    if (!tenantId) throw new Error('deleteLeadCaptureForm requires a tenantId');
+    const result = await this.db.delete(leadCaptureForms)
+      .where(and(eq(leadCaptureForms.id, id), eq(leadCaptureForms.tenantId, tenantId)));
     return result.rowCount > 0;
   }
 
@@ -7462,13 +7476,16 @@ export class DrizzleStorage implements IStorage {
       .orderBy(quoteItems.createdAt);
   }
 
-  async createQuoteItem(item: InsertQuoteItem): Promise<QuoteItem> {
-    // tenantId must be included for security
-    if (!item.tenantId) {
+  async createQuoteItem(item: InsertQuoteItem, tenantId?: string): Promise<QuoteItem> {
+    // When a trusted tenantId is supplied (from req.tenantId) it OVERRIDES any body value,
+    // so a caller cannot inject another tenant's id. Falls back to item.tenantId otherwise.
+    const finalTenantId = tenantId ?? item.tenantId;
+    if (!finalTenantId) {
       throw new Error('tenantId is required for quote item creation');
     }
     const result = await this.db.insert(quoteItems).values({
       ...item,
+      tenantId: finalTenantId,
       createdAt: new Date(),
     }).returning();
     return result[0];
@@ -7636,6 +7653,15 @@ export class DrizzleStorage implements IStorage {
     if (!quoteId) return undefined;
     const result = await this.db.select({ tenantId: quotes.tenantId }).from(quotes)
       .where(eq(quotes.id, quoteId)).limit(1);
+    return result[0]?.tenantId;
+  }
+
+  // Portal/token-gated resolver: the portal session or token authorises access to a
+  // specific contact; resolve that contact's tenant so reads can be scoped to it.
+  async getContactTenantId(contactId: string): Promise<string | undefined> {
+    if (!contactId) return undefined;
+    const result = await this.db.select({ tenantId: contacts.tenantId }).from(contacts)
+      .where(eq(contacts.id, contactId)).limit(1);
     return result[0]?.tenantId;
   }
 

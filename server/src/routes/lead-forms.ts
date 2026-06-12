@@ -146,7 +146,10 @@ router.get('/:id', async (req, res) => {
     const { id } = req.params;
     // Try UUID lookup first, then fall back to slug lookup (for public routes)
     const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
-    let form = isUUID ? await storage.getLeadCaptureForm(id) : null;
+    // by-id lookup is tenant-scoped and only available on authenticated mounts; public
+    // (slug) rendering falls through to getLeadCaptureFormBySlug.
+    const tenantId = (req as any).tenantId;
+    let form = (isUUID && tenantId) ? await storage.getLeadCaptureForm(id, tenantId) : null;
     if (!form) {
       form = await storage.getLeadCaptureFormBySlug(id) ?? null;
     }
@@ -202,8 +205,14 @@ router.patch('/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const { form, questions } = req.body;
-    
-    const existingForm = await storage.getLeadCaptureForm(id);
+
+    // Mutations require a tenant context — blocks the no-auth /api/leads/public mount.
+    const tenantId = (req as any).tenantId;
+    if (!tenantId) {
+      return res.status(404).json({ error: 'Lead form not found' });
+    }
+
+    const existingForm = await storage.getLeadCaptureForm(id, tenantId);
     if (!existingForm) {
       return res.status(404).json({ error: 'Lead form not found' });
     }
@@ -246,8 +255,8 @@ router.patch('/:id', async (req, res) => {
       updateData.questions = JSON.stringify(questions);
     }
     
-    const updatedForm = await storage.updateLeadCaptureForm(id, updateData);
-    
+    const updatedForm = await storage.updateLeadCaptureForm(id, updateData, tenantId);
+
     res.json({ ok: true, slug: updatedForm?.slug });
   } catch (error) {
     console.error('Error updating lead form:', error);
@@ -259,8 +268,13 @@ router.patch('/:id', async (req, res) => {
 router.delete('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const success = await storage.deleteLeadCaptureForm(id);
-    
+    // Mutations require a tenant context — blocks the no-auth /api/leads/public mount.
+    const tenantId = (req as any).tenantId;
+    if (!tenantId) {
+      return res.status(404).json({ error: 'Lead form not found' });
+    }
+    const success = await storage.deleteLeadCaptureForm(id, tenantId);
+
     if (!success) {
       return res.status(404).json({ error: 'Lead form not found' });
     }

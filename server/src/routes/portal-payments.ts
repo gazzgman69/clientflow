@@ -25,7 +25,8 @@ router.get("/invoices", async (req, res) => {
   try {
     const contactId = (req as any).session.portalContactId!; // ensurePortalAuth middleware guarantees this exists
 
-    const invoices = await storage.getInvoicesByContactId(contactId);
+    const ownerTenantId = await storage.getContactTenantId(contactId);
+    const invoices = ownerTenantId ? await storage.getInvoicesByContactId(contactId, ownerTenantId) : [];
     const formatted = invoices.map(invoice => ({
       ...invoice,
       // Format dates for dd/MM/yyyy display

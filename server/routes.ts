@@ -261,10 +261,12 @@ export async function registerRoutes(app: Express, csrfProtection?: any): Promis
     // Job queue health check
     try {
       const { jobs } = await import('./src/services/jobsService');
-      const queueStatus = await jobs.getQueueStatus();
+      const stats = await jobs.getStats();
       checks.services.job_queue = {
         status: 'healthy',
-        response_time_ms: queueStatus.activeJobs
+        pending: stats.pending,
+        running: stats.running,
+        failed: stats.failed,
       };
     } catch (error) {
       checks.services.job_queue = {

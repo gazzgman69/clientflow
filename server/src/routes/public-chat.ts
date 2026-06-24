@@ -29,11 +29,11 @@ router.get('/widget-settings/:slug', async (req, res) => {
     const tenant = await resolveTenantFromSlug(slug);
     const settings = await storage.getWidgetSettings(tenant.id);
     
-    if (!settings || !settings.isActive) {
+    if (!settings || !settings.isEnabled) {
       res.status(404).json({ error: 'Chat widget not found or is disabled' });
       return;
     }
-    
+
     // Return only public-facing settings (no sensitive data)
     res.json({
       welcomeMessage: settings.welcomeMessage,
@@ -41,7 +41,7 @@ router.get('/widget-settings/:slug', async (req, res) => {
       chatbotName: settings.chatbotName,
       avatarUrl: settings.avatarUrl,
       businessName: tenant.name || 'BusinessCRM',
-      isActive: settings.isActive
+      isEnabled: settings.isEnabled
     });
   } catch (error) {
     console.error('Error fetching public widget settings:', error);
@@ -100,7 +100,7 @@ router.post('/chat/:slug', async (req, res) => {
     const tenant = await resolveTenantFromSlug(slug);
     const settings = await storage.getWidgetSettings(tenant.id);
     
-    if (!settings || !settings.isActive) {
+    if (!settings || !settings.isEnabled) {
       res.status(404).json({ error: 'Chat widget is not active' });
       return;
     }
